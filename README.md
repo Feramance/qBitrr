@@ -21,6 +21,6 @@ Some things to know before using it.
 - Make sure to update the settings in `config.ini`
 - Run `python main.py` 
 
-####
+#### Contributions
 - Im happy with any PRs and suggested changes to the logic i just put it together dirty for my own use case.
 
