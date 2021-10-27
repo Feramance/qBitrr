@@ -44,14 +44,16 @@ logging_file = base_folder.joinpath(config.get("Logging", "LogFileName"))
 logger = logbook.Logger('QbitManager')
 logger.handlers.append(logbook.StderrHandler(level=Console_level))
 logger.handlers.append(logbook.RotatingFileHandler(filename=logging_file,
-                            encoding="utf-8",
-                            mode="w",
-                            level=logging_level,
-                            backup_count=config.getint("Logging", "LogFileCount", fallback=1),
-                            max_size=config.getint("Logging", "LogFileMaximumSize",
-                                                   fallback=1024 * 1024)
-                            ))
-
+                                                   encoding="utf-8",
+                                                   mode="w",
+                                                   level=logging_level,
+                                                   backup_count=config.getint("Logging",
+                                                                              "LogFileCount",
+                                                                              fallback=1),
+                                                   max_size=config.getint("Logging",
+                                                                          "LogFileMaximumSize",
+                                                                          fallback=1024 * 1024)
+                                                   ))
 
 # Sonarr Config Values
 Sonarr_URI = config.get("Sonarr", "URI", fallback="http://localhost:8989")
@@ -98,10 +100,11 @@ logger.debug(
     , qBit_Host=qBit_Host, qBit_Port=qBit_Port, qBit_UserName=qBit_UserName,
     qBit_Password=qBit_Password, qBit_SIMPLE_RESPONSES=qBit_SIMPLE_RESPONSES,
     CompletedDownloadFolder=CompletedDownloadFolder
-    )
+)
 
 # Others Config Values
-PingURLS = config.getlist("Others", "PingURL", fallback=["http://www.google.com", "https://1.1.1.1"])
+PingURLS = config.getlist("Others", "PingURL",
+                          fallback=["http://www.google.com", "https://1.1.1.1"])
 logger.debug("Ping URLs:  {PingURL}", PingURL=PingURLS)
 
 # Settings Config Values
@@ -114,6 +117,7 @@ LoopSleepTimer = config.getint("Settings", "LoopSleepTimer", fallback=5)
 AutoDelete = config.getboolean("Settings", "AutoDelete")
 IgnoreTorrentsYoungerThan = config.getint("Settings", "IgnoreTorrentsYoungerThan", fallback=600)
 MaximumETA = config.getint("Settings", "MaximumETA", fallback=18000)
+FailedCategory = config.get("Settings", "FailedCategory", fallback="failed")
 MaximumDeletablePercentage = config.getfloat("Settings", "MaximumDeletablePercentage",
                                              fallback=0.95)
 logger.debug("Script Config:  CaseSensitiveMatches={CaseSensitiveMatches}",
@@ -133,6 +137,7 @@ logger.debug("Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerTh
 logger.debug("Script Config:  MaximumETA={MaximumETA}", MaximumETA=MaximumETA)
 logger.debug("Script Config:  MaximumDeletablePercentage={MaximumDeletablePercentage}",
              MaximumDeletablePercentage=MaximumDeletablePercentage)
+logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FailedCategory)
 
 if CaseSensitiveMatches:
     FolderExclusionRegex_re = re.compile("|".join(FolderExclusionRegex), re.DOTALL)
@@ -160,7 +165,7 @@ class qBitManager:
     client = qbittorrentapi.Client(host=qBit_Host, port=qBit_Port, username=qBit_UserName,
                                    password=qBit_Password, SIMPLE_RESPONSES=qBit_SIMPLE_RESPONSES)
     completed_folders = set()
-    category_allowlist = set()
+    category_allowlist = {FailedCategory, }
     _radarr_queue = []
     _sonarr_queue = []
     _radarr_cache = {}
@@ -312,7 +317,9 @@ class qBitManager:
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
         if not self._ffprobe_enabled:
-            logger.trace("Dependency Missing: Could not ffprobe file as it is not in your PATH: {file}", file=file)
+            logger.trace(
+                "Dependency Missing: Could not ffprobe file as it is not in your PATH: {file}",
+                file=file)
             return True  # ffprobe is not in PATH, so we say every file is acceptable.
         try:
             if file in self._skip_probe:
@@ -329,7 +336,8 @@ class qBitManager:
             return True
         except ffmpeg.Error as e:
             error = e.stderr.decode()
-            logger.trace("Not Probeable: Probe returned an error: {file}:\n{e.stderr}", e=e, file=file, exc_info=sys.exc_info())
+            logger.trace("Not Probeable: Probe returned an error: {file}:\n{e.stderr}", e=e,
+                         file=file, exc_info=sys.exc_info())
             if "Invalid data found when processing input" in error:
                 return False
             return False
@@ -402,18 +410,26 @@ class qBitManager:
 
         self.refresh_download_qeueue_from_arrs()
         for torrent in torrents:
+            # Bypass everything if manually marked as failed
+            if torrent.category == FailedCategory:
+                logger.info(
+                    "Deleting manually failed torrent: [{torrent.category}] [Progress: {progress}%][Time Left: {timedelta}] - ({torrent.hash}) {torrent.name}",
+                    torrent=torrent, timedelta=timedelta(seconds=torrent.eta),
+                    progress=round(torrent.progress * 100, 2))
+                to_delete.add(torrent.hash)
             # Do not touch torrents that do not have a allowlisted category.
-            if torrent.category not in self.category_allowlist:
+            elif torrent.category not in self.category_allowlist:
                 continue
             # Do not touch torrents that are currently "Checking".
-            if torrent.state_enum.is_checking:
+            elif torrent.state_enum.is_checking:
                 continue
-            if torrent.progress >= MaximumDeletablePercentage:
+            elif torrent.progress >= MaximumDeletablePercentage:
                 continue
-            if torrent.hash in self._sent_to_scan_radarr or torrent.hash in self._sent_to_scan_radarr:
+            elif torrent.hash in self._sent_to_scan_radarr or torrent.hash in self._sent_to_scan_radarr:
                 continue
             # Mark a torrent for deletion
-            if torrent.state_enum not in [TorrentStates.QUEUED_DOWNLOAD, TorrentStates.PAUSED_DOWNLOAD] and torrent.state_enum.is_downloading and torrent.added_on < time.time() - IgnoreTorrentsYoungerThan and torrent.eta > MaximumETA:
+            elif torrent.state_enum not in [TorrentStates.QUEUED_DOWNLOAD,
+                                            TorrentStates.PAUSED_DOWNLOAD] and torrent.state_enum.is_downloading and torrent.added_on < time.time() - IgnoreTorrentsYoungerThan and torrent.eta > MaximumETA:
                 logger.info(
                     "Deleting slow torrent: [{torrent.category}] [Progress: {progress}%][Time Left: {timedelta}] - ({torrent.hash}) {torrent.name}",
                     torrent=torrent, timedelta=timedelta(seconds=torrent.eta),
@@ -431,7 +447,8 @@ class qBitManager:
                     "Rechecking Erroed torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name}",
                     torrent=torrent)
                 to_recheck.add(torrent.hash)
-            elif torrent.state_enum in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD):
+            elif torrent.state_enum in (
+            TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD):
                 if torrent.added_on < time.time() - IgnoreTorrentsYoungerThan:
                     logger.info(
                         "Deleting Stale torrent: [{torrent.category}] [Progress: {progress}%]- ({torrent.hash}) {torrent.name}",
@@ -514,25 +531,33 @@ class qBitManager:
                 path = self.validate_and_return_torrent_file(torrent.content_path)
                 if not path.exists():
                     skip_blacklist.add(torrent.hash)
-                    logger.info("Deleting Missing Torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} ", torrent=torrent)
+                    logger.info(
+                        "Deleting Missing Torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} ",
+                        torrent=torrent)
                     continue
                 if torrent.hash in self._sent_to_scan_sonarr:
                     continue
-                logger.info("DownloadedEpisodesScan: [{torrent.category}] - {path}", torrent=torrent, path=path)
-                self.sonarr.post_command("DownloadedEpisodesScan", path=str(path), downloadClientId=torrent.hash.upper(), importMode=Sonarr_importMode)
+                logger.info("DownloadedEpisodesScan: [{torrent.category}] - {path}",
+                            torrent=torrent, path=path)
+                self.sonarr.post_command("DownloadedEpisodesScan", path=str(path),
+                                         downloadClientId=torrent.hash.upper(),
+                                         importMode=Sonarr_importMode)
                 self._sent_to_scan_sonarr.add(torrent.hash)
         if radarr_import:
             for torrent in radarr_import:
                 path = self.validate_and_return_torrent_file(torrent.content_path)
                 if not path.exists():
                     skip_blacklist.add(torrent.hash)
-                    logger.info("Deleting Missing Torrent: [{torrent.category}] - {torrent.name}", torrent=torrent)
+                    logger.info("Deleting Missing Torrent: [{torrent.category}] - {torrent.name}",
+                                torrent=torrent)
                     continue
                 if torrent.hash in self._sent_to_scan_radarr:
                     continue
                 logger.info("DownloadedMoviesScan: [{torrent.category}] - {path}",
-                             torrent=torrent, path=path)
-                self.radarr.post_command("DownloadedMoviesScan", path=str(path), downloadClientId=torrent.hash.upper(), importMode=Radarr_importMode)
+                            torrent=torrent, path=path)
+                self.radarr.post_command("DownloadedMoviesScan", path=str(path),
+                                         downloadClientId=torrent.hash.upper(),
+                                         importMode=Radarr_importMode)
                 self._sent_to_scan_radarr.add(torrent.hash)
 
         to_delete_all = to_delete.union(skip_blacklist)
@@ -540,16 +565,29 @@ class qBitManager:
         if to_delete_all:
             radarr_payload, radarr_hashes = self.process_radarr_entries(to_delete_all)
             sonarr_payload, sonarr_hashes = self.process_sonarr_entries(to_delete_all)
+
             if radarr_payload:
                 for entry, hash_ in radarr_payload:
                     with contextlib.suppress(Exception):
                         if hash_ not in skip_blacklist:
-                            self.radarr_del_queue(id_=entry, remove_from_client=True, blacklist=True)
+                            self.radarr_del_queue(id_=entry, remove_from_client=True,
+                                                  blacklist=True)
                         else:
-                            self.radarr_del_queue(id_=entry, remove_from_client=True, blacklist=False)
+                            self.radarr_del_queue(id_=entry, remove_from_client=True,
+                                                  blacklist=False)
                     movie_id = self._radarr_requeue_cache.get(entry)
                     if movie_id:
-                        logger.notice(f"Radarr | Re-Searching movies: {movie_id}")
+                        movie_data = self.radarr.get_movie_by_movie_id(movie_id)
+                        name = movie_data.get("title")
+                        if name:
+                            year = movie_data.get("year")
+                            tmdbId = movie_data.get("tmdbId")
+                            logger.notice(
+                                "Radarr | Re-Searching movie:  {name} ({year}) [tmdbId={tmdbId}|id={movie_id}]",
+                                movie_id=movie_id, name=name, year=year, tmdbId=tmdbId)
+                        else:
+                            logger.notice("Radarr | Re-Searching movie:  {movie_id}",
+                                          movie_id=movie_id)
                         self.radarr.post_command("MoviesSearch", movieIds=[movie_id])
             if sonarr_payload:
                 for entry, hash_ in sonarr_payload:
@@ -559,7 +597,24 @@ class qBitManager:
                         self.sonarr_del_queue(id_=entry, blacklist=True)
                     episode_ids = self._sonarr_requeue_cache.get(entry)
                     if episode_ids:
-                        logger.notice(f"Sonarr | Re-Searching episodes: {' '.join([f'{i}' for i in episode_ids])}")
+                        episode_data = self.sonarr.get_episode_by_episode_id(episode_ids[0])
+                        title = episode_data.get("title")
+                        if title:
+                            episodeNumber = episode_data.get("episodeNumber")
+                            absoluteEpisodeNumber = episode_data.get("absoluteEpisodeNumber")
+                            seasonNumber = episode_data.get("seasonNumber")
+                            seriesTitle = episode_data.get("series", {}).get("title")
+                            year = episode_data.get("series", {}).get("year")
+                            tvdbId = episode_data.get("series", {}).get("tvdbId")
+                            logger.notice(
+                                "Sonarr | Re-Searching episode: {seriesTitle} ({year}) - S{seasonNumber:02d}E{episodeNumber:03d} ({absoluteEpisodeNumber:04d}) - {title}  [tvdbId={tvdbId}|id={episode_ids}]",
+                                episode_ids=episode_ids[0], title=title, year=year, tvdbId=tvdbId,
+                                seriesTitle=seriesTitle, seasonNumber=seasonNumber,
+                                absoluteEpisodeNumber=absoluteEpisodeNumber,
+                                episodeNumber=episodeNumber)
+                        else:
+                            logger.notice(
+                                f"Sonarr | Re-Searching episodes: {' '.join([f'{i}' for i in episode_ids])}")
                         self.sonarr.post_command("EpisodeSearch", episodeIds=episode_ids)
             # Remove all bad torrents from the Client.
             if to_delete_all:
@@ -571,7 +626,7 @@ class qBitManager:
 
         # Set all files marked as "Do not download" to not download.
         for hash, files in to_change_prority.items():
-            if hash not in to_delete_all:
+            with contextlib.suppress(Exception):
                 self.client.torrents_file_priority(torrent_hash=hash, file_ids=files, priority=0)
         if AutoDelete and self.radarr_completed_folder:
             self.folder_cleanup(self.radarr_completed_folder)
@@ -582,7 +637,7 @@ class qBitManager:
         while True:
             try:
                 self.process_torrents()
-            except BaseException as e:
+            except Exception as e:
                 logger.error(e, exc_info=sys.exc_info())
             time.sleep(LoopSleepTimer)
 
