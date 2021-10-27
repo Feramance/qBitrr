@@ -1,8 +1,7 @@
 import configparser
 import contextlib
-import json
-import logging
 import pathlib
+import random
 import re
 import shutil
 import sys
@@ -102,8 +101,8 @@ logger.debug(
     )
 
 # Others Config Values
-PingURL = config.get("Others", "PingURL", fallback="http://www.google.com", )
-logger.debug("Ping URL {PingURL}", PingURL=PingURL)
+PingURLS = config.getlist("Others", "PingURL", fallback=["http://www.google.com", "https://1.1.1.1"])
+logger.debug("Ping URLs:  {PingURL}", PingURL=PingURLS)
 
 # Settings Config Values
 CaseSensitiveMatches = config.getboolean("Settings", "CaseSensitiveMatches")
@@ -117,7 +116,6 @@ IgnoreTorrentsYoungerThan = config.getint("Settings", "IgnoreTorrentsYoungerThan
 MaximumETA = config.getint("Settings", "MaximumETA", fallback=18000)
 MaximumDeletablePercentage = config.getfloat("Settings", "MaximumDeletablePercentage",
                                              fallback=0.95)
-
 logger.debug("Script Config:  CaseSensitiveMatches={CaseSensitiveMatches}",
              CaseSensitiveMatches=CaseSensitiveMatches)
 logger.debug("Script Config:  FolderExclusionRegex={FolderExclusionRegex}",
@@ -147,7 +145,7 @@ else:
 
 def has_internet() -> bool:
     try:
-        requests.get(PingURL, timeout=1)
+        requests.get(random.choice(PingURLS), timeout=1)
         logger.trace("has_internet check: True")
         return True
     except (requests.ConnectionError, requests.Timeout):
@@ -314,34 +312,45 @@ class qBitManager:
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
         if not self._ffprobe_enabled:
+            logger.trace("Dependency Missing: Could not ffprobe file as it is not in your PATH: {file}", file=file)
             return True  # ffprobe is not in PATH, so we say every file is acceptable.
         try:
             if file in self._skip_probe:
+                logger.trace("Probeable: File has already been probed: {file}", file=file)
                 return True
             if file.is_dir():
+                logger.trace("Not Probeable: File is a directory: {file}", file=file)
                 return False
             output = ffmpeg.probe(str(file.absolute()))
             if not output:
+                logger.trace("Not Probeable: Probe returned no output: {file}", file=file)
                 return False
             self._skip_probe.add(file)
             return True
         except ffmpeg.Error as e:
             error = e.stderr.decode()
+            logger.trace("Not Probeable: Probe returned an error: {file}:\n{e.stderr}", e=e, file=file, exc_info=sys.exc_info())
             if "Invalid data found when processing input" in error:
-                logger.trace("{e}", e=e.stderr.decode())
                 return False
             return False
 
     def folder_cleanup(self, folder: Union[pathlib.Path, str]) -> None:
+        logger.debug("Folder Cleanup: {folder}", folder=folder)
         for file in self.absoluteFilePaths(folder):
-            if file.name not in {"desktop.ini", ".DS_Store"}:
+            if file.name in {"desktop.ini", ".DS_Store"}:
                 continue
-            if file.suffix in FileExtensionAllowlist:
+            if file.is_dir():
+                logger.trace("Folder Cleanup: File is a folder:  {file}", file=file)
                 continue
-            if not self.file_is_probeable(file) and file.suffix != ".parts":
-                path = pathlib.Path(file)
-                path.unlink(missing_ok=True)
-                logger.debug("Removing bad file: {path}", path=path)
+            if file.suffix in FileExtensionAllowlist and self.file_is_probeable(file):
+                logger.trace("Folder Cleanup: File has an allowed extension: {file}", file=file)
+                continue
+            if file.suffix != ".parts":
+                try:
+                    file.unlink(missing_ok=True)
+                    logger.debug("File disallowed: {path}", path=file)
+                except PermissionError:
+                    logger.debug("File in use: Failed to remove file: {path}", path=file)
         self.remove_empty_folders(folder)
 
     def validate_and_return_torrent_file(self, file: str) -> pathlib.Path:
