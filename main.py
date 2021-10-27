@@ -222,7 +222,7 @@ class qBitManager:
                            api_key="3b17b069ce5842429117b831caecaf78")
         category_allowlist.add(Sonarr_Category)
         sonarr_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(Sonarr_Category)
-        if not radarr_completed_folder.exists():
+        if not sonarr_completed_folder.exists():
             logger.critical(
                 "Completed download folder does not exist, disabling all features that expect this folder: {sonarr_completed_folder}",
                 sonarr_completed_folder=sonarr_completed_folder.absolute())
