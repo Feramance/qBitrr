@@ -7,7 +7,7 @@ import shutil
 import sys
 import time
 from collections import defaultdict
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Iterator, List, NoReturn, Set, Tuple, Union
 
 import ffmpeg
@@ -62,14 +62,29 @@ Sonarr_Managed = config.getboolean("Sonarr", "Managed")
 Sonarr_Category = config.get("Sonarr", "Category")
 Sonarr_Research = config.getboolean("Sonarr", "Research")
 Sonarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
+Sonarr_RefreshDownloadsTimer = config.getint("Sonarr", "RefreshDownloadsTimer", fallback=1)
+Sonarr_RssSyncTimer = config.getint("Sonarr", "RssSyncTimer", fallback=15)
+if Sonarr_RssSyncTimer > 0:
+    Sonarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
+else:
+    Sonarr_RssSyncTimer_Last_Checked = None
+
+if Sonarr_RefreshDownloadsTimer > 0:
+    Sonarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
+else:
+    Sonarr_RefreshDownloadsTimer_Last_Checked = None
 logger.debug(
-    "Sonarr Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, ImportMode: {Sonarr_importMode}, Category: {Sonarr_Category} URI: {Sonarr_URI}, API Key: {Sonarr_APIKey}",
+    "Sonarr Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, ImportMode: {Sonarr_importMode}, "
+    "Category: {Sonarr_Category} URI: {Sonarr_URI}, API Key: {Sonarr_APIKey}, "
+    "RefreshDownloadsTimer={Sonarr_RefreshDownloadsTimer}, RssSyncTimer={Sonarr_RssSyncTimer}",
     Sonarr_importMode=Sonarr_importMode,
     Sonarr_Managed=Sonarr_Managed,
     Sonarr_Research=Sonarr_Research,
     Sonarr_Category=Sonarr_Category,
     Sonarr_URI=Sonarr_URI,
-    Sonarr_APIKey=Sonarr_APIKey)
+    Sonarr_APIKey=Sonarr_APIKey,
+    Sonarr_RefreshDownloadsTimer=Sonarr_RefreshDownloadsTimer,
+    Sonarr_RssSyncTimer=Sonarr_RssSyncTimer)
 
 # Radarr Config Values
 Radarr_URI = config.get("Radarr", "URI", fallback="http://localhost:7878")
@@ -78,15 +93,29 @@ Radarr_Managed = config.getboolean("Radarr", "Managed")
 Radarr_Category = config.get("Radarr", "Category")
 Radarr_Research = config.getboolean("Radarr", "Research")
 Radarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
+Radarr_RefreshDownloadsTimer = config.getint("Radarr", "RefreshDownloadsTimer", fallback=1)
+Radarr_RssSyncTimer = config.getint("Radarr", "RssSyncTimer", fallback=15)
+if Radarr_RssSyncTimer > 0:
+    Radarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
+else:
+    Radarr_RssSyncTimer_Last_Checked = None
 
+if Radarr_RefreshDownloadsTimer > 0:
+    Radarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
+else:
+    Radarr_RefreshDownloadsTimer_Last_Checked = None
 logger.debug(
-    "Radarr Config: Managed: {Radarr_Managed}, Research: {Radarr_Research}, ImportMode: {Radarr_importMode}, Category: {Radarr_Category} URI: {Radarr_URI}, API Key: {Radarr_APIKey}",
+    "Radarr Config: Managed: {Radarr_Managed}, Research: {Radarr_Research}, ImportMode: {Radarr_importMode}, "
+    "Category: {Radarr_Category} URI: {Radarr_URI}, API Key: {Radarr_APIKey}, "
+    "RefreshDownloadsTimer={Radarr_RefreshDownloadsTimer}, RssSyncTimer={Radarr_RssSyncTimer}",
     Radarr_importMode=Radarr_importMode,
     Radarr_Managed=Radarr_Managed,
     Radarr_Research=Radarr_Research,
     Radarr_Category=Radarr_Category,
     Radarr_URI=Radarr_URI,
-    Radarr_APIKey=Radarr_APIKey)
+    Radarr_APIKey=Radarr_APIKey,
+    Radarr_RefreshDownloadsTimer=Radarr_RefreshDownloadsTimer,
+    Radarr_RssSyncTimer=Radarr_RssSyncTimer)
 
 # QBitTorrent Config Values
 qBit_Host = config.get("QBit", "Host", fallback="localhost")
@@ -399,6 +428,27 @@ class qBitManager:
         if has_internet() is False:
             time.sleep(NoInternetSleepTimer)
             return
+        global Sonarr_RssSyncTimer_Last_Checked, Sonarr_RefreshDownloadsTimer_Last_Checked, Radarr_RefreshDownloadsTimer_Last_Checked, Radarr_RssSyncTimer_Last_Checked
+        now = datetime.now()
+        if self.sonarr:
+            if Sonarr_RssSyncTimer_Last_Checked is not None and Sonarr_RssSyncTimer_Last_Checked < now - timedelta(
+                    minutes=Sonarr_RssSyncTimer):
+                self.sonarr.post_command("RssSync")
+                Sonarr_RssSyncTimer_Last_Checked = now
+            if Sonarr_RefreshDownloadsTimer_Last_Checked is not None and Sonarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
+                    minutes=Sonarr_RefreshDownloadsTimer):
+                self.sonarr.post_command("RefreshMonitoredDownloads")
+                Sonarr_RefreshDownloadsTimer_Last_Checked = now
+        if self.radarr:
+            if Radarr_RefreshDownloadsTimer_Last_Checked is not None and Radarr_RssSyncTimer_Last_Checked < now - timedelta(
+                    minutes=Radarr_RefreshDownloadsTimer):
+                self.radarr.post_command("RssSync")
+                Radarr_RssSyncTimer_Last_Checked = now
+            if Radarr_RefreshDownloadsTimer_Last_Checked is not None and Radarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
+                    minutes=Radarr_RefreshDownloadsTimer):
+                self.radarr.post_command("RefreshMonitoredDownloads")
+                Radarr_RefreshDownloadsTimer_Last_Checked = now
+
         torrents = self.client.torrents.info.all(sort="category", reverse=True)
         to_delete = set()
         skip_blacklist = set()
@@ -456,7 +506,7 @@ class qBitManager:
                     torrent=torrent)
                 to_recheck.add(torrent.hash)
             elif torrent.state_enum in (
-            TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD):
+                    TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD):
                 if torrent.added_on < time.time() - IgnoreTorrentsYoungerThan:
                     logger.info(
                         "Deleting Stale torrent: [{torrent.category}] [Progress: {progress}%]- ({torrent.hash}) {torrent.name}",
