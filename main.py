@@ -152,6 +152,8 @@ def has_internet() -> bool:
         return True
     except (requests.ConnectionError, requests.Timeout):
         logger.warning("has_internet check: False")
+        return False
+    except Exception:
         logger.error(exc_info=sys.exc_info())
         return False
 
