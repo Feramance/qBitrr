@@ -468,7 +468,7 @@ class qBitManager:
                         elif (match := FileNameExclusionRegex_re.search(file_path.name)):
                             logger.debug(
                                 "Removing File: Not allowed - Name: [{torrent.category}] - {match} | ({torrent.hash}) | {file.name}",
-                                torrent=torrent, file=file, match=match.groups())
+                                torrent=torrent, file=file, match=match.group())
                             _remove_files.add(file.id)
                             total -= 1
 
