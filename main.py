@@ -512,7 +512,6 @@ class qBitManager:
                 logger.info("DownloadedEpisodesScan: [{torrent.category}] - {path}", torrent=torrent, path=path)
                 self.sonarr.post_command("DownloadedEpisodesScan", path=str(path), downloadClientId=torrent.hash.upper(), importMode=Sonarr_importMode)
                 self._sent_to_scan_sonarr.add(torrent.hash)
-
         if radarr_import:
             for torrent in radarr_import:
                 path = self.validate_and_return_torrent_file(torrent.content_path)
