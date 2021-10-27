@@ -423,13 +423,21 @@ class qBitManager:
             # Do not touch torrents that are currently "Checking".
             elif torrent.state_enum.is_checking:
                 continue
+            # Ignore torrents which are queued.
+            elif torrent.state_enum in {TorrentStates.QUEUED_DOWNLOAD}:
+                continue
+            # If a torrent is Uploading Pause it.
+            elif torrent.state_enum.is_uploading:
+                logger.info(
+                    "Pausing uploading torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} - {torrent.state_enum}",
+                    torrent=torrent)
+                to_pause.add(torrent.hash)
             elif torrent.progress >= MaximumDeletablePercentage:
                 continue
             elif torrent.hash in self._sent_to_scan_radarr or torrent.hash in self._sent_to_scan_radarr:
                 continue
             # Mark a torrent for deletion
-            elif torrent.state_enum not in [TorrentStates.QUEUED_DOWNLOAD,
-                                            TorrentStates.PAUSED_DOWNLOAD] and torrent.state_enum.is_downloading and torrent.added_on < time.time() - IgnoreTorrentsYoungerThan and torrent.eta > MaximumETA:
+            elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and torrent.state_enum.is_downloading and torrent.added_on < time.time() - IgnoreTorrentsYoungerThan and torrent.eta > MaximumETA:
                 logger.info(
                     "Deleting slow torrent: [{torrent.category}] [Progress: {progress}%][Time Left: {timedelta}] - ({torrent.hash}) {torrent.name}",
                     torrent=torrent, timedelta=timedelta(seconds=torrent.eta),
@@ -455,7 +463,7 @@ class qBitManager:
                         torrent=torrent, progress=round(torrent.progress * 100, 2))
                     to_delete.add(torrent.hash)
             # Process uncompleted torrents
-            elif torrent.state_enum != TorrentStates.QUEUED_DOWNLOAD and torrent.state_enum.is_downloading:
+            elif torrent.state_enum.is_downloading:
                 # If a torrent availability hasn't reached 100% or more within the configurable "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
                 if torrent.added_on < time.time() - IgnoreTorrentsYoungerThan and torrent.availability < 1:
                     logger.info(
@@ -510,12 +518,6 @@ class qBitManager:
                         # if a torrent is Paused Unpause it.
                         if torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD:
                             torrent.resume()
-            # If a torrent is Uploading Pause it.
-            elif torrent.state_enum != TorrentStates.CHECKING_UPLOAD and torrent.state_enum.is_uploading:
-                logger.info(
-                    "Pausing uploading torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} - {torrent.state_enum}",
-                    torrent=torrent)
-                to_pause.add(torrent.hash)
             # If a torrent was not just added, and the amount left to download is 0 and the torrent is Paused tell the Arr tools to process it.
             elif torrent.added_on > 0 and torrent.amount_left == 0 and torrent.state_enum.PAUSED_UPLOAD and torrent.content_path:
                 if self.sonarr and torrent.category == Sonarr_Category and torrent.hash not in self._sent_to_scan_sonarr:
@@ -583,10 +585,10 @@ class qBitManager:
                             year = movie_data.get("year")
                             tmdbId = movie_data.get("tmdbId")
                             logger.notice(
-                                "Radarr | Re-Searching movie:  {name} ({year}) [tmdbId={tmdbId}|id={movie_id}]",
+                                "Radarr | Re-Searching movie:   {name} ({year}) [tmdbId={tmdbId}|id={movie_id}]",
                                 movie_id=movie_id, name=name, year=year, tmdbId=tmdbId)
                         else:
-                            logger.notice("Radarr | Re-Searching movie:  {movie_id}",
+                            logger.notice("Radarr | Re-Searching movie:   {movie_id}",
                                           movie_id=movie_id)
                         self.radarr.post_command("MoviesSearch", movieIds=[movie_id])
             if sonarr_payload:
