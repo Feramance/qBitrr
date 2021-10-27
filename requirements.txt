@@ -1,0 +1,5 @@
+ffmpeg-python
+logbook
+qbittorrent-api
+requests
+pyarr
