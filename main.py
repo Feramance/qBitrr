@@ -64,15 +64,6 @@ Sonarr_Research = config.getboolean("Sonarr", "Research")
 Sonarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
 Sonarr_RefreshDownloadsTimer = config.getint("Sonarr", "RefreshDownloadsTimer", fallback=1)
 Sonarr_RssSyncTimer = config.getint("Sonarr", "RssSyncTimer", fallback=15)
-if Sonarr_RssSyncTimer > 0:
-    Sonarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
-else:
-    Sonarr_RssSyncTimer_Last_Checked = None
-
-if Sonarr_RefreshDownloadsTimer > 0:
-    Sonarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
-else:
-    Sonarr_RefreshDownloadsTimer_Last_Checked = None
 logger.debug(
     "Sonarr Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, ImportMode: {Sonarr_importMode}, "
     "Category: {Sonarr_Category} URI: {Sonarr_URI}, API Key: {Sonarr_APIKey}, "
@@ -95,15 +86,6 @@ Radarr_Research = config.getboolean("Radarr", "Research")
 Radarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
 Radarr_RefreshDownloadsTimer = config.getint("Radarr", "RefreshDownloadsTimer", fallback=1)
 Radarr_RssSyncTimer = config.getint("Radarr", "RssSyncTimer", fallback=15)
-if Radarr_RssSyncTimer > 0:
-    Radarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
-else:
-    Radarr_RssSyncTimer_Last_Checked = None
-
-if Radarr_RefreshDownloadsTimer > 0:
-    Radarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
-else:
-    Radarr_RefreshDownloadsTimer_Last_Checked = None
 logger.debug(
     "Radarr Config: Managed: {Radarr_Managed}, Research: {Radarr_Research}, ImportMode: {Radarr_importMode}, "
     "Category: {Radarr_Category} URI: {Radarr_URI}, API Key: {Radarr_APIKey}, "
@@ -205,6 +187,15 @@ class qBitManager:
     _sent_to_scan_sonarr = set()
     _skip_probe = set()
     _ffprobe_enabled = shutil.which("ffprobe")
+    sonarr = None
+    sonarr_completed_folder = None
+    Sonarr_RssSyncTimer_Last_Checked = None
+    Sonarr_RefreshDownloadsTimer_Last_Checked = None
+    radarr = None
+    radarr_completed_folder = None
+    Radarr_RssSyncTimer_Last_Checked = None
+    Radarr_RefreshDownloadsTimer_Last_Checked = None
+
     if not _ffprobe_enabled:
         logger.error("ffprobe was not found in your PATH.")
 
@@ -220,9 +211,12 @@ class qBitManager:
             raise EnvironmentError("Radarr completed folder is a requirement.")
         else:
             completed_folders.add(radarr_completed_folder)
-    else:
-        radarr = None
-        radarr_completed_folder = None
+
+        if Radarr_RssSyncTimer > 0:
+            Radarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
+        if Radarr_RefreshDownloadsTimer > 0:
+            Radarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
+
     if Sonarr_Managed:
         sonarr = SonarrAPI(host_url="http://localhost:8989",
                            api_key="3b17b069ce5842429117b831caecaf78")
@@ -235,19 +229,20 @@ class qBitManager:
             raise EnvironmentError("Sonarr completed folder is a requirement.")
         else:
             completed_folders.add(sonarr_completed_folder)
-    else:
-        sonarr = None
-        sonarr_completed_folder = None
+        if Sonarr_RssSyncTimer > 0:
+            Sonarr_RssSyncTimer_Last_Checked = datetime(1970, 1, 1)
+        if Sonarr_RefreshDownloadsTimer > 0:
+            Sonarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
 
-    # Radarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
     def radarr_del_queue(self, id_, remove_from_client=True, blacklist=True):
+        # Radarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
         params = {"removeFromClient": remove_from_client, "blocklist": blacklist}
         path = f"/api/v3/queue/{id_}"
         res = self.radarr.request_del(path, params=params)
         return res
 
-    # Sonarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
     def sonarr_del_queue(self, id_, remove_from_client=True, blacklist=True):
+        # Sonarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
         params = {"removeFromClient": remove_from_client, "blocklist": blacklist}
         path = f"/api/v3/queue/{id_}"
         res = self.radarr.request_del(path, params=params)
@@ -428,26 +423,25 @@ class qBitManager:
         if has_internet() is False:
             time.sleep(NoInternetSleepTimer)
             return
-        global Sonarr_RssSyncTimer_Last_Checked, Sonarr_RefreshDownloadsTimer_Last_Checked, Radarr_RefreshDownloadsTimer_Last_Checked, Radarr_RssSyncTimer_Last_Checked
         now = datetime.now()
         if self.sonarr:
-            if Sonarr_RssSyncTimer_Last_Checked is not None and Sonarr_RssSyncTimer_Last_Checked < now - timedelta(
+            if self.Sonarr_RssSyncTimer_Last_Checked is not None and self.Sonarr_RssSyncTimer_Last_Checked < now - timedelta(
                     minutes=Sonarr_RssSyncTimer):
                 self.sonarr.post_command("RssSync")
-                Sonarr_RssSyncTimer_Last_Checked = now
-            if Sonarr_RefreshDownloadsTimer_Last_Checked is not None and Sonarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
+                self.Sonarr_RssSyncTimer_Last_Checked = now
+            if self.Sonarr_RefreshDownloadsTimer_Last_Checked is not None and self.Sonarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
                     minutes=Sonarr_RefreshDownloadsTimer):
                 self.sonarr.post_command("RefreshMonitoredDownloads")
-                Sonarr_RefreshDownloadsTimer_Last_Checked = now
+                self.Sonarr_RefreshDownloadsTimer_Last_Checked = now
         if self.radarr:
-            if Radarr_RefreshDownloadsTimer_Last_Checked is not None and Radarr_RssSyncTimer_Last_Checked < now - timedelta(
+            if self.Radarr_RefreshDownloadsTimer_Last_Checked is not None and self.Radarr_RssSyncTimer_Last_Checked < now - timedelta(
                     minutes=Radarr_RefreshDownloadsTimer):
                 self.radarr.post_command("RssSync")
-                Radarr_RssSyncTimer_Last_Checked = now
-            if Radarr_RefreshDownloadsTimer_Last_Checked is not None and Radarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
+                self.Radarr_RssSyncTimer_Last_Checked = now
+            if self.Radarr_RefreshDownloadsTimer_Last_Checked is not None and self.Radarr_RefreshDownloadsTimer_Last_Checked < now - timedelta(
                     minutes=Radarr_RefreshDownloadsTimer):
                 self.radarr.post_command("RefreshMonitoredDownloads")
-                Radarr_RefreshDownloadsTimer_Last_Checked = now
+                self.Radarr_RefreshDownloadsTimer_Last_Checked = now
 
         torrents = self.client.torrents.info.all(sort="category", reverse=True)
         to_delete = set()
