@@ -24,3 +24,7 @@ Some things to know before using it.
 #### Contributions
 - Im happy with any PRs and suggested changes to the logic i just put it together dirty for my own use case.
 
+
+
+#### Example behaviour
+![image](https://user-images.githubusercontent.com/27962761/139135537-ab430cb4-2116-47e3-b207-b0f863368e34.png)
