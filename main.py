@@ -325,6 +325,47 @@ class qBitManager:
             # TorrentStates.FORCED_UPLOAD,
         )
 
+    @staticmethod
+    def validate_and_return_torrent_file(file: str) -> pathlib.Path:
+        path = pathlib.Path(file)
+        if path.is_file():
+            path = path.parent.absolute()
+        count = 10
+        while not path.exists():
+            logger.trace(
+                "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) - "
+                "{path} - Sleeping for 0.1s",
+                path=path,
+                count=11 - count,
+            )
+            time.sleep(0.1)
+            if count == 0:
+                break
+            count -= 1
+        else:
+            count = 0
+        while str(path) == ".":
+            path = pathlib.Path(file)
+            if path.is_file():
+                path = path.parent.absolute()
+            while not path.exists():
+                logger.trace(
+                    "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) - "
+                    "{path} - Sleeping for 0.1s",
+                    path=path,
+                    count=11 - count,
+                )
+                time.sleep(0.1)
+                if count == 0:
+                    break
+                count -= 1
+            else:
+                count = 0
+            if count == 0:
+                break
+            count -= 1
+        return path
+
     def refresh_download_qeueue_from_arrs(self) -> None:
         if self.radarr:
             self._radarr_queue = self.radarr.get_queue(page_size=10000).get("records", [])
@@ -448,46 +489,6 @@ class qBitManager:
                     logger.debug("File in use: Failed to remove file: {path}", path=file)
         self.remove_empty_folders(folder)
 
-    def validate_and_return_torrent_file(self, file: str) -> pathlib.Path:
-        path = pathlib.Path(file)
-        if path.is_file():
-            path = path.parent.absolute()
-        count = 10
-        while not path.exists():
-            logger.trace(
-                "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) - "
-                "{path} - Sleeping for 0.1s",
-                path=path,
-                count=11 - count,
-            )
-            time.sleep(0.1)
-            if count == 0:
-                break
-            count -= 1
-        else:
-            count = 0
-        while str(path) == ".":
-            path = pathlib.Path(file)
-            if path.is_file():
-                path = path.parent.absolute()
-            while not path.exists():
-                logger.trace(
-                    "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) - "
-                    "{path} - Sleeping for 0.1s",
-                    path=path,
-                    count=11 - count,
-                )
-                time.sleep(0.1)
-                if count == 0:
-                    break
-                count -= 1
-            else:
-                count = 0
-            if count == 0:
-                break
-            count -= 1
-        return path
-
     def process_torrents(self) -> None:
         if has_internet() is False:
             time.sleep(NoInternetSleepTimer)
@@ -586,7 +587,8 @@ class qBitManager:
                     progress=round(torrent.progress * 100, 2),
                 )
                 to_delete.add(torrent.hash)
-            # Sometimes Sonarr/Radarr does not automatically remove the torrent for some reason, this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
+            # Sometimes Sonarr/Radarr does not automatically remove the torrent for some reason,
+            # this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
             elif torrent.state_enum == TorrentStates.MISSING_FILES:
                 logger.info(
                     "Deleting torrent with missing files: [{torrent.category}] - "
