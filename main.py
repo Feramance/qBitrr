@@ -85,7 +85,9 @@ SonarrAnime_Managed = config.getboolean("SonarrAnime", "Managed")
 SonarrAnime_Category = config.get("SonarrAnime", "Category")
 SonarrAnime_Research = config.getboolean("SonarrAnime", "Research")
 SonarrAnime_importMode = config.get("SonarrAnime", "importMode", fallback="Move")
-SonarrAnime_RefreshDownloadsTimer = config.getint("SonarrAnime", "RefreshDownloadsTimer", fallback=1)
+SonarrAnime_RefreshDownloadsTimer = config.getint(
+    "SonarrAnime", "RefreshDownloadsTimer", fallback=1
+)
 SonarrAnime_RssSyncTimer = config.getint("SonarrAnime", "RssSyncTimer", fallback=15)
 logger.debug(
     "SonarrAnime Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, "
@@ -296,9 +298,7 @@ class qBitManager:
         logger.error("ffprobe was not found in your PATH.")
 
     if Radarr_Managed:
-        radarr = RadarrAPI(
-            host_url=Radarr_URI, api_key=Radarr_APIKey
-        )
+        radarr = RadarrAPI(host_url=Radarr_URI, api_key=Radarr_APIKey)
         radarr_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(Radarr_Category)
         category_allowlist.add(Radarr_Category)
         if not radarr_completed_folder.exists():
@@ -317,10 +317,10 @@ class qBitManager:
             Radarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
 
     if Radarr4k_Managed:
-        radarr4k = RadarrAPI(
-            host_url=Radarr4k_URI, api_key=Radarr4k_APIKey
+        radarr4k = RadarrAPI(host_url=Radarr4k_URI, api_key=Radarr4k_APIKey)
+        radarr4k_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(
+            Radarr4k_Category
         )
-        radarr4k_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(Radarr4k_Category)
         category_allowlist.add(Radarr4k_Category)
         if not radarr4k_completed_folder.exists():
             logger.critical(
@@ -338,9 +338,7 @@ class qBitManager:
             Radarr4k_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
 
     if Sonarr_Managed:
-        sonarr = SonarrAPI(
-            host_url=Sonarr_URI, api_key=Sonarr_APIKey
-        )
+        sonarr = SonarrAPI(host_url=Sonarr_URI, api_key=Sonarr_APIKey)
         category_allowlist.add(Sonarr_Category)
         sonarr_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(Sonarr_Category)
         if not sonarr_completed_folder.exists():
@@ -358,11 +356,11 @@ class qBitManager:
             Sonarr_RefreshDownloadsTimer_Last_Checked = datetime(1970, 1, 1)
 
     if SonarrAnime_Managed:
-        sonarr_anime = SonarrAPI(
-            host_url=SonarrAnime_URI, api_key=SonarrAnime_APIKey
-        )
+        sonarr_anime = SonarrAPI(host_url=SonarrAnime_URI, api_key=SonarrAnime_APIKey)
         category_allowlist.add(SonarrAnime_Category)
-        sonarr_anime_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(SonarrAnime_Category)
+        sonarr_anime_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(
+            SonarrAnime_Category
+        )
         if not sonarr_anime_completed_folder.exists():
             logger.critical(
                 "Completed download folder does not exist, disabling all features "
@@ -383,6 +381,7 @@ class qBitManager:
         path = f"/api/v3/queue/{id_}"
         res = self.radarr.request_del(path, params=params)
         return res
+
     def radarr4k_del_queue(self, id_, remove_from_client=True, blacklist=True):
         # Radarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
         params = {"removeFromClient": remove_from_client, "blocklist": blacklist}
@@ -390,11 +389,47 @@ class qBitManager:
         res = self.radarr4k.request_del(path, params=params)
         return res
 
+    def radarr_post_command(self, name, **kwargs):
+        data = {
+            "name": name,
+            **kwargs,
+        }
+        path = "/api/v3/command"
+        res = self.radarr.request_post(path, data=data)
+        return res
+
+    def radarr4k_post_command(self, name, **kwargs):
+        data = {
+            "name": name,
+            **kwargs,
+        }
+        path = "/api/v3/command"
+        res = self.radarr4k.request_post(path, data=data)
+        return res
+
     def sonarr_del_queue(self, id_, remove_from_client=True, blacklist=True):
         # Sonarr updated their API and now expect the arg to be "blocklist" instead of "blacklist", but pyarr hasn't updated it yet
         params = {"removeFromClient": remove_from_client, "blocklist": blacklist}
         path = f"/api/v3/queue/{id_}"
         res = self.sonarr.request_del(path, params=params)
+        return res
+
+    def sonarr_post_command(self, name, **kwargs):
+        path = "/api/v3/command"
+        data = {
+            "name": name,
+            **kwargs,
+        }
+        res = self.sonarr.request_post(path, data=data)
+        return res
+
+    def sonarr_anime_post_command(self, name, **kwargs):
+        path = "/api/v3/command"
+        data = {
+            "name": name,
+            **kwargs,
+        }
+        res = self.sonarr_anime.request_post(path, data=data)
         return res
 
     def sonarr_anime_del_queue(self, id_, remove_from_client=True, blacklist=True):
@@ -544,6 +579,7 @@ class qBitManager:
             return payload, hashes
         else:
             return [], set()
+
     def process_radarr4k_entries(self, hashes: Set[str]) -> Tuple[List[Tuple[int, str]], Set[str]]:
         if self.radarr:
             payload = [
@@ -552,10 +588,13 @@ class qBitManager:
                 if (_id := self._radarr4k_cache.get(h.upper())) is not None
                 and not logger.debug("[Radarr4k] Blacklisting: {hash}", hash=h)
             ]
-            hashes = {h for h in hashes if (_id := self._radarr4k_cache.get(h.upper())) is not None}
+            hashes = {
+                h for h in hashes if (_id := self._radarr4k_cache.get(h.upper())) is not None
+            }
             return payload, hashes
         else:
             return [], set()
+
     def process_sonarr_entries(self, hashes: Set[str]) -> Tuple[List[Tuple[int, str]], Set[str]]:
         if self.sonarr:
             payload = [
@@ -569,7 +608,9 @@ class qBitManager:
         else:
             return [], set()
 
-    def process_sonarr_anime_entries(self, hashes: Set[str]) -> Tuple[List[Tuple[int, str]], Set[str]]:
+    def process_sonarr_anime_entries(
+        self, hashes: Set[str]
+    ) -> Tuple[List[Tuple[int, str]], Set[str]]:
         if self.sonarr_anime:
             payload = [
                 (_id, h.upper())
@@ -577,7 +618,9 @@ class qBitManager:
                 if (_id := self._sonarr_anime_cache.get(h.upper())) is not None
                 and not logger.debug("[SonarrAnime] Blacklisting: {hash}", hash=h)
             ]
-            hashes = {h for h in hashes if (_id := self._sonarr_anime_cache.get(h.upper())) is not None}
+            hashes = {
+                h for h in hashes if (_id := self._sonarr_anime_cache.get(h.upper())) is not None
+            }
             return payload, hashes
         else:
             return [], set()
@@ -607,7 +650,7 @@ class qBitManager:
             ):
                 self._sent_to_scan_sonarr_anime = set()
             if path_abs == self.radarr4k_completed_folder and not len(
-                    list(self.absoluteFilePaths(self.radarr4k_completed_folder))
+                list(self.absoluteFilePaths(self.radarr4k_completed_folder))
             ):
                 self._sent_to_scan_radarr4k = set()
 
@@ -673,14 +716,14 @@ class qBitManager:
                 and self.Sonarr_RssSyncTimer_Last_Checked
                 < now - timedelta(minutes=Sonarr_RssSyncTimer)
             ):
-                self.sonarr.post_command("RssSync")
+                self.sonarr_post_command("RssSync")
                 self.Sonarr_RssSyncTimer_Last_Checked = now
             if (
                 self.Sonarr_RefreshDownloadsTimer_Last_Checked is not None
                 and self.Sonarr_RefreshDownloadsTimer_Last_Checked
                 < now - timedelta(minutes=Sonarr_RefreshDownloadsTimer)
             ):
-                self.sonarr.post_command("RefreshMonitoredDownloads")
+                self.sonarr_post_command("RefreshMonitoredDownloads")
                 self.Sonarr_RefreshDownloadsTimer_Last_Checked = now
         if self.sonarr_anime:
             if (
@@ -688,14 +731,14 @@ class qBitManager:
                 and self.SonarrAnime_RssSyncTimer_Last_Checked
                 < now - timedelta(minutes=SonarrAnime_RssSyncTimer)
             ):
-                self.sonarr_anime.post_command("RssSync")
+                self.sonarr_anime_post_command("RssSync")
                 self.SonarrAnime_RssSyncTimer_Last_Checked = now
             if (
                 self.SonarrAnime_RefreshDownloadsTimer_Last_Checked is not None
                 and self.SonarrAnime_RefreshDownloadsTimer_Last_Checked
                 < now - timedelta(minutes=SonarrAnime_RefreshDownloadsTimer)
             ):
-                self.sonarr_anime.post_command("RefreshMonitoredDownloads")
+                self.sonarr_anime_post_command("RefreshMonitoredDownloads")
                 self.SonarrAnime_RefreshDownloadsTimer_Last_Checked = now
         if self.radarr:
             if (
@@ -703,14 +746,14 @@ class qBitManager:
                 and self.Radarr_RssSyncTimer_Last_Checked
                 < now - timedelta(minutes=Radarr_RefreshDownloadsTimer)
             ):
-                self.radarr.post_command("RssSync")
+                self.radarr_post_command("RssSync")
                 self.Radarr_RssSyncTimer_Last_Checked = now
             if (
                 self.Radarr_RefreshDownloadsTimer_Last_Checked is not None
                 and self.Radarr_RefreshDownloadsTimer_Last_Checked
                 < now - timedelta(minutes=Radarr_RefreshDownloadsTimer)
             ):
-                self.radarr.post_command("RefreshMonitoredDownloads")
+                self.radarr_post_command("RefreshMonitoredDownloads")
                 self.Radarr_RefreshDownloadsTimer_Last_Checked = now
 
         if self.radarr4k:
@@ -719,14 +762,14 @@ class qBitManager:
                 and self.Radarr4k_RssSyncTimer_Last_Checked
                 < now - timedelta(minutes=Radarr4k_RefreshDownloadsTimer)
             ):
-                self.radarr4k.post_command("RssSync")
+                self.radarr4k_post_command("RssSync")
                 self.Radarr4k_RssSyncTimer_Last_Checked = now
             if (
                 self.Radarr4k_RefreshDownloadsTimer_Last_Checked is not None
                 and self.Radarr4k_RefreshDownloadsTimer_Last_Checked
                 < now - timedelta(minutes=Radarr4k_RefreshDownloadsTimer)
             ):
-                self.radarr4k.post_command("RefreshMonitoredDownloads")
+                self.radarr4k_post_command("RefreshMonitoredDownloads")
                 self.Radarr4k_RefreshDownloadsTimer_Last_Checked = now
 
         torrents = self.client.torrents.info.all(sort="category", reverse=True)
@@ -770,7 +813,10 @@ class qBitManager:
                     torrent=torrent,
                 )
                 to_pause.add(torrent.hash)
-            elif torrent.progress >= MaximumDeletablePercentage:
+            elif (
+                torrent.state_enum.is_complete is False
+                and torrent.progress >= MaximumDeletablePercentage
+            ):
                 continue
             elif (
                 torrent.hash in self._sent_to_scan_radarr
@@ -905,7 +951,7 @@ class qBitManager:
                         if torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD:
                             torrent.resume()
             # If a torrent was not just added, and the amount left to download is 0 and the torrent is Paused tell the Arr tools to process it.
-            elif (
+            if (
                 torrent.added_on > 0
                 and torrent.amount_left == 0
                 and torrent.state_enum.PAUSED_UPLOAD
@@ -952,12 +998,12 @@ class qBitManager:
                     continue
                 if torrent.hash in self._sent_to_scan_sonarr:
                     continue
-                logger.info(
+                logger.notice(
                     "DownloadedEpisodesScan: [{torrent.category}] - {path}",
                     torrent=torrent,
                     path=path,
                 )
-                self.sonarr.post_command(
+                self.sonarr_post_command(
                     "DownloadedEpisodesScan",
                     path=str(path),
                     downloadClientId=torrent.hash.upper(),
@@ -977,12 +1023,12 @@ class qBitManager:
                     continue
                 if torrent.hash in self._sent_to_scan_sonarr_anime:
                     continue
-                logger.info(
+                logger.notice(
                     "DownloadedEpisodesScan: [{torrent.category}] - {path}",
                     torrent=torrent,
                     path=path,
                 )
-                self.sonarr_anime.post_command(
+                self.sonarr_anime_post_command(
                     "DownloadedEpisodesScan",
                     path=str(path),
                     downloadClientId=torrent.hash.upper(),
@@ -1001,19 +1047,18 @@ class qBitManager:
                     continue
                 if torrent.hash in self._sent_to_scan_radarr:
                     continue
-                logger.info(
+                logger.notice(
                     "DownloadedMoviesScan: [{torrent.category}] - {path}",
                     torrent=torrent,
                     path=path,
                 )
-                self.radarr.post_command(
+                self.radarr_post_command(
                     "DownloadedMoviesScan",
                     path=str(path),
                     downloadClientId=torrent.hash.upper(),
                     importMode=Radarr_importMode,
                 )
                 self._sent_to_scan_radarr.add(torrent.hash)
-
         if radarr4k_import:
             for torrent in radarr4k_import:
                 path = self.validate_and_return_torrent_file(torrent.content_path)
@@ -1026,12 +1071,12 @@ class qBitManager:
                     continue
                 if torrent.hash in self._sent_to_scan_radarr4k:
                     continue
-                logger.info(
+                logger.notice(
                     "DownloadedMoviesScan: [{torrent.category}] - {path}",
                     torrent=torrent,
                     path=path,
                 )
-                self.radarr4k.post_command(
+                self.radarr4k_post_command(
                     "DownloadedMoviesScan",
                     path=str(path),
                     downloadClientId=torrent.hash.upper(),
@@ -1077,7 +1122,7 @@ class qBitManager:
                             logger.notice(
                                 "Radarr | Re-Searching movie:   {movie_id}", movie_id=movie_id
                             )
-                        self.radarr.post_command("MoviesSearch", movieIds=[movie_id])
+                        self.radarr_post_command("MoviesSearch", movieIds=[movie_id])
             if radarr4k_payload:
                 for entry, hash_ in radarr4k_payload:
                     with contextlib.suppress(Exception):
@@ -1108,7 +1153,7 @@ class qBitManager:
                             logger.notice(
                                 "Radarr4k | Re-Searching movie:   {movie_id}", movie_id=movie_id
                             )
-                        self.radarr4k.post_command("MoviesSearch", movieIds=[movie_id])
+                        self.radarr4k_post_command("MoviesSearch", movieIds=[movie_id])
             if sonarr_payload:
                 for entry, hash_ in sonarr_payload:
                     if hash_ not in skip_blacklist:
@@ -1145,7 +1190,7 @@ class qBitManager:
                             logger.notice(
                                 f"SonarrTV | Re-Searching episodes: {' '.join([f'{i}' for i in episode_ids])}"
                             )
-                        self.sonarr.post_command("EpisodeSearch", episodeIds=episode_ids)
+                        self.sonarr_post_command("EpisodeSearch", episodeIds=episode_ids)
             if sonarr_anime_payload:
                 for entry, hash_ in sonarr_anime_payload:
                     if hash_ not in skip_blacklist:
@@ -1182,7 +1227,7 @@ class qBitManager:
                             logger.notice(
                                 f"SonarrAnime | Re-Searching episodes: {' '.join([f'{i}' for i in episode_ids])}"
                             )
-                        self.sonarr_anime.post_command("EpisodeSearch", episodeIds=episode_ids)
+                        self.sonarr_anime_post_command("EpisodeSearch", episodeIds=episode_ids)
             # Remove all bad torrents from the Client.
             if to_delete_all:
                 self.client.torrents_delete(hashes=to_delete_all, delete_files=True)
