@@ -806,7 +806,7 @@ class qBitManager:
             elif torrent.state_enum in {TorrentStates.QUEUED_DOWNLOAD}:
                 continue
             # If a torrent is Uploading Pause it.
-            elif torrent.state_enum.is_uploading:
+            elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and torrent.state_enum.is_uploading:
                 logger.info(
                     "Pausing uploading torrent: [{torrent.category}] - "
                     "({torrent.hash}) {torrent.name} - {torrent.state_enum}",
