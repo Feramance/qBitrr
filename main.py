@@ -64,9 +64,10 @@ Sonarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
 Sonarr_RefreshDownloadsTimer = config.getint("Sonarr", "RefreshDownloadsTimer", fallback=1)
 Sonarr_RssSyncTimer = config.getint("Sonarr", "RssSyncTimer", fallback=15)
 logger.debug(
-    "Sonarr Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, ImportMode: {Sonarr_importMode}, "
-    "Category: {Sonarr_Category} URI: {Sonarr_URI}, API Key: {Sonarr_APIKey}, "
-    "RefreshDownloadsTimer={Sonarr_RefreshDownloadsTimer}, RssSyncTimer={Sonarr_RssSyncTimer}",
+    "Sonarr Config: Managed: {Sonarr_Managed}, Research: {Sonarr_Research}, "
+    "ImportMode: {Sonarr_importMode}, Category: {Sonarr_Category} URI: {Sonarr_URI}, "
+    "API Key: {Sonarr_APIKey}, RefreshDownloadsTimer={Sonarr_RefreshDownloadsTimer}, "
+    "RssSyncTimer={Sonarr_RssSyncTimer}",
     Sonarr_importMode=Sonarr_importMode,
     Sonarr_Managed=Sonarr_Managed,
     Sonarr_Research=Sonarr_Research,
@@ -87,9 +88,10 @@ Radarr_importMode = config.get("Sonarr", "importMode", fallback="Move")
 Radarr_RefreshDownloadsTimer = config.getint("Radarr", "RefreshDownloadsTimer", fallback=1)
 Radarr_RssSyncTimer = config.getint("Radarr", "RssSyncTimer", fallback=15)
 logger.debug(
-    "Radarr Config: Managed: {Radarr_Managed}, Research: {Radarr_Research}, ImportMode: {Radarr_importMode}, "
-    "Category: {Radarr_Category} URI: {Radarr_URI}, API Key: {Radarr_APIKey}, "
-    "RefreshDownloadsTimer={Radarr_RefreshDownloadsTimer}, RssSyncTimer={Radarr_RssSyncTimer}",
+    "Radarr Config: Managed: {Radarr_Managed}, Research: {Radarr_Research}, "
+    "ImportMode: {Radarr_importMode}, Category: {Radarr_Category} URI: {Radarr_URI}, "
+    "API Key: {Radarr_APIKey}, RefreshDownloadsTimer={Radarr_RefreshDownloadsTimer}, "
+    "RssSyncTimer={Radarr_RssSyncTimer}",
     Radarr_importMode=Radarr_importMode,
     Radarr_Managed=Radarr_Managed,
     Radarr_Research=Radarr_Research,
@@ -108,7 +110,9 @@ qBit_Password = config.get("QBit", "Password", fallback=None)
 qBit_SIMPLE_RESPONSES = config.getboolean("QBit", "SIMPLE_RESPONSES", fallback=False)
 CompletedDownloadFolder = config.get("QBit", "CompletedDownloadFolder")
 logger.debug(
-    "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, Password: {qBit_Password}, SIMPLE_RESPONSES={qBit_SIMPLE_RESPONSES}, CompletedDownloadFolder={CompletedDownloadFolder}",
+    "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
+    "Password: {qBit_Password}, SIMPLE_RESPONSES={qBit_SIMPLE_RESPONSES}, "
+    "CompletedDownloadFolder={CompletedDownloadFolder}",
     qBit_Host=qBit_Host,
     qBit_Port=qBit_Port,
     qBit_UserName=qBit_UserName,
@@ -235,7 +239,8 @@ class qBitManager:
         category_allowlist.add(Radarr_Category)
         if not radarr_completed_folder.exists():
             logger.critical(
-                "Completed download folder does not exist, disabling all features that expect this folder: {radarr_completed_folder}",
+                "Completed download folder does not exist, disabling all features "
+                "that expect this folder: {radarr_completed_folder}",
                 radarr_completed_folder=radarr_completed_folder.absolute(),
             )
             raise EnvironmentError("Radarr completed folder is a requirement.")
@@ -255,7 +260,8 @@ class qBitManager:
         sonarr_completed_folder = pathlib.Path(CompletedDownloadFolder).joinpath(Sonarr_Category)
         if not sonarr_completed_folder.exists():
             logger.critical(
-                "Completed download folder does not exist, disabling all features that expect this folder: {sonarr_completed_folder}",
+                "Completed download folder does not exist, disabling all features "
+                "that expect this folder: {sonarr_completed_folder}",
                 sonarr_completed_folder=sonarr_completed_folder.absolute(),
             )
             raise EnvironmentError("Sonarr completed folder is a requirement.")
@@ -449,7 +455,8 @@ class qBitManager:
         count = 10
         while not path.exists():
             logger.trace(
-                "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) - {path} - Sleeping for 0.1s",
+                "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) - "
+                "{path} - Sleeping for 0.1s",
                 path=path,
                 count=11 - count,
             )
@@ -465,7 +472,8 @@ class qBitManager:
                 path = path.parent.absolute()
             while not path.exists():
                 logger.trace(
-                    "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) - {path} - Sleeping for 0.1s",
+                    "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) - "
+                    "{path} - Sleeping for 0.1s",
                     path=path,
                     count=11 - count,
                 )
@@ -530,7 +538,9 @@ class qBitManager:
             # Bypass everything if manually marked as failed
             if torrent.category == FailedCategory:
                 logger.info(
-                    "Deleting manually failed torrent: [{torrent.category}] [Progress: {progress}%][Time Left: {timedelta}] - ({torrent.hash}) {torrent.name}",
+                    "Deleting manually failed torrent: [{torrent.category}] "
+                    "[Progress: {progress}%][Time Left: {timedelta}] - "
+                    "({torrent.hash}) {torrent.name}",
                     torrent=torrent,
                     timedelta=timedelta(seconds=torrent.eta),
                     progress=round(torrent.progress * 100, 2),
@@ -548,7 +558,8 @@ class qBitManager:
             # If a torrent is Uploading Pause it.
             elif torrent.state_enum.is_uploading:
                 logger.info(
-                    "Pausing uploading torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} - {torrent.state_enum}",
+                    "Pausing uploading torrent: [{torrent.category}] - "
+                    "({torrent.hash}) {torrent.name} - {torrent.state_enum}",
                     torrent=torrent,
                 )
                 to_pause.add(torrent.hash)
@@ -567,7 +578,9 @@ class qBitManager:
                 and torrent.eta > MaximumETA
             ):
                 logger.info(
-                    "Deleting slow torrent: [{torrent.category}] [Progress: {progress}%][Time Left: {timedelta}] - ({torrent.hash}) {torrent.name}",
+                    "Deleting slow torrent: [{torrent.category}] "
+                    "[Progress: {progress}%][Time Left: {timedelta}] - "
+                    "({torrent.hash}) {torrent.name}",
                     torrent=torrent,
                     timedelta=timedelta(seconds=torrent.eta),
                     progress=round(torrent.progress * 100, 2),
@@ -576,14 +589,16 @@ class qBitManager:
             # Sometimes Sonarr/Radarr does not automatically remove the torrent for some reason, this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
             elif torrent.state_enum == TorrentStates.MISSING_FILES:
                 logger.info(
-                    "Deleting torrent with missing files: [{torrent.category}] - ({torrent.hash}) {torrent.name}",
+                    "Deleting torrent with missing files: [{torrent.category}] - "
+                    "({torrent.hash}) {torrent.name}",
                     torrent=torrent,
                 )
                 skip_blacklist.add(torrent.hash)  # We do not want to blacklist these!!
             # Some times torrents will error, this causes them to be rechecked so they complete downloading.
             elif torrent.state_enum == TorrentStates.ERROR:
                 logger.info(
-                    "Rechecking Erroed torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name}",
+                    "Rechecking Erroed torrent: [{torrent.category}] - "
+                    "({torrent.hash}) {torrent.name}",
                     torrent=torrent,
                 )
                 to_recheck.add(torrent.hash)
@@ -593,7 +608,8 @@ class qBitManager:
             ):
                 if torrent.added_on < time.time() - IgnoreTorrentsYoungerThan:
                     logger.info(
-                        "Deleting Stale torrent: [{torrent.category}] [Progress: {progress}%]- ({torrent.hash}) {torrent.name}",
+                        "Deleting Stale torrent: [{torrent.category}] "
+                        "[Progress: {progress}%] - ({torrent.hash}) {torrent.name}",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                     )
@@ -606,7 +622,9 @@ class qBitManager:
                     and torrent.availability < 1
                 ):
                     logger.info(
-                        "Deleting Stale torrent: [{torrent.category}] [Progress: {progress}%][Availability: {availability}%][Last active: {last_activity}] - ({torrent.hash}) {torrent.name}",
+                        "Deleting Stale torrent: [{torrent.category}] "
+                        "[Progress: {progress}%][Availability: {availability}%]"
+                        "[Last active: {last_activity}] - ({torrent.hash}) {torrent.name}",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -627,7 +645,8 @@ class qBitManager:
                         # A file in the torrent does not have the allowlisted extensions, mark it for exclusion.
                         if file_path.suffix not in FileExtensionAllowlist:
                             logger.debug(
-                                "Removing File: Not allowed - Extension: [{torrent.category}] - {suffix}  | ({torrent.hash}) | {file.name} ",
+                                "Removing File: Not allowed - Extension: [{torrent.category}] - "
+                                "{suffix}  | ({torrent.hash}) | {file.name} ",
                                 torrent=torrent,
                                 file=file,
                                 suffix=file_path.suffix,
@@ -641,7 +660,8 @@ class qBitManager:
                             if (folder_match := p.name)
                         ):
                             logger.debug(
-                                "Removing File: Not allowed - Parent: [{torrent.category}] - {folder_match} | ({torrent.hash}) | {file.name} ",
+                                "Removing File: Not allowed - Parent: [{torrent.category}] - "
+                                "{folder_match} | ({torrent.hash}) | {file.name} ",
                                 torrent=torrent,
                                 file=file,
                                 folder_match=folder_match,
@@ -651,7 +671,8 @@ class qBitManager:
                         # A file matched and entry in FileNameExclusionRegex, mark it for exclusion.
                         elif match := FileNameExclusionRegex_re.search(file_path.name):
                             logger.debug(
-                                "Removing File: Not allowed - Name: [{torrent.category}] - {match} | ({torrent.hash}) | {file.name}",
+                                "Removing File: Not allowed - Name: [{torrent.category}] - "
+                                "{match} | ({torrent.hash}) | {file.name}",
                                 torrent=torrent,
                                 file=file,
                                 match=match.group(),
@@ -662,7 +683,8 @@ class qBitManager:
                         # If all files in the torrent are marked for exlusion then delete the torrent.
                         if total == 0:
                             logger.info(
-                                "Deleting All files ignored: [{torrent.category}] - ({torrent.hash}) {torrent.name}",
+                                "Deleting All files ignored: [{torrent.category}] - "
+                                "({torrent.hash}) {torrent.name}",
                                 torrent=torrent,
                             )
                             to_delete.add(torrent.hash)
@@ -701,7 +723,8 @@ class qBitManager:
                 if not path.exists():
                     skip_blacklist.add(torrent.hash)
                     logger.info(
-                        "Deleting Missing Torrent: [{torrent.category}] - ({torrent.hash}) {torrent.name} ",
+                        "Deleting Missing Torrent: [{torrent.category}] - "
+                        "({torrent.hash}) {torrent.name} ",
                         torrent=torrent,
                     )
                     continue
@@ -769,7 +792,8 @@ class qBitManager:
                             year = movie_data.get("year")
                             tmdbId = movie_data.get("tmdbId")
                             logger.notice(
-                                "Radarr | Re-Searching movie:   {name} ({year}) [tmdbId={tmdbId}|id={movie_id}]",
+                                "Radarr | Re-Searching movie:   {name} ({year}) "
+                                "[tmdbId={tmdbId}|id={movie_id}]",
                                 movie_id=movie_id,
                                 name=name,
                                 year=year,
@@ -798,7 +822,11 @@ class qBitManager:
                             year = episode_data.get("series", {}).get("year")
                             tvdbId = episode_data.get("series", {}).get("tvdbId")
                             logger.notice(
-                                "Sonarr | Re-Searching episode: {seriesTitle} ({year}) - S{seasonNumber:02d}E{episodeNumber:03d} ({absoluteEpisodeNumber:04d}) - {title}  [tvdbId={tvdbId}|id={episode_ids}]",
+                                "Sonarr | Re-Searching episode: {seriesTitle} ({year}) - "
+                                "S{seasonNumber:02d}E{episodeNumber:03d} "
+                                "({absoluteEpisodeNumber:04d}) - "
+                                "{title}  "
+                                "[tvdbId={tvdbId}|id={episode_ids}]",
                                 episode_ids=episode_ids[0],
                                 title=title,
                                 year=year,
