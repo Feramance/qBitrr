@@ -273,7 +273,7 @@ class Arr:
                 if path in self.sent_to_scan:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
-                logger.notice(
+                self.logger.notice(
                     "DownloadedEpisodesScan: [{torrent.category}] - {path}",
                     torrent=torrent,
                     path=path,
@@ -305,7 +305,7 @@ class Arr:
                     seriesTitle = data.get("series", {}).get("title")
                     year = data.get("series", {}).get("year", 0)
                     tvdbId = data.get("series", {}).get("tvdbId", 0)
-                    logger.notice(
+                    self.logger.notice(
                         "{category} | Re-Searching episode: {seriesTitle} ({year}) - "
                         "S{seasonNumber:02d}E{episodeNumber:03d} "
                         "({absoluteEpisodeNumber:04d}) - "
@@ -322,7 +322,7 @@ class Arr:
                         episodeNumber=episodeNumber,
                     )
                 else:
-                    logger.notice(
+                    self.logger.notice(
                         f"{self.category} | Re-Searching episodes: {' '.join([f'{i}' for i in object_id])}"
                     )
                 self.post_command("EpisodeSearch", episodeIds=object_id)
@@ -332,7 +332,7 @@ class Arr:
                 if name:
                     year = data.get("year", 0)
                     tmdbId = data.get("tmdbId", 0)
-                    logger.notice(
+                    self.logger.notice(
                         "{category} | Re-Searching movie:   {name} ({year}) "
                         "[tmdbId={tmdbId}|id={movie_id}]",
                         category=self.category,
@@ -342,7 +342,7 @@ class Arr:
                         tmdbId=tmdbId,
                     )
                 else:
-                    logger.notice(
+                    self.logger.notice(
                         "{category} | Re-Searching movie:   {movie_id}",
                         movie_id=object_id,
                         category=self.category,
