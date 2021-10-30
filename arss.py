@@ -8,7 +8,7 @@ import sys
 from collections import defaultdict
 from configparser import NoOptionError, NoSectionError
 from datetime import datetime, timedelta
-from typing import Callable, Dict, List, Protocol, Set, Tuple, Type, Union
+from typing import Callable, Dict, List, Set, TYPE_CHECKING, Tuple, Type
 
 import ffmpeg
 import logbook
@@ -27,6 +27,9 @@ from config import (
 from errors import SkipException
 from logger import CONSOLE_LOGGING_LEVEL
 from utils import ExpiringSet, absolute_file_paths, validate_and_return_torrent_file
+
+if TYPE_CHECKING:
+    from .main import qBitManager
 
 logger = logbook.Logger("ArrManager")
 logger.handlers.append(logbook.StderrHandler(level=CONSOLE_LOGGING_LEVEL))
@@ -175,7 +178,11 @@ class Arr:
             (_id, h.upper())
             for h in hashes
             if (_id := self.cache.get(h.upper())) is not None
-            and not self.logger.debug("Blocklisting: {hash}", hash=h)
+            and not self.logger.debug(
+                "Blocklisting: {name} ({hash})",
+                hash=h,
+                name=self.manager.qbit_manager.name_cache.get(h, "Deleted"),
+            )
         ]
         hashes = {h for h in hashes if (_id := self.cache.get(h.upper())) is not None}
 
@@ -364,7 +371,7 @@ class Arr:
         self.skip_blacklist.clear()
         self.delete.clear()
 
-    def _process_errored(self, torrent_cache: Dict[str, str]):
+    def _process_errored(self):
         # Recheck all torrents marked for rechecking.
         if self.recheck:
             updated_recheck = [r[0] for r in self.recheck]
@@ -390,15 +397,17 @@ class Arr:
                     "Updating file priority on torrent: ({torrent.hash}) {torrent.name}",
                     torrent=torrent,
                 )
-                self.manager.qbit.torrents_file_priority(torrent_hash=hash_, file_ids=files, priority=0)
+                self.manager.qbit.torrents_file_priority(
+                    torrent_hash=hash_, file_ids=files, priority=0
+                )
             else:
                 self.logger.error("Torrent does not exist? {hash}", hash=hash_)
             del self.change_priority[hash_]
 
-    def process(self, torrent_cache: Dict[str, str]):
+    def process(self):
         self._process_paused()
         self._process_failed()
-        self._process_errored(torrent_cache)
+        self._process_errored()
         self._process_file_priority()
         self.folder_cleanup()
         self._process_imports()
@@ -413,6 +422,7 @@ class PlaceHolderArr(Arr):
         if name in manager.groups:
             raise EnvironmentError("Group '{name}' has already been registered.")
         self._name = name
+        self.category = name
         self.manager = manager
         self.queue = []
         self.cache = {}
@@ -451,14 +461,14 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist.clear()
         self.delete.clear()
 
-    def _process_errored(self, torrent_cache: Dict[str, str]):
+    def _process_errored(self):
         # Recheck all torrents marked for rechecking.
         if self.recheck:
             temp = defaultdict(list)
             updated_recheck = []
             for h, c in self.recheck:
                 updated_recheck.append(h)
-                if c := torrent_cache.get(h):
+                if c := self.manager.qbit_manager.cache.get(h):
                     temp[c].append(h)
             self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
             for k, v in temp.items():
@@ -468,9 +478,9 @@ class PlaceHolderArr(Arr):
                 self.timed_ignore_cache.add(k)
             self.recheck.clear()
 
-    def process(self, torrent_cache: Dict[str, str]):
+    def process(self):
         self._process_failed()
-        self._process_errored(torrent_cache)
+        self._process_errored()
 
 
 class ArrManager:
@@ -483,14 +493,17 @@ class ArrManager:
     managed_objects: Dict[str, Arr] = {}
     ffprobe_available: bool = bool(shutil.which("ffprobe"))
     qbit: qbittorrentapi.Client = None
+    qbit_manager: qBitManager = None
+
     if not ffprobe_available:
         logger.error(
             "ffprobe was not found in your PATH, disabling all functionality dependant on it."
         )
 
     @classmethod
-    def build_from_config(cls, qbit: qbittorrentapi.Client):
-        cls.qbit = qbit
+    def build_from_config(cls, qbitmanager: qBitManager):
+        cls.qbit = qbitmanager.client
+        cls.qbit_manager = qbitmanager
         for key in CONFIG.sections():
             if search := re.match("(rad|son)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
