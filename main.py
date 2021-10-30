@@ -1,48 +1,38 @@
-import pathlib
-import sys
 import time
 from datetime import timedelta
 from typing import NoReturn
 
-import logbook
 import qbittorrentapi
 
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
 from arss import ArrManager
+
+from logger import *
+
 from config import (
     CONFIG,
     FAILED_CATEGORY,
-    FILE_EXTENSION_ALLOWLIST,
-    FILE_NAME_EXCLUSION_REGEX_RE,
-    FOLDER_EXCLUSION_REGEX_RE,
-    IGNORE_TORRENTS_YOUNGER_THAN,
     LOOP_SLEEP_TIMER,
-    MAXIMUM_DELETABLE_PERCENTAGE,
-    MAXIMUM_ETA,
     NO_INTERNET_SLEEP_TIMER,
     RECHECK_CATEGORY,
 )
-from logger import CONSOLE_LOGGING_LEVEL
 from utils import has_internet
 
 logger = logbook.Logger("qBitManager")
-logger.handlers.append(logbook.StderrHandler(level=CONSOLE_LOGGING_LEVEL))
 
 # QBitTorrent Config Values
 qBit_Host = CONFIG.get("QBit", "Host", fallback="localhost")
 qBit_Port = CONFIG.getint("QBit", "Port")
 qBit_UserName = CONFIG.get("QBit", "UserName")
 qBit_Password = CONFIG.get("QBit", "Password", fallback=None)
-qBit_SIMPLE_RESPONSES = CONFIG.getboolean("QBit", "SIMPLE_RESPONSES", fallback=False)
 logger.debug(
     "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
-    "Password: {qBit_Password}, SIMPLE_RESPONSES={qBit_SIMPLE_RESPONSES}",
+    "Password: {qBit_Password}",
     qBit_Host=qBit_Host,
     qBit_Port=qBit_Port,
     qBit_UserName=qBit_UserName,
     qBit_Password=qBit_Password,
-    qBit_SIMPLE_RESPONSES=qBit_SIMPLE_RESPONSES,
 )
 
 
@@ -53,7 +43,7 @@ class qBitManager:
             port=qBit_Port,
             username=qBit_UserName,
             password=qBit_Password,
-            SIMPLE_RESPONSES=qBit_SIMPLE_RESPONSES,
+            SIMPLE_RESPONSES=False,
         )
         self.arr_manager = ArrManager.build_from_config(self)
 
@@ -108,7 +98,9 @@ class qBitManager:
                 arr.api_calls()
                 arr.refresh_download_queue()
 
-            torrents = self.client.torrents.info.all(category=arr.category, sort="added_on", reverse=False)
+            torrents = self.client.torrents.info.all(
+                category=arr.category, sort="added_on", reverse=False
+            )
             for torrent in torrents:
                 if torrent.category != RECHECK_CATEGORY:
                     self.cache[torrent.hash] = torrent.category
@@ -151,7 +143,7 @@ class qBitManager:
                 ):
                     continue
                 elif (
-                    torrent.progress >= MAXIMUM_DELETABLE_PERCENTAGE
+                    torrent.progress >= arr.maximum_deletable_percentage
                     and self.is_complete_state(torrent) is False
                 ):
                     continue
@@ -202,7 +194,7 @@ class qBitManager:
                     TorrentStates.STALLED_DOWNLOAD,
                 ):
                     self.arr_manager.managed_objects[torrent.category].timed_skip.add(torrent.hash)
-                    if torrent.added_on < time.time() - IGNORE_TORRENTS_YOUNGER_THAN:
+                    if torrent.added_on < time.time() - arr.ignore_torrents_younger_than:
                         arr.logger.info(
                             "Deleting Stale torrent: [{torrent.category}] "
                             "[Progress: {progress}%] - ({torrent.hash}) {torrent.name}",
@@ -228,8 +220,8 @@ class qBitManager:
                 elif (
                     torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                     and torrent.state_enum.is_downloading
-                    and torrent.added_on < time.time() - IGNORE_TORRENTS_YOUNGER_THAN
-                    and torrent.eta > MAXIMUM_ETA
+                    and torrent.added_on < time.time() - arr.ignore_torrents_younger_than
+                    and torrent.eta > arr.maximum_eta
                 ):
                     arr.logger.info(
                         "Deleting slow torrent: [{torrent.category}] "
@@ -244,7 +236,7 @@ class qBitManager:
                 elif torrent.state_enum.is_downloading:
                     # If a torrent availability hasn't reached 100% or more within the configurable "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
                     if (
-                        torrent.added_on < time.time() - IGNORE_TORRENTS_YOUNGER_THAN
+                        torrent.added_on < time.time() - arr.ignore_torrents_younger_than
                         and torrent.availability < 1
                     ):
                         arr.logger.info(
@@ -269,7 +261,7 @@ class qBitManager:
                                 total -= 1
                                 continue
                             # A file in the torrent does not have the allowlisted extensions, mark it for exclusion.
-                            if file_path.suffix not in FILE_EXTENSION_ALLOWLIST:
+                            if file_path.suffix not in arr.file_extension_allowlist:
                                 arr.logger.debug(
                                     "Removing File: Not allowed - Extension: [{torrent.category}] - "
                                     "{suffix}  | ({torrent.hash}) | {file.name} ",
@@ -281,7 +273,7 @@ class qBitManager:
                                 total -= 1
                             # A folder within the folder tree matched the terms in FolderExclusionRegex, mark it for exclusion.
                             elif any(
-                                FOLDER_EXCLUSION_REGEX_RE.match(p.name.lower())
+                                arr.folder_exclusion_regex_re.match(p.name.lower())
                                 for p in file_path.parents
                                 if (folder_match := p.name)
                             ):
@@ -295,7 +287,7 @@ class qBitManager:
                                 _remove_files.add(file.id)
                                 total -= 1
                             # A file matched and entry in FileNameExclusionRegex, mark it for exclusion.
-                            elif match := FILE_NAME_EXCLUSION_REGEX_RE.search(file_path.name):
+                            elif match := arr.file_name_exclusion_regex_re.search(file_path.name):
                                 arr.logger.debug(
                                     "Removing File: Not allowed - Name: [{torrent.category}] - "
                                     "{match} | ({torrent.hash}) | {file.name}",

@@ -16,23 +16,18 @@ import qbittorrentapi
 from pyarr import RadarrAPI, SonarrAPI
 
 from config import (
-    AUTO_DELETE,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     FAILED_CATEGORY,
-    FILE_EXTENSION_ALLOWLIST,
-    IGNORE_TORRENTS_YOUNGER_THAN,
     RECHECK_CATEGORY,
 )
 from errors import SkipException
-from logger import CONSOLE_LOGGING_LEVEL
 from utils import ExpiringSet, absolute_file_paths, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
     from .main import qBitManager
 
 logger = logbook.Logger("ArrManager")
-logger.handlers.append(logbook.StderrHandler(level=CONSOLE_LOGGING_LEVEL))
 
 
 class Arr:
@@ -67,6 +62,32 @@ class Arr:
         self.refresh_downloads_timer = CONFIG.getint(name, "RefreshDownloadsTimer", fallback=1)
         self.rss_sync_timer = CONFIG.getint(name, "RssSyncTimer", fallback=15)
 
+        self.case_sensitive_matches = CONFIG.getboolean(name, "CaseSensitiveMatches")
+        self.folder_exclusion_regex = CONFIG.getlist(name, "FolderExclusionRegex")
+        self.file_name_exclusion_regex = CONFIG.getlist(name, "FileNameExclusionRegex")
+        self.file_extension_allowlist = CONFIG.getlist(name, "FileExtensionAllowlist")
+        self.auto_delete = CONFIG.getboolean(name, "AutoDelete", fallback=False)
+        self.ignore_torrents_younger_than = CONFIG.getint(
+            name, "IgnoreTorrentsYoungerThan", fallback=600
+        )
+        self.maximum_eta = CONFIG.getint(name, "MaximumETA", fallback=86400)
+        self.maximum_deletable_percentage = CONFIG.getfloat(
+            name, "MaximumDeletablePercentage", fallback=0.95
+        )
+        if self.case_sensitive_matches:
+            self.folder_exclusion_regex_re = re.compile(
+                "|".join(self.folder_exclusion_regex), re.DOTALL
+            )
+            self.file_name_exclusion_regex_re = re.compile(
+                "|".join(self.file_name_exclusion_regex), re.DOTALL
+            )
+        else:
+            self.folder_exclusion_regex_re = re.compile(
+                "|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL
+            )
+            self.file_name_exclusion_regex_re = re.compile(
+                "|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL
+            )
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
@@ -96,13 +117,12 @@ class Arr:
         self.delete = set()
         self.resume = set()
 
-        self.timed_ignore_cache = ExpiringSet(max_age_seconds=IGNORE_TORRENTS_YOUNGER_THAN)
-        self.timed_skip = ExpiringSet(max_age_seconds=IGNORE_TORRENTS_YOUNGER_THAN)
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
 
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
         self.logger = logbook.Logger(self._name)
-        self.logger.handlers.append(logbook.StderrHandler(level=CONSOLE_LOGGING_LEVEL))
         self.logger.debug(
             "{group} Config: "
             "Managed: {managed}, "
@@ -122,6 +142,33 @@ class Arr:
             apikey=self.apikey,
             refresh_downloads_timer=self.refresh_downloads_timer,
             rss_sync_timer=self.rss_sync_timer,
+        )
+        self.logger.info(
+            "Script Config:  CaseSensitiveMatches={CaseSensitiveMatches}",
+            CaseSensitiveMatches=self.case_sensitive_matches,
+        )
+        self.logger.info(
+            "Script Config:  FolderExclusionRegex={FolderExclusionRegex}",
+            FolderExclusionRegex=self.folder_exclusion_regex,
+        )
+        self.logger.info(
+            "Script Config:  FileNameExclusionRegex={FileNameExclusionRegex}",
+            FileNameExclusionRegex=self.file_name_exclusion_regex,
+        )
+        self.logger.info(
+            "Script Config:  FileExtensionAllowlist={FileExtensionAllowlist}",
+            FileExtensionAllowlist=self.file_extension_allowlist,
+        )
+        self.logger.info("Script Config:  AutoDelete={AutoDelete}", AutoDelete=self.auto_delete)
+
+        self.logger.info(
+            "Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerThan}",
+            IgnoreTorrentsYoungerThan=self.ignore_torrents_younger_than,
+        )
+        self.logger.info("Script Config:  MaximumETA={MaximumETA}", MaximumETA=self.maximum_eta)
+        self.logger.info(
+            "Script Config:  MaximumDeletablePercentage={MaximumDeletablePercentage}",
+            MaximumDeletablePercentage=self.maximum_deletable_percentage,
         )
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
@@ -189,7 +236,7 @@ class Arr:
         return payload, hashes
 
     def folder_cleanup(self) -> None:
-        if AUTO_DELETE is False:
+        if self.auto_delete is False:
             return
         folder = self.completed_folder
         self.logger.debug("Folder Cleanup: {folder}", folder=folder)
@@ -199,7 +246,7 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder:  {file}", file=file)
                 continue
-            if file.suffix in FILE_EXTENSION_ALLOWLIST and self.file_is_probeable(file):
+            if file.suffix in self.file_extension_allowlist and self.file_is_probeable(file):
                 self.logger.trace(
                     "Folder Cleanup: File has an allowed extension: {file}", file=file
                 )
@@ -368,6 +415,11 @@ class Arr:
                     )
             # Remove all bad torrents from the Client.
             self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            for h in to_delete_all:
+                if h in self.manager.qbit_manager.name_cache:
+                    del self.manager.qbit_manager.name_cache[h]
+                if h in self.manager.qbit_manager.cache:
+                    del self.manager.qbit_manager.cache[h]
         self.skip_blacklist.clear()
         self.delete.clear()
 
@@ -406,11 +458,11 @@ class Arr:
 
     def process(self):
         self._process_paused()
-        self._process_failed()
         self._process_errored()
         self._process_file_priority()
-        self.folder_cleanup()
         self._process_imports()
+        self._process_failed()
+        self.folder_cleanup()
 
 
 class PlaceHolderArr(Arr):
@@ -437,9 +489,11 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
-
-        self.timed_ignore_cache = ExpiringSet(max_age_seconds=IGNORE_TORRENTS_YOUNGER_THAN)
-        self.timed_skip = ExpiringSet(max_age_seconds=IGNORE_TORRENTS_YOUNGER_THAN)
+        self.IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.getint(
+            "Settings", "IgnoreTorrentsYoungerThan", fallback=600
+        )
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
+        self.timed_skip = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
 
     def _process_failed(self):
         if not (self.delete or self.skip_blacklist):
@@ -458,6 +512,11 @@ class PlaceHolderArr(Arr):
 
             # Remove all bad torrents from the Client.
             self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            for h in to_delete_all:
+                if h in self.manager.qbit_manager.name_cache:
+                    del self.manager.qbit_manager.name_cache[h]
+                if h in self.manager.qbit_manager.cache:
+                    del self.manager.qbit_manager.cache[h]
         self.skip_blacklist.clear()
         self.delete.clear()
 
@@ -479,8 +538,8 @@ class PlaceHolderArr(Arr):
             self.recheck.clear()
 
     def process(self):
-        self._process_failed()
         self._process_errored()
+        self._process_failed()
 
 
 class ArrManager:

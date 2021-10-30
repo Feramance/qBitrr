@@ -8,10 +8,8 @@ import logbook
 import requests
 
 from config import PING_URLS
-from logger import CONSOLE_LOGGING_LEVEL
 
 logger = logbook.Logger("Utilities")
-logger.handlers.append(logbook.StderrHandler(level=CONSOLE_LOGGING_LEVEL))
 
 
 def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib.Path]:
