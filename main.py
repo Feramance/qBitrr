@@ -1,5 +1,5 @@
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import NoReturn
 
 import qbittorrentapi
@@ -116,6 +116,7 @@ class qBitManager:
                         progress=round(torrent.progress * 100, 2),
                     )
                     self.arr_manager.managed_objects[torrent.category].delete.add(torrent.hash)
+                # Bypass everything else if manually marked for rechecking
                 elif torrent.category == RECHECK_CATEGORY:
                     logger.notice(
                         "Re-cheking manually set torrent: [{torrent.category}] "
@@ -142,11 +143,25 @@ class qBitManager:
                     torrent.hash in self.arr_manager.managed_objects[torrent.category].timed_skip
                 ):
                     continue
+                # Ignore torrents who have reached maximum percentage as long as the last activity is within the MaximumETA set for this category
+                # For example if you set MaximumETA to 5 mines, this will ignore all torrets that have stalled at a higher percentage as long as there is activity
+                # And the window of activity is determined by the current time - MaximumETA, if the last active was after this value ignore this torrent
+                # the idea here is that if a torrent isn't completely dead some leecher/seeder may contribute towards your progress.
+                # However if its completely dead and no activity is observed, then lets remove it and requeue a new torrent.
                 elif (
                     torrent.progress >= arr.maximum_deletable_percentage
                     and self.is_complete_state(torrent) is False
                 ):
-                    continue
+                    if torrent.last_activity < datetime.now() - timedelta(seconds=arr.maximum_eta):
+                        arr.logger.info(
+                            "Deleting Stale torrent: [{torrent.category}] "
+                            "[Progress: {progress}%] - ({torrent.hash}) {torrent.name}",
+                            torrent=torrent,
+                            progress=round(torrent.progress * 100, 2),
+                        )
+                        self.arr_manager.managed_objects[torrent.category].delete.add(torrent.hash)
+                    else:
+                        continue
                 # Ignore torrents which have been submitted to their respective Arr instance for import.
                 elif (
                     torrent.hash
@@ -189,6 +204,7 @@ class qBitManager:
                 # Resume monitored downloads which have been paused.
                 elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.progress < 1:
                     self.arr_manager.managed_objects[torrent.category].resume.add(torrent.hash)
+                # Process torrents who have stalled at this point, only mark from for deletion if they have been added more than "IgnoreTorrentsYoungerThan" seconds ago
                 elif torrent.state_enum in (
                     TorrentStates.METADATA_DOWNLOAD,
                     TorrentStates.STALLED_DOWNLOAD,
