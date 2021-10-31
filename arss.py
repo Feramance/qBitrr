@@ -366,12 +366,11 @@ class Arr:
                     year = data.get("series", {}).get("year", 0)
                     tvdbId = data.get("series", {}).get("tvdbId", 0)
                     self.logger.notice(
-                        "{category} | Re-Searching episode: {seriesTitle} ({year}) - "
+                        "Re-Searching episode: {seriesTitle} ({year}) - "
                         "S{seasonNumber:02d}E{episodeNumber:03d} "
                         "({absoluteEpisodeNumber:04d}) - "
                         "{title}  "
                         "[tvdbId={tvdbId}|id={episode_ids}]",
-                        category=self.category,
                         episode_ids=object_id[0],
                         title=name,
                         year=year,
@@ -383,7 +382,7 @@ class Arr:
                     )
                 else:
                     self.logger.notice(
-                        f"{self.category} | Re-Searching episodes: {' '.join([f'{i}' for i in object_id])}"
+                        f"Re-Searching episodes: {' '.join([f'{i}' for i in object_id])}"
                     )
                 self.post_command("EpisodeSearch", episodeIds=object_id)
             else:
@@ -393,9 +392,8 @@ class Arr:
                     year = data.get("year", 0)
                     tmdbId = data.get("tmdbId", 0)
                     self.logger.notice(
-                        "{category} | Re-Searching movie:   {name} ({year}) "
+                        "Re-Searching movie:   {name} ({year}) "
                         "[tmdbId={tmdbId}|id={movie_id}]",
-                        category=self.category,
                         movie_id=object_id,
                         name=name,
                         year=year,
@@ -403,9 +401,8 @@ class Arr:
                     )
                 else:
                     self.logger.notice(
-                        "{category} | Re-Searching movie:   {movie_id}",
+                        "Re-Searching movie:   {movie_id}",
                         movie_id=object_id,
-                        category=self.category,
                     )
                 self.post_command("MoviesSearch", movieIds=[object_id])
 
