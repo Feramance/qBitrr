@@ -23,7 +23,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     count = 10
     while not path.exists():
         logger.trace(
-            "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) - "
+            "Attempt {count}/10 : File does not yet exists! (Possibly being moved?) | "
             "{path} - Sleeping for 0.1s",
             path=path,
             count=11 - count,
@@ -40,7 +40,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
             path = path.parent.absolute()
         while not path.exists():
             logger.trace(
-                "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) - "
+                "Attempt {count}/10 :File does not yet exists! (Possibly being moved?) | "
                 "{path} - Sleeping for 0.1s",
                 path=path,
                 count=11 - count,

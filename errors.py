@@ -19,3 +19,14 @@ class RequireConfigValue(QBitManagerExceptions):
 
     def __init__(self, config_class: str, config_key: str):
         self.message = f"Config key '{config_key}' in '{config_class}' requires a value."
+
+
+class NoConnectionrException(QBitManagerExceptions):
+    def __init__(self, message: str):
+        self.message = message
+
+
+class DelayLoopException(QBitManagerExceptions):
+    def __init__(self, length: int, type: str):
+        self.type = type
+        self.length = length

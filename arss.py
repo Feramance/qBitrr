@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Set, TYPE_CHECKING, Tuple, Type
 import ffmpeg
 import logbook
 import qbittorrentapi
+import requests
 from pyarr import RadarrAPI, SonarrAPI
 
 from config import (
@@ -21,7 +22,7 @@ from config import (
     FAILED_CATEGORY,
     RECHECK_CATEGORY,
 )
-from errors import SkipException
+from errors import NoConnectionrException, SkipException
 from utils import ExpiringSet, absolute_file_paths, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
@@ -120,6 +121,8 @@ class Arr:
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+
+        self.session = requests.Session()
 
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
@@ -290,7 +293,24 @@ class Arr:
                 return False
             return False
 
+    @property
+    def is_alive(self) -> bool:
+        try:
+            req = self.session.get(
+                f"{self.uri}/api/v3/system/status", timeout=0.5, headers={"X-Api-Key": self.apikey}
+            )
+            req.raise_for_status()
+            self.logger.trace("Successfully connected to {url}", url=self.uri)
+            return True
+        except requests.RequestException:
+            self.logger.warning("Could not connect to {url}", url=self.uri)
+        return False
+
     def api_calls(self):
+        if not self.is_alive:
+            raise NoConnectionrException(
+                "Service: %s did not respond on %s" % (self._name, self.uri)
+            )
         now = datetime.now()
         if (
             self.rss_sync_timer_last_checked is not None
@@ -312,6 +332,12 @@ class Arr:
         if self.pause:
             self.needs_cleanup = True
             self.logger.debug("Pausing {count} completed torrents", count=len(self.pause))
+            for i in self.pause:
+                self.logger.debug(
+                    "Pausing {name} ({hash})",
+                    hash=i,
+                    name=self.manager.qbit_manager.name_cache.get(i),
+                )
             self.manager.qbit.torrents_pause(torrent_hashes=self.pause)
             self.pause.clear()
 
@@ -325,8 +351,7 @@ class Arr:
                 if not path.exists():
                     self.skip_blacklist.add(torrent.hash.upper())
                     self.logger.info(
-                        "Deleting Missing Torrent: [{torrent.category}] - "
-                        "{torrent.name} ({torrent.hash})",
+                        "Deleting Missing Torrent: " "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     continue
@@ -334,7 +359,7 @@ class Arr:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
                 self.logger.notice(
-                    "DownloadedEpisodesScan: [{torrent.category}] - {path}",
+                    "DownloadedEpisodesScan: {path}",
                     torrent=torrent,
                     path=path,
                 )
@@ -366,10 +391,10 @@ class Arr:
                     year = data.get("series", {}).get("year", 0)
                     tvdbId = data.get("series", {}).get("tvdbId", 0)
                     self.logger.notice(
-                        "Re-Searching episode: {seriesTitle} ({year}) - "
+                        "Re-Searching episode: {seriesTitle} ({year}) | "
                         "S{seasonNumber:02d}E{episodeNumber:03d} "
-                        "({absoluteEpisodeNumber:04d}) - "
-                        "{title}  "
+                        "({absoluteEpisodeNumber:04d}) | "
+                        "{title} | "
                         "[tvdbId={tvdbId}|id={episode_ids}]",
                         episode_ids=object_id[0],
                         title=name,
@@ -392,8 +417,7 @@ class Arr:
                     year = data.get("year", 0)
                     tmdbId = data.get("tmdbId", 0)
                     self.logger.notice(
-                        "Re-Searching movie:   {name} ({year}) "
-                        "[tmdbId={tmdbId}|id={movie_id}]",
+                        "Re-Searching movie: {name} ({year}) | " "[tmdbId={tmdbId}|id={movie_id}]",
                         movie_id=object_id,
                         name=name,
                         year=year,
@@ -401,7 +425,7 @@ class Arr:
                     )
                 else:
                     self.logger.notice(
-                        "Re-Searching movie:   {movie_id}",
+                        "Re-Searching movie: {movie_id}",
                         movie_id=object_id,
                     )
                 self.post_command("MoviesSearch", movieIds=[object_id])
@@ -449,12 +473,12 @@ class Arr:
         # Set all files marked as "Do not download" to not download.
         for hash_, files in self.change_priority.copy().items():
             self.needs_cleanup = True
-            torrent_info = self.manager.qbit.torrents_info(torrent_hashes=hash_)
-            if torrent_info:
-                torrent = torrent_info[0]
+            name = self.manager.qbit_manager.name_cache.get(hash_)
+            if name:
                 self.logger.debug(
-                    "Updating file priority on torrent: {torrent.name} ({torrent.hash})",
-                    torrent=torrent,
+                    "Updating file priority on torrent: {name} ({hash})",
+                    name=name,
+                    hash=hash_,
                 )
                 self.manager.qbit.torrents_file_priority(
                     torrent_hash=hash_, file_ids=files, priority=0
