@@ -252,11 +252,15 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder:  {file}", file=file)
                 continue
-            if file.suffix in self.file_extension_allowlist and self.file_is_probeable(file):
+            if file.suffix in self.file_extension_allowlist:
                 self.logger.trace(
                     "Folder Cleanup: File has an allowed extension: {file}", file=file
                 )
-                continue
+                if self.file_is_probeable(file):
+                    self.logger.trace(
+                        "Folder Cleanup: File is a valid media type: {file}", file=file
+                    )
+                    continue
             try:
                 file.unlink(missing_ok=True)
                 self.logger.debug("File removed: {path}", path=file)
