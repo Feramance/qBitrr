@@ -504,6 +504,7 @@ class PlaceHolderArr(Arr):
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
         self.timed_skip = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
+        self.logger = logbook.Logger(self._name)
 
     def _process_failed(self):
         if not (self.delete or self.skip_blacklist):
