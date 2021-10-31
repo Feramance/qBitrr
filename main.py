@@ -105,7 +105,7 @@ class qBitManager:
                 self.name_cache[torrent.hash] = torrent.name
                 # Bypass everything if manually marked as failed
                 if torrent.category == FAILED_CATEGORY:
-                    logger.notice(
+                    arr.logger.notice(
                         "Deleting manually failed torrent: [{torrent.category}] "
                         "[Progress: {progress}%][Time Left: {timedelta}] - "
                         "({torrent.hash}) {torrent.name}",
@@ -116,7 +116,7 @@ class qBitManager:
                     self.arr_manager.managed_objects[torrent.category].delete.add(torrent.hash)
                 # Bypass everything else if manually marked for rechecking
                 elif torrent.category == RECHECK_CATEGORY:
-                    logger.notice(
+                    arr.logger.notice(
                         "Re-cheking manually set torrent: [{torrent.category}] "
                         "[Progress: {progress}%][Time Left: {timedelta}] - "
                         "({torrent.hash}) {torrent.name}",
