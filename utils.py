@@ -1,6 +1,5 @@
 import pathlib
 import random
-import sys
 import time
 from typing import Iterator, Union
 
@@ -58,17 +57,16 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     return path
 
 
-def has_internet() -> bool:
+def has_internet():
+    url = random.choice(PING_URLS)
     try:
-        requests.get(random.choice(PING_URLS), timeout=5)
-        logger.trace("has_internet check: True")
+        req = requests.head(url, timeout=0.5)
+        req.raise_for_status()
+        logger.trace("Successfully connected to {url}", url=url)
         return True
-    except (requests.ConnectionError, requests.Timeout):
-        logger.warning("has_internet check: False")
-        return False
-    except Exception:
-        logger.error(exc_info=sys.exc_info())
-        return False
+    except requests.RequestException:
+        logger.warning("Could not connect to {url}", url=url)
+    return False
 
 
 class ExpiringSet:

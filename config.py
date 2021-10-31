@@ -24,12 +24,6 @@ LOOP_SLEEP_TIMER = CONFIG.getint("Settings", "LoopSleepTimer", fallback=5)
 PING_URLS = CONFIG.getlist(
     "Settings",
     "PingURL",
-    fallback=[
-        "https://1.0.0.1",
-        "https://8.8.8.8",
-        "https://1.1.1.1",
-        "https://8.8.4.4",
-        "https://139.130.4.5",
-    ],
+    fallback=["https://1.0.0.1", "https://8.8.8.8", "https://1.1.1.1", "https://8.8.4.4"],
 )
 IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.getint("Settings", "IgnoreTorrentsYoungerThan", fallback=600)
