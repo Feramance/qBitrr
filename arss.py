@@ -116,6 +116,7 @@ class Arr:
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        self.needs_cleanup = False
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -238,6 +239,8 @@ class Arr:
     def folder_cleanup(self) -> None:
         if self.auto_delete is False:
             return
+        if self.needs_cleanup is False:
+            return
         folder = self.completed_folder
         self.logger.debug("Folder Cleanup: {folder}", folder=folder)
         for file in absolute_file_paths(folder):
@@ -257,6 +260,7 @@ class Arr:
             except PermissionError:
                 self.logger.debug("File in use: Failed to remove file: {path}", path=file)
         self._remove_empty_folders()
+        self.needs_cleanup = False
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
         if not self.manager.ffprobe_available:
@@ -306,12 +310,14 @@ class Arr:
     def _process_paused(self):
         # Bulks pause all torrents flagged for pausing.
         if self.pause:
+            self.needs_cleanup = True
             self.logger.debug("Pausing {count} completed torrents", count=len(self.pause))
             self.manager.qbit.torrents_pause(torrent_hashes=self.pause)
             self.pause.clear()
 
     def _process_imports(self):
         if self.import_torrents:
+            self.needs_cleanup = True
             for torrent in self.import_torrents:
                 if torrent.hash in self.sent_to_scan:
                     continue
@@ -407,6 +413,7 @@ class Arr:
         to_delete_all = self.delete.union(self.skip_blacklist)
         skip_blacklist = {i.upper() for i in self.skip_blacklist}
         if to_delete_all:
+            self.needs_cleanup = True
             payload, hashes = self.process_entries(to_delete_all)
             if payload:
                 for entry, hash_ in payload:
@@ -426,6 +433,7 @@ class Arr:
     def _process_errored(self):
         # Recheck all torrents marked for rechecking.
         if self.recheck:
+            self.needs_cleanup = True
             updated_recheck = [r[0] for r in self.recheck]
             self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
             for k in updated_recheck:
@@ -434,6 +442,7 @@ class Arr:
 
     def _process_resume(self):
         if self.resume:
+            self.needs_cleanup = True
             self.manager.qbit.torrents_resume(torrent_hashes=self.resume)
             for k in self.resume:
                 self.timed_ignore_cache.add(k)
@@ -442,6 +451,7 @@ class Arr:
     def _process_file_priority(self):
         # Set all files marked as "Do not download" to not download.
         for hash_, files in self.change_priority.copy().items():
+            self.needs_cleanup = True
             torrent_info = self.manager.qbit.torrents_info(torrent_hashes=hash_)
             if torrent_info:
                 torrent = torrent_info[0]
@@ -526,6 +536,7 @@ class PlaceHolderArr(Arr):
             temp = defaultdict(list)
             updated_recheck = []
             for h, c in self.recheck:
+
                 updated_recheck.append(h)
                 if c := self.manager.qbit_manager.cache.get(h):
                     temp[c].append(h)
