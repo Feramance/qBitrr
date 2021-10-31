@@ -108,7 +108,7 @@ class qBitManager:
                     arr.logger.notice(
                         "Deleting manually failed torrent: [{torrent.category}] "
                         "[Progress: {progress}%][Time Left: {timedelta}] - "
-                        "({torrent.hash}) {torrent.name}",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         timedelta=timedelta(seconds=torrent.eta),
                         progress=round(torrent.progress * 100, 2),
@@ -119,7 +119,7 @@ class qBitManager:
                     arr.logger.notice(
                         "Re-cheking manually set torrent: [{torrent.category}] "
                         "[Progress: {progress}%][Time Left: {timedelta}] - "
-                        "({torrent.hash}) {torrent.name}",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         timedelta=timedelta(seconds=torrent.eta),
                         progress=round(torrent.progress * 100, 2),
@@ -170,7 +170,7 @@ class qBitManager:
                 elif torrent.state_enum == TorrentStates.ERROR:
                     arr.logger.info(
                         "Rechecking Erroed torrent: [{torrent.category}] - "
-                        "({torrent.hash}) {torrent.name}",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     self.arr_manager.managed_objects[torrent.category].recheck.add(
@@ -192,7 +192,7 @@ class qBitManager:
                 elif torrent.state_enum == TorrentStates.MISSING_FILES:
                     arr.logger.info(
                         "Deleting torrent with missing files: [{torrent.category}] - "
-                        "({torrent.hash}) {torrent.name}",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     # We do not want to blacklist these!!
@@ -211,7 +211,7 @@ class qBitManager:
                     if torrent.added_on < time.time() - arr.ignore_torrents_younger_than:
                         arr.logger.info(
                             "Deleting Stale torrent: [{torrent.category}] "
-                            "[Progress: {progress}%] - ({torrent.hash}) {torrent.name}",
+                            "[Progress: {progress}%] - {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                         )
@@ -226,7 +226,7 @@ class qBitManager:
                 ):
                     arr.logger.info(
                         "Pausing uploading torrent: [{torrent.category}] - "
-                        "({torrent.hash}) {torrent.name} - {torrent.state_enum}",
+                        "{torrent.name} ({torrent.hash}) - {torrent.state_enum}",
                         torrent=torrent,
                     )
                     self.arr_manager.managed_objects[torrent.category].pause.add(torrent.hash)
@@ -240,7 +240,7 @@ class qBitManager:
                     arr.logger.info(
                         "Deleting slow torrent: [{torrent.category}] "
                         "[Progress: {progress}%][Time Left: {timedelta}] - "
-                        "({torrent.hash}) {torrent.name}",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         timedelta=timedelta(seconds=torrent.eta),
                         progress=round(torrent.progress * 100, 2),
@@ -256,7 +256,7 @@ class qBitManager:
                         arr.logger.info(
                             "Deleting Stale torrent: [{torrent.category}] "
                             "[Progress: {progress}%][Availability: {availability}%]"
-                            "[Last active: {last_activity}] - ({torrent.hash}) {torrent.name}",
+                            "[Last active: {last_activity}] - {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
@@ -278,7 +278,7 @@ class qBitManager:
                             if file_path.suffix not in arr.file_extension_allowlist:
                                 arr.logger.debug(
                                     "Removing File: Not allowed - Extension: [{torrent.category}] - "
-                                    "{suffix}  | ({torrent.hash}) | {file.name} ",
+                                    "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
                                     torrent=torrent,
                                     file=file,
                                     suffix=file_path.suffix,
@@ -293,7 +293,7 @@ class qBitManager:
                             ):
                                 arr.logger.debug(
                                     "Removing File: Not allowed - Parent: [{torrent.category}] - "
-                                    "{folder_match} | ({torrent.hash}) | {file.name} ",
+                                    "{folder_match} | {torrent.name} ({torrent.hash}) | {file.name} ",
                                     torrent=torrent,
                                     file=file,
                                     folder_match=folder_match,
@@ -304,7 +304,7 @@ class qBitManager:
                             elif match := arr.file_name_exclusion_regex_re.search(file_path.name):
                                 arr.logger.debug(
                                     "Removing File: Not allowed - Name: [{torrent.category}] - "
-                                    "{match} | ({torrent.hash}) | {file.name}",
+                                    "{match} | {torrent.name} ({torrent.hash}) | {file.name}",
                                     torrent=torrent,
                                     file=file,
                                     match=match.group(),
@@ -315,7 +315,7 @@ class qBitManager:
                             if total == 0:
                                 arr.logger.info(
                                     "Deleting All files ignored: [{torrent.category}] - "
-                                    "({torrent.hash}) {torrent.name}",
+                                    "{torrent.name} ({torrent.hash})}",
                                     torrent=torrent,
                                 )
                                 self.arr_manager.managed_objects[torrent.category].delete.add(

@@ -326,7 +326,7 @@ class Arr:
                     self.skip_blacklist.add(torrent.hash.upper())
                     self.logger.info(
                         "Deleting Missing Torrent: [{torrent.category}] - "
-                        "({torrent.hash}) {torrent.name} ",
+                        "{torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     continue
@@ -456,7 +456,7 @@ class Arr:
             if torrent_info:
                 torrent = torrent_info[0]
                 self.logger.debug(
-                    "Updating file priority on torrent: ({torrent.hash}) {torrent.name}",
+                    "Updating file priority on torrent: {torrent.name} ({torrent.hash})",
                     torrent=torrent,
                 )
                 self.manager.qbit.torrents_file_priority(
