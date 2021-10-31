@@ -3,3 +3,4 @@ logbook
 qbittorrent-api
 requests
 pyarr
+colorama

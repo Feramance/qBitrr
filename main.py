@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import NoReturn
 
 import qbittorrentapi
@@ -7,9 +7,7 @@ import qbittorrentapi
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
 from arss import ArrManager
-
 from logger import *
-
 from config import (
     CONFIG,
     FAILED_CATEGORY,
@@ -152,7 +150,7 @@ class qBitManager:
                     torrent.progress >= arr.maximum_deletable_percentage
                     and self.is_complete_state(torrent) is False
                 ):
-                    if torrent.last_activity < datetime.now() - timedelta(seconds=arr.maximum_eta):
+                    if torrent.last_activity < time.time() - arr.maximum_eta:
                         arr.logger.info(
                             "Deleting Stale torrent: [{torrent.category}] "
                             "[Progress: {progress}%] - ({torrent.hash}) {torrent.name}",
