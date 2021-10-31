@@ -315,7 +315,7 @@ class qBitManager:
                             if total == 0:
                                 arr.logger.info(
                                     "Deleting All files ignored: [{torrent.category}] - "
-                                    "{torrent.name} ({torrent.hash})}",
+                                    "{torrent.name} ({torrent.hash})",
                                     torrent=torrent,
                                 )
                                 self.arr_manager.managed_objects[torrent.category].delete.add(
