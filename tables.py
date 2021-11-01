@@ -9,13 +9,14 @@ from peewee import (
 
 
 class MoviesFilesModel(Model):
-    title = CharField()
-    monitored = BooleanField()
+    Title = CharField()
+    Monitored = BooleanField()
     TmdbId = IntegerField()
-    year = IntegerField()
+    Year = IntegerField()
     EntryId = IntegerField(unique=True)
-    searched = BooleanField(default=False)
+    Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
+    Ombi = BooleanField(default=False)
 
 
 class EpisodeFilesModel(Model):
@@ -31,14 +32,25 @@ class EpisodeFilesModel(Model):
     LastSearchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     AirDateUtc = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     Monitored = BooleanField(null=True)
-    searched = BooleanField(default=False)
+    Searched = BooleanField(default=False)
+    Ombi = BooleanField(default=False)
+
+
+class Series(Model):
+    Title = TextField()
+    EpisodeCount = IntegerField()
+    EpisodeFileCount = IntegerField()
+    Monitored = BooleanField()
+    TvdbId = IntegerField()
+    EntryId = IntegerField(unique=True)
+    Searched = BooleanField(default=False)
 
 
 class MovieQueueModel(Model):
     EntryId = IntegerField(unique=True)
-    completed = BooleanField(default=False)
+    Completed = BooleanField(default=False)
 
 
 class EpisodeQueueModel(Model):
     EntryId = IntegerField(unique=True)
-    completed = BooleanField(default=False)
+    Completed = BooleanField(default=False)

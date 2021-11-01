@@ -2,6 +2,10 @@ class QBitManagerExceptions(Exception):
     """Base Exception"""
 
 
+class UnhandledError(QBitManagerExceptions):
+    """Use to raise when there an unhandled edge case"""
+
+
 class ConfigException(QBitManagerExceptions):
     """Base Exception for Config related exceptions"""
 

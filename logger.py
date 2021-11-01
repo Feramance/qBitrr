@@ -6,6 +6,7 @@ from logbook import StreamHandler
 from logbook.more import ColorizingStreamHandlerMixin
 
 from config import *
+
 __all__ = ()
 logging_map = {
     "CRITICAL": logbook.CRITICAL,
@@ -77,16 +78,30 @@ log = CustomColorizedStdoutHandler(
 )
 log.push_application()
 logger = logbook.Logger("Misc")
-logger.info("Ping URLs:  {PingURL}", PingURL=PING_URLS)
-logger.info("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
-logger.info("Script Config:  RecheckCategory={RecheckCategory}", RecheckCategory=RECHECK_CATEGORY)
-logger.info("Script Config:  CompletedDownloadFolder={Folder}", Folder=COMPLETED_DOWNLOAD_FOLDER)
-logger.info("Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER)
-logger.info(
-    "Script Config:  NoInternetSleepTimer={NoInternetSleepTimer}",
-    NoInternetSleepTimer=NO_INTERNET_SLEEP_TIMER,
-)
-logger.info(
-    "Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerThan}",
-    IgnoreTorrentsYoungerThan=IGNORE_TORRENTS_YOUNGER_THAN,
-)
+HAS_RUN = False
+
+
+def run_logs():
+    global HAS_RUN
+    logger.info("Ping URLs:  {PingURL}", PingURL=PING_URLS)
+    logger.info("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
+    logger.info(
+        "Script Config:  RecheckCategory={RecheckCategory}", RecheckCategory=RECHECK_CATEGORY
+    )
+    logger.info(
+        "Script Config:  CompletedDownloadFolder={Folder}", Folder=COMPLETED_DOWNLOAD_FOLDER
+    )
+    logger.info("Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER)
+    logger.info(
+        "Script Config:  NoInternetSleepTimer={NoInternetSleepTimer}",
+        NoInternetSleepTimer=NO_INTERNET_SLEEP_TIMER,
+    )
+    logger.info(
+        "Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerThan}",
+        IgnoreTorrentsYoungerThan=IGNORE_TORRENTS_YOUNGER_THAN,
+    )
+    HAS_RUN = True
+
+
+if not HAS_RUN:
+    run_logs()
