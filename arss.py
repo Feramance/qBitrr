@@ -393,10 +393,7 @@ class Arr:
             elif self.type == "radarr":
                 for series in (
                     self.model_arr_file.select()
-                    .where(
-                        (self.model_arr_file.Year == self.search_current_year)
-                        & (self.model_arr_file.MovieFileId != 0)
-                    )
+                    .where((self.model_arr_file.Year == self.search_current_year))
                     .order_by(self.model_arr_file.Added.desc())
                 ):
                     self.db_update_single_series(db_entry=series)
@@ -558,7 +555,7 @@ class Arr:
                 self.model_queue.select()
                 .where(
                     (self.model_queue.completed == False)
-                    & (self.model_queue.EntryId == file_model.Id)
+                    & (self.model_queue.EntryId == file_model.EntryId)
                 )
                 .execute()
             )
@@ -592,7 +589,8 @@ class Arr:
             queue = (
                 self.model_queue.select()
                 .where(
-                    (self.model_queue.completed == False) & (self.model_queue.Id == file_model.Id)
+                    (self.model_queue.completed == False)
+                    & (self.model_queue.EntryId == file_model.EntryId)
                 )
                 .execute()
             )
@@ -615,7 +613,7 @@ class Arr:
                 EntryId=file_model.EntryId,
             ).execute()
             self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
-            self.logger.notice("Searching for : {series.title} ({model.year})", model=file_model)
+            self.logger.notice("Searching for : {model.title} ({model.year})", model=file_model)
             return True
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
@@ -1217,7 +1215,7 @@ class Arr:
         stopping_year = datetime.now().year if self.search_in_reverse else 1900
         while True:
             self.db_update()
-            with contextlib.suppress(Exception):
+            try:
                 for entry in self.db_get_files():
                     while self.maybe_do_search(entry) is False:
                         time.sleep(30)
@@ -1230,6 +1228,8 @@ class Arr:
                     if self.search_current_year < stopping_year:
                         self.search_current_year = copy(count_start)
                         time.sleep(60)
+            except Exception as e:
+                self.logger.exception(e, exc_info=sys.exc_info())
 
     def spawn_child_processes(self):
         _temp = []
