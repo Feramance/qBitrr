@@ -10,14 +10,24 @@ from collections import defaultdict
 from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, List, NoReturn, Set, TYPE_CHECKING, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    List,
+    NoReturn,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import ffmpeg
 import logbook
 import pathos
 import qbittorrentapi
 import requests
-from peewee import Model, SqliteDatabase
+from peewee import SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
@@ -32,8 +42,18 @@ from config import (
     RECHECK_CATEGORY,
 )
 from errors import DelayLoopException, NoConnectionrException, SkipException
-from tables import EpisodeFilesModel, EpisodeQueueModel, MovieQueueModel, MoviesFilesModel
-from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
+from tables import (
+    EpisodeFilesModel,
+    EpisodeQueueModel,
+    MovieQueueModel,
+    MoviesFilesModel,
+)
+from utils import (
+    ExpiringSet,
+    absolute_file_paths,
+    has_internet,
+    validate_and_return_torrent_file,
+)
 
 if TYPE_CHECKING:
     from .main import qBitManager
@@ -561,8 +581,10 @@ class Arr:
             )
             if queue:
                 self.logger.debug(
-                    "Skipping: Already Searched : {file_model.SeriesTitle} - S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:03d} - {file_model.Title} ",
-                    file_model=file_model,
+                    "Skipping: Already Searched : {model.SeriesTitle} - "
+                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} -"
+                    " {model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                    model=file_model,
                 )
                 return True
             active_commands = self.arr_db_query_commands_count()
@@ -571,8 +593,10 @@ class Arr:
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "Idle: Too many commands in queue : {file_model.SeriesTitle} - S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:03d} - {file_model.Title}",
-                    file_model=file_model,
+                    "Idle: Too many commands in queue : {model.SeriesTitle} - "
+                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} - "
+                    "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                    model=file_model,
                 )
                 return False
             self.model_queue.insert(
@@ -581,8 +605,10 @@ class Arr:
             ).execute()
             self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
             self.logger.notice(
-                "Searching for : {file_model.SeriesTitle} - S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:03d} - {file_model.Title}",
-                file_model=file_model,
+                "Searching for : {model.SeriesTitle} - "
+                "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} - "
+                "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                model=file_model,
             )
             return True
         elif self.type == "radarr":
@@ -597,7 +623,9 @@ class Arr:
             active_commands = self.arr_db_query_commands_count()
             if queue:
                 self.logger.debug(
-                    "Skipping: Already Searched : {model.title} ({model.year})", model=file_model
+                    "Skipping: Already Searched : {model.title} ({model.year}) "
+                    "[tmdbId={model.TmdbId}|id={model.EntryId}]",
+                    model=file_model,
                 )
                 return True
             self.logger.debug(
@@ -605,7 +633,9 @@ class Arr:
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "Skipping: Too many in queue : {model.title} ({model.year})", model=file_model
+                    "Skipping: Too many in queue : {model.title} ({model.year}) "
+                    "[tmdbId={model.TmdbId}|id={model.EntryId}]",
+                    model=file_model,
                 )
                 return False
             self.model_queue.insert(
@@ -613,7 +643,11 @@ class Arr:
                 EntryId=file_model.EntryId,
             ).execute()
             self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
-            self.logger.notice("Searching for : {model.title} ({model.year})", model=file_model)
+            self.logger.notice(
+                "Searching for : {model.title} ({model.year}) "
+                "[tmdbId={model.TmdbId}|id={model.EntryId}]",
+                model=file_model,
+            )
             return True
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
@@ -870,7 +904,7 @@ class Arr:
                     year = data.get("year", 0)
                     tmdbId = data.get("tmdbId", 0)
                     self.logger.notice(
-                        "Re-Searching movie: {name} ({year}) | " "[tmdbId={tmdbId}|id={movie_id}]",
+                        "Re-Searching movie: {name} ({year}) | [tmdbId={tmdbId}|id={movie_id}]",
                         movie_id=object_id,
                         name=name,
                         year=year,

@@ -1,12 +1,12 @@
 import os
 import sys
 
+import logbook
 from logbook import StreamHandler
 from logbook.more import ColorizingStreamHandlerMixin
-import logbook
 
 from config import *
-
+__all__ = ()
 logging_map = {
     "CRITICAL": logbook.CRITICAL,
     "ERROR": logbook.ERROR,

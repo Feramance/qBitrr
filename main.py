@@ -1,17 +1,13 @@
 from typing import NoReturn
 
+import logbook
 import qbittorrentapi
 import requests
-
-from qbittorrentapi import (
-    APINames,
-    login_required,
-    response_text,
-)
+from qbittorrentapi import APINames, login_required, response_text
 
 from arss import ArrManager
-from logger import *
 from config import CONFIG
+from logger import *
 
 logger = logbook.Logger("qBitManager")
 
@@ -49,11 +45,6 @@ class qBitManager:
     @response_text(str)
     @login_required
     def app_version(self, **kwargs):
-        """
-        Retrieve application version
-
-        :return: string
-        """
         return self.client._get(
             _name=APINames.Application,
             _method="version",
