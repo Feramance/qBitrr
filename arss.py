@@ -803,17 +803,25 @@ class Arr:
                 if path in self.sent_to_scan:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
-                self.logger.notice(
-                    "DownloadedEpisodesScan: {path}",
-                    torrent=torrent,
-                    path=path,
-                )
-                self.post_command(
-                    "DownloadedEpisodesScan",
-                    path=str(path),
-                    downloadClientId=torrent.hash.upper(),
-                    importMode=self.import_mode,
-                )
+                if self.type == "sonarr":
+                    self.logger.notice(
+                        "DownloadedEpisodesScan: {path}",
+                        path=path,
+                    )
+                    self.post_command(
+                        "DownloadedEpisodesScan",
+                        path=str(path),
+                        downloadClientId=torrent.hash.upper(),
+                        importMode=self.import_mode,
+                    )
+                elif self.type == "radarr":
+                    self.logger.info("DownloadedMoviesScan: {path}", path=path)
+                    self.post_command(
+                        "DownloadedMoviesScan",
+                        path=str(path),
+                        downloadClientId=torrent.hash.upper(),
+                        importMode=self.import_mode,
+                    )
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
