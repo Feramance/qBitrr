@@ -1,7 +1,21 @@
 A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate
 with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
-#### Important mentions.
+### Features
+  - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action)
+  - Monitor qBit for completed entries and tell the appropriate Arr instance to import it ( 'DownloadedMoviesScan' or 'DownloadedEpisodesScan' commands)
+  - Skip files in qBit entries by extention, folder or regex
+  - Monitor completed folder and cleans it up
+  - Uses [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
+  - Trigger perioridc Rss Syncs on the appropriate Arr instances
+  - Trigger Queue update on appropriate Arr instances
+  
+  __This section requires the Arr databases to be locally avaliable.__
+  - Monitor Arr's databases to trigger missing episode searches
+  - Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc)
+  
+
+### Important mentions.
 
 Some things to know before using it.
 
@@ -34,5 +48,4 @@ Some things to know before using it.
   use case.
 
 #### Example behaviour
-
-![image](https://user-images.githubusercontent.com/27962761/139135537-ab430cb4-2116-47e3-b207-b0f863368e34.png)
+![image](https://user-images.githubusercontent.com/27962761/139675283-f1b09955-d9b3-448c-b64c-1de58c1cddcb.png)
