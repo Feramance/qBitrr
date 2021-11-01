@@ -70,7 +70,11 @@ class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
 
 
 CONSOLE_LOGGING_LEVEL = logging_map.get(CONSOLE_LOGGING_LEVEL_STRING)
-log = CustomColorizedStdoutHandler(sys.stdout, level=CONSOLE_LOGGING_LEVEL)
+log = CustomColorizedStdoutHandler(
+    sys.stdout,
+    level=CONSOLE_LOGGING_LEVEL,
+    format_string="[{record.time:%Y-%m-%d %H:%M:%S.%f%z}] {record.thread} {record.level_name}: {record.channel}: {record.message}",
+)
 log.push_application()
 logger = logbook.Logger("Misc")
 logger.info("Ping URLs:  {PingURL}", PingURL=PING_URLS)

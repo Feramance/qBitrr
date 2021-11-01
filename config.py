@@ -1,5 +1,6 @@
 import configparser
 import pathlib
+from datetime import datetime
 
 CONFIG = configparser.ConfigParser(
     converters={
@@ -8,6 +9,7 @@ CONFIG = configparser.ConfigParser(
         "float": lambda x: float(x),
         "boolean": lambda x: x.lower().strip() in {"1", "true", "on", "enabled"},
         "upper": lambda x: str(x).upper().strip(),
+        "year": lambda x: int(str(x).strip()) if x else datetime.now().year,
     }
 )
 CONFIG.read("./config.ini")

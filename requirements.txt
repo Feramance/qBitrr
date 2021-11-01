@@ -4,3 +4,5 @@ qbittorrent-api
 requests
 pyarr
 colorama
+peewee
+pathos
