@@ -1436,6 +1436,7 @@ class Arr:
             self.db_update()
             try:
                 for entry in self.db_get_files():
+                    self.run_ombi_search()
                     while self.maybe_do_search(entry) is False:
                         time.sleep(30)
                 time.sleep(60)
