@@ -382,11 +382,11 @@ class Arr:
                     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                     & (
                         self.model_arr_file.AirDateUtc
-                        > datetime(month=1, day=1, year=self.search_current_year)
+                        >= datetime(month=1, day=1, year=self.search_current_year)
                     )
                     & (
                         self.model_arr_file.AirDateUtc
-                        < datetime(month=12, day=31, year=self.search_current_year)
+                        <= datetime(month=12, day=31, year=self.search_current_year)
                     )
                 ):
                     self.db_update_single_series(db_entry=series)
@@ -561,7 +561,7 @@ class Arr:
             )
             if queue:
                 self.logger.debug(
-                    "Skipping: Already in queue : {file_model.SeriesTitle} - S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:03d} - {file_model.Title} ",
+                    "Skipping: Already Searched : {file_model.SeriesTitle} - S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:03d} - {file_model.Title} ",
                     file_model=file_model,
                 )
                 return True
@@ -597,7 +597,7 @@ class Arr:
             active_commands = self.arr_db_query_commands_count()
             if queue:
                 self.logger.debug(
-                    "Skipping: Already in queue : {model.title} ({model.year})", model=file_model
+                    "Skipping: Already Searched : {model.title} ({model.year})", model=file_model
                 )
                 return True
             self.logger.debug(
