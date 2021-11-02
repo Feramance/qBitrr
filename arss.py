@@ -806,6 +806,7 @@ class Arr:
             if self.type == "sonarr":
                 db_entry: EpisodesModel
                 if db_entry.EpisodeFileId != 0:
+                    searched = True
                     self.model_queue.update(Completed=True).where(
                         (self.model_queue.EntryId == db_entry.Id)
                     ).execute()
@@ -830,6 +831,24 @@ class Arr:
                     SeasonNumber=SeasonNumber,
                     EpisodeNumber=EpisodeNumber,
                 )
+                to_update = {
+                    self.model_file.Monitored: Monitored,
+                    self.model_file.Title: Title,
+                    self.model_file.AirDateUtc: AirDateUtc,
+                    self.model_file.LastSearchTime: LastSearchTime,
+                    self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
+                    self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
+                    self.model_file.EpisodeNumber: EpisodeNumber,
+                    self.model_file.EpisodeFileId: EpisodeFileId,
+                    self.model_file.SeriesId: SeriesId,
+                    self.model_file.SeriesTitle: SeriesTitle,
+                    self.model_file.SeasonNumber: SeasonNumber,
+                }
+                if searched:
+                    to_update[self.model_file.Searched] = searched
+
+                if ombi:
+                    to_update[self.model_file.Ombi] = ombi
 
                 db_commands = self.model_file.insert(
                     EntryId=EntryId,
@@ -848,24 +867,11 @@ class Arr:
                     Ombi=ombi,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
-                    update={
-                        self.model_file.Monitored: Monitored,
-                        self.model_file.Title: Title,
-                        self.model_file.AirDateUtc: AirDateUtc,
-                        self.model_file.LastSearchTime: LastSearchTime,
-                        self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
-                        self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
-                        self.model_file.EpisodeNumber: EpisodeNumber,
-                        self.model_file.EpisodeFileId: EpisodeFileId,
-                        self.model_file.SeriesId: SeriesId,
-                        self.model_file.SeriesTitle: SeriesTitle,
-                        self.model_file.SeasonNumber: SeasonNumber,
-                        self.model_file.Searched: searched or self.model_file.Searched,
-                        self.model_file.Ombi: ombi or self.model_file.Ombi,
-                    },
+                    update=to_update,
                 )
             elif self.type == "radarr":
                 db_entry: MoviesModel
+                searched = False
                 if db_entry.MovieFileId != 0:
                     searched = True
                     self.model_queue.update(Completed=True).where(
@@ -880,6 +886,14 @@ class Arr:
                 self.logger.trace(
                     "Updating database entry - {title} ({tmdbId})", title=title, tmdbId=tmdbId
                 )
+                to_update = {
+                    self.model_file.MovieFileId: MovieFileId,
+                    self.model_file.Monitored: monitored,
+                }
+                if searched:
+                    to_update[self.model_file.Searched] = searched
+                if ombi:
+                    to_update[self.model_file.Ombi] = ombi
                 db_commands = self.model_file.insert(
                     Title=title,
                     Monitored=monitored,
@@ -891,12 +905,7 @@ class Arr:
                     Ombi=ombi,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
-                    update={
-                        self.model_file.MovieFileId: MovieFileId,
-                        self.model_file.Monitored: monitored,
-                        self.model_file.Searched: searched or self.model_file.Searched,
-                        self.model_file.Ombi: ombi or self.model_file.Ombi,
-                    },
+                    update=to_update,
                 )
             db_commands.execute()
 
@@ -978,9 +987,7 @@ class Arr:
             ombitag = "[OMBI REQUEST] : " if ombi else ""
             queue = (
                 self.model_queue.select()
-                .where(
-                    self.model_queue.EntryId == file_model.EntryId
-                )
+                .where(self.model_queue.EntryId == file_model.EntryId)
                 .execute()
             )
             if queue:
@@ -991,6 +998,8 @@ class Arr:
                     model=file_model,
                     ombitag=ombitag,
                 )
+                file_model.Searched = True
+                file_model.save()
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
@@ -1012,6 +1021,8 @@ class Arr:
                 EntryId=file_model.EntryId,
             ).execute()
             self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
+            file_model.Searched = True
+            file_model.save()
             self.logger.notice(
                 "{ombitag}Searching for : {model.SeriesTitle} - "
                 "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} - "
@@ -1024,9 +1035,7 @@ class Arr:
             ombitag = "[OMBI REQUEST] : " if ombi else ""
             queue = (
                 self.model_queue.select()
-                .where(
-                    self.model_queue.EntryId == file_model.EntryId
-                )
+                .where(self.model_queue.EntryId == file_model.EntryId)
                 .execute()
             )
             active_commands = self.arr_db_query_commands_count()
@@ -1037,6 +1046,8 @@ class Arr:
                     model=file_model,
                     ombitag=ombitag,
                 )
+                file_model.Searched = True
+                file_model.save()
                 return True
             self.logger.debug(
                 "{ombitag}{active_commands} active search commands",
@@ -1056,6 +1067,8 @@ class Arr:
                 EntryId=file_model.EntryId,
             ).execute()
             self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
+            file_model.Searched = True
+            file_model.save()
             self.logger.notice(
                 "{ombitag}Searching for : {model.Title} ({model.Year}) "
                 "[tmdbId={model.TmdbId}|id={model.EntryId}]",

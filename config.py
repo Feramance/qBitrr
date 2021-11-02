@@ -7,7 +7,7 @@ CONFIG = configparser.ConfigParser(
         "list": lambda x: [i.strip() for i in x.split(",")],
         "int": lambda x: int(x),
         "float": lambda x: float(x),
-        "boolean": lambda x: x.lower().strip() in {"1", "true", "on", "enabled"} or bool(x),
+        "boolean": lambda x: x.lower().strip() in {"1", "true", "on", "enabled"},
         "upper": lambda x: str(x).upper().strip(),
         "year": lambda x: int(str(x).strip()) if x else datetime.now().year,
     }
