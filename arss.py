@@ -159,8 +159,9 @@ class Arr:
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
-        elif self.type == "radarr":
+        elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
+
         self.manager = manager
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
