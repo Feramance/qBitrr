@@ -1,11 +1,4 @@
-from peewee import (
-    BooleanField,
-    CharField,
-    DateTimeField,
-    IntegerField,
-    Model,
-    TextField,
-)
+from peewee import BooleanField, CharField, DateTimeField, IntegerField, Model, TextField
 
 
 class MoviesFilesModel(Model):
@@ -16,7 +9,7 @@ class MoviesFilesModel(Model):
     EntryId = IntegerField(unique=True)
     Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
-    Ombi = BooleanField(default=False)
+    IsRequest = BooleanField(default=False)
 
 
 class EpisodeFilesModel(Model):
@@ -33,7 +26,7 @@ class EpisodeFilesModel(Model):
     AirDateUtc = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     Monitored = BooleanField(null=True)
     Searched = BooleanField(default=False)
-    Ombi = BooleanField(default=False)
+    IsRequest = BooleanField(default=False)
 
 
 class Series(Model):

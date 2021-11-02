@@ -10,18 +10,7 @@ from collections import defaultdict
 from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    NoReturn,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, NoReturn, Set, Tuple, Type, Union
 
 import ffmpeg
 import logbook
@@ -42,24 +31,9 @@ from config import (
     NO_INTERNET_SLEEP_TIMER,
     RECHECK_CATEGORY,
 )
-from errors import (
-    DelayLoopException,
-    NoConnectionrException,
-    SkipException,
-    UnhandledError,
-)
-from tables import (
-    EpisodeFilesModel,
-    EpisodeQueueModel,
-    MovieQueueModel,
-    MoviesFilesModel,
-)
-from utils import (
-    ExpiringSet,
-    absolute_file_paths,
-    has_internet,
-    validate_and_return_torrent_file,
-)
+from errors import DelayLoopException, NoConnectionrException, SkipException, UnhandledError
+from tables import EpisodeFilesModel, EpisodeQueueModel, MovieQueueModel, MoviesFilesModel
+from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
     from .main import qBitManager
@@ -133,14 +107,20 @@ class Arr:
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
 
         self.ombi_search_requests = CONFIG.getboolean(name, "SearchOmbiRequests")
+        self.overseerr_requests = CONFIG.getboolean(name, "SearchOverseerrRequests")
         self.ombi_uri = CONFIG.get(name, "OmbiURI")
+        self.overseerr_uri = CONFIG.get(name, "OverseerrURI")
+
         self.ombi_api_key = CONFIG.get(name, "OmbiAPIKey")
+        self.overseerr_api_key = CONFIG.get(name, "OverseerrAPIKey")
+
         self.ombi_approved_only = CONFIG.getboolean(name, "ApprovedOnly")
-        self.ombi_search_every_x_seconds = CONFIG.getint(name, "OmbiSearchEvery")
-        if self.ombi_search_requests:
-            self.ombi_search_timer = 0
+        self.search_requests_every_x_seconds = CONFIG.getint(name, "SearchRequestsEvery")
+        self._temp_overseer_request_cache: Dict[str, Set[Union[int, str]]] = defaultdict(set)
+        if self.ombi_search_requests or self.overseerr_requests:
+            self.request_search_timer = 0
         else:
-            self.ombi_search_timer = None
+            self.request_search_timer = None
 
         if self.case_sensitive_matches:
             self.folder_exclusion_regex_re = re.compile(
@@ -357,6 +337,52 @@ class Arr:
             return MoviesFilesModel, MovieQueueModel
         else:
             raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
+
+    def _get_oversee_requests_all(self) -> Dict[str, Set]:
+        try:
+            data = defaultdict(set)
+            url = f"{self.overseerr_uri}/api/v1/request?take=100&skip=0&sort=added&filter=unavailable"
+            response = self.session.get(
+                url=url,
+                headers={"X-Api-Key": self.overseerr_api_key},
+            )
+            response = response.json().get("results", [])
+            type_ = None
+            if self.type == "sonarr":
+                type_ = "tv"
+            elif self.type == "radarr":
+                type_ = "movie"
+            for entry in response:
+                type__ = entry.get("type")
+                if type_ != type__:
+                    continue
+                if media := entry.get("media"):
+                    if imdbId := media.get("imdbId"):
+                        data["ImdbId"].add(imdbId)
+                    if self.type == "sonarr" and (tvdbId := media.get("tvdbId")):
+                        data["TvdbId"].add(tvdbId)
+                    elif self.type == "radarr" and (tmdbId := media.get("tmdbId")):
+                        data["TmdbId"].add(tmdbId)
+
+            self._temp_overseer_request_cache = data
+
+        except Exception as e:
+            self.logger.exception(e, exc_info=sys.exc_info())
+            self._temp_overseer_request_cache = defaultdict(set)
+            return self._temp_overseer_request_cache
+        else:
+            return self._temp_overseer_request_cache
+
+    def _get_overseerr_requests_count(self) -> int:
+        self._get_oversee_requests_all()
+        if self.type == "sonarr":
+            try:
+                return len(self._temp_overseer_request_cache.get("TvdbId", []))
+            finally:
+                self.logger.critical("Well there was an error")
+        elif self.type == "radarr":
+            return len(self._temp_overseer_request_cache.get("ImdbId", []))
+        return 0
 
     def _get_ombi_request_count(self) -> int:
         if self.type == "sonarr":
@@ -668,14 +694,14 @@ class Arr:
             ):
                 yield entry
 
-    def db_get_ombi_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
+    def db_get_request_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
         if (not self.search_missing) or (not self.ombi_search_requests):
             yield None
 
         if not self.search_missing:
             yield None
         elif self.type == "sonarr":
-            condition = self.model_file.Ombi == True
+            condition = self.model_file.IsRequest == True
             condition &= self.model_file.EpisodeFileId == 0
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
@@ -698,7 +724,7 @@ class Arr:
                 self.model_file.select()
                 .where(
                     (self.model_file.MovieFileId == 0)
-                    & (self.model_file.Ombi == True)
+                    & (self.model_file.IsRequest == True)
                     & (self.model_file.Searched == False)
                 )
                 .order_by(self.model_file.Title.asc())
@@ -706,17 +732,15 @@ class Arr:
             ):
                 yield entry
 
-    def db_ombi_update(self):
-        if (not self.search_missing) or (not self.ombi_search_requests):
-            return
-        if self._get_ombi_request_count() == 0:
-            return
-        ombi_request_ids = self._process_ombi_requests()
-        if not any(i in ombi_request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
-            return
-        self.logger.trace(f"Started updating database with Ombi request entries.")
+    def db_request_update(self):
+        if self.overseerr_requests:
+            self.db_overseerr_update()
+        else:
+            self.db_ombi_update()
+
+    def _db_request_update(self, request_ids: Dict[str, Set[Union[int, str]]]):
         with self.db.atomic():
-            if self.type == "sonarr" and any(i in ombi_request_ids for i in ["ImdbId", "TvdbId"]):
+            if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
                 self.model_arr_file: EpisodesModel
                 self.model_arr_series_file: SeriesModel
                 condition = self.model_arr_file.AirDateUtc.is_null(False)
@@ -725,9 +749,9 @@ class Arr:
                 condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
                 imdb_con = None
                 tvdb_con = None
-                if ImdbIds := ombi_request_ids.get("ImdbId"):
+                if ImdbIds := request_ids.get("ImdbId"):
                     imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
-                if tvDbIds := ombi_request_ids.get("TvdbId"):
+                if tvDbIds := request_ids.get("TvdbId"):
                     tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
                 if imdb_con and tvdb_con:
                     condition &= imdb_con | tvdb_con
@@ -746,16 +770,14 @@ class Arr:
                     .where(condition)
                 ):
                     self.db_update_single_series(db_entry=series, ombi=True)
-            elif self.type == "radarr" and any(
-                i in ombi_request_ids for i in ["ImdbId", "TmdbId"]
-            ):
+            elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
                 self.model_arr_file: MoviesModel
                 condition = self.model_arr_file.Year <= datetime.now().year
                 tmdb_con = None
                 imdb_con = None
-                if ImdbIds := ombi_request_ids.get("ImdbId"):
+                if ImdbIds := request_ids.get("ImdbId"):
                     imdb_con = self.model_arr_file.ImdbId.in_(ImdbIds)
-                if TmdbIds := ombi_request_ids.get("TmdbId"):
+                if TmdbIds := request_ids.get("TmdbId"):
                     tmdb_con = self.model_arr_file.TmdbId.in_(TmdbIds)
                 if tmdb_con and imdb_con:
                     condition &= tmdb_con | imdb_con
@@ -769,6 +791,29 @@ class Arr:
                     .order_by(self.model_arr_file.Added.desc())
                 ):
                     self.db_update_single_series(db_entry=series, ombi=True)
+
+    def db_overseerr_update(self):
+        if (not self.search_missing) or (not self.overseerr_requests):
+            return
+        if self._get_overseerr_requests_count() == 0:
+            return
+        request_ids = self._temp_overseer_request_cache
+        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
+            return
+        self.logger.trace(f"Started updating database with Overseerr request entries.")
+        self._db_request_update(request_ids)
+        self.logger.trace(f"Finished updating database with Overseerr request entries")
+
+    def db_ombi_update(self):
+        if (not self.search_missing) or (not self.ombi_search_requests):
+            return
+        if self._get_ombi_request_count() == 0:
+            return
+        request_ids = self._process_ombi_requests()
+        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
+            return
+        self.logger.trace(f"Started updating database with Ombi request entries.")
+        self._db_request_update(request_ids)
         self.logger.trace(f"Finished updating database with Ombi request entries")
 
     def db_update(self):
@@ -851,7 +896,7 @@ class Arr:
                     to_update[self.model_file.Searched] = searched
 
                 if ombi:
-                    to_update[self.model_file.Ombi] = ombi
+                    to_update[self.model_file.IsRequest] = ombi
 
                 db_commands = self.model_file.insert(
                     EntryId=EntryId,
@@ -867,7 +912,7 @@ class Arr:
                     SeriesTitle=SeriesTitle,
                     SeasonNumber=SeasonNumber,
                     Searched=searched,
-                    Ombi=ombi,
+                    IsRequest=ombi,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
                     update=to_update,
@@ -896,7 +941,7 @@ class Arr:
                 if searched:
                     to_update[self.model_file.Searched] = searched
                 if ombi:
-                    to_update[self.model_file.Ombi] = ombi
+                    to_update[self.model_file.IsRequest] = ombi
                 db_commands = self.model_file.insert(
                     Title=title,
                     Monitored=monitored,
@@ -905,7 +950,7 @@ class Arr:
                     EntryId=EntryId,
                     Searched=searched,
                     MovieFileId=MovieFileId,
-                    Ombi=ombi,
+                    IsRequest=ombi,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
                     update=to_update,
@@ -980,14 +1025,20 @@ class Arr:
         self.needs_cleanup = False
 
     def maybe_do_search(
-        self, file_model: Union[EpisodeFilesModel, MoviesFilesModel], ombi: bool = False
+        self, file_model: Union[EpisodeFilesModel, MoviesFilesModel], request: bool = False
     ):
+        request_tag = (
+            "[OVERSEERR REQUEST]: "
+            if request and self.overseerr_requests
+            else "[OMBI REQUEST]: "
+            if request and self.ombi_search_requests
+            else ""
+        )
         if (not self.search_missing) or (file_model is None):
             return None
         elif not self.is_alive:
             raise NoConnectionrException("Could not connect to %s" % self.uri, type="arr")
         elif self.type == "sonarr":
-            ombitag = "[OMBI REQUEST]: " if ombi else ""
             queue = (
                 self.model_queue.select()
                 .where(self.model_queue.EntryId == file_model.EntryId)
@@ -995,28 +1046,28 @@ class Arr:
             )
             if queue:
                 self.logger.debug(
-                    "{ombitag}Skipping: Already Searched: {model.SeriesTitle} | "
+                    "{request_tag}Skipping: Already Searched: {model.SeriesTitle} | "
                     "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                     "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                     model=file_model,
-                    ombitag=ombitag,
+                    request_tag=request_tag,
                 )
                 file_model.Searched = True
                 file_model.save()
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
-                "{ombitag}{active_commands} active search commands",
+                "{request_tag}{active_commands} active search commands",
                 active_commands=active_commands,
-                ombitag=ombitag,
+                request_tag=request_tag,
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "{ombitag}Idle: Too many commands in queue: {model.SeriesTitle} | "
+                    "{request_tag}Idle: Too many commands in queue: {model.SeriesTitle} | "
                     "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                     "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                     model=file_model,
-                    ombitag=ombitag,
+                    request_tag=request_tag,
                 )
                 return False
             self.model_queue.insert(
@@ -1027,15 +1078,14 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
-                "{ombitag}Searching for: {model.SeriesTitle} | "
+                "{request_tag}Searching for: {model.SeriesTitle} | "
                 "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                 "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                 model=file_model,
-                ombitag=ombitag,
+                request_tag=request_tag,
             )
             return True
         elif self.type == "radarr":
-            ombitag = "[OMBI REQUEST]: " if ombi else ""
             queue = (
                 self.model_queue.select()
                 .where(self.model_queue.EntryId == file_model.EntryId)
@@ -1044,25 +1094,25 @@ class Arr:
             active_commands = self.arr_db_query_commands_count()
             if queue:
                 self.logger.debug(
-                    "{ombitag}Skipping: Already Searched: {model.Title} ({model.Year}) "
+                    "{request_tag}Skipping: Already Searched: {model.Title} ({model.Year}) "
                     "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                     model=file_model,
-                    ombitag=ombitag,
+                    request_tag=request_tag,
                 )
                 file_model.Searched = True
                 file_model.save()
                 return True
             self.logger.debug(
-                "{ombitag}{active_commands} active search commands",
+                "{request_tag}{active_commands} active search commands",
                 active_commands=active_commands,
-                ombitag=ombitag,
+                request_tag=request_tag,
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "{ombitag}Skipping: Too many in queue: {model.Title} ({model.Year}) "
+                    "{request_tag}Skipping: Too many in queue: {model.Title} ({model.Year}) "
                     "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                     model=file_model,
-                    ombitag=ombitag,
+                    request_tag=request_tag,
                 )
                 return False
             self.model_queue.insert(
@@ -1073,10 +1123,10 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
-                "{ombitag}Searching for: {model.Title} ({model.Year}) "
+                "{request_tag}Searching for: {model.Title} ({model.Year}) "
                 "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                 model=file_model,
-                ombitag=ombitag,
+                request_tag=request_tag,
             )
             return True
 
@@ -1438,24 +1488,51 @@ class Arr:
         self.model_arr_command = Commands
         self.search_setup_completed = True
 
-    def run_ombi_search(self):
-        if (not self.ombi_search_requests) or (
-            self.ombi_search_timer > time.time() - self.ombi_search_every_x_seconds
+    def run_request_search(self):
+        if (not (self.ombi_search_requests or self.overseerr_requests)) or (
+            self.request_search_timer > time.time() - self.search_requests_every_x_seconds
         ):
             return None
         self.register_search_mode()
-        self.logger.notice("Starting Ombi request search")
+        self.logger.notice("Starting Request search")
+
         while True:
-            self.db_ombi_update()
             try:
-                for entry in self.db_get_ombi_files():
-                    while self.maybe_do_search(entry, ombi=True) is False:
-                        time.sleep(30)
-                else:
-                    self.ombi_search_timer = time.time()
-                    return
-            except Exception as e:
-                self.logger.exception(e, exc_info=sys.exc_info())
+                self.db_request_update()
+                try:
+                    for entry in self.db_get_request_files():
+                        while self.maybe_do_search(entry, request=True) is False:
+                            time.sleep(30)
+                except NoConnectionrException as e:
+                    self.logger.error(e.message)
+                    raise DelayLoopException(length=300, type=e.type)
+                except DelayLoopException:
+                    raise
+                except Exception as e:
+                    self.logger.exception(e, exc_info=sys.exc_info())
+                time.sleep(LOOP_SLEEP_TIMER)
+            except DelayLoopException as e:
+                if e.type == "qbit":
+                    self.logger.critical(
+                        "Failed to connected to qBit client, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "internet":
+                    self.logger.critical(
+                        "Failed to connected to the internet, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "arr":
+                    self.logger.critical(
+                        "Failed to connected to the Arr instance, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "delay":
+                    self.logger.critical(
+                        "Forced delay due to temporary issue with environment, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                time.sleep(e.length)
 
     def run_search_loop(self) -> NoReturn:
         self.register_search_mode()
@@ -1465,11 +1542,11 @@ class Arr:
         stopping_year = datetime.now().year if self.search_in_reverse else 1900
         while True:
             try:
-                self.run_ombi_search()
+                self.run_request_search()
                 self.db_update()
                 try:
                     for entry in self.db_get_files():
-                        self.run_ombi_search()
+                        self.run_request_search()
                         while self.maybe_do_search(entry) is False:
                             time.sleep(30)
                     time.sleep(60)
