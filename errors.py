@@ -26,8 +26,9 @@ class RequireConfigValue(QBitManagerExceptions):
 
 
 class NoConnectionrException(QBitManagerExceptions):
-    def __init__(self, message: str):
+    def __init__(self, message: str, type: str = "delay"):
         self.message = message
+        self.type = type
 
 
 class DelayLoopException(QBitManagerExceptions):

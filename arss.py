@@ -136,6 +136,11 @@ class Arr:
         self.ombi_uri = CONFIG.get(name, "OmbiURI")
         self.ombi_api_key = CONFIG.get(name, "OmbiAPIKey")
         self.ombi_approved_only = CONFIG.getboolean(name, "ApprovedOnly")
+        self.ombi_search_every_x_seconds = CONFIG.getint(name, "OmbiSearchEvery")
+        if self.ombi_search_requests:
+            self.ombi_search_timer = 0
+        else:
+            self.ombi_search_timer = None
 
         if self.case_sensitive_matches:
             self.folder_exclusion_regex_re = re.compile(
@@ -281,6 +286,8 @@ class Arr:
     @property
     def is_alive(self) -> bool:
         try:
+            if self.session is None:
+                return True
             req = self.session.get(
                 f"{self.uri}/api/v3/system/status", timeout=0.5, headers={"X-Api-Key": self.apikey}
             )
@@ -965,13 +972,14 @@ class Arr:
     ):
         if (not self.search_missing) or (file_model is None):
             return None
+        elif not self.is_alive:
+            raise NoConnectionrException("Could not connect to %s" % self.uri, type="arr")
         elif self.type == "sonarr":
             ombitag = "[OMBI REQUEST] : " if ombi else ""
             queue = (
                 self.model_queue.select()
                 .where(
-                    (self.model_queue.Completed == False)
-                    & (self.model_queue.EntryId == file_model.EntryId)
+                    self.model_queue.EntryId == file_model.EntryId
                 )
                 .execute()
             )
@@ -1017,8 +1025,7 @@ class Arr:
             queue = (
                 self.model_queue.select()
                 .where(
-                    (self.model_queue.Completed == False)
-                    & (self.model_queue.EntryId == file_model.EntryId)
+                    self.model_queue.EntryId == file_model.EntryId
                 )
                 .execute()
             )
@@ -1411,9 +1418,12 @@ class Arr:
         self.search_setup_completed = True
 
     def run_ombi_search(self):
-        if not self.ombi_search_requests:
+        if (not self.ombi_search_requests) or (
+            self.ombi_search_timer > time.time() - self.ombi_search_every_x_seconds
+        ):
             return None
         self.register_search_mode()
+        self.logger.notice("Starting Ombi request search")
         while True:
             self.db_ombi_update()
             try:
@@ -1421,6 +1431,7 @@ class Arr:
                     while self.maybe_do_search(entry, ombi=True) is False:
                         time.sleep(30)
                 else:
+                    self.ombi_search_timer = time.time()
                     return
             except Exception as e:
                 self.logger.exception(e, exc_info=sys.exc_info())
@@ -1432,36 +1443,73 @@ class Arr:
         count_start = self.search_current_year
         stopping_year = datetime.now().year if self.search_in_reverse else 1900
         while True:
-            self.run_ombi_search()
-            self.db_update()
             try:
-                for entry in self.db_get_files():
-                    self.run_ombi_search()
-                    while self.maybe_do_search(entry) is False:
-                        time.sleep(30)
-                time.sleep(60)
-                self.search_current_year += self._delta
-                if self.search_in_reverse:
-                    if self.search_current_year > stopping_year:
-                        self.search_current_year = copy(count_start)
-                        time.sleep(60)
-                else:
-                    if self.search_current_year < stopping_year:
-                        self.search_current_year = copy(count_start)
-            except Exception as e:
-                self.logger.exception(e, exc_info=sys.exc_info())
+                self.run_ombi_search()
+                self.db_update()
+                try:
+                    for entry in self.db_get_files():
+                        self.run_ombi_search()
+                        while self.maybe_do_search(entry) is False:
+                            time.sleep(30)
+                    time.sleep(60)
+                    self.search_current_year += self._delta
+                    if self.search_in_reverse:
+                        if self.search_current_year > stopping_year:
+                            self.search_current_year = copy(count_start)
+                            time.sleep(60)
+                    else:
+                        if self.search_current_year < stopping_year:
+                            self.search_current_year = copy(count_start)
+                except NoConnectionrException as e:
+                    self.logger.error(e.message)
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=300, type=e.type)
+                except DelayLoopException:
+                    raise
+                except Exception as e:
+                    self.logger.exception(e, exc_info=sys.exc_info())
+                time.sleep(LOOP_SLEEP_TIMER)
+            except DelayLoopException as e:
+                if e.type == "qbit":
+                    self.logger.critical(
+                        "Failed to connected to qBit client, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "internet":
+                    self.logger.critical(
+                        "Failed to connected to the internet, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "arr":
+                    self.logger.critical(
+                        "Failed to connected to the Arr instance, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "delay":
+                    self.logger.critical(
+                        "Forced delay due to temporary issue with environment, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                time.sleep(e.length)
+                self.manager.qbit_manager.should_delay_torrent_scan = False
 
     def run_torrent_loop(self) -> NoReturn:
         while True:
             try:
                 try:
                     if not self.manager.qbit_manager.is_alive:
-                        raise NoConnectionrException("Could not connect to qBit client.")
+                        raise NoConnectionrException(
+                            "Could not connect to qBit client.", type="qbit"
+                        )
+                    if not self.is_alive:
+                        raise NoConnectionrException(
+                            "Could not connect to %s" % self.uri, type="arr"
+                        )
                     self.process_torrents()
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=300, type="qbit")
+                    raise DelayLoopException(length=300, type=e.type)
                 except DelayLoopException:
                     raise
                 except Exception as e:
@@ -1476,6 +1524,11 @@ class Arr:
                 elif e.type == "internet":
                     self.logger.critical(
                         "Failed to connected to the internet, sleeping for %s."
+                        % timedelta(seconds=e.length)
+                    )
+                elif e.type == "arr":
+                    self.logger.critical(
+                        "Failed to connected to the Arr instance, sleeping for %s."
                         % timedelta(seconds=e.length)
                     )
                 elif e.type == "delay":
@@ -1534,6 +1587,7 @@ class PlaceHolderArr(Arr):
         self.timed_skip = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
         self.logger = logbook.Logger(self._name)
         self.search_missing = False
+        self.session = None
 
     def _process_errored(self):
         # Recheck all torrents marked for rechecking.
