@@ -159,7 +159,7 @@ class Arr:
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
-        else:
+        elif self.type == "radarr":
             self.type = "radarr"
         self.manager = manager
         if self.rss_sync_timer > 0:
@@ -499,7 +499,7 @@ class Arr:
                         f"Re-Searching episodes: {' '.join([f'{i}' for i in object_id])}"
                     )
                 self.post_command("EpisodeSearch", episodeIds=object_id)
-            else:
+            elif self.type == "radarr":
                 data = self.client.get_movie_by_movie_id(object_id)
                 name = data.get("title")
                 if name:
@@ -828,7 +828,7 @@ class Arr:
                 searched = searched
 
                 self.logger.trace(
-                    "Updating database entry - {SeriesTitle} - S{SeasonNumber:02d}E{EpisodeNumber:03d} - {Title}",
+                    "Updating database entry | {SeriesTitle} | S{SeasonNumber:02d}E{EpisodeNumber:03d} | {Title}",
                     SeriesTitle=SeriesTitle,
                     SeasonNumber=SeasonNumber,
                     EpisodeNumber=EpisodeNumber,
@@ -886,7 +886,7 @@ class Arr:
                 EntryId = db_entry.Id
                 MovieFileId = db_entry.MovieFileId
                 self.logger.trace(
-                    "Updating database entry - {title} ({tmdbId})", title=title, tmdbId=tmdbId
+                    "Updating database entry | {title} ({tmdbId})", title=title, tmdbId=tmdbId
                 )
                 to_update = {
                     self.model_file.MovieFileId: MovieFileId,
@@ -986,7 +986,7 @@ class Arr:
         elif not self.is_alive:
             raise NoConnectionrException("Could not connect to %s" % self.uri, type="arr")
         elif self.type == "sonarr":
-            ombitag = "[OMBI REQUEST] : " if ombi else ""
+            ombitag = "[OMBI REQUEST]: " if ombi else ""
             queue = (
                 self.model_queue.select()
                 .where(self.model_queue.EntryId == file_model.EntryId)
@@ -994,9 +994,9 @@ class Arr:
             )
             if queue:
                 self.logger.debug(
-                    "{ombitag}Skipping: Already Searched : {model.SeriesTitle} - "
-                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} -"
-                    " {model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                    "{ombitag}Skipping: Already Searched: {model.SeriesTitle} | "
+                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
+                    "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                     model=file_model,
                     ombitag=ombitag,
                 )
@@ -1011,8 +1011,8 @@ class Arr:
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "{ombitag}Idle: Too many commands in queue : {model.SeriesTitle} - "
-                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} - "
+                    "{ombitag}Idle: Too many commands in queue: {model.SeriesTitle} | "
+                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                     "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                     model=file_model,
                     ombitag=ombitag,
@@ -1026,15 +1026,15 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
-                "{ombitag}Searching for : {model.SeriesTitle} - "
-                "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} - "
+                "{ombitag}Searching for: {model.SeriesTitle} | "
+                "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                 "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                 model=file_model,
                 ombitag=ombitag,
             )
             return True
         elif self.type == "radarr":
-            ombitag = "[OMBI REQUEST] : " if ombi else ""
+            ombitag = "[OMBI REQUEST]: " if ombi else ""
             queue = (
                 self.model_queue.select()
                 .where(self.model_queue.EntryId == file_model.EntryId)
@@ -1043,7 +1043,7 @@ class Arr:
             active_commands = self.arr_db_query_commands_count()
             if queue:
                 self.logger.debug(
-                    "{ombitag}Skipping: Already Searched : {model.Title} ({model.Year}) "
+                    "{ombitag}Skipping: Already Searched: {model.Title} ({model.Year}) "
                     "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                     model=file_model,
                     ombitag=ombitag,
@@ -1058,7 +1058,7 @@ class Arr:
             )
             if active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "{ombitag}Skipping: Too many in queue : {model.Title} ({model.Year}) "
+                    "{ombitag}Skipping: Too many in queue: {model.Title} ({model.Year}) "
                     "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                     model=file_model,
                     ombitag=ombitag,
@@ -1072,7 +1072,7 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
-                "{ombitag}Searching for : {model.Title} ({model.Year}) "
+                "{ombitag}Searching for: {model.Title} ({model.Year}) "
                 "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                 model=file_model,
                 ombitag=ombitag,
@@ -1297,7 +1297,7 @@ class Arr:
                             # A file in the torrent does not have the allowlisted extensions, mark it for exclusion.
                             if file_path.suffix not in self.file_extension_allowlist:
                                 self.logger.debug(
-                                    "Removing File: Not allowed - Extension: "
+                                    "Removing File: Not allowed | Extension: "
                                     "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
                                     torrent=torrent,
                                     file=file,
@@ -1312,7 +1312,7 @@ class Arr:
                                 if (folder_match := p.name)
                             ):
                                 self.logger.debug(
-                                    "Removing File: Not allowed - Parent: "
+                                    "Removing File: Not allowed | Parent: "
                                     "{folder_match} | {torrent.name} ({torrent.hash}) | {file.name} ",
                                     torrent=torrent,
                                     file=file,
@@ -1323,7 +1323,7 @@ class Arr:
                             # A file matched and entry in FileNameExclusionRegex, mark it for exclusion.
                             elif match := self.file_name_exclusion_regex_re.search(file_path.name):
                                 self.logger.debug(
-                                    "Removing File: Not allowed - Name: "
+                                    "Removing File: Not allowed | Name: "
                                     "{match} | {torrent.name} ({torrent.hash}) | {file.name}",
                                     torrent=torrent,
                                     file=file,
@@ -1351,7 +1351,7 @@ class Arr:
     def refresh_download_queue(self):
         if self.type == "sonarr":
             self.queue = self.client.get_queue()
-        else:
+        elif self.type == "radarr":
             self.queue = self.client.get_queue(page_size=10000).get("records", [])
 
         self.cache = {
@@ -1362,7 +1362,7 @@ class Arr:
             for entry in self.queue:
                 if "episode" in entry:
                     self.requeue_cache[entry["id"]].append(entry["episode"]["id"])
-        else:
+        elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
