@@ -190,6 +190,7 @@ class Arr:
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
 
         self.session = requests.Session()
+        self.cleaned_torrents = set()
 
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
@@ -563,6 +564,7 @@ class Arr:
                 self.manager.qbit.torrents_file_priority(
                     torrent_hash=hash_, file_ids=files, priority=0
                 )
+                self.cleaned_torrents.add(hash_)
             else:
                 self.logger.error("Torrent does not exist? {hash}", hash=hash_)
             del self.change_priority[hash_]
@@ -617,7 +619,7 @@ class Arr:
         search_commands = (
             self.model_arr_command.select()
             .where(
-                (self.model_arr_command.EndedAt == None)
+                (self.model_arr_command.EndedAt.is_null(True))
                 & (self.model_arr_command.Name.endswith("Search"))
             )
             .execute()
@@ -1168,9 +1170,11 @@ class Arr:
                     if torrent.last_activity < time_now - self.maximum_eta:
                         self.logger.info(
                             "Deleting Stale torrent: "
-                            "[Progress: {progress}%] | ({torrent.hash}) {torrent.name}",
+                            "[Progress: {progress}%][Last active: {last_activity}] | "
+                            "({torrent.hash}) {torrent.name}",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
+                            last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
                         self.delete.add(torrent.hash)
                     else:
@@ -1224,8 +1228,9 @@ class Arr:
                     if torrent.added_on < time_now - self.ignore_torrents_younger_than:
                         self.logger.info(
                             "Deleting Stale torrent: "
-                            "[Progress: {progress}%] | {torrent.name} ({torrent.hash})",
+                            "[Progress: {progress}%][Added On: {added}] | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
+                            added=datetime.fromtimestamp(torrent.added_on),
                             progress=round(torrent.progress * 100, 2),
                         )
                         self.delete.add(torrent.hash)
@@ -1273,11 +1278,13 @@ class Arr:
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
-                            last_activity=torrent.last_activity,
+                            last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
                         self.delete.add(torrent.hash)
 
                     else:
+                        if torrent.hash in self.cleaned_torrents:
+                            continue
                         # A downloading torrent is not stalled, parse its contents.
                         _remove_files = set()
                         total = len(torrent.files)
