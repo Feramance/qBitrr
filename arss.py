@@ -187,6 +187,7 @@ class Arr:
         self.delete = set()
         self.resume = set()
         self.files_to_explicitly_delete: Iterator = ...
+        self.missing_files_post_delete = set()
         self.needs_cleanup = False
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -558,6 +559,11 @@ class Arr:
     def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: Set[str]) -> None:
         with contextlib.suppress(Exception):
             if hash_ not in skip_blacklist:
+                self.logger.debug(
+                    "Blocklisting: {name} ({hash})",
+                    hash=hash_,
+                    name=self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
+                )
                 self.delete_from_queue(id_=entry, blacklist=True)
             else:
                 self.delete_from_queue(id_=entry, blacklist=False)
@@ -625,8 +631,8 @@ class Arr:
             self.recheck.clear()
 
     def _process_failed(self) -> None:
-        to_delete_all = self.delete.union(self.skip_blacklist)
-        skip_blacklist = {i.upper() for i in self.skip_blacklist}
+        to_delete_all = self.delete.union(self.skip_blacklist).union(self.missing_files_post_delete)
+        skip_blacklist = {i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)}
         if to_delete_all:
             self.needs_cleanup = True
             payload, hashes = self.process_entries(to_delete_all)
@@ -645,6 +651,7 @@ class Arr:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
+        self.missing_files_post_delete.clear()
         self.skip_blacklist.clear()
         self.delete.clear()
 
@@ -1272,11 +1279,6 @@ class Arr:
             (_id, h.upper())
             for h in hashes
             if (_id := self.cache.get(h.upper())) is not None
-            and not self.logger.debug(
-                "Blocklisting: {name} ({hash})",
-                hash=h,
-                name=self.manager.qbit_manager.name_cache.get(h, "Deleted"),
-            )
         ]
         hashes = {h for h in hashes if (_id := self.cache.get(h.upper())) is not None}
 
@@ -1619,6 +1621,9 @@ class Arr:
                         "Not an upgrade for existing movie file(s)",
                     }:  # TODO: Add more error codes
                         _path_filter.add(pathlib.Path(output_path).joinpath(title))
+                    if "No files found are eligible for import in" in _m:
+                        if e := m.get("downloadId"):
+                            self.missing_files_post_delete.add(e)
         if len(_path_filter):
             self.needs_cleanup = True
         self.files_to_explicitly_delete = iter(_path_filter.copy())

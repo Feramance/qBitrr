@@ -83,20 +83,20 @@ HAS_RUN = False
 
 def run_logs():
     global HAS_RUN
-    logger.info("Ping URLs:  {PingURL}", PingURL=PING_URLS)
-    logger.info("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
-    logger.info(
+    logger.debug("Ping URLs:  {PingURL}", PingURL=PING_URLS)
+    logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
+    logger.debug(
         "Script Config:  RecheckCategory={RecheckCategory}", RecheckCategory=RECHECK_CATEGORY
     )
-    logger.info(
+    logger.debug(
         "Script Config:  CompletedDownloadFolder={Folder}", Folder=COMPLETED_DOWNLOAD_FOLDER
     )
-    logger.info("Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER)
-    logger.info(
+    logger.debug("Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER)
+    logger.debug(
         "Script Config:  NoInternetSleepTimer={NoInternetSleepTimer}",
         NoInternetSleepTimer=NO_INTERNET_SLEEP_TIMER,
     )
-    logger.info(
+    logger.debug(
         "Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerThan}",
         IgnoreTorrentsYoungerThan=IGNORE_TORRENTS_YOUNGER_THAN,
     )
