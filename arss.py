@@ -10,7 +10,19 @@ from collections import defaultdict
 from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, NoReturn, Set, Tuple, Type, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    NoReturn,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import ffmpeg
 import logbook
@@ -174,6 +186,7 @@ class Arr:
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        self.files_to_explicitly_delete: Iterator = ...
         self.needs_cleanup = False
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -551,7 +564,7 @@ class Arr:
         object_id = self.requeue_cache.get(entry)
         if object_id:
             if self.type == "sonarr":
-                data = self.client.get_episode_by_episode_id(object_id[0])
+                data = self.client.get_episode_by_episode_id(object_id)
                 name = data.get("title")
                 if name:
                     episodeNumber = data.get("episodeNumber", 0)
@@ -565,8 +578,8 @@ class Arr:
                         "S{seasonNumber:02d}E{episodeNumber:03d} "
                         "({absoluteEpisodeNumber:04d}) | "
                         "{title} | "
-                        "[tvdbId={tvdbId}|id={episode_ids}]",
-                        episode_ids=object_id[0],
+                        "[tvdbId={tvdbId}|id={episode_id}]",
+                        episode_id=object_id,
                         title=name,
                         year=year,
                         tvdbId=tvdbId,
@@ -577,7 +590,8 @@ class Arr:
                     )
                 else:
                     self.logger.notice(
-                        f"Re-Searching episodes: {' '.join([f'{i}' for i in object_id])}"
+                        "Re-Searching episode: {id}",
+                        id=object_id,
                     )
                 self.post_command("EpisodeSearch", episodeIds=object_id)
             elif self.type == "radarr":
@@ -1085,12 +1099,15 @@ class Arr:
     def folder_cleanup(self) -> None:
         if self.auto_delete is False:
             return
+        self._update_bad_queue_items()
         if self.needs_cleanup is False:
             return
         folder = self.completed_folder
         self.logger.debug("Folder Cleanup: {folder}", folder=folder)
         for file in absolute_file_paths(folder):
             if file.name in {"desktop.ini", ".DS_Store"}:
+                continue
+            if not file.exists():
                 continue
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder:  {file}", file=file)
@@ -1109,6 +1126,16 @@ class Arr:
                 self.logger.debug("File removed: {path}", path=file)
             except PermissionError:
                 self.logger.debug("File in use: Failed to remove file: {path}", path=file)
+        for file in self.files_to_explicitly_delete:
+            if not file.exists():
+                continue
+            try:
+                file.unlink(missing_ok=True)
+                self.logger.debug("File removed: File was marked as failed by Arr | {path}", path=file)
+            except PermissionError:
+                self.logger.debug("File in use: Failed to remove file: File was marked as failed by Ar | {path}", path=file)
+
+        self.files_to_explicitly_delete = iter([])
         self._remove_empty_folders()
         self.needs_cleanup = False
 
@@ -1296,7 +1323,7 @@ class Arr:
                     self.recheck.add(torrent.hash)
                 # Do not touch torrents that are currently "Checking".
                 elif self.is_ignored_state(torrent):
-                    self.logger.debug(
+                    self.logger.trace(
                         "Skipping torrent: Ignored state | {torrent.name} ({torrent.hash}) | "
                         "{torrent.state_enum}",
                         torrent=torrent,
@@ -1350,7 +1377,7 @@ class Arr:
                         )
                         self.delete.add(torrent.hash)
                     else:
-                        self.logger.debug(
+                        self.logger.trace(
                             "Skipping torrent: Reached Maximum completed percentage and is "
                             "active | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
@@ -1537,22 +1564,64 @@ class Arr:
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
-            self.queue = self.client.get_queue()
+            self.queue = self.get_queue().get("records", [])
         elif self.type == "radarr":
-            self.queue = self.client.get_queue(page_size=10000).get("records", [])
-
+            self.queue = self.get_queue().get("records", [])
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
         if self.type == "sonarr":
-            self.requeue_cache = defaultdict(list)
-            for entry in self.queue:
-                if "episode" in entry:
-                    self.requeue_cache[entry["id"]].append(entry["episode"]["id"])
+            self.requeue_cache = {
+                entry["id"]: entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+            }
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
+
+    def get_queue(
+        self,
+        page=1,
+        page_size=10000,
+        sort_direction="ascending",
+        sort_key="timeLeft",
+    ):
+        params = {
+            "page": page,
+            "pageSize": page_size,
+            "sortDirection": sort_direction,
+            "sortKey": sort_key        }
+        path = "/api/v3/queue"
+        res = self.client.request_get(path, params=params)
+        return res
+
+    def _update_bad_queue_items(self):
+        _temp = self.queue
+        _temp = filter(
+            lambda x: x.get("status") == "completed"
+            and x.get("trackedDownloadState") == "importPending"
+            and x.get("trackedDownloadStatus") == "warning",
+            _temp,
+        )
+        _path_filter = set()
+        _temp = list(_temp)
+        for entry in _temp:
+            messages = entry.get("statusMessages", [])
+            output_path = entry.get("outputPath")
+            for m in messages:
+                title = m.get("title")
+                if not title:
+                    continue
+                for _m in m.get("messages", []):
+                    if _m in {
+                        "Not a preferred word upgrade for existing episode file(s)",
+                        "Not an upgrade for existing episode file(s)",
+                        "Not an upgrade for existing movie file(s)",
+                    }:  # TODO: Add more error codes
+                        _path_filter.add(pathlib.Path(output_path).joinpath(title))
+        if len(_path_filter):
+            self.needs_cleanup = True
+        self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def register_search_mode(self):
         if self.search_setup_completed:
@@ -1958,11 +2027,11 @@ class ArrManager:
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object
                 except (NoSectionError, NoOptionError) as e:
-                    logger.exception(e.message)
+                    self.logger.exception(e.message)
                 except SkipException:
                     continue
                 except EnvironmentError as e:
-                    logger.exception(e)
+                    self.logger.exception(e)
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object
