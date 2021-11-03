@@ -341,10 +341,10 @@ class Arr:
     def _get_oversee_requests_all(self) -> Dict[str, Set]:
         try:
             data = defaultdict(set)
-            url = f"{self.overseerr_uri}/api/v1/request?take=100&skip=0&sort=added&filter=unavailable"
             response = self.session.get(
-                url=url,
+                url=f"{self.overseerr_uri}/api/v1/request?take=100&skip=0&sort=added&filter=unavailable",
                 headers={"X-Api-Key": self.overseerr_api_key},
+                timeout=2,
             )
             response = response.json().get("results", [])
             type_ = None
@@ -363,9 +363,11 @@ class Arr:
                         data["TvdbId"].add(tvdbId)
                     elif self.type == "radarr" and (tmdbId := media.get("tmdbId")):
                         data["TmdbId"].add(tmdbId)
-
             self._temp_overseer_request_cache = data
-
+        except requests.exceptions.ConnectionError:
+            self.logger.warning("Couldn't connect to Overseerr")
+            self._temp_overseer_request_cache = defaultdict(set)
+            return self._temp_overseer_request_cache
         except Exception as e:
             self.logger.exception(e, exc_info=sys.exc_info())
             self._temp_overseer_request_cache = defaultdict(set)
@@ -376,12 +378,15 @@ class Arr:
     def _get_overseerr_requests_count(self) -> int:
         self._get_oversee_requests_all()
         if self.type == "sonarr":
-            try:
-                return len(self._temp_overseer_request_cache.get("TvdbId", []))
-            finally:
-                self.logger.critical("Well there was an error")
+            return len(
+                self._temp_overseer_request_cache.get("TvdbId", [])
+                or self._temp_overseer_request_cache.get("ImdbId", [])
+            )
         elif self.type == "radarr":
-            return len(self._temp_overseer_request_cache.get("ImdbId", []))
+            return len(
+                self._temp_overseer_request_cache.get("ImdbId", [])
+                or self._temp_overseer_request_cache.get("TmdbId", [])
+            )
         return 0
 
     def _get_ombi_request_count(self) -> int:
@@ -695,9 +700,8 @@ class Arr:
                 yield entry
 
     def db_get_request_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
-        if (not self.search_missing) or (not self.ombi_search_requests):
+        if (not self.ombi_search_requests) or (not self.overseerr_requests):
             yield None
-
         if not self.search_missing:
             yield None
         elif self.type == "sonarr":
@@ -759,17 +763,16 @@ class Arr:
                     condition &= imdb_con
                 elif tvdb_con:
                     condition &= tvdb_con
-                for series in (
+                for db_entry in (
                     self.model_arr_file.select()
                     .join(
                         self.model_arr_series_file,
                         on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
                         join_type=JOIN.LEFT_OUTER,
-                    )
-                    .switch(self.model_arr_file)
+                    ).switch(self.model_arr_file)
                     .where(condition)
                 ):
-                    self.db_update_single_series(db_entry=series, ombi=True)
+                    self.db_update_single_series(db_entry=db_entry, request=True)
             elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
                 self.model_arr_file: MoviesModel
                 condition = self.model_arr_file.Year <= datetime.now().year
@@ -785,12 +788,12 @@ class Arr:
                     condition &= tmdb_con
                 elif imdb_con:
                     condition &= imdb_con
-                for series in (
+                for db_entry in (
                     self.model_arr_file.select()
                     .where(condition)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
-                    self.db_update_single_series(db_entry=series, ombi=True)
+                    self.db_update_single_series(db_entry=db_entry, request=True)
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
@@ -800,9 +803,9 @@ class Arr:
         request_ids = self._temp_overseer_request_cache
         if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
-        self.logger.trace(f"Started updating database with Overseerr request entries.")
+        self.logger.notice(f"Started updating database with Overseerr request entries.")
         self._db_request_update(request_ids)
-        self.logger.trace(f"Finished updating database with Overseerr request entries")
+        self.logger.notice(f"Finished updating database with Overseerr request entries")
 
     def db_ombi_update(self):
         if (not self.search_missing) or (not self.ombi_search_requests):
@@ -812,9 +815,9 @@ class Arr:
         request_ids = self._process_ombi_requests()
         if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
-        self.logger.trace(f"Started updating database with Ombi request entries.")
+        self.logger.notice(f"Started updating database with Ombi request entries.")
         self._db_request_update(request_ids)
-        self.logger.trace(f"Finished updating database with Ombi request entries")
+        self.logger.notice(f"Finished updating database with Ombi request entries")
 
     def db_update(self):
         if not self.search_missing:
@@ -845,7 +848,7 @@ class Arr:
         self.logger.trace(f"Finished updating database")
 
     def db_update_single_series(
-        self, db_entry: Union[EpisodesModel, MoviesModel] = None, ombi: bool = False
+        self, db_entry: Union[EpisodesModel, MoviesModel] = None, request: bool = False
     ):
         if self.search_missing is False:
             return
@@ -895,8 +898,8 @@ class Arr:
                 if searched:
                     to_update[self.model_file.Searched] = searched
 
-                if ombi:
-                    to_update[self.model_file.IsRequest] = ombi
+                if request:
+                    to_update[self.model_file.IsRequest] = request
 
                 db_commands = self.model_file.insert(
                     EntryId=EntryId,
@@ -912,7 +915,7 @@ class Arr:
                     SeriesTitle=SeriesTitle,
                     SeasonNumber=SeasonNumber,
                     Searched=searched,
-                    IsRequest=ombi,
+                    IsRequest=request,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
                     update=to_update,
@@ -940,8 +943,8 @@ class Arr:
                 }
                 if searched:
                     to_update[self.model_file.Searched] = searched
-                if ombi:
-                    to_update[self.model_file.IsRequest] = ombi
+                if request:
+                    to_update[self.model_file.IsRequest] = request
                 db_commands = self.model_file.insert(
                     Title=title,
                     Monitored=monitored,
@@ -950,7 +953,7 @@ class Arr:
                     EntryId=EntryId,
                     Searched=searched,
                     MovieFileId=MovieFileId,
-                    IsRequest=ombi,
+                    IsRequest=request,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
                     update=to_update,
@@ -1489,7 +1492,7 @@ class Arr:
         self.search_setup_completed = True
 
     def run_request_search(self):
-        if (not (self.ombi_search_requests or self.overseerr_requests)) or (
+        if self.request_search_timer is None or (
             self.request_search_timer > time.time() - self.search_requests_every_x_seconds
         ):
             return None
@@ -1503,6 +1506,8 @@ class Arr:
                     for entry in self.db_get_request_files():
                         while self.maybe_do_search(entry, request=True) is False:
                             time.sleep(30)
+                    self.request_search_timer = time.time()
+                    return
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
