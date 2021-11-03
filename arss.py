@@ -94,6 +94,9 @@ class Arr:
         self.search_starting_year = CONFIG.getyear(name, "StartYear")
         self.search_ending_year = CONFIG.getyear(name, "LastYear")
         self.search_command_limit = CONFIG.getint(name, "SearchLimit", fallback=5)
+        self.prioritize_todays_release = CONFIG.getboolean(
+            name, "PrioritizeTodaysReleases", fallback=False
+        )
 
         if self.search_in_reverse:
             self.search_current_year = self.search_ending_year
@@ -667,7 +670,25 @@ class Arr:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
             condition &= self.model_file.Searched == False
-            condition &= self.model_file.AirDateUtc < datetime.now(timezone.utc)
+            condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(hours=2)
+            )
+
+            if self.prioritize_todays_release:
+                condition_today = copy(condition)
+                condition_today &= self.model_file.AirDateUtc >= datetime.now(timezone.utc).date()
+                for entry in (
+                    self.model_file.select()
+                    .where(condition_today)
+                    .order_by(
+                        self.model_file.SeriesTitle,
+                        self.model_file.SeasonNumber,
+                        self.model_file.AirDateUtc.desc(),
+                    )
+                    .execute()
+                ):
+                    yield entry
+
             condition &= self.model_file.AirDateUtc >= datetime(
                 month=1, day=1, year=self.search_current_year
             )
@@ -710,7 +731,9 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.AirDateUtc < datetime.now(timezone.utc)
+            condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(hours=2)
+            )
             condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
@@ -769,7 +792,8 @@ class Arr:
                         self.model_arr_series_file,
                         on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
                         join_type=JOIN.LEFT_OUTER,
-                    ).switch(self.model_arr_file)
+                    )
+                    .switch(self.model_arr_file)
                     .where(condition)
                 ):
                     self.db_update_single_series(db_entry=db_entry, request=True)
@@ -819,10 +843,23 @@ class Arr:
         self._db_request_update(request_ids)
         self.logger.notice(f"Finished updating database with Ombi request entries")
 
+    def db_update_todays_releases(self):
+        if not self.prioritize_todays_release:
+            return
+        with self.db.atomic():
+            if self.type == "sonarr":
+                for series in self.model_arr_file.select().where(
+                    (self.model_arr_file.AirDateUtc.is_null(False))
+                    & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                    & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
+                ):
+                    self.db_update_single_series(db_entry=series)
+
     def db_update(self):
         if not self.search_missing:
             return
         self.logger.trace(f"Started updating database")
+        self.db_update_todays_releases()
         with self.db.atomic():
             if self.type == "sonarr":
                 for series in self.model_arr_file.select().where(
