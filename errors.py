@@ -35,3 +35,7 @@ class DelayLoopException(QBitManagerExceptions):
     def __init__(self, length: int, type: str):
         self.type = type
         self.length = length
+
+
+class RestartLoopException(ArrManagerException):
+    """Exception to trigger a loop restart"""

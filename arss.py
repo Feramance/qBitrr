@@ -31,7 +31,13 @@ from config import (
     NO_INTERNET_SLEEP_TIMER,
     RECHECK_CATEGORY,
 )
-from errors import DelayLoopException, NoConnectionrException, SkipException, UnhandledError
+from errors import (
+    DelayLoopException,
+    NoConnectionrException,
+    RestartLoopException,
+    SkipException,
+    UnhandledError,
+)
 from tables import EpisodeFilesModel, EpisodeQueueModel, MovieQueueModel, MoviesFilesModel
 from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
 
@@ -507,7 +513,7 @@ class Arr:
                 if not path.exists():
                     self.skip_blacklist.add(torrent.hash.upper())
                     self.logger.info(
-                        "Deleting Missing Torrent: " "{torrent.name} ({torrent.hash})",
+                        "Deleting Missing Torrent: {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     continue
@@ -618,6 +624,9 @@ class Arr:
             # Remove all bad torrents from the Client.
             self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
             for h in to_delete_all:
+                self.cleaned_torrents.discard(h)
+                self.sent_to_scan_hashes.discard(h)
+
                 if h in self.manager.qbit_manager.name_cache:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
@@ -639,7 +648,6 @@ class Arr:
                 self.manager.qbit.torrents_file_priority(
                     torrent_hash=hash_, file_ids=files, priority=0
                 )
-                self.cleaned_torrents.add(hash_)
             else:
                 self.logger.error("Torrent does not exist? {hash}", hash=hash_)
             del self.change_priority[hash_]
@@ -1288,11 +1296,39 @@ class Arr:
                     self.recheck.add(torrent.hash)
                 # Do not touch torrents that are currently "Checking".
                 elif self.is_ignored_state(torrent):
+                    self.logger.debug(
+                        "Skipping torrent: Ignored state | {torrent.name} ({torrent.hash}) | "
+                        "{torrent.state_enum}",
+                        torrent=torrent,
+                    )
                     continue
-                # Do not touch torrents recently resumed/reched (A torrent can temporarely stall after being resumed from a paused state).
-                elif (torrent.hash in self.timed_ignore_cache) or (
-                    torrent.hash in self.timed_skip
+                # Process torrents who have stalled at this point, only mark from for deletion if they have been added more than "IgnoreTorrentsYoungerThan" seconds ago
+                elif torrent.state_enum in (
+                    TorrentStates.METADATA_DOWNLOAD,
+                    TorrentStates.STALLED_DOWNLOAD,
                 ):
+                    if torrent.added_on < time_now - self.ignore_torrents_younger_than:
+                        self.logger.info(
+                            "Deleting Stale torrent: "
+                            "[Progress: {progress}%][Added On: {added}] | {torrent.name} ({torrent.hash})",
+                            torrent=torrent,
+                            added=datetime.fromtimestamp(torrent.added_on),
+                            progress=round(torrent.progress * 100, 2),
+                        )
+                        self.delete.add(torrent.hash)
+                    else:
+                        self.logger.trace(
+                            "Skipping torrent: Stale torrent younger than threshhold | "
+                            "{torrent.name} ({torrent.hash}) | "
+                            "{torrent.state_enum}",
+                            torrent=torrent,
+                        )
+                # Do not touch torrents recently resumed/reched (A torrent can temporarely stall after being resumed from a paused state).
+                elif torrent.hash in self.timed_ignore_cache:
+                    self.logger.trace(
+                        "Skipping torrent: Marked for skipping | {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
                     continue
                 # Ignore torrents who have reached maximum percentage as long as the last activity is within the MaximumETA set for this category
                 # For example if you set MaximumETA to 5 mines, this will ignore all torrets that have stalled at a higher percentage as long as there is activity
@@ -1302,7 +1338,7 @@ class Arr:
                 elif (
                     torrent.progress >= self.maximum_deletable_percentage
                     and self.is_complete_state(torrent) is False
-                ):
+                ) and torrent.hash in self.cleaned_torrents:
                     if torrent.last_activity < time_now - self.maximum_eta:
                         self.logger.info(
                             "Deleting Stale torrent: "
@@ -1314,24 +1350,35 @@ class Arr:
                         )
                         self.delete.add(torrent.hash)
                     else:
+                        self.logger.debug(
+                            "Skipping torrent: Reached Maximum completed percentage and is "
+                            "active | {torrent.name} ({torrent.hash})",
+                            torrent=torrent,
+                        )
                         continue
                 # Ignore torrents which have been submitted to their respective Arr instance for import.
                 elif (
                     torrent.hash
                     in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
-                ):
+                ) and torrent.hash in self.cleaned_torrents:
+                    self.logger.trace(
+                        "Skipping torrent: Already sent for import | {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
                     continue
                 # Some times torrents will error, this causes them to be rechecked so they complete downloading.
                 elif torrent.state_enum == TorrentStates.ERROR:
                     self.logger.info(
-                        "Rechecking Erroed torrent: " "{torrent.name} ({torrent.hash})",
+                        "Rechecking Erroed torrent: {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     self.recheck.add(torrent.hash)
                 # If a torrent was not just added, and the amount left to download is 0 and the torrent is Paused tell the Arr tools to process it.
                 elif (
                     torrent.added_on > 0
+                    and torrent.completion_on
                     and torrent.amount_left == 0
+                    and torrent.state_enum != TorrentStates.PAUSED_UPLOAD
                     and self.is_complete_state(torrent)
                     and torrent.content_path
                     and torrent.completion_on < time_now - 30
@@ -1347,7 +1394,7 @@ class Arr:
                 # this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
                 elif torrent.state_enum == TorrentStates.MISSING_FILES:
                     self.logger.info(
-                        "Deleting torrent with missing files: " "{torrent.name} ({torrent.hash})",
+                        "Deleting torrent with missing files: {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                     )
                     # We do not want to blacklist these!!
@@ -1355,21 +1402,10 @@ class Arr:
                 # Resume monitored downloads which have been paused.
                 elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.progress < 1:
                     self.resume.add(torrent.hash)
-                # Process torrents who have stalled at this point, only mark from for deletion if they have been added more than "IgnoreTorrentsYoungerThan" seconds ago
-                elif torrent.state_enum in (
-                    TorrentStates.METADATA_DOWNLOAD,
-                    TorrentStates.STALLED_DOWNLOAD,
-                ):
-                    self.timed_skip.add(torrent.hash)
-                    if torrent.added_on < time_now - self.ignore_torrents_younger_than:
-                        self.logger.info(
-                            "Deleting Stale torrent: "
-                            "[Progress: {progress}%][Added On: {added}] | {torrent.name} ({torrent.hash})",
-                            torrent=torrent,
-                            added=datetime.fromtimestamp(torrent.added_on),
-                            progress=round(torrent.progress * 100, 2),
-                        )
-                        self.delete.add(torrent.hash)
+                    self.logger.debug(
+                        "Resuming incomplete paused torrent: {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
                 # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
                 elif (
                     self.is_uploading_state(torrent)
@@ -1377,7 +1413,7 @@ class Arr:
                     and torrent.amount_left == 0
                     and torrent.added_on > 0
                     and torrent.content_path
-                ):
+                ) and torrent.hash in self.cleaned_torrents:
                     self.logger.info(
                         "Pausing uploading torrent: "
                         "{torrent.name} ({torrent.hash}) | {torrent.state_enum}",
@@ -1391,7 +1427,7 @@ class Arr:
                     and torrent.added_on < time_now - self.ignore_torrents_younger_than
                     and torrent.eta > self.maximum_eta
                 ):
-                    self.logger.info(
+                    self.logger.trace(
                         "Deleting slow torrent: "
                         "[Progress: {progress}%][Time Left: {timedelta}] | "
                         "{torrent.name} ({torrent.hash})",
@@ -1406,7 +1442,7 @@ class Arr:
                     if (
                         torrent.added_on < time_now - self.ignore_torrents_younger_than
                         and torrent.availability < 1
-                    ):
+                    ) and torrent.hash in self.cleaned_torrents:
                         self.logger.info(
                             "Deleting Stale torrent: "
                             "[Progress: {progress}%][Availability: {availability}%]"
@@ -1420,6 +1456,11 @@ class Arr:
 
                     else:
                         if torrent.hash in self.cleaned_torrents:
+                            self.logger.trace(
+                                "Skipping file check: Already been cleaned up | "
+                                "{torrent.name} ({torrent.hash}) ",
+                                torrent=torrent,
+                            )
                             continue
                         # A downloading torrent is not stalled, parse its contents.
                         _remove_files = set()
@@ -1478,6 +1519,16 @@ class Arr:
                             # Mark all bad files and folder for exclusion.
                             elif _remove_files and torrent.hash not in self.change_priority:
                                 self.change_priority[torrent.hash] = list(_remove_files)
+                                self.cleaned_torrents.add(torrent.hash)
+                            elif _remove_files and torrent.hash in self.change_priority:
+                                self.change_priority[torrent.hash] = list(_remove_files)
+                                self.cleaned_torrents.add(torrent.hash)
+
+                else:
+                    self.logger.trace(
+                        "Skipping torrent: Unresolved state | {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
             self.process()
         except NoConnectionrException as e:
             self.logger.error(e.message)
@@ -1627,13 +1678,16 @@ class Arr:
             return None
         count_start = self.search_current_year
         stopping_year = datetime.now().year if self.search_in_reverse else 1900
+        loop_timer = timedelta(minutes=15)
         while True:
+            timer = datetime.now(timezone.utc)
             try:
                 self.run_request_search()
                 self.db_update()
                 try:
                     for entry, todays in self.db_get_files():
-                        self.run_request_search()
+                        if timer < (datetime.now(timezone.utc) - loop_timer):
+                            raise RestartLoopException
                         while self.maybe_do_search(entry, todays=todays) is False:
                             time.sleep(30)
                     time.sleep(60)
@@ -1645,6 +1699,8 @@ class Arr:
                     else:
                         if self.search_current_year < stopping_year:
                             self.search_current_year = copy(count_start)
+                except RestartLoopException:
+                    self.logger.debug("Loop timer elapsed, restarting it.")
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     self.manager.qbit_manager.should_delay_torrent_scan = True

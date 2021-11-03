@@ -60,7 +60,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 def has_internet():
     url = random.choice(PING_URLS)
     try:
-        req = requests.head(url, timeout=0.5)
+        req = requests.head(url, timeout=2)
         req.raise_for_status()
         logger.trace("Successfully connected to {url}", url=url)
         return True
