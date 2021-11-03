@@ -703,7 +703,7 @@ class Arr:
 
     def db_get_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
         if not self.search_missing:
-            yield None
+            yield None, False
         elif self.type == "sonarr":
             condition = self.model_file.EpisodeFileId == 0
             if not self.search_specials:
@@ -727,7 +727,7 @@ class Arr:
                     )
                     .execute()
                 ):
-                    yield entry
+                    yield entry, True
 
             condition &= self.model_file.AirDateUtc >= datetime(
                 month=1, day=1, year=self.search_current_year
@@ -746,7 +746,7 @@ class Arr:
                 )
                 .execute()
             ):
-                yield entry
+                yield entry, False
         elif self.type == "radarr":
             for entry in (
                 self.model_file.select()
@@ -758,7 +758,7 @@ class Arr:
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
-                yield entry
+                yield entry, False
 
     def db_get_request_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
@@ -1105,13 +1105,18 @@ class Arr:
         self.needs_cleanup = False
 
     def maybe_do_search(
-        self, file_model: Union[EpisodeFilesModel, MoviesFilesModel], request: bool = False
+        self,
+        file_model: Union[EpisodeFilesModel, MoviesFilesModel],
+        request: bool = False,
+        todays: bool = False,
     ):
         request_tag = (
             "[OVERSEERR REQUEST]: "
             if request and self.overseerr_requests
             else "[OMBI REQUEST]: "
             if request and self.ombi_search_requests
+            else "[PRIORITY SEARCH - TODAY]: "
+            if todays
             else ""
         )
         if (not self.search_missing) or (file_model is None):
@@ -1627,9 +1632,9 @@ class Arr:
                 self.run_request_search()
                 self.db_update()
                 try:
-                    for entry in self.db_get_files():
+                    for entry, todays in self.db_get_files():
                         self.run_request_search()
-                        while self.maybe_do_search(entry) is False:
+                        while self.maybe_do_search(entry, todays=todays) is False:
                             time.sleep(30)
                     time.sleep(60)
                     self.search_current_year += self._delta
