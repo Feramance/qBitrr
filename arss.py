@@ -227,6 +227,46 @@ class Arr:
             MaximumDeletablePercentage=self.maximum_deletable_percentage,
         )
 
+        self.logger.info(
+            "Script Config:  PrioritizeTodaysReleases={PrioritizeTodaysReleases}",
+            PrioritizeTodaysReleases=self.prioritize_todays_release,
+        )
+        self.logger.info(
+            "Script Config:  SearchOverseerrRequests={SearchOverseerrRequests}",
+            SearchOverseerrRequests=self.overseerr_requests,
+        )
+        if self.overseerr_requests:
+            self.logger.info(
+                "Script Config:  OverseerrURI={OverseerrURI}",
+                OverseerrURI=self.overseerr_uri,
+            )
+            self.logger.debug(
+                "Script Config:  OverseerrAPIKey={OverseerrAPIKey}",
+                OverseerrAPIKey=self.overseerr_api_key,
+            )
+        self.logger.info(
+            "Script Config:  SearchOmbiRequests={SearchOmbiRequests}",
+            SearchOmbiRequests=self.ombi_search_requests,
+        )
+        if self.ombi_search_requests:
+            self.logger.info(
+                "Script Config:  OmbiURI={OmbiURI}",
+                OmbiURI=self.ombi_uri,
+            )
+            self.logger.debug(
+                "Script Config:  OmbiAPIKey={OmbiAPIKey}",
+                OmbiAPIKey=self.ombi_api_key,
+            )
+            self.logger.info(
+                "Script Config:  ApprovedOnly={ApprovedOnly}",
+                ApprovedOnly=self.ombi_approved_only,
+            )
+        if self.ombi_search_requests or self.overseerr_requests:
+            self.logger.info(
+                "Script Config:  SearchRequestsEvery={SearchRequestsEvery}",
+                SearchRequestsEvery=self.search_requests_every_x_seconds,
+            )
+
         if self.search_missing:
             self.logger.info(
                 "Script Config:  SearchMissing={SearchMissing}",
