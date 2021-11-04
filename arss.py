@@ -1764,12 +1764,10 @@ class Arr:
                             raise RestartLoopException
                         while self.maybe_do_search(entry, todays=todays) is False:
                             time.sleep(30)
-                    time.sleep(60)
                     self.search_current_year += self._delta
                     if self.search_in_reverse:
                         if self.search_current_year > stopping_year:
                             self.search_current_year = copy(count_start)
-                            time.sleep(60)
                     else:
                         if self.search_current_year < stopping_year:
                             self.search_current_year = copy(count_start)
