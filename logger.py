@@ -91,7 +91,9 @@ def run_logs():
     logger.debug(
         "Script Config:  CompletedDownloadFolder={Folder}", Folder=COMPLETED_DOWNLOAD_FOLDER
     )
-    logger.debug("Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER)
+    logger.debug(
+        "Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER
+    )
     logger.debug(
         "Script Config:  NoInternetSleepTimer={NoInternetSleepTimer}",
         NoInternetSleepTimer=NO_INTERNET_SLEEP_TIMER,

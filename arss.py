@@ -631,8 +631,12 @@ class Arr:
             self.recheck.clear()
 
     def _process_failed(self) -> None:
-        to_delete_all = self.delete.union(self.skip_blacklist).union(self.missing_files_post_delete)
-        skip_blacklist = {i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)}
+        to_delete_all = self.delete.union(self.skip_blacklist).union(
+            self.missing_files_post_delete
+        )
+        skip_blacklist = {
+            i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
+        }
         if to_delete_all:
             self.needs_cleanup = True
             payload, hashes = self.process_entries(to_delete_all)
@@ -742,6 +746,9 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
+            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+                False
+            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
 
             if self.prioritize_todays_release:
                 condition_today = copy(condition)
@@ -799,6 +806,9 @@ class Arr:
             condition &= self.model_file.EpisodeFileId == 0
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
+            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+                False
+            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             condition &= self.model_file.AirDateUtc.is_null(False)
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
@@ -842,6 +852,9 @@ class Arr:
                 condition = self.model_arr_file.AirDateUtc.is_null(False)
                 if not self.search_specials:
                     condition &= self.model_arr_file.SeasonNumber != 0
+                condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
+                    False
+                ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
                 condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
                 imdb_con = None
                 tvdb_con = None
@@ -921,6 +934,10 @@ class Arr:
                     (self.model_arr_file.AirDateUtc.is_null(False))
                     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                     & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
+                    & (
+                        self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                        | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                    )
                 ):
                     self.db_update_single_series(db_entry=series)
 
@@ -934,6 +951,10 @@ class Arr:
                 for series in self.model_arr_file.select().where(
                     (self.model_arr_file.AirDateUtc.is_null(False))
                     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                    & (
+                        self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                        | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                    )
                     & (
                         self.model_arr_file.AirDateUtc
                         >= datetime(month=1, day=1, year=self.search_current_year)
@@ -1138,9 +1159,14 @@ class Arr:
                 continue
             try:
                 file.unlink(missing_ok=True)
-                self.logger.debug("File removed: File was marked as failed by Arr | {path}", path=file)
+                self.logger.debug(
+                    "File removed: File was marked as failed by Arr | {path}", path=file
+                )
             except PermissionError:
-                self.logger.debug("File in use: Failed to remove file: File was marked as failed by Ar | {path}", path=file)
+                self.logger.debug(
+                    "File in use: Failed to remove file: File was marked as failed by Ar | {path}",
+                    path=file,
+                )
 
         self.files_to_explicitly_delete = iter([])
         self._remove_empty_folders()
@@ -1276,9 +1302,7 @@ class Arr:
 
     def process_entries(self, hashes: Set[str]) -> Tuple[List[Tuple[int, str]], Set[str]]:
         payload = [
-            (_id, h.upper())
-            for h in hashes
-            if (_id := self.cache.get(h.upper())) is not None
+            (_id, h.upper()) for h in hashes if (_id := self.cache.get(h.upper())) is not None
         ]
         hashes = {h for h in hashes if (_id := self.cache.get(h.upper())) is not None}
 
@@ -1592,7 +1616,8 @@ class Arr:
             "page": page,
             "pageSize": page_size,
             "sortDirection": sort_direction,
-            "sortKey": sort_key        }
+            "sortKey": sort_key,
+        }
         path = "/api/v3/queue"
         res = self.client.request_get(path, params=params)
         return res
