@@ -599,7 +599,7 @@ class Arr:
                         "Re-Searching episode: {id}",
                         id=object_id,
                     )
-                self.post_command("EpisodeSearch", episodeIds=object_id)
+                self.post_command("EpisodeSearch", episodeIds=[object_id])
             elif self.type == "radarr":
                 data = self.client.get_movie_by_movie_id(object_id)
                 name = data.get("title")
@@ -813,7 +813,6 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
-            condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -831,7 +830,8 @@ class Arr:
                 .where(
                     (self.model_file.MovieFileId == 0)
                     & (self.model_file.IsRequest == True)
-                    & (self.model_file.Searched == False)
+                    & (self.model_file.Year > 0)
+                    & (self.model_file.Year <= datetime.now(timezone.utc).year)
                 )
                 .order_by(self.model_file.Title.asc())
                 .execute()
@@ -1192,11 +1192,14 @@ class Arr:
         elif not self.is_alive:
             raise NoConnectionrException("Could not connect to %s" % self.uri, type="arr")
         elif self.type == "sonarr":
-            queue = (
-                self.model_queue.select()
-                .where(self.model_queue.EntryId == file_model.EntryId)
-                .execute()
-            )
+            if not (request or todays):
+                queue = (
+                    self.model_queue.select()
+                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .execute()
+                )
+            else:
+                queue = False
             if queue:
                 self.logger.debug(
                     "{request_tag}Skipping: Already Searched: {model.SeriesTitle} | "
@@ -1226,7 +1229,7 @@ class Arr:
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
-            ).execute()
+            ).on_conflict_replace().execute()
             self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
             file_model.Searched = True
             file_model.save()
@@ -1239,12 +1242,14 @@ class Arr:
             )
             return True
         elif self.type == "radarr":
-            queue = (
-                self.model_queue.select()
-                .where(self.model_queue.EntryId == file_model.EntryId)
-                .execute()
-            )
-            active_commands = self.arr_db_query_commands_count()
+            if not (request or todays):
+                queue = (
+                    self.model_queue.select()
+                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .execute()
+                )
+            else:
+                queue = False
             if queue:
                 self.logger.debug(
                     "{request_tag}Skipping: Already Searched: {model.Title} ({model.Year}) "
@@ -1255,6 +1260,7 @@ class Arr:
                 file_model.Searched = True
                 file_model.save()
                 return True
+            active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
                 "{request_tag}{active_commands} active search commands",
                 active_commands=active_commands,
@@ -1271,7 +1277,7 @@ class Arr:
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
-            ).execute()
+            ).on_conflict_replace().execute()
             self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
             file_model.Searched = True
             file_model.save()
