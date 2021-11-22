@@ -1,6 +1,10 @@
 from peewee import BooleanField, CharField, DateTimeField, IntegerField, Model, TextField
 
 
+class FilesQueued(Model):
+    EntryId = IntegerField(primary_key=True, null=False, unique=True)
+
+
 class MoviesFilesModel(Model):
     Title = CharField()
     Monitored = BooleanField()

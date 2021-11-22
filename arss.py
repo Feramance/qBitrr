@@ -7,6 +7,7 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
@@ -50,7 +51,8 @@ from errors import (
     SkipException,
     UnhandledError,
 )
-from tables import EpisodeFilesModel, EpisodeQueueModel, MovieQueueModel, MoviesFilesModel
+from tables import EpisodeFilesModel, EpisodeQueueModel, FilesQueued, MovieQueueModel, \
+    MoviesFilesModel
 from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
@@ -129,6 +131,7 @@ class Arr:
 
         self.ombi_search_requests = CONFIG.getboolean(name, "SearchOmbiRequests")
         self.overseerr_requests = CONFIG.getboolean(name, "SearchOverseerrRequests")
+        self.series_search = CONFIG.getboolean(name, "SearchBySeries", fallback=False)
         self.ombi_uri = CONFIG.get(name, "OmbiURI")
         self.overseerr_uri = CONFIG.get(name, "OverseerrURI")
 
@@ -176,6 +179,7 @@ class Arr:
         self.queue = []
         self.cache = {}
         self.requeue_cache = {}
+        self.queue_file_ids = set()
         self.sent_to_scan = set()
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
@@ -313,8 +317,8 @@ class Arr:
                 LastYear=self.search_ending_year,
             )
             self.logger.info(
-                "Script Config:  StartYear={StartYear}",
-                StartYear=self.search_command_limit,
+                "Script Config:  CommandLimit={search_command_limit}",
+                search_command_limit=self.search_command_limit,
             )
             self.logger.info(
                 "Script Config:  DatabaseFile={DatabaseFile}",
@@ -327,6 +331,7 @@ class Arr:
         self.model_arr_command: CommandsModel = None
         self.model_file: Union[EpisodeFilesModel, MoviesFilesModel] = None
         self.model_queue: Union[EpisodeQueueModel, MovieQueueModel] = None
+        self.persistent_queue: FilesQueued = None
 
     @property
     def is_alive(self) -> bool:
@@ -334,10 +339,12 @@ class Arr:
             if self.session is None:
                 return True
             req = self.session.get(
-                f"{self.uri}/api/v3/system/status", timeout=0.5, headers={"X-Api-Key": self.apikey}
+                f"{self.uri}/api/v3/system/status", timeout=2
             )
             req.raise_for_status()
             self.logger.trace("Successfully connected to {url}", url=self.uri)
+            return True
+        except requests.HTTPError:
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to {url}", url=self.uri)
@@ -572,6 +579,7 @@ class Arr:
             if self.type == "sonarr":
                 data = self.client.get_episode_by_episode_id(object_id)
                 name = data.get("title")
+                series_id = data.get("series", {}).get(id)
                 if name:
                     episodeNumber = data.get("episodeNumber", 0)
                     absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
@@ -600,6 +608,8 @@ class Arr:
                         id=object_id,
                     )
                 self.post_command("EpisodeSearch", episodeIds=[object_id])
+                if self.persistent_queue and series_id:
+                    self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
                 data = self.client.get_movie_by_movie_id(object_id)
                 name = data.get("title")
@@ -619,6 +629,8 @@ class Arr:
                         movie_id=object_id,
                     )
                 self.post_command("MoviesSearch", movieIds=[object_id])
+                if self.persistent_queue:
+                    self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
     def _process_errored(self) -> None:
         # Recheck all torrents marked for rechecking.
@@ -734,9 +746,78 @@ class Arr:
         )
         return len(list(search_commands))
 
-    def db_get_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
+    def _search_todays(self, condition):
+        if self.prioritize_todays_release:
+            condition_today = copy(condition)
+            condition_today &= self.model_file.AirDateUtc >= datetime.now(timezone.utc).date()
+            for entry in (
+                    self.model_file.select()
+                            .where(condition_today)
+                            .order_by(
+                        self.model_file.SeriesTitle,
+                        self.model_file.SeasonNumber.desc(),
+                        self.model_file.AirDateUtc.desc(),
+                    )
+                            .execute()
+            ):
+                yield entry, True, True
+        else:
+            yield None, None, None
+
+    def db_get_files(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+        if self.type == "sonarr" and self.series_search:
+            for i1, i2, i3 in self.db_get_files_series():
+                yield i1, i2, i3
+        else:
+            for i1, i2, i3 in self.db_get_files_episodes():
+                yield i1, i2, i3
+
+    def db_get_files_series(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
         if not self.search_missing:
-            yield None, False
+            yield None, False, False
+        elif self.type == "sonarr":
+            condition = self.model_file.EpisodeFileId == 0
+            if not self.search_specials:
+                condition &= self.model_file.SeasonNumber != 0
+            condition &= self.model_file.AirDateUtc.is_null(False)
+            condition &= self.model_file.Searched == False
+            condition &= self.model_file.AirDateUtc < (
+                    datetime.now(timezone.utc) - timedelta(hours=2)
+            )
+            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+                False
+            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            today_condition = copy(condition)
+            for entry_ in (
+                    self.model_file.select()
+                            .where(condition)
+                            .order_by(
+                        self.model_file.SeriesTitle,
+                        self.model_file.SeasonNumber.desc(),
+                        self.model_file.AirDateUtc.desc(),
+                    ).group_by(self.model_file.SeriesId)
+                            .execute()
+            ):
+                yield entry_, False, False
+                for i1, i2, i3 in self._search_todays(today_condition):
+                    if i1 is not None:
+                        yield i1, i2, i3
+        elif self.type == "radarr":
+            for entry in (
+                    self.model_file.select()
+                            .where(
+                        (self.model_file.MovieFileId == 0)
+                        & (self.model_file.Year == self.search_current_year)
+                        & (self.model_file.Searched == False)
+                    )
+                            .order_by(self.model_file.Title.asc())
+                            .execute()
+            ):
+                yield entry, False, False
+
+    def db_get_files_episodes(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+        if not self.search_missing:
+            yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.EpisodeFileId == 0
             if not self.search_specials:
@@ -749,40 +830,34 @@ class Arr:
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
-
-            if self.prioritize_todays_release:
-                condition_today = copy(condition)
-                condition_today &= self.model_file.AirDateUtc >= datetime.now(timezone.utc).date()
-                for entry in (
-                    self.model_file.select()
-                    .where(condition_today)
-                    .order_by(
-                        self.model_file.SeriesTitle,
-                        self.model_file.SeasonNumber,
-                        self.model_file.AirDateUtc.desc(),
-                    )
-                    .execute()
-                ):
-                    yield entry, True
-
-            condition &= self.model_file.AirDateUtc >= datetime(
-                month=1, day=1, year=self.search_current_year
-            )
-            condition &= self.model_file.AirDateUtc <= datetime(
-                month=12, day=31, year=self.search_current_year
-            )
-
-            for entry in (
+            today_condition = copy(condition)
+            for entry_ in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
                     self.model_file.SeriesTitle,
-                    self.model_file.SeasonNumber,
+                    self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
-                )
+                ).group_by(self.model_file.SeriesId)
                 .execute()
             ):
-                yield entry, False
+                condition_series = copy(condition)
+                condition_series &= self.model_file.SeriesId == entry_.SeriesId
+                has_been_queried = self.persistent_queue.get_or_none(self.persistent_queue.EntryId == entry_.SeriesId) is not None
+                for entry in (
+                    self.model_file.select()
+                    .where(condition_series)
+                    .order_by(
+                        self.model_file.SeasonNumber.desc(),
+                        self.model_file.AirDateUtc.desc(),
+                    )
+                    .execute()
+                ):
+                    yield entry, False, has_been_queried
+                    has_been_queried = True
+                for i1, i2, i3 in self._search_todays(today_condition):
+                    if i1 is not None:
+                        yield i1, i2, i3
         elif self.type == "radarr":
             for entry in (
                 self.model_file.select()
@@ -794,7 +869,7 @@ class Arr:
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
-                yield entry, False
+                yield entry, False, False
 
     def db_get_request_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
@@ -818,7 +893,7 @@ class Arr:
                 .where(condition)
                 .order_by(
                     self.model_file.SeriesTitle,
-                    self.model_file.SeasonNumber,
+                    self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
                 )
                 .execute()
@@ -882,6 +957,7 @@ class Arr:
             elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
                 self.model_arr_file: MoviesModel
                 condition = self.model_arr_file.Year <= datetime.now().year
+                condition &= self.model_arr_file.Year > 0
                 tmdb_con = None
                 imdb_con = None
                 if ImdbIds := request_ids.get("ImdbId"):
@@ -948,6 +1024,7 @@ class Arr:
         self.db_update_todays_releases()
         with self.db.atomic():
             if self.type == "sonarr":
+                _series = set()
                 for series in self.model_arr_file.select().where(
                     (self.model_arr_file.AirDateUtc.is_null(False))
                     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
@@ -964,6 +1041,10 @@ class Arr:
                         <= datetime(month=12, day=31, year=self.search_current_year)
                     )
                 ):
+                    series: EpisodesModel
+                    _series.add(series.SeriesId)
+                    self.db_update_single_series(db_entry=series)
+                for series in self.model_arr_file.select().where(self.model_arr_file.SeriesId.in_(_series)):
                     self.db_update_single_series(db_entry=series)
             elif self.type == "radarr":
                 for series in (
@@ -1177,6 +1258,7 @@ class Arr:
         file_model: Union[EpisodeFilesModel, MoviesFilesModel],
         request: bool = False,
         todays: bool = False,
+        bypass_limit: bool = False,
     ):
         request_tag = (
             "[OVERSEERR REQUEST]: "
@@ -1187,6 +1269,10 @@ class Arr:
             if todays
             else ""
         )
+        series_search = copy(self.series_search)
+        if request or todays:
+            bypass_limit = True
+            series_search = False
         if (not self.search_missing) or (file_model is None):
             return None
         elif not self.is_alive:
@@ -1217,7 +1303,7 @@ class Arr:
                 active_commands=active_commands,
                 request_tag=request_tag,
             )
-            if active_commands >= self.search_command_limit:
+            if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
                     "{request_tag}Idle: Too many commands in queue: {model.SeriesTitle} | "
                     "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
@@ -1226,11 +1312,13 @@ class Arr:
                     request_tag=request_tag,
                 )
                 return False
+            self.persistent_queue.insert(EntryId=file_model.SeriesId).on_conflict_ignore().execute()
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
             ).on_conflict_replace().execute()
-            self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
+            if file_model.EntryId not in self.queue_file_ids:
+                self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
@@ -1266,7 +1354,7 @@ class Arr:
                 active_commands=active_commands,
                 request_tag=request_tag,
             )
-            if active_commands >= self.search_command_limit:
+            if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
                     "{request_tag}Skipping: Too many in queue: {model.Title} ({model.Year}) "
                     "[tmdbId={model.TmdbId}|id={model.EntryId}]",
@@ -1274,11 +1362,14 @@ class Arr:
                     request_tag=request_tag,
                 )
                 return False
+            self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
+
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
             ).on_conflict_replace().execute()
-            self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
+            if file_model.EntryId not in self.queue_file_ids:
+                self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
             file_model.Searched = True
             file_model.save()
             self.logger.notice(
@@ -1596,9 +1687,9 @@ class Arr:
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
-            self.queue = self.get_queue().get("records", [])
+            self.queue = self.get_queue()
         elif self.type == "radarr":
-            self.queue = self.get_queue().get("records", [])
+            self.queue = self.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
@@ -1606,10 +1697,13 @@ class Arr:
             self.requeue_cache = {
                 entry["id"]: entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
+            self.queue_file_ids = {entry["episodeId"] for entry in self.queue if entry.get("episodeId")}
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
+            self.queue_file_ids = {entry["movieId"] for entry in self.queue if entry.get("movieId")}
+        self._update_bad_queue_items()
 
     def get_queue(
         self,
@@ -1617,6 +1711,7 @@ class Arr:
         page_size=10000,
         sort_direction="ascending",
         sort_key="timeLeft",
+        messages: bool = True
     ):
         params = {
             "page": page,
@@ -1624,12 +1719,19 @@ class Arr:
             "sortDirection": sort_direction,
             "sortKey": sort_key,
         }
-        path = "/api/v3/queue"
+        if messages:
+            path = "/api/v3/queue"
+        else:
+            path = "/api/queue"
         res = self.client.request_get(path, params=params)
+        try:
+            res = res.get("records", [])
+        except AttributeError:
+            pass
         return res
 
     def _update_bad_queue_items(self):
-        _temp = self.queue
+        _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
             and x.get("trackedDownloadState") == "importPending"
@@ -1648,6 +1750,7 @@ class Arr:
                 for _m in m.get("messages", []):
                     if _m in {
                         "Not a preferred word upgrade for existing episode file(s)",
+                        "Not a preferred word upgrade for existing movie file(s)",
                         "Not an upgrade for existing episode file(s)",
                         "Not an upgrade for existing movie file(s)",
                     }:  # TODO: Add more error codes
@@ -1658,6 +1761,33 @@ class Arr:
         if len(_path_filter):
             self.needs_cleanup = True
         self.files_to_explicitly_delete = iter(_path_filter.copy())
+
+    def force_grab(self):
+        _temp = self.get_queue()
+        _temp = filter(
+            lambda x: x.get("status") == "delay",
+            _temp,
+        )
+        ids = set()
+        for entry in _temp:
+            if id_ := entry.get("id"):
+                ids.add(id_)
+                self.logger.notice("Attempting to force grab: {id_} =  {entry}", id_=id_, entry=entry.get('title'))
+        if ids:
+            with ThreadPoolExecutor(max_workers=16) as executor:
+                executor.map(self._force_grab, ids)
+
+    def _force_grab(
+        self,
+        id_
+    ):
+        try:
+            path = f"/api/v3/queue/grab/{id_}"
+            res = self.client.request_post(path, data={})
+            self.logger.trace("Successful Grab: {id_}", id_=id_)
+            return res
+        except Exception:
+            self.logger.error("Exception when trying to force grab - {id_}.", id_=id_)
 
     def register_search_mode(self):
         if self.search_setup_completed:
@@ -1695,11 +1825,16 @@ class Arr:
             class Meta:
                 database = self.db
 
+        class PersistingQueue(FilesQueued):
+            class Meta:
+                database = self.db
+
         self.db.connect()
-        self.db.create_tables([Files, Queue])
+        self.db.create_tables([Files, Queue, PersistingQueue])
 
         self.model_file = Files
         self.model_queue = Queue
+        self.persistent_queue = PersistingQueue
 
         db1, db2, db3 = self._get_arr_modes()
 
@@ -1789,11 +1924,13 @@ class Arr:
             try:
                 self.run_request_search()
                 self.db_update()
+                self.force_grab()
                 try:
-                    for entry, todays in self.db_get_files():
+                    for entry, todays, limit_bypass in self.db_get_files():
                         if timer < (datetime.now(timezone.utc) - loop_timer):
+                            self.force_grab()
                             raise RestartLoopException
-                        while self.maybe_do_search(entry, todays=todays) is False:
+                        while self.maybe_do_search(entry, todays=todays, bypass_limit=limit_bypass) is False:
                             time.sleep(30)
                     self.search_current_year += self._delta
                     if self.search_in_reverse:
@@ -1810,6 +1947,8 @@ class Arr:
                     raise DelayLoopException(length=300, type=e.type)
                 except DelayLoopException:
                     raise
+                except ValueError:
+                    self.logger.debug("Loop completed, restarting it.") #TODO: Clean so that entries can be researched.
                 except Exception as e:
                     self.logger.exception(e, exc_info=sys.exc_info())
                 time.sleep(LOOP_SLEEP_TIMER)
