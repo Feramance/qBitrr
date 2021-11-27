@@ -1,3 +1,4 @@
+import contextlib
 import pathlib
 import random
 import socket
@@ -14,7 +15,8 @@ logger = logbook.Logger("Utilities")
 
 def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib.Path]:
     for path in pathlib.Path(directory).glob("**/*"):
-        yield path
+        with contextlib.suppress(FileNotFoundError):
+            yield path
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
@@ -68,17 +70,17 @@ def has_internet():
 
 
 def is_connected(hostname):
-  try:
-    # see if we can resolve the host name -- tells us if there is
-    # a DNS listening
-    host = socket.gethostbyname(hostname)
-    # connect to the host -- tells us if the host is actually
-    # reachable
-    s = socket.create_connection((host, 80), 2)
-    s.close()
-    return True
-  except Exception:
-      return False
+    try:
+        # see if we can resolve the host name -- tells us if there is
+        # a DNS listening
+        host = socket.gethostbyname(hostname)
+        # connect to the host -- tells us if the host is actually
+        # reachable
+        s = socket.create_connection((host, 80), 2)
+        s.close()
+        return True
+    except Exception:
+        return False
 
 
 class ExpiringSet:

@@ -19,6 +19,29 @@ logging_map = {
 }
 
 
+def update_logbook():
+    _level_names = {
+        17: "HNOTICE",
+        16: "SUCCESS",
+        logbook.CRITICAL: "CRITICAL",
+        logbook.ERROR: "ERROR",
+        logbook.WARNING: "WARNING",
+        logbook.NOTICE: "NOTICE",
+        logbook.INFO: "INFO",
+        logbook.DEBUG: "DEBUG",
+        logbook.TRACE: "TRACE",
+        logbook.NOTSET: "NOTSET",
+    }
+    _reverse_level_names = dict((v, k) for (k, v) in dict.items(_level_names))
+    setattr(logbook, "_level_names", _level_names)
+    setattr(logbook, "_reverse_level_names", _reverse_level_names)
+    setattr(logbook.base, "_level_names", _level_names)
+    setattr(logbook.base, "_reverse_level_names", _reverse_level_names)
+
+
+update_logbook()
+
+
 class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
     def __init__(self, *args, **kwargs):
         self.imported_colorama = False
@@ -53,14 +76,18 @@ class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
         return isatty and isatty()
 
     def get_color(self, record):
-        if record.level >= logbook.CRITICAL:
+        if record.level >= 17:
+            return "yellow"
+        elif record.level >= 16:
+            return "darkgreen"
+        elif record.level >= logbook.CRITICAL:
             return "darkred"
         elif record.level >= logbook.ERROR:
             return "red"
         elif record.level >= logbook.WARNING:
             return "darkyellow"
         elif record.level >= logbook.NOTICE:
-            return "yellow"
+            return "darkteal"
         elif record.level >= logbook.INFO:
             return "white"
         elif record.level >= logbook.DEBUG:

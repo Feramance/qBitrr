@@ -14,6 +14,7 @@ class MoviesFilesModel(Model):
     Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
     IsRequest = BooleanField(default=False)
+    QualityMet = BooleanField(default=False)
 
 
 class EpisodeFilesModel(Model):
@@ -31,15 +32,13 @@ class EpisodeFilesModel(Model):
     Monitored = BooleanField(null=True)
     Searched = BooleanField(default=False)
     IsRequest = BooleanField(default=False)
+    QualityMet = BooleanField(default=False)
 
 
-class Series(Model):
-    Title = TextField()
-    EpisodeCount = IntegerField()
-    EpisodeFileCount = IntegerField()
-    Monitored = BooleanField()
-    TvdbId = IntegerField()
-    EntryId = IntegerField(unique=True)
+class SeriesFilesModel(Model):
+    EntryId = IntegerField(primary_key=True)
+    Title = TextField(null=True)
+    Monitored = BooleanField(null=True)
     Searched = BooleanField(default=False)
 
 

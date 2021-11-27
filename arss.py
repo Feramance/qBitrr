@@ -19,6 +19,7 @@ from typing import (
     Iterator,
     List,
     NoReturn,
+    Optional,
     Set,
     Tuple,
     Type,
@@ -51,8 +52,14 @@ from errors import (
     SkipException,
     UnhandledError,
 )
-from tables import EpisodeFilesModel, EpisodeQueueModel, FilesQueued, MovieQueueModel, \
-    MoviesFilesModel
+from tables import (
+    EpisodeFilesModel,
+    EpisodeQueueModel,
+    FilesQueued,
+    MovieQueueModel,
+    MoviesFilesModel,
+    SeriesFilesModel,
+)
 from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
@@ -98,6 +105,8 @@ class Arr:
         self.file_name_exclusion_regex = CONFIG.getlist(name, "FileNameExclusionRegex")
         self.file_extension_allowlist = CONFIG.getlist(name, "FileExtensionAllowlist")
         self.auto_delete = CONFIG.getboolean(name, "AutoDelete", fallback=False)
+        self.do_upgrade_search = CONFIG.getboolean(name, "DoUpgradeSearch", fallback=False)
+        self.quality_unmet_search = CONFIG.getboolean(name, "QualityUnmetSearch", fallback=False)
         self.ignore_torrents_younger_than = CONFIG.getint(
             name, "IgnoreTorrentsYoungerThan", fallback=600
         )
@@ -190,9 +199,11 @@ class Arr:
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
-        self.files_to_explicitly_delete: Iterator = ...
+        self.files_to_explicitly_delete: Iterator = iter([])
         self.missing_files_post_delete = set()
+        self.missing_files_post_delete_blacklist = set()
         self.needs_cleanup = False
+        self.recently_queue = defaultdict(time.time)
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -250,10 +261,17 @@ class Arr:
             "Script Config:  MaximumDeletablePercentage={MaximumDeletablePercentage}",
             MaximumDeletablePercentage=self.maximum_deletable_percentage,
         )
-
+        self.logger.info(
+            "Script Config:  DoUpgradeSearch={DoUpgradeSearch}",
+            DoUpgradeSearch=self.do_upgrade_search,
+        )
         self.logger.info(
             "Script Config:  PrioritizeTodaysReleases={PrioritizeTodaysReleases}",
             PrioritizeTodaysReleases=self.prioritize_todays_release,
+        )
+        self.logger.info(
+            "Script Config:  SearchBySeries={SearchBySeries}",
+            SearchBySeries=self.series_search,
         )
         self.logger.info(
             "Script Config:  SearchOverseerrRequests={SearchOverseerrRequests}",
@@ -330,6 +348,7 @@ class Arr:
 
         self.model_arr_command: CommandsModel = None
         self.model_file: Union[EpisodeFilesModel, MoviesFilesModel] = None
+        self.series_file_model: SeriesFilesModel = None
         self.model_queue: Union[EpisodeQueueModel, MovieQueueModel] = None
         self.persistent_queue: FilesQueued = None
 
@@ -338,9 +357,7 @@ class Arr:
         try:
             if self.session is None:
                 return True
-            req = self.session.get(
-                f"{self.uri}/api/v3/system/status", timeout=2
-            )
+            req = self.session.get(f"{self.uri}/api/v3/system/status", timeout=2)
             req.raise_for_status()
             self.logger.trace("Successfully connected to {url}", url=self.uri)
             return True
@@ -360,6 +377,7 @@ class Arr:
             TorrentStates.CHECKING_RESUME_DATA,
             TorrentStates.ALLOCATING,
             TorrentStates.MOVING,
+            TorrentStates.QUEUED_DOWNLOAD,
         )
 
     @staticmethod
@@ -400,11 +418,15 @@ class Arr:
         elif self.type == "radarr":
             return MoviesModel, CommandsModel, None
 
-    def _get_models(self) -> Tuple[Type[EpisodeFilesModel], Type[EpisodeQueueModel]]:
+    def _get_models(
+        self,
+    ) -> Tuple[Type[EpisodeFilesModel], Type[EpisodeQueueModel], Optional[Type[SeriesFilesModel]]]:
         if self.type == "sonarr":
-            return EpisodeFilesModel, EpisodeQueueModel
+            if self.series_search:
+                return EpisodeFilesModel, EpisodeQueueModel, SeriesFilesModel
+            return EpisodeFilesModel, EpisodeQueueModel, None
         elif self.type == "radarr":
-            return MoviesFilesModel, MovieQueueModel
+            return MoviesFilesModel, MovieQueueModel, None
         else:
             raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
 
@@ -542,7 +564,8 @@ class Arr:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
                 if self.type == "sonarr":
-                    self.logger.notice(
+                    self.logger.log(
+                        16,
                         "DownloadedEpisodesScan: {path}",
                         path=path,
                     )
@@ -553,7 +576,7 @@ class Arr:
                         importMode=self.import_mode,
                     )
                 elif self.type == "radarr":
-                    self.logger.info("DownloadedMoviesScan: {path}", path=path)
+                    self.logger.log(16, "DownloadedMoviesScan: {path}", path=path)
                     self.post_command(
                         "DownloadedMoviesScan",
                         path=str(path),
@@ -575,41 +598,43 @@ class Arr:
             else:
                 self.delete_from_queue(id_=entry, blacklist=False)
         object_id = self.requeue_cache.get(entry)
-        if object_id:
+        if self.re_search and object_id:
             if self.type == "sonarr":
-                data = self.client.get_episode_by_episode_id(object_id)
-                name = data.get("title")
-                series_id = data.get("series", {}).get(id)
-                if name:
-                    episodeNumber = data.get("episodeNumber", 0)
-                    absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
-                    seasonNumber = data.get("seasonNumber", 0)
-                    seriesTitle = data.get("series", {}).get("title")
-                    year = data.get("series", {}).get("year", 0)
-                    tvdbId = data.get("series", {}).get("tvdbId", 0)
-                    self.logger.notice(
-                        "Re-Searching episode: {seriesTitle} ({year}) | "
-                        "S{seasonNumber:02d}E{episodeNumber:03d} "
-                        "({absoluteEpisodeNumber:04d}) | "
-                        "{title} | "
-                        "[tvdbId={tvdbId}|id={episode_id}]",
-                        episode_id=object_id,
-                        title=name,
-                        year=year,
-                        tvdbId=tvdbId,
-                        seriesTitle=seriesTitle,
-                        seasonNumber=seasonNumber,
-                        absoluteEpisodeNumber=absoluteEpisodeNumber,
-                        episodeNumber=episodeNumber,
-                    )
-                else:
-                    self.logger.notice(
-                        "Re-Searching episode: {id}",
-                        id=object_id,
-                    )
-                self.post_command("EpisodeSearch", episodeIds=[object_id])
-                if self.persistent_queue and series_id:
-                    self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
+                object_ids = object_id
+                for object_id in object_ids:
+                    data = self.client.get_episode_by_episode_id(object_id)
+                    name = data.get("title")
+                    series_id = data.get("series", {}).get("id")
+                    if name:
+                        episodeNumber = data.get("episodeNumber", 0)
+                        absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
+                        seasonNumber = data.get("seasonNumber", 0)
+                        seriesTitle = data.get("series", {}).get("title")
+                        year = data.get("series", {}).get("year", 0)
+                        tvdbId = data.get("series", {}).get("tvdbId", 0)
+                        self.logger.notice(
+                            "Re-Searching episode: {seriesTitle} ({year}) | "
+                            "S{seasonNumber:02d}E{episodeNumber:03d} "
+                            "({absoluteEpisodeNumber:04d}) | "
+                            "{title} | "
+                            "[tvdbId={tvdbId}|id={episode_id}]",
+                            episode_id=object_id,
+                            title=name,
+                            year=year,
+                            tvdbId=tvdbId,
+                            seriesTitle=seriesTitle,
+                            seasonNumber=seasonNumber,
+                            absoluteEpisodeNumber=absoluteEpisodeNumber,
+                            episodeNumber=episodeNumber,
+                        )
+                    else:
+                        self.logger.notice(
+                            "Re-Searching episode: {id}",
+                            id=object_id,
+                        )
+                    self.post_command("EpisodeSearch", episodeIds=[object_id])
+                    if self.persistent_queue and series_id:
+                        self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
                 data = self.client.get_movie_by_movie_id(object_id)
                 name = data.get("title")
@@ -644,8 +669,12 @@ class Arr:
 
     def _process_failed(self) -> None:
         to_delete_all = self.delete.union(self.skip_blacklist).union(
-            self.missing_files_post_delete
+            self.missing_files_post_delete, self.missing_files_post_delete_blacklist
         )
+        if self.missing_files_post_delete or self.missing_files_post_delete_blacklist:
+            delete_ = True
+        else:
+            delete_ = False
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
@@ -667,7 +696,9 @@ class Arr:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
-        self.missing_files_post_delete.clear()
+        if delete_:
+            self.missing_files_post_delete.clear()
+            self.missing_files_post_delete_blacklist.clear()
         self.skip_blacklist.clear()
         self.delete.clear()
 
@@ -751,79 +782,95 @@ class Arr:
             condition_today = copy(condition)
             condition_today &= self.model_file.AirDateUtc >= datetime.now(timezone.utc).date()
             for entry in (
-                    self.model_file.select()
-                            .where(condition_today)
-                            .order_by(
-                        self.model_file.SeriesTitle,
-                        self.model_file.SeasonNumber.desc(),
-                        self.model_file.AirDateUtc.desc(),
-                    )
-                            .execute()
+                self.model_file.select()
+                .where(condition_today)
+                .order_by(
+                    self.model_file.SeriesTitle,
+                    self.model_file.SeasonNumber.desc(),
+                    self.model_file.AirDateUtc.desc(),
+                )
+                .execute()
             ):
                 yield entry, True, True
         else:
             yield None, None, None
 
-    def db_get_files(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+    def db_get_files(
+        self,
+    ) -> Iterable[
+        Tuple[Union[MoviesFilesModel, EpisodeFilesModel, SeriesFilesModel], bool, bool, bool]
+    ]:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
-                yield i1, i2, i3
+                yield i1, i2, i3, i3 is not True
         else:
             for i1, i2, i3 in self.db_get_files_episodes():
-                yield i1, i2, i3
+                yield i1, i2, i3, False
 
-    def db_get_files_series(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+    def db_get_files_series(
+        self,
+    ) -> Iterable[Tuple[Union[MoviesFilesModel, SeriesFilesModel, EpisodeFilesModel], bool, bool]]:
         if not self.search_missing:
             yield None, False, False
+        elif not self.series_search:
+            yield None, False, False
         elif self.type == "sonarr":
-            condition = self.model_file.EpisodeFileId == 0
+            condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            condition &= self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.Searched == False
+            if not self.do_upgrade_search:
+                condition &= self.model_file.Searched == False
+                condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.AirDateUtc < (
-                    datetime.now(timezone.utc) - timedelta(hours=2)
+                datetime.now(timezone.utc) - timedelta(hours=2)
             )
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
-            today_condition = copy(condition)
+            for i1, i2, i3 in self._search_todays(condition):
+                if i1 is not None:
+                    yield i1, i2, i3
+            if not self.do_upgrade_search:
+                condition = self.series_file_model.Searched == False
+            else:
+                condition = self.series_file_model.Searched.is_null(False)
             for entry_ in (
-                    self.model_file.select()
-                            .where(condition)
-                            .order_by(
-                        self.model_file.SeriesTitle,
-                        self.model_file.SeasonNumber.desc(),
-                        self.model_file.AirDateUtc.desc(),
-                    ).group_by(self.model_file.SeriesId)
-                            .execute()
+                self.series_file_model.select()
+                .where(condition)
+                .order_by(self.series_file_model.EntryId.asc())
+                .execute()
             ):
                 yield entry_, False, False
-                for i1, i2, i3 in self._search_todays(today_condition):
-                    if i1 is not None:
-                        yield i1, i2, i3
         elif self.type == "radarr":
+            condition = self.model_file.Year == self.search_current_year
+            if not self.do_upgrade_search:
+                condition &= self.model_file.Searched == False
+                condition &= self.model_file.MovieFileId == 0
             for entry in (
-                    self.model_file.select()
-                            .where(
-                        (self.model_file.MovieFileId == 0)
-                        & (self.model_file.Year == self.search_current_year)
-                        & (self.model_file.Searched == False)
-                    )
-                            .order_by(self.model_file.Title.asc())
-                            .execute()
+                self.model_file.select()
+                .where(condition)
+                .order_by(self.model_file.Title.asc())
+                .execute()
             ):
                 yield entry, False, False
 
-    def db_get_files_episodes(self) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+    def db_get_files_episodes(
+        self,
+    ) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
         if not self.search_missing:
             yield None, False, False
         elif self.type == "sonarr":
-            condition = self.model_file.EpisodeFileId == 0
+            condition = self.model_file.AirDateUtc.is_null(False)
+
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.Searched == False
+            if not self.do_upgrade_search:
+                if self.quality_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                else:
+                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
@@ -838,12 +885,18 @@ class Arr:
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
-                ).group_by(self.model_file.SeriesId)
+                )
+                .group_by(self.model_file.SeriesId)
                 .execute()
             ):
                 condition_series = copy(condition)
                 condition_series &= self.model_file.SeriesId == entry_.SeriesId
-                has_been_queried = self.persistent_queue.get_or_none(self.persistent_queue.EntryId == entry_.SeriesId) is not None
+                has_been_queried = (
+                    self.persistent_queue.get_or_none(
+                        self.persistent_queue.EntryId == entry_.SeriesId
+                    )
+                    is not None
+                )
                 for entry in (
                     self.model_file.select()
                     .where(condition_series)
@@ -859,13 +912,16 @@ class Arr:
                     if i1 is not None:
                         yield i1, i2, i3
         elif self.type == "radarr":
+            condition = self.model_file.Year == self.search_current_year
+            if not self.do_upgrade_search:
+                if self.quality_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                else:
+                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.MovieFileId == 0
             for entry in (
                 self.model_file.select()
-                .where(
-                    (self.model_file.MovieFileId == 0)
-                    & (self.model_file.Year == self.search_current_year)
-                    & (self.model_file.Searched == False)
-                )
+                .where(condition)
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
@@ -878,7 +934,11 @@ class Arr:
             yield None
         elif self.type == "sonarr":
             condition = self.model_file.IsRequest == True
-            condition &= self.model_file.EpisodeFileId == 0
+            if not self.do_upgrade_search:
+                if self.quality_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                else:
+                    condition &= self.model_file.EpisodeFileId == 0
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
@@ -900,14 +960,17 @@ class Arr:
             ):
                 yield entry
         elif self.type == "radarr":
+            condition = self.model_file.Year <= datetime.now(timezone.utc).year
+            condition &= self.model_file.Year > 0
+            if not self.do_upgrade_search:
+                if self.quality_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                else:
+                    condition &= self.model_file.MovieFileId == 0
+                    condition &= self.model_file.IsRequest == True
             for entry in (
                 self.model_file.select()
-                .where(
-                    (self.model_file.MovieFileId == 0)
-                    & (self.model_file.IsRequest == True)
-                    & (self.model_file.Year > 0)
-                    & (self.model_file.Year <= datetime.now(timezone.utc).year)
-                )
+                .where(condition)
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
@@ -1024,28 +1087,37 @@ class Arr:
         self.db_update_todays_releases()
         with self.db.atomic():
             if self.type == "sonarr":
-                _series = set()
-                for series in self.model_arr_file.select().where(
-                    (self.model_arr_file.AirDateUtc.is_null(False))
-                    & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                    & (
-                        self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                        | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                    )
-                    & (
-                        self.model_arr_file.AirDateUtc
-                        >= datetime(month=1, day=1, year=self.search_current_year)
-                    )
-                    & (
-                        self.model_arr_file.AirDateUtc
-                        <= datetime(month=12, day=31, year=self.search_current_year)
-                    )
-                ):
-                    series: EpisodesModel
-                    _series.add(series.SeriesId)
-                    self.db_update_single_series(db_entry=series)
-                for series in self.model_arr_file.select().where(self.model_arr_file.SeriesId.in_(_series)):
-                    self.db_update_single_series(db_entry=series)
+                if not self.series_search:
+                    _series = set()
+                    for series in self.model_arr_file.select().where(
+                        (self.model_arr_file.AirDateUtc.is_null(False))
+                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                        & (
+                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        )
+                        & (
+                            self.model_arr_file.AirDateUtc
+                            >= datetime(month=1, day=1, year=self.search_current_year)
+                        )
+                        & (
+                            self.model_arr_file.AirDateUtc
+                            <= datetime(month=12, day=31, year=self.search_current_year)
+                        )
+                    ):
+                        series: EpisodesModel
+                        _series.add(series.SeriesId)
+                        self.db_update_single_series(db_entry=series)
+                    for series in self.model_arr_file.select().where(
+                        self.model_arr_file.SeriesId.in_(_series)
+                    ):
+                        self.db_update_single_series(db_entry=series)
+                else:
+                    for series in self.model_arr_series_file.select().order_by(
+                        self.model_arr_series_file.Added.desc()
+                    ):
+
+                        self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
                 for series in (
                     self.model_arr_file.select()
@@ -1056,98 +1128,158 @@ class Arr:
         self.logger.trace(f"Finished updating database")
 
     def db_update_single_series(
-        self, db_entry: Union[EpisodesModel, MoviesModel] = None, request: bool = False
+        self,
+        db_entry: Union[EpisodesModel, SeriesModel, MoviesModel] = None,
+        request: bool = False,
+        series: bool = False,
     ):
         if self.search_missing is False:
             return
         try:
             searched = False
             if self.type == "sonarr":
-                db_entry: EpisodesModel
-                if db_entry.EpisodeFileId != 0:
-                    searched = True
-                    self.model_queue.update(Completed=True).where(
-                        (self.model_queue.EntryId == db_entry.Id)
-                    ).execute()
-                EntryId = db_entry.Id
-                metadata = self.client.get_episode_by_episode_id(EntryId)
-                SeriesTitle = metadata.get("series", {}).get("title")
-                SeasonNumber = db_entry.SeasonNumber
-                Title = db_entry.Title
-                SeriesId = db_entry.SeriesId
-                EpisodeFileId = db_entry.EpisodeFileId
-                EpisodeNumber = db_entry.EpisodeNumber
-                AbsoluteEpisodeNumber = db_entry.AbsoluteEpisodeNumber
-                SceneAbsoluteEpisodeNumber = db_entry.SceneAbsoluteEpisodeNumber
-                LastSearchTime = db_entry.LastSearchTime
-                AirDateUtc = db_entry.AirDateUtc
-                Monitored = db_entry.Monitored
-                searched = searched
+                if not series:
+                    db_entry: EpisodesModel
+                    QualityUnmet = False
+                    if self.quality_unmet_search:
+                        QualityUnmet = self.client.get_episode_file(db_entry.Id).get(
+                            "qualityCutoffNotMet", False
+                        )
+                    if db_entry.EpisodeFileId != 0 and not QualityUnmet:
+                        searched = True
+                        self.model_queue.update(Completed=True).where(
+                            (self.model_queue.EntryId == db_entry.Id)
+                        ).execute()
+                    EntryId = db_entry.Id
+                    metadata = self.client.get_episode_by_episode_id(EntryId)
+                    SeriesTitle = metadata.get("series", {}).get("title")
+                    SeasonNumber = db_entry.SeasonNumber
+                    Title = db_entry.Title
+                    SeriesId = db_entry.SeriesId
+                    EpisodeFileId = db_entry.EpisodeFileId
+                    EpisodeNumber = db_entry.EpisodeNumber
+                    AbsoluteEpisodeNumber = db_entry.AbsoluteEpisodeNumber
+                    SceneAbsoluteEpisodeNumber = db_entry.SceneAbsoluteEpisodeNumber
+                    LastSearchTime = db_entry.LastSearchTime
+                    AirDateUtc = db_entry.AirDateUtc
+                    Monitored = db_entry.Monitored
+                    searched = searched
+                    QualityMet = db_entry.EpisodeFileId != 0 and not QualityUnmet
 
-                self.logger.trace(
-                    "Updating database entry | {SeriesTitle} | S{SeasonNumber:02d}E{EpisodeNumber:03d} | {Title}",
-                    SeriesTitle=SeriesTitle,
-                    SeasonNumber=SeasonNumber,
-                    EpisodeNumber=EpisodeNumber,
-                )
-                to_update = {
-                    self.model_file.Monitored: Monitored,
-                    self.model_file.Title: Title,
-                    self.model_file.AirDateUtc: AirDateUtc,
-                    self.model_file.LastSearchTime: LastSearchTime,
-                    self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
-                    self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
-                    self.model_file.EpisodeNumber: EpisodeNumber,
-                    self.model_file.EpisodeFileId: EpisodeFileId,
-                    self.model_file.SeriesId: SeriesId,
-                    self.model_file.SeriesTitle: SeriesTitle,
-                    self.model_file.SeasonNumber: SeasonNumber,
-                }
-                if searched:
-                    to_update[self.model_file.Searched] = searched
+                    if self.quality_unmet_search and QualityMet:
+                        self.logger.trace(
+                            "Quality Met | {SeriesTitle} | S{SeasonNumber:02d}E{EpisodeNumber:03d}",
+                            SeriesTitle=SeriesTitle,
+                            SeasonNumber=SeasonNumber,
+                            EpisodeNumber=EpisodeNumber,
+                        )
 
-                if request:
-                    to_update[self.model_file.IsRequest] = request
+                    self.logger.trace(
+                        "Updating database entry | {SeriesTitle} | S{SeasonNumber:02d}E{EpisodeNumber:03d} | {Title}",
+                        SeriesTitle=SeriesTitle,
+                        SeasonNumber=SeasonNumber,
+                        EpisodeNumber=EpisodeNumber,
+                    )
+                    to_update = {
+                        self.model_file.Monitored: Monitored,
+                        self.model_file.Title: Title,
+                        self.model_file.AirDateUtc: AirDateUtc,
+                        self.model_file.LastSearchTime: LastSearchTime,
+                        self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
+                        self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
+                        self.model_file.EpisodeNumber: EpisodeNumber,
+                        self.model_file.EpisodeFileId: EpisodeFileId,
+                        self.model_file.SeriesId: SeriesId,
+                        self.model_file.SeriesTitle: SeriesTitle,
+                        self.model_file.SeasonNumber: SeasonNumber,
+                        self.model_file.QualityMet: QualityMet,
+                    }
+                    if searched:
+                        to_update[self.model_file.Searched] = searched
 
-                db_commands = self.model_file.insert(
-                    EntryId=EntryId,
-                    Title=Title,
-                    SeriesId=SeriesId,
-                    EpisodeFileId=EpisodeFileId,
-                    EpisodeNumber=EpisodeNumber,
-                    AbsoluteEpisodeNumber=AbsoluteEpisodeNumber,
-                    SceneAbsoluteEpisodeNumber=SceneAbsoluteEpisodeNumber,
-                    LastSearchTime=LastSearchTime,
-                    AirDateUtc=AirDateUtc,
-                    Monitored=Monitored,
-                    SeriesTitle=SeriesTitle,
-                    SeasonNumber=SeasonNumber,
-                    Searched=searched,
-                    IsRequest=request,
-                ).on_conflict(
-                    conflict_target=[self.model_file.EntryId],
-                    update=to_update,
-                )
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
+
+                    db_commands = self.model_file.insert(
+                        EntryId=EntryId,
+                        Title=Title,
+                        SeriesId=SeriesId,
+                        EpisodeFileId=EpisodeFileId,
+                        EpisodeNumber=EpisodeNumber,
+                        AbsoluteEpisodeNumber=AbsoluteEpisodeNumber,
+                        SceneAbsoluteEpisodeNumber=SceneAbsoluteEpisodeNumber,
+                        LastSearchTime=LastSearchTime,
+                        AirDateUtc=AirDateUtc,
+                        Monitored=Monitored,
+                        SeriesTitle=SeriesTitle,
+                        SeasonNumber=SeasonNumber,
+                        Searched=searched,
+                        IsRequest=request,
+                        QualityMet=QualityMet,
+                    ).on_conflict(
+                        conflict_target=[self.model_file.EntryId],
+                        update=to_update,
+                    )
+                else:
+                    db_entry: SeriesModel
+                    EntryId = db_entry.Id
+                    metadata = self.client.get_series(id_=EntryId)
+                    episode_count = metadata.get("episodeCount", -2)
+                    searched = episode_count == metadata.get("episodeFileCount", -1)
+                    if episode_count == 0:
+                        searched = True
+                    Title = metadata.get("title")
+                    Monitored = db_entry.Monitored
+                    self.logger.trace(
+                        "Updating database entry | {SeriesTitle}",
+                        SeriesTitle=Title,
+                    )
+                    to_update = {
+                        self.series_file_model.Monitored: Monitored,
+                        self.series_file_model.Title: Title,
+                    }
+                    if searched:
+                        to_update[self.series_file_model.Searched] = searched
+
+                    db_commands = self.series_file_model.insert(
+                        EntryId=EntryId, Title=Title, Searched=searched, Monitored=Monitored
+                    ).on_conflict(
+                        conflict_target=[self.series_file_model.EntryId],
+                        update=to_update,
+                    )
+
             elif self.type == "radarr":
                 db_entry: MoviesModel
                 searched = False
-                if db_entry.MovieFileId != 0:
+                QualityUnmet = False
+                if self.quality_unmet_search:
+                    QualityUnmet = any(
+                        i["qualityCutoffNotMet"]
+                        for i in self.client.get_movie_files_by_movie_id(db_entry.Id)
+                        if "qualityCutoffNotMet" in i
+                    )
+                if db_entry.MovieFileId != 0 and not QualityUnmet:
                     searched = True
                     self.model_queue.update(Completed=True).where(
                         (self.model_queue.EntryId == db_entry.Id)
                     ).execute()
+
                 title = db_entry.Title
                 monitored = db_entry.Monitored
                 tmdbId = db_entry.TmdbId
                 year = db_entry.Year
                 EntryId = db_entry.Id
                 MovieFileId = db_entry.MovieFileId
+
+                QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
+
                 self.logger.trace(
                     "Updating database entry | {title} ({tmdbId})", title=title, tmdbId=tmdbId
                 )
                 to_update = {
                     self.model_file.MovieFileId: MovieFileId,
                     self.model_file.Monitored: monitored,
+                    self.model_file.QualityMet: QualityMet,
                 }
                 if searched:
                     to_update[self.model_file.Searched] = searched
@@ -1162,6 +1294,7 @@ class Arr:
                     Searched=searched,
                     MovieFileId=MovieFileId,
                     IsRequest=request,
+                    QualityMet=QualityMet,
                 ).on_conflict(
                     conflict_target=[self.model_file.EntryId],
                     update=to_update,
@@ -1216,12 +1349,14 @@ class Arr:
         for file in absolute_file_paths(folder):
             if file.name in {"desktop.ini", ".DS_Store"}:
                 continue
+            elif file.suffix.lower() == ".parts":
+                continue
             if not file.exists():
                 continue
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder:  {file}", file=file)
                 continue
-            if file.suffix in self.file_extension_allowlist:
+            if file.suffix.lower() in self.file_extension_allowlist:
                 self.logger.trace(
                     "Folder Cleanup: File has an allowed extension: {file}", file=file
                 )
@@ -1255,10 +1390,11 @@ class Arr:
 
     def maybe_do_search(
         self,
-        file_model: Union[EpisodeFilesModel, MoviesFilesModel],
+        file_model: Union[EpisodeFilesModel, MoviesFilesModel, SeriesFilesModel],
         request: bool = False,
         todays: bool = False,
         bypass_limit: bool = False,
+        series_search: bool = False,
     ):
         request_tag = (
             "[OVERSEERR REQUEST]: "
@@ -1269,66 +1405,102 @@ class Arr:
             if todays
             else ""
         )
-        series_search = copy(self.series_search)
         if request or todays:
             bypass_limit = True
-            series_search = False
         if (not self.search_missing) or (file_model is None):
             return None
         elif not self.is_alive:
             raise NoConnectionrException("Could not connect to %s" % self.uri, type="arr")
         elif self.type == "sonarr":
-            if not (request or todays):
-                queue = (
-                    self.model_queue.select()
-                    .where(self.model_queue.EntryId == file_model.EntryId)
-                    .execute()
-                )
-            else:
-                queue = False
-            if queue:
+            if not series_search:
+                file_model: EpisodeFilesModel
+                if not (request or todays):
+                    queue = (
+                        self.model_queue.select()
+                        .where(self.model_queue.EntryId == file_model.EntryId)
+                        .execute()
+                    )
+                else:
+                    queue = False
+                if queue:
+                    self.logger.debug(
+                        "{request_tag}Skipping: Already Searched: {model.SeriesTitle} | "
+                        "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
+                        "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                        model=file_model,
+                        request_tag=request_tag,
+                    )
+                    file_model.Searched = True
+                    file_model.save()
+                    return True
+                active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
-                    "{request_tag}Skipping: Already Searched: {model.SeriesTitle} | "
-                    "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
-                    "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
-                    model=file_model,
+                    "{request_tag}{active_commands} active search commands",
+                    active_commands=active_commands,
                     request_tag=request_tag,
                 )
+                if not bypass_limit and active_commands >= self.search_command_limit:
+                    self.logger.trace(
+                        "{request_tag}Idle: Too many commands in queue: {model.SeriesTitle} | "
+                        "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
+                        "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
+                        model=file_model,
+                        request_tag=request_tag,
+                    )
+                    return False
+                self.persistent_queue.insert(
+                    EntryId=file_model.SeriesId
+                ).on_conflict_ignore().execute()
+                self.model_queue.insert(
+                    Completed=False,
+                    EntryId=file_model.EntryId,
+                ).on_conflict_replace().execute()
+                if file_model.EntryId not in self.queue_file_ids:
+                    self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
                 file_model.Searched = True
                 file_model.save()
-                return True
-            active_commands = self.arr_db_query_commands_count()
-            self.logger.debug(
-                "{request_tag}{active_commands} active search commands",
-                active_commands=active_commands,
-                request_tag=request_tag,
-            )
-            if not bypass_limit and active_commands >= self.search_command_limit:
-                self.logger.trace(
-                    "{request_tag}Idle: Too many commands in queue: {model.SeriesTitle} | "
+                self.logger.log(
+                    17,
+                    "{request_tag}Searching for: {model.SeriesTitle} | "
                     "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
                     "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
                     model=file_model,
                     request_tag=request_tag,
                 )
-                return False
-            self.persistent_queue.insert(EntryId=file_model.SeriesId).on_conflict_ignore().execute()
-            self.model_queue.insert(
-                Completed=False,
-                EntryId=file_model.EntryId,
-            ).on_conflict_replace().execute()
-            if file_model.EntryId not in self.queue_file_ids:
-                self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
-            file_model.Searched = True
-            file_model.save()
-            self.logger.notice(
-                "{request_tag}Searching for: {model.SeriesTitle} | "
-                "S{model.SeasonNumber:02d}E{model.EpisodeNumber:03d} | "
-                "{model.Title} | [id={model.EntryId}|AirDateUTC={model.AirDateUtc}]",
-                model=file_model,
-                request_tag=request_tag,
-            )
-            return True
+                return True
+            else:
+                file_model: SeriesFilesModel
+                active_commands = self.arr_db_query_commands_count()
+                self.logger.debug(
+                    "{request_tag}{active_commands} active search commands",
+                    active_commands=active_commands,
+                    request_tag=request_tag,
+                )
+                if not bypass_limit and active_commands >= self.search_command_limit:
+                    self.logger.trace(
+                        "{request_tag}Idle: Too many commands in queue: {model.Title} | "
+                        "[id={model.EntryId}",
+                        model=file_model,
+                        request_tag=request_tag,
+                    )
+                    return False
+                self.persistent_queue.insert(
+                    EntryId=file_model.EntryId
+                ).on_conflict_ignore().execute()
+                self.model_queue.insert(
+                    Completed=False,
+                    EntryId=file_model.EntryId,
+                ).on_conflict_replace().execute()
+                self.client.post_command("SeriesSearch", seriesId=file_model.EntryId)
+                file_model.Searched = True
+                file_model.save()
+                self.logger.log(
+                    17,
+                    "{request_tag}Searching for: " "{model.Title} | [id={model.EntryId}]",
+                    model=file_model,
+                    request_tag=request_tag,
+                )
+                return True
         elif self.type == "radarr":
             if not (request or todays):
                 queue = (
@@ -1372,7 +1544,8 @@ class Arr:
                 self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
             file_model.Searched = True
             file_model.save()
-            self.logger.notice(
+            self.logger.log(
+                17,
                 "{request_tag}Searching for: {model.Title} ({model.Year}) "
                 "[tmdbId={model.TmdbId}|id={model.EntryId}]",
                 model=file_model,
@@ -1390,6 +1563,7 @@ class Arr:
         return res
 
     def process(self):
+        self._process_resume()
         self._process_paused()
         self._process_errored()
         self._process_file_priority()
@@ -1451,13 +1625,39 @@ class Arr:
                         "{torrent.state_enum}",
                         torrent=torrent,
                     )
+                    if torrent.state_enum == TorrentStates.QUEUED_DOWNLOAD:
+                        self.recently_queue[torrent.hash] = time.time()
                     continue
+                # Do not touch torrents recently resumed/reched (A torrent can temporarely stall after being resumed from a paused state).
+                elif torrent.hash in self.timed_ignore_cache:
+                    self.logger.trace(
+                        "Skipping torrent: Marked for skipping | {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
+                    continue
+                elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
+                    self.pause.add(torrent.hash)
+                    self.logger.trace(
+                        "Pausing torrent: Queued Upload | {torrent.name} ({torrent.hash}) | "
+                        "{torrent.state_enum}",
+                        torrent=torrent,
+                    )
                 # Process torrents who have stalled at this point, only mark from for deletion if they have been added more than "IgnoreTorrentsYoungerThan" seconds ago
                 elif torrent.state_enum in (
                     TorrentStates.METADATA_DOWNLOAD,
                     TorrentStates.STALLED_DOWNLOAD,
                 ):
-                    if torrent.added_on < time_now - self.ignore_torrents_younger_than:
+                    added_on = None
+                    if torrent.hash in self.recently_queue:
+                        if (
+                            self.recently_queue[torrent.hash]
+                            < time_now - self.ignore_torrents_younger_than
+                        ):
+                            added_on = self.recently_queue[torrent.hash]
+                            del self.recently_queue[torrent.hash]
+                    if (
+                        added_on or torrent.added_on
+                    ) < time_now - self.ignore_torrents_younger_than:
                         self.logger.info(
                             "Deleting Stale torrent: "
                             "[Progress: {progress}%][Added On: {added}] | {torrent.name} ({torrent.hash})",
@@ -1473,13 +1673,6 @@ class Arr:
                             "{torrent.state_enum}",
                             torrent=torrent,
                         )
-                # Do not touch torrents recently resumed/reched (A torrent can temporarely stall after being resumed from a paused state).
-                elif torrent.hash in self.timed_ignore_cache:
-                    self.logger.trace(
-                        "Skipping torrent: Marked for skipping | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                    )
-                    continue
                 # Ignore torrents who have reached maximum percentage as long as the last activity is within the MaximumETA set for this category
                 # For example if you set MaximumETA to 5 mines, this will ignore all torrets that have stalled at a higher percentage as long as there is activity
                 # And the window of activity is determined by the current time - MaximumETA, if the last active was after this value ignore this torrent
@@ -1506,6 +1699,17 @@ class Arr:
                             torrent=torrent,
                         )
                         continue
+                # Resume monitored downloads which have been paused.
+                elif (
+                    torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
+                    and torrent.amount_left != 0
+                ):
+                    self.timed_ignore_cache.add(torrent.hash)
+                    self.resume.add(torrent.hash)
+                    self.logger.debug(
+                        "Resuming incomplete paused torrent: {torrent.name} ({torrent.hash})",
+                        torrent=torrent,
+                    )
                 # Ignore torrents which have been submitted to their respective Arr instance for import.
                 elif (
                     torrent.hash
@@ -1531,7 +1735,7 @@ class Arr:
                     and torrent.state_enum != TorrentStates.PAUSED_UPLOAD
                     and self.is_complete_state(torrent)
                     and torrent.content_path
-                    and torrent.completion_on < time_now - 30
+                    and torrent.completion_on < time_now - 360
                 ):
                     self.logger.info(
                         "Pausing Completed torrent: "
@@ -1549,13 +1753,6 @@ class Arr:
                     )
                     # We do not want to blacklist these!!
                     self.skip_blacklist.add(torrent.hash)
-                # Resume monitored downloads which have been paused.
-                elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.progress < 1:
-                    self.resume.add(torrent.hash)
-                    self.logger.debug(
-                        "Resuming incomplete paused torrent: {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                    )
                 # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
                 elif (
                     self.is_uploading_state(torrent)
@@ -1563,6 +1760,7 @@ class Arr:
                     and torrent.amount_left == 0
                     and torrent.added_on > 0
                     and torrent.content_path
+                    and torrent.amount_left == 0
                 ) and torrent.hash in self.cleaned_torrents:
                     self.logger.info(
                         "Pausing uploading torrent: "
@@ -1621,19 +1819,8 @@ class Arr:
                             if file.priority == 0:
                                 total -= 1
                                 continue
-                            # A file in the torrent does not have the allowlisted extensions, mark it for exclusion.
-                            if file_path.suffix not in self.file_extension_allowlist:
-                                self.logger.debug(
-                                    "Removing File: Not allowed | Extension: "
-                                    "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
-                                    torrent=torrent,
-                                    file=file,
-                                    suffix=file_path.suffix,
-                                )
-                                _remove_files.add(file.id)
-                                total -= 1
                             # A folder within the folder tree matched the terms in FolderExclusionRegex, mark it for exclusion.
-                            elif any(
+                            if any(
                                 self.folder_exclusion_regex_re.match(p.name.lower())
                                 for p in file_path.parents
                                 if (folder_match := p.name)
@@ -1655,6 +1842,16 @@ class Arr:
                                     torrent=torrent,
                                     file=file,
                                     match=match.group(),
+                                )
+                                _remove_files.add(file.id)
+                                total -= 1
+                            elif file_path.suffix.lower() not in self.file_extension_allowlist:
+                                self.logger.debug(
+                                    "Removing File: Not allowed | Extension: "
+                                    "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
+                                    torrent=torrent,
+                                    file=file,
+                                    suffix=file_path.suffix,
                                 )
                                 _remove_files.add(file.id)
                                 total -= 1
@@ -1694,15 +1891,20 @@ class Arr:
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
         if self.type == "sonarr":
-            self.requeue_cache = {
-                entry["id"]: entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+            self.requeue_cache = defaultdict(set)
+            for entry in self.queue:
+                if r := entry.get("episodeId"):
+                    self.requeue_cache[entry["id"]].add(r)
+            self.queue_file_ids = {
+                entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
-            self.queue_file_ids = {entry["episodeId"] for entry in self.queue if entry.get("episodeId")}
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
-            self.queue_file_ids = {entry["movieId"] for entry in self.queue if entry.get("movieId")}
+            self.queue_file_ids = {
+                entry["movieId"] for entry in self.queue if entry.get("movieId")
+            }
         self._update_bad_queue_items()
 
     def get_queue(
@@ -1711,7 +1913,7 @@ class Arr:
         page_size=10000,
         sort_direction="ascending",
         sort_key="timeLeft",
-        messages: bool = True
+        messages: bool = True,
     ):
         params = {
             "page": page,
@@ -1753,11 +1955,15 @@ class Arr:
                         "Not a preferred word upgrade for existing movie file(s)",
                         "Not an upgrade for existing episode file(s)",
                         "Not an upgrade for existing movie file(s)",
+                        "Unable to determine if file is a sample",
                     }:  # TODO: Add more error codes
                         _path_filter.add(pathlib.Path(output_path).joinpath(title))
-                    if "No files found are eligible for import in" in _m:
-                        if e := m.get("downloadId"):
+                        e = entry.get("downloadId")
+                        self.missing_files_post_delete_blacklist.add(e)
+                    elif "No files found are eligible for import in" in _m:
+                        if e := entry.get("downloadId"):
                             self.missing_files_post_delete.add(e)
+
         if len(_path_filter):
             self.needs_cleanup = True
         self.files_to_explicitly_delete = iter(_path_filter.copy())
@@ -1772,15 +1978,14 @@ class Arr:
         for entry in _temp:
             if id_ := entry.get("id"):
                 ids.add(id_)
-                self.logger.notice("Attempting to force grab: {id_} =  {entry}", id_=id_, entry=entry.get('title'))
+                self.logger.notice(
+                    "Attempting to force grab: {id_} =  {entry}", id_=id_, entry=entry.get("title")
+                )
         if ids:
             with ThreadPoolExecutor(max_workers=16) as executor:
                 executor.map(self._force_grab, ids)
 
-    def _force_grab(
-        self,
-        id_
-    ):
+    def _force_grab(self, id_):
         try:
             path = f"/api/v3/queue/grab/{id_}"
             res = self.client.request_post(path, data={})
@@ -1800,7 +2005,7 @@ class Arr:
             return
         else:
             self.arr_db = SqliteDatabase(None)
-            self.arr_db.init(str(self.arr_db_file))
+            self.arr_db.init(f"file:{self.arr_db_file}?mode=ro", uri=True)
             self.arr_db.connect()
 
         self.db = SqliteDatabase(None)
@@ -1815,7 +2020,7 @@ class Arr:
             },
         )
 
-        db1, db2 = self._get_models()
+        db1, db2, db3 = self._get_models()
 
         class Files(db1):
             class Meta:
@@ -1830,7 +2035,16 @@ class Arr:
                 database = self.db
 
         self.db.connect()
-        self.db.create_tables([Files, Queue, PersistingQueue])
+        if db3:
+
+            class Series(db3):
+                class Meta:
+                    database = self.db
+
+            self.db.create_tables([Files, Queue, PersistingQueue, Series])
+            self.series_file_model = Series
+        else:
+            self.db.create_tables([Files, Queue, PersistingQueue])
 
         self.model_file = Files
         self.model_queue = Queue
@@ -1926,11 +2140,19 @@ class Arr:
                 self.db_update()
                 self.force_grab()
                 try:
-                    for entry, todays, limit_bypass in self.db_get_files():
+                    for entry, todays, limit_bypass, series_search in self.db_get_files():
                         if timer < (datetime.now(timezone.utc) - loop_timer):
                             self.force_grab()
                             raise RestartLoopException
-                        while self.maybe_do_search(entry, todays=todays, bypass_limit=limit_bypass) is False:
+                        while (
+                            self.maybe_do_search(
+                                entry,
+                                todays=todays,
+                                bypass_limit=limit_bypass,
+                                series_search=series_search,
+                            )
+                            is False
+                        ):
                             time.sleep(30)
                     self.search_current_year += self._delta
                     if self.search_in_reverse:
@@ -1948,7 +2170,9 @@ class Arr:
                 except DelayLoopException:
                     raise
                 except ValueError:
-                    self.logger.debug("Loop completed, restarting it.") #TODO: Clean so that entries can be researched.
+                    self.logger.debug(
+                        "Loop completed, restarting it."
+                    )  # TODO: Clean so that entries can be researched.
                 except Exception as e:
                     self.logger.exception(e, exc_info=sys.exc_info())
                 time.sleep(LOOP_SLEEP_TIMER)
@@ -1975,6 +2199,8 @@ class Arr:
                     )
                 time.sleep(e.length)
                 self.manager.qbit_manager.should_delay_torrent_scan = False
+            else:
+                time.sleep(5)
 
     def run_torrent_loop(self) -> NoReturn:
         while True:
