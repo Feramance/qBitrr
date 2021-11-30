@@ -10,7 +10,7 @@ with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/
   - Trigger perioridc Rss Syncs on the appropriate Arr instances
   - Trigger Queue update on appropriate Arr instances
   
-  __This section requires the Arr databases to be locally avaliable.__
+  __This section requires the Arr databases to be locally available.__
   - Monitor Arr's databases to trigger missing episode searches
   - Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc)
   
@@ -49,3 +49,9 @@ Some things to know before using it.
 
 #### Example behaviour
 ![image](https://user-images.githubusercontent.com/27962761/139675283-f1b09955-d9b3-448c-b64c-1de58c1cddcb.png)
+
+
+### Change Logs
+ - Update 2021/11/30 
+   - This update will require you to delete the existing databases in `~/.config/qBitManager` due to changes to the database format.
+   - Several bug fixes and new functionality.

@@ -1309,7 +1309,7 @@ class Arr:
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
-        params = {"removeFromClient": remove_from_client, "blocklist": blacklist}
+        params = {"removeFromClient": remove_from_client, "blocklist": blacklist, "blacklist": blacklist}
         path = f"/api/v3/queue/{id_}"
         res = self.client.request_del(path, params=params)
         return res
