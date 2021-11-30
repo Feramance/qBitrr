@@ -127,6 +127,8 @@ class Arr:
             name, "PrioritizeTodaysReleases", fallback=False
         )
 
+        self.donotremoveslow = CONFIG.getboolean(name, "DoNotRemoveSlow", fallback=False)
+
         if self.search_in_reverse:
             self.search_current_year = self.search_ending_year
             self._delta = 1
@@ -203,7 +205,7 @@ class Arr:
         self.missing_files_post_delete = set()
         self.missing_files_post_delete_blacklist = set()
         self.needs_cleanup = False
-        self.recently_queue = defaultdict(time.time)
+        self.recently_queue = dict()
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -597,6 +599,8 @@ class Arr:
                 self.delete_from_queue(id_=entry, blacklist=True)
             else:
                 self.delete_from_queue(id_=entry, blacklist=False)
+        if hash_ in self.recently_queue:
+            del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
         if self.re_search and object_id:
             if self.type == "sonarr":
@@ -1637,6 +1641,7 @@ class Arr:
                     continue
                 elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
                     self.pause.add(torrent.hash)
+                    self.skip_blacklist.add(torrent.hash)
                     self.logger.trace(
                         "Pausing torrent: Queued Upload | {torrent.name} ({torrent.hash}) | "
                         "{torrent.state_enum}",
@@ -1647,17 +1652,10 @@ class Arr:
                     TorrentStates.METADATA_DOWNLOAD,
                     TorrentStates.STALLED_DOWNLOAD,
                 ):
-                    added_on = None
-                    if torrent.hash in self.recently_queue:
-                        if (
-                            self.recently_queue[torrent.hash]
-                            < time_now - self.ignore_torrents_younger_than
-                        ):
-                            added_on = self.recently_queue[torrent.hash]
-                            del self.recently_queue[torrent.hash]
                     if (
-                        added_on or torrent.added_on
-                    ) < time_now - self.ignore_torrents_younger_than:
+                        self.recently_queue.get(torrent.hash, torrent.added_on)
+                        < time_now - self.ignore_torrents_younger_than
+                    ):
                         self.logger.info(
                             "Deleting Stale torrent: "
                             "[Progress: {progress}%][Added On: {added}] | {torrent.name} ({torrent.hash})",
@@ -1666,22 +1664,18 @@ class Arr:
                             progress=round(torrent.progress * 100, 2),
                         )
                         self.delete.add(torrent.hash)
-                    else:
-                        self.logger.trace(
-                            "Skipping torrent: Stale torrent younger than threshhold | "
-                            "{torrent.name} ({torrent.hash}) | "
-                            "{torrent.state_enum}",
-                            torrent=torrent,
-                        )
                 # Ignore torrents who have reached maximum percentage as long as the last activity is within the MaximumETA set for this category
                 # For example if you set MaximumETA to 5 mines, this will ignore all torrets that have stalled at a higher percentage as long as there is activity
                 # And the window of activity is determined by the current time - MaximumETA, if the last active was after this value ignore this torrent
                 # the idea here is that if a torrent isn't completely dead some leecher/seeder may contribute towards your progress.
                 # However if its completely dead and no activity is observed, then lets remove it and requeue a new torrent.
                 elif (
-                    torrent.progress >= self.maximum_deletable_percentage
-                    and self.is_complete_state(torrent) is False
-                ) and torrent.hash in self.cleaned_torrents:
+                    (
+                        torrent.progress >= self.maximum_deletable_percentage
+                        and self.is_complete_state(torrent) is False
+                    )
+                    and torrent.hash in self.cleaned_torrents
+                ):
                     if torrent.last_activity < time_now - self.maximum_eta:
                         self.logger.info(
                             "Deleting Stale torrent: "
@@ -1735,7 +1729,7 @@ class Arr:
                     and torrent.state_enum != TorrentStates.PAUSED_UPLOAD
                     and self.is_complete_state(torrent)
                     and torrent.content_path
-                    and torrent.completion_on < time_now - 360
+                    and torrent.completion_on < time_now - 60
                 ):
                     self.logger.info(
                         "Pausing Completed torrent: "
@@ -1743,6 +1737,7 @@ class Arr:
                         torrent=torrent,
                     )
                     self.pause.add(torrent.hash)
+                    self.skip_blacklist.add(torrent.hash)
                     self.import_torrents.append(torrent)
                 # Sometimes Sonarr/Radarr does not automatically remove the torrent for some reason,
                 # this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
@@ -1768,12 +1763,15 @@ class Arr:
                         torrent=torrent,
                     )
                     self.pause.add(torrent.hash)
+                    self.skip_blacklist.add(torrent.hash)
                 # Mark a torrent for deletion
                 elif (
                     torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                     and torrent.state_enum.is_downloading
-                    and torrent.added_on < time_now - self.ignore_torrents_younger_than
+                    and self.recently_queue.get(torrent.hash, torrent.added_on)
+                    < time_now - self.ignore_torrents_younger_than
                     and torrent.eta > self.maximum_eta
+                    and not self.donotremoveslow
                 ):
                     self.logger.trace(
                         "Deleting slow torrent: "
@@ -1788,7 +1786,8 @@ class Arr:
                 elif torrent.state_enum.is_downloading:
                     # If a torrent availability hasn't reached 100% or more within the configurable "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
                     if (
-                        torrent.added_on < time_now - self.ignore_torrents_younger_than
+                        self.recently_queue.get(torrent.hash, torrent.added_on)
+                        < time_now - self.ignore_torrents_younger_than
                         and torrent.availability < 1
                     ) and torrent.hash in self.cleaned_torrents:
                         self.logger.info(
@@ -1801,7 +1800,6 @@ class Arr:
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
                         self.delete.add(torrent.hash)
-
                     else:
                         if torrent.hash in self.cleaned_torrents:
                             self.logger.trace(
@@ -1813,6 +1811,8 @@ class Arr:
                         # A downloading torrent is not stalled, parse its contents.
                         _remove_files = set()
                         total = len(torrent.files)
+                        if total == 0:
+                            continue
                         for file in torrent.files:
                             file_path = pathlib.Path(file.name)
                             # Acknowledge files that already been marked as "Don't download"
@@ -1821,7 +1821,7 @@ class Arr:
                                 continue
                             # A folder within the folder tree matched the terms in FolderExclusionRegex, mark it for exclusion.
                             if any(
-                                self.folder_exclusion_regex_re.match(p.name.lower())
+                                self.folder_exclusion_regex_re.search(p.name.lower())
                                 for p in file_path.parents
                                 if (folder_match := p.name)
                             ):
@@ -1835,7 +1835,9 @@ class Arr:
                                 _remove_files.add(file.id)
                                 total -= 1
                             # A file matched and entry in FileNameExclusionRegex, mark it for exclusion.
-                            elif match := self.file_name_exclusion_regex_re.search(file_path.name):
+                            elif (
+                                match := self.file_name_exclusion_regex_re.search(file_path.name)
+                            ) and match.group():
                                 self.logger.debug(
                                     "Removing File: Not allowed | Name: "
                                     "{match} | {torrent.name} ({torrent.hash}) | {file.name}",
