@@ -1,4 +1,3 @@
-import contextlib
 import pathlib
 import random
 import socket
@@ -6,7 +5,6 @@ import time
 from typing import Iterator, Union
 
 import logbook
-import requests
 
 from config import PING_URLS
 
@@ -14,9 +12,14 @@ logger = logbook.Logger("Utilities")
 
 
 def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib.Path]:
-    for path in pathlib.Path(directory).glob("**/*"):
-        with contextlib.suppress(FileNotFoundError):
-            yield path
+    error = True
+    while error is True:
+        try:
+            for path in pathlib.Path(directory).glob("**/*"):
+                yield path
+            error = False
+        except FileNotFoundError as e:
+            logger.warning("%s - %s" % (e.strerror, e.filename))
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:

@@ -1309,7 +1309,11 @@ class Arr:
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
-        params = {"removeFromClient": remove_from_client, "blocklist": blacklist, "blacklist": blacklist}
+        params = {
+            "removeFromClient": remove_from_client,
+            "blocklist": blacklist,
+            "blacklist": blacklist,
+        }
         path = f"/api/v3/queue/{id_}"
         res = self.client.request_del(path, params=params)
         return res
@@ -1670,12 +1674,9 @@ class Arr:
                 # the idea here is that if a torrent isn't completely dead some leecher/seeder may contribute towards your progress.
                 # However if its completely dead and no activity is observed, then lets remove it and requeue a new torrent.
                 elif (
-                    (
-                        torrent.progress >= self.maximum_deletable_percentage
-                        and self.is_complete_state(torrent) is False
-                    )
-                    and torrent.hash in self.cleaned_torrents
-                ):
+                    torrent.progress >= self.maximum_deletable_percentage
+                    and self.is_complete_state(torrent) is False
+                ) and torrent.hash in self.cleaned_torrents:
                     if torrent.last_activity < time_now - self.maximum_eta:
                         self.logger.info(
                             "Deleting Stale torrent: "
