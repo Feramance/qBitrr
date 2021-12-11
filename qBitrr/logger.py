@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 import logbook
 from logbook import StreamHandler
@@ -138,8 +139,10 @@ if not HAS_RUN:
             "Config.ini should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.",
             APPDATA_FOLDER=APPDATA_FOLDER,
         )
+        time.sleep(5)
     if COPIED_TO_NEW_DIR:
         logbook.warning(
             "Config.ini new location is {APPDATA_FOLDER}", APPDATA_FOLDER=APPDATA_FOLDER
         )
+        time.sleep(5)
     run_logs()

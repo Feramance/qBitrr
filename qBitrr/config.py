@@ -2,7 +2,10 @@ import configparser
 import contextlib
 import pathlib
 import shutil
+import sys
 from datetime import datetime
+
+import logbook
 
 CONFIG = configparser.ConfigParser(
     converters={
@@ -17,13 +20,22 @@ CONFIG = configparser.ConfigParser(
 APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 COPIED_TO_NEW_DIR = False
-if (CONFIG_PATH := APPDATA_FOLDER.joinpath("config.ini")).exists():
+CONFIG_FILE = APPDATA_FOLDER.joinpath("config.ini")
+if (
+    not (CONFIG_PATH := APPDATA_FOLDER.joinpath("config.ini")).exists()
+    and not pathlib.Path("./config.ini").exists()
+):
+    logbook.critical("config.ini has not been found - exiting...")
+    sys.exit(1)
+
+if CONFIG_PATH.exists():
     CONFIG.read(str(CONFIG_PATH))
 else:
     with contextlib.suppress(
         Exception
     ):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
-        shutil.copy(pathlib.Path("./config.ini"), CONFIG_PATH)
+        CONFIG_FILE = pathlib.Path("./config.ini")
+        shutil.copy(CONFIG_FILE, CONFIG_PATH)
         COPIED_TO_NEW_DIR = True
     CONFIG.read("./config.ini")
 
