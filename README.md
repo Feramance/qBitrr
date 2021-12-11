@@ -41,9 +41,13 @@ Some things to know before using it.
 
 #### Run the script
 
-- Make sure to update the settings in `config.ini`
+- Make sure to update the settings in `~/.config/qBitManager/config.ini`
 - Activate your venv
 - Run `qbitrr`
+
+#### How to update the script
+- Activate your venv
+- Run `python -m pip install -U qBitr`
 
 #### Contributions
 
