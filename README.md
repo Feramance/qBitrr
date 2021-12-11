@@ -1,5 +1,4 @@
-A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate
-with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
+A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
 Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 
@@ -38,8 +37,7 @@ Some things to know before using it.
 
 #### Install the requirements run:
 
-- `python -m pip install -r requirements.text` (I would reccomend in a
-  dedicated [venv](https://docs.python.org/3.3/library/venv.html) but thats out of scope.
+- `python -m pip install -r requirements.text` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 #### Run the script
 
