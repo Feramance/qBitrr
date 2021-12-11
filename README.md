@@ -23,15 +23,14 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 Some things to know before using it.
 
 -
-    1. You need to copy the `config.example.ini` and rename it to `~/.config/qBitManager/config.ini` (~ is your home directory, i.e C:\Users\{User})
+    1. You need to copy the `config.example.ini` and rename it to `~/.config/qBitManager/config.ini` (~ is your home directory, i.e `C:\Users\{User}`)
 -
-    2. I have Sonarr and Radarr both setup to add tags to all downloads.
+    2. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 -
-    3. I have qBit setup to have to create subfolder for downloads and for the download folder to
+    3. I have qBit setup to have to create sub-folder for downloads and for the download folder to
        use subcategories.
 
-![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
-
+    ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
 -
     4. Make sure to have [`ffprobe`](https://www.ffmpeg.org/download.html) added to your PATH.
 
@@ -47,14 +46,14 @@ Some things to know before using it.
 
 #### How to update the script
 - Activate your venv
-- Run `python -m pip install -U qBitr`
+- Run `python -m pip install -U qBitrr`
 
 #### Contributions
 
 - I'm happy with any PRs and suggested changes to the logic I just put it together dirty for my own use case.
 
 #### Example behaviour
-![image](https://user-images.githubusercontent.com/27962761/139675283-f1b09955-d9b3-448c-b64c-1de58c1cddcb.png)
+![image](https://user-images.githubusercontent.com/27962761/145681358-1354e8ac-0939-4800-8af8-562d80388909.png)
 
 
 ### Change Logs

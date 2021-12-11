@@ -19,7 +19,7 @@ def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib
                 yield path
             error = False
         except FileNotFoundError as e:
-            logger.warning("%s - %s" % (e.strerror, e.filename))
+            logger.warning("{e.strerror} - {e.filename}", e=e)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
