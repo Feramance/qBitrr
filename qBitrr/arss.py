@@ -558,7 +558,7 @@ class Arr:
                 if not path.exists():
                     self.timed_ignore_cache.add(torrent.hash)
                     self.logger.warning(
-                        "Missing Torrent: [State:torrent.state_enum] {torrent.name} ({torrent.hash}) - "
+                        "Missing Torrent: [{torrent.state_enum}] {torrent.name} ({torrent.hash}) - "
                         "File does not seem to exist: {path}",
                         torrent=torrent,
                         path=path,
@@ -1615,7 +1615,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1631,7 +1631,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1647,7 +1647,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1665,7 +1665,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1682,7 +1682,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1704,7 +1704,7 @@ class Arr:
                             "[Progress: {progress}%][Added On: {added}]"
                             "[Availability: {availability}%][Time Left: {timedelta}]"
                             "[Last active: {last_activity}] "
-                            "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
@@ -1728,7 +1728,7 @@ class Arr:
                             "[Progress: {progress}%][Added On: {added}]"
                             "[Availability: {availability}%][Time Left: {timedelta}]"
                             "[Last active: {last_activity}] "
-                            "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
@@ -1743,7 +1743,7 @@ class Arr:
                             "[Progress: {progress}%][Added On: {added}]"
                             "[Availability: {availability}%][Time Left: {timedelta}]"
                             "[Last active: {last_activity}] "
-                            "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
@@ -1764,7 +1764,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1782,7 +1782,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1798,7 +1798,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1823,7 +1823,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1842,7 +1842,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1866,7 +1866,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1890,7 +1890,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -1913,7 +1913,7 @@ class Arr:
                             "[Progress: {progress}%][Added On: {added}]"
                             "[Availability: {availability}%][Time Left: {timedelta}]"
                             "[Last active: {last_activity}] "
-                            "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
@@ -1929,7 +1929,7 @@ class Arr:
                                 "[Progress: {progress}%][Added On: {added}]"
                                 "[Availability: {availability}%][Time Left: {timedelta}]"
                                 "[Last active: {last_activity}] "
-                                "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                                 torrent=torrent,
                                 progress=round(torrent.progress * 100, 2),
                                 availability=round(torrent.availability * 100, 2),
@@ -1995,7 +1995,7 @@ class Arr:
                                     "[Progress: {progress}%][Added On: {added}]"
                                     "[Availability: {availability}%][Time Left: {timedelta}]"
                                     "[Last active: {last_activity}] "
-                                    "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                                    "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                                     torrent=torrent,
                                     progress=round(torrent.progress * 100, 2),
                                     availability=round(torrent.availability * 100, 2),
@@ -2018,7 +2018,7 @@ class Arr:
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -2516,7 +2516,7 @@ class PlaceHolderArr(Arr):
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
@@ -2532,7 +2532,7 @@ class PlaceHolderArr(Arr):
                         "[Progress: {progress}%][Added On: {added}]"
                         "[Availability: {availability}%][Time Left: {timedelta}]"
                         "[Last active: {last_activity}] "
-                        "| [State:torrent.state_enum] | {torrent.name} ({torrent.hash})",
+                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
