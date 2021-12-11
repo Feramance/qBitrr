@@ -2,9 +2,10 @@ import os
 import sys
 
 import logbook
-from config import *
 from logbook import StreamHandler
 from logbook.more import ColorizingStreamHandlerMixin
+
+from .config import *
 
 __all__ = ()
 logging_map = {
