@@ -11,7 +11,7 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
   - Uses [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
   - Trigger periodic Rss Syncs on the appropriate Arr instances.
   - Trigger Queue update on appropriate Arr instances.
-  - Search requests from Ombi and Overseerr.
+  - Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
   
   __This section requires the Arr databases to be locally available.__
   - Monitor Arr's databases to trigger missing episode searches.
