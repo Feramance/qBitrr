@@ -1,5 +1,6 @@
-import configparser
+import configparser, contextlib
 import pathlib
+import shutil
 from datetime import datetime
 
 CONFIG = configparser.ConfigParser(
@@ -12,9 +13,15 @@ CONFIG = configparser.ConfigParser(
         "year": lambda x: int(str(x).strip()) if x else datetime.now().year,
     }
 )
-CONFIG.read("./config.ini")
 APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
+if (CONFIG_PATH := APPDATA_FOLDER.joinpath("config.ini")).exists():
+    CONFIG.read(str(CONFIG_PATH))
+else:
+    with contextlib.suppress(Exception):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
+        shutil.copy(pathlib.Path("./config.ini"), CONFIG_PATH)
+    CONFIG.read("./config.ini")
+
 
 # Settings Config Values
 FAILED_CATEGORY = CONFIG.get("Settings", "FailedCategory", fallback="failed")

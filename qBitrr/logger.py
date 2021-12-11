@@ -5,7 +5,7 @@ import logbook
 from logbook import StreamHandler
 from logbook.more import ColorizingStreamHandlerMixin
 
-from config import *
+from .config import *
 
 __all__ = ()
 logging_map = {
@@ -133,4 +133,6 @@ def run_logs():
 
 
 if not HAS_RUN:
+    if not APPDATA_FOLDER.joinpath("config.ini").exists():
+        logbook.warning("Config.ini should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.".format(APPDATA_FOLDER=APPDATA_FOLDER))
     run_logs()

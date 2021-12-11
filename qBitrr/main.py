@@ -5,9 +5,9 @@ import qbittorrentapi
 import requests
 from qbittorrentapi import APINames, login_required, response_text
 
-from arss import ArrManager
-from config import CONFIG
-from logger import *
+from .arss import ArrManager
+from .config import CONFIG
+from .logger import *
 
 logger = logbook.Logger("qBitManager")
 

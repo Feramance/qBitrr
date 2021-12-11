@@ -35,8 +35,8 @@ from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
-from arr_tables import CommandsModel, EpisodesModel, MoviesModel, SeriesModel
-from config import (
+from .arr_tables import CommandsModel, EpisodesModel, MoviesModel, SeriesModel
+from .config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
@@ -45,14 +45,14 @@ from config import (
     NO_INTERNET_SLEEP_TIMER,
     RECHECK_CATEGORY,
 )
-from errors import (
+from .errors import (
     DelayLoopException,
     NoConnectionrException,
     RestartLoopException,
     SkipException,
     UnhandledError,
 )
-from tables import (
+from .tables import (
     EpisodeFilesModel,
     EpisodeQueueModel,
     FilesQueued,
@@ -60,7 +60,7 @@ from tables import (
     MoviesFilesModel,
     SeriesFilesModel,
 )
-from utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
+from .utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
 
 if TYPE_CHECKING:
     from .main import qBitManager

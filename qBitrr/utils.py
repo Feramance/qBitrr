@@ -6,7 +6,7 @@ from typing import Iterator, Union
 
 import logbook
 
-from config import PING_URLS
+from .config import PING_URLS
 
 logger = logbook.Logger("Utilities")
 
