@@ -556,7 +556,7 @@ class Arr:
                     continue
                 path = validate_and_return_torrent_file(torrent.content_path)
                 if not path.exists():
-                    # self.skip_blacklist.add(torrent.hash.upper())
+                    self.timed_ignore_cache.add(torrent.hash)
                     self.logger.warning(
                         "Missing Torrent: {torrent.name} ({torrent.hash}) - File does not seem to exist: {path}",
                         torrent=torrent,
