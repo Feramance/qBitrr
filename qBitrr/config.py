@@ -1,4 +1,5 @@
-import configparser, contextlib
+import configparser
+import contextlib
 import pathlib
 import shutil
 from datetime import datetime
@@ -15,11 +16,15 @@ CONFIG = configparser.ConfigParser(
 )
 APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
+COPIED_TO_NEW_DIR = False
 if (CONFIG_PATH := APPDATA_FOLDER.joinpath("config.ini")).exists():
     CONFIG.read(str(CONFIG_PATH))
 else:
-    with contextlib.suppress(Exception):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
+    with contextlib.suppress(
+        Exception
+    ):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
         shutil.copy(pathlib.Path("./config.ini"), CONFIG_PATH)
+        COPIED_TO_NEW_DIR = True
     CONFIG.read("./config.ini")
 
 

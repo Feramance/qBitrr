@@ -1,14 +1,12 @@
 import re as _re
 from math import inf as _inf
-from typing import (
-    ClassVar as _ClassVar,
-    Dict as _Dict,
-    List as _List,
-    Optional as _Optional,
-    Pattern as _Pattern,
-    Tuple as _Tuple,
-    Union as _Union,
-)
+from typing import ClassVar as _ClassVar
+from typing import Dict as _Dict
+from typing import List as _List
+from typing import Optional as _Optional
+from typing import Pattern as _Pattern
+from typing import Tuple as _Tuple
+from typing import Union as _Union
 
 __all__ = [
     "__version__",
