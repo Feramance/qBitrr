@@ -53,7 +53,7 @@ Some things to know before using it.
 - I'm happy with any PRs and suggested changes to the logic I just put it together dirty for my own use case.
 
 #### Example behaviour
-![image](https://user-images.githubusercontent.com/27962761/145681358-1354e8ac-0939-4800-8af8-562d80388909.png)
+![image](https://user-images.githubusercontent.com/27962761/145682638-6c3a4c20-2756-4b42-a6b9-c7b95ad99b36.png)
 
 
 ### Change Logs
@@ -63,4 +63,7 @@ Some things to know before using it.
  - Update 2021-12-11
    - Fix an edge case where the script would tell the Arr instance that the torrent couldn't be found too early resulting in its removal.
    - Make a release to PyPi
-   - Add the script to your PATH via `pip install` allowing you to start it by just running `qbitrr` 
+   - Add the script to your PATH via `pip install` allowing you to start it by just running `qbitrr`
+   - Update logging and several typo fixes
+   - Make the script listen for `~/.config/qBitManager/config.ini` and prioritize it if it exists - in a future release it will stop listening for `config.ini` in the current working dir.
+ 
