@@ -23,7 +23,7 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 Some things to know before using it.
 
 -
-    1. You need to copy the `config.example.ini` and rename it to `config.ini`
+    1. You need to copy the `config.example.ini` and rename it to `~/.config/qBitManager/config.ini` (~ is your home directory, i.e C:\Users\{User})
 -
     2. I have Sonarr and Radarr both setup to add tags to all downloads.
 -
@@ -37,12 +37,13 @@ Some things to know before using it.
 
 #### Install the requirements run:
 
-- `python -m pip install -r requirements.text` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
+- `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 #### Run the script
 
 - Make sure to update the settings in `config.ini`
-- Run `python main.py`
+- Activate your venv
+- Run `qbitrr`
 
 #### Contributions
 
@@ -58,3 +59,5 @@ Some things to know before using it.
    - Several bug fixes and new functionality.
  - Update 2021-12-11
    - Fix an edge case where the script would tell the Arr instance that the torrent couldn't be found too early resulting in its removal.
+   - Make a release to PyPi
+   - Add the script to your PATH via `pip install` allowing you to start it by just running `qbitrr` 
