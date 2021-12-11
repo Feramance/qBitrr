@@ -26,13 +26,13 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     path = pathlib.Path(file)
     if path.is_file():
         path = path.parent.absolute()
-    count = 10
+    count = 9
     while not path.exists():
         logger.trace(
             "Attempt {count}/10: File does not yet exists! (Possibly being moved?) | "
             "{path} | Sleeping for 0.1s",
             path=path,
-            count=11 - count,
+            count=10 - count,
         )
         time.sleep(0.1)
         if count == 0:
@@ -49,7 +49,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
                 "Attempt {count}/10:File does not yet exists! (Possibly being moved?) | "
                 "{path} | Sleeping for 0.1s",
                 path=path,
-                count=11 - count,
+                count=10 - count,
             )
             time.sleep(0.1)
             if count == 0:
@@ -64,7 +64,6 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 
 
 def has_internet():
-    return True
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False
