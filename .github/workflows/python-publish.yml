@@ -41,6 +41,12 @@ jobs:
         with:
           commit_message: "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump: ${{ steps.current_version.outputs.VERSION }} >> ${{ steps.new_version.outputs.VERSION }}"
           tagging_message: 'v${{ steps.new_version.outputs.VERSION }}'
+      - uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: 'v${{ steps.new_version.outputs.VERSION }}'
+          title: 'v${{ steps.new_version.outputs.VERSION }}'
   publish:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[deploy]') }}
