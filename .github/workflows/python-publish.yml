@@ -12,7 +12,7 @@ jobs:
     env:
       RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' ||startsWith(github.event.head_commit.message, '[major]') && 'major' }}
     steps:
-        - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
         with:
           token: ${{ secrets.PAT }}
       - name: Set up Python
@@ -28,10 +28,10 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }} setup.cfg
-      - name: Commit version change to master - Push
-        run: |
-          git commit -am "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump"
-          git push
+      - name: Git Auto Commit
+        uses: stefanzweifel/git-auto-commit-action@v4.12.0
+        with:
+          commit_message: "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump"
   publish:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[deploy]') }}
