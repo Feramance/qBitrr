@@ -36,11 +36,21 @@ jobs:
         run: |
           echo "::set-output name=VERSION::$(python setup.py --version)"
         id: new_version
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v4
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+          git_push_gpgsign: true
       - name: Git Auto Commit
         uses: stefanzweifel/git-auto-commit-action@v4.12.0
         with:
           commit_message: "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump: ${{ steps.current_version.outputs.VERSION }} >> ${{ steps.new_version.outputs.VERSION }}"
           tagging_message: 'v${{ steps.new_version.outputs.VERSION }}'
+          commit_options: -S
+          push_options: --signed=true
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
