@@ -50,7 +50,6 @@ jobs:
           commit_message: "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump: ${{ steps.current_version.outputs.VERSION }} >> ${{ steps.new_version.outputs.VERSION }}"
           tagging_message: 'v${{ steps.new_version.outputs.VERSION }}'
           commit_options: -S
-          push_options: --signed=true
       - uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
