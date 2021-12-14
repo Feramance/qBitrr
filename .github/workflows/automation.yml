@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: "3.x"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -48,7 +48,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4.12.0
         with:
           commit_message: "[deploy] Automated ${{ env.RELEASE_TYPE }} version bump: ${{ steps.current_version.outputs.VERSION }} >> ${{ steps.new_version.outputs.VERSION }}"
-          tagging_message: 'v${{ steps.new_version.outputs.VERSION }}'
+          tagging_message: "v${{ steps.new_version.outputs.VERSION }}"
           commit_options: -S
           commit_user_name: ${{ steps.import_gpg.outputs.name }}
           commit_user_email: ${{ steps.import_gpg.outputs.email }}
@@ -57,5 +57,5 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
-          automatic_release_tag: 'v${{ steps.new_version.outputs.VERSION }}'
-          title: 'v${{ steps.new_version.outputs.VERSION }}'
+          automatic_release_tag: "v${{ steps.new_version.outputs.VERSION }}"
+          title: "v${{ steps.new_version.outputs.VERSION }}"

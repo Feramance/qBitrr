@@ -1,8 +1,8 @@
+colorama
 ffmpeg-python
 logbook
+pathos
+peewee
+pyarr
 qbittorrent-api
 requests
-pyarr
-colorama
-peewee
-pathos

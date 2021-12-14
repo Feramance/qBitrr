@@ -41,6 +41,9 @@ else:
 
 
 # Settings Config Values
+FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
+FF_PROBE = APPDATA_FOLDER.joinpath("ffprobe")
+FFPROBE_AUTO_UPDATE = CONFIG.getboolean("Settings", "FFprobeAutoUpdate", fallback=True)
 FAILED_CATEGORY = CONFIG.get("Settings", "FailedCategory", fallback="failed")
 RECHECK_CATEGORY = CONFIG.get("Settings", "RecheckCategory", fallback="recheck")
 CONSOLE_LOGGING_LEVEL_STRING = CONFIG.getupper("Settings", "ConsoleLevel", fallback="NOTICE")

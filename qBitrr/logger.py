@@ -33,7 +33,7 @@ def update_logbook():
         logbook.TRACE: "TRACE",
         logbook.NOTSET: "NOTSET",
     }
-    _reverse_level_names = dict((v, k) for (k, v) in dict.items(_level_names))
+    _reverse_level_names = {v: k for (k, v) in dict.items(_level_names)}
     setattr(logbook, "_level_names", _level_names)
     setattr(logbook, "_reverse_level_names", _reverse_level_names)
     setattr(logbook.base, "_level_names", _level_names)

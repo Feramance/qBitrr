@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import pathlib
 import re
-import shutil
 import sys
 import time
 from collections import defaultdict
@@ -73,24 +72,24 @@ class Arr:
         self,
         name: str,
         manager: ArrManager,
-        client_cls: Type[Callable | RadarrAPI | SonarrAPI],
+        client_cls: type[Callable | RadarrAPI | SonarrAPI],
     ):
         if name in manager.groups:
-            raise EnvironmentError("Group '{name}' has already been registered.")
+            raise OSError("Group '{name}' has already been registered.")
         self._name = name
         self.managed = CONFIG.getboolean(name, "Managed")
         if not self.managed:
             raise SkipException
         self.uri = CONFIG.get(name, "URI")
         if self.uri in manager.uris:
-            raise EnvironmentError(
+            raise OSError(
                 "Group '{name}' is trying to manage Arr instance: '{uri}' which has already been registered."
             )
 
         self.category = CONFIG.get(name, "Category", fallback=self._name)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists():
-            raise EnvironmentError(
+            raise OSError(
                 f"{self._name} completed folder is a requirement, The specified folder does not exist '{self.completed_folder}'"
             )
         self.apikey = CONFIG.get(name, "APIKey")
@@ -151,7 +150,7 @@ class Arr:
 
         self.ombi_approved_only = CONFIG.getboolean(name, "ApprovedOnly")
         self.search_requests_every_x_seconds = CONFIG.getint(name, "SearchRequestsEvery")
-        self._temp_overseer_request_cache: Dict[str, Set[Union[int, str]]] = defaultdict(set)
+        self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
         if self.ombi_search_requests or self.overseerr_requests:
             self.request_search_timer = 0
         else:
@@ -345,13 +344,13 @@ class Arr:
                 DatabaseFile=self.arr_db_file,
             )
         self.search_setup_completed = False
-        self.model_arr_file: Union[EpisodesModel, MoviesModel] = None
+        self.model_arr_file: EpisodesModel | MoviesModel = None
         self.model_arr_series_file: SeriesModel = None
 
         self.model_arr_command: CommandsModel = None
-        self.model_file: Union[EpisodeFilesModel, MoviesFilesModel] = None
+        self.model_file: EpisodeFilesModel | MoviesFilesModel = None
         self.series_file_model: SeriesFilesModel = None
-        self.model_queue: Union[EpisodeQueueModel, MovieQueueModel] = None
+        self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
 
     @property
@@ -410,10 +409,10 @@ class Arr:
 
     def _get_arr_modes(
         self,
-    ) -> Tuple[
-        Union[Type[EpisodesModel], Type[MoviesModel]],
-        Type[CommandsModel],
-        Union[Type[SeriesModel], None],
+    ) -> tuple[
+        type[EpisodesModel] | type[MoviesModel],
+        type[CommandsModel],
+        type[SeriesModel] | None,
     ]:
         if self.type == "sonarr":
             return EpisodesModel, CommandsModel, SeriesModel
@@ -422,7 +421,7 @@ class Arr:
 
     def _get_models(
         self,
-    ) -> Tuple[Type[EpisodeFilesModel], Type[EpisodeQueueModel], Optional[Type[SeriesFilesModel]]]:
+    ) -> tuple[type[EpisodeFilesModel], type[EpisodeQueueModel], type[SeriesFilesModel] | None]:
         if self.type == "sonarr":
             if self.series_search:
                 return EpisodeFilesModel, EpisodeQueueModel, SeriesFilesModel
@@ -432,7 +431,7 @@ class Arr:
         else:
             raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
 
-    def _get_oversee_requests_all(self) -> Dict[str, Set]:
+    def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
             data = defaultdict(set)
             response = self.session.get(
@@ -500,7 +499,7 @@ class Arr:
         else:
             return response.json()
 
-    def _get_ombi_requests(self) -> List[Dict]:
+    def _get_ombi_requests(self) -> list[dict]:
         if self.type == "sonarr":
             extras = "/api/v1/Request/tvlite"
         elif self.type == "radarr":
@@ -516,7 +515,7 @@ class Arr:
             self.logger.exception(e, exc_info=sys.exc_info())
             return []
 
-    def _process_ombi_requests(self) -> Dict[str, Set[str, int]]:
+    def _process_ombi_requests(self) -> dict[str, set[str, int]]:
         requests = self._get_ombi_requests()
         data = defaultdict(set)
         for request in requests:
@@ -590,7 +589,7 @@ class Arr:
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
-    def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: Set[str]) -> None:
+    def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
         with contextlib.suppress(Exception):
             if hash_ not in skip_blacklist:
                 self.logger.debug(
@@ -751,9 +750,7 @@ class Arr:
 
     def api_calls(self) -> None:
         if not self.is_alive:
-            raise NoConnectionrException(
-                "Service: %s did not respond on %s" % (self._name, self.uri)
-            )
+            raise NoConnectionrException(f"Service: {self._name} did not respond on {self.uri}")
         now = datetime.now()
         if (
             self.rss_sync_timer_last_checked is not None
@@ -804,7 +801,7 @@ class Arr:
     def db_get_files(
         self,
     ) -> Iterable[
-        Tuple[Union[MoviesFilesModel, EpisodeFilesModel, SeriesFilesModel], bool, bool, bool]
+        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool]
     ]:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
@@ -815,7 +812,7 @@ class Arr:
 
     def db_get_files_series(
         self,
-    ) -> Iterable[Tuple[Union[MoviesFilesModel, SeriesFilesModel, EpisodeFilesModel], bool, bool]]:
+    ) -> Iterable[tuple[MoviesFilesModel | SeriesFilesModel | EpisodeFilesModel, bool, bool]]:
         if not self.search_missing:
             yield None, False, False
         elif not self.series_search:
@@ -862,7 +859,7 @@ class Arr:
 
     def db_get_files_episodes(
         self,
-    ) -> Iterable[Tuple[Union[MoviesFilesModel, EpisodeFilesModel], bool, bool]]:
+    ) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, bool, bool]]:
         if not self.search_missing:
             yield None, False, False
         elif self.type == "sonarr":
@@ -933,7 +930,7 @@ class Arr:
             ):
                 yield entry, False, False
 
-    def db_get_request_files(self) -> Iterable[Union[MoviesFilesModel, EpisodeFilesModel]]:
+    def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
             yield None
         if not self.search_missing:
@@ -954,7 +951,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
-            for entry in (
+            yield from (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
@@ -963,8 +960,7 @@ class Arr:
                     self.model_file.AirDateUtc.desc(),
                 )
                 .execute()
-            ):
-                yield entry
+            )
         elif self.type == "radarr":
             condition = self.model_file.Year <= datetime.now(timezone.utc).year
             condition &= self.model_file.Year > 0
@@ -974,13 +970,12 @@ class Arr:
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.IsRequest == True
-            for entry in (
+            yield from (
                 self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.Title.asc())
                 .execute()
-            ):
-                yield entry
+            )
 
     def db_request_update(self):
         if self.overseerr_requests:
@@ -988,7 +983,7 @@ class Arr:
         else:
             self.db_ombi_update()
 
-    def _db_request_update(self, request_ids: Dict[str, Set[Union[int, str]]]):
+    def _db_request_update(self, request_ids: dict[str, set[int | str]]):
         with self.db.atomic():
             if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
                 self.model_arr_file: EpisodesModel
@@ -1127,7 +1122,7 @@ class Arr:
             elif self.type == "radarr":
                 for series in (
                     self.model_arr_file.select()
-                    .where((self.model_arr_file.Year == self.search_current_year))
+                    .where(self.model_arr_file.Year == self.search_current_year)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
                     self.db_update_single_series(db_entry=series)
@@ -1135,7 +1130,7 @@ class Arr:
 
     def db_update_single_series(
         self,
-        db_entry: Union[EpisodesModel, SeriesModel, MoviesModel] = None,
+        db_entry: EpisodesModel | SeriesModel | MoviesModel = None,
         request: bool = False,
         series: bool = False,
     ):
@@ -1154,7 +1149,7 @@ class Arr:
                     if db_entry.EpisodeFileId != 0 and not QualityUnmet:
                         searched = True
                         self.model_queue.update(Completed=True).where(
-                            (self.model_queue.EntryId == db_entry.Id)
+                            self.model_queue.EntryId == db_entry.Id
                         ).execute()
                     EntryId = db_entry.Id
                     metadata = self.client.get_episode_by_episode_id(EntryId)
@@ -1269,7 +1264,7 @@ class Arr:
                 if db_entry.MovieFileId != 0 and not QualityUnmet:
                     searched = True
                     self.model_queue.update(Completed=True).where(
-                        (self.model_queue.EntryId == db_entry.Id)
+                        self.model_queue.EntryId == db_entry.Id
                     ).execute()
 
                 title = db_entry.Title
@@ -1324,7 +1319,7 @@ class Arr:
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
         if not self.manager.ffprobe_available:
-            return True  # ffprobe is not in PATH, so we say every file is acceptable.
+            return True  # ffprobe is not found, so we say every file is acceptable.
         try:
             if file in self.files_probed:
                 self.logger.trace("Probeable: File has already been probed: {file}", file=file)
@@ -1332,7 +1327,9 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Not Probeable: File is a directory: {file}", file=file)
                 return False
-            output = ffmpeg.probe(str(file.absolute()))
+            output = ffmpeg.probe(
+                str(file.absolute()), cmd=self.manager.qbit_manager.ffmpeg_downloader.probe
+            )
             if not output:
                 self.logger.trace("Not Probeable: Probe returned no output: {file}", file=file)
                 return False
@@ -1402,7 +1399,7 @@ class Arr:
 
     def maybe_do_search(
         self,
-        file_model: Union[EpisodeFilesModel, MoviesFilesModel, SeriesFilesModel],
+        file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
         request: bool = False,
         todays: bool = False,
         bypass_limit: bool = False,
@@ -1583,7 +1580,7 @@ class Arr:
         self._process_failed()
         self.folder_cleanup()
 
-    def process_entries(self, hashes: Set[str]) -> Tuple[List[Tuple[int, str]], Set[str]]:
+    def process_entries(self, hashes: set[str]) -> tuple[list[tuple[int, str]], set[str]]:
         payload = [
             (_id, h.upper()) for h in hashes if (_id := self.cache.get(h.upper())) is not None
         ]
@@ -1619,7 +1616,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1635,7 +1634,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1651,7 +1652,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1669,7 +1672,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1686,7 +1691,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1708,7 +1715,9 @@ class Arr:
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                            added=datetime.fromtimestamp(
+                                self.recently_queue.get(torrent.hash, torrent.added_on)
+                            ),
                             timedelta=timedelta(seconds=torrent.eta),
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
@@ -1732,7 +1741,9 @@ class Arr:
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                            added=datetime.fromtimestamp(
+                                self.recently_queue.get(torrent.hash, torrent.added_on)
+                            ),
                             timedelta=timedelta(seconds=torrent.eta),
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
@@ -1747,7 +1758,9 @@ class Arr:
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                            added=datetime.fromtimestamp(
+                                self.recently_queue.get(torrent.hash, torrent.added_on)
+                            ),
                             timedelta=timedelta(seconds=torrent.eta),
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
@@ -1768,7 +1781,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1786,7 +1801,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1802,7 +1819,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1894,7 +1913,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -1917,7 +1938,9 @@ class Arr:
                             torrent=torrent,
                             progress=round(torrent.progress * 100, 2),
                             availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                            added=datetime.fromtimestamp(
+                                self.recently_queue.get(torrent.hash, torrent.added_on)
+                            ),
                             timedelta=timedelta(seconds=torrent.eta),
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
@@ -1933,7 +1956,9 @@ class Arr:
                                 torrent=torrent,
                                 progress=round(torrent.progress * 100, 2),
                                 availability=round(torrent.availability * 100, 2),
-                                added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                                added=datetime.fromtimestamp(
+                                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                                ),
                                 timedelta=timedelta(seconds=torrent.eta),
                                 last_activity=datetime.fromtimestamp(torrent.last_activity),
                             )
@@ -2000,7 +2025,9 @@ class Arr:
                                     torrent=torrent,
                                     progress=round(torrent.progress * 100, 2),
                                     availability=round(torrent.availability * 100, 2),
-                                    added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                                    added=datetime.fromtimestamp(
+                                        self.recently_queue.get(torrent.hash, torrent.added_on)
+                                    ),
                                     timedelta=timedelta(seconds=torrent.eta),
                                     last_activity=datetime.fromtimestamp(torrent.last_activity),
                                 )
@@ -2022,7 +2049,9 @@ class Arr:
                         torrent=torrent,
                         progress=round(torrent.progress * 100, 2),
                         availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                        added=datetime.fromtimestamp(
+                            self.recently_queue.get(torrent.hash, torrent.added_on)
+                        ),
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
@@ -2422,7 +2451,7 @@ class PlaceHolderArr(Arr):
         manager: ArrManager,
     ):
         if name in manager.groups:
-            raise EnvironmentError("Group '{name}' has already been registered.")
+            raise OSError("Group '{name}' has already been registered.")
         self._name = name
         self.category = name
         self.manager = manager
@@ -2553,20 +2582,21 @@ class PlaceHolderArr(Arr):
 
 class ArrManager:
     def __init__(self, qbitmanager: qBitManager):
-        self.groups: Set[str] = set()
-        self.uris: Set[str] = set()
-        self.special_categories: Set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
-        self.category_allowlist: Set[str] = self.special_categories.copy()
+        self.groups: set[str] = set()
+        self.uris: set[str] = set()
+        self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
+        self.category_allowlist: set[str] = self.special_categories.copy()
 
-        self.completed_folders: Set[pathlib.Path] = set()
-        self.managed_objects: Dict[str, Arr] = {}
-        self.ffprobe_available: bool = bool(shutil.which("ffprobe"))
+        self.completed_folders: set[pathlib.Path] = set()
+        self.managed_objects: dict[str, Arr] = {}
         self.qbit: qbittorrentapi.Client = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
+        self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logger
         if not self.ffprobe_available:
             self.logger.error(
-                "ffprobe was not found in your PATH, disabling all functionality dependant on it."
+                "'{ffprobe}' was not found, disabling all functionality dependant on it",
+                ffprobe=self.qbit_manager.ffprobe_downloader.probe_path,
             )
 
     def build_arr_instances(self):
@@ -2589,7 +2619,7 @@ class ArrManager:
                     self.logger.exception(e.message)
                 except SkipException:
                     continue
-                except EnvironmentError as e:
+                except OSError as e:
                     self.logger.exception(e)
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)

@@ -15,8 +15,7 @@ def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib
     error = True
     while error is True:
         try:
-            for path in pathlib.Path(directory).glob("**/*"):
-                yield path
+            yield from pathlib.Path(directory).glob("**/*")
             error = False
         except FileNotFoundError as e:
             logger.warning("{e.strerror} - {e.filename}", e=e)
@@ -96,7 +95,7 @@ class ExpiringSet:
 
     def __repr__(self):
         self.__update__()
-        return "%s(%s)" % (self.__class__.__name__, ", ".join(self.container.keys()))
+        return "{}({})".format(self.__class__.__name__, ", ".join(self.container.keys()))
 
     def extend(self, args):
         """Add several items at once."""

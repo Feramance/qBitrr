@@ -1,3 +1,4 @@
+import contextlib
 from typing import NoReturn
 
 import logbook
@@ -7,6 +8,7 @@ from qbittorrentapi import APINames, login_required, response_text
 
 from .arss import ArrManager
 from .config import CONFIG
+from .ffprobe import FFmpegDownloader
 from .logger import *
 
 logger = logbook.Logger("qBitManager")
@@ -35,12 +37,19 @@ class qBitManager:
             password=qBit_Password,
             SIMPLE_RESPONSES=False,
         )
-        self.arr_manager = ArrManager(self).build_arr_instances()
         self.logger = logger
         self.cache = dict()
         self.name_cache = dict()
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
+        self.ffprobe_downloader = FFmpegDownloader()
+        try:
+            self.ffprobe_downloader.update()
+        except Exception as e:
+            self.logger.error(
+                "FFprobe manager error: {e} while attempting to download/update FFprobe", e=e
+            )
+        self.arr_manager = ArrManager(self).build_arr_instances()
 
     @response_text(str)
     @login_required
