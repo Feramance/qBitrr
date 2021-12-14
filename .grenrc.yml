@@ -1,0 +1,11 @@
+dataSource: commits
+ignoreIssuesWith:
+- wontfix
+- duplicate
+prefix: ''
+includeMessages: all
+ignoreCommitsWith:
+- '[deploy]'
+- '[skip ci]'
+- '[ci skip]'
+changelogFilename: CHANGELOG.md

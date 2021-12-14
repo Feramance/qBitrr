@@ -4,3 +4,5 @@
 /qBitrr.egg-info/
 /build/
 /dist/
+.env
+/.github/workflows/test.yml
