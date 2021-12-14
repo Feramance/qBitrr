@@ -1337,7 +1337,7 @@ class Arr:
                 self.logger.trace("Not Probeable: File is a directory: {file}", file=file)
                 return False
             output = ffmpeg.probe(
-                str(file.absolute()), cmd=self.manager.qbit_manager.ffmpeg_downloader.probe
+                str(file.absolute()), cmd=self.manager.qbit_manager.ffprobe_downloader.probe
             )
             if not output:
                 self.logger.trace("Not Probeable: Probe returned no output: {file}", file=file)
