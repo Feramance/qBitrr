@@ -10,20 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    NoReturn,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import logbook
@@ -83,18 +70,20 @@ class Arr:
         self.uri = CONFIG.get(name, "URI")
         if self.uri in manager.uris:
             raise OSError(
-                "Group '{name}' is trying to manage Arr instance: '{uri}' which has already been registered."
+                f"Group '{self._name}' is trying to manage Arr instance: "
+                f"'{self.uri}' which has already been registered."
             )
 
         self.category = CONFIG.get(name, "Category", fallback=self._name)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists():
             raise OSError(
-                f"{self._name} completed folder is a requirement, The specified folder does not exist '{self.completed_folder}'"
+                f"{self._name} completed folder is a requirement, "
+                f"The specified folder does not exist '{self.completed_folder}'"
             )
+        self.logger = logbook.Logger(self._name)
         self.apikey = CONFIG.get(name, "APIKey")
-
-        self.re_search = CONFIG.getboolean(name, "Research")
+        self.re_search = CONFIG.getboolean(name, "ReSearch")
         self.import_mode = CONFIG.get(name, "importMode", fallback="Move")
         self.refresh_downloads_timer = CONFIG.getint(name, "RefreshDownloadsTimer", fallback=1)
         self.rss_sync_timer = CONFIG.getint(name, "RssSyncTimer", fallback=15)
@@ -104,6 +93,12 @@ class Arr:
         self.file_name_exclusion_regex = CONFIG.getlist(name, "FileNameExclusionRegex")
         self.file_extension_allowlist = CONFIG.getlist(name, "FileExtensionAllowlist")
         self.auto_delete = CONFIG.getboolean(name, "AutoDelete", fallback=False)
+        if self.auto_delete is True and not self.completed_folder.parent.exists():
+            self.auto_delete = False
+            self.logger.critical(
+                "AutoDelete disabled due to missing folder: '{folder}'",
+                folder=self.completed_folder.parent,
+            )
         self.do_upgrade_search = CONFIG.getboolean(name, "DoUpgradeSearch", fallback=False)
         self.quality_unmet_search = CONFIG.getboolean(name, "QualityUnmetSearch", fallback=False)
         self.ignore_torrents_younger_than = CONFIG.getint(
@@ -113,7 +108,6 @@ class Arr:
         self.maximum_deletable_percentage = CONFIG.getfloat(
             name, "MaximumDeletablePercentage", fallback=0.95
         )
-
         self.search_missing = CONFIG.getboolean(name, "SearchMissing")
         self.search_specials = CONFIG.getboolean(name, "AlsoSearchSpecials")
         self.search_by_year = CONFIG.getboolean(name, "SearchByYear")
@@ -138,6 +132,12 @@ class Arr:
         self.arr_db_file = pathlib.Path(CONFIG.get(name, "DatabaseFile"))
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
+        if self.search_missing and not self.arr_db_file.exists():
+            self.logger.critical(
+                "Arr DB file cannot be located setting SearchMissing to False: {folder}",
+                folder=self.arr_db_file,
+            )
+            self.search_missing = False
 
         self.ombi_search_requests = CONFIG.getboolean(name, "SearchOmbiRequests")
         self.overseerr_requests = CONFIG.getboolean(name, "SearchOverseerrRequests")
@@ -214,7 +214,7 @@ class Arr:
 
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
-        self.logger = logbook.Logger(self._name)
+
         self.logger.debug(
             "{group} Config: "
             "Managed: {managed}, "
@@ -735,6 +735,8 @@ class Arr:
 
     def _remove_empty_folders(self) -> None:
         new_sent_to_scan = set()
+        if not self.completed_folder.exists():
+            return
         for path in absolute_file_paths(self.completed_folder):
             if path.is_dir() and not len(list(absolute_file_paths(path))):
                 path.rmdir()
