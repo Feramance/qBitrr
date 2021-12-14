@@ -21,8 +21,8 @@ from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
-from .arr_tables import CommandsModel, EpisodesModel, MoviesModel, SeriesModel
-from .config import (
+from qBitrr.arr_tables import CommandsModel, EpisodesModel, MoviesModel, SeriesModel
+from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
@@ -31,14 +31,14 @@ from .config import (
     NO_INTERNET_SLEEP_TIMER,
     RECHECK_CATEGORY,
 )
-from .errors import (
+from qBitrr.errors import (
     DelayLoopException,
     NoConnectionrException,
     RestartLoopException,
     SkipException,
     UnhandledError,
 )
-from .tables import (
+from qBitrr.tables import (
     EpisodeFilesModel,
     EpisodeQueueModel,
     FilesQueued,
@@ -46,10 +46,15 @@ from .tables import (
     MoviesFilesModel,
     SeriesFilesModel,
 )
-from .utils import ExpiringSet, absolute_file_paths, has_internet, validate_and_return_torrent_file
+from qBitrr.utils import (
+    ExpiringSet,
+    absolute_file_paths,
+    has_internet,
+    validate_and_return_torrent_file,
+)
 
 if TYPE_CHECKING:
-    from .main import qBitManager
+    from qBitrr.main import qBitManager
 
 logger = logbook.Logger("ArrManager")
 
@@ -435,7 +440,8 @@ class Arr:
         try:
             data = defaultdict(set)
             response = self.session.get(
-                url=f"{self.overseerr_uri}/api/v1/request?take=100&skip=0&sort=added&filter=unavailable",
+                url=f"{self.overseerr_uri}/api/v1/"
+                "request?take=100&skip=0&sort=added&filter=unavailable",
                 headers={"X-Api-Key": self.overseerr_api_key},
                 timeout=2,
             )
@@ -557,7 +563,8 @@ class Arr:
                 if not path.exists():
                     self.timed_ignore_cache.add(torrent.hash)
                     self.logger.warning(
-                        "Missing Torrent: [{torrent.state_enum}] {torrent.name} ({torrent.hash}) - "
+                        "Missing Torrent: [{torrent.state_enum}] {torrent.name} "
+                        "({torrent.hash}) - "
                         "File does not seem to exist: {path}",
                         torrent=torrent,
                         path=path,
@@ -1663,7 +1670,8 @@ class Arr:
                     if torrent.state_enum == TorrentStates.QUEUED_DOWNLOAD:
                         self.recently_queue[torrent.hash] = time.time()
                     continue
-                # Do not touch torrents recently resumed/reched (A torrent can temporarely stall after being resumed from a paused state).
+                # Do not touch torrents recently resumed/reached (A torrent can temporarily
+                # stall after being resumed from a paused state).
                 elif torrent.hash in self.timed_ignore_cache:
                     self.logger.trace(
                         "Skipping torrent: Marked for skipping | "
@@ -1699,7 +1707,9 @@ class Arr:
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
-                # Process torrents who have stalled at this point, only mark from for deletion if they have been added more than "IgnoreTorrentsYoungerThan" seconds ago
+                # Process torrents who have stalled at this point, only mark from for
+                # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
+                # seconds ago
                 elif torrent.state_enum in (
                     TorrentStates.METADATA_DOWNLOAD,
                     TorrentStates.STALLED_DOWNLOAD,
@@ -1724,11 +1734,16 @@ class Arr:
                             last_activity=datetime.fromtimestamp(torrent.last_activity),
                         )
                         self.delete.add(torrent.hash)
-                # Ignore torrents who have reached maximum percentage as long as the last activity is within the MaximumETA set for this category
-                # For example if you set MaximumETA to 5 mines, this will ignore all torrets that have stalled at a higher percentage as long as there is activity
-                # And the window of activity is determined by the current time - MaximumETA, if the last active was after this value ignore this torrent
-                # the idea here is that if a torrent isn't completely dead some leecher/seeder may contribute towards your progress.
-                # However if its completely dead and no activity is observed, then lets remove it and requeue a new torrent.
+                # Ignore torrents who have reached maximum percentage as long as
+                # the last activity is within the MaximumETA set for this category
+                # For example if you set MaximumETA to 5 mines, this will ignore all
+                # torrents that have stalled at a higher percentage as long as there is activity
+                # And the window of activity is determined by the current time - MaximumETA,
+                # if the last active was after this value ignore this torrent
+                # the idea here is that if a torrent isn't completely dead some leecher/seeder
+                # may contribute towards your progress.
+                # However if its completely dead and no activity is observed, then lets
+                # remove it and requeue a new torrent.
                 elif (
                     torrent.progress >= self.maximum_deletable_percentage
                     and self.is_complete_state(torrent) is False
@@ -1752,7 +1767,8 @@ class Arr:
                         self.delete.add(torrent.hash)
                     else:
                         self.logger.trace(
-                            "Skipping torrent: Reached Maximum completed percentage and is active | "
+                            "Skipping torrent: Reached Maximum completed "
+                            "percentage and is active | "
                             "[Progress: {progress}%][Added On: {added}]"
                             "[Availability: {availability}%][Time Left: {timedelta}]"
                             "[Last active: {last_activity}] "
@@ -1789,7 +1805,8 @@ class Arr:
                         timedelta=timedelta(seconds=torrent.eta),
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
-                # Ignore torrents which have been submitted to their respective Arr instance for import.
+                # Ignore torrents which have been submitted to their respective Arr
+                # instance for import.
                 elif (
                     torrent.hash
                     in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
@@ -1810,7 +1827,8 @@ class Arr:
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
                     continue
-                # Some times torrents will error, this causes them to be rechecked so they complete downloading.
+                # Some times torrents will error, this causes them to be rechecked so they
+                # complete downloading.
                 elif torrent.state_enum == TorrentStates.ERROR:
                     self.logger.trace(
                         "Rechecking Erroed torrent: "
@@ -1828,7 +1846,8 @@ class Arr:
                         last_activity=datetime.fromtimestamp(torrent.last_activity),
                     )
                     self.recheck.add(torrent.hash)
-                # If a torrent was not just added, and the amount left to download is 0 and the torrent
+                # If a torrent was not just added,
+                # and the amount left to download is 0 and the torrent
                 # is Paused tell the Arr tools to process it.
                 elif (
                     torrent.added_on > 0
@@ -1855,8 +1874,10 @@ class Arr:
                     self.pause.add(torrent.hash)
                     self.skip_blacklist.add(torrent.hash)
                     self.import_torrents.append(torrent)
-                # Sometimes Sonarr/Radarr does not automatically remove the torrent for some reason,
-                # this ensures that we can safelly remove it if the client is reporting the status of the client as "Missing files"
+                # Sometimes Sonarr/Radarr does not automatically remove the
+                # torrent for some reason,
+                # this ensures that we can safely remove it if the client is reporting
+                # the status of the client as "Missing files"
                 elif torrent.state_enum == TorrentStates.MISSING_FILES:
                     self.logger.info(
                         "Deleting torrent with missing files: "
@@ -1986,14 +2007,16 @@ class Arr:
                             ):
                                 self.logger.debug(
                                     "Removing File: Not allowed | Parent: "
-                                    "{folder_match} | {torrent.name} ({torrent.hash}) | {file.name} ",
+                                    "{folder_match} | {torrent.name} "
+                                    "({torrent.hash}) | {file.name} ",
                                     torrent=torrent,
                                     file=file,
                                     folder_match=folder_match,
                                 )
                                 _remove_files.add(file.id)
                                 total -= 1
-                            # A file matched and entry in FileNameExclusionRegex, mark it for exclusion.
+                            # A file matched and entry in FileNameExclusionRegex, mark it for
+                            # exclusion.
                             elif (
                                 match := self.file_name_exclusion_regex_re.search(file_path.name)
                             ) and match.group():
@@ -2016,7 +2039,8 @@ class Arr:
                                 )
                                 _remove_files.add(file.id)
                                 total -= 1
-                            # If all files in the torrent are marked for exlusion then delete the torrent.
+                            # If all files in the torrent are marked for exclusion then delete the
+                            # torrent.
                             if total == 0:
                                 self.logger.info(
                                     "Deleting All files ignored: "
@@ -2302,7 +2326,8 @@ class Arr:
                     )
                 elif e.type == "delay":
                     self.logger.critical(
-                        "Forced delay due to temporary issue with environment, sleeping for {time}.",
+                        "Forced delay due to temporary issue with environment, "
+                        "sleeping for {time}.",
                         time=timedelta(seconds=e.length),
                     )
                 time.sleep(e.length)
@@ -2375,7 +2400,8 @@ class Arr:
                     )
                 elif e.type == "delay":
                     self.logger.critical(
-                        "Forced delay due to temporary issue with environment, sleeping for {time}.",
+                        "Forced delay due to temporary issue with environment, "
+                        "sleeping for {time}.",
                         time=timedelta(seconds=e.length),
                     )
                 time.sleep(e.length)
@@ -2423,7 +2449,8 @@ class Arr:
                     )
                 elif e.type == "delay":
                     self.logger.critical(
-                        "Forced delay due to temporary issue with environment, sleeping for {time}.",
+                        "Forced delay due to temporary issue with environment, "
+                        "sleeping for {time}.",
                         time=timedelta(seconds=e.length),
                     )
                 time.sleep(e.length)

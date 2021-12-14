@@ -8,7 +8,7 @@ import zipfile
 import logbook
 import requests
 
-from .config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
+from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
 
 logger = logbook.Logger("FFmpegDownloader")
 

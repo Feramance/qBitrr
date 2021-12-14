@@ -1,4 +1,3 @@
-import contextlib
 from typing import NoReturn
 
 import logbook
@@ -6,10 +5,9 @@ import qbittorrentapi
 import requests
 from qbittorrentapi import APINames, login_required, response_text
 
-from .arss import ArrManager
-from .config import CONFIG
-from .ffprobe import FFmpegDownloader
-from .logger import *
+from qBitrr.arss import ArrManager
+from qBitrr.config import CONFIG
+from qBitrr.ffprobe import FFmpegDownloader
 
 logger = logbook.Logger("qBitManager")
 

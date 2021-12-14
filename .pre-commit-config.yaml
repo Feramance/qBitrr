@@ -1,40 +1,65 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
+-   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.0.1
     hooks:
-      - id: check-yaml
-      - id: end-of-file-fixer
-      - id: requirements-txt-fixer
-      - id: trailing-whitespace
-  - repo: https://github.com/asottile/setup-cfg-fmt
+    -   id: check-yaml
+    -   id: end-of-file-fixer
+    -   id: requirements-txt-fixer
+    -   id: trailing-whitespace
+    -   id: mixed-line-ending
+        args: [--fix, lf]
+    -   id: detect-private-key
+    -   id: check-toml
+    -   id: check-json
+    -   id: pretty-format-json
+        args: [--autofix, --indent, '2']
+-   repo: https://github.com/asottile/setup-cfg-fmt
     rev: v1.20.0
     hooks:
-      - id: setup-cfg-fmt
-  - repo: https://github.com/asottile/pyupgrade
+    -   id: setup-cfg-fmt
+-   repo: https://github.com/asottile/pyupgrade
     rev: v2.29.1
     hooks:
-      - id: pyupgrade
-        args: ["--py38-plus"]
-  - repo: https://github.com/pycqa/isort
-    rev: 5.6.4
+    -   id: pyupgrade
+        args: [--py38-plus]
+-   repo: https://github.com/pycqa/isort
+    rev: 5.10.1
     hooks:
-      - id: isort
-  - repo: https://github.com/ambv/black
+    -   id: isort
+-   repo: https://github.com/ambv/black
     rev: 21.12b0
     hooks:
-      - id: black
+    -   id: black
         language_version: python3.8
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.3.2
+-   repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.2.0
     hooks:
-      - id: prettier
-
+    -   id: pretty-format-yaml
+        args: [--autofix, --indent, '4']
+-   repo: https://github.com/sirosen/texthooks
+    rev: 0.2.2
+    hooks:
+    -   id: fix-smartquotes
+    -   id: fix-ligatures
+-   repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: v1.5.7 # Use the sha / tag you want to point at
+    hooks:
+    -   id: autopep8
+-   repo: https://github.com/myint/autoflake
+    rev: v1.4
+    hooks:
+    -   id: autoflake
+        args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]
+-   repo: https://github.com/MarcoGorelli/absolufy-imports
+    rev: v0.3.0
+    hooks:
+    -   id: absolufy-imports
 ci:
-  autofix_commit_msg: |
-    [pre-commit.ci] auto fixes from pre-commit.com hooks
+    autofix_commit_msg: |
+        [pre-commit.ci] auto fixes from pre-commit.com hooks
 
-    for more information, see https://pre-commit.ci
-  autofix_prs: true
-  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
-  autoupdate_schedule: weekly
-  submodules: false
+        for more information, see https://pre-commit.ci
+    autofix_prs: true
+    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+    autoupdate_schedule: weekly
+    submodules: false

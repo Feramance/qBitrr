@@ -6,9 +6,21 @@ import logbook
 from logbook import StreamHandler
 from logbook.more import ColorizingStreamHandlerMixin
 
-from .config import *
+from qBitrr.config import (
+    APPDATA_FOLDER,
+    COMPLETED_DOWNLOAD_FOLDER,
+    CONSOLE_LOGGING_LEVEL_STRING,
+    COPIED_TO_NEW_DIR,
+    FAILED_CATEGORY,
+    IGNORE_TORRENTS_YOUNGER_THAN,
+    LOOP_SLEEP_TIMER,
+    NO_INTERNET_SLEEP_TIMER,
+    PING_URLS,
+    RECHECK_CATEGORY,
+)
 
 __all__ = ()
+
 logging_map = {
     "CRITICAL": logbook.CRITICAL,
     "ERROR": logbook.ERROR,
@@ -66,7 +78,7 @@ class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
         # As reimport on every single format() call
         if os.name == "nt" and not self.imported_colorama:
             try:
-                import colorama
+                import colorama  # noqa
 
                 self.imported_colorama = True
             except ImportError:

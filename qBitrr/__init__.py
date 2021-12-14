@@ -1,0 +1,1 @@
+import qBitrr.logger  # noqa
