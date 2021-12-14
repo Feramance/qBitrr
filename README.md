@@ -1,3 +1,15 @@
+[![PyPI](https://img.shields.io/pypi/v/qBitrr)](https://pypi.org/project/qBitrr/)
+[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Drapersniper/Qbitrr/blob/master/LICENSE)
+
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
+![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--64%20%7C%20win--32%20%7C%20win--64-lightgrey)
+
+[![GitHub branch checks state](https://img.shields.io/github/checks-status/Drapersniper/qbitrr/master)](https://github.com/Drapersniper/Qbitrr/actions)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Drapersniper/Qbitrr/master.svg)](https://results.pre-commit.ci/latest/github/Drapersniper/Qbitrr/master)
+
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+
 A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
 Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
