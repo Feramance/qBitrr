@@ -31,11 +31,6 @@ repos:
   hooks:
   - id: black
     language_version: python3.8
-- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.2.0
-  hooks:
-  - id: pretty-format-yaml
-    args: [--autofix, --indent, '2']
 - repo: https://github.com/sirosen/texthooks
   rev: 0.2.2
   hooks:

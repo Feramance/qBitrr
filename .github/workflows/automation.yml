@@ -1,6 +1,6 @@
-name: Version Bump, Tags and Releases
+name: "Version Bump, Tag and Release"
 
-on:
+"on":
   push:
     branches:
     - master
