@@ -6,3 +6,4 @@
 /dist/
 .env
 /.github/workflows/test.yml
+__pycache__/
