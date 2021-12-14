@@ -71,7 +71,6 @@ class FFmpegDownloader:
         z.extract(member=self.probe_path.name, path=FF_PROBE.parent)
 
     def get_arch(self):
-        """Return bitness of operating system, or None if unknown."""
         part1 = None
         is_64bits = sys.maxsize > 2 ** 32
         part2 = "64" if is_64bits else "32"
@@ -79,13 +78,20 @@ class FFmpegDownloader:
             part1 = "windows-"
         elif self.platform == "Linux":
             part1 = "linux-"
-            # Need to add support for armhf, armel, arm64
+            machine = platform.machine()
+            if machine == "armv6l":
+                part2 = "armhf"
+            elif ("arm" in machine and is_64bits) or machine == "aarch64":
+                part2 = "arm64"
+            # Else just 32/64, Not armel - because just no
         elif self.platform == "Darwin":
             part1 = "osx-"
             part2 = "64"
         if part1 is None:
             raise RuntimeError(
-                "You are running in an unsupported platform, if you expect this to be supported please open an issue on GitHub https://github.com/Drapersniper/Qbitrr."
+                "You are running in an unsupported platform, "
+                "if you expect this to be supported please open an issue on GitHub "
+                "https://github.com/Drapersniper/Qbitrr."
             )
 
         return part1 + part2
