@@ -7,3 +7,4 @@
 .env
 /.github/workflows/test.yml
 __pycache__/
+*.py[cod]
