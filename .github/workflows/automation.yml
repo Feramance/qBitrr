@@ -1,6 +1,6 @@
-name: "Version Bump, Tag and Release"
+name: Version Bump, Tag and Release
 
-"on":
+on:
   push:
     branches:
     - master
@@ -71,5 +71,5 @@ jobs:
     - name: Release Notes
       env:
         GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
-        run: |
-          gren release --override
+      run: |
+        gren release --override
