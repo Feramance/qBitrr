@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import argparse
 from typing import NoReturn
 
 import logbook
@@ -6,33 +9,31 @@ import requests
 from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
-from qBitrr.config import CONFIG
+from qBitrr.config import CONFIG, update_config
 from qBitrr.ffprobe import FFmpegDownloader
 
 logger = logbook.Logger("qBitManager")
 
-# QBitTorrent Config Values
-qBit_Host = CONFIG.get("QBit", "Host", fallback="localhost")
-qBit_Port = CONFIG.getint("QBit", "Port")
-qBit_UserName = CONFIG.get("QBit", "UserName")
-qBit_Password = CONFIG.get("QBit", "Password", fallback=None)
-logger.debug(
-    "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
-    "Password: {qBit_Password}",
-    qBit_Host=qBit_Host,
-    qBit_Port=qBit_Port,
-    qBit_UserName=qBit_UserName,
-    qBit_Password=qBit_Password,
-)
-
 
 class qBitManager:
     def __init__(self):
+        self.qBit_Host = CONFIG.get_section("QBit").get("Host", fallback="localhost")
+        self.qBit_Port = CONFIG.get_section("QBit").get("Port")
+        self.qBit_UserName = CONFIG.get_section("QBit").get("UserName")
+        self.qBit_Password = CONFIG.get_section("QBit").get("Password", fallback=None)
+        logger.debug(
+            "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
+            "Password: {qBit_Password}",
+            qBit_Host=self.qBit_Host,
+            qBit_Port=self.qBit_Port,
+            qBit_UserName=self.qBit_UserName,
+            qBit_Password=self.qBit_Password,
+        )
         self.client = qbittorrentapi.Client(
-            host=qBit_Host,
-            port=qBit_Port,
-            username=qBit_UserName,
-            password=qBit_Password,
+            host=self.qBit_Host,
+            port=self.qBit_Port,
+            username=self.qBit_UserName,
+            password=self.qBit_Password,
             SIMPLE_RESPONSES=False,
         )
         self.logger = logger
@@ -65,12 +66,14 @@ class qBitManager:
         try:
             self.client.app_version()
             self.logger.trace(
-                "Successfully connected to {url}:{port}", url=qBit_Host, port=qBit_Port
+                "Successfully connected to {url}:{port}", url=self.qBit_Host, port=self.qBit_Port
             )
             return True
         except requests.RequestException:
 
-            self.logger.warning("Could not connect to {url}:{port}", url=qBit_Host, port=qBit_Port)
+            self.logger.warning(
+                "Could not connect to {url}:{port}", url=self.qBit_Host, port=self.qBit_Port
+            )
         self.should_delay_torrent_scan = True
         return False
 
@@ -82,7 +85,41 @@ class qBitManager:
             p.join()
 
 
+def process_flags() -> bool | None:
+    parser = argparse.ArgumentParser(description="An interface to interact with qBit and *arrs.")
+    parser.add_argument(
+        "--config",
+        "-c",
+        dest="config",
+        help="Specify a config file to be used.",
+        type=str,
+        default=None,
+    )
+    parser.add_argument(
+        "--gen-config",
+        "-gc",
+        dest="gen_config",
+        help="Generate a config file in the current working directory.",
+        action="store_true",
+    )
+    args = parser.parse_args()
+
+    if args.gen_config:
+        from qBitrr.gen_config import _write_config_file
+
+        _write_config_file()
+        return True
+
+    update_config(args.config)
+
+    return
+
+
 def run():
+    early_exist = process_flags()
+    if early_exist:
+        return
+
     manager = qBitManager()
     try:
         manager.run()

@@ -7,7 +7,6 @@ import sys
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from configparser import NoOptionError, NoSectionError
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
@@ -69,17 +68,17 @@ class Arr:
         if name in manager.groups:
             raise OSError("Group '{name}' has already been registered.")
         self._name = name
-        self.managed = CONFIG.getboolean(name, "Managed")
+        self.managed = CONFIG.get_section(name).get("Managed")
         if not self.managed:
             raise SkipException
-        self.uri = CONFIG.get(name, "URI")
+        self.uri = CONFIG.get_section(name).get("URI")
         if self.uri in manager.uris:
             raise OSError(
                 f"Group '{self._name}' is trying to manage Arr instance: "
                 f"'{self.uri}' which has already been registered."
             )
 
-        self.category = CONFIG.get(name, "Category", fallback=self._name)
+        self.category = CONFIG.get_section(name).get("Category", fallback=self._name)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists():
             raise OSError(
@@ -87,45 +86,91 @@ class Arr:
                 f"The specified folder does not exist '{self.completed_folder}'"
             )
         self.logger = logbook.Logger(self._name)
-        self.apikey = CONFIG.get(name, "APIKey")
-        self.re_search = CONFIG.getboolean(name, "ReSearch")
-        self.import_mode = CONFIG.get(name, "importMode", fallback="Move")
-        self.refresh_downloads_timer = CONFIG.getint(name, "RefreshDownloadsTimer", fallback=1)
-        self.rss_sync_timer = CONFIG.getint(name, "RssSyncTimer", fallback=15)
+        self.apikey = CONFIG.get_section(name).get("APIKey")
+        self.re_search = CONFIG.get_section(name).get("ReSearch")
+        self.import_mode = CONFIG.get_section(name).get("importMode", fallback="Move")
+        self.refresh_downloads_timer = CONFIG.get_section(name).get(
+            "RefreshDownloadsTimer", fallback=1
+        )
+        self.rss_sync_timer = CONFIG.get_section(name).get("RssSyncTimer", fallback=15)
 
-        self.case_sensitive_matches = CONFIG.getboolean(name, "CaseSensitiveMatches")
-        self.folder_exclusion_regex = CONFIG.getlist(name, "FolderExclusionRegex")
-        self.file_name_exclusion_regex = CONFIG.getlist(name, "FileNameExclusionRegex")
-        self.file_extension_allowlist = CONFIG.getlist(name, "FileExtensionAllowlist")
-        self.auto_delete = CONFIG.getboolean(name, "AutoDelete", fallback=False)
+        self.case_sensitive_matches = (
+            CONFIG.get_section(name).get_section("Torrent").get("CaseSensitiveMatches")
+        )
+        self.folder_exclusion_regex = (
+            CONFIG.get_section(name).get_section("Torrent").get("FolderExclusionRegex")
+        )
+        self.file_name_exclusion_regex = (
+            CONFIG.get_section(name).get_section("Torrent").get("FileNameExclusionRegex")
+        )
+        self.file_extension_allowlist = (
+            CONFIG.get_section(name).get_section("Torrent").get("FileExtensionAllowlist")
+        )
+        self.auto_delete = (
+            CONFIG.get_section(name).get_section("Torrent").get("AutoDelete", fallback=False)
+        )
+
         if self.auto_delete is True and not self.completed_folder.parent.exists():
             self.auto_delete = False
             self.logger.critical(
                 "AutoDelete disabled due to missing folder: '{folder}'",
                 folder=self.completed_folder.parent,
             )
-        self.do_upgrade_search = CONFIG.getboolean(name, "DoUpgradeSearch", fallback=False)
-        self.quality_unmet_search = CONFIG.getboolean(name, "QualityUnmetSearch", fallback=False)
-        self.ignore_torrents_younger_than = CONFIG.getint(
-            name, "IgnoreTorrentsYoungerThan", fallback=600
+        self.do_upgrade_search = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("DoUpgradeSearch", fallback=False)
         )
-        self.maximum_eta = CONFIG.getint(name, "MaximumETA", fallback=86400)
-        self.maximum_deletable_percentage = CONFIG.getfloat(
-            name, "MaximumDeletablePercentage", fallback=0.95
-        )
-        self.search_missing = CONFIG.getboolean(name, "SearchMissing")
-        self.search_specials = CONFIG.getboolean(name, "AlsoSearchSpecials")
-        self.search_by_year = CONFIG.getboolean(name, "SearchByYear")
-        self.search_in_reverse = CONFIG.getboolean(name, "SearchInReverse")
-
-        self.search_starting_year = CONFIG.getyear(name, "StartYear")
-        self.search_ending_year = CONFIG.getyear(name, "LastYear")
-        self.search_command_limit = CONFIG.getint(name, "SearchLimit", fallback=5)
-        self.prioritize_todays_release = CONFIG.getboolean(
-            name, "PrioritizeTodaysReleases", fallback=False
+        self.quality_unmet_search = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("QualityUnmetSearch", fallback=False)
         )
 
-        self.donotremoveslow = CONFIG.getboolean(name, "DoNotRemoveSlow", fallback=False)
+        self.ignore_torrents_younger_than = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get("IgnoreTorrentsYoungerThan", fallback=600)
+        )
+        self.maximum_eta = (
+            CONFIG.get_section(name).get_section("Torrent").get("MaximumETA", fallback=86400)
+        )
+        self.maximum_deletable_percentage = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get("MaximumDeletablePercentage", fallback=0.95)
+        )
+        self.search_missing = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("SearchMissing")
+        )
+        self.search_specials = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("AlsoSearchSpecials")
+        )
+        self.search_by_year = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("SearchByYear")
+        )
+        self.search_in_reverse = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("SearchInReverse")
+        )
+
+        self.search_starting_year = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("StartYear")
+        )
+        self.search_ending_year = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("LastYear")
+        )
+        self.search_command_limit = (
+            CONFIG.get_section(name).get_section("EntrySearch").get("SearchLimit", fallback=5)
+        )
+        self.prioritize_todays_release = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("PrioritizeTodaysReleases", fallback=False)
+        )
+
+        self.donotremoveslow = (
+            CONFIG.get_section(name).get_section("Torrent").get("DoNotRemoveSlow", fallback=False)
+        )
 
         if self.search_in_reverse:
             self.search_current_year = self.search_ending_year
@@ -134,7 +179,9 @@ class Arr:
             self.search_current_year = self.search_starting_year
             self._delta = -1
 
-        self.arr_db_file = pathlib.Path(CONFIG.get(name, "DatabaseFile"))
+        self.arr_db_file = pathlib.Path(
+            CONFIG.get_section(name).get_section("EntrySearch").get("DatabaseFile")
+        )
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
         if self.search_missing and not self.arr_db_file.exists():
@@ -144,17 +191,61 @@ class Arr:
             )
             self.search_missing = False
 
-        self.ombi_search_requests = CONFIG.getboolean(name, "SearchOmbiRequests")
-        self.overseerr_requests = CONFIG.getboolean(name, "SearchOverseerrRequests")
-        self.series_search = CONFIG.getboolean(name, "SearchBySeries", fallback=False)
-        self.ombi_uri = CONFIG.get(name, "OmbiURI")
-        self.overseerr_uri = CONFIG.get(name, "OverseerrURI")
-
-        self.ombi_api_key = CONFIG.get(name, "OmbiAPIKey")
-        self.overseerr_api_key = CONFIG.get(name, "OverseerrAPIKey")
-
-        self.ombi_approved_only = CONFIG.getboolean(name, "ApprovedOnly")
-        self.search_requests_every_x_seconds = CONFIG.getint(name, "SearchRequestsEvery")
+        self.ombi_search_requests = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Ombi")
+            .get("SearchOmbiRequests")
+        )
+        self.overseerr_requests = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Overseerr")
+            .get("SearchOverseerrRequests")
+        )
+        self.series_search = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("SearchBySeries", fallback=False)
+        )
+        self.ombi_uri = (
+            CONFIG.get_section(name).get_section("EntrySearch").get_section("Ombi").get("OmbiURI")
+        )
+        self.overseerr_uri = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Overseerr")
+            .get("OverseerrURI")
+        )
+        self.ombi_api_key = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Ombi")
+            .get("OmbiAPIKey")
+        )
+        self.overseerr_api_key = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Overseerr")
+            .get("OverseerrAPIKey")
+        )
+        self.ombi_approved_only = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Ombi")
+            .get("ApprovedOnly")
+        )
+        self.overseerr_approved_only = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Overseerr")
+            .get("ApprovedOnly")
+        )
+        self.search_requests_every_x_seconds = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("SearchRequestsEvery", fallback=1800)
+        )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
         if self.ombi_search_requests or self.overseerr_requests:
             self.request_search_timer = 0
@@ -2497,8 +2588,8 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
-        self.IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.getint(
-            "Settings", "IgnoreTorrentsYoungerThan", fallback=600
+        self.IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get_section("Settings").get(
+            "IgnoreTorrentsYoungerThan", fallback=600
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
         self.timed_skip = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
@@ -2644,8 +2735,8 @@ class ArrManager:
                     self.groups.add(name)
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object
-                except (NoSectionError, NoOptionError) as e:
-                    self.logger.exception(e.message)
+                except ValueError as e:
+                    self.logger.exception(e)
                 except SkipException:
                     continue
                 except OSError as e:

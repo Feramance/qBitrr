@@ -10,7 +10,6 @@ from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONSOLE_LOGGING_LEVEL_STRING,
-    COPIED_TO_NEW_DIR,
     FAILED_CATEGORY,
     IGNORE_TORRENTS_YOUNGER_THAN,
     LOOP_SLEEP_TIMER,
@@ -117,11 +116,20 @@ log = CustomColorizedStdoutHandler(
     format_string="[{record.time:%Y-%m-%d %H:%M:%S.%f%z}] [{record.thread}] {record.level_name}: {record.channel}: {record.message}",
 )
 log.push_application()
+
+
+def _update_logger_level() -> None:
+    global log
+    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
+
+    log.level = logging_map.get(CONSOLE_LOGGING_LEVEL_STRING)
+
+
 logger = logbook.Logger("Misc")
 HAS_RUN = False
 
 
-def run_logs():
+def run_logs() -> None:
     global HAS_RUN
     logger.debug("Ping URLs:  {PingURL}", PingURL=PING_URLS)
     logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
@@ -146,7 +154,9 @@ def run_logs():
 
 
 if not HAS_RUN:
-    if not APPDATA_FOLDER.joinpath("config.ini").exists():
+    from qBitrr.config import COPIED_TO_NEW_DIR
+
+    if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.ini").exists():
         logbook.warning(
             "Config.ini should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.",
             APPDATA_FOLDER=APPDATA_FOLDER,

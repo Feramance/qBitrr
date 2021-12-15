@@ -6,3 +6,4 @@ peewee
 pyarr
 qbittorrent-api
 requests
+toml-config
