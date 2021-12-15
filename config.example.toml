@@ -6,7 +6,7 @@ ReSearch = true
 importMode = "Move"
 RssSyncTimer = 10
 RefreshDownloadsTimer = 1
-category = "radarr-1080"
+Category = "radarr-1080"
 
 [Radarr-4k]
 Managed = true
@@ -16,7 +16,7 @@ ReSearch = true
 importMode = "Move"
 RssSyncTimer = 10
 RefreshDownloadsTimer = 1
-category = "radarr-4k"
+Category = "radarr-4k"
 
 [Sonarr-Anime]
 Managed = true
@@ -26,7 +26,7 @@ ReSearch = true
 importMode = "Move"
 RssSyncTimer = 10
 RefreshDownloadsTimer = 1
-category = "sonarr-anime"
+Category = "sonarr-anime"
 
 [Sonarr-TV]
 Managed = true
@@ -36,11 +36,13 @@ ReSearch = true
 importMode = "Move"
 RssSyncTimer = 10
 RefreshDownloadsTimer = 1
-category = "sonarr-tv"
+Category = "sonarr-tv"
 
 [QBit]
 Host = "localhost"
 Port = "8105"
+UserName = "CHANGE_ME"
+Password = "CHANGE_ME"
 
 [Settings]
 ConsoleLevel = "INFO"
@@ -160,17 +162,33 @@ SearchBySeries = true
 [Radarr-1080p.Torrent.SeedingMode]
 Enabled = false
 add_tags = [ "Seeding Allowed",]
+DownloadRateLimitPerTorrent = 0
+UploadRateLimitPerTorrent = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
 [[Radarr-1080p.Torrent.SeedingMode.Trackers]]
 Name = "Rarbg"
 url = "udp://9.rarbg.com:2810/announce"
 add_tags = [ "rarbg",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [[Radarr-1080p.Torrent.SeedingMode.Trackers]]
 Name = "Nyaa"
 url = "http://nyaa.tracker.wf:7777/announce"
 add_tags = [ "anime", "Nyaa",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [Radarr-1080p.EntrySearch.Ombi]
 SearchOmbiRequests = false
@@ -187,17 +205,33 @@ ApprovedOnly = true
 [Radarr-4k.Torrent.SeedingMode]
 Enabled = false
 add_tags = [ "Seeding Allowed",]
+DownloadRateLimitPerTorrent = 0
+UploadRateLimitPerTorrent = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
 [[Radarr-4k.Torrent.SeedingMode.Trackers]]
 Name = "Rarbg"
 url = "udp://9.rarbg.com:2810/announce"
 add_tags = [ "rarbg",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [[Radarr-4k.Torrent.SeedingMode.Trackers]]
 Name = "Nyaa"
 url = "http://nyaa.tracker.wf:7777/announce"
 add_tags = [ "anime", "Nyaa",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [Radarr-4k.EntrySearch.Ombi]
 SearchOmbiRequests = false
@@ -214,17 +248,33 @@ ApprovedOnly = true
 [Sonarr-Anime.Torrent.SeedingMode]
 Enabled = false
 add_tags = [ "Seeding Allowed",]
+DownloadRateLimitPerTorrent = 0
+UploadRateLimitPerTorrent = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
 [[Sonarr-Anime.Torrent.SeedingMode.Trackers]]
 Name = "Rarbg"
 url = "udp://9.rarbg.com:2810/announce"
 add_tags = [ "rarbg",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [[Sonarr-Anime.Torrent.SeedingMode.Trackers]]
 Name = "Nyaa"
 url = "http://nyaa.tracker.wf:7777/announce"
 add_tags = [ "anime", "Nyaa",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [Sonarr-Anime.EntrySearch.Ombi]
 SearchOmbiRequests = false
@@ -241,17 +291,33 @@ ApprovedOnly = true
 [Sonarr-TV.Torrent.SeedingMode]
 Enabled = false
 add_tags = [ "Seeding Allowed",]
+DownloadRateLimitPerTorrent = 0
+UploadRateLimitPerTorrent = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
 [[Sonarr-TV.Torrent.SeedingMode.Trackers]]
 Name = "Rarbg"
 url = "udp://9.rarbg.com:2810/announce"
 add_tags = [ "rarbg",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [[Sonarr-TV.Torrent.SeedingMode.Trackers]]
 Name = "Nyaa"
 url = "http://nyaa.tracker.wf:7777/announce"
 add_tags = [ "anime", "Nyaa",]
+DownloadRateLimit = 0
+MaxUploadRatio = 0
+MaxSeedingTime = 0
+UploadRateLimit = 0
 SuperSeedMode = false
+MaximumETA = 18000
+ForceSeed = false
 
 [Sonarr-TV.EntrySearch.Ombi]
 SearchOmbiRequests = false

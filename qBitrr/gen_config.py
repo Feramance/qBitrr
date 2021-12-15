@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+import tomlkit  # noqa  TODO: Change over to tomlkit - once all settings are added to avoid duplicate work.
 from toml_config.core import Config
 
 default = {
@@ -40,10 +41,10 @@ default = {
         "SeedingMode": {
             "Enabled": False,
             "add_tags": ["Seeding Allowed"],
-            "DownloadRateLimitPerTorrent": None,
-            "UploadRateLimitPerTorrent": None,
-            "MaxUploadRatio": None,
-            "MaxSeedingTime": None,
+            "DownloadRateLimitPerTorrent": 0,
+            "UploadRateLimitPerTorrent": 0,
+            "MaxUploadRatio": 0,
+            "MaxSeedingTime": 0,
             "Trackers": [
                 {
                     "Name": "Rarbg",
@@ -51,21 +52,25 @@ default = {
                     "add_tags": [
                         "rarbg",
                     ],
-                    "DownloadRateLimit": None,
-                    "MaxUploadRatio": None,
-                    "MaxSeedingTime": None,
-                    "UploadRateLimit": None,
+                    "DownloadRateLimit": 0,
+                    "MaxUploadRatio": 0,
+                    "MaxSeedingTime": 0,
+                    "UploadRateLimit": 0,
                     "SuperSeedMode": False,
+                    "MaximumETA": 18000,
+                    "ForceSeed": False,
                 },
                 {
                     "Name": "Nyaa",
                     "url": "http://nyaa.tracker.wf:7777/announce",
                     "add_tags": ["anime", "Nyaa"],
-                    "DownloadRateLimit": None,
-                    "MaxUploadRatio": None,
-                    "MaxSeedingTime": None,
-                    "UploadRateLimit": None,
+                    "DownloadRateLimit": 0,
+                    "MaxUploadRatio": 0,
+                    "MaxSeedingTime": 0,
+                    "UploadRateLimit": 0,
                     "SuperSeedMode": False,
+                    "MaximumETA": 18000,
+                    "ForceSeed": False,
                 },
             ],
         },
@@ -104,7 +109,12 @@ data = {
     "Radarr-4k": {**default, **{"Category": "radarr-4k"}},
     "Sonarr-Anime": {**default, **{"Category": "sonarr-anime"}},
     "Sonarr-TV": {**default, **{"Category": "sonarr-tv"}},
-    "QBit": {"Host": "localhost", "Port": "8105", "UserName": None, "Password": None},
+    "QBit": {
+        "Host": "localhost",
+        "Port": "8105",
+        "UserName": "CHANGE_ME",
+        "Password": "CHANGE_ME",
+    },
     "Settings": {
         "ConsoleLevel": "INFO",
         "CompletedDownloadFolder": "CHANGE_ME",

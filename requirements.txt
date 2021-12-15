@@ -7,3 +7,4 @@ pyarr
 qbittorrent-api
 requests
 toml-config
+tomlkit
