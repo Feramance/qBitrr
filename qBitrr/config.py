@@ -35,7 +35,7 @@ def update_config(file: str | None = None):
             not (CONFIG_PATH := APPDATA_FOLDER.joinpath(file)).exists()
             and not pathlib.Path(f"./{file}").exists()
         ):
-            logbook.critical("config.ini has not been found - exiting...")
+            logbook.critical(f"{file} has not been found - exiting...")
             sys.exit(1)
 
         if CONFIG_PATH.exists():

@@ -156,15 +156,15 @@ def run_logs() -> None:
 if not HAS_RUN:
     from qBitrr.config import COPIED_TO_NEW_DIR
 
-    if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.ini").exists():
+    if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
         logbook.warning(
-            "Config.ini should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.",
+            "Config.toml should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.",
             APPDATA_FOLDER=APPDATA_FOLDER,
         )
         time.sleep(5)
     if COPIED_TO_NEW_DIR:
         logbook.warning(
-            "Config.ini new location is {APPDATA_FOLDER}", APPDATA_FOLDER=APPDATA_FOLDER
+            "Config.toml new location is {APPDATA_FOLDER}", APPDATA_FOLDER=APPDATA_FOLDER
         )
         time.sleep(5)
     run_logs()
