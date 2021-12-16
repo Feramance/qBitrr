@@ -39,7 +39,7 @@ jobs:
       id: import_gpg
     - uses: marvinpinto/action-automatic-releases@latest
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        repo_token: ${{ secrets.PAT }}
         prerelease: false
         automatic_release_tag: v${{ steps.current_version.outputs.VERSION }}
         title: v${{ steps.current_version.outputs.VERSION }}
