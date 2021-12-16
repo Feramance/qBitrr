@@ -6,8 +6,6 @@ from typing import Iterator, Union
 
 import logbook
 
-from qBitrr.config import PING_URLS
-
 logger = logbook.Logger("Utilities")
 
 
@@ -63,6 +61,8 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 
 
 def has_internet():
+    from qBitrr.config import PING_URLS
+
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False

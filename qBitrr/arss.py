@@ -59,6 +59,19 @@ if TYPE_CHECKING:
 logger = logbook.Logger("ArrManager")
 
 
+def _update_config():
+    global APPDATA_FOLDER, COMPLETED_DOWNLOAD_FOLDER, FAILED_CATEGORY, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, RECHECK_CATEGORY, CONFIG
+    from qBitrr.config import (
+        APPDATA_FOLDER,
+        COMPLETED_DOWNLOAD_FOLDER,
+        CONFIG,
+        FAILED_CATEGORY,
+        LOOP_SLEEP_TIMER,
+        NO_INTERNET_SLEEP_TIMER,
+        RECHECK_CATEGORY,
+    )
+
+
 class Arr:
     def __init__(
         self,
@@ -66,6 +79,7 @@ class Arr:
         manager: ArrManager,
         client_cls: type[Callable | RadarrAPI | SonarrAPI],
     ):
+        _update_config()
         if name in manager.groups:
             raise OSError("Group '{name}' has already been registered.")
         self._name = name
@@ -168,7 +182,7 @@ class Arr:
         self.search_ending_year = CONFIG.get(f"{name}.EntrySearch.LastYear", fallback=1990)
         self.search_command_limit = CONFIG.get(f"{name}.EntrySearch.SearchLimit", fallback=5)
         self.prioritize_todays_release = CONFIG.get(
-            f"{name}.EntrySearch.PrioritizeTodaysReleases", fallback=False
+            f"{name}.EntrySearch.PrioritizeTodaysReleases", fallback=True
         )
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
@@ -2903,6 +2917,7 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        _update_config()
         self.IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get(
             "Settings.IgnoreTorrentsYoungerThan", fallback=600
         )
@@ -3036,6 +3051,7 @@ class ArrManager:
             )
 
     def build_arr_instances(self):
+        _update_config()
         for key in CONFIG.sections():
             if search := re.match("(rad|son)arr.*", key, re.IGNORECASE):
                 name = search.group(0)

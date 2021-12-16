@@ -13,8 +13,14 @@ from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
 logger = logbook.Logger("FFmpegDownloader")
 
 
+def _update_config():
+    global FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
+    from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
+
+
 class FFmpegDownloader:
     def __init__(self):
+        _update_config()
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
         self.platform = platform.system()
@@ -41,6 +47,7 @@ class FFmpegDownloader:
             return ""
 
     def update(self):
+        _update_config()
         if not FFPROBE_AUTO_UPDATE:
             return
         current_version = self.get_current_version()

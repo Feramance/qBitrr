@@ -15,8 +15,14 @@ from qBitrr.ffprobe import FFmpegDownloader
 logger = logbook.Logger("qBitManager")
 
 
+def _update_config():
+    global CONFIG
+    from qBitrr.config import CONFIG
+
+
 class qBitManager:
     def __init__(self):
+        _update_config()
         self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)

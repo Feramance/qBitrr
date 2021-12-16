@@ -54,6 +54,21 @@ def update_logbook():
 update_logbook()
 
 
+def _update_config():
+    global APPDATA_FOLDER, COMPLETED_DOWNLOAD_FOLDER, CONSOLE_LOGGING_LEVEL_STRING, FAILED_CATEGORY, IGNORE_TORRENTS_YOUNGER_THAN, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, PING_URLS, RECHECK_CATEGORY
+    from qBitrr.config import (
+        APPDATA_FOLDER,
+        COMPLETED_DOWNLOAD_FOLDER,
+        CONSOLE_LOGGING_LEVEL_STRING,
+        FAILED_CATEGORY,
+        IGNORE_TORRENTS_YOUNGER_THAN,
+        LOOP_SLEEP_TIMER,
+        NO_INTERNET_SLEEP_TIMER,
+        PING_URLS,
+        RECHECK_CATEGORY,
+    )
+
+
 class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
     def __init__(self, *args, **kwargs):
         self.imported_colorama = False
@@ -131,6 +146,7 @@ HAS_RUN = False
 
 def run_logs() -> None:
     global HAS_RUN
+    _update_config()
     logger.debug("Ping URLs:  {PingURL}", PingURL=PING_URLS)
     logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
     logger.debug(
@@ -154,6 +170,7 @@ def run_logs() -> None:
 
 
 if not HAS_RUN:
+    _update_config()
     from qBitrr.config import COPIED_TO_NEW_DIR
 
     if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():

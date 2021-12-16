@@ -514,7 +514,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
                 "Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr)."
             )
         )
-        search_table.add("PrioritizeTodaysReleases", False)
+        search_table.add("PrioritizeTodaysReleases", True)
         search_table.add(nl())
     _gen_default_ombi_table(category, search_table)
     _gen_default_overseerr_table(category, search_table)
