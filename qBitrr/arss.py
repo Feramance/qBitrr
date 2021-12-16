@@ -125,19 +125,22 @@ class Arr:
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.Global.RemoveDeadTrackers", fallback=False
+            f"{name}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False
         )
         self.seeding_mode_global_download_limit = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.Global.DownloadRateLimitPerTorrent", fallback=-1
+            f"{name}.Torrent.SeedingMode.DownloadRateLimitPerTorrent", fallback=-1
         )
         self.seeding_mode_global_upload_limit = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.Global.UploadRateLimitPerTorrent", fallback=-1
+            f"{name}.Torrent.SeedingMode.UploadRateLimitPerTorrent", fallback=-1
         )
         self.seeding_mode_global_max_upload_ratio = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.Global.MaxUploadRatio", fallback=-1
+            f"{name}.Torrent.SeedingMode.MaxUploadRatio", fallback=-1
         )
         self.seeding_mode_global_max_seeding_time = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.Global.MaxSeedingTime", fallback=-1
+            f"{name}.Torrent.SeedingMode.MaxSeedingTime", fallback=-1
+        )
+        self.seeding_mode_global_bad_tracker_msg = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
         )
 
         self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
@@ -305,7 +308,7 @@ class Arr:
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
-
+        self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
         self.session = requests.Session()
         self.cleaned_torrents = set()
 
@@ -1872,7 +1875,9 @@ class Arr:
                 torrent.hash,
             )
 
-    def _process_single_torrent_stalled_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_stalled_torrent(
+        self, torrent: qbittorrentapi.TorrentDictionary, extra: str
+    ):
 
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
@@ -1882,11 +1887,12 @@ class Arr:
             < time.time() - self.ignore_torrents_younger_than
         ):
             self.logger.info(
-                "Deleting Stale torrent: "
+                "Deleting Stale torrent: %s "
                 "[Progress: %s%%][Added On: %s]"
                 "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
+                extra,
                 round(torrent.progress * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
                 round(torrent.availability * 100, 2),
@@ -1929,7 +1935,7 @@ class Arr:
         # remove it and requeue a new torrent.
         if maximum_eta > 0 and torrent.last_activity < (time.time() - maximum_eta):
             self.logger.info(
-                "Deleting Stale torrent: "
+                "Deleting Stale torrent: Last activity is older than Maximum ETA "
                 "[Progress: %s%%][Added On: %s]"
                 "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
@@ -2154,11 +2160,16 @@ class Arr:
         )
         self.delete.add(torrent.hash)
 
-    def _process_single_torrent_process_files(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_process_files(
+        self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
+    ):
         _remove_files = set()
         total = len(torrent.files)
-        if total == 0:
+        if total == 0 and not special_case:
             self.cleaned_torrents.add(torrent.hash)
+            return
+        elif special_case:
+            self.special_casing_file_check.add(torrent.hash)
             return
         for file in torrent.files:
             file_path = pathlib.Path(file.name)
@@ -2232,6 +2243,7 @@ class Arr:
                 self.change_priority[torrent.hash] = list(_remove_files)
             elif _remove_files and torrent.hash in self.change_priority:
                 self.change_priority[torrent.hash] = list(_remove_files)
+
         self.cleaned_torrents.add(torrent.hash)
 
     def _process_single_torrent_unprocessed(self, torrent: qbittorrentapi.TorrentDictionary):
@@ -2264,13 +2276,15 @@ class Arr:
     def __return_max(x: dict):
         return x.get("Priority", -100)
 
-    def _get_most_important_tracker_and_tags(self, monitored_trackers) -> tuple[dict, set[str]]:
+    def _get_most_important_tracker_and_tags(
+        self, monitored_trackers, removed
+    ) -> tuple[dict, set[str]]:
         new_list = [
             i
             for i in self.monitored_trackers
             if (i.get("URI") in monitored_trackers) and not i.get("RemoveIfExists") is True
         ]
-        _list_of_tags = [i.get("AddTags", []) for i in new_list]
+        _list_of_tags = [i.get("AddTags", []) for i in new_list if i.get("URI") not in removed]
         if new_list:
             max_item = max(new_list, key=self.__return_max)
         else:
@@ -2280,7 +2294,7 @@ class Arr:
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
-            monitored_trackers
+            monitored_trackers, {}
         )
 
         data_settings = {
@@ -2362,22 +2376,21 @@ class Arr:
             if (
                 self.remove_dead_trackers
                 and (
-                    any(
-                        tracker.msg == m
-                        for m in [
-                            "skipping tracker announce (unreachable)",
-                            "No such host is known",
-                            "unsupported URL protocol",
-                        ]
-                    )
+                    any(tracker.msg == m for m in self.seeding_mode_global_bad_tracker_msg)
                 )  # TODO: Add more messages
             ) or tracker.url in self._remove_trackers_if_exists:
                 _remove_urls.add(tracker.url)
         if _remove_urls:
+            self.logger.trace(
+                "Removing trackers from torrent: %s (%s) - %s",
+                torrent.name,
+                torrent.hash,
+                _remove_urls,
+            )
             with contextlib.suppress(qbittorrentapi.exceptions.Conflict409Error):
                 torrent.remove_trackers(_remove_urls)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
-            monitored_trackers
+            monitored_trackers, _remove_urls
         )
         if monitored_trackers and most_important_tracker:
             # Only use globals if there is not a configured equivalent value on the
@@ -2519,6 +2532,13 @@ class Arr:
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
             return  # Since to torrent is being ignored early exit here
+        elif (
+            torrent.state_enum.is_downloading
+            and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
+            and torrent.hash not in self.special_casing_file_check
+            and torrent.hash not in self.cleaned_torrents
+        ):
+            self._process_single_torrent_process_files(torrent, True)
         elif torrent.hash in self.timed_ignore_cache:
             # Do not touch torrents recently resumed/reached (A torrent can temporarily
             # stall after being resumed from a paused state).
@@ -2530,7 +2550,7 @@ class Arr:
             TorrentStates.METADATA_DOWNLOAD,
             TorrentStates.STALLED_DOWNLOAD,
         ):
-            self._process_single_torrent_stalled_torrent(torrent)
+            self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
@@ -2594,7 +2614,7 @@ class Arr:
                 < time_now - self.ignore_torrents_younger_than
                 and torrent.availability < 1
             ) and torrent.hash in self.cleaned_torrents:
-                self._process_single_torrent_stalled_torrent(torrent)
+                self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
                 if torrent.hash in self.cleaned_torrents:
                     self._process_single_torrent_already_cleaned_up(torrent)

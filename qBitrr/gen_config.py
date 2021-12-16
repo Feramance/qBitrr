@@ -321,6 +321,22 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(comment("Set the Maximum allowed download rate for torrents"))
     seeding_table.add("RemoveDeadTrackers", False)
     seeding_table.add(nl())
+    seeding_table.add(
+        comment(
+            'If "RemoveDeadTrackers" is set to true then remove trackers with the following messages'
+        )
+    )
+    seeding_table.add(
+        "RemoveTrackerWithMessage",
+        [
+            "skipping tracker announce (unreachable)",
+            "No such host is known",
+            "unsupported URL protocol",
+            "info hash is not authorized with this tracker",
+        ],
+    )
+    seeding_table.add(nl())
+
     torrent_table.add("SeedingMode", seeding_table)
 
 

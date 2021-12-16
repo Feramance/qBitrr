@@ -211,6 +211,9 @@ MaxSeedingTime = -1
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
 
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+
 # You can have multiple trackers set here or none just add more subsections.
 
 [Sonarr-Anime]
@@ -372,6 +375,9 @@ MaxSeedingTime = -1
 
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
+
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
 # You can have multiple trackers set here or none just add more subsections.
 
@@ -547,6 +553,9 @@ MaxSeedingTime = -1
 
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
+
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
 # You can have multiple trackers set here or none just add more subsections.
 
@@ -735,6 +744,9 @@ MaxSeedingTime = -1
 
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
+
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
 # You can have multiple trackers set here or none just add more subsections.
 
