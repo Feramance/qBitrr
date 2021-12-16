@@ -5,7 +5,8 @@ ignoreIssuesWith:
 prefix: ''
 includeMessages: all
 ignoreCommitsWith:
-- '[deploy]'
+- '[auto-changelogs]'
+- '[auto-release]'
 - '[skip ci]'
 - '[ci skip]'
 changelogFilename: CHANGELOG.md
