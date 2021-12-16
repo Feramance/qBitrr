@@ -119,8 +119,7 @@ def run_logs(logger: Logger, configkeys: Iterable | None = None) -> None:
 
             configkeys = CONFIG.sections()
         key_length = max(len(max(configkeys, key=len)), 10)
-    except BaseException as e:
-        print(e)
+    except BaseException:
         key_length = 10
     coloredlogs.install(
         level=logging._levelToName.get(CONSOLE_LOGGING_LEVEL_STRING),

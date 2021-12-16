@@ -3,7 +3,6 @@ import json
 import logging
 import platform
 import sys
-import typing
 import zipfile
 
 import requests
@@ -32,7 +31,7 @@ class FFprobeDownloader:
         else:
             self.probe_path = FF_PROBE
 
-    def get_upstream_version(self) -> typing.Dict:
+    def get_upstream_version(self) -> dict:
         with requests.Session() as session:
             with session.get(self.api) as response:
                 if response.status_code != 200:

@@ -1,16 +1,18 @@
+from __future__ import annotations
+
 import logging
 import pathlib
 import random
 import socket
 import time
-from typing import Iterator, Union
+from typing import Iterator
 
 import ping3
 
 ping3.EXCEPTIONS = True
 
 
-def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib.Path]:
+def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
     error = True
     while error is True:
         try:
