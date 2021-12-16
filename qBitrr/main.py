@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from typing import NoReturn
 
 import qbittorrentapi
@@ -86,11 +87,18 @@ class qBitManager:
         run_logs(self.logger)
         self.logger.hnotice("Managing %s categories", len(self.arr_manager.managed_objects))
         count = 0
+        procs = []
         for arr in self.arr_manager.managed_objects.values():
-            count += arr.spawn_child_processes()
+            numb, processes = arr.spawn_child_processes()
+            count += numb
+            procs.extend(processes)
         self.logger.notice("Starting %s child processes", count)
-        for p in self.child_processes:
-            p.join()
+        try:
+            [p.start() for p in procs]
+            [p.join() for p in procs]
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
 
 
 def process_flags() -> bool | str | None:
@@ -133,8 +141,11 @@ def run():
     manager = qBitManager(loglevel=early_exist if loglevel else None)
     try:
         manager.run()
-    finally:
-        logging.notice("Terminating child processed, please wait a moment.")
+    except KeyboardInterrupt:
+        logger.hnotice("Detected Ctrl+C - Terminating process")
+        sys.exit(0)
+    except Exception:
+        logger.notice("Attempting to terminate child processes, please wait a moment.")
         for child in manager.child_processes:
             child.terminate()
 

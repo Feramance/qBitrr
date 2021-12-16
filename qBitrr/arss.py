@@ -2946,6 +2946,9 @@ class Arr:
                     )
                 time.sleep(e.length)
                 self.manager.qbit_manager.should_delay_torrent_scan = False
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
             else:
                 time.sleep(5)
 
@@ -2970,6 +2973,9 @@ class Arr:
                     raise DelayLoopException(length=300, type=e.type)
                 except DelayLoopException:
                     raise
+                except KeyboardInterrupt:
+                    self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                    sys.exit(0)
                 except Exception as e:
                     self.logger.error(e, exc_info=sys.exc_info())
                 time.sleep(LOOP_SLEEP_TIMER)
@@ -2997,6 +3003,9 @@ class Arr:
                     )
                 time.sleep(e.length)
                 self.manager.qbit_manager.should_delay_torrent_scan = False
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
 
     def spawn_child_processes(self):
         _temp = []
@@ -3012,8 +3021,7 @@ class Arr:
         self.manager.qbit_manager.child_processes.append(self.process_torrent_loop)
         _temp.append(self.process_torrent_loop)
 
-        [p.start() for p in _temp]
-        return len(_temp)
+        return len(_temp), _temp
 
 
 class PlaceHolderArr(Arr):
@@ -3125,6 +3133,9 @@ class PlaceHolderArr(Arr):
             self.process()
         except NoConnectionrException as e:
             self.logger.error(e.message)
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
 

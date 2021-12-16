@@ -113,7 +113,7 @@ def run_logs(logger: Logger) -> None:
     _update_config()
     coloredlogs.install(
         level=logging._levelToName.get(CONSOLE_LOGGING_LEVEL_STRING),
-        fmt="[%(asctime)s] [pid:%(process)d][tid:%(thread)d] %(name)s: %(levelname)s: %(message)s",
+        fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] %(levelname)-8s: %(name)-20s: %(message)s",
         level_styles=dict(
             trace=dict(color="black", bold=True),
             debug=dict(color="magenta", bold=True),
@@ -129,7 +129,7 @@ def run_logs(logger: Logger) -> None:
         field_styles=dict(
             asctime=dict(color="green"),
             process=dict(color="magenta"),
-            levelname=dict(color="black", bold=True),
+            levelname=dict(color="red", bold=True),
             name=dict(color="blue", bold=True),
             thread=dict(color="cyan"),
         ),
