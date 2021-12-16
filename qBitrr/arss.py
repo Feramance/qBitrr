@@ -2483,7 +2483,7 @@ class Arr:
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
         ) and torrent.hash in self.cleaned_torrents:
-            self._process_single_torrent_percentage_threshold(torrent)
+            self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
         elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.amount_left != 0:
             self._process_single_torrent_paused(torrent)
