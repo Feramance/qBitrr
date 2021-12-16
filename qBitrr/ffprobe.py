@@ -23,6 +23,7 @@ class FFmpegDownloader:
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
         self.logger = logging.getLogger("FFmpegDownloader")
+        self.logger.setLevel(level=logger.level)
         run_logs(self.logger)
 
         self.platform = platform.system()

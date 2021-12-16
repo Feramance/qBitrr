@@ -100,7 +100,9 @@ class Arr:
                 f"The specified folder does not exist '{self.completed_folder}'"
             )
         self.manager = manager
+        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
+        self.logger.setLevel(level=self._LOG_LEVEL)
         run_logs(self.logger)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -663,7 +665,7 @@ class Arr:
                 if not path.exists():
                     self.timed_ignore_cache.add(torrent.hash)
                     self.logger.warning(
-                        "Missing Torrent: [%s] %s " "(%s) - " "File does not seem to exist: %s",
+                        "Missing Torrent: [%s] %s (%s) - File does not seem to exist: %s",
                         torrent.state_enum,
                         torrent.name,
                         torrent.hash,
@@ -674,7 +676,7 @@ class Arr:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
                 if self.type == "sonarr":
-                    self.logger.succcess(
+                    self.logger.success(
                         "DownloadedEpisodesScan: %s",
                         path,
                     )
@@ -685,7 +687,7 @@ class Arr:
                         importMode=self.import_mode,
                     )
                 elif self.type == "radarr":
-                    self.logger.succcess("DownloadedMoviesScan: %s", path)
+                    self.logger.success("DownloadedMoviesScan: %s", path)
                     self.post_command(
                         "DownloadedMoviesScan",
                         path=str(path),
@@ -725,8 +727,8 @@ class Arr:
                         tvdbId = data.get("series", {}).get("tvdbId", 0)
                         self.logger.notice(
                             "Re-Searching episode: %s (%s) | "
-                            "S%2dE%3d "
-                            "(%4d) | "
+                            "S%02dE%03d "
+                            "(E%04d) | "
                             "%s | "
                             "[tvdbId=%s|id=%s]",
                             seriesTitle,
@@ -1309,14 +1311,14 @@ class Arr:
 
                     if self.quality_unmet_search and QualityMet:
                         self.logger.trace(
-                            "Quality Met | %s | " "S%02dE%03d",
+                            "Quality Met | %s | S%02dE%03d",
                             SeriesTitle,
                             SeasonNumber,
                             EpisodeNumber,
                         )
 
                     self.logger.trace(
-                        "Updating database entry | %s | " "S%02dE%03d",
+                        "Updating database entry | %s | S%02dE%03d",
                         SeriesTitle,
                         SeasonNumber,
                         EpisodeNumber,
@@ -1609,7 +1611,7 @@ class Arr:
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
-                    "%sSearching for: %s | " "S%02dE%03d | " "%s | [id=%s|AirDateUTC=%s]",
+                    "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
                     request_tag,
                     file_model.SeriesTitle,
                     file_model.SeasonNumber,
@@ -1629,7 +1631,7 @@ class Arr:
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
                     self.logger.trace(
-                        "%sIdle: Too many commands in queue: %s | " "%[id=%s]",
+                        "%sIdle: Too many commands in queue: %s | %[id=%s]",
                         request_tag,
                         file_model.Title,
                         file_model.EntryId,
@@ -1646,7 +1648,7 @@ class Arr:
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
-                    "%sSearching for: %s | " "[id=%s]",
+                    "%sSearching for: %s | [id=%s]",
                     request_tag,
                     file_model.Title,
                     file_model.EntryId,
@@ -1664,7 +1666,7 @@ class Arr:
                 queue = False
             if queue:
                 self.logger.debug(
-                    "%sSkipping: Already Searched: %s (%s) " "[tmdbId=%s|id=%s]",
+                    "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
                     file_model.Title,
                     file_model.Year,
@@ -1682,7 +1684,7 @@ class Arr:
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "%sSkipping: Too many in queue: %s (%s) " "[tmdbId=%s|id=%s]",
+                    "%sSkipping: Too many in queue: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
                     file_model.Title,
                     file_model.Year,
@@ -1701,7 +1703,7 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.hnotice(
-                "%sSkipping: Searching for: %s (%s) " "[tmdbId=%s|id=%s]",
+                "%sSkipping: Searching for: %s (%s) [tmdbId=%s|id=%s]",
                 request_tag,
                 file_model.Title,
                 file_model.Year,
@@ -1760,13 +1762,13 @@ class Arr:
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
             "Deleting manually failed torrent: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -1778,13 +1780,13 @@ class Arr:
     def _process_single_torrent_recheck_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
             "Re-checking manually set torrent: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -1797,13 +1799,13 @@ class Arr:
         # Do not touch torrents that are currently being ignored.
         self.logger.trace(
             "Skipping torrent: Ignored state | "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -1818,13 +1820,13 @@ class Arr:
     ):
         self.logger.trace(
             "Skipping torrent: Marked for skipping | "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -1838,13 +1840,13 @@ class Arr:
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
                 "Torrent State: Queued Upload | Allowing Seeding | "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1856,13 +1858,13 @@ class Arr:
             self.skip_blacklist.add(torrent.hash)
             self.logger.trace(
                 "Pausing torrent: Queued Upload | "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1881,13 +1883,13 @@ class Arr:
         ):
             self.logger.info(
                 "Deleting Stale torrent: "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1898,13 +1900,13 @@ class Arr:
         else:
             self.logger.trace(
                 "Ignoring Stale torrent: "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1928,13 +1930,13 @@ class Arr:
         if maximum_eta > 0 and torrent.last_activity < (time.time() - maximum_eta):
             self.logger.info(
                 "Deleting Stale torrent: "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1946,13 +1948,13 @@ class Arr:
             self.logger.trace(
                 "Skipping torrent: Reached Maximum completed "
                 "percentage and is active | "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -1966,13 +1968,13 @@ class Arr:
         self.resume.add(torrent.hash)
         self.logger.debug(
             "Resuming incomplete paused torrent: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -1985,13 +1987,13 @@ class Arr:
     ):
         self.logger.trace(
             "Skipping torrent: Already sent for import | "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2002,13 +2004,13 @@ class Arr:
     def _process_single_torrent_errored(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.trace(
             "Rechecking Erroed torrent: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2023,13 +2025,13 @@ class Arr:
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
                 "Torrent State: Completed | Allowing Seeding | "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -2039,13 +2041,13 @@ class Arr:
         else:
             self.logger.info(
                 "Pausing Completed torrent: "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -2062,13 +2064,13 @@ class Arr:
         # the status of the client as "Missing files"
         self.logger.info(
             "Deleting torrent with missing files: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2084,13 +2086,13 @@ class Arr:
         if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             self.logger.trace(
                 "Torrent State: Queued Upload | Allowing Seeding | "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -2100,13 +2102,13 @@ class Arr:
         else:
             self.logger.info(
                 "Pausing uploading torrent: "
-                "[Progress: %s%][Added On: %s]"
-                "[Availability: %s%][Time Left: %s]"
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                round(torrent.availability * 100, 2),
                 datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
                 torrent.state_enum,
@@ -2120,13 +2122,13 @@ class Arr:
     ):
         self.logger.trace(
             "Skipping file check: Already been cleaned up | "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2137,13 +2139,13 @@ class Arr:
     def _process_single_torrent_delete_slow(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.trace(
             "Deleting slow torrent: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2172,7 +2174,7 @@ class Arr:
                 if (folder_match := p.name)
             ):
                 self.logger.debug(
-                    "Removing File: Not allowed | Parent: " "%s  | %s (%s) | %s ",
+                    "Removing File: Not allowed | Parent: %s  | %s (%s) | %s ",
                     folder_match,
                     torrent.name,
                     torrent.hash,
@@ -2186,7 +2188,7 @@ class Arr:
                 match := self.file_name_exclusion_regex_re.search(file_path.name)
             ) and match.group():
                 self.logger.debug(
-                    "Removing File: Not allowed | Name: " "%s  | %s (%s) | %s ",
+                    "Removing File: Not allowed | Name: %s  | %s (%s) | %s ",
                     match.group(),
                     torrent.name,
                     torrent.hash,
@@ -2196,7 +2198,7 @@ class Arr:
                 total -= 1
             elif file_path.suffix.lower() not in self.file_extension_allowlist:
                 self.logger.debug(
-                    "Removing File: Not allowed | Extension: " "%s  | %s (%s) | %s ",
+                    "Removing File: Not allowed | Extension: %s  | %s (%s) | %s ",
                     file_path.suffix,
                     torrent.name,
                     torrent.hash,
@@ -2209,15 +2211,15 @@ class Arr:
             if total == 0:
                 self.logger.info(
                     "Deleting All files ignored: "
-                    "[Progress: %s%][Added On: %s]"
-                    "[Availability: %s%][Time Left: %s]"
+                    "[Progress: %s%%][Added On: %s]"
+                    "[Availability: %s%%][Time Left: %s]"
                     "[Last active: %s] "
                     "| [%s] | %s (%s)",
                     round(torrent.progress * 100, 2),
-                    round(torrent.availability * 100, 2),
                     datetime.fromtimestamp(
                         self.recently_queue.get(torrent.hash, torrent.added_on)
                     ),
+                    round(torrent.availability * 100, 2),
                     timedelta(seconds=torrent.eta),
                     datetime.fromtimestamp(torrent.last_activity),
                     torrent.state_enum,
@@ -2235,13 +2237,13 @@ class Arr:
     def _process_single_torrent_unprocessed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.trace(
             "Skipping torrent: Unresolved state: "
-            "[Progress: %s%][Added On: %s]"
-            "[Availability: %s%][Time Left: %s]"
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            round(torrent.availability * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
@@ -2503,9 +2505,7 @@ class Arr:
     def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        print(1)
         self._process_single_torrent_trackers(torrent)
-        print(2)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
@@ -2517,46 +2517,38 @@ class Arr:
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent)
         elif self.is_ignored_state(torrent):
-            print(3)
             self._process_single_torrent_ignored(torrent)
             return  # Since to torrent is being ignored early exit here
         elif torrent.hash in self.timed_ignore_cache:
             # Do not touch torrents recently resumed/reached (A torrent can temporarily
             # stall after being resumed from a paused state).
-            print(4)
             self._process_single_torrent_added_to_ignore_cache(torrent)
             return
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
-            print(6)
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif torrent.state_enum in (
             TorrentStates.METADATA_DOWNLOAD,
             TorrentStates.STALLED_DOWNLOAD,
         ):
-            print(7)
             self._process_single_torrent_stalled_torrent(torrent)
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
         ) and torrent.hash in self.cleaned_torrents:
-            print(8)
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
         elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.amount_left != 0:
-            print(9)
             self._process_single_torrent_paused(torrent)
         # Ignore torrents which have been submitted to their respective Arr
         # instance for import.
         elif (
             torrent.hash in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
         ) and torrent.hash in self.cleaned_torrents:
-            print(10)
             self._process_single_torrent_already_sent_to_scan(torrent)
             return
         # Some times torrents will error, this causes them to be rechecked so they
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
-            print(11)
             self._process_single_torrent_errored(torrent)
         # If a torrent was not just added,
         # and the amount left to download is 0 and the torrent
@@ -2570,10 +2562,8 @@ class Arr:
             and torrent.content_path
             and torrent.completion_on < time_now - 60
         ):
-            print(12)
             self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
         elif torrent.state_enum == TorrentStates.MISSING_FILES:
-            print(13)
             self._process_single_torrent_missing_files(torrent)
         # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
         elif (
@@ -2584,7 +2574,6 @@ class Arr:
             and torrent.content_path
             and torrent.amount_left == 0
         ) and torrent.hash in self.cleaned_torrents:
-            print(14)
             self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
         elif (
@@ -2595,31 +2584,25 @@ class Arr:
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
         ):
-            print(15)
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
         elif torrent.state_enum.is_downloading:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
-            print(16)
             if (
                 self.recently_queue.get(torrent.hash, torrent.added_on)
                 < time_now - self.ignore_torrents_younger_than
                 and torrent.availability < 1
             ) and torrent.hash in self.cleaned_torrents:
-                print(17)
                 self._process_single_torrent_stalled_torrent(torrent)
             else:
                 if torrent.hash in self.cleaned_torrents:
-                    print(18)
                     self._process_single_torrent_already_cleaned_up(torrent)
                     return
-                print(19)
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent)
 
         else:
-            print(20)
             self._process_single_torrent_unprocessed(torrent)
 
     def refresh_download_queue(self):
@@ -2861,13 +2844,14 @@ class Arr:
                     )
                 elif e.type == "delay":
                     self.logger.critical(
-                        "Forced delay due to temporary issue with environment, " "sleeping for %s",
+                        "Forced delay due to temporary issue with environment, sleeping for %s",
                         timedelta(seconds=e.length),
                     )
                 time.sleep(e.length)
 
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.logger.setLevel(self._LOG_LEVEL)
         self.register_search_mode()
         if not self.search_missing:
             return None
@@ -2937,7 +2921,7 @@ class Arr:
                     )
                 elif e.type == "delay":
                     self.logger.critical(
-                        "Forced delay due to temporary issue with environment, " "sleeping for %s",
+                        "Forced delay due to temporary issue with environment, sleeping for %s",
                         timedelta(seconds=e.length),
                     )
                 time.sleep(e.length)
@@ -2947,6 +2931,7 @@ class Arr:
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.logger.setLevel(self._LOG_LEVEL)
         while True:
             try:
                 try:
@@ -3008,6 +2993,7 @@ class Arr:
         _temp.append(self.process_torrent_loop)
 
         [p.start() for p in _temp]
+        return len(_temp)
 
 
 class PlaceHolderArr(Arr):
@@ -3042,6 +3028,9 @@ class PlaceHolderArr(Arr):
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.logger = logging.getLogger(self._name)
+        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
+        self.logger = logging.getLogger(self._name)
+        self.logger.setLevel(level=self._LOG_LEVEL)
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
@@ -3138,6 +3127,8 @@ class ArrManager:
         self.logger = logging.getLogger(
             "ArrManager",
         )
+        self._LOG_LEVEL = self.qbit_manager.logger.level
+        self.logger.setLevel(level=self._LOG_LEVEL)
         run_logs(self.logger)
         if not self.ffprobe_available:
             self.logger.error(

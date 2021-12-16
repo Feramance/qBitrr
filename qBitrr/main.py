@@ -29,9 +29,11 @@ class qBitManager:
         self.logger = logging.getLogger(
             "qBitManager",
         )
+        self._LOG_LEVEL = loglevel or "NOTICE"
+        self.logger.setLevel(level=loglevel)
         run_logs(self.logger)
         self.logger.debug(
-            "QBitTorrent Config: Host: %s Port: %s, Username: %s, " "Password: %s",
+            "QBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
@@ -82,10 +84,11 @@ class qBitManager:
 
     def run(self) -> NoReturn:
         run_logs(self.logger)
-        self.logger.notice("Spawning %s child processes", len(self.arr_manager.managed_objects))
+        self.logger.hnotice("Managing %s categories", len(self.arr_manager.managed_objects))
+        count = 0
         for arr in self.arr_manager.managed_objects.values():
-            arr.spawn_child_processes()
-
+            count += arr.spawn_child_processes()
+        self.logger.notice("Starting %s child processes", count)
         for p in self.child_processes:
             p.join()
 
@@ -123,8 +126,10 @@ def run():
     early_exist = process_flags()
     if early_exist is True:
         return
+    logger = logging.getLogger("qBitrr")
+    run_logs(logger)
     loglevel = isinstance(early_exist, str)
-    logging.notice("Starting qBitrr.")
+    logger.notice("Starting qBitrr.")
     manager = qBitManager(loglevel=early_exist if loglevel else None)
     try:
         manager.run()

@@ -49,15 +49,17 @@ def addLoggingLevel(
     5
 
     """
+    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
+
     if not methodName:
         methodName = levelName.lower()
 
-    if hasattr(logging, levelName):
-        raise AttributeError(f"{levelName} already defined in logging module")
-    if hasattr(logging, methodName):
-        raise AttributeError(f"{methodName} already defined in logging module")
-    if hasattr(logging.getLoggerClass(), methodName):
-        raise AttributeError(f"{methodName} already defined in logger class")
+    # if hasattr(logging, levelName):
+    #     raise AttributeError(f"{levelName} already defined in logging module")
+    # if hasattr(logging, methodName):
+    #     raise AttributeError(f"{methodName} already defined in logging module")
+    # if hasattr(logging.getLoggerClass(), methodName):
+    #     raise AttributeError(f"{methodName} already defined in logger class")
 
     # This method was inspired by the answers to Stack Overflow post
     # http://stackoverflow.com/q/2183233/2988730, especially
@@ -77,6 +79,7 @@ def addLoggingLevel(
     for logger in logging.root.manager.loggerDict.values():
         setattr(logger, levelName, levelNum)
         setattr(logger, methodName, logToRoot)
+        logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
 
 
 def _update_config():
@@ -107,9 +110,9 @@ def run_logs(logger: Logger) -> None:
         addLoggingLevel("NOTICE", logging.INFO + 3, "notice")
     with contextlib.suppress(Exception):
         addLoggingLevel("TRACE", logging.DEBUG - 5, "trace")
-
+    _update_config()
     coloredlogs.install(
-        level=CONSOLE_LOGGING_LEVEL_STRING,
+        level=logging._levelToName.get(CONSOLE_LOGGING_LEVEL_STRING),
         fmt="[%(asctime)s] [pid:%(process)d][tid:%(thread)d] %(name)s: %(levelname)s: %(message)s",
         level_styles=dict(
             trace=dict(color="black", bold=True),
@@ -154,7 +157,6 @@ def dynamic_update() -> str:
     global log
     from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING, COPIED_TO_NEW_DIR
 
-    CONSOLE_LOGGING_LEVEL = logging._nameToLevel.get(CONSOLE_LOGGING_LEVEL_STRING)
     logger = logging.getLogger("Misc")
     if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
         logger.warning(
@@ -166,4 +168,5 @@ def dynamic_update() -> str:
         logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
         time.sleep(5)
     run_logs(logger)
-    return CONSOLE_LOGGING_LEVEL
+    logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
+    return CONSOLE_LOGGING_LEVEL_STRING
