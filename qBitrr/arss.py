@@ -1887,7 +1887,7 @@ class Arr:
             < time.time() - self.ignore_torrents_younger_than
         ):
             self.logger.info(
-                "Deleting Stale torrent: %s "
+                "Deleting Stale torrent: %s | "
                 "[Progress: %s%%][Added On: %s]"
                 "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
