@@ -353,57 +353,6 @@ class Arr:
             IgnoreTorrentsYoungerThan=self.ignore_torrents_younger_than,
         )
         self.logger.info("Script Config:  MaximumETA={MaximumETA}", MaximumETA=self.maximum_eta)
-        self.logger.info(
-            "Script Config:  MaximumDeletablePercentage={MaximumDeletablePercentage}",
-            MaximumDeletablePercentage=self.maximum_deletable_percentage,
-        )
-        self.logger.info(
-            "Script Config:  DoUpgradeSearch={DoUpgradeSearch}",
-            DoUpgradeSearch=self.do_upgrade_search,
-        )
-        self.logger.info(
-            "Script Config:  PrioritizeTodaysReleases={PrioritizeTodaysReleases}",
-            PrioritizeTodaysReleases=self.prioritize_todays_release,
-        )
-        self.logger.info(
-            "Script Config:  SearchBySeries={SearchBySeries}",
-            SearchBySeries=self.series_search,
-        )
-        self.logger.info(
-            "Script Config:  SearchOverseerrRequests={SearchOverseerrRequests}",
-            SearchOverseerrRequests=self.overseerr_requests,
-        )
-        if self.overseerr_requests:
-            self.logger.info(
-                "Script Config:  OverseerrURI={OverseerrURI}",
-                OverseerrURI=self.overseerr_uri,
-            )
-            self.logger.debug(
-                "Script Config:  OverseerrAPIKey={OverseerrAPIKey}",
-                OverseerrAPIKey=self.overseerr_api_key,
-            )
-        self.logger.info(
-            "Script Config:  SearchOmbiRequests={SearchOmbiRequests}",
-            SearchOmbiRequests=self.ombi_search_requests,
-        )
-        if self.ombi_search_requests:
-            self.logger.info(
-                "Script Config:  OmbiURI={OmbiURI}",
-                OmbiURI=self.ombi_uri,
-            )
-            self.logger.debug(
-                "Script Config:  OmbiAPIKey={OmbiAPIKey}",
-                OmbiAPIKey=self.ombi_api_key,
-            )
-            self.logger.info(
-                "Script Config:  ApprovedOnly={ApprovedOnly}",
-                ApprovedOnly=self.ombi_approved_only,
-            )
-        if self.ombi_search_requests or self.overseerr_requests:
-            self.logger.info(
-                "Script Config:  SearchRequestsEvery={SearchRequestsEvery}",
-                SearchRequestsEvery=self.search_requests_every_x_seconds,
-            )
 
         if self.search_missing:
             self.logger.info(
@@ -438,6 +387,57 @@ class Arr:
                 "Script Config:  DatabaseFile={DatabaseFile}",
                 DatabaseFile=self.arr_db_file,
             )
+            self.logger.info(
+                "Script Config:  MaximumDeletablePercentage={MaximumDeletablePercentage}",
+                MaximumDeletablePercentage=self.maximum_deletable_percentage,
+            )
+            self.logger.info(
+                "Script Config:  DoUpgradeSearch={DoUpgradeSearch}",
+                DoUpgradeSearch=self.do_upgrade_search,
+            )
+            self.logger.info(
+                "Script Config:  PrioritizeTodaysReleases={PrioritizeTodaysReleases}",
+                PrioritizeTodaysReleases=self.prioritize_todays_release,
+            )
+            self.logger.info(
+                "Script Config:  SearchBySeries={SearchBySeries}",
+                SearchBySeries=self.series_search,
+            )
+            self.logger.info(
+                "Script Config:  SearchOmbiRequests={SearchOmbiRequests}",
+                SearchOmbiRequests=self.ombi_search_requests,
+            )
+            if self.ombi_search_requests:
+                self.logger.info(
+                    "Script Config:  OmbiURI={OmbiURI}",
+                    OmbiURI=self.ombi_uri,
+                )
+                self.logger.debug(
+                    "Script Config:  OmbiAPIKey={OmbiAPIKey}",
+                    OmbiAPIKey=self.ombi_api_key,
+                )
+                self.logger.info(
+                    "Script Config:  ApprovedOnly={ApprovedOnly}",
+                    ApprovedOnly=self.ombi_approved_only,
+                )
+            self.logger.info(
+                "Script Config:  SearchOverseerrRequests={SearchOverseerrRequests}",
+                SearchOverseerrRequests=self.overseerr_requests,
+            )
+            if self.overseerr_requests:
+                self.logger.info(
+                    "Script Config:  OverseerrURI={OverseerrURI}",
+                    OverseerrURI=self.overseerr_uri,
+                )
+                self.logger.debug(
+                    "Script Config:  OverseerrAPIKey={OverseerrAPIKey}",
+                    OverseerrAPIKey=self.overseerr_api_key,
+                )
+            if self.ombi_search_requests or self.overseerr_requests:
+                self.logger.info(
+                    "Script Config:  SearchRequestsEvery={SearchRequestsEvery}",
+                    SearchRequestsEvery=self.search_requests_every_x_seconds,
+                )
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel = None
         self.model_arr_series_file: SeriesModel = None
@@ -2218,10 +2218,11 @@ class Arr:
             if (i.get("URI") in monitored_trackers) and not i.get("RemoveIfExists") is True
         ]
         _list_of_tags = [i.get("AddTags", []) for i in new_list]
-
-        return max(new_list, key=self.__return_max), set(
-            itertools.chain.from_iterable(_list_of_tags)
-        )
+        if new_list:
+            max_item = max(new_list, key=self.__return_max)
+        else:
+            max_item = {}
+        return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
@@ -2267,10 +2268,10 @@ class Arr:
         }
 
         data_torrent = {
-            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else None,
-            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else None,
-            "dl_limit": r if (r := torrent.dl_limit) > 0 else None,
-            "up_limit": r if (r := torrent.up_limit) > 0 else None,
+            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else -1,
+            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else -1,
+            "dl_limit": r if (r := torrent.dl_limit) > 0 else -1,
+            "up_limit": r if (r := torrent.up_limit) > 0 else -1,
             "super_seeding": torrent.super_seeding,
         }
         return data_settings, data_torrent
@@ -2319,7 +2320,9 @@ class Arr:
                 )  # TODO: Add more messages
             ) or tracker.url in self._remove_trackers_if_exists:
                 _remove_urls.add(tracker.url)
-        torrent.remove_trackers(_remove_urls)
+        if _remove_urls:
+            with contextlib.suppress(qbittorrentapi.exceptions.Conflict409Error):
+                torrent.remove_trackers(_remove_urls)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers
         )
@@ -2345,34 +2348,59 @@ class Arr:
                 else None,
             }
             if any(r is not None for r in data):
-                if torrent.seeding_time_limit == data.get("seeding_time_limit"):
+                if (
+                    (_l1 := data.get("seeding_time_limit"))
+                    and _l1 > 0
+                    and torrent.seeding_time_limit != data.get("seeding_time_limit")
+                ):
                     data.pop("seeding_time_limit")
-                if torrent.seeding_time_limit != data.get("ratio_limit"):
+                if (
+                    (_l2 := data.get("ratio_limit"))
+                    and _l2 > 0
+                    and torrent.seeding_time_limit != data.get("ratio_limit")
+                ):
                     data.pop("ratio_limit")
-                if data:
-                    torrent.set_share_limits(**data)
+
+                if not _l1:
+                    data["seeding_time_limit"] = None
+                elif _l1 < 0:
+                    data["seeding_time_limit"] = None
+                if not _l2:
+                    data["ratio_limit"] = None
+                elif _l2 < 0:
+                    data["ratio_limit"] = None
+
+                if any(v is not None for v in data.values()):
+                    if any(v is not None for v in data.values()):
+                        if data:
+                            with contextlib.suppress(Exception):
+                                torrent.set_share_limits(**data)
             if (
                 r := most_important_tracker.get(
                     "DownloadRateLimit", self.seeding_mode_global_download_limit
                 )
-                > 0
+                != 0
                 and torrent.dl_limit != r
             ):
                 torrent.set_download_limit(limit=r)
-
+            elif r < 0:
+                torrent.set_upload_limit(limit=-1)
             if (
                 r := most_important_tracker.get(
                     "UploadRateLimit", self.seeding_mode_global_upload_limit
                 )
-                > 0
+                != 0
                 and torrent.up_limit != r
             ):
                 torrent.set_upload_limit(limit=r)
+            elif r < 0:
+                torrent.set_upload_limit(limit=-1)
             if (
                 r := most_important_tracker.get("SuperSeedMode", False)
                 and torrent.super_seeding != r
             ):
                 torrent.set_super_seeding(enabled=r)
+
         else:
             data = {
                 "ratio_limit": r if (r := self.seeding_mode_global_max_upload_ratio) > 0 else None,
@@ -2381,16 +2409,40 @@ class Arr:
                 else None,
             }
             if any(r is not None for r in data):
-                if torrent.seeding_time_limit == data.get("seeding_time_limit"):
+                if (
+                    (_l1 := data.get("seeding_time_limit"))
+                    and _l1 > 0
+                    and torrent.seeding_time_limit != data.get("seeding_time_limit")
+                ):
                     data.pop("seeding_time_limit")
-                if torrent.seeding_time_limit != data.get("ratio_limit"):
+                if (
+                    (_l2 := data.get("ratio_limit"))
+                    and _l2 > 0
+                    and torrent.seeding_time_limit != data.get("ratio_limit")
+                ):
                     data.pop("ratio_limit")
-                if data:
-                    torrent.set_share_limits(**data)
-            if r := self.seeding_mode_global_download_limit > 0 and torrent.dl_limit != r:
+                if not _l1:
+                    data["seeding_time_limit"] = None
+                elif _l1 < 0:
+                    data["seeding_time_limit"] = None
+                if not _l2:
+                    data["ratio_limit"] = None
+                elif _l2 < 0:
+                    data["ratio_limit"] = None
+                if any(v is not None for v in data.values()):
+                    if data:
+                        with contextlib.suppress(Exception):
+                            torrent.set_share_limits(**data)
+
+            if r := self.seeding_mode_global_download_limit != 0 and torrent.dl_limit != r:
                 torrent.set_download_limit(limit=r)
-            if r := self.seeding_mode_global_upload_limit > 0 and torrent.up_limit != r:
+            elif r < 0:
+                torrent.set_download_limit(limit=-1)
+            if r := self.seeding_mode_global_upload_limit != 0 and torrent.up_limit != r:
                 torrent.set_upload_limit(limit=r)
+            elif r < 0:
+                torrent.set_upload_limit(limit=-1)
+
         if unique_tags:
             current_tags = set(torrent.tags.split(", "))
             add_tags = unique_tags.difference(current_tags)

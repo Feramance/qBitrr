@@ -3,6 +3,7 @@ ffmpeg-python
 logbook
 pathos
 peewee
+ping3
 pyarr
 qbittorrent-api
 requests

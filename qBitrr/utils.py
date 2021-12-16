@@ -5,8 +5,12 @@ import time
 from typing import Iterator, Union
 
 import logbook
+import ping3
 
 logger = logbook.Logger("Utilities")
+
+
+ping3.EXCEPTIONS = True
 
 
 def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib.Path]:
@@ -70,18 +74,39 @@ def has_internet():
     return True
 
 
-def is_connected(hostname):
+def _basic_ping(hostname):
+    host = "N/A"
     try:
         # see if we can resolve the host name -- tells us if there is
         # a DNS listening
         host = socket.gethostbyname(hostname)
         # connect to the host -- tells us if the host is actually
         # reachable
-        s = socket.create_connection((host, 80), timeout=2)
+        s = socket.create_connection((host, 80), 2)
         s.close()
         return True
-    except Exception:
+    except Exception as e:
+        logger.trace(
+            "Error when connecting to host: {hostname} {host} {e}",
+            hostname=hostname,
+            host=host,
+            e=e,
+        )
         return False
+
+
+def is_connected(hostname):
+    try:
+        ping3.ping(hostname, timeout=2)
+        return True
+    except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
+        logger.trace(
+            "Error when connecting to host: {hostname} {e}",
+            hostname=hostname,
+            e=e,
+        )
+    except Exception:  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
+        return _basic_ping(hostname)
 
 
 class ExpiringSet:
@@ -95,7 +120,7 @@ class ExpiringSet:
 
     def __repr__(self):
         self.__update__()
-        return "{}({})".format(self.__class__.__name__, ", ".join(self.container.keys()))
+        return f"{self.__class__.__name__}({', '.join(self.container.keys())})"
 
     def extend(self, args):
         """Add several items at once."""

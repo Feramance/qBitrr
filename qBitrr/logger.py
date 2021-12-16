@@ -147,7 +147,7 @@ HAS_RUN = False
 def run_logs() -> None:
     global HAS_RUN
     _update_config()
-    logger.debug("Ping URLs:  {PingURL}", PingURL=PING_URLS)
+    logger.debug("Ping URLs:  {PingURLS}", PingURL=PING_URLS)
     logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
     logger.debug(
         "Script Config:  RecheckCategory={RecheckCategory}", RecheckCategory=RECHECK_CATEGORY

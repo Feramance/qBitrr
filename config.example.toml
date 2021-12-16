@@ -26,7 +26,7 @@ IgnoreTorrentsYoungerThan = 180
 
 # URL to be pinged to check if you have a valid internet connection
 # These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.
-PingURLS = ["one.one.one.one", "dns.google"]
+PingURLS = ["one.one.one.one", "dns.google.com"]
 
 # FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads
 # If this is disabled and you want ffprobe to work
@@ -379,6 +379,8 @@ Name = "Nyaa"
 Priority = 10
 URI = "http://nyaa.tracker.wf:7777/announce"
 MaximumETA = 18000
+
+# For all Rates 0 disables the feature, -1 sets it to no limits
 DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = -1
@@ -552,6 +554,7 @@ Name = "Rarbg-2810"
 Priority = 1
 URI = "udp://9.rarbg.com:2810/announce"
 MaximumETA = 18000
+# For all Rates 0 disables the feature, -1 sets it to no limits
 DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = -1
@@ -566,6 +569,7 @@ Name = "Rarbg-2740"
 Priority = 2
 URI = "udp://9.rarbg.to:2740/announce"
 MaximumETA = 18000
+# For all Rates 0 disables the feature, -1 sets it to no limits
 DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = -1
@@ -738,6 +742,7 @@ Name = "Rarbg-2810"
 Priority = 1
 URI = "udp://9.rarbg.com:2810/announce"
 MaximumETA = 18000
+# For all Rates 0 disables the feature, -1 sets it to no limits
 DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = -1
@@ -752,6 +757,7 @@ Name = "Rarbg-2740"
 Priority = 2
 URI = "udp://9.rarbg.to:2740/announce"
 MaximumETA = 18000
+# For all Rates 0 disables the feature, -1 sets it to no limits
 DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = -1

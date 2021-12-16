@@ -72,7 +72,7 @@ def _add_settings_section(config: TOMLDocument):
             "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings."
         )
     )
-    settings.add("PingURLS", ["one.one.one.one", "dns.google"])
+    settings.add("PingURLS", ["one.one.one.one", "dns.google.com"])
     settings.add(nl())
     settings.add(
         comment(
