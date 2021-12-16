@@ -77,7 +77,7 @@ def is_connected(hostname):
         host = socket.gethostbyname(hostname)
         # connect to the host -- tells us if the host is actually
         # reachable
-        s = socket.create_connection((host, 80), 2)
+        s = socket.create_connection((host, 80), timeout=2)
         s.close()
         return True
     except Exception:

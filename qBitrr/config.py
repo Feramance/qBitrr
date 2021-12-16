@@ -21,7 +21,7 @@ CONSOLE_LOGGING_LEVEL_STRING = "NOTICE"
 COMPLETED_DOWNLOAD_FOLDER = None
 NO_INTERNET_SLEEP_TIMER = 60
 LOOP_SLEEP_TIMER = 5
-PING_URLS = ["one.one.one.one"]
+PING_URLS = ["one.one.one.one", "dns.google"]
 IGNORE_TORRENTS_YOUNGER_THAN = 600
 
 
@@ -32,31 +32,27 @@ def update_config(file: str | None = None):
         COPIED_TO_NEW_DIR = False
         file = "config.toml"
         CONFIG_FILE = APPDATA_FOLDER.joinpath(file)
-        if (
-            not (CONFIG_PATH := APPDATA_FOLDER.joinpath(file)).exists()
-            and not pathlib.Path(f"./{file}").exists()
-        ):
+        CONFIG_PATH = pathlib.Path(f"./{file}")
+        if not CONFIG_FILE.exists() and not CONFIG_PATH.exists():
             logbook.critical(f"{file} has not been found - exiting...")
             sys.exit(1)
 
-        if CONFIG_PATH.exists():
+        if CONFIG_FILE.exists():
             CONFIG = MyConfig(str(CONFIG_FILE))
         else:
             with contextlib.suppress(
                 Exception
             ):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
-                CONFIG_FILE = pathlib.Path(f"./{file}")
-                shutil.copy(CONFIG_FILE, CONFIG_PATH)
+                shutil.copy(CONFIG_PATH, CONFIG_FILE)
                 COPIED_TO_NEW_DIR = True
             CONFIG = MyConfig("./config.toml")
     else:
         CONFIG_FILE = pathlib.Path(file)
-
-        if not (CONFIG_PATH := CONFIG_FILE).exists():
-            logbook.critical(f"{CONFIG_PATH} has not been found - exiting...")
+        if not CONFIG_FILE.exists():
+            logbook.critical(f"{CONFIG_FILE} has not been found - exiting...")
             sys.exit(1)
         else:
-            CONFIG = MyConfig(str(CONFIG_PATH))
+            CONFIG = MyConfig(str(CONFIG_FILE))
 
     FFPROBE_AUTO_UPDATE = CONFIG.get_section("Settings").get("FFprobeAutoUpdate", fallback=True)
     FAILED_CATEGORY = CONFIG.get_section("Settings").get("FailedCategory", fallback="failed")

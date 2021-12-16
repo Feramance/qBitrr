@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import itertools
 import pathlib
 import re
 import sys
@@ -110,12 +111,66 @@ class Arr:
             CONFIG.get_section(name).get_section("Torrent").get("AutoDelete", fallback=False)
         )
 
+        self.remove_dead_trackers = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get_section("SeedingMode")
+            .get_section("Global")
+            .get("RemoveDeadTrackers", fallback=False)
+        )
+        self.seeding_mode_global_download_limit = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get_section("SeedingMode")
+            .get_section("Global")
+            .get("DownloadRateLimitPerTorrent", fallback=0)
+        )
+        self.seeding_mode_global_upload_limit = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get_section("SeedingMode")
+            .get_section("Global")
+            .get("UploadRateLimitPerTorrent", fallback=0)
+        )
+        self.seeding_mode_global_max_upload_ratio = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get_section("SeedingMode")
+            .get_section("Global")
+            .get("MaxUploadRatio", fallback=0)
+        )
+        self.seeding_mode_global_max_seeding_time = (
+            CONFIG.get_section(name)
+            .get_section("Torrent")
+            .get_section("SeedingMode")
+            .get_section("Global")
+            .get("MaxSeedingTime", fallback=0)
+        )
+
+        self.monitored_trackers = CONFIG.get_section(name).get_section("Torrent").get("Trackers")
+        self._remove_trackers_if_exists: set[str] = {
+            i.get("URI") for i in self.monitored_trackers if i.get("RemoveIfExists") is True
+        }
+        self._monitored_tracker_urls: set[str] = {
+            r
+            for i in self.monitored_trackers
+            if not (r := i.get("URI")) not in self._remove_trackers_if_exists
+        }
+        self._add_trackers_if_missing: set[str] = {
+            i.get("URI") for i in self.monitored_trackers if i.get("AddTrackerIfMissing") is True
+        }
         if self.auto_delete is True and not self.completed_folder.parent.exists():
             self.auto_delete = False
             self.logger.critical(
                 "AutoDelete disabled due to missing folder: '{folder}'",
                 folder=self.completed_folder.parent,
             )
+
+        self.reset_on_completion = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("SearchAgainOnSearchCompletion", fallback=False)
+        )
         self.do_upgrade_search = (
             CONFIG.get_section(name)
             .get_section("EntrySearch")
@@ -154,7 +209,9 @@ class Arr:
         )
 
         self.search_starting_year = (
-            CONFIG.get_section(name).get_section("EntrySearch").get("StartYear")
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get("StartYear", fallback=datetime.now().year)
         )
         self.search_ending_year = (
             CONFIG.get_section(name).get_section("EntrySearch").get("LastYear")
@@ -168,7 +225,7 @@ class Arr:
             .get("PrioritizeTodaysReleases", fallback=False)
         )
 
-        self.donotremoveslow = (
+        self.do_not_remove_slow = (
             CONFIG.get_section(name).get_section("Torrent").get("DoNotRemoveSlow", fallback=False)
         )
 
@@ -229,6 +286,13 @@ class Arr:
             .get_section("Overseerr")
             .get("OverseerrAPIKey")
         )
+
+        self.overseerr_is_4k = (
+            CONFIG.get_section(name)
+            .get_section("EntrySearch")
+            .get_section("Overseerr")
+            .get("Is4K")
+        )
         self.ombi_approved_only = (
             CONFIG.get_section(name)
             .get_section("EntrySearch")
@@ -282,6 +346,7 @@ class Arr:
         else:
             self.refresh_downloads_timer_last_checked = None
 
+        self.loop_completed = False
         self.queue = []
         self.cache = {}
         self.requeue_cache = {}
@@ -304,6 +369,7 @@ class Arr:
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.tracker_delay = ExpiringSet(max_age_seconds=600)
 
         self.session = requests.Session()
         self.cleaned_torrents = set()
@@ -529,10 +595,18 @@ class Arr:
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
+            if self.overseerr_approved_only:
+                key = "approved"
+            else:
+                key = "unavailable"
+            if self.overseerr_is_4k:
+                status_key = "status4k"
+            else:
+                status_key = "status"
             data = defaultdict(set)
             response = self.session.get(
                 url=f"{self.overseerr_uri}/api/v1/"
-                "request?take=100&skip=0&sort=added&filter=unavailable",
+                f"request?take=100&skip=0&sort=added&filter={key}",
                 headers={"X-Api-Key": self.overseerr_api_key},
                 timeout=2,
             )
@@ -545,6 +619,8 @@ class Arr:
             for entry in response:
                 type__ = entry.get("type")
                 if type_ != type__:
+                    continue
+                if self.overseerr_approved_only and entry.get("media", {}).get(status_key) == 5:
                     continue
                 if media := entry.get("media"):
                     if imdbId := media.get("imdbId"):
@@ -910,6 +986,37 @@ class Arr:
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
 
+    def db_maybe_reset_entry_searched_state(self):
+        if self.type == "sonarr":
+            self.db_reset__series_searched_state()
+            self.db_reset__episode_searched_state()
+        elif self.type == "radarr":
+            self.db_reset__movie_searched_state()
+
+    def db_reset__series_searched_state(self):
+        if (
+            self.loop_completed is True and self.reset_on_completion
+        ):  # Only wipe if a loop completed was tagged
+            self.series_file_model.update(Searched=False).where(
+                self.model_file.Searched == True & self.model_file.EpisodeFileId == 0
+            ).execute()
+
+    def db_reset__episode_searched_state(self):
+        if (
+            self.loop_completed is True and self.reset_on_completion
+        ):  # Only wipe if a loop completed was tagged
+            self.model_file.update(Searched=False).where(
+                self.model_file.Searched == True & self.model_file.EpisodeFileId == 0
+            ).execute()
+
+    def db_reset__movie_searched_state(self):
+        if (
+            self.loop_completed is True and self.reset_on_completion
+        ):  # Only wipe if a loop completed was tagged
+            self.model_file.update(Searched=False).where(
+                self.model_file.Searched == True & self.model_file.MovieFileId == 0
+            ).execute()
+
     def db_get_files_series(
         self,
     ) -> Iterable[tuple[MoviesFilesModel | SeriesFilesModel | EpisodeFilesModel, bool, bool]]:
@@ -1187,6 +1294,7 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
+
             if self.type == "sonarr":
                 if not self.series_search:
                     _series = set()
@@ -1697,486 +1805,769 @@ class Arr:
         try:
             self.api_calls()
             self.refresh_download_queue()
-            time_now = time.time()
             torrents = self.manager.qbit_manager.client.torrents.info.all(
                 category=self.category, sort="added_on", reverse=False
             )
             for torrent in torrents:
-                if torrent.category != RECHECK_CATEGORY:
-                    self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-                self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
-                # Bypass everything if manually marked as failed
-                if torrent.category == FAILED_CATEGORY:
-                    self.logger.notice(
-                        "Deleting manually failed torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.delete.add(torrent.hash)
-                # Bypass everything else if manually marked for rechecking
-                elif torrent.category == RECHECK_CATEGORY:
-                    self.logger.notice(
-                        "Re-cheking manually set torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.recheck.add(torrent.hash)
-                # Do not touch torrents that are currently "Checking".
-                elif self.is_ignored_state(torrent):
-                    self.logger.trace(
-                        "Skipping torrent: Ignored state | "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    if torrent.state_enum == TorrentStates.QUEUED_DOWNLOAD:
-                        self.recently_queue[torrent.hash] = time.time()
-                    continue
-                # Do not touch torrents recently resumed/reached (A torrent can temporarily
-                # stall after being resumed from a paused state).
-                elif torrent.hash in self.timed_ignore_cache:
-                    self.logger.trace(
-                        "Skipping torrent: Marked for skipping | "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    continue
-                elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
-                    self.pause.add(torrent.hash)
-                    self.skip_blacklist.add(torrent.hash)
-                    self.logger.trace(
-                        "Pausing torrent: Queued Upload | "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                # Process torrents who have stalled at this point, only mark from for
-                # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
-                # seconds ago
-                elif torrent.state_enum in (
-                    TorrentStates.METADATA_DOWNLOAD,
-                    TorrentStates.STALLED_DOWNLOAD,
-                ):
-                    if (
-                        self.recently_queue.get(torrent.hash, torrent.added_on)
-                        < time_now - self.ignore_torrents_younger_than
-                    ):
-                        self.logger.info(
-                            "Deleting Stale torrent: "
-                            "[Progress: {progress}%][Added On: {added}]"
-                            "[Availability: {availability}%][Time Left: {timedelta}]"
-                            "[Last active: {last_activity}] "
-                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                            torrent=torrent,
-                            progress=round(torrent.progress * 100, 2),
-                            availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(
-                                self.recently_queue.get(torrent.hash, torrent.added_on)
-                            ),
-                            timedelta=timedelta(seconds=torrent.eta),
-                            last_activity=datetime.fromtimestamp(torrent.last_activity),
-                        )
-                        self.delete.add(torrent.hash)
-                # Ignore torrents who have reached maximum percentage as long as
-                # the last activity is within the MaximumETA set for this category
-                # For example if you set MaximumETA to 5 mines, this will ignore all
-                # torrents that have stalled at a higher percentage as long as there is activity
-                # And the window of activity is determined by the current time - MaximumETA,
-                # if the last active was after this value ignore this torrent
-                # the idea here is that if a torrent isn't completely dead some leecher/seeder
-                # may contribute towards your progress.
-                # However if its completely dead and no activity is observed, then lets
-                # remove it and requeue a new torrent.
-                elif (
-                    torrent.progress >= self.maximum_deletable_percentage
-                    and self.is_complete_state(torrent) is False
-                ) and torrent.hash in self.cleaned_torrents:
-                    if torrent.last_activity < time_now - self.maximum_eta:
-                        self.logger.info(
-                            "Deleting Stale torrent: "
-                            "[Progress: {progress}%][Added On: {added}]"
-                            "[Availability: {availability}%][Time Left: {timedelta}]"
-                            "[Last active: {last_activity}] "
-                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                            torrent=torrent,
-                            progress=round(torrent.progress * 100, 2),
-                            availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(
-                                self.recently_queue.get(torrent.hash, torrent.added_on)
-                            ),
-                            timedelta=timedelta(seconds=torrent.eta),
-                            last_activity=datetime.fromtimestamp(torrent.last_activity),
-                        )
-                        self.delete.add(torrent.hash)
-                    else:
-                        self.logger.trace(
-                            "Skipping torrent: Reached Maximum completed "
-                            "percentage and is active | "
-                            "[Progress: {progress}%][Added On: {added}]"
-                            "[Availability: {availability}%][Time Left: {timedelta}]"
-                            "[Last active: {last_activity}] "
-                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                            torrent=torrent,
-                            progress=round(torrent.progress * 100, 2),
-                            availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(
-                                self.recently_queue.get(torrent.hash, torrent.added_on)
-                            ),
-                            timedelta=timedelta(seconds=torrent.eta),
-                            last_activity=datetime.fromtimestamp(torrent.last_activity),
-                        )
-                        continue
-                # Resume monitored downloads which have been paused.
-                elif (
-                    torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
-                    and torrent.amount_left != 0
-                ):
-                    self.timed_ignore_cache.add(torrent.hash)
-                    self.resume.add(torrent.hash)
-                    self.logger.debug(
-                        "Resuming incomplete paused torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                # Ignore torrents which have been submitted to their respective Arr
-                # instance for import.
-                elif (
-                    torrent.hash
-                    in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
-                ) and torrent.hash in self.cleaned_torrents:
-                    self.logger.trace(
-                        "Skipping torrent: Already sent for import | "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    continue
-                # Some times torrents will error, this causes them to be rechecked so they
-                # complete downloading.
-                elif torrent.state_enum == TorrentStates.ERROR:
-                    self.logger.trace(
-                        "Rechecking Erroed torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.recheck.add(torrent.hash)
-                # If a torrent was not just added,
-                # and the amount left to download is 0 and the torrent
-                # is Paused tell the Arr tools to process it.
-                elif (
-                    torrent.added_on > 0
-                    and torrent.completion_on
-                    and torrent.amount_left == 0
-                    and torrent.state_enum != TorrentStates.PAUSED_UPLOAD
-                    and self.is_complete_state(torrent)
-                    and torrent.content_path
-                    and torrent.completion_on < time_now - 60
-                ):
-                    self.logger.info(
-                        "Pausing Completed torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(torrent.added_on),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.pause.add(torrent.hash)
-                    self.skip_blacklist.add(torrent.hash)
-                    self.import_torrents.append(torrent)
-                # Sometimes Sonarr/Radarr does not automatically remove the
-                # torrent for some reason,
-                # this ensures that we can safely remove it if the client is reporting
-                # the status of the client as "Missing files"
-                elif torrent.state_enum == TorrentStates.MISSING_FILES:
-                    self.logger.info(
-                        "Deleting torrent with missing files: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(torrent.added_on),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    # We do not want to blacklist these!!
-                    self.skip_blacklist.add(torrent.hash)
-                # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
-                elif (
-                    self.is_uploading_state(torrent)
-                    and torrent.seeding_time > 1
-                    and torrent.amount_left == 0
-                    and torrent.added_on > 0
-                    and torrent.content_path
-                    and torrent.amount_left == 0
-                ) and torrent.hash in self.cleaned_torrents:
-                    self.logger.info(
-                        "Pausing uploading torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(torrent.added_on),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.pause.add(torrent.hash)
-                    self.skip_blacklist.add(torrent.hash)
-                # Mark a torrent for deletion
-                elif (
-                    torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-                    and torrent.state_enum.is_downloading
-                    and self.recently_queue.get(torrent.hash, torrent.added_on)
-                    < time_now - self.ignore_torrents_younger_than
-                    and torrent.eta > self.maximum_eta
-                    and not self.donotremoveslow
-                ):
-                    self.logger.trace(
-                        "Deleting slow torrent: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
-                    self.delete.add(torrent.hash)
-                # Process uncompleted torrents
-                elif torrent.state_enum.is_downloading:
-                    # If a torrent availability hasn't reached 100% or more within the configurable
-                    # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
-                    if (
-                        self.recently_queue.get(torrent.hash, torrent.added_on)
-                        < time_now - self.ignore_torrents_younger_than
-                        and torrent.availability < 1
-                    ) and torrent.hash in self.cleaned_torrents:
-                        self.logger.trace(
-                            "Deleting stale torrent: "
-                            "[Progress: {progress}%][Added On: {added}]"
-                            "[Availability: {availability}%][Time Left: {timedelta}]"
-                            "[Last active: {last_activity}] "
-                            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                            torrent=torrent,
-                            progress=round(torrent.progress * 100, 2),
-                            availability=round(torrent.availability * 100, 2),
-                            added=datetime.fromtimestamp(
-                                self.recently_queue.get(torrent.hash, torrent.added_on)
-                            ),
-                            timedelta=timedelta(seconds=torrent.eta),
-                            last_activity=datetime.fromtimestamp(torrent.last_activity),
-                        )
-                        self.delete.add(torrent.hash)
-                    else:
-                        if torrent.hash in self.cleaned_torrents:
-                            self.logger.trace(
-                                "Skipping file check: Already been cleaned up | "
-                                "[Progress: {progress}%][Added On: {added}]"
-                                "[Availability: {availability}%][Time Left: {timedelta}]"
-                                "[Last active: {last_activity}] "
-                                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                                torrent=torrent,
-                                progress=round(torrent.progress * 100, 2),
-                                availability=round(torrent.availability * 100, 2),
-                                added=datetime.fromtimestamp(
-                                    self.recently_queue.get(torrent.hash, torrent.added_on)
-                                ),
-                                timedelta=timedelta(seconds=torrent.eta),
-                                last_activity=datetime.fromtimestamp(torrent.last_activity),
-                            )
-                            continue
-                        # A downloading torrent is not stalled, parse its contents.
-                        _remove_files = set()
-                        total = len(torrent.files)
-                        if total == 0:
-                            self.cleaned_torrents.add(torrent.hash)
-                            continue
-                        for file in torrent.files:
-                            file_path = pathlib.Path(file.name)
-                            # Acknowledge files that already been marked as "Don't download"
-                            if file.priority == 0:
-                                total -= 1
-                                continue
-                            # A folder within the folder tree matched the terms
-                            # in FolderExclusionRegex, mark it for exclusion.
-                            if any(
-                                self.folder_exclusion_regex_re.search(p.name.lower())
-                                for p in file_path.parents
-                                if (folder_match := p.name)
-                            ):
-                                self.logger.debug(
-                                    "Removing File: Not allowed | Parent: "
-                                    "{folder_match} | {torrent.name} "
-                                    "({torrent.hash}) | {file.name} ",
-                                    torrent=torrent,
-                                    file=file,
-                                    folder_match=folder_match,
-                                )
-                                _remove_files.add(file.id)
-                                total -= 1
-                            # A file matched and entry in FileNameExclusionRegex, mark it for
-                            # exclusion.
-                            elif (
-                                match := self.file_name_exclusion_regex_re.search(file_path.name)
-                            ) and match.group():
-                                self.logger.debug(
-                                    "Removing File: Not allowed | Name: "
-                                    "{match} | {torrent.name} ({torrent.hash}) | {file.name}",
-                                    torrent=torrent,
-                                    file=file,
-                                    match=match.group(),
-                                )
-                                _remove_files.add(file.id)
-                                total -= 1
-                            elif file_path.suffix.lower() not in self.file_extension_allowlist:
-                                self.logger.debug(
-                                    "Removing File: Not allowed | Extension: "
-                                    "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
-                                    torrent=torrent,
-                                    file=file,
-                                    suffix=file_path.suffix,
-                                )
-                                _remove_files.add(file.id)
-                                total -= 1
-                            # If all files in the torrent are marked for exclusion then delete the
-                            # torrent.
-                            if total == 0:
-                                self.logger.info(
-                                    "Deleting All files ignored: "
-                                    "[Progress: {progress}%][Added On: {added}]"
-                                    "[Availability: {availability}%][Time Left: {timedelta}]"
-                                    "[Last active: {last_activity}] "
-                                    "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                                    torrent=torrent,
-                                    progress=round(torrent.progress * 100, 2),
-                                    availability=round(torrent.availability * 100, 2),
-                                    added=datetime.fromtimestamp(
-                                        self.recently_queue.get(torrent.hash, torrent.added_on)
-                                    ),
-                                    timedelta=timedelta(seconds=torrent.eta),
-                                    last_activity=datetime.fromtimestamp(torrent.last_activity),
-                                )
-                                self.delete.add(torrent.hash)
-                            # Mark all bad files and folder for exclusion.
-                            elif _remove_files and torrent.hash not in self.change_priority:
-                                self.change_priority[torrent.hash] = list(_remove_files)
-                            elif _remove_files and torrent.hash in self.change_priority:
-                                self.change_priority[torrent.hash] = list(_remove_files)
-                        self.cleaned_torrents.add(torrent.hash)
-
-                else:
-                    self.logger.trace(
-                        "Skipping torrent: Unresolved state: "
-                        "[Progress: {progress}%][Added On: {added}]"
-                        "[Availability: {availability}%][Time Left: {timedelta}]"
-                        "[Last active: {last_activity}] "
-                        "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
-                        torrent=torrent,
-                        progress=round(torrent.progress * 100, 2),
-                        availability=round(torrent.availability * 100, 2),
-                        added=datetime.fromtimestamp(
-                            self.recently_queue.get(torrent.hash, torrent.added_on)
-                        ),
-                        timedelta=timedelta(seconds=torrent.eta),
-                        last_activity=datetime.fromtimestamp(torrent.last_activity),
-                    )
+                self._process_single_torrent(torrent)
             self.process()
         except NoConnectionrException as e:
             self.logger.error(e.message)
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
+
+    def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.notice(
+            "Deleting manually failed torrent: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        self.delete.add(torrent.hash)
+
+    def _process_single_torrent_recheck_cat(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.notice(
+            "Re-cheking manually set torrent: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        self.recheck.add(torrent.hash)
+
+    def _process_single_torrent_ignored(self, torrent: qbittorrentapi.TorrentDictionary):
+        # Do not touch torrents that are currently being ignored.
+        self.logger.trace(
+            "Skipping torrent: Ignored state | "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        if torrent.state_enum == TorrentStates.QUEUED_DOWNLOAD:
+            self.recently_queue[torrent.hash] = time.time()
+
+    def _process_single_torrent_added_to_ignore_cache(
+        self, torrent: qbittorrentapi.TorrentDictionary
+    ):
+        self.logger.trace(
+            "Skipping torrent: Marked for skipping | "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+
+    def _process_single_torrent_queued_upload(
+        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+    ):
+        if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
+            self.logger.trace(
+                "Torrent State: Queued Upload | Allowing Seeding | "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+        else:
+            self.pause.add(torrent.hash)
+            self.skip_blacklist.add(torrent.hash)
+            self.logger.trace(
+                "Pausing torrent: Queued Upload | "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+
+    def _process_single_torrent_stalled_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
+
+        # Process torrents who have stalled at this point, only mark for
+        # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
+        # seconds ago
+        if (
+            self.recently_queue.get(torrent.hash, torrent.added_on)
+            < time.time() - self.ignore_torrents_younger_than
+        ):
+            self.logger.info(
+                "Deleting Stale torrent: "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+            self.delete.add(torrent.hash)
+
+    def _process_single_torrent_percentage_threshold(
+        self, torrent: qbittorrentapi.TorrentDictionary, maximum_eta: int
+    ):
+        # Ignore torrents who have reached maximum percentage as long as
+        # the last activity is within the MaximumETA set for this category
+        # For example if you set MaximumETA to 5 mines, this will ignore all
+        # torrents that have stalled at a higher percentage as long as there is activity
+        # And the window of activity is determined by the current time - MaximumETA,
+        # if the last active was after this value ignore this torrent
+        # the idea here is that if a torrent isn't completely dead some leecher/seeder
+        # may contribute towards your progress.
+        # However if its completely dead and no activity is observed, then lets
+        # remove it and requeue a new torrent.
+        if maximum_eta > 0 and torrent.last_activity < (time.time() - maximum_eta):
+            self.logger.info(
+                "Deleting Stale torrent: "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+            self.delete.add(torrent.hash)
+        else:
+            self.logger.trace(
+                "Skipping torrent: Reached Maximum completed "
+                "percentage and is active | "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+            return
+
+    def _process_single_torrent_paused(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.timed_ignore_cache.add(torrent.hash)
+        self.resume.add(torrent.hash)
+        self.logger.debug(
+            "Resuming incomplete paused torrent: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+
+    def _process_single_torrent_already_sent_to_scan(
+        self, torrent: qbittorrentapi.TorrentDictionary
+    ):
+        self.logger.trace(
+            "Skipping torrent: Already sent for import | "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+
+    def _process_single_torrent_errored(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.trace(
+            "Rechecking Erroed torrent: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        self.recheck.add(torrent.hash)
+
+    def _process_single_torrent_fully_completed_torrent(
+        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+    ):
+        if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
+            self.logger.trace(
+                "Torrent State: Completed | Allowing Seeding | "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+        else:
+            self.logger.info(
+                "Pausing Completed torrent: "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(torrent.added_on),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+            self.pause.add(torrent.hash)
+            self.import_torrents.append(torrent)
+
+    def _process_single_torrent_missing_files(self, torrent: qbittorrentapi.TorrentDictionary):
+        # Sometimes Sonarr/Radarr does not automatically remove the
+        # torrent for some reason,
+        # this ensures that we can safely remove it if the client is reporting
+        # the status of the client as "Missing files"
+        self.logger.info(
+            "Deleting torrent with missing files: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(torrent.added_on),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        # We do not want to blacklist these!!
+        self.skip_blacklist.add(torrent.hash)
+
+    def _process_single_torrent_uploading(
+        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+    ):
+        if leave_alone or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
+            self.logger.trace(
+                "Torrent State: Queued Upload | Allowing Seeding | "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                ),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+        else:
+            self.logger.info(
+                "Pausing uploading torrent: "
+                "[Progress: {progress}%][Added On: {added}]"
+                "[Availability: {availability}%][Time Left: {timedelta}]"
+                "[Last active: {last_activity}] "
+                "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                torrent=torrent,
+                progress=round(torrent.progress * 100, 2),
+                availability=round(torrent.availability * 100, 2),
+                added=datetime.fromtimestamp(torrent.added_on),
+                timedelta=timedelta(seconds=torrent.eta),
+                last_activity=datetime.fromtimestamp(torrent.last_activity),
+            )
+            self.pause.add(torrent.hash)
+
+    def _process_single_torrent_already_cleaned_up(
+        self, torrent: qbittorrentapi.TorrentDictionary
+    ):
+        self.logger.trace(
+            "Skipping file check: Already been cleaned up | "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+
+    def _process_single_torrent_delete_slow(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.trace(
+            "Deleting slow torrent: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+        self.delete.add(torrent.hash)
+
+    def _process_single_torrent_process_files(self, torrent: qbittorrentapi.TorrentDictionary):
+        _remove_files = set()
+        total = len(torrent.files)
+        if total == 0:
+            self.cleaned_torrents.add(torrent.hash)
+            return
+        for file in torrent.files:
+            file_path = pathlib.Path(file.name)
+            # Acknowledge files that already been marked as "Don't download"
+            if file.priority == 0:
+                total -= 1
+                continue
+            # A folder within the folder tree matched the terms
+            # in FolderExclusionRegex, mark it for exclusion.
+            if any(
+                self.folder_exclusion_regex_re.search(p.name.lower())
+                for p in file_path.parents
+                if (folder_match := p.name)
+            ):
+                self.logger.debug(
+                    "Removing File: Not allowed | Parent: "
+                    "{folder_match} | {torrent.name} "
+                    "({torrent.hash}) | {file.name} ",
+                    torrent=torrent,
+                    file=file,
+                    folder_match=folder_match,
+                )
+                _remove_files.add(file.id)
+                total -= 1
+            # A file matched and entry in FileNameExclusionRegex, mark it for
+            # exclusion.
+            elif (
+                match := self.file_name_exclusion_regex_re.search(file_path.name)
+            ) and match.group():
+                self.logger.debug(
+                    "Removing File: Not allowed | Name: "
+                    "{match} | {torrent.name} ({torrent.hash}) | {file.name}",
+                    torrent=torrent,
+                    file=file,
+                    match=match.group(),
+                )
+                _remove_files.add(file.id)
+                total -= 1
+            elif file_path.suffix.lower() not in self.file_extension_allowlist:
+                self.logger.debug(
+                    "Removing File: Not allowed | Extension: "
+                    "{suffix}  | {torrent.name} ({torrent.hash}) | {file.name} ",
+                    torrent=torrent,
+                    file=file,
+                    suffix=file_path.suffix,
+                )
+                _remove_files.add(file.id)
+                total -= 1
+            # If all files in the torrent are marked for exclusion then delete the
+            # torrent.
+            if total == 0:
+                self.logger.info(
+                    "Deleting All files ignored: "
+                    "[Progress: {progress}%][Added On: {added}]"
+                    "[Availability: {availability}%][Time Left: {timedelta}]"
+                    "[Last active: {last_activity}] "
+                    "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+                    torrent=torrent,
+                    progress=round(torrent.progress * 100, 2),
+                    availability=round(torrent.availability * 100, 2),
+                    added=datetime.fromtimestamp(
+                        self.recently_queue.get(torrent.hash, torrent.added_on)
+                    ),
+                    timedelta=timedelta(seconds=torrent.eta),
+                    last_activity=datetime.fromtimestamp(torrent.last_activity),
+                )
+                self.delete.add(torrent.hash)
+            # Mark all bad files and folder for exclusion.
+            elif _remove_files and torrent.hash not in self.change_priority:
+                self.change_priority[torrent.hash] = list(_remove_files)
+            elif _remove_files and torrent.hash in self.change_priority:
+                self.change_priority[torrent.hash] = list(_remove_files)
+        self.cleaned_torrents.add(torrent.hash)
+
+    def _process_single_torrent_unprocessed(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.trace(
+            "Skipping torrent: Unresolved state: "
+            "[Progress: {progress}%][Added On: {added}]"
+            "[Availability: {availability}%][Time Left: {timedelta}]"
+            "[Last active: {last_activity}] "
+            "| [{torrent.state_enum}] | {torrent.name} ({torrent.hash})",
+            torrent=torrent,
+            progress=round(torrent.progress * 100, 2),
+            availability=round(torrent.availability * 100, 2),
+            added=datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            timedelta=timedelta(seconds=torrent.eta),
+            last_activity=datetime.fromtimestamp(torrent.last_activity),
+        )
+
+    def _get_torrent_important_trackers(
+        self, torrent: qbittorrentapi.TorrentDictionary
+    ) -> tuple[set[str], set[str]]:
+        current_trackers = {i.url for i in torrent.trackers}
+        monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
+        need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
+        monitored_trackers = monitored_trackers.union(need_to_be_added)
+        return need_to_be_added, monitored_trackers
+
+    @staticmethod
+    def __return_max(x: dict):
+        return x.get("Priority", -100)
+
+    def _get_most_important_tracker_and_tags(self, monitored_trackers) -> tuple[dict, set[str]]:
+        new_list = [
+            i
+            for i in self.monitored_trackers
+            if (i.get("URI") in monitored_trackers) and not i.get("RemoveIfExists") is True
+        ]
+        _list_of_tags = [i.get("AddTags", []) for i in new_list]
+
+        return max(new_list, key=self.__return_max), set(
+            itertools.chain.from_iterable(_list_of_tags)
+        )
+
+    def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
+        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
+            monitored_trackers
+        )
+
+        data_settings = {
+            "ratio_limit": r
+            if (
+                r := most_important_tracker.get(
+                    "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                )
+            )
+            > 0
+            else None,
+            "seeding_time_limit": r
+            if (
+                r := most_important_tracker.get(
+                    "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                )
+            )
+            > 0
+            else None,
+            "dl_limit": r
+            if (
+                r := most_important_tracker.get(
+                    "DownloadRateLimit", self.seeding_mode_global_download_limit
+                )
+            )
+            > 0
+            else None,
+            "up_limit": r
+            if (
+                r := most_important_tracker.get(
+                    "UploadRateLimit", self.seeding_mode_global_upload_limit
+                )
+            )
+            > 0
+            else None,
+            "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
+            "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
+        }
+
+        data_torrent = {
+            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else None,
+            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else None,
+            "dl_limit": r if (r := torrent.dl_limit) > 0 else None,
+            "up_limit": r if (r := torrent.up_limit) > 0 else None,
+            "super_seeding": torrent.super_seeding,
+        }
+        return data_settings, data_torrent
+
+    def _should_leave_alone(self, torrent: qbittorrentapi.TorrentDictionary) -> tuple[bool, int]:
+        return_value = True
+        if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
+            return return_value, -1  # Do not touch super seeding torrents.
+        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        if torrent.ratio >= data_torrent.get(
+            "ratio_limit", -1
+        ) or torrent.ratio >= data_settings.get("ratio_limit", -1):
+            return_value = False  # Seeding ratio met - Can be cleaned up.
+        if torrent.seeding_time >= data_torrent.get(
+            "seeding_time_limit", -1
+        ) or torrent.seeding_time >= data_settings.get("seeding_time_limit", -1):
+            return_value = False  # Seeding time met - Can be cleaned up.
+        if return_value is True and "qbitrr-allowed_seeding" not in torrent.tags:
+            torrent.add_tags(tags=["qbitrr-allowed_seeding"])
+        elif return_value is False and "qbitrr-allowed_seeding" in torrent.tags:
+            torrent.remove_tags(tags=["qbitrr-allowed_seeding"])
+        return return_value, data_settings.get(
+            "max_eta", self.maximum_eta
+        )  # Seeding is not complete needs more time
+
+    def _process_single_torrent_trackers(self, torrent: qbittorrentapi.TorrentDictionary):
+        if torrent.hash in self.tracker_delay:
+            return
+        self.tracker_delay.add(torrent.hash)
+        _remove_urls = set()
+        need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        if need_to_be_added:
+            torrent.add_trackers(need_to_be_added)
+        for tracker in torrent.trackers:
+            if (
+                self.remove_dead_trackers
+                and (
+                    any(
+                        tracker.msg == m
+                        for m in [
+                            "skipping tracker announce (unreachable)",
+                            "No such host is known",
+                            "unsupported URL protocol",
+                        ]
+                    )
+                )  # TODO: Add more messages
+            ) or tracker.url in self._remove_trackers_if_exists:
+                _remove_urls.add(tracker.url)
+        torrent.remove_trackers(_remove_urls)
+        most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
+            monitored_trackers
+        )
+        if monitored_trackers and most_important_tracker:
+            # Only use globals if there is not a configured equivalent value on the
+            # highest priority tracker
+            data = {
+                "ratio_limit": r
+                if (
+                    r := most_important_tracker.get(
+                        "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                    )
+                )
+                > 0
+                else None,
+                "seeding_time_limit": r
+                if (
+                    r := most_important_tracker.get(
+                        "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                    )
+                )
+                > 0
+                else None,
+            }
+            if any(r is not None for r in data):
+                if torrent.seeding_time_limit == data.get("seeding_time_limit"):
+                    data.pop("seeding_time_limit")
+                if torrent.seeding_time_limit != data.get("ratio_limit"):
+                    data.pop("ratio_limit")
+                if data:
+                    torrent.set_share_limits(**data)
+            if (
+                r := most_important_tracker.get(
+                    "DownloadRateLimit", self.seeding_mode_global_download_limit
+                )
+                > 0
+                and torrent.dl_limit != r
+            ):
+                torrent.set_download_limit(limit=r)
+
+            if (
+                r := most_important_tracker.get(
+                    "UploadRateLimit", self.seeding_mode_global_upload_limit
+                )
+                > 0
+                and torrent.up_limit != r
+            ):
+                torrent.set_upload_limit(limit=r)
+            if (
+                r := most_important_tracker.get("SuperSeedMode", False)
+                and torrent.super_seeding != r
+            ):
+                torrent.set_super_seeding(enabled=r)
+        else:
+            data = {
+                "ratio_limit": r if (r := self.seeding_mode_global_max_upload_ratio) > 0 else None,
+                "seeding_time_limit": r
+                if (r := self.seeding_mode_global_max_seeding_time) > 0
+                else None,
+            }
+            if any(r is not None for r in data):
+                if torrent.seeding_time_limit == data.get("seeding_time_limit"):
+                    data.pop("seeding_time_limit")
+                if torrent.seeding_time_limit != data.get("ratio_limit"):
+                    data.pop("ratio_limit")
+                if data:
+                    torrent.set_share_limits(**data)
+            if r := self.seeding_mode_global_download_limit > 0 and torrent.dl_limit != r:
+                torrent.set_download_limit(limit=r)
+            if r := self.seeding_mode_global_upload_limit > 0 and torrent.up_limit != r:
+                torrent.set_upload_limit(limit=r)
+        if unique_tags:
+            current_tags = set(torrent.tags.split(", "))
+            add_tags = unique_tags.difference(current_tags)
+            if add_tags:
+                torrent.add_tags(add_tags)
+
+    def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
+        if torrent.category != RECHECK_CATEGORY:
+            self.manager.qbit_manager.cache[torrent.hash] = torrent.category
+        self._process_single_torrent_trackers(torrent)
+        self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
+        time_now = time.time()
+        leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
+        maximum_eta = _tracker_max_eta
+        if torrent.category == FAILED_CATEGORY:
+            # Bypass everything if manually marked as failed
+            self._process_single_torrent_failed_cat(torrent)
+        elif torrent.category == RECHECK_CATEGORY:
+            # Bypass everything else if manually marked for rechecking
+            self._process_single_torrent_recheck_cat(torrent)
+        elif self.is_ignored_state(torrent):
+            self._process_single_torrent_ignored(torrent)
+            return  # Since to torrent is being ignored early exit here
+        elif torrent.hash in self.timed_ignore_cache:
+            # Do not touch torrents recently resumed/reached (A torrent can temporarily
+            # stall after being resumed from a paused state).
+            self._process_single_torrent_added_to_ignore_cache(torrent)
+            return
+        elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
+            self._process_single_torrent_queued_upload(torrent, leave_alone)
+
+        elif torrent.state_enum in (
+            TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.STALLED_DOWNLOAD,
+        ):
+            self._process_single_torrent_stalled_torrent(torrent)
+        elif (
+            torrent.progress >= self.maximum_deletable_percentage
+            and self.is_complete_state(torrent) is False
+        ) and torrent.hash in self.cleaned_torrents:
+            self._process_single_torrent_percentage_threshold(torrent)
+        # Resume monitored downloads which have been paused.
+        elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.amount_left != 0:
+            self._process_single_torrent_paused(torrent)
+        # Ignore torrents which have been submitted to their respective Arr
+        # instance for import.
+        elif (
+            torrent.hash in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
+        ) and torrent.hash in self.cleaned_torrents:
+            self._process_single_torrent_already_sent_to_scan(torrent)
+            return
+        # Some times torrents will error, this causes them to be rechecked so they
+        # complete downloading.
+        elif torrent.state_enum == TorrentStates.ERROR:
+            self._process_single_torrent_errored(torrent)
+        # If a torrent was not just added,
+        # and the amount left to download is 0 and the torrent
+        # is Paused tell the Arr tools to process it.
+        elif (
+            torrent.added_on > 0
+            and torrent.completion_on
+            and torrent.amount_left == 0
+            and torrent.state_enum != TorrentStates.PAUSED_UPLOAD
+            and self.is_complete_state(torrent)
+            and torrent.content_path
+            and torrent.completion_on < time_now - 60
+        ):
+            self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
+        elif torrent.state_enum == TorrentStates.MISSING_FILES:
+            self._process_single_torrent_missing_files(torrent)
+        # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
+        elif (
+            self.is_uploading_state(torrent)
+            and torrent.seeding_time > 1
+            and torrent.amount_left == 0
+            and torrent.added_on > 0
+            and torrent.content_path
+            and torrent.amount_left == 0
+        ) and torrent.hash in self.cleaned_torrents:
+            self._process_single_torrent_uploading(torrent, leave_alone)
+        # Mark a torrent for deletion
+        elif (
+            torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+            and torrent.state_enum.is_downloading
+            and self.recently_queue.get(torrent.hash, torrent.added_on)
+            < time_now - self.ignore_torrents_younger_than
+            and 0 < maximum_eta < torrent.eta
+            and not self.do_not_remove_slow
+        ):
+            self._process_single_torrent_delete_slow(torrent)
+        # Process uncompleted torrents
+        elif torrent.state_enum.is_downloading:
+            # If a torrent availability hasn't reached 100% or more within the configurable
+            # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
+            if (
+                self.recently_queue.get(torrent.hash, torrent.added_on)
+                < time_now - self.ignore_torrents_younger_than
+                and torrent.availability < 1
+            ) and torrent.hash in self.cleaned_torrents:
+                self._process_single_torrent_stalled_torrent(torrent)
+            else:
+                if torrent.hash in self.cleaned_torrents:
+                    self._process_single_torrent_already_cleaned_up(torrent)
+                    return
+
+                # A downloading torrent is not stalled, parse its contents.
+                self._process_single_torrent_process_files(torrent)
+
+        else:
+            self._process_single_torrent_unprocessed(torrent)
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
@@ -2380,6 +2771,8 @@ class Arr:
         ):
             return None
         self.register_search_mode()
+        if not self.search_missing:
+            return None
         self.logger.notice("Starting Request search")
 
         while True:
@@ -2433,8 +2826,9 @@ class Arr:
         while True:
             timer = datetime.now(timezone.utc)
             try:
-                self.run_request_search()
+                self.db_maybe_reset_entry_searched_state()
                 self.db_update()
+                self.run_request_search()
                 self.force_grab()
                 try:
                     for entry, todays, limit_bypass, series_search in self.db_get_files():
@@ -2455,9 +2849,11 @@ class Arr:
                     if self.search_in_reverse:
                         if self.search_current_year > stopping_year:
                             self.search_current_year = copy(count_start)
+                            self.loop_completed = True
                     else:
                         if self.search_current_year < stopping_year:
                             self.search_current_year = copy(count_start)
+                            self.loop_completed = True
                 except RestartLoopException:
                     self.logger.debug("Loop timer elapsed, restarting it.")
                 except NoConnectionrException as e:
@@ -2593,6 +2989,7 @@ class PlaceHolderArr(Arr):
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
         self.timed_skip = ExpiringSet(max_age_seconds=self.IGNORE_TORRENTS_YOUNGER_THAN)
+        self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.logger = logbook.Logger(self._name)
         self.search_missing = False
         self.session = None

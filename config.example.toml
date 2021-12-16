@@ -1,332 +1,758 @@
-[Radarr-1080p]
-Managed = true
-URI = "CHANGE_ME"
-APIKey = "CHANGE_ME"
-ReSearch = true
-importMode = "Move"
-RssSyncTimer = 10
-RefreshDownloadsTimer = 1
-Category = "radarr-1080"
+# This is a config file for the qBitrr Script - Make sure to change all entries of "CHANGE_ME".
+# This is a config file should be moved to "C:\Users\{User}\.config\qBitManager\config.toml".
 
-[Radarr-4k]
-Managed = true
-URI = "CHANGE_ME"
-APIKey = "CHANGE_ME"
-ReSearch = true
-importMode = "Move"
-RssSyncTimer = 10
-RefreshDownloadsTimer = 1
-Category = "radarr-4k"
-
-[Sonarr-Anime]
-Managed = true
-URI = "CHANGE_ME"
-APIKey = "CHANGE_ME"
-ReSearch = true
-importMode = "Move"
-RssSyncTimer = 10
-RefreshDownloadsTimer = 1
-Category = "sonarr-anime"
-
-[Sonarr-TV]
-Managed = true
-URI = "CHANGE_ME"
-APIKey = "CHANGE_ME"
-ReSearch = true
-importMode = "Move"
-RssSyncTimer = 10
-RefreshDownloadsTimer = 1
-Category = "sonarr-tv"
-
-[QBit]
-Host = "localhost"
-Port = "8105"
-UserName = "CHANGE_ME"
-Password = "CHANGE_ME"
 
 [Settings]
+# Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
+
+# Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path
 CompletedDownloadFolder = "CHANGE_ME"
+
+# Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)
 NoInternetSleepTimer = 15
+
+# Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)
 LoopSleepTimer = 5
+
+# Add torrents to this category to mark them as failed
 FailedCategory = "failed"
+
+# Add torrents to this category to trigger them to be rechecked properly
 RecheckCategory = "recheck"
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
 IgnoreTorrentsYoungerThan = 180
+
+# URL to be pinged to check if you have a valid internet connection
+# These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.
+PingURLS = ["one.one.one.one", "dns.google"]
+
+# FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads
+# If this is disabled and you want ffprobe to work
+# Ensure that you add the binary for your platform into ~/.config/qBitManager i.e "C:\Users\{User}\.config\qBitManager\ffprobe.exe"
+# If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled.
+# By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
-PingURLS = [ "one.one.one.one", "dns.google",]
 
-[Radarr-1080p.Torrent]
-AutoDelete = true
-CaseSensitiveMatches = false
-DoNotRemoveSlow = false
-IgnoreTorrentsYoungerThan = 180
-MaximumETA = 18000
-MaximumDeletablePercentage = 0.99
-FolderExclusionRegex = [ "\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b",]
-FileNameExclusionRegex = [ "\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com",]
-FileExtensionAllowlist = [ ".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts",]
+[QBit]
+# Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")
+Host = "localhost"
 
-[Radarr-1080p.EntrySearch]
-SearchMissing = false
-PrioritizeTodaysReleases = true
-AlsoSearchSpecials = false
-SearchLimit = 5
-DatabaseFile = "CHANGE_ME/sonarr.db"
-SearchByYear = true
-StartYear = 2021
-LastYear = 1990
-SearchInReverse = false
-DoUpgradeSearch = false
-QualityUnmetSearch = false
-SearchRequestsEvery = 1800
-SearchBySeries = true
+# Qbit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
+Port = 8105
 
-[Radarr-4k.Torrent]
-AutoDelete = true
-CaseSensitiveMatches = false
-DoNotRemoveSlow = false
-IgnoreTorrentsYoungerThan = 180
-MaximumETA = 18000
-MaximumDeletablePercentage = 0.99
-FolderExclusionRegex = [ "\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b",]
-FileNameExclusionRegex = [ "\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com",]
-FileExtensionAllowlist = [ ".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts",]
+# Qbit WebUI Authentication - Can be found in Options > Web UI > Authentication
+UserName = "CHANGE_ME"
 
-[Radarr-4k.EntrySearch]
-SearchMissing = false
-PrioritizeTodaysReleases = true
-AlsoSearchSpecials = false
-SearchLimit = 5
-DatabaseFile = "CHANGE_ME/sonarr.db"
-SearchByYear = true
-StartYear = 2021
-LastYear = 1990
-SearchInReverse = false
-DoUpgradeSearch = false
-QualityUnmetSearch = false
-SearchRequestsEvery = 1800
-SearchBySeries = true
+# If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
+Password = "CHANGE_ME"
 
-[Sonarr-Anime.Torrent]
-AutoDelete = true
-CaseSensitiveMatches = false
-DoNotRemoveSlow = false
-IgnoreTorrentsYoungerThan = 180
-MaximumETA = 18000
-MaximumDeletablePercentage = 0.99
-FolderExclusionRegex = [ "\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b",]
-FileNameExclusionRegex = [ "\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com",]
-FileExtensionAllowlist = [ ".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts",]
 
-[Sonarr-Anime.EntrySearch]
-SearchMissing = false
-PrioritizeTodaysReleases = true
-AlsoSearchSpecials = false
-SearchLimit = 5
-DatabaseFile = "CHANGE_ME/sonarr.db"
-SearchByYear = true
-StartYear = 2021
-LastYear = 1990
-SearchInReverse = false
-DoUpgradeSearch = false
-QualityUnmetSearch = false
-SearchRequestsEvery = 1800
-SearchBySeries = true
+[Sonarr-TV]
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
 
-[Sonarr-TV.Torrent]
-AutoDelete = true
-CaseSensitiveMatches = false
-DoNotRemoveSlow = false
-IgnoreTorrentsYoungerThan = 180
-MaximumETA = 18000
-MaximumDeletablePercentage = 0.99
-FolderExclusionRegex = [ "\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b",]
-FileNameExclusionRegex = [ "\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com",]
-FileExtensionAllowlist = [ ".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts",]
+# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "sonarr-tv"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Hardlink)
+importMode = "Move"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable
+RssSyncTimer = 0
+
+# Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
+RefreshDownloadsTimer = 0
+
 
 [Sonarr-TV.EntrySearch]
+# All these settings depends on SearchMissing being True and access to the Servarr database file.
+
+# Should search for Missing files?
 SearchMissing = false
-PrioritizeTodaysReleases = true
+
+# Should search for specials episodes? (Season 00)
 AlsoSearchSpecials = false
+
+# Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
+# Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
+
+# Servarr Databapth file path
+# This is required for any of the search functionality to work
+# The only exception for this is the "ReSearch" setting as that is done via an API call.
 DatabaseFile = "CHANGE_ME/sonarr.db"
+
+# It will order searches by the year the EPISODE was first aired
 SearchByYear = true
+
+# First year to search; Remove this field to set it to the current year.
 StartYear = 2021
+
+# Last Year to Search
 LastYear = 1990
+
+# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
 SearchInReverse = false
-DoUpgradeSearch = false
-QualityUnmetSearch = false
+
+# Delay between request searches in seconds
 SearchRequestsEvery = 1800
+
+# Search movies which already have a file in the database in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = false
+
+# Search by series instead of by episode
 SearchBySeries = true
 
-[Radarr-1080p.Torrent.SeedingMode]
-Enabled = false
-add_tags = [ "Seeding Allowed",]
-DownloadRateLimitPerTorrent = 0
-UploadRateLimitPerTorrent = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-[[Radarr-1080p.Torrent.SeedingMode.Trackers]]
-Name = "Rarbg"
-url = "udp://9.rarbg.com:2810/announce"
-add_tags = [ "rarbg",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
+# Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
+PrioritizeTodaysReleases = false
 
-[[Radarr-1080p.Torrent.SeedingMode.Trackers]]
-Name = "Nyaa"
-url = "http://nyaa.tracker.wf:7777/announce"
-add_tags = [ "anime", "Nyaa",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[Radarr-1080p.EntrySearch.Ombi]
-SearchOmbiRequests = false
-OmbiURI = "http://localhost:5000"
-OmbiAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Radarr-1080p.EntrySearch.Overseerr]
-SearchOverseerrRequests = false
-OverseerrURI = "http://localhost:5000"
-OverseerrAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Radarr-4k.Torrent.SeedingMode]
-Enabled = false
-add_tags = [ "Seeding Allowed",]
-DownloadRateLimitPerTorrent = 0
-UploadRateLimitPerTorrent = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-[[Radarr-4k.Torrent.SeedingMode.Trackers]]
-Name = "Rarbg"
-url = "udp://9.rarbg.com:2810/announce"
-add_tags = [ "rarbg",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[[Radarr-4k.Torrent.SeedingMode.Trackers]]
-Name = "Nyaa"
-url = "http://nyaa.tracker.wf:7777/announce"
-add_tags = [ "anime", "Nyaa",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[Radarr-4k.EntrySearch.Ombi]
-SearchOmbiRequests = false
-OmbiURI = "http://localhost:5000"
-OmbiAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Radarr-4k.EntrySearch.Overseerr]
-SearchOverseerrRequests = false
-OverseerrURI = "http://localhost:5000"
-OverseerrAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Sonarr-Anime.Torrent.SeedingMode]
-Enabled = false
-add_tags = [ "Seeding Allowed",]
-DownloadRateLimitPerTorrent = 0
-UploadRateLimitPerTorrent = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-[[Sonarr-Anime.Torrent.SeedingMode.Trackers]]
-Name = "Rarbg"
-url = "udp://9.rarbg.com:2810/announce"
-add_tags = [ "rarbg",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[[Sonarr-Anime.Torrent.SeedingMode.Trackers]]
-Name = "Nyaa"
-url = "http://nyaa.tracker.wf:7777/announce"
-add_tags = [ "anime", "Nyaa",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[Sonarr-Anime.EntrySearch.Ombi]
-SearchOmbiRequests = false
-OmbiURI = "http://localhost:5000"
-OmbiAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Sonarr-Anime.EntrySearch.Overseerr]
-SearchOverseerrRequests = false
-OverseerrURI = "http://localhost:5000"
-OverseerrAPIKey = "CHANGE_ME"
-ApprovedOnly = true
-
-[Sonarr-TV.Torrent.SeedingMode]
-Enabled = false
-add_tags = [ "Seeding Allowed",]
-DownloadRateLimitPerTorrent = 0
-UploadRateLimitPerTorrent = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-[[Sonarr-TV.Torrent.SeedingMode.Trackers]]
-Name = "Rarbg"
-url = "udp://9.rarbg.com:2810/announce"
-add_tags = [ "rarbg",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
-
-[[Sonarr-TV.Torrent.SeedingMode.Trackers]]
-Name = "Nyaa"
-url = "http://nyaa.tracker.wf:7777/announce"
-add_tags = [ "anime", "Nyaa",]
-DownloadRateLimit = 0
-MaxUploadRatio = 0
-MaxSeedingTime = 0
-UploadRateLimit = 0
-SuperSeedMode = false
-MaximumETA = 18000
-ForceSeed = false
 
 [Sonarr-TV.EntrySearch.Ombi]
+# Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
+
+# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
 OmbiURI = "http://localhost:5000"
+
+# Ombi's API Key
 OmbiAPIKey = "CHANGE_ME"
+
+# Only process approved requests
 ApprovedOnly = true
 
+
 [Sonarr-TV.EntrySearch.Overseerr]
+# Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
+# If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
-OverseerrURI = "http://localhost:5000"
+
+# Overseerr's URI
+OverseerrURI = "http://localhost:5055"
+
+# Overseerr's API Key
 OverseerrAPIKey = "CHANGE_ME"
+
+# Only process approved requests
 ApprovedOnly = true
+
+
+[Sonarr-TV.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings.
+FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 180
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = 18000
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = false
+
+Trackers = []
+
+[Sonarr-TV.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Set the Maximum allowed download rate for torrents
+RemoveDeadTrackers = false
+
+
+[Sonarr-Anime]
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
+
+# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "sonarr-anime"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Hardlink)
+importMode = "Move"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable
+RssSyncTimer = 0
+
+# Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
+RefreshDownloadsTimer = 0
+
+
+[Sonarr-Anime.EntrySearch]
+# All these settings depends on SearchMissing being True and access to the Servarr database file.
+
+# Should search for Missing files?
+SearchMissing = false
+
+# Should search for specials episodes? (Season 00)
+AlsoSearchSpecials = false
+
+# Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
+# Sonarr has a hardcoded cap of 3 simultaneous tasks
+SearchLimit = 5
+
+# Servarr Databapth file path
+# This is required for any of the search functionality to work
+# The only exception for this is the "ReSearch" setting as that is done via an API call.
+DatabaseFile = "CHANGE_ME/sonarr.db"
+
+# It will order searches by the year the EPISODE was first aired
+SearchByYear = true
+
+# First year to search; Remove this field to set it to the current year.
+StartYear = 2021
+
+# Last Year to Search
+LastYear = 1990
+
+# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
+SearchInReverse = false
+
+# Delay between request searches in seconds
+SearchRequestsEvery = 1800
+
+# Search movies which already have a file in the database in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = false
+
+# Search by series instead of by episode
+SearchBySeries = true
+
+# Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
+PrioritizeTodaysReleases = false
+
+
+[Sonarr-Anime.EntrySearch.Ombi]
+# Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
+SearchOmbiRequests = false
+
+# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+OmbiURI = "http://localhost:5000"
+
+# Ombi's API Key
+OmbiAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Sonarr-Anime.EntrySearch.Overseerr]
+# Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
+# If this and Ombi are both enable, Ombi will be ignored
+SearchOverseerrRequests = false
+
+# Overseerr's URI
+OverseerrURI = "http://localhost:5055"
+
+# Overseerr's API Key
+OverseerrAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Sonarr-Anime.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings.
+FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 180
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = 18000
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = false
+
+
+[Sonarr-Anime.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Set the Maximum allowed download rate for torrents
+RemoveDeadTrackers = false
+
+
+[[Sonarr-Anime.Torrent.Trackers]]
+Name = "Nyaa"
+Priority = 10
+URI = "http://nyaa.tracker.wf:7777/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["qbitrr-anime"]
+
+[Radarr-1080]
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
+
+# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "radarr-1080"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Hardlink)
+importMode = "Move"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable
+RssSyncTimer = 0
+
+# Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
+RefreshDownloadsTimer = 0
+
+
+[Radarr-1080.EntrySearch]
+# All these settings depends on SearchMissing being True and access to the Servarr database file.
+
+# Should search for Missing files?
+SearchMissing = false
+
+# Should search for specials episodes? (Season 00)
+AlsoSearchSpecials = false
+
+# Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
+# Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
+# If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10
+# Radarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them.
+# That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
+SearchLimit = 5
+
+# Servarr Databapth file path
+# This is required for any of the search functionality to work
+# The only exception for this is the "ReSearch" setting as that is done via an API call.
+DatabaseFile = "CHANGE_ME/radarr.db"
+
+# It will order searches by the year the EPISODE was first aired
+SearchByYear = true
+
+# First year to search; Remove this field to set it to the current year.
+StartYear = 2021
+
+# Last Year to Search
+LastYear = 1990
+
+# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
+SearchInReverse = false
+
+# Delay between request searches in seconds
+SearchRequestsEvery = 1800
+
+# Search movies which already have a file in the database in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = false
+
+
+[Radarr-1080.EntrySearch.Ombi]
+# Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
+SearchOmbiRequests = false
+
+# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+OmbiURI = "http://localhost:5000"
+
+# Ombi's API Key
+OmbiAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Radarr-1080.EntrySearch.Overseerr]
+# Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
+# If this and Ombi are both enable, Ombi will be ignored
+SearchOverseerrRequests = false
+
+# Overseerr's URI
+OverseerrURI = "http://localhost:5055"
+
+# Overseerr's API Key
+OverseerrAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Radarr-1080.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings.
+FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 180
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = 18000
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = false
+
+
+[Radarr-1080.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Set the Maximum allowed download rate for torrents
+RemoveDeadTrackers = false
+
+
+[[Radarr-1080.Torrent.Trackers]]
+Name = "Rarbg-2810"
+Priority = 1
+URI = "udp://9.rarbg.com:2810/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["qbitrr-Rarbg", "Movies and TV"]
+
+[[Radarr-1080.Torrent.Trackers]]
+Name = "Rarbg-2740"
+Priority = 2
+URI = "udp://9.rarbg.to:2740/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+
+[Radarr-4K]
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
+
+# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "radarr-4k"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Hardlink)
+importMode = "Move"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable
+RssSyncTimer = 0
+
+# Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
+RefreshDownloadsTimer = 0
+
+
+[Radarr-4K.EntrySearch]
+# All these settings depends on SearchMissing being True and access to the Servarr database file.
+
+# Should search for Missing files?
+SearchMissing = false
+
+# Should search for specials episodes? (Season 00)
+AlsoSearchSpecials = false
+
+# Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
+# Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
+# If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10
+# Radarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them.
+# That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
+SearchLimit = 5
+
+# Servarr Databapth file path
+# This is required for any of the search functionality to work
+# The only exception for this is the "ReSearch" setting as that is done via an API call.
+DatabaseFile = "CHANGE_ME/radarr.db"
+
+# It will order searches by the year the EPISODE was first aired
+SearchByYear = true
+
+# First year to search; Remove this field to set it to the current year.
+StartYear = 2021
+
+# Last Year to Search
+LastYear = 1990
+
+# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
+SearchInReverse = false
+
+# Delay between request searches in seconds
+SearchRequestsEvery = 1800
+
+# Search movies which already have a file in the database in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = false
+
+
+[Radarr-4K.EntrySearch.Ombi]
+# Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
+SearchOmbiRequests = false
+
+# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+OmbiURI = "http://localhost:5000"
+
+# Ombi's API Key
+OmbiAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Radarr-4K.EntrySearch.Overseerr]
+# Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
+# If this and Ombi are both enable, Ombi will be ignored
+SearchOverseerrRequests = false
+
+# Overseerr's URI
+OverseerrURI = "http://localhost:5055"
+
+# Overseerr's API Key
+OverseerrAPIKey = "CHANGE_ME"
+
+# Only process approved requests
+ApprovedOnly = true
+
+
+[Radarr-4K.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings.
+FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 180
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = 18000
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = false
+
+
+[Radarr-4K.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Set the Maximum allowed download rate for torrents
+RemoveDeadTrackers = false
+
+
+[[Radarr-4K.Torrent.Trackers]]
+Name = "Rarbg-2810"
+Priority = 1
+URI = "udp://9.rarbg.com:2810/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["qbitrr-Rarbg", "Movies and TV", "4K"]
+
+[[Radarr-4K.Torrent.Trackers]]
+Name = "Rarbg-2740"
+Priority = 2
+URI = "udp://9.rarbg.to:2740/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["4K"]
