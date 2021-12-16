@@ -4,6 +4,7 @@ import contextlib
 import logging
 import time
 from logging import Logger
+from typing import Iterable
 
 import coloredlogs
 
@@ -83,10 +84,11 @@ def addLoggingLevel(
 
 
 def _update_config():
-    global APPDATA_FOLDER, COMPLETED_DOWNLOAD_FOLDER, CONSOLE_LOGGING_LEVEL_STRING, FAILED_CATEGORY, IGNORE_TORRENTS_YOUNGER_THAN, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, PING_URLS, RECHECK_CATEGORY
+    global APPDATA_FOLDER, CONFIG, COMPLETED_DOWNLOAD_FOLDER, CONSOLE_LOGGING_LEVEL_STRING, FAILED_CATEGORY, IGNORE_TORRENTS_YOUNGER_THAN, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, PING_URLS, RECHECK_CATEGORY
     from qBitrr.config import (
         APPDATA_FOLDER,
         COMPLETED_DOWNLOAD_FOLDER,
+        CONFIG,
         CONSOLE_LOGGING_LEVEL_STRING,
         FAILED_CATEGORY,
         IGNORE_TORRENTS_YOUNGER_THAN,
@@ -100,7 +102,7 @@ def _update_config():
 HAS_RUN = False
 
 
-def run_logs(logger: Logger) -> None:
+def run_logs(logger: Logger, configkeys: Iterable | None = None) -> None:
     global HAS_RUN
     with contextlib.suppress(Exception):
         addLoggingLevel("SUCCESS", logging.INFO + 5, "success")
@@ -111,9 +113,19 @@ def run_logs(logger: Logger) -> None:
     with contextlib.suppress(Exception):
         addLoggingLevel("TRACE", logging.DEBUG - 5, "trace")
     _update_config()
+    try:
+        if configkeys is None:
+            from qBitrr.config import CONFIG
+
+            configkeys = CONFIG.sections()
+        key_length = max(len(max(configkeys, key=len)), 10)
+    except BaseException as e:
+        print(e)
+        key_length = 10
     coloredlogs.install(
         level=logging._levelToName.get(CONSOLE_LOGGING_LEVEL_STRING),
-        fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] %(levelname)-8s: %(name)-20s: %(message)s",
+        fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] "
+        f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
         level_styles=dict(
             trace=dict(color="black", bold=True),
             debug=dict(color="magenta", bold=True),
@@ -133,6 +145,7 @@ def run_logs(logger: Logger) -> None:
             name=dict(color="blue", bold=True),
             thread=dict(color="cyan"),
         ),
+        reconfigure=True,
     )
     if HAS_RUN is False:
         logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
@@ -152,7 +165,7 @@ def run_logs(logger: Logger) -> None:
         HAS_RUN = True
 
 
-def dynamic_update() -> str:
+def dynamic_update(configkeys: list | None = None) -> str:
     _update_config()
     global log
     from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING, COPIED_TO_NEW_DIR
@@ -167,6 +180,6 @@ def dynamic_update() -> str:
     if COPIED_TO_NEW_DIR:
         logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
         time.sleep(5)
-    run_logs(logger)
+    run_logs(logger, configkeys)
     logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
     return CONSOLE_LOGGING_LEVEL_STRING

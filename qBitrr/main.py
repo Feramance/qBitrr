@@ -11,7 +11,7 @@ from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.config import CONFIG, update_config
-from qBitrr.ffprobe import FFmpegDownloader
+from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 
 
@@ -28,7 +28,7 @@ class qBitManager:
         self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
         self.logger = logging.getLogger(
-            "qBitManager",
+            "Manager",
         )
         self._LOG_LEVEL = loglevel or "NOTICE"
         self.logger.setLevel(level=loglevel)
@@ -51,7 +51,7 @@ class qBitManager:
         self.name_cache = dict()
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
-        self.ffprobe_downloader = FFmpegDownloader(self.logger)
+        self.ffprobe_downloader = FFprobeDownloader(self.logger)
         try:
             self.ffprobe_downloader.update()
         except Exception as e:
@@ -59,6 +59,7 @@ class qBitManager:
                 "FFprobe manager error: %s while attempting to download/update FFprobe", e
             )
         self.arr_manager = ArrManager(self).build_arr_instances()
+        run_logs(self.logger, self.arr_manager.category_allowlist)
 
     @response_text(str)
     @login_required
@@ -84,7 +85,7 @@ class qBitManager:
         return False
 
     def run(self) -> NoReturn:
-        run_logs(self.logger)
+        run_logs(self.logger, self.arr_manager.category_allowlist)
         self.logger.hnotice("Managing %s categories", len(self.arr_manager.managed_objects))
         count = 0
         procs = []
@@ -139,6 +140,7 @@ def run():
     loglevel = isinstance(early_exist, str)
     logger.notice("Starting qBitrr.")
     manager = qBitManager(loglevel=early_exist if loglevel else None)
+    run_logs(logger, manager.arr_manager.category_allowlist)
     try:
         manager.run()
     except KeyboardInterrupt:

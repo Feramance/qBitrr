@@ -103,7 +103,7 @@ class Arr:
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
         self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger)
+        run_logs(self.logger, self.manager.category_allowlist)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Move")
@@ -2870,7 +2870,7 @@ class Arr:
                 time.sleep(e.length)
 
     def run_search_loop(self) -> NoReturn:
-        run_logs(self.logger)
+        run_logs(self.logger, self.manager.category_allowlist)
         self.logger.setLevel(self._LOG_LEVEL)
         self.register_search_mode()
         if not self.search_missing:
@@ -2953,7 +2953,7 @@ class Arr:
                 time.sleep(5)
 
     def run_torrent_loop(self) -> NoReturn:
-        run_logs(self.logger)
+        run_logs(self.logger, self.manager.category_allowlist)
         self.logger.setLevel(self._LOG_LEVEL)
         while True:
             try:
@@ -3059,7 +3059,7 @@ class PlaceHolderArr(Arr):
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
         self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger)
+        run_logs(self.logger, self.manager.category_allowlist)
         self.search_missing = False
         self.session = None
 
@@ -3160,7 +3160,7 @@ class ArrManager:
         )
         self._LOG_LEVEL = self.qbit_manager.logger.level
         self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger)
+        run_logs(self.logger, self.category_allowlist)
         if not self.ffprobe_available:
             self.logger.error(
                 "'%s' was not found, disabling all functionality dependant on it",

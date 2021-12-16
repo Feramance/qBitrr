@@ -17,12 +17,12 @@ def _update_config():
     from qBitrr.config import CONFIG, FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
 
 
-class FFmpegDownloader:
+class FFprobeDownloader:
     def __init__(self, logger: logging.Logger):
         _update_config()
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
-        self.logger = logging.getLogger("FFmpegDownloader")
+        self.logger = logging.getLogger("FFprobe")
         self.logger.setLevel(level=logger.level)
         run_logs(self.logger)
 

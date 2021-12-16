@@ -64,7 +64,7 @@ def update_config(file: str | None = None) -> str:
     IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600)
     from qBitrr.logger import dynamic_update
 
-    dynamic_update()
+    dynamic_update(CONFIG.sections())
     return CONSOLE_LOGGING_LEVEL_STRING
 
 
