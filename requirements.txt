@@ -1,6 +1,6 @@
 colorama
+coloredlogs
 ffmpeg-python
-logbook
 pathos
 peewee
 ping3

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from typing import NoReturn
 
-import logbook
 import qbittorrentapi
 import requests
 from qbittorrentapi import APINames, login_required, response_text
@@ -11,8 +11,7 @@ from qbittorrentapi import APINames, login_required, response_text
 from qBitrr.arss import ArrManager
 from qBitrr.config import CONFIG, update_config
 from qBitrr.ffprobe import FFmpegDownloader
-
-logger = logbook.Logger("qBitManager")
+from qBitrr.logger import run_logs
 
 
 def _update_config():
@@ -21,19 +20,22 @@ def _update_config():
 
 
 class qBitManager:
-    def __init__(self):
+    def __init__(self, loglevel: str | None = None):
         _update_config()
         self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
-        logger.debug(
-            "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
-            "Password: {qBit_Password}",
-            qBit_Host=self.qBit_Host,
-            qBit_Port=self.qBit_Port,
-            qBit_UserName=self.qBit_UserName,
-            qBit_Password=self.qBit_Password,
+        self.logger = logging.getLogger(
+            "qBitManager",
+        )
+        run_logs(self.logger)
+        self.logger.debug(
+            "QBitTorrent Config: Host: %s Port: %s, Username: %s, " "Password: %s",
+            self.qBit_Host,
+            self.qBit_Port,
+            self.qBit_UserName,
+            self.qBit_Password,
         )
         self.client = qbittorrentapi.Client(
             host=self.qBit_Host,
@@ -42,17 +44,16 @@ class qBitManager:
             password=self.qBit_Password,
             SIMPLE_RESPONSES=False,
         )
-        self.logger = logger
         self.cache = dict()
         self.name_cache = dict()
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
-        self.ffprobe_downloader = FFmpegDownloader()
+        self.ffprobe_downloader = FFmpegDownloader(self.logger)
         try:
             self.ffprobe_downloader.update()
         except Exception as e:
             self.logger.error(
-                "FFprobe manager error: {e} while attempting to download/update FFprobe", e=e
+                "FFprobe manager error: %s while attempting to download/update FFprobe", e
             )
         self.arr_manager = ArrManager(self).build_arr_instances()
 
@@ -71,19 +72,17 @@ class qBitManager:
     def is_alive(self) -> bool:
         try:
             self.client.app_version()
-            self.logger.trace(
-                "Successfully connected to {url}:{port}", url=self.qBit_Host, port=self.qBit_Port
-            )
+            self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
             return True
         except requests.RequestException:
 
-            self.logger.warning(
-                "Could not connect to {url}:{port}", url=self.qBit_Host, port=self.qBit_Port
-            )
+            self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)
         self.should_delay_torrent_scan = True
         return False
 
     def run(self) -> NoReturn:
+        run_logs(self.logger)
+        self.logger.notice("Spawning %s child processes", len(self.arr_manager.managed_objects))
         for arr in self.arr_manager.managed_objects.values():
             arr.spawn_child_processes()
 
@@ -91,7 +90,7 @@ class qBitManager:
             p.join()
 
 
-def process_flags() -> bool | None:
+def process_flags() -> bool | str | None:
     parser = argparse.ArgumentParser(description="An interface to interact with qBit and *arrs.")
     parser.add_argument(
         "--config",
@@ -116,21 +115,21 @@ def process_flags() -> bool | None:
         _write_config_file()
         return True
 
-    update_config(args.config)
-
-    return
+    log_level = update_config(args.config)
+    return log_level
 
 
 def run():
     early_exist = process_flags()
-    if early_exist:
+    if early_exist is True:
         return
-
-    manager = qBitManager()
+    loglevel = isinstance(early_exist, str)
+    logging.notice("Starting qBitrr.")
+    manager = qBitManager(loglevel=early_exist if loglevel else None)
     try:
         manager.run()
     finally:
-        logger.notice("Terminating child processed, please wait a moment.")
+        logging.notice("Terminating child processed, please wait a moment.")
         for child in manager.child_processes:
             child.terminate()
 

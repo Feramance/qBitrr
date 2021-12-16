@@ -1,10 +1,11 @@
-import os
-import sys
-import time
+from __future__ import annotations
 
-import logbook
-from logbook import StreamHandler
-from logbook.more import ColorizingStreamHandlerMixin
+import contextlib
+import logging
+import time
+from logging import Logger
+
+import coloredlogs
 
 from qBitrr.config import (
     APPDATA_FOLDER,
@@ -20,38 +21,62 @@ from qBitrr.config import (
 
 __all__ = ()
 
-logging_map = {
-    "CRITICAL": logbook.CRITICAL,
-    "ERROR": logbook.ERROR,
-    "WARNING": logbook.WARNING,
-    "NOTICE": logbook.NOTICE,
-    "INFO": logbook.INFO,
-    "DEBUG": logbook.DEBUG,
-    "TRACE": logbook.TRACE,
-}
 
+def addLoggingLevel(
+    levelName, levelNum, methodName=None
+):  # Credits goes to Mad Physicist https://stackoverflow.com/a/35804945
+    """
+    Comprehensively adds a new logging level to the `logging` module and the
+    currently configured logging class.
 
-def update_logbook():
-    _level_names = {
-        17: "HNOTICE",
-        16: "SUCCESS",
-        logbook.CRITICAL: "CRITICAL",
-        logbook.ERROR: "ERROR",
-        logbook.WARNING: "WARNING",
-        logbook.NOTICE: "NOTICE",
-        logbook.INFO: "INFO",
-        logbook.DEBUG: "DEBUG",
-        logbook.TRACE: "TRACE",
-        logbook.NOTSET: "NOTSET",
-    }
-    _reverse_level_names = {v: k for (k, v) in dict.items(_level_names)}
-    setattr(logbook, "_level_names", _level_names)
-    setattr(logbook, "_reverse_level_names", _reverse_level_names)
-    setattr(logbook.base, "_level_names", _level_names)
-    setattr(logbook.base, "_reverse_level_names", _reverse_level_names)
+    `levelName` becomes an attribute of the `logging` module with the value
+    `levelNum`. `methodName` becomes a convenience method for both `logging`
+    itself and the class returned by `logging.getLoggerClass()` (usually just
+    `logging.Logger`). If `methodName` is not specified, `levelName.lower()` is
+    used.
 
+    To avoid accidental clobberings of existing attributes, this method will
+    raise an `AttributeError` if the level name is already an attribute of the
+    `logging` module or if the method name is already present
 
-update_logbook()
+    Example
+    -------
+    >>> addLoggingLevel('TRACE', logging.DEBUG - 5)
+    >>> logging.getLogger(__name__).setLevel("TRACE")
+    >>> logging.getLogger(__name__).trace('that worked')
+    >>> logging.trace('so did this')
+    >>> logging.TRACE
+    5
+
+    """
+    if not methodName:
+        methodName = levelName.lower()
+
+    if hasattr(logging, levelName):
+        raise AttributeError(f"{levelName} already defined in logging module")
+    if hasattr(logging, methodName):
+        raise AttributeError(f"{methodName} already defined in logging module")
+    if hasattr(logging.getLoggerClass(), methodName):
+        raise AttributeError(f"{methodName} already defined in logger class")
+
+    # This method was inspired by the answers to Stack Overflow post
+    # http://stackoverflow.com/q/2183233/2988730, especially
+    # http://stackoverflow.com/a/13638084/2988730
+    def logForLevel(self, message, *args, **kwargs):
+        if self.isEnabledFor(levelNum):
+            self._log(levelNum, message, args, **kwargs)
+
+    def logToRoot(message, *args, **kwargs):
+        logging.log(levelNum, message, *args, **kwargs)
+
+    logging.addLevelName(levelNum, levelName)
+    setattr(logging, levelName, levelNum)
+    setattr(logging.getLoggerClass(), methodName, logForLevel)
+    setattr(logging, methodName, logToRoot)
+
+    for logger in logging.root.manager.loggerDict.values():
+        setattr(logger, levelName, levelNum)
+        setattr(logger, methodName, logToRoot)
 
 
 def _update_config():
@@ -69,119 +94,76 @@ def _update_config():
     )
 
 
-class CustomColorizedStdoutHandler(ColorizingStreamHandlerMixin, StreamHandler):
-    def __init__(self, *args, **kwargs):
-        self.imported_colorama = False
-        StreamHandler.__init__(self, *args, **kwargs)
-        try:
-            import colorama
-
-            self.imported_colorama = True
-        except ImportError:
-            pass
-        else:
-            colorama.init()
-
-    def should_colorize(self, record):
-        """Returns `True` if colorizing should be applied to this
-        record.  The default implementation returns `True` if the
-        stream is a tty. If we are executing on Windows, colorama must be
-        installed.
-        """
-        # The default implementation of this is awfully inefficient.
-        # As reimport on every single format() call
-        if os.name == "nt" and not self.imported_colorama:
-            try:
-                import colorama  # noqa
-
-                self.imported_colorama = True
-            except ImportError:
-                return False
-        if self._use_color is not None:
-            return self._use_color
-        isatty = getattr(self.stream, "isatty", None)
-        return isatty and isatty()
-
-    def get_color(self, record):
-        if record.level >= 17:
-            return "yellow"
-        elif record.level >= 16:
-            return "darkgreen"
-        elif record.level >= logbook.CRITICAL:
-            return "darkred"
-        elif record.level >= logbook.ERROR:
-            return "red"
-        elif record.level >= logbook.WARNING:
-            return "darkyellow"
-        elif record.level >= logbook.NOTICE:
-            return "darkteal"
-        elif record.level >= logbook.INFO:
-            return "white"
-        elif record.level >= logbook.DEBUG:
-            return "fuchsia"
-        elif record.level >= logbook.TRACE:
-            return "darkgray"
-        return "lightgray"
-
-
-CONSOLE_LOGGING_LEVEL = logging_map.get(CONSOLE_LOGGING_LEVEL_STRING)
-log = CustomColorizedStdoutHandler(
-    sys.stdout,
-    level=CONSOLE_LOGGING_LEVEL,
-    format_string="[{record.time:%Y-%m-%d %H:%M:%S.%f%z}] [{record.thread}] {record.level_name}: {record.channel}: {record.message}",
-)
-log.push_application()
-
-
-def _update_logger_level() -> None:
-    global log
-    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
-
-    log.level = logging_map.get(CONSOLE_LOGGING_LEVEL_STRING)
-
-
-logger = logbook.Logger("Misc")
 HAS_RUN = False
 
 
-def run_logs() -> None:
+def run_logs(logger: Logger) -> None:
     global HAS_RUN
+    with contextlib.suppress(Exception):
+        addLoggingLevel("SUCCESS", logging.INFO + 5, "success")
+    with contextlib.suppress(Exception):
+        addLoggingLevel("HNOTICE", logging.INFO + 4, "hnotice")
+    with contextlib.suppress(Exception):
+        addLoggingLevel("NOTICE", logging.INFO + 3, "notice")
+    with contextlib.suppress(Exception):
+        addLoggingLevel("TRACE", logging.DEBUG - 5, "trace")
+
+    coloredlogs.install(
+        level=CONSOLE_LOGGING_LEVEL_STRING,
+        fmt="[%(asctime)s] [pid:%(process)d][tid:%(thread)d] %(name)s: %(levelname)s: %(message)s",
+        level_styles=dict(
+            trace=dict(color="black", bold=True),
+            debug=dict(color="magenta", bold=True),
+            verbose=dict(color="blue", bold=True),
+            info=dict(color="white"),
+            notice=dict(color="cyan"),
+            hnotice=dict(color="cyan", bold=True),
+            warning=dict(color="yellow", bold=True),
+            success=dict(color="green", bold=True),
+            error=dict(color="red"),
+            critical=dict(color="red", bold=True),
+        ),
+        field_styles=dict(
+            asctime=dict(color="green"),
+            process=dict(color="magenta"),
+            levelname=dict(color="black", bold=True),
+            name=dict(color="blue", bold=True),
+            thread=dict(color="cyan"),
+        ),
+    )
+    if HAS_RUN is False:
+        logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
+        logger.debug("Ping URLs:  %s", PING_URLS)
+        logger.debug("Script Config:  FailedCategory=%s", FAILED_CATEGORY)
+        logger.debug("Script Config:  RecheckCategory=%s", RECHECK_CATEGORY)
+        logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
+        logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
+        logger.debug(
+            "Script Config:  NoInternetSleepTimer=%s",
+            NO_INTERNET_SLEEP_TIMER,
+        )
+        logger.debug(
+            "Script Config:  IgnoreTorrentsYoungerThan=%s",
+            IGNORE_TORRENTS_YOUNGER_THAN,
+        )
+        HAS_RUN = True
+
+
+def dynamic_update() -> str:
     _update_config()
-    logger.debug("Ping URLs:  {PingURLS}", PingURL=PING_URLS)
-    logger.debug("Script Config:  FailedCategory={FailedCategory}", FailedCategory=FAILED_CATEGORY)
-    logger.debug(
-        "Script Config:  RecheckCategory={RecheckCategory}", RecheckCategory=RECHECK_CATEGORY
-    )
-    logger.debug(
-        "Script Config:  CompletedDownloadFolder={Folder}", Folder=COMPLETED_DOWNLOAD_FOLDER
-    )
-    logger.debug(
-        "Script Config:  LoopSleepTimer={LoopSleepTimer}", LoopSleepTimer=LOOP_SLEEP_TIMER
-    )
-    logger.debug(
-        "Script Config:  NoInternetSleepTimer={NoInternetSleepTimer}",
-        NoInternetSleepTimer=NO_INTERNET_SLEEP_TIMER,
-    )
-    logger.debug(
-        "Script Config:  IgnoreTorrentsYoungerThan={IgnoreTorrentsYoungerThan}",
-        IgnoreTorrentsYoungerThan=IGNORE_TORRENTS_YOUNGER_THAN,
-    )
-    HAS_RUN = True
+    global log
+    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING, COPIED_TO_NEW_DIR
 
-
-if not HAS_RUN:
-    _update_config()
-    from qBitrr.config import COPIED_TO_NEW_DIR
-
+    CONSOLE_LOGGING_LEVEL = logging._nameToLevel.get(CONSOLE_LOGGING_LEVEL_STRING)
+    logger = logging.getLogger("Misc")
     if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
-        logbook.warning(
-            "Config.toml should exist in '{APPDATA_FOLDER}', in a future update this will be a requirement.",
-            APPDATA_FOLDER=APPDATA_FOLDER,
+        logger.warning(
+            "Config.toml should exist in '%s', in a future update this will be a requirement.",
+            APPDATA_FOLDER,
         )
         time.sleep(5)
     if COPIED_TO_NEW_DIR:
-        logbook.warning(
-            "Config.toml new location is {APPDATA_FOLDER}", APPDATA_FOLDER=APPDATA_FOLDER
-        )
+        logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
         time.sleep(5)
-    run_logs()
+    run_logs(logger)
+    return CONSOLE_LOGGING_LEVEL

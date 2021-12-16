@@ -64,6 +64,7 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(
         comment("Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)")
     )
+    settings.add(comment("Only applicable to Re-check and failed categories"))
     settings.add("IgnoreTorrentsYoungerThan", 180)
     settings.add(nl())
     settings.add(comment("URL to be pinged to check if you have a valid internet connection"))

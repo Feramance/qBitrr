@@ -1,28 +1,30 @@
 import io
 import json
+import logging
 import platform
 import sys
 import typing
 import zipfile
 
-import logbook
 import requests
 
 from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
-
-logger = logbook.Logger("FFmpegDownloader")
+from qBitrr.logger import run_logs
 
 
 def _update_config():
-    global FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
-    from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
+    global FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE, CONFIG
+    from qBitrr.config import CONFIG, FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
 
 
 class FFmpegDownloader:
-    def __init__(self):
+    def __init__(self, logger: logging.Logger):
         _update_config()
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
+        self.logger = logging.getLogger("FFmpegDownloader")
+        run_logs(self.logger)
+
         self.platform = platform.system()
         if self.platform == "Windows":
             self.probe_path = FF_PROBE.with_suffix(".exe")
@@ -33,7 +35,7 @@ class FFmpegDownloader:
         with requests.Session() as session:
             with session.get(self.api) as response:
                 if response.status_code != 200:
-                    logger.warning("Failed to retrieve ffprobe version from API.")
+                    self.logger.warning("Failed to retrieve ffprobe version from API.")
                     return {}
                 return response.json()
 
@@ -43,7 +45,7 @@ class FFmpegDownloader:
                 data = json.load(file)
             return data.get("version")
         except Exception:  # If file can't be found or read or parsed
-            logger.warning("Failed to retrieve current ffprobe version.")
+            self.logger.warning("Failed to retrieve current ffprobe version.")
             return ""
 
     def update(self):
@@ -54,27 +56,29 @@ class FFmpegDownloader:
         upstream_data = self.get_upstream_version()
         upstream_version = upstream_data.get("version")
         if upstream_version is None:
-            logger.debug("Failed to retrieve ffprobe version from API.'upstream_version' is None")
+            self.logger.debug(
+                "Failed to retrieve ffprobe version from API.'upstream_version' is None"
+            )
             return
         probe_file_exists = self.probe_path.exists()
         if current_version == upstream_version and probe_file_exists:
-            logger.debug("Current FFprobe is up to date.")
+            self.logger.debug("Current FFprobe is up to date.")
             return
         arch_key = self.get_arch()
         urls = upstream_data.get("bin", {}).get(arch_key)
         if urls is None:
-            logger.debug("Failed to retrieve ffprobe version from API.'urls' is None")
+            self.logger.debug("Failed to retrieve ffprobe version from API.'urls' is None")
             return
         ffprobe_url = urls.get("ffprobe")
-        logger.debug("Downloading newer FFprobe: {url}", url=ffprobe_url)
+        self.logger.debug("Downloading newer FFprobe: %s", ffprobe_url)
         self.download_and_extract(ffprobe_url)
-        logger.debug("Updating local version of FFprobe: {version}", version=upstream_version)
+        self.logger.debug("Updating local version of FFprobe: %s", upstream_version)
         self.version_file.write_text(json.dumps({"version": upstream_version}))
 
     def download_and_extract(self, ffprobe_url):
         r = requests.get(ffprobe_url)
         z = zipfile.ZipFile(io.BytesIO(r.content))
-        logger.debug("Extracting downloaded FFprobe to: {folder}", folder=FF_PROBE.parent)
+        self.logger.debug("Extracting downloaded FFprobe to: %s", FF_PROBE.parent)
         z.extract(member=self.probe_path.name, path=FF_PROBE.parent)
 
     def get_arch(self):

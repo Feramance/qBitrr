@@ -1,14 +1,11 @@
+import logging
 import pathlib
 import random
 import socket
 import time
 from typing import Iterator, Union
 
-import logbook
 import ping3
-
-logger = logbook.Logger("Utilities")
-
 
 ping3.EXCEPTIONS = True
 
@@ -20,7 +17,7 @@ def absolute_file_paths(directory: Union[pathlib.Path, str]) -> Iterator[pathlib
             yield from pathlib.Path(directory).glob("**/*")
             error = False
         except FileNotFoundError as e:
-            logger.warning("{e.strerror} - {e.filename}", e=e)
+            logging.warning("%s - %s", e.strerror, e.filename)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
@@ -29,11 +26,11 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         path = path.parent.absolute()
     count = 9
     while not path.exists():
-        logger.trace(
-            "Attempt {count}/10: File does not yet exists! (Possibly being moved?) | "
-            "{path} | Sleeping for 0.1s",
-            path=path,
-            count=10 - count,
+        logging.trace(
+            "Attempt %s/10: File does not yet exists! (Possibly being moved?) | "
+            "%s | Sleeping for 0.1s",
+            path,
+            10 - count,
         )
         time.sleep(0.1)
         if count == 0:
@@ -46,11 +43,11 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         if path.is_file():
             path = path.parent.absolute()
         while not path.exists():
-            logger.trace(
-                "Attempt {count}/10:File does not yet exists! (Possibly being moved?) | "
-                "{path} | Sleeping for 0.1s",
-                path=path,
-                count=10 - count,
+            logging.trace(
+                "Attempt %s/10:File does not yet exists! (Possibly being moved?) | "
+                "%s | Sleeping for 0.1s",
+                path,
+                10 - count,
             )
             time.sleep(0.1)
             if count == 0:
@@ -70,7 +67,7 @@ def has_internet():
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False
-    logger.trace("Successfully connected to {url}", url=url)
+    logging.trace("Successfully connected to %s", url)
     return True
 
 
@@ -86,11 +83,11 @@ def _basic_ping(hostname):
         s.close()
         return True
     except Exception as e:
-        logger.trace(
-            "Error when connecting to host: {hostname} {host} {e}",
-            hostname=hostname,
-            host=host,
-            e=e,
+        logging.trace(
+            "Error when connecting to host: %s %s %s",
+            hostname,
+            host,
+            e,
         )
         return False
 
@@ -100,10 +97,10 @@ def is_connected(hostname):
         ping3.ping(hostname, timeout=2)
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
-        logger.trace(
-            "Error when connecting to host: {hostname} {e}",
-            hostname=hostname,
-            e=e,
+        logging.trace(
+            "Error when connecting to host: %s %s",
+            hostname,
+            e,
         )
     except Exception:  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
         return _basic_ping(hostname)
