@@ -54,23 +54,15 @@ def update_config(file: str | None = None):
         else:
             CONFIG = MyConfig(str(CONFIG_FILE))
 
-    FFPROBE_AUTO_UPDATE = CONFIG.get_section("Settings").get("FFprobeAutoUpdate", fallback=True)
-    FAILED_CATEGORY = CONFIG.get_section("Settings").get("FailedCategory", fallback="failed")
-    RECHECK_CATEGORY = CONFIG.get_section("Settings").get("RecheckCategory", fallback="recheck")
-    CONSOLE_LOGGING_LEVEL_STRING = CONFIG.get_section("Settings").get(
-        "ConsoleLevel", fallback="NOTICE"
-    )
-    COMPLETED_DOWNLOAD_FOLDER = CONFIG.get_section("Settings").get("CompletedDownloadFolder")
-    NO_INTERNET_SLEEP_TIMER = CONFIG.get_section("Settings").get(
-        "NoInternetSleepTimer", fallback=60
-    )
-    LOOP_SLEEP_TIMER = CONFIG.get_section("Settings").get("LoopSleepTimer", fallback=5)
-    PING_URLS = CONFIG.get_section("Settings").get(
-        "PingURLS", fallback=["one.one.one.one", "dns.google"]
-    )
-    IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get_section("Settings").get(
-        "IgnoreTorrentsYoungerThan", fallback=600
-    )
+    FFPROBE_AUTO_UPDATE = CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
+    FAILED_CATEGORY = CONFIG.get("Settings.FailedCategory", fallback="failed")
+    RECHECK_CATEGORY = CONFIG.get("Settings.RecheckCategory", fallback="recheck")
+    CONSOLE_LOGGING_LEVEL_STRING = CONFIG.get("Settings.ConsoleLevel", fallback="NOTICE")
+    COMPLETED_DOWNLOAD_FOLDER = CONFIG.get_or_raise("CompletedDownloadFolder")
+    NO_INTERNET_SLEEP_TIMER = CONFIG.get("Settings.NoInternetSleepTimer", fallback=60)
+    LOOP_SLEEP_TIMER = CONFIG.get("Settings.LoopSleepTimer", fallback=5)
+    PING_URLS = CONFIG.get("PSettings.ingURLS", fallback=["one.one.one.one", "dns.google"])
+    IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600)
 
     from qBitrr.logger import _update_logger_level
 

@@ -1,4 +1,4 @@
-/config.ini
+/config.toml
 .idea
 /qBitrr/test.py
 /qBitrr.egg-info/

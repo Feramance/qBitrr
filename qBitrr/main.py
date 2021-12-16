@@ -17,10 +17,10 @@ logger = logbook.Logger("qBitManager")
 
 class qBitManager:
     def __init__(self):
-        self.qBit_Host = CONFIG.get_section("QBit").get("Host", fallback="localhost")
-        self.qBit_Port = CONFIG.get_section("QBit").get("Port")
-        self.qBit_UserName = CONFIG.get_section("QBit").get("UserName")
-        self.qBit_Password = CONFIG.get_section("QBit").get("Password", fallback=None)
+        self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
+        self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
+        self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
+        self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
         logger.debug(
             "QBitTorrent Config: Host: {qBit_Host}, Port: {qBit_Port}, Username: {qBit_UserName}, "
             "Password: {qBit_Password}",

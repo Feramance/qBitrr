@@ -88,7 +88,7 @@ AlsoSearchSpecials = false
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
 
-# Servarr Databapth file path
+# Servarr Datapath file path
 # This is required for any of the search functionality to work
 # The only exception for this is the "ReSearch" setting as that is done via an API call.
 DatabaseFile = "CHANGE_ME/sonarr.db"
@@ -210,6 +210,7 @@ MaxSeedingTime = -1
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
 
+# You can have multiple trackers set here or none just add more subsections.
 
 [Sonarr-Anime]
 # Toggle whether to manage the Servarr instance torrents.
@@ -250,7 +251,7 @@ AlsoSearchSpecials = false
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
 
-# Servarr Databapth file path
+# Servarr Datapath file path
 # This is required for any of the search functionality to work
 # The only exception for this is the "ReSearch" setting as that is done via an API call.
 DatabaseFile = "CHANGE_ME/sonarr.db"
@@ -371,6 +372,7 @@ MaxSeedingTime = -1
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
 
+# You can have multiple trackers set here or none just add more subsections.
 
 [[Sonarr-Anime.Torrent.Trackers]]
 Name = "Nyaa"
@@ -428,7 +430,7 @@ AlsoSearchSpecials = false
 # That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
 SearchLimit = 5
 
-# Servarr Databapth file path
+# Servarr Datapath file path
 # This is required for any of the search functionality to work
 # The only exception for this is the "ReSearch" setting as that is done via an API call.
 DatabaseFile = "CHANGE_ME/radarr.db"
@@ -543,6 +545,7 @@ MaxSeedingTime = -1
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
 
+# You can have multiple trackers set here or none just add more subsections.
 
 [[Radarr-1080.Torrent.Trackers]]
 Name = "Rarbg-2810"
@@ -613,7 +616,7 @@ AlsoSearchSpecials = false
 # That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
 SearchLimit = 5
 
-# Servarr Databapth file path
+# Servarr Datapath file path
 # This is required for any of the search functionality to work
 # The only exception for this is the "ReSearch" setting as that is done via an API call.
 DatabaseFile = "CHANGE_ME/radarr.db"
@@ -728,6 +731,7 @@ MaxSeedingTime = -1
 # Set the Maximum allowed download rate for torrents
 RemoveDeadTrackers = false
 
+# You can have multiple trackers set here or none just add more subsections.
 
 [[Radarr-4K.Torrent.Trackers]]
 Name = "Rarbg-2810"

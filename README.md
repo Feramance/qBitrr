@@ -34,7 +34,7 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 
 Some things to know before using it.
 
-- 1. You need to copy the `config.example.ini` and rename it to `~/.config/qBitManager/config.ini` (~ is your home directory, i.e `C:\Users\{User}`)
+- 1. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
 - 2. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - 3. I have qBit setup to have to create sub-folder for downloads and for the download folder to
      use subcategories.
@@ -49,7 +49,7 @@ Some things to know before using it.
 
 #### Run the script
 
-- Make sure to update the settings in `~/.config/qBitManager/config.ini`
+- Make sure to update the settings in `~/.config/qBitManager/config.toml`
 - Activate your venv
 - Run `qbitrr`
 

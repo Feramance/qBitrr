@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import pathlib
 from datetime import datetime
-from typing import Any, Callable, TypeVar
+from functools import reduce
+from typing import Any, TypeVar
 
 from tomlkit import comment, document, nl, parse, table
 from tomlkit.items import Table
@@ -404,7 +405,9 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
             tracker_table.add(nl())
 
         tracker_table_list.append(tracker_table)
-
+    torrent_table.add(
+        comment("You can have multiple trackers set here or none just add more subsections.")
+    )
     torrent_table.add("Trackers", tracker_table_list)
 
 
@@ -571,27 +574,19 @@ class MyConfig:
 
     path: pathlib.Path
     config: TOMLDocument
+    defaults_config: TOMLDocument
 
     def __init__(self, path: str, config: TOMLDocument | None = None):
         self.path = pathlib.Path(path)
         self._giving_data = bool(config)
         self.config = config or document()
-        self.section = {}
-        self.active_section = "default"
+        self.defaults_config = generate_doc()
         self.err = None
         self.state = True
         self.load()
 
     def __str__(self):
         return self.config.as_string()
-
-    def add_section(self, section_name: str) -> MyConfig:
-        if self.state:
-            if not self.config.get(section_name):
-                self.config[section_name] = {}
-                self.get_section(section_name)
-                self.save()
-        return self
 
     def load(self) -> MyConfig:
         if self.state:
@@ -625,40 +620,25 @@ class MyConfig:
                 self.err = err
         return self
 
-    def set(self, **kwargs) -> MyConfig:
-        if self.state:
-            if isinstance(self.section, dict):
-                for key, value in kwargs.items():
-                    self.section[key] = value
-                self.save()
-        return self
+    def get(self, section: str, fallback: Any = None) -> T:
+        return self._deep_get(section, default=fallback)
 
-    def catch(self, callback: Callable) -> MyConfig:
-        if self.state is False:
-            callback(self)
-        return self
+    def get_or_raise(self, section: str) -> T:
+        if (r := self._deep_get(section, default=KeyError)) is KeyError:
+            raise KeyError(f"{section} does not exist")
+        return r
 
-    def get_section(self, section_name: str) -> MyConfig:
-        if self.state:
-            section = self.config.get(
-                section_name,
-                None if not isinstance(self.section, dict) else self.section.get(section_name),
-            )
-            if isinstance(section, dict):
-                self.active_section = section_name
-                self.section = section
-            else:
-                raise ValueError(
-                    f"{section_name} does not exist, valid sections are {self.config.keys()}"
-                )
-        return self
+    def sections(self):
+        return self.config.keys()
 
-    def get(self, param: str, fallback: Any = None) -> T:
-        if (value := self.section.get(param, ...)) is not ...:
-            value = value
-        else:
-            value = fallback
-        return value
+    def _deep_get(self, keys, default=...):
+        values = reduce(
+            lambda d, key: d.get(key, ...) if isinstance(d, dict) else ...,
+            keys.split("."),
+            self.config,
+        )
+
+        return values if values is not ... else default
 
 
 def _write_config_file():
