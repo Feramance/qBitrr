@@ -1,14 +1,13 @@
 name: Publish to PyPi
 
 on:
-  push:
-    branches:
-    - master
+  release:
+    types:
+    - published
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[deploy]') }}
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python

@@ -1,4 +1,4 @@
-name: Version Bump
+name: Generate Change Logs
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
     - master
 
 jobs:
-  bump_version:
+  change_logs:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[patch]') || startsWith(github.event.head_commit.message, '[minor]') || startsWith(github.event.head_commit.message, '[major]') }}
+    if: ${{ startsWith(github.event.head_commit.message, '[auto-changelogs]') }}
     env:
-      RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' }}
+      RELEASE_TYPE: ${{ contains(github.event.head_commit.message, '[patch]') && 'patch' || contains(github.event.head_commit.message, '[minor]') && 'minor' ||contains(github.event.head_commit.message, '[major]') && 'major' }}
     steps:
     - uses: actions/checkout@v2
       with:
@@ -19,6 +19,10 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.x
+    - uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+    - run: npm install github-release-notes -g
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -27,15 +31,6 @@ jobs:
       run: |
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
-    - name: Bump Patch Version
-      env:
-        COMMIT_MSG: ${{ github.event.head_commit.message }}
-      run: |
-        bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }} setup.cfg
-    - name: Retrieve new version
-      run: |
-        echo "::set-output name=VERSION::$(python setup.py --version)"
-      id: new_version
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
@@ -44,11 +39,16 @@ jobs:
         git_commit_gpgsign: true
         git_tag_gpgsign: true
       id: import_gpg
+    - name: Change logs
+      env:
+        GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
+      run: |
+        gren changelog --override
     - name: Git Auto Commit
       uses: stefanzweifel/git-auto-commit-action@v4.12.0
       with:
-        commit_message: '[auto-changelogs][${{ env.RELEASE_TYPE }}] Automated version bump: ${{ steps.current_version.outputs.VERSION }} >> ${{ steps.new_version.outputs.VERSION }}'
-        tagging_message: v${{ steps.new_version.outputs.VERSION }}
+        commit_message: '[auto-release] Generate changelogs for ${{ steps.current_version.outputs.VERSION }}'
+        tagging_message: v${{ steps.current_version.outputs.VERSION }}
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
