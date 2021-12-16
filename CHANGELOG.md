@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.0.0 (16/12/2021)
+- [[Major] Update README.md to contain CodeQL tag](https://github.com/Drapersniper/Qbitrr/commit/13513644770b566f12188a94d2a4aed2c685192e) - @Drapersniper
+- [update condition in code analysis workflow](https://github.com/Drapersniper/Qbitrr/commit/edf7425a5331a88bd3e26c10acca92ae50a07a38) - @Drapersniper
+- [Break up workflows](https://github.com/Drapersniper/Qbitrr/commit/01d0004277cc511e306343b5522a36522313908a) - @Drapersniper
+- [cleanup](https://github.com/Drapersniper/Qbitrr/commit/271aaf92afa3897f7770e4e6a1813438563372f6) - @Drapersniper
+- [add a separator to stale log lines](https://github.com/Drapersniper/Qbitrr/commit/460fc6bbefc303b597ea4b861650c3d34cbe6de2) - @Drapersniper
+- [set the log padding to be dynamically adjusted based on category names.](https://github.com/Drapersniper/Qbitrr/commit/8acc964904df7e66c5aa1283dddd4f1cebedfe9a) - @Drapersniper
+- [update README.md image](https://github.com/Drapersniper/Qbitrr/commit/f575c502069378b1c46c00b49977336dd3ff9cdc) - @Drapersniper
+- [Improve closing logic to gracefully close the script in a KeyboardInterrupt signal](https://github.com/Drapersniper/Qbitrr/commit/7a7ccf73a7a8696bfffae5d3bdeca31bf01a673a) - @Drapersniper
+- [ - allow user to specify which are the bad msgs to remove trackers with the "RemoveTrackerWithMessage" setting field](https://github.com/Drapersniper/Qbitrr/commit/bd794380fc8a3ebf60229dcf1e95c1584af5c0e6) - @Drapersniper
+- [Change logging library](https://github.com/Drapersniper/Qbitrr/commit/25d3c3c99058337f31c6ae3e0963b9cc6b251b07) - @Drapersniper
+- [Change logging library](https://github.com/Drapersniper/Qbitrr/commit/75e891f1205fe510d7965f5bb6f6a9deb8805c84) - @Drapersniper
+- [Fixes for bugs introduces by previous commits](https://github.com/Drapersniper/Qbitrr/commit/ee8fbafd7e54cd7355a0efa7ec409e37e85d09dd) - @Drapersniper
+- [Fixes for bugs introduces by previous commits](https://github.com/Drapersniper/Qbitrr/commit/c374053e54544adfb3d3db238fcaa0a9d7e0f540) - @Drapersniper
+- [Fixes for bugs introduces by previous commits](https://github.com/Drapersniper/Qbitrr/commit/8fb3be79b5286c5ac528eeffd979d065e14bc76b) - @Drapersniper
+- [Clean up and finalize changes to new toml config format](https://github.com/Drapersniper/Qbitrr/commit/6f74db5b2c8b0b3141f22455a527ab00f9165fae) - @Drapersniper
+- [Multiple enhancements and fixes](https://github.com/Drapersniper/Qbitrr/commit/0ea34c23337e10a0a40dc8437291c9964a88d45e) - @Drapersniper
+- [add tomlkit dep now - remove toml_config before release](https://github.com/Drapersniper/Qbitrr/commit/73aff474c17de9d4fd23e7a26a7d5cca8759b3f1) - @Drapersniper
+- [update config.ini references to config.toml](https://github.com/Drapersniper/Qbitrr/commit/bd2c579842bf5819d32bbda86374a448041441d6) - @Drapersniper
+- [Part 1 - Migrate to TOML from INI](https://github.com/Drapersniper/Qbitrr/commit/292e692b8035c3c0f92ddea6fefa097d502b5a79) - @Drapersniper
+
+---
+
 ## v1.1.4 (15/12/2021)
 
 
