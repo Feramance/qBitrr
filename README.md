@@ -64,4 +64,4 @@ Some things to know before using it.
 
 #### Example behaviour
 
-![image](https://user-images.githubusercontent.com/27962761/146427360-fbd2f149-c4c0-45c5-9cc0-87695340d539.png)
+![image](https://user-images.githubusercontent.com/27962761/146444663-61d22347-fa64-4d95-adb0-9078936136e8.png)
