@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.0.4 (18/12/2021)
+
+---
+
+## v2.0.3 (18/12/2021)
+
+---
+
+## v2.0.2 (18/12/2021)
+
+---
+
 ## v1.0.6 (16/12/2021)
 - [[Major] Update README.md to contain CodeQL tag](https://github.com/Drapersniper/Qbitrr/commit/13513644770b566f12188a94d2a4aed2c685192e) - @Drapersniper
 - [update condition in code analysis workflow](https://github.com/Drapersniper/Qbitrr/commit/edf7425a5331a88bd3e26c10acca92ae50a07a38) - @Drapersniper
