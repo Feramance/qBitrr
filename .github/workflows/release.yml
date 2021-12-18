@@ -6,7 +6,7 @@ on:
     - master
 
 jobs:
-  change_logs:
+  release:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[auto-release]') }}
     steps:

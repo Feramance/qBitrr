@@ -28,8 +28,6 @@ jobs:
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
     - name: Bump Patch Version
-      env:
-        COMMIT_MSG: ${{ github.event.head_commit.message }}
       run: |
         bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }} setup.cfg
     - name: Retrieve new version
