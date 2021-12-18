@@ -81,7 +81,7 @@ def _basic_ping(hostname):
         host = socket.gethostbyname(hostname)
         # connect to the host -- tells us if the host is actually
         # reachable
-        s = socket.create_connection((host, 80), 2)
+        s = socket.create_connection((host, 80), 5)
         s.close()
         return True
     except Exception as e:
@@ -96,10 +96,10 @@ def _basic_ping(hostname):
 
 def is_connected(hostname):
     try:
-        ping3.ping(hostname, timeout=2)
+        ping3.ping(hostname, timeout=5)
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
-        logging.trace(
+        logging.debug(
             "Error when connecting to host: %s %s",
             hostname,
             e,

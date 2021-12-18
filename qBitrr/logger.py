@@ -11,7 +11,6 @@ import coloredlogs
 from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
-    CONSOLE_LOGGING_LEVEL_STRING,
     FAILED_CATEGORY,
     IGNORE_TORRENTS_YOUNGER_THAN,
     LOOP_SLEEP_TIMER,
@@ -24,32 +23,8 @@ __all__ = ()
 
 
 def addLoggingLevel(
-    levelName, levelNum, methodName=None
+    levelName, levelNum, methodName=None, logger=None
 ):  # Credits goes to Mad Physicist https://stackoverflow.com/a/35804945
-    """
-    Comprehensively adds a new logging level to the `logging` module and the
-    currently configured logging class.
-
-    `levelName` becomes an attribute of the `logging` module with the value
-    `levelNum`. `methodName` becomes a convenience method for both `logging`
-    itself and the class returned by `logging.getLoggerClass()` (usually just
-    `logging.Logger`). If `methodName` is not specified, `levelName.lower()` is
-    used.
-
-    To avoid accidental clobberings of existing attributes, this method will
-    raise an `AttributeError` if the level name is already an attribute of the
-    `logging` module or if the method name is already present
-
-    Example
-    -------
-    >>> addLoggingLevel('TRACE', logging.DEBUG - 5)
-    >>> logging.getLogger(__name__).setLevel("TRACE")
-    >>> logging.getLogger(__name__).trace('that worked')
-    >>> logging.trace('so did this')
-    >>> logging.TRACE
-    5
-
-    """
     from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
 
     if not methodName:
@@ -61,6 +36,12 @@ def addLoggingLevel(
     #     raise AttributeError(f"{methodName} already defined in logging module")
     # if hasattr(logging.getLoggerClass(), methodName):
     #     raise AttributeError(f"{methodName} already defined in logger class")
+
+    if logger:
+        if hasattr(logger, methodName):
+            raise AttributeError(f"{methodName} already defined in logging module")
+        if hasattr(logger, methodName):
+            raise AttributeError(f"{methodName} already defined in logger class")
 
     # This method was inspired by the answers to Stack Overflow post
     # http://stackoverflow.com/q/2183233/2988730, especially
@@ -77,9 +58,8 @@ def addLoggingLevel(
     setattr(logging.getLoggerClass(), methodName, logForLevel)
     setattr(logging, methodName, logToRoot)
 
-    for logger in logging.root.manager.loggerDict.values():
+    if logger:
         setattr(logger, levelName, levelNum)
-        setattr(logger, methodName, logToRoot)
         logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
 
 
@@ -105,14 +85,17 @@ HAS_RUN = False
 def run_logs(logger: Logger, configkeys: Iterable | None = None) -> None:
     global HAS_RUN
     with contextlib.suppress(Exception):
-        addLoggingLevel("SUCCESS", logging.INFO + 5, "success")
+        addLoggingLevel("SUCCESS", logging.INFO + 5, "success", logger=logger)
     with contextlib.suppress(Exception):
-        addLoggingLevel("HNOTICE", logging.INFO + 4, "hnotice")
+        addLoggingLevel("HNOTICE", logging.INFO + 4, "hnotice", logger=logger)
     with contextlib.suppress(Exception):
-        addLoggingLevel("NOTICE", logging.INFO + 3, "notice")
+        addLoggingLevel("NOTICE", logging.INFO + 3, "notice", logger=logger)
     with contextlib.suppress(Exception):
-        addLoggingLevel("TRACE", logging.DEBUG - 5, "trace")
+        addLoggingLevel("TRACE", logging.DEBUG - 5, "trace", logger=logger)
     _update_config()
+    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
+
+    logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
     try:
         if configkeys is None:
             from qBitrr.config import CONFIG

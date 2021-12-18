@@ -132,14 +132,14 @@ def process_flags() -> bool | str | None:
 
 
 def run():
-    early_exist = process_flags()
-    if early_exist is True:
+    early_exit = process_flags()
+    if early_exit is True:
         return
     logger = logging.getLogger("qBitrr")
     run_logs(logger)
-    loglevel = isinstance(early_exist, str)
+    loglevel = isinstance(early_exit, str)
     logger.notice("Starting qBitrr.")
-    manager = qBitManager(loglevel=early_exist if loglevel else None)
+    manager = qBitManager(loglevel=early_exit if loglevel else None)
     run_logs(logger, manager.arr_manager.category_allowlist)
     try:
         manager.run()

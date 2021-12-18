@@ -95,10 +95,13 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists():
-            raise OSError(
-                f"{self._name} completed folder is a requirement, "
-                f"The specified folder does not exist '{self.completed_folder}'"
-            )
+            try:
+                self.completed_folder.mkdir(parents=True)
+            except Exception:
+                raise OSError(
+                    f"{self._name} completed folder is a requirement, "
+                    f"The specified folder does not exist '{self.completed_folder}'"
+                )
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
@@ -1754,8 +1757,8 @@ class Arr:
                 category=self.category, sort="added_on", reverse=False
             )
             for torrent in torrents:
-
-                self._process_single_torrent(torrent)
+                with contextlib.suppress(qbittorrentapi.exceptions.NotFound404Error):
+                    self._process_single_torrent(torrent)
             self.process()
         except NoConnectionrException as e:
             self.logger.error(e.message)
@@ -2165,12 +2168,10 @@ class Arr:
     ):
         _remove_files = set()
         total = len(torrent.files)
-        if total == 0 and not special_case:
-            self.cleaned_torrents.add(torrent.hash)
+        if total == 0:
             return
         elif special_case:
             self.special_casing_file_check.add(torrent.hash)
-            return
         for file in torrent.files:
             file_path = pathlib.Path(file.name)
             # Acknowledge files that already been marked as "Don't download"
@@ -3055,7 +3056,6 @@ class PlaceHolderArr(Arr):
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
-        self.logger = logging.getLogger(self._name)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
         self.logger.setLevel(level=self._LOG_LEVEL)
