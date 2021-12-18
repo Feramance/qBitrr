@@ -7,6 +7,7 @@ includeMessages: all
 ignoreCommitsWith:
 - \[auto-changelogs\]
 - \[auto-release\]
+- \[auto-publish\]
 - \[skip ci\]
 - \[ci skip\]
 changelogFilename: CHANGELOG.md
