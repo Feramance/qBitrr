@@ -1,16 +1,13 @@
 name: Generate Change Logs
 
 on:
-  push:
-    branches:
-    - master
+  release:
+    types:
+    - published
 
 jobs:
   change_logs:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[auto-changelogs]') }}
-    env:
-      RELEASE_TYPE: ${{ contains(github.event.head_commit.message, '[patch]') && 'patch' || contains(github.event.head_commit.message, '[minor]') && 'minor' ||contains(github.event.head_commit.message, '[major]') && 'major' }}
     steps:
     - uses: actions/checkout@v2
       with:
@@ -47,7 +44,7 @@ jobs:
     - name: Git Auto Commit
       uses: stefanzweifel/git-auto-commit-action@v4.12.0
       with:
-        commit_message: '[auto-release] Generate changelogs for ${{ steps.current_version.outputs.VERSION }}'
+        commit_message: '[auto-publish] Generate changelogs for ${{ steps.current_version.outputs.VERSION }}'
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
