@@ -81,7 +81,7 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: automated-builds
+        name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
         retention-days: 7
         if-no-files-found: error
