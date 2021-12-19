@@ -4,10 +4,11 @@
 block_cipher = None
 PROJECT_NAME = "qBitrr"
 
+
 a = Analysis(['qBitrr/main.py'],
              pathex=[],
              binaries=[],
-             datas=[('config.example.toml', '.')],
+             datas=[],
              hiddenimports=[],
              hookspath=[],
              hooksconfig={},
@@ -22,23 +23,17 @@ pyz = PYZ(a.pure, a.zipped_data,
 
 exe = EXE(pyz,
           a.scripts,
+          a.binaries,
+          a.zipfiles,
+          a.datas,
           [],
-          exclude_binaries=False,
           name=PROJECT_NAME,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
           upx=True,
+          upx_exclude=[],
+          runtime_tmpdir=None,
           console=True,
-          disable_windowed_traceback=False,
-          target_arch=None,
-          codesign_identity=None,
-          entitlements_file=None )
-coll = COLLECT(exe,
-               a.binaries,
-               a.zipfiles,
-               a.datas,
-               strip=False,
-               upx=True,
-               upx_exclude=[],
-               name='qBitrr')
+          disable_windowed_traceback=False
+          )
