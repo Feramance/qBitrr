@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from multiprocessing import freeze_support
 from typing import NoReturn
 
 import qbittorrentapi
@@ -153,4 +154,5 @@ def run():
 
 
 if __name__ == "__main__":
+    freeze_support()
     run()
