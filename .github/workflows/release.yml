@@ -27,6 +27,7 @@ jobs:
         pip install setuptools wheel twine
     - name: Retrieve current version
       run: |
+        echo "Current version: $(python setup.py --version)"
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
     - name: Import GPG key

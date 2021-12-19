@@ -49,6 +49,7 @@ jobs:
         sudo apt-get install libsdl2-dev
     - name: Retrieve current version
       run: |
+        cho "Current version: $(python setup.py --version)"
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
     - name: Install Python dependencies
