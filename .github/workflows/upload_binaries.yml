@@ -50,6 +50,7 @@ jobs:
     - name: Retrieve current version
       run: |
         echo "::set-output name=VERSION::$(python setup.py --version)"
+      id: current_version
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
