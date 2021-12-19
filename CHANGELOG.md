@@ -1,6 +1,12 @@
 # Changelog
 
+## v2.1.1 (19/12/2021)
+
+---
+
 ## v2.1.0 (19/12/2021)
+- [[minor] Minor release to fix issue with config file across the separate processses - reason it is breaking is due to the removal of the `--config` flag](https://github.com/Drapersniper/Qbitrr/commit/2f51db77c3ef8c0bdd4d432454f02bd4b9f66f60) - @Drapersniper
+- [Update config.example.toml](https://github.com/Drapersniper/Qbitrr/commit/eb4ce73af082cd918f389aee6611229f15192a8c) - @JacquesLG
 
 ---
 
