@@ -90,5 +90,5 @@ jobs:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ steps.archieve.outputs.NAME }}.*
         file_glob: true
-        tag: ${{ steps.current_version.outputs.VERSION }}
+        tag: v${{ steps.current_version.outputs.VERSION }}
         overwrite: true
