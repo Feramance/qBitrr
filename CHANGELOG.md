@@ -1,6 +1,12 @@
 # Changelog
 
+## v2.1.5 (19/12/2021)
+
+---
+
 ## v2.1.4 (19/12/2021)
+- [[patch] Fix an issue where logs where not shown correct + improve exiting logic](https://github.com/Drapersniper/Qbitrr/commit/3aa3f39c1d052e3b8201a7606fb3504077897ffc) - @Drapersniper
+- [Fixed the build spec to generate a portable binary](https://github.com/Drapersniper/Qbitrr/commit/4d2db601905f756289b15bef5f5219e131580fcf) - @Drapersniper
 
 ---
 
