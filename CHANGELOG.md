@@ -1,6 +1,11 @@
 # Changelog
 
+## v2.1.4 (19/12/2021)
+
+---
+
 ## v2.1.3 (19/12/2021)
+- [[patch] Build binaries - properly this time v2](https://github.com/Drapersniper/Qbitrr/commit/da31cf5f135530cb7c2e0062f711f7b813b99f46) - @Drapersniper
 
 ---
 
