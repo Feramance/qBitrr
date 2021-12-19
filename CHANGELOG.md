@@ -1,6 +1,11 @@
 # Changelog
 
+## v2.1.0 (19/12/2021)
+
+---
+
 ## v2.0.4 (18/12/2021)
+- [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/4867f2b9ebaa5941b2a879149f9146900817c03a) - @Drapersniper
 
 ---
 
