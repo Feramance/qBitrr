@@ -37,7 +37,7 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 FFprobeAutoUpdate = true
 
 [QBit]
-# Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")
+# Qbit WebUI URL - Can be found in Options > Web UI (called "IP Address")
 Host = "localhost"
 
 # Qbit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
