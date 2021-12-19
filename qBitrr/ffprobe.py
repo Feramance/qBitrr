@@ -15,7 +15,7 @@ class FFprobeDownloader:
     def __init__(self):
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
-        self.logger = logging.getLogger("FFprobe")
+        self.logger = logging.getLogger("qBitrr.FFprobe")
         run_logs(self.logger)
         self.platform = platform.system()
         if self.platform == "Windows":

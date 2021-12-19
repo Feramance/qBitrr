@@ -90,7 +90,7 @@ class Arr:
                 )
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        self.logger = logging.getLogger(self._name)
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -3039,7 +3039,7 @@ class PlaceHolderArr(Arr):
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        self.logger = logging.getLogger(self._name)
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
@@ -3136,7 +3136,7 @@ class ArrManager:
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger(
-            "ArrManager",
+            "qBitrr.ArrManager",
         )
         run_logs(self.logger)
         if not self.ffprobe_available:

@@ -11,7 +11,7 @@ import ping3
 
 ping3.EXCEPTIONS = True
 
-logger = logging.getLogger("Utils")
+logger = logging.getLogger("qBitrr.Utils")
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
@@ -71,7 +71,7 @@ def has_internet():
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False
-    logger.info("Successfully connected to %s", url)
+    logger.trace("Successfully connected to %s", url)
     return True
 
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import atexit
 import logging
 import sys
 from multiprocessing import freeze_support
-from typing import NoReturn
 
+import pathos
 import qbittorrentapi
 import requests
 from qbittorrentapi import APINames, login_required, response_text
@@ -14,6 +15,11 @@ from qBitrr.config import CONFIG, process_flags
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 
+CHILD_PROCESSES = []
+
+logger = logging.getLogger("qBitrr")
+run_logs(logger)
+
 
 class qBitManager:
     def __init__(self):
@@ -22,7 +28,7 @@ class qBitManager:
         self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
         self.logger = logging.getLogger(
-            "Manager",
+            "qBitrr.Manager",
         )
         run_logs(self.logger)
         self.logger.debug(
@@ -75,7 +81,7 @@ class qBitManager:
         self.should_delay_torrent_scan = True
         return False
 
-    def run(self) -> NoReturn:
+    def get_child_processes(self) -> list[pathos.helpers.mp.Process]:
         run_logs(self.logger)
         self.logger.hnotice("Managing %s categories", len(self.arr_manager.managed_objects))
         count = 0
@@ -84,25 +90,31 @@ class qBitManager:
             numb, processes = arr.spawn_child_processes()
             count += numb
             procs.extend(processes)
-        self.logger.notice("Starting %s child processes", count)
+        return procs
+
+    def run(self):
         try:
-            [p.start() for p in procs]
-            [p.join() for p in procs]
+            self.logger.notice("Starting %s child processes", len(self.child_processes))
+            [p.start() for p in self.child_processes]
+            [p.join() for p in self.child_processes]
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
+        except BaseException as e:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process: %r", e)
+            sys.exit(1)
 
 
 def run():
+    global CHILD_PROCESSES
     early_exit = process_flags()
     if early_exit is True:
         return
-    logger = logging.getLogger("qBitrr")
-    run_logs(logger)
     logger.notice("Starting qBitrr.")
     manager = qBitManager()
     run_logs(logger)
     try:
+        CHILD_PROCESSES = manager.get_child_processes()
         manager.run()
     except KeyboardInterrupt:
         logger.hnotice("Detected Ctrl+C - Terminating process")
@@ -110,7 +122,16 @@ def run():
     except Exception:
         logger.notice("Attempting to terminate child processes, please wait a moment.")
         for child in manager.child_processes:
-            child.terminate()
+            child.kill()
+
+
+def cleanup():
+    for p in CHILD_PROCESSES:
+        p.kill()
+        p.terminate()
+
+
+atexit.register(cleanup)
 
 
 if __name__ == "__main__":

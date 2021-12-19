@@ -22,41 +22,48 @@ from qBitrr.config import (
 
 __all__ = ()
 
+TRACE = 5
+VERBOSE = 7
+NOTICE = 23
+HNOTICE = 24
+SUCCESS = 25
+
 
 class VerboseLogger(Logger):
     def _init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.set_config_level()
+        if self.name.startswith("qBitrr"):
+            self.set_config_level()
 
     def success(self, message, *args, **kwargs):
-        if self.isEnabledFor(25):
-            self._log(25, message, args, **kwargs)
+        if self.isEnabledFor(SUCCESS):
+            self._log(SUCCESS, message, args, **kwargs)
 
     def hnotice(self, message, *args, **kwargs):
-        if self.isEnabledFor(24):
-            self._log(24, message, args, **kwargs)
+        if self.isEnabledFor(HNOTICE):
+            self._log(HNOTICE, message, args, **kwargs)
 
     def notice(self, message, *args, **kwargs):
-        if self.isEnabledFor(23):
-            self._log(23, message, args, **kwargs)
+        if self.isEnabledFor(NOTICE):
+            self._log(NOTICE, message, args, **kwargs)
 
     def verbose(self, message, *args, **kwargs):
-        if self.isEnabledFor(5):
-            self._log(7, message, args, **kwargs)
+        if self.isEnabledFor(VERBOSE):
+            self._log(VERBOSE, message, args, **kwargs)
 
     def trace(self, message, *args, **kwargs):
-        if self.isEnabledFor(5):
-            self._log(5, message, args, **kwargs)
+        if self.isEnabledFor(TRACE):
+            self._log(TRACE, message, args, **kwargs)
 
     def set_config_level(self):
         self.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
 
 
-logging.addLevelName(25, "SUCCESS")
-logging.addLevelName(24, "HNOTICE")
-logging.addLevelName(23, "NOTICE")
-logging.addLevelName(7, "VERBOSE")
-logging.addLevelName(5, "TRACE")
+logging.addLevelName(SUCCESS, "SUCCESS")
+logging.addLevelName(HNOTICE, "HNOTICE")
+logging.addLevelName(NOTICE, "NOTICE")
+logging.addLevelName(VERBOSE, "VERBOSE")
+logging.addLevelName(TRACE, "TRACE")
 logging.setLoggerClass(VerboseLogger)
 
 
@@ -70,7 +77,7 @@ def getLogger(name: str | None = None) -> VerboseLogger:
 logging.getLogger = getLogger
 
 
-logger = logging.getLogger("Misc")
+logger = logging.getLogger("qBitrr.Misc")
 
 
 HAS_RUN = False
@@ -79,7 +86,7 @@ HAS_RUN = False
 def run_logs(logger: Logger) -> None:
     global HAS_RUN
     try:
-        configkeys = CONFIG.sections()
+        configkeys = {f"qBitrr.{i}" for i in CONFIG.sections()}
         key_length = max(len(max(configkeys, key=len)), 10)
     except BaseException:
         key_length = 10
