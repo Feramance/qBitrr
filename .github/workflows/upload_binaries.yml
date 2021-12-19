@@ -11,6 +11,7 @@ defaults:
 
 env:
   project-name: qBitrr
+  python: '3.10'
 
 jobs:
   package:
@@ -22,13 +23,13 @@ jobs:
         include:
         - os: windows-latest
           platform-name: windows.x64
-          python-version: '3.10'
+          python: '3.10'
         - os: macos-latest
           platform-name: macos.x64
-          python-version: '3.10'
+          python: '3.10'
         - os: ubuntu-latest
           platform-name: linux.x64
-          python-version: '3.10'
+          python: '3.10'
     steps:
     - name: Checkout code
       uses: actions/checkout@v1
@@ -40,10 +41,10 @@ jobs:
         echo "Archive name set to: $ARCHIVE_NAME"
         echo "::set-output name=NAME::$ARCHIVE_NAME"
       id: archieve
-    - name: Set up Python ${{ env.python-version }}
+    - name: Set up Python ${{ env.python }}
       uses: actions/setup-python@v2
       with:
-        python-version: ${{ env.python-version }}
+        python-version: ${{ env.python}}
     - name: Install APT dependencies
       if: runner.os == 'Linux'
       run: |
