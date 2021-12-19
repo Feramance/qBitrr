@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-import contextlib
 import logging
 import time
 from logging import Logger
-from typing import Iterable
 
 import coloredlogs
 
 from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
+    CONFIG,
+    CONSOLE_LOGGING_LEVEL_STRING,
+    COPIED_TO_NEW_DIR,
     FAILED_CATEGORY,
     IGNORE_TORRENTS_YOUNGER_THAN,
     LOOP_SLEEP_TIMER,
@@ -22,90 +23,69 @@ from qBitrr.config import (
 __all__ = ()
 
 
-def addLoggingLevel(
-    levelName, levelNum, methodName=None, logger=None
-):  # Credits goes to Mad Physicist https://stackoverflow.com/a/35804945
-    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
+class VerboseLogger(Logger):
+    def _init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_config_level()
 
-    if not methodName:
-        methodName = levelName.lower()
+    def success(self, message, *args, **kwargs):
+        if self.isEnabledFor(25):
+            self._log(25, message, args, **kwargs)
 
-    # if hasattr(logging, levelName):
-    #     raise AttributeError(f"{levelName} already defined in logging module")
-    # if hasattr(logging, methodName):
-    #     raise AttributeError(f"{methodName} already defined in logging module")
-    # if hasattr(logging.getLoggerClass(), methodName):
-    #     raise AttributeError(f"{methodName} already defined in logger class")
+    def hnotice(self, message, *args, **kwargs):
+        if self.isEnabledFor(24):
+            self._log(24, message, args, **kwargs)
 
-    if logger:
-        if hasattr(logger, methodName):
-            raise AttributeError(f"{methodName} already defined in logging module")
-        if hasattr(logger, methodName):
-            raise AttributeError(f"{methodName} already defined in logger class")
+    def notice(self, message, *args, **kwargs):
+        if self.isEnabledFor(23):
+            self._log(23, message, args, **kwargs)
 
-    # This method was inspired by the answers to Stack Overflow post
-    # http://stackoverflow.com/q/2183233/2988730, especially
-    # http://stackoverflow.com/a/13638084/2988730
-    def logForLevel(self, message, *args, **kwargs):
-        if self.isEnabledFor(levelNum):
-            self._log(levelNum, message, args, **kwargs)
+    def verbose(self, message, *args, **kwargs):
+        if self.isEnabledFor(5):
+            self._log(7, message, args, **kwargs)
 
-    def logToRoot(message, *args, **kwargs):
-        logging.log(levelNum, message, *args, **kwargs)
+    def trace(self, message, *args, **kwargs):
+        if self.isEnabledFor(5):
+            self._log(5, message, args, **kwargs)
 
-    logging.addLevelName(levelNum, levelName)
-    setattr(logging, levelName, levelNum)
-    setattr(logging.getLoggerClass(), methodName, logForLevel)
-    setattr(logging, methodName, logToRoot)
-
-    if logger:
-        setattr(logger, levelName, levelNum)
-        logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
+    def set_config_level(self):
+        self.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
 
 
-def _update_config():
-    global APPDATA_FOLDER, CONFIG, COMPLETED_DOWNLOAD_FOLDER, CONSOLE_LOGGING_LEVEL_STRING, FAILED_CATEGORY, IGNORE_TORRENTS_YOUNGER_THAN, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, PING_URLS, RECHECK_CATEGORY
-    from qBitrr.config import (
-        APPDATA_FOLDER,
-        COMPLETED_DOWNLOAD_FOLDER,
-        CONFIG,
-        CONSOLE_LOGGING_LEVEL_STRING,
-        FAILED_CATEGORY,
-        IGNORE_TORRENTS_YOUNGER_THAN,
-        LOOP_SLEEP_TIMER,
-        NO_INTERNET_SLEEP_TIMER,
-        PING_URLS,
-        RECHECK_CATEGORY,
-    )
+logging.addLevelName(25, "SUCCESS")
+logging.addLevelName(24, "HNOTICE")
+logging.addLevelName(23, "NOTICE")
+logging.addLevelName(7, "VERBOSE")
+logging.addLevelName(5, "TRACE")
+logging.setLoggerClass(VerboseLogger)
+
+
+def getLogger(name: str | None = None) -> VerboseLogger:
+    if name:
+        return VerboseLogger.manager.getLogger(name)
+    else:
+        return logging.root
+
+
+logging.getLogger = getLogger
+
+
+logger = logging.getLogger("Misc")
 
 
 HAS_RUN = False
 
 
-def run_logs(logger: Logger, configkeys: Iterable | None = None) -> None:
+def run_logs(logger: Logger) -> None:
     global HAS_RUN
-    with contextlib.suppress(Exception):
-        addLoggingLevel("SUCCESS", logging.INFO + 5, "success", logger=logger)
-    with contextlib.suppress(Exception):
-        addLoggingLevel("HNOTICE", logging.INFO + 4, "hnotice", logger=logger)
-    with contextlib.suppress(Exception):
-        addLoggingLevel("NOTICE", logging.INFO + 3, "notice", logger=logger)
-    with contextlib.suppress(Exception):
-        addLoggingLevel("TRACE", logging.DEBUG - 5, "trace", logger=logger)
-    _update_config()
-    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING
-
-    logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
     try:
-        if configkeys is None:
-            from qBitrr.config import CONFIG
-
-            configkeys = CONFIG.sections()
+        configkeys = CONFIG.sections()
         key_length = max(len(max(configkeys, key=len)), 10)
     except BaseException:
         key_length = 10
     coloredlogs.install(
-        level=logging._levelToName.get(CONSOLE_LOGGING_LEVEL_STRING),
+        logger=logger,
+        level=logging._nameToLevel.get(CONSOLE_LOGGING_LEVEL_STRING),
         fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] "
         f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
         level_styles=dict(
@@ -147,21 +127,13 @@ def run_logs(logger: Logger, configkeys: Iterable | None = None) -> None:
         HAS_RUN = True
 
 
-def dynamic_update(configkeys: list | None = None) -> str:
-    _update_config()
-    global log
-    from qBitrr.config import CONSOLE_LOGGING_LEVEL_STRING, COPIED_TO_NEW_DIR
-
-    logger = logging.getLogger("Misc")
-    if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
-        logger.warning(
-            "Config.toml should exist in '%s', in a future update this will be a requirement.",
-            APPDATA_FOLDER,
-        )
-        time.sleep(5)
-    if COPIED_TO_NEW_DIR:
-        logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
-        time.sleep(5)
-    run_logs(logger, configkeys)
-    logger.setLevel(CONSOLE_LOGGING_LEVEL_STRING)
-    return CONSOLE_LOGGING_LEVEL_STRING
+if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
+    logger.warning(
+        "Config.toml should exist in '%s', in a future update this will be a requirement.",
+        APPDATA_FOLDER,
+    )
+    time.sleep(5)
+if COPIED_TO_NEW_DIR:
+    logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
+    time.sleep(5)
+run_logs(logger)

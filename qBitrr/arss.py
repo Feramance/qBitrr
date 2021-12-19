@@ -58,19 +58,6 @@ if TYPE_CHECKING:
     from qBitrr.main import qBitManager
 
 
-def _update_config():
-    global APPDATA_FOLDER, COMPLETED_DOWNLOAD_FOLDER, FAILED_CATEGORY, LOOP_SLEEP_TIMER, NO_INTERNET_SLEEP_TIMER, RECHECK_CATEGORY, CONFIG
-    from qBitrr.config import (
-        APPDATA_FOLDER,
-        COMPLETED_DOWNLOAD_FOLDER,
-        CONFIG,
-        FAILED_CATEGORY,
-        LOOP_SLEEP_TIMER,
-        NO_INTERNET_SLEEP_TIMER,
-        RECHECK_CATEGORY,
-    )
-
-
 class Arr:
     def __init__(
         self,
@@ -78,7 +65,6 @@ class Arr:
         manager: ArrManager,
         client_cls: type[Callable | RadarrAPI | SonarrAPI],
     ):
-        _update_config()
         if name in manager.groups:
             raise OSError("Group '{name}' has already been registered.")
         self._name = name
@@ -105,8 +91,7 @@ class Arr:
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
-        self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger, self.manager.category_allowlist)
+        run_logs(self.logger)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Move")
@@ -2871,8 +2856,7 @@ class Arr:
                 time.sleep(e.length)
 
     def run_search_loop(self) -> NoReturn:
-        run_logs(self.logger, self.manager.category_allowlist)
-        self.logger.setLevel(self._LOG_LEVEL)
+        run_logs(self.logger)
         self.register_search_mode()
         if not self.search_missing:
             return None
@@ -2954,8 +2938,7 @@ class Arr:
                 time.sleep(5)
 
     def run_torrent_loop(self) -> NoReturn:
-        run_logs(self.logger, self.manager.category_allowlist)
-        self.logger.setLevel(self._LOG_LEVEL)
+        run_logs(self.logger)
         while True:
             try:
                 try:
@@ -3049,7 +3032,6 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
-        _update_config()
         self.ignore_torrents_younger_than = CONFIG.get(
             "Settings.IgnoreTorrentsYoungerThan", fallback=600
         )
@@ -3058,8 +3040,7 @@ class PlaceHolderArr(Arr):
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(self._name)
-        self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger, self.manager.category_allowlist)
+        run_logs(self.logger)
         self.search_missing = False
         self.session = None
 
@@ -3147,7 +3128,6 @@ class ArrManager:
     def __init__(self, qbitmanager: qBitManager):
         self.groups: set[str] = set()
         self.uris: set[str] = set()
-        _update_config()
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
@@ -3158,9 +3138,7 @@ class ArrManager:
         self.logger = logging.getLogger(
             "ArrManager",
         )
-        self._LOG_LEVEL = self.qbit_manager.logger.level
-        self.logger.setLevel(level=self._LOG_LEVEL)
-        run_logs(self.logger, self.category_allowlist)
+        run_logs(self.logger)
         if not self.ffprobe_available:
             self.logger.error(
                 "'%s' was not found, disabling all functionality dependant on it",
@@ -3168,7 +3146,6 @@ class ArrManager:
             )
 
     def build_arr_instances(self):
-        _update_config()
         for key in CONFIG.sections():
             if search := re.match("(rad|son)arr.*", key, re.IGNORECASE):
                 name = search.group(0)

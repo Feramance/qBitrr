@@ -11,20 +11,12 @@ from qBitrr.config import FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
 from qBitrr.logger import run_logs
 
 
-def _update_config():
-    global FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE, CONFIG
-    from qBitrr.config import CONFIG, FF_PROBE, FF_VERSION, FFPROBE_AUTO_UPDATE
-
-
 class FFprobeDownloader:
-    def __init__(self, logger: logging.Logger):
-        _update_config()
+    def __init__(self):
         self.api = "https://ffbinaries.com/api/v1/version/latest"
         self.version_file = FF_VERSION
         self.logger = logging.getLogger("FFprobe")
-        self.logger.setLevel(level=logger.level)
         run_logs(self.logger)
-
         self.platform = platform.system()
         if self.platform == "Windows":
             self.probe_path = FF_PROBE.with_suffix(".exe")
@@ -49,7 +41,6 @@ class FFprobeDownloader:
             return ""
 
     def update(self):
-        _update_config()
         if not FFPROBE_AUTO_UPDATE:
             return
         current_version = self.get_current_version()

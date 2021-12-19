@@ -11,6 +11,8 @@ import ping3
 
 ping3.EXCEPTIONS = True
 
+logger = logging.getLogger("Utils")
+
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
     error = True
@@ -19,7 +21,7 @@ def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]
             yield from pathlib.Path(directory).glob("**/*")
             error = False
         except FileNotFoundError as e:
-            logging.warning("%s - %s", e.strerror, e.filename)
+            logger.warning("%s - %s", e.strerror, e.filename)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
@@ -28,7 +30,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         path = path.parent.absolute()
     count = 9
     while not path.exists():
-        logging.trace(
+        logger.trace(
             "Attempt %s/10: File does not yet exists! (Possibly being moved?) | "
             "%s | Sleeping for 0.1s",
             path,
@@ -45,7 +47,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         if path.is_file():
             path = path.parent.absolute()
         while not path.exists():
-            logging.trace(
+            logger.trace(
                 "Attempt %s/10:File does not yet exists! (Possibly being moved?) | "
                 "%s | Sleeping for 0.1s",
                 path,
@@ -69,7 +71,7 @@ def has_internet():
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False
-    logging.trace("Successfully connected to %s", url)
+    logger.info("Successfully connected to %s", url)
     return True
 
 
@@ -85,7 +87,7 @@ def _basic_ping(hostname):
         s.close()
         return True
     except Exception as e:
-        logging.trace(
+        logger.trace(
             "Error when connecting to host: %s %s %s",
             hostname,
             host,
