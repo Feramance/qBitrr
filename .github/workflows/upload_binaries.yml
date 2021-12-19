@@ -23,13 +23,10 @@ jobs:
         include:
         - os: windows-latest
           platform-name: windows.x64
-          python: '3.10'
         - os: macos-latest
           platform-name: macos.x64
-          python: '3.10'
         - os: ubuntu-latest
           platform-name: linux.x64
-          python: '3.10'
     steps:
     - name: Checkout code
       uses: actions/checkout@v1
@@ -83,7 +80,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: automated-builds
-        path: ${{ env.archive-name }}.*
+        path: ${{ steps.archieve.outputs.NAME }}.*
         retention-days: 7
         if-no-files-found: error
     - name: Upload release
