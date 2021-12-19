@@ -71,12 +71,12 @@ jobs:
     - name: Tar files
       if: runner.os != 'Windows'
       run: |
-        tar --format=ustar -czvf ${{ steps.archieve.outputs.NAME }}.tar.gz dist/*/
+        tar --format=ustar -czvf ${{ steps.archieve.outputs.NAME }}.tar.gz dist/
     - name: Archive files
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        Compress-Archive dist/*/ ${{ steps.archieve.outputs.NAME }}.zip
+        Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
     - name: Upload Artifact
       uses: actions/upload-artifact@v2
