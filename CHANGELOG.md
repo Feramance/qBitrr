@@ -1,6 +1,11 @@
 # Changelog
 
+## v2.1.11 (20/12/2021)
+
+---
+
 ## v2.1.10 (20/12/2021)
+- [[patch] Fix an issue where you couldn't run any flags if the config file didn't exist in the app dir](https://github.com/Drapersniper/Qbitrr/commit/3dfb989bef624fa68e7730de9e91f93b2f3f51e3) - @Drapersniper
 
 ---
 
