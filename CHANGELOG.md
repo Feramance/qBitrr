@@ -1,6 +1,12 @@
 # Changelog
 
+## v2.1.9 (20/12/2021)
+
+---
+
 ## v2.1.8 (20/12/2021)
+- [[patch] Improved startup logging](https://github.com/Drapersniper/Qbitrr/commit/d858027c2bfb004f3b9ddf9ba0e71b83e8a1c977) - @Drapersniper
+- [Reduce the number of socket calls for the internet checks](https://github.com/Drapersniper/Qbitrr/commit/9c0686e5ae2957eeea71476d42303d77270cf422) - @Drapersniper
 
 ---
 
