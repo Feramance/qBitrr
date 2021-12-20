@@ -1,6 +1,7 @@
 # Changelog
 
 ## v2.1.13 (20/12/2021)
+- [[patch] Hotfix - Remove ujson support for any python implementation that is not CPython due to the SystemError crash that occurred on PyPy](https://github.com/Drapersniper/Qbitrr/commit/0a3ff2da674076630e03a73e7f7782fbfa673697) - @Drapersniper
 
 ---
 
