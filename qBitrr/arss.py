@@ -1739,24 +1739,28 @@ class Arr:
         return payload, hashes
 
     def process_torrents(self):
-        if has_internet() is False:
-            self.manager.qbit_manager.should_delay_torrent_scan = True
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
-        if self.manager.qbit_manager.should_delay_torrent_scan:
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
         try:
             try:
-                self.api_calls()
-                self.refresh_download_queue()
                 torrents = self.manager.qbit_manager.client.torrents.info.all(
                     category=self.category, sort="added_on", reverse=False
                 )
+                if not len(torrents):
+                    raise DelayLoopException(length=5, type="no_downloads")
+                if has_internet() is False:
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                if self.manager.qbit_manager.should_delay_torrent_scan:
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                self.api_calls()
+                self.refresh_download_queue()
                 for torrent in torrents:
                     with contextlib.suppress(qbittorrentapi.exceptions.NotFound404Error):
                         self._process_single_torrent(torrent)
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except DelayLoopException:
+                raise
             except KeyboardInterrupt:
                 self.logger.hnotice("Detected Ctrl+C - Terminating process")
                 sys.exit(0)
@@ -1765,6 +1769,8 @@ class Arr:
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
+        except DelayLoopException:
+            raise
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -2869,6 +2875,11 @@ class Arr:
                         "Forced delay due to temporary issue with environment, sleeping for %s",
                         timedelta(seconds=e.length),
                     )
+                elif e.type == "no_downloads":
+                    self.logger.debug(
+                        "No downloads in category, sleeping for %s",
+                        timedelta(seconds=e.length),
+                    )
                 time.sleep(e.length)
 
     def run_search_loop(self) -> NoReturn:
@@ -3009,6 +3020,11 @@ class Arr:
                             "sleeping for %s.",
                             timedelta(seconds=e.length),
                         )
+                    elif e.type == "no_downloads":
+                        self.logger.debug(
+                            "No downloads in category, sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
                     time.sleep(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
@@ -3122,16 +3138,18 @@ class PlaceHolderArr(Arr):
         self._process_failed()
 
     def process_torrents(self):
-        if has_internet() is False:
-            self.manager.qbit_manager.should_delay_torrent_scan = True
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
-        if self.manager.qbit_manager.should_delay_torrent_scan:
-            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
         try:
             try:
                 torrents = self.manager.qbit_manager.client.torrents.info.all(
                     category=self.category, sort="added_on", reverse=False
                 )
+                if not len(torrents):
+                    raise DelayLoopException(length=5, type="no_downloads")
+                if has_internet() is False:
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                if self.manager.qbit_manager.should_delay_torrent_scan:
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
                 for torrent in torrents:
                     if torrent.category != RECHECK_CATEGORY:
                         self.manager.qbit_manager.cache[torrent.hash] = torrent.category
@@ -3145,6 +3163,8 @@ class PlaceHolderArr(Arr):
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except DelayLoopException:
+                raise
             except KeyboardInterrupt:
                 self.logger.hnotice("Detected Ctrl+C - Terminating process")
                 sys.exit(0)
@@ -3153,6 +3173,8 @@ class PlaceHolderArr(Arr):
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
+        except DelayLoopException:
+            raise
 
     def run_search_loop(self):
         return
