@@ -10,7 +10,7 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(base_path, relative_path)
 
 
-version = "2.1.9"
+version = "2.1.10"
 git_hash = pathlib.Path(resource_path("git_hash.txt")).read_text().strip()
 license_text = (
     f"{pathlib.Path(resource_path('LICENSE')).read_text().strip()}\n\n"
