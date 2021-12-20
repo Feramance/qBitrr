@@ -15,6 +15,7 @@ from qBitrr.config import CONFIG, process_flags
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
+from qBitrr.version import final_version
 
 CHILD_PROCESSES = []
 
@@ -113,9 +114,9 @@ class qBitManager:
 def run():
     global CHILD_PROCESSES
     early_exit = process_flags()
-    if early_exit.gen_config:
+    if early_exit is True:
         return
-    logger.notice("Starting qBitrr.")
+    logger.notice("Starting qBitrr: Version: %s.", final_version)
     manager = qBitManager()
     run_logs(logger)
     try:

@@ -7,12 +7,13 @@ import shutil
 import sys
 
 from qBitrr.gen_config import MyConfig
+from qBitrr.version import final_version
 
 APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
-def process_flags() -> argparse.Namespace:
+def process_flags() -> argparse.Namespace | bool:
     parser = argparse.ArgumentParser(description="An interface to interact with qBit and *arrs.")
     parser.add_argument(
         "--gen-config",
@@ -21,12 +22,17 @@ def process_flags() -> argparse.Namespace:
         help="Generate a config file in the current working directory.",
         action="store_true",
     )
+    parser.add_argument(
+        "-v", "--version", action="version", version=f"qBitrr version: {final_version}"
+    )
+
     args = parser.parse_args()
 
     if args.gen_config:
         from qBitrr.gen_config import _write_config_file
 
         _write_config_file()
+        return True
     return args
 
 

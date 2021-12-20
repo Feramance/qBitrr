@@ -28,6 +28,8 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 - Trigger periodic Rss Syncs on the appropriate Arr instances.
 - Trigger Queue update on appropriate Arr instances.
 - Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
+- Auto add/remove trackers
+- Set per tracker values
 
 **This section requires the Arr databases to be locally available.**
 
@@ -51,16 +53,25 @@ Some things to know before using it.
 
 - `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
+Alternatively:
+- Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+
 #### Run the script
 
 - Make sure to update the settings in `~/.config/qBitManager/config.toml`
 - Activate your venv
 - Run `qbitrr`
 
+Alternatively:
+- Unzip the downloaded release and run it
+
 #### How to update the script
 
 - Activate your venv
 - Run `python -m pip install -U qBitrr`
+
+Alternatively:
+- Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
 
 #### Contributions
 
