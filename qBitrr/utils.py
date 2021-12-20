@@ -8,10 +8,13 @@ import time
 from typing import Iterator
 
 import ping3
+from cachetools import TTLCache
 
 ping3.EXCEPTIONS = True
 
 logger = logging.getLogger("qBitrr.Utils")
+
+CACHE = TTLCache(maxsize=50, ttl=60)
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
@@ -78,6 +81,11 @@ def has_internet():
 def _basic_ping(hostname):
     host = "N/A"
     try:
+        # if this hostname was called within the last 10 seconds skip it
+        # if it was previous successful
+        # Reducing the number of call to it and the likelihood of rate-limits.
+        if hostname in CACHE:
+            return CACHE[hostname]
         # see if we can resolve the host name -- tells us if there is
         # a DNS listening
         host = socket.gethostbyname(hostname)
@@ -85,6 +93,7 @@ def _basic_ping(hostname):
         # reachable
         s = socket.create_connection((host, 80), 5)
         s.close()
+        CACHE[hostname] = True
         return True
     except Exception as e:
         logger.trace(
@@ -98,7 +107,13 @@ def _basic_ping(hostname):
 
 def is_connected(hostname):
     try:
+        # if this hostname was called within the last 10 seconds skip it
+        # if it was previous successful
+        # Reducing the number of call to it and the likelihood of rate-limits.
+        if hostname in CACHE:
+            return CACHE[hostname]
         ping3.ping(hostname, timeout=5)
+        CACHE[hostname] = True
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
         logger.debug(

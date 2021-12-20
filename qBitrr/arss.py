@@ -297,6 +297,7 @@ class Arr:
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.session = requests.Session()
         self.cleaned_torrents = set()
 
@@ -444,13 +445,18 @@ class Arr:
     @property
     def is_alive(self) -> bool:
         try:
+            if 1 in self.expiring_bool:
+                return True
             if self.session is None:
+                self.expiring_bool.add(1)
                 return True
             req = self.session.get(f"{self.uri}/api/v3/system/status", timeout=2)
             req.raise_for_status()
             self.logger.trace("Successfully connected to %s", self.uri)
+            self.expiring_bool.add(1)
             return True
         except requests.HTTPError:
+            self.expiring_bool.add(1)
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to %s", self.uri)
@@ -3051,6 +3057,7 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = CONFIG.get(
             "Settings.IgnoreTorrentsYoungerThan", fallback=600
         )

@@ -14,6 +14,7 @@ from qBitrr.arss import ArrManager
 from qBitrr.config import CONFIG, process_flags
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
+from qBitrr.utils import ExpiringSet
 
 CHILD_PROCESSES = []
 
@@ -45,6 +46,7 @@ class qBitManager:
             password=self.qBit_Password,
             SIMPLE_RESPONSES=False,
         )
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = dict()
         self.name_cache = dict()
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
@@ -73,8 +75,11 @@ class qBitManager:
     @property
     def is_alive(self) -> bool:
         try:
+            if 1 in self.expiring_bool:
+                return True
             self.client.app_version()
             self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
+            self.expiring_bool.add(1)
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)

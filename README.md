@@ -1,4 +1,5 @@
 [![PyPI](https://img.shields.io/pypi/v/qBitrr)](https://pypi.org/project/qBitrr/)
+[![PyPI](https://img.shields.io/pypi/dm/qbitrr)](https://pypi.org/project/qBitrr/)
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Drapersniper/Qbitrr/blob/master/LICENSE)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
