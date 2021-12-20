@@ -134,7 +134,7 @@ def run_logs(logger: Logger) -> None:
         HAS_RUN = True
 
 
-if COPIED_TO_NEW_DIR is not None and not APPDATA_FOLDER.joinpath("config.toml").exists():
+if COPIED_TO_NEW_DIR is False and not APPDATA_FOLDER.joinpath("config.toml").exists():
     logger.warning(
         "Config.toml should exist in '%s', in a future update this will be a requirement.",
         APPDATA_FOLDER,
