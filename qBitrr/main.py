@@ -115,7 +115,7 @@ def run():
     global CHILD_PROCESSES
     early_exit = process_flags()
     if early_exit is True:
-        return
+        sys.exit(0)
     logger.notice("Starting qBitrr: Version: %s.", patched_version)
     manager = qBitManager()
     run_logs(logger)

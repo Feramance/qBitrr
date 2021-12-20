@@ -14,6 +14,6 @@ version = "2.1.8"
 git_hash = pathlib.Path(resource_path("git_hash.txt")).read_text().strip()
 license_text = (
     f"{pathlib.Path(resource_path('LICENSE')).read_text().strip()}\n\n"
-    f"https://github.com/Drapersniper/Qbitrr/blob/master/LICENSE"
+    "https://github.com/Drapersniper/Qbitrr/blob/master/LICENSE"
 )
 patched_version = f"{version}-{git_hash}"
