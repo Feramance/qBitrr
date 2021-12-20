@@ -6,8 +6,8 @@ import pathlib
 import shutil
 import sys
 
+from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.gen_config import MyConfig
-from qBitrr.version import final_version
 
 APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -23,7 +23,18 @@ def process_flags() -> argparse.Namespace | bool:
         action="store_true",
     )
     parser.add_argument(
-        "-v", "--version", action="version", version=f"qBitrr version: {final_version}"
+        "-v", "--version", action="version", version=f"qBitrr version: {patched_version}"
+    )
+
+    parser.add_argument(
+        "-l", "--license", dest="license", action="store_const", const=license_text
+    )
+    parser.add_argument(
+        "-s",
+        "--source",
+        action="store_const",
+        dest="source",
+        const="Source code can be found on: https://github.com/Drapersniper/Qbitrr",
     )
 
     args = parser.parse_args()
@@ -32,6 +43,12 @@ def process_flags() -> argparse.Namespace | bool:
         from qBitrr.gen_config import _write_config_file
 
         _write_config_file()
+        return True
+    elif args.license:
+        print(args.license)
+        return True
+    elif args.source:
+        print(args.source)
         return True
     return args
 

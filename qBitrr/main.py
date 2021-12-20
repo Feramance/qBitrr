@@ -11,11 +11,11 @@ import requests
 from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
+from qBitrr.bundled_data import patched_version
 from qBitrr.config import CONFIG, process_flags
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
-from qBitrr.version import final_version
 
 CHILD_PROCESSES = []
 
@@ -116,7 +116,7 @@ def run():
     early_exit = process_flags()
     if early_exit is True:
         return
-    logger.notice("Starting qBitrr: Version: %s.", final_version)
+    logger.notice("Starting qBitrr: Version: %s.", patched_version)
     manager = qBitManager()
     run_logs(logger)
     try:

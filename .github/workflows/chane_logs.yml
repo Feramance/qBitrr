@@ -31,6 +31,9 @@ jobs:
         echo "Current version: $(python setup.py --version)"
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
+    - name: Update git hash
+      run: |
+        git rev-parse --short HEAD > git_hash.txt
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
