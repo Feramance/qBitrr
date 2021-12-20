@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import pathlib
 import sys
 from datetime import datetime
@@ -664,11 +663,9 @@ def _write_config_file():
     doc = generate_doc()
     CONFIG_FILE = pathlib.Path().home().joinpath(".config", "qBitManager", "config.toml")
     if CONFIG_FILE.exists():
-        logging.critical(f"{CONFIG_FILE} already exists.")
-        logging.warning(
-            "If you want to generate a new config file first manually delete it or move it."
-        )
+        print(f"{CONFIG_FILE} already exists.")
+        print("If you want to generate a new config file first manually delete it or move it.")
         sys.exit(1)
     config = MyConfig(CONFIG_FILE, config=doc)
     config.save()
-    logging.info(f'New config file has been saved to "{CONFIG_FILE}"')
+    print(f'New config file has been saved to "{CONFIG_FILE}"')

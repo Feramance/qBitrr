@@ -20,7 +20,7 @@ from qBitrr.config import (
     RECHECK_CATEGORY,
 )
 
-__all__ = ()
+__all__ = ("run_logs",)
 
 TRACE = 5
 VERBOSE = 7

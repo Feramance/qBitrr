@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import logging
 import pathlib
 import shutil
 import sys
@@ -36,9 +35,9 @@ file = "config.toml"
 CONFIG_FILE = APPDATA_FOLDER.joinpath(file)
 CONFIG_PATH = pathlib.Path(f"./{file}")
 if not CONFIG_FILE.exists() and not CONFIG_PATH.exists():
-    logging.critical(f"{file} has not been found")
-    logging.warning(f"{file} must be added to {CONFIG_FILE}")
-    logging.warning(
+    print(f"{file} has not been found")
+    print(f"{file} must be added to {CONFIG_FILE}")
+    print(
         "You can run me with the `--gen-config` flag to generate a "
         "template config file which you can then edit."
     )

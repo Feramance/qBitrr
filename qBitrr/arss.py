@@ -1736,19 +1736,26 @@ class Arr:
         if self.manager.qbit_manager.should_delay_torrent_scan:
             raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
         try:
-            self.api_calls()
-            self.refresh_download_queue()
-            torrents = self.manager.qbit_manager.client.torrents.info.all(
-                category=self.category, sort="added_on", reverse=False
-            )
-            for torrent in torrents:
-                with contextlib.suppress(qbittorrentapi.exceptions.NotFound404Error):
-                    self._process_single_torrent(torrent)
-            self.process()
-        except NoConnectionrException as e:
-            self.logger.error(e.message)
-        except Exception as e:
-            self.logger.error(e, exc_info=sys.exc_info())
+            try:
+                self.api_calls()
+                self.refresh_download_queue()
+                torrents = self.manager.qbit_manager.client.torrents.info.all(
+                    category=self.category, sort="added_on", reverse=False
+                )
+                for torrent in torrents:
+                    with contextlib.suppress(qbittorrentapi.exceptions.NotFound404Error):
+                        self._process_single_torrent(torrent)
+                self.process()
+            except NoConnectionrException as e:
+                self.logger.error(e.message)
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
+            except Exception as e:
+                self.logger.error(e, exc_info=sys.exc_info())
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -2857,136 +2864,145 @@ class Arr:
 
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
-        self.register_search_mode()
-        if not self.search_missing:
-            return None
-        count_start = self.search_current_year
-        stopping_year = datetime.now().year if self.search_in_reverse else 1900
-        loop_timer = timedelta(minutes=15)
-        while True:
-            timer = datetime.now(timezone.utc)
-            try:
-                self.db_maybe_reset_entry_searched_state()
-                self.db_update()
-                self.run_request_search()
-                self.force_grab()
+        try:
+            self.register_search_mode()
+            if not self.search_missing:
+                return None
+            count_start = self.search_current_year
+            stopping_year = datetime.now().year if self.search_in_reverse else 1900
+            loop_timer = timedelta(minutes=15)
+            while True:
+                timer = datetime.now(timezone.utc)
                 try:
-                    for entry, todays, limit_bypass, series_search in self.db_get_files():
-                        if timer < (datetime.now(timezone.utc) - loop_timer):
-                            self.force_grab()
-                            raise RestartLoopException
-                        while (
-                            self.maybe_do_search(
-                                entry,
-                                todays=todays,
-                                bypass_limit=limit_bypass,
-                                series_search=series_search,
-                            )
-                            is False
-                        ):
-                            time.sleep(30)
-                    self.search_current_year += self._delta
-                    if self.search_in_reverse:
-                        if self.search_current_year > stopping_year:
-                            self.search_current_year = copy(count_start)
-                            self.loop_completed = True
-                    else:
-                        if self.search_current_year < stopping_year:
-                            self.search_current_year = copy(count_start)
-                            self.loop_completed = True
-                except RestartLoopException:
-                    self.logger.debug("Loop timer elapsed, restarting it.")
-                except NoConnectionrException as e:
-                    self.logger.error(e.message)
-                    self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=300, type=e.type)
-                except DelayLoopException:
-                    raise
-                except ValueError:
-                    self.logger.debug("Loop completed, restarting it.")
-                    self.loop_completed = True
-                except Exception as e:
-                    self.logger.exception(e, exc_info=sys.exc_info())
-                time.sleep(LOOP_SLEEP_TIMER)
-            except DelayLoopException as e:
-                if e.type == "qbit":
-                    self.logger.critical(
-                        "Failed to connected to qBit client, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "internet":
-                    self.logger.critical(
-                        "Failed to connected to the internet, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "arr":
-                    self.logger.critical(
-                        "Failed to connected to the Arr instance, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "delay":
-                    self.logger.critical(
-                        "Forced delay due to temporary issue with environment, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                time.sleep(e.length)
-                self.manager.qbit_manager.should_delay_torrent_scan = False
-            except KeyboardInterrupt:
-                self.logger.hnotice("Detected Ctrl+C - Terminating process")
-                sys.exit(0)
-            else:
-                time.sleep(5)
+                    self.db_maybe_reset_entry_searched_state()
+                    self.db_update()
+                    self.run_request_search()
+                    self.force_grab()
+                    try:
+                        for entry, todays, limit_bypass, series_search in self.db_get_files():
+                            if timer < (datetime.now(timezone.utc) - loop_timer):
+                                self.force_grab()
+                                raise RestartLoopException
+                            while (
+                                self.maybe_do_search(
+                                    entry,
+                                    todays=todays,
+                                    bypass_limit=limit_bypass,
+                                    series_search=series_search,
+                                )
+                                is False
+                            ):
+                                time.sleep(30)
+                        self.search_current_year += self._delta
+                        if self.search_in_reverse:
+                            if self.search_current_year > stopping_year:
+                                self.search_current_year = copy(count_start)
+                                self.loop_completed = True
+                        else:
+                            if self.search_current_year < stopping_year:
+                                self.search_current_year = copy(count_start)
+                                self.loop_completed = True
+                    except RestartLoopException:
+                        self.logger.debug("Loop timer elapsed, restarting it.")
+                    except NoConnectionrException as e:
+                        self.logger.error(e.message)
+                        self.manager.qbit_manager.should_delay_torrent_scan = True
+                        raise DelayLoopException(length=300, type=e.type)
+                    except DelayLoopException:
+                        raise
+                    except ValueError:
+                        self.logger.debug("Loop completed, restarting it.")
+                        self.loop_completed = True
+                    except Exception as e:
+                        self.logger.exception(e, exc_info=sys.exc_info())
+                    time.sleep(LOOP_SLEEP_TIMER)
+                except DelayLoopException as e:
+                    if e.type == "qbit":
+                        self.logger.critical(
+                            "Failed to connected to qBit client, sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
+                    elif e.type == "internet":
+                        self.logger.critical(
+                            "Failed to connected to the internet, sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
+                    elif e.type == "arr":
+                        self.logger.critical(
+                            "Failed to connected to the Arr instance, sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
+                    elif e.type == "delay":
+                        self.logger.critical(
+                            "Forced delay due to temporary issue with environment, "
+                            "sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
+                    time.sleep(e.length)
+                    self.manager.qbit_manager.should_delay_torrent_scan = False
+                except KeyboardInterrupt:
+                    self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                    sys.exit(0)
+                else:
+                    time.sleep(5)
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
         while True:
             try:
                 try:
-                    if not self.manager.qbit_manager.is_alive:
-                        raise NoConnectionrException(
-                            "Could not connect to qBit client.", type="qbit"
+                    try:
+                        if not self.manager.qbit_manager.is_alive:
+                            raise NoConnectionrException(
+                                "Could not connect to qBit client.", type="qbit"
+                            )
+                        if not self.is_alive:
+                            raise NoConnectionrException(
+                                "Could not connect to %s" % self.uri, type="arr"
+                            )
+                        self.process_torrents()
+                    except NoConnectionrException as e:
+                        self.logger.error(e.message)
+                        self.manager.qbit_manager.should_delay_torrent_scan = True
+                        raise DelayLoopException(length=300, type=e.type)
+                    except DelayLoopException:
+                        raise
+                    except KeyboardInterrupt:
+                        self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                        sys.exit(0)
+                    except Exception as e:
+                        self.logger.error(e, exc_info=sys.exc_info())
+                    time.sleep(LOOP_SLEEP_TIMER)
+                except DelayLoopException as e:
+                    if e.type == "qbit":
+                        self.logger.critical(
+                            "Failed to connected to qBit client, sleeping for %s",
+                            timedelta(seconds=e.length),
                         )
-                    if not self.is_alive:
-                        raise NoConnectionrException(
-                            "Could not connect to %s" % self.uri, type="arr"
+                    elif e.type == "internet":
+                        self.logger.critical(
+                            "Failed to connected to the internet, sleeping for %s",
+                            timedelta(seconds=e.length),
                         )
-                    self.process_torrents()
-                except NoConnectionrException as e:
-                    self.logger.error(e.message)
-                    self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=300, type=e.type)
-                except DelayLoopException:
-                    raise
+                    elif e.type == "arr":
+                        self.logger.critical(
+                            "Failed to connected to the Arr instance, sleeping for %s",
+                            timedelta(seconds=e.length),
+                        )
+                    elif e.type == "delay":
+                        self.logger.critical(
+                            "Forced delay due to temporary issue with environment, "
+                            "sleeping for %s.",
+                            timedelta(seconds=e.length),
+                        )
+                    time.sleep(e.length)
+                    self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
-                except Exception as e:
-                    self.logger.error(e, exc_info=sys.exc_info())
-                time.sleep(LOOP_SLEEP_TIMER)
-            except DelayLoopException as e:
-                if e.type == "qbit":
-                    self.logger.critical(
-                        "Failed to connected to qBit client, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "internet":
-                    self.logger.critical(
-                        "Failed to connected to the internet, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "arr":
-                    self.logger.critical(
-                        "Failed to connected to the Arr instance, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "delay":
-                    self.logger.critical(
-                        "Forced delay due to temporary issue with environment, "
-                        "sleeping for %s.",
-                        timedelta(seconds=e.length),
-                    )
-                time.sleep(e.length)
-                self.manager.qbit_manager.should_delay_torrent_scan = False
             except KeyboardInterrupt:
                 self.logger.hnotice("Detected Ctrl+C - Terminating process")
                 sys.exit(0)
@@ -3099,27 +3115,31 @@ class PlaceHolderArr(Arr):
         if self.manager.qbit_manager.should_delay_torrent_scan:
             raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
         try:
-            torrents = self.manager.qbit_manager.client.torrents.info.all(
-                category=self.category, sort="added_on", reverse=False
-            )
-            for torrent in torrents:
-                if torrent.category != RECHECK_CATEGORY:
-                    self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-                self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
-                if torrent.category == FAILED_CATEGORY:
-                    # Bypass everything if manually marked as failed
-                    self._process_single_torrent_failed_cat(torrent)
-                elif torrent.category == RECHECK_CATEGORY:
-                    # Bypass everything else if manually marked for rechecking
-                    self._process_single_torrent_recheck_cat(torrent)
-            self.process()
-        except NoConnectionrException as e:
-            self.logger.error(e.message)
+            try:
+                torrents = self.manager.qbit_manager.client.torrents.info.all(
+                    category=self.category, sort="added_on", reverse=False
+                )
+                for torrent in torrents:
+                    if torrent.category != RECHECK_CATEGORY:
+                        self.manager.qbit_manager.cache[torrent.hash] = torrent.category
+                    self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
+                    if torrent.category == FAILED_CATEGORY:
+                        # Bypass everything if manually marked as failed
+                        self._process_single_torrent_failed_cat(torrent)
+                    elif torrent.category == RECHECK_CATEGORY:
+                        # Bypass everything else if manually marked for rechecking
+                        self._process_single_torrent_recheck_cat(torrent)
+                self.process()
+            except NoConnectionrException as e:
+                self.logger.error(e.message)
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
+            except Exception as e:
+                self.logger.error(e, exc_info=sys.exc_info())
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
-        except Exception as e:
-            self.logger.error(e, exc_info=sys.exc_info())
 
     def run_search_loop(self):
         return
