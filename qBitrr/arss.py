@@ -441,6 +441,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
+        self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
     def is_alive(self) -> bool:
@@ -2872,6 +2873,7 @@ class Arr:
 
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.logger.hnotice("Starting missing search for %s", self._name)
         try:
             self.register_search_mode()
             if not self.search_missing:
@@ -2959,6 +2961,7 @@ class Arr:
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.logger.hnotice("Starting torrent monitoring for %s", self._name)
         while True:
             try:
                 try:
@@ -3040,7 +3043,7 @@ class PlaceHolderArr(Arr):
     ):
         if name in manager.groups:
             raise OSError("Group '{name}' has already been registered.")
-        self._name = name
+        self._name = name.title()
         self.category = name
         self.manager = manager
         self.queue = []
@@ -3069,6 +3072,7 @@ class PlaceHolderArr(Arr):
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
+        self.logger.hnotice("Starting %s monitor", self._name)
 
     def _process_errored(self):
         # Recheck all torrents marked for rechecking.
