@@ -851,7 +851,9 @@ class Arr:
 
     def api_calls(self) -> None:
         if not self.is_alive:
-            raise NoConnectionrException(f"Service: {self._name} did not respond on {self.uri}")
+            raise NoConnectionrException(
+                f"Service: {self._name} did not respond on {self.uri}", type="arr"
+            )
         now = datetime.now()
         if (
             self.rss_sync_timer_last_checked is not None
