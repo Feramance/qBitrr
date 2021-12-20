@@ -1,6 +1,11 @@
 # Changelog
 
+## v2.1.7 (20/12/2021)
+
+---
+
 ## v2.1.6 (20/12/2021)
+- [[patch] 2 enhancements and 1 bug fix.](https://github.com/Drapersniper/Qbitrr/commit/3e285bcf7dea29fa234508a8a920400f6b85e3f1) - @Drapersniper
 
 ---
 
