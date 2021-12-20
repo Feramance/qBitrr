@@ -30,7 +30,7 @@ jobs:
       id: current_version
     - name: Bump Patch Version
       run: |
-        bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }} setup.cfg
+        bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }}
     - name: Retrieve new version
       run: |
         echo "::set-output name=VERSION::$(python setup.py --version)"
