@@ -20,13 +20,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - os: windows-latest
-          platform-name: windows.x64
-        - os: macos-latest
-          platform-name: macos.x64
-        - os: ubuntu-latest
-          platform-name: linux.x64
+        python:
+        - '3.10'
+        os:
+        - windows-latest
+        - macos-latest
+        - ubuntu-latest
+        arch:
+        - x86
+        - x64
+        exclude:
+        - os: macOS-latest
+          arch: x86
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v1
@@ -34,7 +40,7 @@ jobs:
         fetch-depth: 0
     - name: Set archive name
       run: |
-        ARCHIVE_NAME=${{ env.project-name }}-`git describe --always`-${{ matrix.platform-name }}
+        ARCHIVE_NAME=${{ env.project-name }}-`git describe --always`-${{ matrix.os }}-${{ matrix.arch }}
         echo "Archive name set to: $ARCHIVE_NAME"
         echo "::set-output name=NAME::$ARCHIVE_NAME"
       id: archieve
@@ -42,6 +48,7 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ env.python}}
+        architecture: ${{ matrix.arch }}
     - name: Install APT dependencies
       if: runner.os == 'Linux'
       run: |
