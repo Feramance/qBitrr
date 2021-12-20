@@ -32,6 +32,8 @@ jobs:
         exclude:
         - os: macOS-latest
           arch: x86
+        - os: ubuntu-latest
+          arch: x86
 
     steps:
     - name: Checkout code
