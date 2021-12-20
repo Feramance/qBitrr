@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import pathlib
+import sys
 from datetime import datetime
 from functools import reduce
 from typing import Any, TypeVar
@@ -593,7 +595,7 @@ class MyConfig:
     config: TOMLDocument
     defaults_config: TOMLDocument
 
-    def __init__(self, path: str, config: TOMLDocument | None = None):
+    def __init__(self, path: pathlib.Path | str, config: TOMLDocument | None = None):
         self.path = pathlib.Path(path)
         self._giving_data = bool(config)
         self.config = config or document()
@@ -660,5 +662,13 @@ class MyConfig:
 
 def _write_config_file():
     doc = generate_doc()
-    config = MyConfig("./config.toml", config=doc)
+    CONFIG_FILE = pathlib.Path().home().joinpath(".config", "qBitManager", "config.toml")
+    if CONFIG_FILE.exists():
+        logging.critical(f"{CONFIG_FILE} already exists.")
+        logging.warning(
+            "If you want to generate a new config file first manually delete it or move it."
+        )
+        sys.exit(1)
+    config = MyConfig(CONFIG_FILE, config=doc)
     config.save()
+    logging.info(f'New config file has been saved to "{CONFIG_FILE}"')

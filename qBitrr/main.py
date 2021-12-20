@@ -108,7 +108,7 @@ class qBitManager:
 def run():
     global CHILD_PROCESSES
     early_exit = process_flags()
-    if early_exit is True:
+    if early_exit.gen_config:
         return
     logger.notice("Starting qBitrr.")
     manager = qBitManager()

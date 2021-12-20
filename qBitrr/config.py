@@ -36,11 +36,16 @@ file = "config.toml"
 CONFIG_FILE = APPDATA_FOLDER.joinpath(file)
 CONFIG_PATH = pathlib.Path(f"./{file}")
 if not CONFIG_FILE.exists() and not CONFIG_PATH.exists():
-    logging.critical(f"{file} has not been found - exiting...")
+    logging.critical(f"{file} has not been found")
+    logging.warning(f"{file} must be added to {CONFIG_FILE}")
+    logging.warning(
+        "You can run me with the `--gen-config` flag to generate a "
+        "template config file which you can then edit."
+    )
     sys.exit(1)
 
 if CONFIG_FILE.exists():
-    CONFIG = MyConfig(str(CONFIG_FILE))
+    CONFIG = MyConfig(CONFIG_FILE)
 else:
     with contextlib.suppress(
         Exception

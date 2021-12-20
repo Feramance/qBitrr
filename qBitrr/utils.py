@@ -101,7 +101,7 @@ def is_connected(hostname):
         ping3.ping(hostname, timeout=5)
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
-        logging.debug(
+        logger.debug(
             "Error when connecting to host: %s %s",
             hostname,
             e,
