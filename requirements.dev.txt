@@ -1,0 +1,11 @@
+-r requirements.txt
+-r requirements.extras.txt
+black
+bump2version
+isort
+pre-commit
+PyInstaller
+pyupgrade
+setuptools
+twine
+wheel
