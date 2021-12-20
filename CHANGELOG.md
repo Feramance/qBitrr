@@ -1,6 +1,7 @@
 # Changelog
 
 ## v2.1.11 (20/12/2021)
+- [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/441b54ec7eb294a919a00ba0b76e001aabd3ed35) - @Drapersniper
 
 ---
 
