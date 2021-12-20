@@ -3022,6 +3022,7 @@ class PlaceHolderArr(Arr):
         self.queue = []
         self.cache = {}
         self.requeue_cache = {}
+        self.recently_queue = {}
         self.sent_to_scan = set()
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
