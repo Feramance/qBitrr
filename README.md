@@ -47,8 +47,6 @@ Some things to know before using it.
 
   ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
 
-- 4. Make sure to have [`ffprobe`](https://www.ffmpeg.org/download.html) added to your PATH.
-
 #### Install the requirements run
 
 - `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
