@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.16 (23/12/2021)
+
+---
+
 ## v2.1.15 (23/12/2021)
 - [[patch] Resolve bad conflict resolution](https://github.com/Drapersniper/Qbitrr/commit/3448dd29c90b74bf81d1b3c3962ec8eba000c5ca) - @Drapersniper
 - [[patch] Full fix for https://github.com/Drapersniper/Qbitrr/issues/19#issuecomment-999970944](https://github.com/Drapersniper/Qbitrr/commit/7c8f46d56701df7b938e5def82bd0b40b37e468e) - @Drapersniper
@@ -285,8 +289,3 @@
 - [fix actions](https://github.com/Drapersniper/Qbitrr/commit/f6a9af93c21ab0f220f73a202b91950e18fdada0) - @Drapersniper
 - [finish setup of automated released based on tags](https://github.com/Drapersniper/Qbitrr/commit/a7417e8deda7955994430a6b7f4b016a4e55bce1) - @Drapersniper
 - [prep2](https://github.com/Drapersniper/Qbitrr/commit/c6982c687f5c8bfe7ddf14ae0b6b02edb543135a) - @Drapersniper
-
----
-
-## v1.0.3 (12/12/2021)
-- [version bump](https://github.com/Drapersniper/Qbitrr/commit/a86da56b58036e2cdbd9fd8a3d5edbee5cc0f627) - @Drapersniper
