@@ -31,9 +31,14 @@ jobs:
         echo "Current version: $(python setup.py --version)"
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
+    - name: Get git hash
+      run: |
+        echo "Current Hash: $(git rev-parse --short HEAD)"
+        echo "::set-output name=HASH::$(git rev-parse --short HEAD)"
+      id: git_hash
     - name: Update git hash
       run: |
-        git rev-parse --short HEAD > git_hash.txt
+        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.HASH }}\"/g' ./qBitrr/bundled_data.py
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
