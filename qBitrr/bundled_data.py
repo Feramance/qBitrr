@@ -10,7 +10,7 @@ def get_git_hash() -> str:
     return "Non-Binary"
 
 
-version = "2.1.13"
+version = "2.1.14"
 git_hash = get_git_hash()
 
 license_text = (
