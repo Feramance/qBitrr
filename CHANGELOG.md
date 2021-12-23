@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.14 (23/12/2021)
+
+---
+
 ## v2.1.13 (20/12/2021)
 - [[patch] Hotfix - Remove ujson support for any python implementation that is not CPython due to the SystemError crash that occurred on PyPy](https://github.com/Drapersniper/Qbitrr/commit/0a3ff2da674076630e03a73e7f7782fbfa673697) - @Drapersniper
 
@@ -288,8 +292,3 @@
 - [make state show properly](https://github.com/Drapersniper/Qbitrr/commit/c19b5659a8de5777d1ae57149f4604ce5c2f2b65) - @Drapersniper
 - [Add a lot more info and the same info to all torrent log lines such as state, when was it added etc](https://github.com/Drapersniper/Qbitrr/commit/e91c10135b176c038847fc9d8752a3f7723b3585) - @Drapersniper
 - [Add update instructions](https://github.com/Drapersniper/Qbitrr/commit/0475220ed4d5154b447c92570643e6f1a014cecf) - @Drapersniper
-
----
-
-## v1.0.1 (11/12/2021)
-- [hotfix pypi release](https://github.com/Drapersniper/Qbitrr/commit/eac1b375a62ffe597927a2d2e1e4c0c6dd89b9bd) - @Drapersniper
