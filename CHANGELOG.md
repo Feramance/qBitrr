@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.15 (23/12/2021)
+
+---
+
 ## v2.1.14 (23/12/2021)
 - [[patch] Temp fix for https://github.com/Drapersniper/Qbitrr/issues/19#issuecomment-999970944](https://github.com/Drapersniper/Qbitrr/commit/746a769d44fc3ed8256adc3ca0f4a31599b07706) - @Drapersniper
 - [Update setup instructions](https://github.com/Drapersniper/Qbitrr/commit/d59424239516be1c5513f2e4cea6c32e1eabba40) - @Drapersniper
@@ -284,13 +288,3 @@
 
 ## v1.0.3 (12/12/2021)
 - [version bump](https://github.com/Drapersniper/Qbitrr/commit/a86da56b58036e2cdbd9fd8a3d5edbee5cc0f627) - @Drapersniper
-
----
-
-## v1.0.2 (11/12/2021)
-- [bump version](https://github.com/Drapersniper/Qbitrr/commit/5d781b2180e1070663748e9948c7ba95d5594747) - @Drapersniper
-- [make the script exit with an error message if `config.ini` cannot be located](https://github.com/Drapersniper/Qbitrr/commit/d867253a8e37da9f55a5b54e6f37150e8db58a58) - @Drapersniper
-- [update README.md](https://github.com/Drapersniper/Qbitrr/commit/6bd5b8a91e29028d1e311d159b712ee46e8692a5) - @Drapersniper
-- [make state show properly](https://github.com/Drapersniper/Qbitrr/commit/c19b5659a8de5777d1ae57149f4604ce5c2f2b65) - @Drapersniper
-- [Add a lot more info and the same info to all torrent log lines such as state, when was it added etc](https://github.com/Drapersniper/Qbitrr/commit/e91c10135b176c038847fc9d8752a3f7723b3585) - @Drapersniper
-- [Add update instructions](https://github.com/Drapersniper/Qbitrr/commit/0475220ed4d5154b447c92570643e6f1a014cecf) - @Drapersniper
