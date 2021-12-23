@@ -1,6 +1,7 @@
 # Changelog
 
 ## v2.1.16 (23/12/2021)
+- [[patch] Fix the previous issue properly](https://github.com/Drapersniper/Qbitrr/commit/34f231b2091f14c88c75a9274bcf7e9b1c671b6e) - @Drapersniper
 
 ---
 
