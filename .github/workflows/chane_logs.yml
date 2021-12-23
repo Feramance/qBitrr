@@ -38,7 +38,7 @@ jobs:
       id: git_hash
     - name: Update git hash
       run: |
-        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.HASH }}\"/g' ./qBitrr/bundled_data.py
+        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.outputs.HASH }}\"/g' ./qBitrr/bundled_data.py
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
