@@ -1,6 +1,8 @@
 # Changelog
 
 ## v2.1.15 (23/12/2021)
+- [[patch] Resolve bad conflict resolution](https://github.com/Drapersniper/Qbitrr/commit/3448dd29c90b74bf81d1b3c3962ec8eba000c5ca) - @Drapersniper
+- [[patch] Full fix for https://github.com/Drapersniper/Qbitrr/issues/19#issuecomment-999970944](https://github.com/Drapersniper/Qbitrr/commit/7c8f46d56701df7b938e5def82bd0b40b37e468e) - @Drapersniper
 
 ---
 
