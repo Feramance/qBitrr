@@ -1,4 +1,4 @@
-version = "2.1.17"
+version = "2.1.18"
 git_hash = "120a723"
 license_text = (
     "Licence can be found on:\n\nhttps://github.com/Drapersniper/Qbitrr/blob/master/LICENSE"
