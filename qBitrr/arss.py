@@ -290,6 +290,7 @@ class Arr:
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
+        self.remove_from_qbit = set()
         self.files_to_explicitly_delete: Iterator = iter([])
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
@@ -782,7 +783,7 @@ class Arr:
             self.recheck.clear()
 
     def _process_failed(self) -> None:
-        to_delete_all = self.delete.union(self.skip_blacklist).union(
+        to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
         if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
@@ -800,12 +801,19 @@ class Arr:
                     self._process_failed_individual(
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                     )
+        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
-            self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            temp_to_delete = set()
+            if to_delete_all:
+                self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            if self.remove_from_qbit or self.skip_blacklist:
+                temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
+                self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
+
+            to_delete_all = to_delete_all.union(temp_to_delete)
             for h in to_delete_all:
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
-
                 if h in self.manager.qbit_manager.name_cache:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
@@ -814,6 +822,7 @@ class Arr:
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()
+        self.remove_from_qbit.clear()
         self.delete.clear()
 
     def _process_file_priority(self) -> None:
@@ -1871,7 +1880,6 @@ class Arr:
             )
         else:
             self.pause.add(torrent.hash)
-            self.skip_blacklist.add(torrent.hash)
             self.logger.trace(
                 "Pausing torrent: Queued Upload | "
                 "[Progress: %s%%][Added On: %s]"
@@ -2097,7 +2105,7 @@ class Arr:
             torrent.hash,
         )
         # We do not want to blacklist these!!
-        self.skip_blacklist.add(torrent.hash)
+        self.remove_from_qbit.add(torrent.hash)
 
     def _process_single_torrent_uploading(
         self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
@@ -3075,6 +3083,7 @@ class PlaceHolderArr(Arr):
         self.recheck = set()
         self.pause = set()
         self.skip_blacklist = set()
+        self.remove_from_qbit = set()
         self.delete = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
@@ -3097,7 +3106,6 @@ class PlaceHolderArr(Arr):
             temp = defaultdict(list)
             updated_recheck = []
             for h in self.recheck:
-
                 updated_recheck.append(h)
                 if c := self.manager.qbit_manager.cache.get(h):
                     temp[c].append(h)
@@ -3112,7 +3120,7 @@ class PlaceHolderArr(Arr):
     def _process_failed(self):
         if not (self.delete or self.skip_blacklist):
             return
-        to_delete_all = self.delete.union(self.skip_blacklist)
+        to_delete_all = self.delete
         skip_blacklist = {i.upper() for i in self.skip_blacklist}
         if to_delete_all:
             for arr in self.manager.managed_objects.values():
@@ -3123,15 +3131,22 @@ class PlaceHolderArr(Arr):
                             arr._process_failed_individual(
                                 hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                             )
-
+        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
-            self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            temp_to_delete = set()
+            if to_delete_all:
+                self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+            if self.remove_from_qbit or self.skip_blacklist:
+                temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
+                self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
+            to_delete_all = to_delete_all.union(temp_to_delete)
             for h in to_delete_all:
                 if h in self.manager.qbit_manager.name_cache:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
         self.skip_blacklist.clear()
+        self.remove_from_qbit.clear()
         self.delete.clear()
 
     def process(self):
