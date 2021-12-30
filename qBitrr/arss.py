@@ -1703,7 +1703,7 @@ class Arr:
             file_model.Searched = True
             file_model.save()
             self.logger.hnotice(
-                "%sSkipping: Searching for: %s (%s) [tmdbId=%s|id=%s]",
+                "%Searching for: %s (%s) [tmdbId=%s|id=%s]",
                 request_tag,
                 file_model.Title,
                 file_model.Year,
