@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.1.17 (30/12/2021)
+
+---
+
 ## v2.1.16 (23/12/2021)
 - [[patch] Fix the previous issue properly](https://github.com/Drapersniper/Qbitrr/commit/34f231b2091f14c88c75a9274bcf7e9b1c671b6e) - @Drapersniper
 
@@ -272,21 +276,3 @@
 - [[patch] admin release](https://github.com/Drapersniper/Qbitrr/commit/c5e15f7ff4cb0c2e4263d8a9dc454ca44c7c8bc8) - @Drapersniper
 - [[patch] admin bump](https://github.com/Drapersniper/Qbitrr/commit/c816c65fb9d6f91b64d860bd2ba8b60c2dc97716) - @Drapersniper
 - [separate workflows](https://github.com/Drapersniper/Qbitrr/commit/d279af46164972f0ff65532750e17a5884c6261e) - @Drapersniper
-
----
-
-## v1.0.7 (12/12/2021)
-- [[deploy] Automated patch version bump: 1.0.6 >> 1.0.7](https://github.com/Drapersniper/Qbitrr/commit/c4d668a0186e8f8ac96cc9b74a57341cd43fa7dd) - @Drapersniper
-- [[patch] admin release](https://github.com/Drapersniper/Qbitrr/commit/c4df98e1144c9ac329f9397b335dd973c1c61985) - @Drapersniper
-- [Automatically create releases](https://github.com/Drapersniper/Qbitrr/commit/a775772f6ce6903ea4ee9c4066190c1b125e3e75) - @Drapersniper
-- [[deploy] Automated patch version bump: 1.0.5 >> 1.0.6](https://github.com/Drapersniper/Qbitrr/commit/ce738e74007ce6e0bd54d91b5cfda4f41562eac6) - @Drapersniper
-- [[patch] admin release](https://github.com/Drapersniper/Qbitrr/commit/b082b0dfd8693ff5b40490b6db29a21d6c02fef7) - @Drapersniper
-- [add tags](https://github.com/Drapersniper/Qbitrr/commit/2986e2eee6f4805f298958897144c6092a5de780) - @Drapersniper
-- [[deploy] Automated patch version bump: 1.0.4 >> 1.0.5](https://github.com/Drapersniper/Qbitrr/commit/d8909a0135bf9f662d960051c89d8af5683f30e5) - @Drapersniper
-- [[patch] Im a lil lazy - to this should be the version bump and depploy automated](https://github.com/Drapersniper/Qbitrr/commit/9e3d78ef10f2958815b1d4d6caad1542845ae349) - @Drapersniper
-- [add version to commit](https://github.com/Drapersniper/Qbitrr/commit/f52ca6db0d613015031cd06e45a2c93c8c80a10c) - @Drapersniper
-- [[deploy] Automated patch version bump](https://github.com/Drapersniper/Qbitrr/commit/e5d316093347c00540eac0fd89beee92052fb4d5) - @Drapersniper
-- [[patch] Just a test](https://github.com/Drapersniper/Qbitrr/commit/4cdb41021d5486aa7fefc9c6b6ad648fe738145e) - @Drapersniper
-- [fix actions](https://github.com/Drapersniper/Qbitrr/commit/f6a9af93c21ab0f220f73a202b91950e18fdada0) - @Drapersniper
-- [finish setup of automated released based on tags](https://github.com/Drapersniper/Qbitrr/commit/a7417e8deda7955994430a6b7f4b016a4e55bce1) - @Drapersniper
-- [prep2](https://github.com/Drapersniper/Qbitrr/commit/c6982c687f5c8bfe7ddf14ae0b6b02edb543135a) - @Drapersniper
