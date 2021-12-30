@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pathlib
-import sys
 from datetime import datetime
 from functools import reduce
 from typing import Any, TypeVar
@@ -172,6 +171,43 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         )
     )
     cat_default.add("RefreshDownloadsTimer", 0)
+    cat_default.add(nl())
+
+    messages = []
+    cat_default.add(
+        comment("Error messages shown my the Arr instance which should be considered failures.")
+    )
+    cat_default.add(
+        comment(
+            "This entry should be a list, "
+            "leave it empty if you want to disable this error handling."
+        )
+    )
+    cat_default.add(
+        comment(
+            "If enabled qBitrr will remove the failed files and "
+            "tell the Arr instance the download failed"
+        )
+    )
+
+    if "radarr" in category.lower():
+        messages.extend(
+            [
+                "Not a preferred word upgrade for existing movie file(s)",
+                "Not an upgrade for existing movie file(s)",
+                "Unable to determine if file is a sample",
+            ]
+        )
+    elif "sonarr" in category.lower():
+        messages.extend(
+            [
+                "Not a preferred word upgrade for existing episode file(s)",
+                "Not an upgrade for existing episode file(s)",
+                "Unable to determine if file is a sample",
+            ]
+        )
+
+    cat_default.add("ArrErrorCodesToBlocklist", list(set(messages)))
     cat_default.add(nl())
 
     _gen_default_search_table(category, cat_default)
@@ -611,8 +647,6 @@ class MyConfig:
             try:
                 if self._giving_data:
                     return self
-                if not self.path.exists():
-                    self.path.touch()
                 with self.path.open() as file:
                     self.config = parse(file.read())
                     return self
@@ -663,9 +697,8 @@ def _write_config_file():
     doc = generate_doc()
     CONFIG_FILE = pathlib.Path().home().joinpath(".config", "qBitManager", "config.toml")
     if CONFIG_FILE.exists():
-        print(f"{CONFIG_FILE} already exists.")
-        print("If you want to generate a new config file first manually delete it or move it.")
-        sys.exit(1)
+        print(f"{CONFIG_FILE} already exists, File is not being replaced.")
+        CONFIG_FILE = pathlib.Path.cwd().joinpath("config.toml")
     config = MyConfig(CONFIG_FILE, config=doc)
     config.save()
     print(f'New config file has been saved to "{CONFIG_FILE}"')

@@ -75,6 +75,11 @@ RssSyncTimer = 0
 # Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
 RefreshDownloadsTimer = 0
 
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not an upgrade for existing episode file(s)", "Not a preferred word upgrade for existing episode file(s)", "Unable to determine if file is a sample"]
+
 
 [Sonarr-TV.EntrySearch]
 # All these settings depends on SearchMissing being True and access to the Servarr database file.
@@ -241,6 +246,10 @@ RssSyncTimer = 0
 # Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
 RefreshDownloadsTimer = 0
 
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a preferred word upgrade for existing movie file(s)", "Unable to determine if file is a sample"]
 
 [Sonarr-Anime.EntrySearch]
 # All these settings depends on SearchMissing being True and access to the Servarr database file.
@@ -422,6 +431,10 @@ RssSyncTimer = 0
 # Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
 RefreshDownloadsTimer = 0
 
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a preferred word upgrade for existing movie file(s)", "Unable to determine if file is a sample"]
 
 [Radarr-1080.EntrySearch]
 # All these settings depends on SearchMissing being True and access to the Servarr database file.
@@ -613,6 +626,10 @@ RssSyncTimer = 0
 # Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable
 RefreshDownloadsTimer = 0
 
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a preferred word upgrade for existing movie file(s)", "Unable to determine if file is a sample"]
 
 [Radarr-4K.EntrySearch]
 # All these settings depends on SearchMissing being True and access to the Servarr database file.

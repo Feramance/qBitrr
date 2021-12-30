@@ -96,6 +96,9 @@ class Arr:
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Move")
         self.refresh_downloads_timer = CONFIG.get(f"{name}.RefreshDownloadsTimer", fallback=1)
+        self.arr_error_codes_to_blocklist = CONFIG.get(
+            f"{name}.ArrErrorCodesToBlocklist", fallback=[]
+        )
         self.rss_sync_timer = CONFIG.get(f"{name}.RssSyncTimer", fallback=15)
 
         self.case_sensitive_matches = CONFIG.get(
@@ -289,7 +292,7 @@ class Arr:
         self.resume = set()
         self.files_to_explicitly_delete: Iterator = iter([])
         self.missing_files_post_delete = set()
-        self.missing_files_post_delete_blacklist = set()
+        self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
         self.recently_queue = dict()
 
@@ -780,9 +783,9 @@ class Arr:
 
     def _process_failed(self) -> None:
         to_delete_all = self.delete.union(self.skip_blacklist).union(
-            self.missing_files_post_delete, self.missing_files_post_delete_blacklist
+            self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
-        if self.missing_files_post_delete or self.missing_files_post_delete_blacklist:
+        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
             delete_ = True
         else:
             delete_ = False
@@ -809,7 +812,7 @@ class Arr:
                     del self.manager.qbit_manager.cache[h]
         if delete_:
             self.missing_files_post_delete.clear()
-            self.missing_files_post_delete_blacklist.clear()
+            self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()
         self.delete.clear()
 
@@ -2684,6 +2687,8 @@ class Arr:
         return res
 
     def _update_bad_queue_items(self):
+        if not self.arr_error_codes_to_blocklist:
+            return
         _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
@@ -2701,20 +2706,10 @@ class Arr:
                 if not title:
                     continue
                 for _m in m.get("messages", []):
-                    if _m in {
-                        "Not a preferred word upgrade for existing episode file(s)",
-                        "Not a preferred word upgrade for existing movie file(s)",
-                        "Not an upgrade for existing episode file(s)",
-                        "Not an upgrade for existing movie file(s)",
-                        "Unable to determine if file is a sample",
-                    }:  # TODO: Add more error codes
+                    if _m in self.arr_error_codes_to_blocklist:
                         _path_filter.add(pathlib.Path(output_path).joinpath(title))
                         e = entry.get("downloadId")
-                        self.missing_files_post_delete_blacklist.add(e)
-                    elif "No files found are eligible for import in" in _m:
-                        if e := entry.get("downloadId"):
-                            self.missing_files_post_delete.add(e)
-
+                        self.downloads_with_bad_error_message_blocklist.add(e)
         if len(_path_filter):
             self.needs_cleanup = True
         self.files_to_explicitly_delete = iter(_path_filter.copy())
