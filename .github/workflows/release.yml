@@ -249,7 +249,7 @@ jobs:
     - name: Release Notes and Change logs
       run: |
         gren release
-        gren changelog
+        gren changelog --tags=all
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
