@@ -5,10 +5,19 @@ on:
     branches:
     - master
 
+defaults:
+  run:
+    shell: bash
+env:
+  project-name: qBitrr
+  GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
+
 jobs:
-  release:
+  bump_version:
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[auto-release]') }}
+    if: ${{ startsWith(github.event.head_commit.message, '[patch]') || startsWith(github.event.head_commit.message, '[minor]') || startsWith(github.event.head_commit.message, '[major]') }}
+    env:
+      RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' }}
     steps:
     - uses: actions/checkout@v2
       with:
@@ -17,19 +26,59 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.x
-    - uses: actions/setup-node@v2
-      with:
-        node-version: '14'
-    - run: npm install github-release-notes -g
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install setuptools wheel twine
+        pip install bump2version setuptools wheel twine
     - name: Retrieve current version
       run: |
         echo "Current version: $(python setup.py --version)"
         echo "::set-output name=VERSION::$(python setup.py --version)"
       id: current_version
+    - name: Bump Patch Version
+      run: |
+        bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }}
+    - name: Retrieve new version
+      run: |
+        echo "::set-output name=VERSION::$(python setup.py --version)"
+      id: new_version
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v4
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.12.0
+      with:
+        commit_message: '[skip ci][${{ env.RELEASE_TYPE }}] Automated version bump: v${{ steps.current_version.outputs.VERSION }} >> v${{ steps.new_version.outputs.VERSION }}'
+        tagging_message: v${{ steps.new_version.outputs.VERSION }}
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+    outputs:
+      RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
+      CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
+      NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
+  release:
+    needs: [bump_version]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: master
+        token: ${{ secrets.PAT }}
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v4
       with:
@@ -42,5 +91,178 @@ jobs:
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: false
-        automatic_release_tag: v${{ steps.current_version.outputs.VERSION }}
-        title: v${{ steps.current_version.outputs.VERSION }}
+        automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        title: v${{needs.bump_version.outputs.NEW_RELEASE}}
+  release_hash:
+    needs: [bump_version, release]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.PAT }}
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Get git hash
+      run: |
+        echo "Current Hash: $(git rev-parse --short HEAD)"
+        echo "::set-output name=HASH::$(git rev-parse --short HEAD)"
+      id: git_hash
+    - name: Update git hash
+      run: |
+        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.outputs.HASH }}\"/g' ./qBitrr/bundled_data.py
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v4
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.12.0
+      with:
+        commit_message: '[skip ci] Update Release Hash for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+    outputs:
+      RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
+  package:
+    needs: [bump_version, release_hash]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+        - '3.10'
+        os:
+        - windows-latest
+        - macos-latest
+        - ubuntu-latest
+        arch:
+        - x86
+        - x64
+        exclude:
+        - os: macOS-latest
+          arch: x86
+        - os: ubuntu-latest
+          arch: x86
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v1
+      with:
+        ref: master
+        fetch-depth: 0
+    - name: Set up Python ${{ matrix.python }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python}}
+        architecture: ${{ matrix.arch }}
+    - name: Install APT dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install libsdl2-dev
+    - name: Set archive name
+      run: |
+        ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
+        echo "Archive name set to: $ARCHIVE_NAME"
+        echo "::set-output name=NAME::$ARCHIVE_NAME"
+      id: archieve
+    - name: Install Python dependencies
+      run: |
+        python -m pip install -U pip setuptools wheel
+        python -m pip install -r requirements.dev.txt
+    - name: Run PyInstaller
+      env:
+        PYTHONOPTIMIZE: 2     # Enable optimizations as if the -O flag is given.
+        PYTHONHASHSEED: 42     # Try to ensure deterministic results.
+        PYTHONUNBUFFERED: 1
+      run: |
+        pyinstaller build.spec
+       # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
+    - name: List distribution files
+      run: |
+        find dist
+       # Archive the PyInstaller build using the appropriate tool for the platform.
+    - name: Tar files
+      if: runner.os != 'Windows'
+      run: |
+        tar --format=ustar -czvf ${{ steps.archieve.outputs.NAME }}.tar.gz dist/
+    - name: Archive files
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
+       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: automated-build-${{ steps.archieve.outputs.NAME }}
+        path: ${{ steps.archieve.outputs.NAME }}.*
+        retention-days: 7
+        if-no-files-found: error
+    - name: Upload release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ steps.archieve.outputs.NAME }}.*
+        file_glob: true
+        tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        overwrite: true
+  publish:
+    needs: [bump_version, release_hash]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+    - run: npm install github-release-notes -g
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel
+    - name: Build package
+      run: python -m build
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+    - name: Release Notes and Change logs
+      run: |
+        gren release
+        gren changelog
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v4
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.12.0
+      with:
+        commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>

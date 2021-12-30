@@ -12,12 +12,10 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
-    if: ${{ !contains(github.event.head_commit.message, '[auto-publish]') && !startsWith(github.event.head_commit.message, '[auto-release]') }}
     permissions:
       actions: read
       contents: read
       security-events: write
-
     strategy:
       fail-fast: false
       matrix:

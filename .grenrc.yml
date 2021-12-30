@@ -10,4 +10,6 @@ ignoreCommitsWith:
 - \[auto-publish\]
 - \[skip ci\]
 - \[ci skip\]
+- pre-commit
+- \[pre-commit.ci\]
 changelogFilename: CHANGELOG.md

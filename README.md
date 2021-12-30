@@ -5,11 +5,9 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
 ![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--64%20%7C%20win--32%20%7C%20win--64-lightgrey)
 
-[![CodeQL status](https://github.com/Drapersniper/Qbitrr/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/codeql-analysis.yml)
-[![Generate Change Logs](https://github.com/Drapersniper/Qbitrr/actions/workflows/chane_logs.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/chane_logs.yml)
-[![Build Binaries](https://github.com/Drapersniper/Qbitrr/actions/workflows/upload_binaries.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/upload_binaries.yml)
-[![Publish to PyPi](https://github.com/Drapersniper/Qbitrr/actions/workflows/publish.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/publish.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Drapersniper/Qbitrr/master.svg)](https://results.pre-commit.ci/latest/github/Drapersniper/Qbitrr/master)
+[![CodeQL status](https://github.com/Drapersniper/Qbitrr/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/codeql-analysis.yml)
+[![Release](https://github.com/Drapersniper/Qbitrr/actions/workflows/release.yml/badge.svg)](https://github.com/Drapersniper/Qbitrr/actions/workflows/release.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
