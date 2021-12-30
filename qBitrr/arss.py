@@ -2929,6 +2929,9 @@ class Arr:
                     except ValueError:
                         self.logger.debug("Loop completed, restarting it.")
                         self.loop_completed = True
+                    except qbittorrentapi.exceptions.APIConnectionError as e:
+                        self.logger.warning(e)
+                        raise DelayLoopException(length=300, type="qbit")
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     time.sleep(LOOP_SLEEP_TIMER)
@@ -2985,6 +2988,9 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type=e.type)
+                    except qbittorrentapi.exceptions.APIConnectionError as e:
+                        self.logger.warning(e)
+                        raise DelayLoopException(length=300, type="qbit")
                     except DelayLoopException:
                         raise
                     except KeyboardInterrupt:
@@ -3160,6 +3166,9 @@ class PlaceHolderArr(Arr):
                 self.logger.error(e.message)
             except DelayLoopException:
                 raise
+            except qbittorrentapi.exceptions.APIConnectionError as e:
+                self.logger.warning(e)
+                raise DelayLoopException(length=300, type="qbit")
             except KeyboardInterrupt:
                 self.logger.hnotice("Detected Ctrl+C - Terminating process")
                 sys.exit(0)
