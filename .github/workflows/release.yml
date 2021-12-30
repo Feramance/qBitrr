@@ -14,6 +14,7 @@ env:
 
 jobs:
   bump_version:
+    name: Bump release version
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[patch]') || startsWith(github.event.head_commit.message, '[minor]') || startsWith(github.event.head_commit.message, '[major]') }}
     env:
@@ -64,6 +65,7 @@ jobs:
       CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
       NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
   release:
+    name: Create a GitHub Release
     needs: [bump_version]
     runs-on: ubuntu-latest
     steps:
@@ -94,6 +96,7 @@ jobs:
         automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         title: v${{needs.bump_version.outputs.NEW_RELEASE}}
   release_hash:
+    name: Update The Version Hash
     needs: [bump_version, release]
     runs-on: ubuntu-latest
     steps:
@@ -136,7 +139,32 @@ jobs:
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
     outputs:
       RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
+  publish:
+    name: Publish to PyPi
+    needs: [bump_version, release_hash]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel
+    - name: Build package
+      run: python -m build
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
   package:
+    name: Build Binaries
     needs: [bump_version, release_hash]
     runs-on: ${{ matrix.os }}
     strategy:
@@ -184,16 +212,16 @@ jobs:
         python -m pip install -r requirements.dev.txt
     - name: Run PyInstaller
       env:
-        PYTHONOPTIMIZE: 2     # Enable optimizations as if the -O flag is given.
-        PYTHONHASHSEED: 42     # Try to ensure deterministic results.
+        PYTHONOPTIMIZE: 2       # Enable optimizations as if the -O flag is given.
+        PYTHONHASHSEED: 42       # Try to ensure deterministic results.
         PYTHONUNBUFFERED: 1
       run: |
         pyinstaller build.spec
-       # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
+        # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
     - name: List distribution files
       run: |
         find dist
-       # Archive the PyInstaller build using the appropriate tool for the platform.
+        # Archive the PyInstaller build using the appropriate tool for the platform.
     - name: Tar files
       if: runner.os != 'Windows'
       run: |
@@ -203,7 +231,7 @@ jobs:
       shell: pwsh
       run: |
         Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
-       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
+        # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
     - name: Upload Artifact
       uses: actions/upload-artifact@v2
       with:
@@ -219,8 +247,9 @@ jobs:
         file_glob: true
         tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         overwrite: true
-  publish:
-    needs: [bump_version, release_hash]
+  change_logs:
+    name: Generate Change Logs and Release Notes
+    needs: [bump_version, release_hash, publish]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -235,17 +264,6 @@ jobs:
       with:
         node-version: '14'
     - run: npm install github-release-notes -g
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel
-    - name: Build package
-      run: python -m build
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
     - name: Release Notes and Change logs
       run: |
         gren release
