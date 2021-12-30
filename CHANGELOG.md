@@ -1,6 +1,10 @@
 # Changelog
 
 ## v2.1.17 (30/12/2021)
+- [[patch] Fix for #6](https://github.com/Drapersniper/Qbitrr/commit/45154415d52eb19a36fa63997a098bae5f7f954d) - @Drapersniper
+- [[fix] Fix an issue that causes a specific log line to fail.](https://github.com/Drapersniper/Qbitrr/commit/e66ed28a2d4b22f5fd0eb0f2913a5c405ec0064d) - @Drapersniper
+- [[fix] Fix an issue where an old table field was causing crashes with Radarr file searches](https://github.com/Drapersniper/Qbitrr/commit/6da841636059aeac3f89ab5c4b870373eac64ae4) - @Drapersniper
+- [[pre-commit.ci] pre-commit autoupdate](https://github.com/Drapersniper/Qbitrr/commit/9066c19a56ecd561757f3d373eb70495d66db3c0) - @pre-commit-ci[bot]
 
 ---
 
