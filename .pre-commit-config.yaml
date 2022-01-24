@@ -51,7 +51,7 @@ repos:
   - id: autoflake
     args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]
 - repo: https://github.com/MarcoGorelli/absolufy-imports
-  rev: v0.3.0
+  rev: v0.3.1
   hooks:
   - id: absolufy-imports
 ci:
