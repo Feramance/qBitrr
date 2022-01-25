@@ -89,6 +89,7 @@ services:
   qbitrr:
     image: qbitrr
     user: 1000:1000 # Required to ensure teh container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
+    tty: true # Ensure the output of docker-compose logs qbitrr are properly colored.
     restart: unless-stopped
     # networks: This container MUST share a network with your Sonarr/Radarr instances
     enviroment:
