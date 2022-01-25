@@ -1,0 +1,15 @@
+.git
+.gitignore
+.github
+.gitattributes
+
+.bumpversion.cfg
+.grenrc.yml
+.pre-commit-config.yaml
+
+CHANGELOG.md
+README.md
+
+dist/
+build/
+qBitrr.egg-info/

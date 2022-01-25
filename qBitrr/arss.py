@@ -77,21 +77,21 @@ class Arr:
                 f"Group '{self._name}' is trying to manage Arr instance: "
                 f"'{self.uri}' which has already been registered."
             )
-
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
-        if not self.completed_folder.exists():
-            try:
-                self.completed_folder.mkdir(parents=True)
-            except Exception:
-                raise OSError(
-                    f"{self._name} completed folder is a requirement, "
-                    f"The specified folder does not exist '{self.completed_folder}'"
-                )
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
+        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+        if not self.completed_folder.exists():
+            try:
+                self.completed_folder.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                self.logger.warning(
+                    f"{self._name} completed folder is a soft requirement. "
+                    f"The specified folder does not exist '{self.completed_folder}' "
+                    "and cannot be created. This will disable all file monitoring."
+                )
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Move")
@@ -3222,10 +3222,12 @@ class ArrManager:
 
     def build_arr_instances(self):
         for key in CONFIG.sections():
-            if search := re.match("(rad|son)arr.*", key, re.IGNORECASE):
+            if search := re.match("(rad|son|anim)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
                 match = search.group(1)
                 if match.lower() == "son":
+                    call_cls = SonarrAPI
+                elif match.lower() == "anim":
                     call_cls = SonarrAPI
                 elif match.lower() == "rad":
                     call_cls = RadarrAPI

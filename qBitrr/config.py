@@ -8,8 +8,9 @@ import sys
 
 from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.gen_config import MyConfig, generate_doc
+from qBitrr.home_path import HOME_PATH, ON_DOCKER
 
-APPDATA_FOLDER = pathlib.Path().home().joinpath(".config", "qBitManager")
+APPDATA_FOLDER = HOME_PATH.joinpath(".config", "qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
@@ -81,12 +82,20 @@ if any(
     CONFIG = MyConfig(CONFIG_FILE, config=generate_doc())
     COPIED_TO_NEW_DIR = None
 elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
-    print(f"{file} has not been found")
-    print(f"{file} must be added to {CONFIG_FILE}")
-    print(
-        "You can run me with the `--gen-config` flag to generate a "
-        "template config file which you can then edit."
-    )
+    if ON_DOCKER:
+        print(f"{file} has not been found")
+        from qBitrr.gen_config import _write_config_file
+
+        CONFIG_FILE = _write_config_file(docker=True)
+        print(f"'{CONFIG_FILE.name}' has been generated")
+        print('Rename it to "config.toml" then edit it and restart the container')
+    else:
+        print(f"{file} has not been found")
+        print(f"{file} must be added to {CONFIG_FILE}")
+        print(
+            "You can run me with the `--gen-config` flag to generate a "
+            "template config file which you can then edit."
+        )
     sys.exit(1)
 
 elif CONFIG_FILE.exists():

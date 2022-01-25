@@ -9,6 +9,8 @@ from tomlkit import comment, document, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.home_path import HOME_PATH
+
 T = TypeVar("T")
 
 
@@ -16,12 +18,14 @@ def generate_doc() -> TOMLDocument:
     config = document()
     config.add(
         comment(
-            'This is a config file for the qBitrr Script - Make sure to change all entries of "CHANGE_ME".'
+            "This is a config file for the qBitrr Script - "
+            'Make sure to change all entries of "CHANGE_ME".'
         )
     )
     config.add(
         comment(
-            f"This is a config file should be moved to \"{pathlib.Path().home().joinpath('.config', 'qBitManager', 'config.toml')}\"."
+            'This is a config file should be moved to "'
+            f"{HOME_PATH.joinpath('.config', 'qBitManager', 'config.toml')}\"."
         )
     )
     config.add(nl())
@@ -40,7 +44,8 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(nl())
     settings.add(
         comment(
-            "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path"
+            "Folder where your completed downloads are put into. "
+            "Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path"
         )
     )
     settings.add("CompletedDownloadFolder", "CHANGE_ME")
@@ -70,7 +75,8 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(comment("URL to be pinged to check if you have a valid internet connection"))
     settings.add(
         comment(
-            "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings."
+            "These will be pinged a **LOT** make sure the service is okay "
+            "with you sending all the continuous pings."
         )
     )
     settings.add("PingURLS", ["one.one.one.one", "dns.google.com"])
@@ -83,17 +89,20 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(comment("If this is disabled and you want ffprobe to work"))
     settings.add(
         comment(
-            f"Ensure that you add the binary for your platform into ~/.config/qBitManager i.e \"{pathlib.Path().home().joinpath('.config', 'qBitManager', 'ffprobe.exe')}\""
+            "Ensure that you add the binary for your platform into ~/.config/qBitManager "
+            f"i.e \"{HOME_PATH.joinpath('.config', 'qBitManager', 'ffprobe.exe')}\""
         )
     )
     settings.add(
         comment(
-            "If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled."
+            "If no `ffprobe` binary is found in the folder above all "
+            "ffprobe functionality will be disabled."
         )
     )
     settings.add(
         comment(
-            "By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`"
+            "By default this will always be on even if config does not have these key - "
+            "to disable you need to explicitly set it to `False`"
         )
     )
     settings.add("FFprobeAutoUpdate", True)
@@ -107,7 +116,8 @@ def _add_qbit_section(config: TOMLDocument):
     qbit.add(nl())
     qbit.add(
         comment(
-            'Qbit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)'
+            'Qbit WebUI Port - Can be found in Options > Web UI (called "Port" '
+            "on top right corner of the window)"
         )
     )
     qbit.add("Port", 8105)
@@ -139,7 +149,8 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default.add(nl())
     cat_default.add(
         comment(
-            "The URL used to access Servarr interface (if you use a domain enter the domain without a port)"
+            "The URL used to access Servarr interface "
+            "(if you use a domain enter the domain without a port)"
         )
     )
     cat_default.add("URI", "CHANGE_ME")
@@ -149,7 +160,8 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default.add(nl())
     cat_default.add(
         comment(
-            "Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category"
+            "Category applied by Servarr to torrents in qBitTorrent, "
+            "can be found in Settings > Download Clients > qBit > Category"
         )
     )
     cat_default.add("Category", category.lower())
@@ -167,7 +179,8 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default.add(nl())
     cat_default.add(
         comment(
-            "Timer to call RefreshDownloads tp update the queue. (In minutes) - Set to 0 to disable"
+            "Timer to call RefreshDownloads tp update the queue. (In minutes) - "
+            "Set to 0 to disable"
         )
     )
     cat_default.add("RefreshDownloadsTimer", 0)
@@ -222,7 +235,8 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table.add(nl())
     torrent_table.add(
         comment(
-            "These regex values will match any folder where the full name matches the specified values here, comma separated strings."
+            "These regex values will match any folder where the full name matches "
+            "the specified values here, comma separated strings."
         )
     )
     torrent_table.add(
@@ -255,7 +269,8 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table.add(nl())
     torrent_table.add(
         comment(
-            "These regex values will match any folder where the full name matches the specified values here, comma separated strings."
+            "These regex values will match any folder where the full name matches "
+            "the specified values here, comma separated strings."
         )
     )
     torrent_table.add(
@@ -276,7 +291,8 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table.add(nl())
     torrent_table.add(
         comment(
-            "Only files with these extensions will be allowed to be downloaded, comma separated strings."
+            "Only files with these extensions will be allowed to be downloaded, "
+            "comma separated strings."
         )
     )
     torrent_table.add(
@@ -296,14 +312,16 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     )
     torrent_table.add(
         comment(
-            "Note that if you set the MaximumETA on a tracker basis that value is favoured over this value"
+            "Note that if you set the MaximumETA on a tracker basis that value is "
+            "favoured over this value"
         )
     )
     torrent_table.add("MaximumETA", 18000)
     torrent_table.add(nl())
     torrent_table.add(
         comment(
-            "Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)"
+            "Do not delete torrents with higher completion percentage than this setting "
+            "(0.5 = 50%, 1.0 = 100%)"
         )
     )
     torrent_table.add("MaximumDeletablePercentage", 0.99)
@@ -323,7 +341,8 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
-            "Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value"
+            "Note that if you set the DownloadRateLimit on a tracker basis that value is "
+            "avoured over this value"
         )
     )
     seeding_table.add("DownloadRateLimitPerTorrent", -1)
@@ -332,7 +351,8 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
-            "Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value"
+            "Note that if you set the UploadRateLimit on a tracker basis that value is "
+            "favoured over this value"
         )
     )
     seeding_table.add("UploadRateLimitPerTorrent", -1)
@@ -341,7 +361,8 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
-            "Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value"
+            "Note that if you set the MaxUploadRatio on a tracker basis that value is "
+            "favoured over this value"
         )
     )
     seeding_table.add("MaxUploadRatio", -1)
@@ -350,7 +371,8 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
-            "Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value"
+            "Note that if you set the MaxSeedingTime on a tracker basis that value is "
+            "favoured over this value"
         )
     )
     seeding_table.add("MaxSeedingTime", -1)
@@ -360,7 +382,8 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table.add(nl())
     seeding_table.add(
         comment(
-            'If "RemoveDeadTrackers" is set to true then remove trackers with the following messages'
+            'If "RemoveDeadTrackers" is set to true then remove trackers with the '
+            "following messages"
         )
     )
     seeding_table.add(
@@ -395,7 +418,8 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         tracker_table = table()
         tracker_table.add(
             comment(
-                "This is only for your own benefit, it is not currently used anywhere, but one day it may be."
+                "This is only for your own benefit, it is not currently used anywhere, "
+                "but one day it may be."
             )
         )
         tracker_table.add("Name", name)
@@ -405,7 +429,8 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         )
         tracker_table.add(
             comment(
-                "the tracker with the highest priority will have all its settings applied to the torrent."
+                "the tracker with the highest priority will have all its settings applied to "
+                "the torrent."
             )
         )
         tracker_table.add("Priority", priority)
@@ -469,7 +494,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table = table()
     search_table.add(
         comment(
-            "All these settings depends on SearchMissing being True and access to the Servarr database file."
+            "All these settings depends on SearchMissing being True and access to the Servarr "
+            "database file."
         )
     )
     search_table.add(nl())
@@ -481,7 +507,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
-            "Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)"
+            "Maximum allowed Searches at any one points (I wouldn't recommend settings "
+            "this too high)"
         )
     )
     if "sonarr" in category.lower():
@@ -489,22 +516,26 @@ def _gen_default_search_table(category: str, cat_default: Table):
     elif "radarr" in category.lower():
         search_table.add(
             comment(
-                "Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks"
+                "Radarr has a default of 3 simultaneous tasks, which can be increased up to "
+                "10 tasks"
             )
         )
         search_table.add(
             comment(
-                'If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10'
+                'If you set the environment variable of "THREAD_LIMIT" to a number between and '
+                "including 2-10"
             )
         )
         search_table.add(
             comment(
-                "Radarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them."
+                "Radarr devs have stated that this is an unsupported feature so you will "
+                "not get any support for doing so from them."
             )
         )
         search_table.add(
             comment(
-                "That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues."
+                "That being said I've been daily driving 10 simultaneous tasks for quite a "
+                "while now with no issues."
             )
         )
     search_table.add("SearchLimit", 5)
@@ -513,7 +544,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(comment("This is required for any of the search functionality to work"))
     search_table.add(
         comment(
-            'The only exception for this is the "ReSearch" setting as that is done via an API call.'
+            'The only exception for this is the "ReSearch" setting as that is done via an '
+            "API call."
         )
     )
     if "sonarr" in category.lower():
@@ -542,7 +574,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
-            "Search movies which already have a file in the database in hopes of finding a better quality version."
+            "Search movies which already have a file in the database in hopes of finding a "
+            "better quality version."
         )
     )
     search_table.add("DoUpgradeSearch", False)
@@ -552,7 +585,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
-            "Once you have search all files on your specified year range restart the loop and search again."
+            "Once you have search all files on your specified year range restart the loop and "
+            "search again."
         )
     )
     search_table.add("SearchAgainOnSearchCompletion", False)
@@ -565,7 +599,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
 
         search_table.add(
             comment(
-                "Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr)."
+                "Prioritize Today's releases (Similar effect as RSS Sync, where it searches "
+                "today's release episodes first, only works on Sonarr)."
             )
         )
         search_table.add("PrioritizeTodaysReleases", True)
@@ -584,7 +619,8 @@ def _gen_default_ombi_table(category: str, search_table: Table):
     ombi_table.add(nl())
     ombi_table.add(
         comment(
-            "Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)"
+            "Ombi URI (Note that this has to be the instance of Ombi which manage the Arr "
+            "instance request (If you have multiple Ombi instances)"
         )
     )
     ombi_table.add("OmbiURI", "http://localhost:5000")
@@ -693,12 +729,17 @@ class MyConfig:
         return values if values is not ... else default
 
 
-def _write_config_file():
+def _write_config_file(docker=False) -> pathlib.Path:
     doc = generate_doc()
-    CONFIG_FILE = pathlib.Path().home().joinpath(".config", "qBitManager", "config.toml")
-    if CONFIG_FILE.exists():
+    if docker:
+        file_name = "config.rename_me.toml"
+    else:
+        file_name = "config.toml"
+    CONFIG_FILE = HOME_PATH.joinpath(".config", "qBitManager", file_name)
+    if CONFIG_FILE.exists() and not docker:
         print(f"{CONFIG_FILE} already exists, File is not being replaced.")
-        CONFIG_FILE = pathlib.Path.cwd().joinpath("config.toml")
+        CONFIG_FILE = pathlib.Path.cwd().joinpath("config_new.toml")
     config = MyConfig(CONFIG_FILE, config=doc)
     config.save()
     print(f'New config file has been saved to "{CONFIG_FILE}"')
+    return CONFIG_FILE
