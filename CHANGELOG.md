@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.0 (25/01/2022)
+- [[minor] Add support for Docker and create a docker image (#26)](https://github.com/Drapersniper/Qbitrr/commit/635fd14c9cb7b7672ec301af3c388f62d78c051c) - @Drapersniper
+
+---
+
 ## v2.1.20 (30/12/2021)
 - [[patch] Fix yet another edge case around marking torrents as failed when they aren't actually failed](https://github.com/Drapersniper/Qbitrr/commit/d6752d1587fd98064b3c94c502587ae9458eb0b4) - @Drapersniper
 
@@ -216,12 +221,3 @@
 ## v1.1.3 (14/12/2021)
 - [[deploy] Automated patch version bump: 1.1.2 >> 1.1.3](https://github.com/Drapersniper/Qbitrr/commit/30c0acc2b90093aa7d2aa33c8c57f8997238c385) - @Drapersniper
 - [[patch] force ci to run](https://github.com/Drapersniper/Qbitrr/commit/9f5c5ccc7044299ce8e0b59603e3f57c585dc83b) - @Drapersniper
-
----
-
-## v1.1.2 (14/12/2021)
-- [[deploy] Automated patch version bump: 1.1.1 >> 1.1.2](https://github.com/Drapersniper/Qbitrr/commit/661f8a26643215b9ccf2404d9e008c02613cbbfe) - @Drapersniper
-- [[patch] force ci to run](https://github.com/Drapersniper/Qbitrr/commit/e330f6340675e449bdc050b6c8db208e24641c06) - @Drapersniper
-- [[patch] force ci to run](https://github.com/Drapersniper/Qbitrr/commit/b881e0d7a07406b4104fd2a2440d8ddceddd34a7) - @Drapersniper
-- [[patch] ...](https://github.com/Drapersniper/Qbitrr/commit/b4f2e7e2a2e0669b3afa3aad841225dc247eb385) - @Drapersniper
-- [[patch] Testing new work flows](https://github.com/Drapersniper/Qbitrr/commit/58b93775db1723aa271bea44a70a9acea9d1689a) - @Drapersniper
