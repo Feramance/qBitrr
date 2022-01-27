@@ -291,6 +291,7 @@ class Arr:
         self.delete = set()
         self.resume = set()
         self.remove_from_qbit = set()
+        self.overseerr_requests_release_cache = dict()
         self.files_to_explicitly_delete: Iterator = iter([])
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
@@ -555,11 +556,45 @@ class Arr:
                 type_ = "tv"
             elif self.type == "radarr":
                 type_ = "movie"
+            _now = datetime.now()
             for entry in response:
                 type__ = entry.get("type")
+                id__ = entry.get("id")
                 if type_ != type__:
                     continue
                 if self.overseerr_approved_only and entry.get("media", {}).get(status_key) == 5:
+                    continue
+                if id__ in self.overseerr_requests_release_cache:
+                    date = self.overseerr_requests_release_cache[id__]
+                else:
+                    date = datetime(day=1, month=1, year=1970)
+                    try:
+                        if type_ == "movie":
+                            _entry_data = self.session.get(
+                                url=f"{self.overseerr_uri}/api/v1/movies/{id__}",
+                                headers={"X-Api-Key": self.overseerr_api_key},
+                                timeout=2,
+                            )
+                            date_string = _entry_data.json().get(
+                                "releaseDate", f"{_now.year}-{_now.month:02}-{_now.day:02}"
+                            )
+                            date = datetime.strptime(date_string, "%Y-%m-%d")
+                        elif type__ == "tv":
+                            _entry_data = self.session.get(
+                                url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
+                                headers={"X-Api-Key": self.overseerr_api_key},
+                                timeout=2,
+                            )
+                            # We don't do granular (episode/season) searched here so no need to
+                            # suppose them
+                            date_string = _entry_data.json().get(
+                                "firstAirDate", f"{_now.year}-{_now.month:02}-{_now.day:02}"
+                            )
+                            date = datetime.strptime(date_string, "%Y-%m-%d")
+                        self.overseerr_requests_release_cache[id__] = date
+                    except Exception as e:
+                        self.logger.warning("Failed to query release date from Overserr: %s", e)
+                if date > _now:
                     continue
                 if media := entry.get("media"):
                     if imdbId := media.get("imdbId"):
