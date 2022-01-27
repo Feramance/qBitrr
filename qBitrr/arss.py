@@ -2354,10 +2354,10 @@ class Arr:
         }
 
         data_torrent = {
-            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else -1,
-            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else -1,
-            "dl_limit": r if (r := torrent.dl_limit) > 0 else -1,
-            "up_limit": r if (r := torrent.up_limit) > 0 else -1,
+            "ratio_limit": r if (r := torrent.ratio_limit) > -1 else sys.maxsize,
+            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > -1 else sys.maxsize,
+            "dl_limit": r if (r := torrent.dl_limit) > -1 else sys.maxsize,
+            "up_limit": r if (r := torrent.up_limit) > -1 else sys.maxsize,
             "super_seeding": torrent.super_seeding,
         }
         return data_settings, data_torrent
@@ -2367,14 +2367,20 @@ class Arr:
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             return return_value, -1  # Do not touch super seeding torrents.
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
+        self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
+        self.logger.trace("%r", torrent)
+
         if torrent.ratio >= data_torrent.get(
-            "ratio_limit", -1
-        ) or torrent.ratio >= data_settings.get("ratio_limit", -1):
+            "ratio_limit", sys.maxsize
+        ) or torrent.ratio >= data_settings.get("ratio_limit", sys.maxsize):
             return_value = False  # Seeding ratio met - Can be cleaned up.
         if torrent.seeding_time >= data_torrent.get(
-            "seeding_time_limit", -1
-        ) or torrent.seeding_time >= data_settings.get("seeding_time_limit", -1):
+            "seeding_time_limit", sys.maxsize
+        ) or torrent.seeding_time >= data_settings.get("seeding_time_limit", sys.maxsize):
             return_value = False  # Seeding time met - Can be cleaned up.
+        if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
+            return_value = True
         if return_value is True and "qbitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qbitrr-allowed_seeding"])
         elif return_value is False and "qbitrr-allowed_seeding" in torrent.tags:
@@ -2541,6 +2547,12 @@ class Arr:
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
+        self.logger.trace(
+            "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s",
+            torrent.name,
+            leave_alone,
+            _tracker_max_eta,
+        )
         maximum_eta = _tracker_max_eta
         if torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
