@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.2 (27/01/2022)
+- [[patch] Hotfix a crash introduced by the last update and improve the seeding logic](https://github.com/Drapersniper/Qbitrr/commit/0ad0e4d8074ee7f0e885339717a8247c32df5d17) - @Drapersniper
+
+---
+
 ## v2.2.1 (27/01/2022)
 - [[patch] Query release date from overseerr to avoid searching movies/series that have not been released](https://github.com/Drapersniper/Qbitrr/commit/0d21cca8fc7f1105f32601a61702ca00deb838bc) - @Drapersniper
 - [improve the code around GET requests to make it more maintainable](https://github.com/Drapersniper/Qbitrr/commit/a7d55ce9cca7a0bb458df006baba5d6cba282c92) - @Drapersniper
@@ -219,8 +224,3 @@
 - [add tomlkit dep now - remove toml_config before release](https://github.com/Drapersniper/Qbitrr/commit/73aff474c17de9d4fd23e7a26a7d5cca8759b3f1) - @Drapersniper
 - [update config.ini references to config.toml](https://github.com/Drapersniper/Qbitrr/commit/bd2c579842bf5819d32bbda86374a448041441d6) - @Drapersniper
 - [Part 1 - Migrate to TOML from INI](https://github.com/Drapersniper/Qbitrr/commit/292e692b8035c3c0f92ddea6fefa097d502b5a79) - @Drapersniper
-
----
-
-## v1.1.4 (15/12/2021)
-- [[deploy] Automated patch version bump: 1.1.3 >> 1.1.4](https://github.com/Drapersniper/Qbitrr/commit/093884ea7e27bbb5d9c5bdee6b58a736b35084ad) - @Drapersniper
