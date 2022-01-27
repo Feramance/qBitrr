@@ -1,9 +1,8 @@
-import os
 import pathlib
 
-env_var = os.getenv("QBITRR_DOCKER_RUNNING")
+from jaraco.docker import is_docker
 
-if env_var == "69420":
+if is_docker():
     ON_DOCKER = True
     HOME_PATH = pathlib.Path("/config")
     HOME_PATH.mkdir(parents=True, exist_ok=True)

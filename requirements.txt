@@ -2,6 +2,7 @@ cachetools
 colorama
 coloredlogs
 ffmpeg-python
+jaraco.docker
 pathos
 peewee
 ping3
