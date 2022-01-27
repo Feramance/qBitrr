@@ -309,4 +309,4 @@ jobs:
         context: .
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: drapersniper/qbitrr:latest
+        tags: drapersniper/qbitrr:latest,drapersniper/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
