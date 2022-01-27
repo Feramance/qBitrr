@@ -2361,7 +2361,7 @@ class Arr:
                 )
             )
             > 0
-            else None,
+            else -5,
             "seeding_time_limit": r
             if (
                 r := most_important_tracker.get(
@@ -2369,7 +2369,7 @@ class Arr:
                 )
             )
             > 0
-            else None,
+            else -5,
             "dl_limit": r
             if (
                 r := most_important_tracker.get(
@@ -2377,7 +2377,7 @@ class Arr:
                 )
             )
             > 0
-            else None,
+            else -5,
             "up_limit": r
             if (
                 r := most_important_tracker.get(
@@ -2385,16 +2385,16 @@ class Arr:
                 )
             )
             > 0
-            else None,
+            else -5,
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
         }
 
         data_torrent = {
-            "ratio_limit": r if (r := torrent.ratio_limit) > -1 else sys.maxsize,
-            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > -1 else sys.maxsize,
-            "dl_limit": r if (r := torrent.dl_limit) > -1 else sys.maxsize,
-            "up_limit": r if (r := torrent.up_limit) > -1 else sys.maxsize,
+            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else -5,
+            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else -5,
+            "dl_limit": r if (r := torrent.dl_limit) > 0 else -5,
+            "up_limit": r if (r := torrent.up_limit) > 0 else -5,
             "super_seeding": torrent.super_seeding,
         }
         return data_settings, data_torrent
@@ -2408,13 +2408,17 @@ class Arr:
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
         self.logger.trace("%r", torrent)
 
-        if torrent.ratio >= data_torrent.get(
-            "ratio_limit", sys.maxsize
-        ) or torrent.ratio >= data_settings.get("ratio_limit", sys.maxsize):
+        ratio_limit_dat = data_settings.get("ratio_limit", -5)
+        ratio_limit_tor = data_torrent.get("ratio_limit", -5)
+        seeding_time_limit_dat = data_settings.get("seeding_time_limit", -5)
+        seeding_time_limit_tor = data_torrent.get("seeding_time_limit", -5)
+
+        if torrent.ratio >= ratio_limit_tor or torrent.ratio >= ratio_limit_dat:
             return_value = False  # Seeding ratio met - Can be cleaned up.
-        if torrent.seeding_time >= data_torrent.get(
-            "seeding_time_limit", sys.maxsize
-        ) or torrent.seeding_time >= data_settings.get("seeding_time_limit", sys.maxsize):
+        if (
+            torrent.seeding_time >= seeding_time_limit_tor
+            or torrent.seeding_time >= seeding_time_limit_dat
+        ):
             return_value = False  # Seeding time met - Can be cleaned up.
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
