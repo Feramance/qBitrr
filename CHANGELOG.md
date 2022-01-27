@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.2.1 (27/01/2022)
+- [[patch] Query release date from overseerr to avoid searching movies/series that have not been released](https://github.com/Drapersniper/Qbitrr/commit/0d21cca8fc7f1105f32601a61702ca00deb838bc) - @Drapersniper
+- [improve the code around GET requests to make it more maintainable](https://github.com/Drapersniper/Qbitrr/commit/a7d55ce9cca7a0bb458df006baba5d6cba282c92) - @Drapersniper
+- [[Fix] Fix an issue where torrents were not allowed to seed regardless of the setting in config](https://github.com/Drapersniper/Qbitrr/commit/a32e7ff8fb6124f6939b83719122380b1f05011a) - @Drapersniper
+- [[docs] Add tty:true key to docker compose example to ensure correct logs colour when using `docker-compose logs`](https://github.com/Drapersniper/Qbitrr/commit/67da2992fd50f1481b7e952662221072ef84db0e) - @Drapersniper
+- [Bump stefanzweifel/git-auto-commit-action from 4.12.0 to 4.13.1](https://github.com/Drapersniper/Qbitrr/commit/ca61fce6d75ec1f66a5c657a264f7994380ce243) - @dependabot[bot]
+
+---
+
 ## v2.2.0 (25/01/2022)
 - [[minor] Add support for Docker and create a docker image (#26)](https://github.com/Drapersniper/Qbitrr/commit/635fd14c9cb7b7672ec301af3c388f62d78c051c) - @Drapersniper
 
@@ -215,9 +224,3 @@
 
 ## v1.1.4 (15/12/2021)
 - [[deploy] Automated patch version bump: 1.1.3 >> 1.1.4](https://github.com/Drapersniper/Qbitrr/commit/093884ea7e27bbb5d9c5bdee6b58a736b35084ad) - @Drapersniper
-
----
-
-## v1.1.3 (14/12/2021)
-- [[deploy] Automated patch version bump: 1.1.2 >> 1.1.3](https://github.com/Drapersniper/Qbitrr/commit/30c0acc2b90093aa7d2aa33c8c57f8997238c385) - @Drapersniper
-- [[patch] force ci to run](https://github.com/Drapersniper/Qbitrr/commit/9f5c5ccc7044299ce8e0b59603e3f57c585dc83b) - @Drapersniper
