@@ -455,7 +455,9 @@ class Arr:
             if self.session is None:
                 self.expiring_bool.add(1)
                 return True
-            req = self.session.get(f"{self.uri}/api/v3/system/status", timeout=2)
+            req = self.session.get(
+                f"{self.uri}/api/v3/system/status", timeout=10, params={"apikey": self.apikey}
+            )
             req.raise_for_status()
             self.logger.trace("Successfully connected to %s", self.uri)
             self.expiring_bool.add(1)
@@ -542,9 +544,9 @@ class Arr:
                 status_key = "status"
             data = defaultdict(set)
             response = self.session.get(
-                url=f"{self.overseerr_uri}/api/v1/"
-                f"request?take=100&skip=0&sort=added&filter={key}",
+                url=f"{self.overseerr_uri}/api/v1/request",
                 headers={"X-Api-Key": self.overseerr_api_key},
+                params={"take": 100, "skip": 0, "sort": "added", "filter": key},
                 timeout=2,
             )
             response = response.json().get("results", [])
