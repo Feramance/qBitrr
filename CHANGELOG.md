@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.4 (28/01/2022)
+- [[patch] Fixed both bugs reported by stats on discord](https://github.com/Drapersniper/Qbitrr/commit/4c67f5f92d78cfaac3b5f9151374a5dac8a3b3fb) - @Drapersniper
+- [Ensure that binaries and docker contain the frozen version requirements](https://github.com/Drapersniper/Qbitrr/commit/a8ff848a27f58657c44c1490eef76bbfe4663256) - @Drapersniper
+- [Fix a crash caused when attempting to get release data but the API didn't return a string as documented](https://github.com/Drapersniper/Qbitrr/commit/2a140fe9bd8c043e29d18cc49ba758e2d9449600) - @Drapersniper
+- [[dep] Better docker env detection](https://github.com/Drapersniper/Qbitrr/commit/59c2824ad5f15f4bababb59ea8e9817b48ac2164) - @Drapersniper
+
+---
+
 ## v2.2.3 (27/01/2022)
 - [[patch] Push a tag with version to keep historical versions](https://github.com/Drapersniper/Qbitrr/commit/c340fefabe7271da1862908c3c7349f8b87d65f0) - @Drapersniper
 
@@ -201,8 +209,3 @@
 ## v2.0.2 (18/12/2021)
 - [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/99835a79babe579d041436b30ccd8d09ae4e8353) - @Drapersniper
 - [[patch] Several fixes](https://github.com/Drapersniper/Qbitrr/commit/99abb567be4fc92ba5fd94dd68ed97fa6dc92ddd) - @Drapersniper
-
----
-
-## v1.0.6 (16/12/2021)
-
