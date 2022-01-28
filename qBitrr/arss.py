@@ -2412,12 +2412,12 @@ class Arr:
         seeding_time_limit_dat = data_settings.get("seeding_time_limit", -5)
         seeding_time_limit_tor = data_torrent.get("seeding_time_limit", -5)
 
-        if torrent.ratio >= ratio_limit_tor or torrent.ratio >= ratio_limit_dat:
+        seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
+        ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
+
+        if torrent.ratio >= ratio_limit:
             return_value = False  # Seeding ratio met - Can be cleaned up.
-        if (
-            torrent.seeding_time >= seeding_time_limit_tor
-            or torrent.seeding_time >= seeding_time_limit_dat
-        ):
+        if torrent.seeding_time >= seeding_time_limit:
             return_value = False  # Seeding time met - Can be cleaned up.
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
