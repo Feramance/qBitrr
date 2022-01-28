@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.2.5 (28/01/2022)
+- [[patch] Fixed seeding logic finally?](https://github.com/Drapersniper/Qbitrr/commit/2fcaa00d892ecd6c4f7eee3a606f00feb73763c1) - @Drapersniper
+- [Merge remote-tracking branch 'origin/master'](https://github.com/Drapersniper/Qbitrr/commit/2c9b4576071e12cdf54899783c90003fede5e585) - @Drapersniper
+- [[patch] Fix seeding logic to avoid these stupid ass conflicts](https://github.com/Drapersniper/Qbitrr/commit/ea397d8ea45fad8d7c974fce2f51d2cd33efeaed) - @Drapersniper
+
+---
+
 ## v2.2.4 (28/01/2022)
 - [[patch] Fixed both bugs reported by stats on discord](https://github.com/Drapersniper/Qbitrr/commit/4c67f5f92d78cfaac3b5f9151374a5dac8a3b3fb) - @Drapersniper
 - [Ensure that binaries and docker contain the frozen version requirements](https://github.com/Drapersniper/Qbitrr/commit/a8ff848a27f58657c44c1490eef76bbfe4663256) - @Drapersniper
@@ -203,9 +210,3 @@
 
 ## v2.0.3 (18/12/2021)
 - [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/ffd3ae9b5d391c0222ec5b3ad688170c3d59e0ad) - @Drapersniper
-
----
-
-## v2.0.2 (18/12/2021)
-- [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/99835a79babe579d041436b30ccd8d09ae4e8353) - @Drapersniper
-- [[patch] Several fixes](https://github.com/Drapersniper/Qbitrr/commit/99abb567be4fc92ba5fd94dd68ed97fa6dc92ddd) - @Drapersniper
