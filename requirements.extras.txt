@@ -1,1 +1,1 @@
-ujson
+ujson==5.1.0

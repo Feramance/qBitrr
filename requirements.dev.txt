@@ -1,11 +1,11 @@
 -r requirements.txt
 -r requirements.extras.txt
-black
-bump2version
-isort
-pre-commit
-PyInstaller
-pyupgrade
+black==21.12b0
+bump2version==1.0.1
+isort==5.10.1
+pre-commit==2.17.0
+pyinstaller==4.8
+pyupgrade==2.31.0
 setuptools
-twine
+twine==3.7.1
 wheel

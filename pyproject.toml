@@ -2,7 +2,7 @@
 profile = "black"
 line_length = 99
 py_version = 38
-known_third_party=["colorama", "coloredlogs", "ffmpeg", "pathos", "peewee", "pyarr", "qbittorrentapi", "requests", "tomlkit"]
+known_third_party=["colorama", "coloredlogs", "ffmpeg", "jaraco.docker", "pathos", "peewee", "pyarr", "qbittorrentapi", "requests", "tomlkit"]
 known_local_folder=["qBitrr"]
 
 [tool.black]
