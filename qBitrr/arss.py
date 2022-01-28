@@ -568,6 +568,8 @@ class Arr:
                     date = self.overseerr_requests_release_cache[id__]
                 else:
                     date = datetime(day=1, month=1, year=1970)
+                    date_string_backup = f"{_now.year}-{_now.month:02}-{_now.day:02}"
+                    date_string = None
                     try:
                         if type_ == "movie":
                             _entry_data = self.session.get(
@@ -575,10 +577,7 @@ class Arr:
                                 headers={"X-Api-Key": self.overseerr_api_key},
                                 timeout=2,
                             )
-                            date_string = _entry_data.json().get(
-                                "releaseDate", f"{_now.year}-{_now.month:02}-{_now.day:02}"
-                            )
-                            date = datetime.strptime(date_string, "%Y-%m-%d")
+                            date_string = _entry_data.json().get("releaseDate")
                         elif type__ == "tv":
                             _entry_data = self.session.get(
                                 url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
@@ -587,10 +586,10 @@ class Arr:
                             )
                             # We don't do granular (episode/season) searched here so no need to
                             # suppose them
-                            date_string = _entry_data.json().get(
-                                "firstAirDate", f"{_now.year}-{_now.month:02}-{_now.day:02}"
-                            )
-                            date = datetime.strptime(date_string, "%Y-%m-%d")
+                            date_string = _entry_data.json().get("firstAirDate")
+                        if not date_string:
+                            date_string = date_string_backup
+                        date = datetime.strptime(date_string, "%Y-%m-%d")
                         self.overseerr_requests_release_cache[id__] = date
                     except Exception as e:
                         self.logger.warning("Failed to query release date from Overserr: %s", e)
