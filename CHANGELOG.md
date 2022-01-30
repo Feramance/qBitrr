@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.0 (30/01/2022)
+- [[minor] ensure the script does not run on unsupported version of qbittorrent.](https://github.com/Drapersniper/Qbitrr/commit/e07e8bcd78a7c810c56e396861fe7a9e7694264f) - @Drapersniper
+- [[dev] Improve maintainability of requirements](https://github.com/Drapersniper/Qbitrr/commit/8bf53c1bf1780c70ae3824bdeead562d5300f1ba) - @Drapersniper
+
+---
+
 ## v2.2.5 (28/01/2022)
 - [[patch] Fixed seeding logic finally?](https://github.com/Drapersniper/Qbitrr/commit/2fcaa00d892ecd6c4f7eee3a606f00feb73763c1) - @Drapersniper
 - [Merge remote-tracking branch 'origin/master'](https://github.com/Drapersniper/Qbitrr/commit/2c9b4576071e12cdf54899783c90003fede5e585) - @Drapersniper
@@ -205,8 +211,3 @@
 
 ## v2.0.4 (18/12/2021)
 - [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/4867f2b9ebaa5941b2a879149f9146900817c03a) - @Drapersniper
-
----
-
-## v2.0.3 (18/12/2021)
-- [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/ffd3ae9b5d391c0222ec5b3ad688170c3d59e0ad) - @Drapersniper
