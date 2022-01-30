@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.3.2 (30/01/2022)
+
+
+---
+
+## v2.3.1 (30/01/2022)
+
+---
+
 ## v2.3.0 (30/01/2022)
 - [[minor] ensure the script does not run on unsupported version of qbittorrent.](https://github.com/Drapersniper/Qbitrr/commit/e07e8bcd78a7c810c56e396861fe7a9e7694264f) - @Drapersniper
 - [[dev] Improve maintainability of requirements](https://github.com/Drapersniper/Qbitrr/commit/8bf53c1bf1780c70ae3824bdeead562d5300f1ba) - @Drapersniper
@@ -200,14 +209,3 @@
 
 ## v2.1.1 (19/12/2021)
 - [[patch] Build binaries](https://github.com/Drapersniper/Qbitrr/commit/9a4db8491deac9867975ecaab7f385d51eee8537) - @Drapersniper
-
----
-
-## v2.1.0 (19/12/2021)
-- [[minor] Minor release to fix issue with config file across the separate processed - reason it is breaking is due to the removal of the `--config` flag](https://github.com/Drapersniper/Qbitrr/commit/2f51db77c3ef8c0bdd4d432454f02bd4b9f66f60) - @Drapersniper
-- [Update config.example.toml](https://github.com/Drapersniper/Qbitrr/commit/eb4ce73af082cd918f389aee6611229f15192a8c) - @JacquesLG
-
----
-
-## v2.0.4 (18/12/2021)
-- [[patch] bump to deploy](https://github.com/Drapersniper/Qbitrr/commit/4867f2b9ebaa5941b2a879149f9146900817c03a) - @Drapersniper
