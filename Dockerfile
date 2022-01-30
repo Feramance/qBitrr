@@ -17,7 +17,7 @@ ENV PYTHONUNBUFFERED 1
 
 RUN pypy -m ensurepip --default-pip && \
     pip install -U pip wheel && \
-    pip install -e .
+    pip install -e .[dev]
 
 WORKDIR /config
 
