@@ -1,12 +1,1 @@
-cachetools==4.2.4
-colorama==0.4.4
-coloredlogs==15.0.1
-ffmpeg-python==0.2.0
-jaraco.docker==2.0
-pathos==0.2.8
-peewee==3.14.7
-ping3==3.0.2
-pyarr==2.0.6
-qbittorrent-api==2021.8.23
-requests==2.26.0
-tomlkit==0.7.2
+.
