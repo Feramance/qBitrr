@@ -3,11 +3,14 @@ from __future__ import annotations
 import atexit
 import logging
 import sys
+import time
 from multiprocessing import freeze_support
 
 import pathos
 import qbittorrentapi
 import requests
+from packaging import version as version_parser
+from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
@@ -24,6 +27,9 @@ run_logs(logger)
 
 
 class qBitManager:
+    min_supported_version = VersionClass("4.3.4")
+    max_supported_version = VersionClass("4.4")
+
     def __init__(self):
         self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
@@ -47,6 +53,17 @@ class qBitManager:
             password=self.qBit_Password,
             SIMPLE_RESPONSES=False,
         )
+        try:
+            self.current_qbit_version = version_parser.parse(self.client.app_version())
+            self._validated_version = True
+            raise
+        except BaseException:
+            self.current_qbit_version = self.min_supported_version
+            self.logger.error(
+                "Could not establish qBitTorrent version, you may experience errors, please report this error."
+            )
+            self._validated_version = False
+        self._version_validator()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = dict()
         self.name_cache = dict()
@@ -61,6 +78,29 @@ class qBitManager:
             )
         self.arr_manager = ArrManager(self).build_arr_instances()
         run_logs(self.logger)
+
+    def _version_validator(self):
+        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
+            if self._validated_version:
+                self.logger.hnotice(
+                    "Current qBitTorrent version is supported: %s",
+                    self.current_qbit_version,
+                )
+            else:
+                self.logger.hnotice(
+                    "Could not validate current qBitTorrent version, assuming: %s",
+                    self.current_qbit_version,
+                )
+                time.sleep(10)
+        else:
+            self.logger.critical(
+                "You are currently running qBitTorrent version %s, "
+                "Supported version range is %s to %s",
+                self.current_qbit_version,
+                self.min_supported_version,
+                self.max_supported_version,
+            )
+            sys.exit(1)
 
     @response_text(str)
     @login_required
