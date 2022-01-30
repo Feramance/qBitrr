@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.3.3 (30/01/2022)
+- [[patch] disable arm builds until i figure out why the wheels are not pre-build](https://github.com/Drapersniper/Qbitrr/commit/78f7e6fdb6024481800bc688aaa419ef088ba060) - @Drapersniper
+
+---
+
 ## v2.3.2 (30/01/2022)
 
 
@@ -204,8 +209,3 @@
 
 ## v2.1.2 (19/12/2021)
 - [[patch] Build binaries - properly this time](https://github.com/Drapersniper/Qbitrr/commit/27784e1a96fba4b19fcfc1ae1a6a4bd2ac88439f) - @Drapersniper
-
----
-
-## v2.1.1 (19/12/2021)
-- [[patch] Build binaries](https://github.com/Drapersniper/Qbitrr/commit/9a4db8491deac9867975ecaab7f385d51eee8537) - @Drapersniper
