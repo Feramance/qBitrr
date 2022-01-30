@@ -56,7 +56,6 @@ class qBitManager:
         try:
             self.current_qbit_version = version_parser.parse(self.client.app_version())
             self._validated_version = True
-            raise
         except BaseException:
             self.current_qbit_version = self.min_supported_version
             self.logger.error(
