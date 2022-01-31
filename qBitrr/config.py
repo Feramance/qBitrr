@@ -118,6 +118,7 @@ NO_INTERNET_SLEEP_TIMER = CONFIG.get("Settings.NoInternetSleepTimer", fallback=6
 LOOP_SLEEP_TIMER = CONFIG.get("Settings.LoopSleepTimer", fallback=5)
 PING_URLS = CONFIG.get("Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"])
 IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600)
+QBIT_DISABLED = CONFIG.get("QBit.Disabled", fallback=False)
 
 # Settings Config Values
 FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")

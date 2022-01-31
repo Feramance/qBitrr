@@ -111,6 +111,21 @@ def _add_settings_section(config: TOMLDocument):
 
 def _add_qbit_section(config: TOMLDocument):
     qbit = table()
+    qbit.add(
+        comment(
+            "If this is enable qBitrr can run in a headless "
+            "mode where it will only process searches."
+        )
+    )
+    qbit.add(comment("If media search is enabled in their individual categories"))
+    qbit.add(
+        comment(
+            "This is useful if you use for example Sabnzbd/NZBGet for downloading content "
+            "but still want the faster media searches provided by qbit"
+        )
+    )
+    qbit.add("Disabled", False)
+    qbit.add(nl())
     qbit.add(comment('Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
     qbit.add("Host", "localhost")
     qbit.add(nl())

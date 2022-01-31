@@ -29,6 +29,7 @@ from qBitrr.config import (
     FAILED_CATEGORY,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
+    QBIT_DISABLED,
     RECHECK_CATEGORY,
 )
 from qBitrr.errors import (
@@ -3114,11 +3115,12 @@ class Arr:
             )
             self.manager.qbit_manager.child_processes.append(self.process_search_loop)
             _temp.append(self.process_search_loop)
-        self.process_torrent_loop = pathos.helpers.mp.Process(
-            target=self.run_torrent_loop, daemon=True
-        )
-        self.manager.qbit_manager.child_processes.append(self.process_torrent_loop)
-        _temp.append(self.process_torrent_loop)
+        if not QBIT_DISABLED:
+            self.process_torrent_loop = pathos.helpers.mp.Process(
+                target=self.run_torrent_loop, daemon=True
+            )
+            self.manager.qbit_manager.child_processes.append(self.process_torrent_loop)
+            _temp.append(self.process_torrent_loop)
 
         return len(_temp), _temp
 

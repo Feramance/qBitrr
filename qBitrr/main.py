@@ -15,7 +15,7 @@ from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
-from qBitrr.config import CONFIG, process_flags
+from qBitrr.config import CONFIG, QBIT_DISABLED, process_flags
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
@@ -47,22 +47,25 @@ class qBitManager:
             self.qBit_UserName,
             self.qBit_Password,
         )
-        self.client = qbittorrentapi.Client(
-            host=self.qBit_Host,
-            port=self.qBit_Port,
-            username=self.qBit_UserName,
-            password=self.qBit_Password,
-            SIMPLE_RESPONSES=False,
-        )
-        try:
-            self.current_qbit_version = version_parser.parse(self.client.app_version())
-            self._validated_version = True
-        except BaseException:
-            self.current_qbit_version = self.min_supported_version
-            self.logger.error(
-                "Could not establish qBitTorrent version, you may experience errors, please report this error."
+        self._validated_version = False
+        self.client = None
+        self.current_qbit_version = None
+        if not QBIT_DISABLED:
+            self.client = qbittorrentapi.Client(
+                host=self.qBit_Host,
+                port=self.qBit_Port,
+                username=self.qBit_UserName,
+                password=self.qBit_Password,
+                SIMPLE_RESPONSES=False,
             )
-            self._validated_version = False
+            try:
+                self.current_qbit_version = version_parser.parse(self.client.app_version())
+                self._validated_version = True
+            except BaseException:
+                self.current_qbit_version = self.min_supported_version
+                self.logger.error(
+                    "Could not establish qBitTorrent version, you may experience errors, please report this error."
+                )
         self._version_validator()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = dict()
@@ -116,7 +119,7 @@ class qBitManager:
     @property
     def is_alive(self) -> bool:
         try:
-            if 1 in self.expiring_bool:
+            if 1 in self.expiring_bool or self.client is None:
                 return True
             self.client.app_version()
             self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
@@ -161,7 +164,12 @@ def run():
     run_logs(logger)
     try:
         CHILD_PROCESSES = manager.get_child_processes()
-        manager.run()
+        if not CHILD_PROCESSES:
+            logger.warning(
+                "No tasks to perform, if this is unintended double check your config file."
+            )
+        else:
+            manager.run()
     except KeyboardInterrupt:
         logger.hnotice("Detected Ctrl+C - Terminating process")
         sys.exit(0)

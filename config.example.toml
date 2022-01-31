@@ -37,6 +37,11 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 FFprobeAutoUpdate = true
 
 [QBit]
+## If this is enable qBitrr can run in a headless mode where it will only process searches.
+# If media search is enabled in their individual categories
+# This is useful if you use for example Sabnzbd for downloading content but still want the faster media searches provided by qbit
+Disabled = false
+
 # Qbit WebUI URL - Can be found in Options > Web UI (called "IP Address")
 Host = "localhost"
 
