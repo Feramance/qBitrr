@@ -64,9 +64,10 @@ class qBitManager:
             except BaseException:
                 self.current_qbit_version = self.min_supported_version
                 self.logger.error(
-                    "Could not establish qBitTorrent version, you may experience errors, please report this error."
+                    "Could not establish qBitTorrent version, "
+                    "you may experience errors, please report this error."
                 )
-        self._version_validator()
+            self._version_validator()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = dict()
         self.name_cache = dict()
