@@ -305,6 +305,7 @@ class Arr:
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.session = requests.Session()
         self.cleaned_torrents = set()
+        self.search_api_command = None
 
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
@@ -437,6 +438,13 @@ class Arr:
                     "Script Config:  SearchRequestsEvery=%s",
                     self.search_requests_every_x_seconds,
                 )
+
+            if self.type == "sonarr":
+                if self.quality_unmet_search:
+                    self.search_api_command = "SeriesSearch"
+                else:
+                    self.search_api_command = "MissingEpisodeSearch"
+
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel = None
         self.model_arr_series_file: SeriesModel = None
@@ -1692,12 +1700,15 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                self.client.post_command("SeriesSearch", seriesId=file_model.EntryId)
+                self.client.post_command(self.search_api_command, seriesId=file_model.EntryId)
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
-                    "%sSearching for: %s | [id=%s]",
+                    "%sSearching for: % | %s | [id=%s]",
                     request_tag,
+                    "Missing episodes in"
+                    if "Missing" in self.search_api_command
+                    else "All episodes in",
                     file_model.Title,
                     file_model.EntryId,
                 )

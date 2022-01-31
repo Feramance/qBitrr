@@ -74,7 +74,7 @@ class FFprobeDownloader:
 
     def get_arch(self):
         part1 = None
-        is_64bits = sys.maxsize > 2 ** 32
+        is_64bits = sys.maxsize > 2**32
         part2 = "64" if is_64bits else "32"
         if self.platform == "Windows":
             part1 = "windows-"

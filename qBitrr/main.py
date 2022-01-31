@@ -29,6 +29,7 @@ run_logs(logger)
 class qBitManager:
     min_supported_version = VersionClass("4.3.4")
     max_supported_version = VersionClass("4.4")
+    _head_less_mode = False
 
     def __init__(self):
         self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
