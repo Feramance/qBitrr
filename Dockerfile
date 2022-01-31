@@ -7,17 +7,16 @@ LABEL Maintainer="Draper"
 # Env used by the script to determine if its inside a docker -
 # if this is set to 69420 it will change the working dir for docker specific values
 ENV QBITRR_DOCKER_RUNNING=69420
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
 COPY . /app
 
 WORKDIR /app/
 
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-RUN pypy -m ensurepip --default-pip && \
-    pip install -U pip wheel && \
-    pip install -e .[dev]
+RUN pypy -m ensurepip --default-pip
+RUN pip install -U pip wheel
+RUN pip install -e .
 
 WORKDIR /config
 
