@@ -1705,7 +1705,7 @@ class Arr:
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
-                    "%sSearching for: % | %s | [id=%s]",
+                    "%sSearching for: %s | %s | [id=%s]",
                     request_tag,
                     "Missing episodes in"
                     if "Missing" in self.search_api_command
