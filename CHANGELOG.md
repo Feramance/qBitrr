@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.4 (31/01/2022)
+- [[patch] Fix broken log line](https://github.com/Drapersniper/Qbitrr/commit/28475f3be23e6f44162ec031492db25c88f94c25) - @Drapersniper
+- [[patch] Fix indentation which was causing a crash](https://github.com/Drapersniper/Qbitrr/commit/11aac0db33559abc785bedbc6d66907742fcf25f) - @Drapersniper
+- [[patch] Improvements for docker build](https://github.com/Drapersniper/Qbitrr/commit/d5ede08c859a647432910d5988597b0d57589c37) - @Drapersniper
+- [[Feature] Add the ability to run the search functionality without a running instant of qBitTorrent](https://github.com/Drapersniper/Qbitrr/commit/bb918d95d7a262cecd05a36ccbd7fdd770c0245e) - @Drapersniper
+- [[Dep] Update black dev dependency to 22.1.0](https://github.com/Drapersniper/Qbitrr/commit/578a92266030a28479a8b9e8f2584623ee6ebf45) - @Drapersniper
+- [[enhancement] a Significant improvement for missing episode searches](https://github.com/Drapersniper/Qbitrr/commit/6b825a4bb3e33547425aceee2d592feac599cc04) - @Drapersniper
+
+---
+
 ## v2.3.3 (30/01/2022)
 - [[patch] disable arm builds until i figure out why the wheels are not pre-build](https://github.com/Drapersniper/Qbitrr/commit/78f7e6fdb6024481800bc688aaa419ef088ba060) - @Drapersniper
 
@@ -204,8 +214,3 @@
 
 ## v2.1.3 (19/12/2021)
 - [[patch] Build binaries - properly this time v2](https://github.com/Drapersniper/Qbitrr/commit/da31cf5f135530cb7c2e0062f711f7b813b99f46) - @Drapersniper
-
----
-
-## v2.1.2 (19/12/2021)
-- [[patch] Build binaries - properly this time](https://github.com/Drapersniper/Qbitrr/commit/27784e1a96fba4b19fcfc1ae1a6a4bd2ac88439f) - @Drapersniper
