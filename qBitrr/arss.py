@@ -3235,6 +3235,7 @@ class PlaceHolderArr(Arr):
                 torrents = self.manager.qbit_manager.client.torrents.info.all(
                     category=self.category, sort="added_on", reverse=False
                 )
+                torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
                 if has_internet() is False:
