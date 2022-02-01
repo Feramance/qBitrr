@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.0 (01/02/2022)
+- [[minor] Add Environment variable support for some config as well as overrides for some variables](https://github.com/Drapersniper/Qbitrr/commit/56e77bb606d215ef8c9d4b30935824c4686174ab) - @Drapersniper
+
+---
+
 ## v2.3.4 (31/01/2022)
 - [[patch] Fix broken log line](https://github.com/Drapersniper/Qbitrr/commit/28475f3be23e6f44162ec031492db25c88f94c25) - @Drapersniper
 - [[patch] Fix indentation which was causing a crash](https://github.com/Drapersniper/Qbitrr/commit/11aac0db33559abc785bedbc6d66907742fcf25f) - @Drapersniper
@@ -209,8 +214,3 @@
 ## v2.1.4 (19/12/2021)
 - [[patch] Fix an issue where logs where not shown correct + improve exiting logic](https://github.com/Drapersniper/Qbitrr/commit/3aa3f39c1d052e3b8201a7606fb3504077897ffc) - @Drapersniper
 - [Fixed the build spec to generate a portable binary](https://github.com/Drapersniper/Qbitrr/commit/4d2db601905f756289b15bef5f5219e131580fcf) - @Drapersniper
-
----
-
-## v2.1.3 (19/12/2021)
-- [[patch] Build binaries - properly this time v2](https://github.com/Drapersniper/Qbitrr/commit/da31cf5f135530cb7c2e0062f711f7b813b99f46) - @Drapersniper
