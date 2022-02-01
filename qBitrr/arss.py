@@ -1812,6 +1812,7 @@ class Arr:
                 torrents = self.manager.qbit_manager.client.torrents.info.all(
                     category=self.category, sort="added_on", reverse=False
                 )
+                torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
                 if has_internet() is False:
@@ -3256,6 +3257,9 @@ class PlaceHolderArr(Arr):
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except qbittorrentapi.exceptions.APIError as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             except DelayLoopException:
                 raise
             except qbittorrentapi.exceptions.APIConnectionError as e:
