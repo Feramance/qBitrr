@@ -1,6 +1,7 @@
 import io
 import json
 import logging
+import os
 import platform
 import sys
 import zipfile
@@ -65,6 +66,11 @@ class FFprobeDownloader:
         self.download_and_extract(ffprobe_url)
         self.logger.debug("Updating local version of FFprobe: %s", upstream_version)
         self.version_file.write_text(json.dumps({"version": upstream_version}))
+        try:
+            os.chmod(self.probe_path, 0o777)
+            self.logger.debug("Successfully changed permissions for ffprobe")
+        except Exception as e:
+            self.logger.debug("Failed to change permissions for ffprobe, %s", e)
 
     def download_and_extract(self, ffprobe_url):
         r = requests.get(ffprobe_url)

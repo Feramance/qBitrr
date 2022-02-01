@@ -212,7 +212,7 @@ jobs:
         python -m pip install -r requirements.dev.txt
     - name: Run PyInstaller
       env:
-        PYTHONOPTIMIZE: 2       # Enable optimizations as if the -O flag is given.
+        PYTHONOPTIMIZE: 1       # Enable optimizations as if the -O flag is given.
         PYTHONHASHSEED: 42       # Try to ensure deterministic results.
         PYTHONUNBUFFERED: 1
       run: |

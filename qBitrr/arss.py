@@ -29,8 +29,10 @@ from qBitrr.config import (
     FAILED_CATEGORY,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
+    PROCESS_ONLY,
     QBIT_DISABLED,
     RECHECK_CATEGORY,
+    SEARCH_ONLY,
 )
 from qBitrr.errors import (
     DelayLoopException,
@@ -84,7 +86,7 @@ class Arr:
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
-        if not self.completed_folder.exists():
+        if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
             except Exception:
@@ -147,7 +149,11 @@ class Arr:
         self._add_trackers_if_missing: set[str] = {
             i.get("URI") for i in self.monitored_trackers if i.get("AddTrackerIfMissing") is True
         }
-        if self.auto_delete is True and not self.completed_folder.parent.exists():
+        if (
+            self.auto_delete is True
+            and not self.completed_folder.parent.exists()
+            and not SEARCH_ONLY
+        ):
             self.auto_delete = False
             self.logger.critical(
                 "AutoDelete disabled due to missing folder: '%s'",
@@ -170,6 +176,8 @@ class Arr:
             f"{name}.Torrent.MaximumDeletablePercentage", fallback=0.95
         )
         self.search_missing = CONFIG.get(f"{name}.EntrySearch.SearchMissing", fallback=False)
+        if PROCESS_ONLY:
+            self.search_missing = False
         self.search_specials = CONFIG.get(f"{name}.EntrySearch.AlsoSearchSpecials", fallback=False)
         self.search_by_year = CONFIG.get(f"{name}.EntrySearch.SearchByYear", fallback=True)
         self.search_in_reverse = CONFIG.get(f"{name}.EntrySearch.SearchInReverse", fallback=False)
@@ -1819,6 +1827,9 @@ class Arr:
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except qbittorrentapi.exceptions.APIError as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -3115,7 +3126,7 @@ class Arr:
             )
             self.manager.qbit_manager.child_processes.append(self.process_search_loop)
             _temp.append(self.process_search_loop)
-        if not QBIT_DISABLED:
+        if not (QBIT_DISABLED or SEARCH_ONLY):
             self.process_torrent_loop = pathos.helpers.mp.Process(
                 target=self.run_torrent_loop, daemon=True
             )
@@ -3280,10 +3291,11 @@ class ArrManager:
         )
         run_logs(self.logger)
         if not self.ffprobe_available:
-            self.logger.error(
-                "'%s' was not found, disabling all functionality dependant on it",
-                self.qbit_manager.ffprobe_downloader.probe_path,
-            )
+            if not (SEARCH_ONLY or QBIT_DISABLED):
+                self.logger.error(
+                    "'%s' was not found, disabling all functionality dependant on it",
+                    self.qbit_manager.ffprobe_downloader.probe_path,
+                )
 
     def build_arr_instances(self):
         for key in CONFIG.sections():

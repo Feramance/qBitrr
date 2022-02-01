@@ -9,6 +9,7 @@ from tomlkit import comment, document, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import HOME_PATH
 
 T = TypeVar("T")
@@ -40,7 +41,7 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(
         comment("Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE")
     )
-    settings.add("ConsoleLevel", "INFO")
+    settings.add("ConsoleLevel", ENVIRO_CONFIG.settings.console_level or "INFO")
     settings.add(nl())
     settings.add(
         comment(
@@ -48,29 +49,33 @@ def _add_settings_section(config: TOMLDocument):
             "Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path"
         )
     )
-    settings.add("CompletedDownloadFolder", "CHANGE_ME")
+    settings.add(
+        "CompletedDownloadFolder", ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME"
+    )
     settings.add(nl())
     settings.add(
         comment("Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)")
     )
-    settings.add("NoInternetSleepTimer", 15)
+    settings.add("NoInternetSleepTimer", ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15)
     settings.add(nl())
     settings.add(
         comment("Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)")
     )
-    settings.add("LoopSleepTimer", 5)
+    settings.add("LoopSleepTimer", ENVIRO_CONFIG.settings.loop_sleep_timer or 5)
     settings.add(nl())
     settings.add(comment("Add torrents to this category to mark them as failed"))
-    settings.add("FailedCategory", "failed")
+    settings.add("FailedCategory", ENVIRO_CONFIG.settings.failed_category or "failed")
     settings.add(nl())
     settings.add(comment("Add torrents to this category to trigger them to be rechecked properly"))
-    settings.add("RecheckCategory", "recheck")
+    settings.add("RecheckCategory", ENVIRO_CONFIG.settings.recheck_category or "recheck")
     settings.add(nl())
     settings.add(
         comment("Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)")
     )
     settings.add(comment("Only applicable to Re-check and failed categories"))
-    settings.add("IgnoreTorrentsYoungerThan", 180)
+    settings.add(
+        "IgnoreTorrentsYoungerThan", ENVIRO_CONFIG.settings.ignore_torrents_younger_than or 180
+    )
     settings.add(nl())
     settings.add(comment("URL to be pinged to check if you have a valid internet connection"))
     settings.add(
@@ -79,7 +84,9 @@ def _add_settings_section(config: TOMLDocument):
             "with you sending all the continuous pings."
         )
     )
-    settings.add("PingURLS", ["one.one.one.one", "dns.google.com"])
+    settings.add(
+        "PingURLS", ENVIRO_CONFIG.settings.ping_urls or ["one.one.one.one", "dns.google.com"]
+    )
     settings.add(nl())
     settings.add(
         comment(
@@ -105,7 +112,10 @@ def _add_settings_section(config: TOMLDocument):
             "to disable you need to explicitly set it to `False`"
         )
     )
-    settings.add("FFprobeAutoUpdate", True)
+    settings.add(
+        "FFprobeAutoUpdate",
+        True if ENVIRO_CONFIG.settings.ping_urls is None else ENVIRO_CONFIG.settings.ping_urls,
+    )
     config.add("Settings", settings)
 
 
@@ -124,10 +134,12 @@ def _add_qbit_section(config: TOMLDocument):
             "but still want the faster media searches provided by qbit"
         )
     )
-    qbit.add("Disabled", False)
+    qbit.add(
+        "Disabled", False if ENVIRO_CONFIG.qbit.disabled is None else ENVIRO_CONFIG.qbit.disabled
+    )
     qbit.add(nl())
     qbit.add(comment('Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
-    qbit.add("Host", "localhost")
+    qbit.add("Host", ENVIRO_CONFIG.qbit.host or "localhost")
     qbit.add(nl())
     qbit.add(
         comment(
@@ -135,19 +147,19 @@ def _add_qbit_section(config: TOMLDocument):
             "on top right corner of the window)"
         )
     )
-    qbit.add("Port", 8105)
+    qbit.add("Port", ENVIRO_CONFIG.qbit.port or 8105)
     qbit.add(nl())
     qbit.add(
         comment("Qbit WebUI Authentication - Can be found in Options > Web UI > Authentication")
     )
-    qbit.add("UserName", "CHANGE_ME")
+    qbit.add("UserName", ENVIRO_CONFIG.qbit.username or "CHANGE_ME")
     qbit.add(nl())
     qbit.add(
         comment(
             'If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.'
         )
     )
-    qbit.add("Password", "CHANGE_ME")
+    qbit.add("Password", ENVIRO_CONFIG.qbit.password or "CHANGE_ME")
     qbit.add(nl())
     config.add("QBit", qbit)
 

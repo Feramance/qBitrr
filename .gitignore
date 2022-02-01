@@ -5,6 +5,8 @@
 /build/
 /dist/
 .env
+.venv/
+venv/
 /.github/workflows/test.yml
 __pycache__/
 *.py[cod]
@@ -12,3 +14,4 @@ __pycache__/
 build.bat
 /main.*/
 /main.exe
+.run/

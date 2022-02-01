@@ -9,7 +9,13 @@
 
 CHANGELOG.md
 README.md
+config.example.toml
+requirements.all.txt
+requirements.dev.txt
+requirements.txt
 
 dist/
 build/
 qBitrr.egg-info/
+venv/
+.venv/

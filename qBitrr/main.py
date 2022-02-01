@@ -15,7 +15,8 @@ from qbittorrentapi import APINames, login_required, response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
-from qBitrr.config import CONFIG, QBIT_DISABLED, process_flags
+from qBitrr.config import CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
+from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
@@ -50,7 +51,7 @@ class qBitManager:
         self._validated_version = False
         self.client = None
         self.current_qbit_version = None
-        if not QBIT_DISABLED:
+        if not (QBIT_DISABLED or SEARCH_ONLY):
             self.client = qbittorrentapi.Client(
                 host=self.qBit_Host,
                 port=self.qBit_Port,
@@ -75,7 +76,8 @@ class qBitManager:
         self.child_processes = []
         self.ffprobe_downloader = FFprobeDownloader()
         try:
-            self.ffprobe_downloader.update()
+            if not (SEARCH_ONLY or QBIT_DISABLED):
+                self.ffprobe_downloader.update()
         except Exception as e:
             self.logger.error(
                 "FFprobe manager error: %s while attempting to download/update FFprobe", e
@@ -163,6 +165,7 @@ def run():
     logger.notice("Starting qBitrr: Version: %s.", patched_version)
     manager = qBitManager()
     run_logs(logger)
+    logger.debug("Environment variables: %r", ENVIRO_CONFIG)
     try:
         CHILD_PROCESSES = manager.get_child_processes()
         if not CHILD_PROCESSES:

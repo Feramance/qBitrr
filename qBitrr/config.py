@@ -7,6 +7,7 @@ import shutil
 import sys
 
 from qBitrr.bundled_data import license_text, patched_version
+from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, generate_doc
 from qBitrr.home_path import HOME_PATH, ON_DOCKER
 
@@ -109,16 +110,56 @@ else:
     CONFIG = MyConfig("./config.toml")
 
 
-FFPROBE_AUTO_UPDATE = CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
-FAILED_CATEGORY = CONFIG.get("Settings.FailedCategory", fallback="failed")
-RECHECK_CATEGORY = CONFIG.get("Settings.RecheckCategory", fallback="recheck")
-CONSOLE_LOGGING_LEVEL_STRING = CONFIG.get_or_raise("Settings.ConsoleLevel")
-COMPLETED_DOWNLOAD_FOLDER = CONFIG.get_or_raise("Settings.CompletedDownloadFolder")
-NO_INTERNET_SLEEP_TIMER = CONFIG.get("Settings.NoInternetSleepTimer", fallback=60)
-LOOP_SLEEP_TIMER = CONFIG.get("Settings.LoopSleepTimer", fallback=5)
-PING_URLS = CONFIG.get("Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"])
-IGNORE_TORRENTS_YOUNGER_THAN = CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600)
-QBIT_DISABLED = CONFIG.get("QBit.Disabled", fallback=False)
+FFPROBE_AUTO_UPDATE = (
+    CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
+    if ENVIRO_CONFIG.settings.ffprobe_auto_update is None
+    else ENVIRO_CONFIG.settings.ffprobe_auto_update
+)
+FAILED_CATEGORY = ENVIRO_CONFIG.settings.failed_category or CONFIG.get(
+    "Settings.FailedCategory", fallback="failed"
+)
+RECHECK_CATEGORY = ENVIRO_CONFIG.settings.recheck_category or CONFIG.get(
+    "Settings.RecheckCategory", fallback="recheck"
+)
+CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get_or_raise(
+    "Settings.ConsoleLevel"
+)
+COMPLETED_DOWNLOAD_FOLDER = (
+    ENVIRO_CONFIG.settings.completed_download_folder
+    or CONFIG.get_or_raise("Settings.CompletedDownloadFolder")
+)
+NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get(
+    "Settings.NoInternetSleepTimer", fallback=60
+)
+LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
+    "Settings.LoopSleepTimer", fallback=5
+)
+PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
+    "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
+)
+IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get(
+    "Settings.IgnoreTorrentsYoungerThan", fallback=600
+)
+QBIT_DISABLED = (
+    CONFIG.get("QBit.Disabled", fallback=False)
+    if ENVIRO_CONFIG.qbit.disabled is None
+    else ENVIRO_CONFIG.qbit.disabled
+)
+SEARCH_ONLY = ENVIRO_CONFIG.overrides.search_only
+PROCESS_ONLY = ENVIRO_CONFIG.overrides.processing_only
+
+if QBIT_DISABLED and PROCESS_ONLY:
+    print("qBittorrent is disabled yet QBITRR_OVERRIDES_PROCESSING_ONLY is enabled")
+    print(
+        "Processing monitors qBitTorrents downloads "
+        "therefore it depends on a health qBitTorrent connection"
+    )
+    print("Exiting...")
+    sys.exit(1)
+
+if SEARCH_ONLY and QBIT_DISABLED is False:
+    QBIT_DISABLED = True
+    print("QBITRR_OVERRIDES_SEARCH_ONLY is enabled, forcing qBitTorrent setting off")
 
 # Settings Config Values
 FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
