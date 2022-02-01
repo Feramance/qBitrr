@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.2 (01/02/2022)
+- [[patch] apply "fix" in all relevant locations](https://github.com/Drapersniper/Qbitrr/commit/bb8d8919e3b89ab09a130e43a6776c59dfca93ef) - @Drapersniper
+
+---
+
 ## v2.4.1 (01/02/2022)
 - [[patch] the qbittorrent api is being weird af ... why is it returning non existing torrents with  missing attributes](https://github.com/Drapersniper/Qbitrr/commit/cace1010a757868fff7cf951e35aee0204e6e771) - @Drapersniper
 
@@ -208,8 +213,3 @@
 
 ## v2.1.6 (20/12/2021)
 - [[patch] 2 enhancements and 1 bug fix.](https://github.com/Drapersniper/Qbitrr/commit/3e285bcf7dea29fa234508a8a920400f6b85e3f1) - @Drapersniper
-
----
-
-## v2.1.5 (19/12/2021)
-- [[patch] Build binary for all platforms properly](https://github.com/Drapersniper/Qbitrr/commit/23a65f963341123024f85f2ef110689e492e6b89) - @Drapersniper
