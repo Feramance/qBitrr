@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.1 (01/02/2022)
+- [[patch] the qbittorrent api is being weird af ... why is it returning non existing torrents with  missing attributes](https://github.com/Drapersniper/Qbitrr/commit/cace1010a757868fff7cf951e35aee0204e6e771) - @Drapersniper
+
+---
+
 ## v2.4.0 (01/02/2022)
 - [[minor] Add Environment variable support for some config as well as overrides for some variables](https://github.com/Drapersniper/Qbitrr/commit/56e77bb606d215ef8c9d4b30935824c4686174ab) - @Drapersniper
 
@@ -208,9 +213,3 @@
 
 ## v2.1.5 (19/12/2021)
 - [[patch] Build binary for all platforms properly](https://github.com/Drapersniper/Qbitrr/commit/23a65f963341123024f85f2ef110689e492e6b89) - @Drapersniper
-
----
-
-## v2.1.4 (19/12/2021)
-- [[patch] Fix an issue where logs where not shown correct + improve exiting logic](https://github.com/Drapersniper/Qbitrr/commit/3aa3f39c1d052e3b8201a7606fb3504077897ffc) - @Drapersniper
-- [Fixed the build spec to generate a portable binary](https://github.com/Drapersniper/Qbitrr/commit/4d2db601905f756289b15bef5f5219e131580fcf) - @Drapersniper
