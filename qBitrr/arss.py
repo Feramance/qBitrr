@@ -200,12 +200,11 @@ class Arr:
             self.search_current_year = self.search_starting_year
             self._delta = -1
         arr_db_file = CONFIG.get(f"{name}.EntrySearch.DatabaseFile", fallback=None)
-
+        self.arr_db_file = pathlib.Path("/.Invalid Place Holder")
         if self.search_missing and arr_db_file is None:
             self.logger.critical("Arr DB file not specified setting SearchMissing to False")
             self.search_missing = False
-            self.arr_db_file = pathlib.Path("/.Invalid Place Holder")
-        else:
+        if arr_db_file is not None:
             self.arr_db_file = pathlib.Path(arr_db_file)
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
