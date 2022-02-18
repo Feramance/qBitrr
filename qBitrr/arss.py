@@ -204,7 +204,9 @@ class Arr:
         if self.search_missing and arr_db_file is None:
             self.logger.critical("Arr DB file not specified setting SearchMissing to False")
             self.search_missing = False
-        self.arr_db_file = pathlib.Path(arr_db_file)
+            self.arr_db_file = pathlib.Path("/.Invalid Place Holder")
+        else:
+            self.arr_db_file = pathlib.Path(arr_db_file)
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
         if self.search_missing and not self.arr_db_file.exists():
@@ -3324,7 +3326,7 @@ class ArrManager:
                     self.logger.exception(e)
                 except SkipException:
                     continue
-                except OSError as e:
+                except (OSError, TypeError) as e:
                     self.logger.exception(e)
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
