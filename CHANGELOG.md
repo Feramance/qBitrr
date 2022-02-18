@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.1 (18/02/2022)
+- [[patch] hotfix to handle edge case](https://github.com/Drapersniper/Qbitrr/commit/889ffbdb1b31f4d75300df56fb27f2445cafcf27) - @Drapersniper
+
+---
+
 ## v2.5.0 (18/02/2022)
 - [[minor] Catch `TypeError` when building an Arr instance and build an invalid path when required](https://github.com/Drapersniper/Qbitrr/commit/fef795d067f7a02ba2939389f104c0845e995214) - @Drapersniper
 
@@ -206,10 +211,3 @@
 ## v2.1.8 (20/12/2021)
 - [[patch] Improved startup logging](https://github.com/Drapersniper/Qbitrr/commit/d858027c2bfb004f3b9ddf9ba0e71b83e8a1c977) - @Drapersniper
 - [Reduce the number of socket calls for the internet checks](https://github.com/Drapersniper/Qbitrr/commit/9c0686e5ae2957eeea71476d42303d77270cf422) - @Drapersniper
-
----
-
-## v2.1.7 (20/12/2021)
-- [[patch] Fixed an issue that caused logs to show incorrect info](https://github.com/Drapersniper/Qbitrr/commit/6ed607e6d102c6937a14e357a331e2753f609087) - @Drapersniper
-- [Ensure KeyboardInterrupt is caught correctly + fix an issue where logs where being duplicated](https://github.com/Drapersniper/Qbitrr/commit/313a26ffa21bfb0929921101d73cb39f65cbf002) - @Drapersniper
-- [Fixed a bug where there would be a crash if the user attempted to add a torrent to the recheck or failed category](https://github.com/Drapersniper/Qbitrr/commit/e4da075d0e864ec4f23c19bb1caf87cd8070151e) - @Drapersniper
