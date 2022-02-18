@@ -730,9 +730,13 @@ class MyConfig:
             except OSError as err:
                 self.state = False
                 self.err = err
+                raise ValueError(
+                    f"Possible permissions while attempting to read the config file.\n{err}"
+                )
             except TypeError as err:
                 self.state = False
                 self.err = err
+                raise ValueError(f"While attempting to read the config file.\n{err}")
         return self
 
     def get(self, section: str, fallback: Any = None) -> T:

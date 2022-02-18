@@ -3321,6 +3321,8 @@ class ArrManager:
                     self.groups.add(name)
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object
+                except KeyError as e:
+                    self.logger.critical(e)
                 except ValueError as e:
                     self.logger.exception(e)
                 except SkipException:

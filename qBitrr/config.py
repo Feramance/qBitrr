@@ -109,6 +109,10 @@ else:
         COPIED_TO_NEW_DIR = True
     CONFIG = MyConfig("./config.toml")
 
+if COPIED_TO_NEW_DIR is not None:
+    print(f"STARTUP | {CONFIG.path} |\n{CONFIG}")
+else:
+    print(f"STARTUP |  CONFIG_FILE={CONFIG_FILE} | CONFIG_PATH={CONFIG_PATH}")
 
 FFPROBE_AUTO_UPDATE = (
     CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
