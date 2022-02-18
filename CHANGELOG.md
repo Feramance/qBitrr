@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.2 (18/02/2022)
+- [[patch] hotfix stop crashing the script on an invalid config key for Arrs (it will still crash on invalid global values, i.e Log level), provide better logging when unable to load the config file.](https://github.com/Drapersniper/Qbitrr/commit/f7abf79cc0c86213fb01a07f3a2f3243aad66cd0) - @Drapersniper
+
+---
+
 ## v2.5.1 (18/02/2022)
 - [[patch] hotfix to handle edge case](https://github.com/Drapersniper/Qbitrr/commit/889ffbdb1b31f4d75300df56fb27f2445cafcf27) - @Drapersniper
 
@@ -205,9 +210,3 @@
 - [add `--license` and `--source` flags to the script](https://github.com/Drapersniper/Qbitrr/commit/f94c3e3c005ffd0df02a77bae310349e5a4a2f90) - @Drapersniper
 - [add `--version` flag and update README.md](https://github.com/Drapersniper/Qbitrr/commit/7fa3e9d1b66fe871ddf72e77a6cdb48ef7832ae4) - @Drapersniper
 - [Improve internet check so that it does not run if there is no torrents to check](https://github.com/Drapersniper/Qbitrr/commit/c201c535698a7e553b4ef90eb518c86f794d0e9c) - @Drapersniper
-
----
-
-## v2.1.8 (20/12/2021)
-- [[patch] Improved startup logging](https://github.com/Drapersniper/Qbitrr/commit/d858027c2bfb004f3b9ddf9ba0e71b83e8a1c977) - @Drapersniper
-- [Reduce the number of socket calls for the internet checks](https://github.com/Drapersniper/Qbitrr/commit/9c0686e5ae2957eeea71476d42303d77270cf422) - @Drapersniper
