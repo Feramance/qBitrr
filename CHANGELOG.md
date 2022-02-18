@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.0 (18/02/2022)
+- [[minor] Catch `TypeError` when building an Arr instance and build an invalid path when required](https://github.com/Drapersniper/Qbitrr/commit/fef795d067f7a02ba2939389f104c0845e995214) - @Drapersniper
+
+---
+
 ## v2.4.2 (01/02/2022)
 - [[patch] apply "fix" in all relevant locations](https://github.com/Drapersniper/Qbitrr/commit/bb8d8919e3b89ab09a130e43a6776c59dfca93ef) - @Drapersniper
 
@@ -208,8 +213,3 @@
 - [[patch] Fixed an issue that caused logs to show incorrect info](https://github.com/Drapersniper/Qbitrr/commit/6ed607e6d102c6937a14e357a331e2753f609087) - @Drapersniper
 - [Ensure KeyboardInterrupt is caught correctly + fix an issue where logs where being duplicated](https://github.com/Drapersniper/Qbitrr/commit/313a26ffa21bfb0929921101d73cb39f65cbf002) - @Drapersniper
 - [Fixed a bug where there would be a crash if the user attempted to add a torrent to the recheck or failed category](https://github.com/Drapersniper/Qbitrr/commit/e4da075d0e864ec4f23c19bb1caf87cd8070151e) - @Drapersniper
-
----
-
-## v2.1.6 (20/12/2021)
-- [[patch] 2 enhancements and 1 bug fix.](https://github.com/Drapersniper/Qbitrr/commit/3e285bcf7dea29fa234508a8a920400f6b85e3f1) - @Drapersniper
