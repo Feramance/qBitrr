@@ -2261,7 +2261,7 @@ class Arr:
                 continue
             # A folder within the folder tree matched the terms
             # in FolderExclusionRegex, mark it for exclusion.
-            if any(
+            if self.folder_exclusion_regex and any(
                 self.folder_exclusion_regex_re.search(p.name.lower())
                 for p in file_path.parents
                 if (folder_match := p.name)
@@ -2277,9 +2277,10 @@ class Arr:
                 total -= 1
             # A file matched and entry in FileNameExclusionRegex, mark it for
             # exclusion.
-            elif (
-                match := self.file_name_exclusion_regex_re.search(file_path.name)
-            ) and match.group():
+            elif self.file_name_exclusion_regex and (
+                (match := self.file_name_exclusion_regex_re.search(file_path.name))
+                and match.group()
+            ):
                 self.logger.debug(
                     "Removing File: Not allowed | Name: %s  | %s (%s) | %s ",
                     match.group(),
