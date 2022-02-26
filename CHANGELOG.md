@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.3 (26/02/2022)
+- [[patch] allow setting `FileExtensionAllowlist` to an empty list to allow all file extensions](https://github.com/Drapersniper/Qbitrr/commit/e1f278533f2857dbc87dcbac4dcd9dcddfb2639b) - @Drapersniper
+
+---
+
 ## v2.5.2 (18/02/2022)
 - [[patch] hotfix stop crashing the script on an invalid config key for Arrs (it will still crash on invalid global values, i.e Log level), provide better logging when unable to load the config file.](https://github.com/Drapersniper/Qbitrr/commit/f7abf79cc0c86213fb01a07f3a2f3243aad66cd0) - @Drapersniper
 
@@ -198,15 +203,3 @@
 
 ## v2.1.10 (20/12/2021)
 - [[patch] Fix an issue where you couldn't run any flags if the config file didn't exist in the app dir](https://github.com/Drapersniper/Qbitrr/commit/3dfb989bef624fa68e7730de9e91f93b2f3f51e3) - @Drapersniper
-
----
-
-## v2.1.9 (20/12/2021)
-- [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/7500811a97be6a7befdaeed347a32bec7895bdf6) - @Drapersniper
-- [[patch] config file](https://github.com/Drapersniper/Qbitrr/commit/71a22ecf8038a6e6b8e16f27ecf14b542f4d7082) - @Drapersniper
-- [[patch] Fix broken builds](https://github.com/Drapersniper/Qbitrr/commit/1e201e0b56fa3952aecfbbc3f9dfa297b552d935) - @Drapersniper
-- [[patch] Hotfix](https://github.com/Drapersniper/Qbitrr/commit/9eeb34372ddd0ce680841f2ebc40c93ee4e6acf3) - @Drapersniper
-- [[patch] clean up and fixes](https://github.com/Drapersniper/Qbitrr/commit/d3c7351a6d6e651c590dcbc54a6f93dbb9374703) - @Drapersniper
-- [add `--license` and `--source` flags to the script](https://github.com/Drapersniper/Qbitrr/commit/f94c3e3c005ffd0df02a77bae310349e5a4a2f90) - @Drapersniper
-- [add `--version` flag and update README.md](https://github.com/Drapersniper/Qbitrr/commit/7fa3e9d1b66fe871ddf72e77a6cdb48ef7832ae4) - @Drapersniper
-- [Improve internet check so that it does not run if there is no torrents to check](https://github.com/Drapersniper/Qbitrr/commit/c201c535698a7e553b4ef90eb518c86f794d0e9c) - @Drapersniper
