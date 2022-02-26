@@ -1569,7 +1569,10 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder: %s", file)
                 continue
-            if file.suffix.lower() in self.file_extension_allowlist:
+            if (
+                file.suffix.lower() in self.file_extension_allowlist
+                or not self.file_extension_allowlist
+            ):
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
@@ -1960,7 +1963,6 @@ class Arr:
     def _process_single_torrent_stalled_torrent(
         self, torrent: qbittorrentapi.TorrentDictionary, extra: str
     ):
-
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
         # seconds ago
@@ -2287,7 +2289,10 @@ class Arr:
                 )
                 _remove_files.add(file.id)
                 total -= 1
-            elif file_path.suffix.lower() not in self.file_extension_allowlist:
+            elif (
+                self.file_extension_allowlist
+                and file_path.suffix.lower() not in self.file_extension_allowlist
+            ):
                 self.logger.debug(
                     "Removing File: Not allowed | Extension: %s  | %s (%s) | %s ",
                     file_path.suffix,

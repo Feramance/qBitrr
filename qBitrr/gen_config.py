@@ -319,7 +319,7 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table.add(
         comment(
             "Only files with these extensions will be allowed to be downloaded, "
-            "comma separated strings."
+            "comma separated strings, leave it empty to allow all extensions"
         )
     )
     torrent_table.add(
