@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.4 (26/02/2022)
+- [[patch] properly accept empty `FolderExclusionRegex` and `FileNameExclusionRegex`](https://github.com/Drapersniper/Qbitrr/commit/a4eb4079599b04fd5ddee6fa5c19a4d69f503c30) - @Drapersniper
+
+---
+
 ## v2.5.3 (26/02/2022)
 - [[patch] allow setting `FileExtensionAllowlist` to an empty list to allow all file extensions](https://github.com/Drapersniper/Qbitrr/commit/e1f278533f2857dbc87dcbac4dcd9dcddfb2639b) - @Drapersniper
 
@@ -198,8 +203,3 @@
 
 ## v2.1.11 (20/12/2021)
 - [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/441b54ec7eb294a919a00ba0b76e001aabd3ed35) - @Drapersniper
-
----
-
-## v2.1.10 (20/12/2021)
-- [[patch] Fix an issue where you couldn't run any flags if the config file didn't exist in the app dir](https://github.com/Drapersniper/Qbitrr/commit/3dfb989bef624fa68e7730de9e91f93b2f3f51e3) - @Drapersniper
