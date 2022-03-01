@@ -33,7 +33,7 @@ jobs:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.head.sha }}
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python}}
         architecture: ${{ matrix.arch }}
