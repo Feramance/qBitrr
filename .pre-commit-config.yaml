@@ -15,7 +15,7 @@ repos:
   - id: pretty-format-json
     args: [--autofix, --indent, '2']
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.31.0
+  rev: v2.31.1
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -28,12 +28,12 @@ repos:
   hooks:
   - id: black
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.2.0
+  rev: v2.3.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.2.2
+  rev: 0.3.1
   hooks:
   - id: fix-smartquotes
   - id: fix-ligatures
