@@ -233,7 +233,7 @@ jobs:
         Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
         # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
     - name: Upload Artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
