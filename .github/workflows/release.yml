@@ -52,7 +52,7 @@ jobs:
         git_tag_gpgsign: true
       id: import_gpg
     - name: Git Auto Commit
-      uses: stefanzweifel/git-auto-commit-action@v4.13.1
+      uses: stefanzweifel/git-auto-commit-action@v4.14.1
       with:
         commit_message: '[skip ci]Automated version bump: v${{ steps.current_version.outputs.VERSION }} >> v${{ steps.new_version.outputs.VERSION }}'
         tagging_message: v${{ steps.new_version.outputs.VERSION }}
@@ -130,7 +130,7 @@ jobs:
         git_tag_gpgsign: true
       id: import_gpg
     - name: Git Auto Commit
-      uses: stefanzweifel/git-auto-commit-action@v4.13.1
+      uses: stefanzweifel/git-auto-commit-action@v4.14.1
       with:
         commit_message: '[skip ci] Update Release Hash for v${{needs.bump_version.outputs.NEW_RELEASE}}'
         commit_options: -S
@@ -277,7 +277,7 @@ jobs:
         git_tag_gpgsign: true
       id: import_gpg
     - name: Git Auto Commit
-      uses: stefanzweifel/git-auto-commit-action@v4.13.1
+      uses: stefanzweifel/git-auto-commit-action@v4.14.1
       with:
         commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
         commit_options: -S
