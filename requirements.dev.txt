@@ -167,7 +167,7 @@ twine==3.7.1
     # via qBitrr (setup.py)
 typing-extensions==4.0.1
     # via black
-ujson==5.1.0
+ujson==5.2.0
     # via qBitrr (setup.py)
 urllib3==1.26.8
     # via
