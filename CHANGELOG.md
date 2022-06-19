@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.5.5 (19/06/2022)
+- [[patch] allow qbitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Drapersniper/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
+- [Closes #58 by allowing qbitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Drapersniper/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
+- [Bump ujson from 5.1.0 to 5.2.0](https://github.com/Drapersniper/Qbitrr/commit/e3483d7f9de4f23619e0387ae64c986c4290cb1b) - @dependabot[bot]
+- [Bump crazy-max/ghaction-import-gpg from 4 to 5](https://github.com/Drapersniper/Qbitrr/commit/9b01efbdee7b3ebe02bc36dde5ea6bd7db79380d) - @dependabot[bot]
+- [Bump actions/setup-python from 3 to 4](https://github.com/Drapersniper/Qbitrr/commit/cd24e366dee8a8e065883876577def8d74db76be) - @dependabot[bot]
+- [Bump docker/login-action from 1 to 2](https://github.com/Drapersniper/Qbitrr/commit/146b18525d64bcde1443dbec484296bbb04d06a1) - @dependabot[bot]
+- [Bump stefanzweifel/git-auto-commit-action from 4.13.1 to 4.14.1](https://github.com/Drapersniper/Qbitrr/commit/2c7ea60822f6032f6849b68adf3cbb24f196920b) - @dependabot[bot]
+- [Bump actions/upload-artifact from 2 to 3](https://github.com/Drapersniper/Qbitrr/commit/05ca15f7d7c3a85dfcad2c6aa187a0e0068967ad) - @dependabot[bot]
+- [Bump docker/setup-buildx-action from 1 to 2](https://github.com/Drapersniper/Qbitrr/commit/97933c295966d730a99f8bf0175d3d59393c6ec7) - @dependabot[bot]
+- [Bump docker/setup-qemu-action from 1 to 2](https://github.com/Drapersniper/Qbitrr/commit/ec8a415f38643481da8a165c1149988189484e6d) - @dependabot[bot]
+- [Bump github/codeql-action from 1 to 2](https://github.com/Drapersniper/Qbitrr/commit/a92376d60c9ab0091e697261bae9ba2035c59f44) - @dependabot[bot]
+- [Bump docker/build-push-action from 2 to 3](https://github.com/Drapersniper/Qbitrr/commit/e6e718a52f2dcce278a7614dc17ae586d332e98a) - @dependabot[bot]
+- [Bump actions/setup-python from 2 to 3](https://github.com/Drapersniper/Qbitrr/commit/cd4b2259bcfd7284f7e81d958493ffc232ba3d9e) - @dependabot[bot]
+- [Bump actions/checkout from 2 to 3](https://github.com/Drapersniper/Qbitrr/commit/5913935447dad075fb9b45c0f1f98ca4cc4b1e13) - @dependabot[bot]
+- [Bump actions/setup-node from 2 to 3](https://github.com/Drapersniper/Qbitrr/commit/bb548bbe9955357ed24353fbf0497b0f7ecf4750) - @dependabot[bot]
+
+---
+
 ## v2.5.4 (26/02/2022)
 - [[patch] properly accept empty `FolderExclusionRegex` and `FileNameExclusionRegex`](https://github.com/Drapersniper/Qbitrr/commit/a4eb4079599b04fd5ddee6fa5c19a4d69f503c30) - @Drapersniper
 
@@ -116,46 +135,6 @@
 
 ## v2.1.19 (30/12/2021)
 
-
----
-
-## v2.0.1 (30/12/2021)
-- [[patch] Deploy release](https://github.com/Drapersniper/Qbitrr/commit/b102f849ecb4b2787b65c60bb87741703ad77188) - @Drapersniper
-- [[Admin] Optimize GitHub workflows to reuse variables and depend on one another also add the binary workflow to pull requests](https://github.com/Drapersniper/Qbitrr/commit/aead207d3bc93f7cdb16d044f401b229986fe4af) - @Drapersniper
-- [[fix] Make the loops sleep if qBitTorrent is unresponsive and raises an api error](https://github.com/Drapersniper/Qbitrr/commit/decc9492531042a103212aaca611df134d5897a0) - @Drapersniper
-- [[patch] Fix for #6](https://github.com/Drapersniper/Qbitrr/commit/45154415d52eb19a36fa63997a098bae5f7f954d) - @Drapersniper
-- [[fix] Fix an issue that causes a specific log line to fail.](https://github.com/Drapersniper/Qbitrr/commit/e66ed28a2d4b22f5fd0eb0f2913a5c405ec0064d) - @Drapersniper
-- [[fix] Fix an issue where an old table field was causing crashes with Radarr file searches](https://github.com/Drapersniper/Qbitrr/commit/6da841636059aeac3f89ab5c4b870373eac64ae4) - @Drapersniper
-- [[patch] Fix the previous issue properly](https://github.com/Drapersniper/Qbitrr/commit/34f231b2091f14c88c75a9274bcf7e9b1c671b6e) - @Drapersniper
-- [[patch] Resolve bad conflict resolution](https://github.com/Drapersniper/Qbitrr/commit/3448dd29c90b74bf81d1b3c3962ec8eba000c5ca) - @Drapersniper
-- [[patch] Full fix for https://github.com/Drapersniper/Qbitrr/issues/19#issuecomment-999970944](https://github.com/Drapersniper/Qbitrr/commit/7c8f46d56701df7b938e5def82bd0b40b37e468e) - @Drapersniper
-- [[patch] Temp fix for https://github.com/Drapersniper/Qbitrr/issues/19#issuecomment-999970944](https://github.com/Drapersniper/Qbitrr/commit/746a769d44fc3ed8256adc3ca0f4a31599b07706) - @Drapersniper
-- [Update setup instructions](https://github.com/Drapersniper/Qbitrr/commit/d59424239516be1c5513f2e4cea6c32e1eabba40) - @Drapersniper
-- [[patch] Hotfix - Remove ujson support for any python implementation that is not CPython due to the SystemError crash that occurred on PyPy](https://github.com/Drapersniper/Qbitrr/commit/0a3ff2da674076630e03a73e7f7782fbfa673697) - @Drapersniper
-- [[patch] replace requests complexjson with ujson if it is available (This affects the whole runtime meaning assuming the response isn't unsupported it should give a significant boost to requests performance.](https://github.com/Drapersniper/Qbitrr/commit/1ee15b5d3182251c6dcb127c7555205e95809ba1) - @Drapersniper
-- [[deps] Add ujson as an optional dep](https://github.com/Drapersniper/Qbitrr/commit/320f785e9c79e18772355e064650cba0a93a15d3) - @Drapersniper
-- [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/441b54ec7eb294a919a00ba0b76e001aabd3ed35) - @Drapersniper
-- [[patch] Fix an issue where you couldn't run any flags if the config file didn't exist in the app dir](https://github.com/Drapersniper/Qbitrr/commit/3dfb989bef624fa68e7730de9e91f93b2f3f51e3) - @Drapersniper
-- [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/7500811a97be6a7befdaeed347a32bec7895bdf6) - @Drapersniper
-- [[patch] config file](https://github.com/Drapersniper/Qbitrr/commit/71a22ecf8038a6e6b8e16f27ecf14b542f4d7082) - @Drapersniper
-- [[patch] Fix broken builds](https://github.com/Drapersniper/Qbitrr/commit/1e201e0b56fa3952aecfbbc3f9dfa297b552d935) - @Drapersniper
-- [[patch] Hotfix](https://github.com/Drapersniper/Qbitrr/commit/9eeb34372ddd0ce680841f2ebc40c93ee4e6acf3) - @Drapersniper
-- [[patch] clean up and fixes](https://github.com/Drapersniper/Qbitrr/commit/d3c7351a6d6e651c590dcbc54a6f93dbb9374703) - @Drapersniper
-- [add `--license` and `--source` flags to the script](https://github.com/Drapersniper/Qbitrr/commit/f94c3e3c005ffd0df02a77bae310349e5a4a2f90) - @Drapersniper
-- [add `--version` flag and update README.md](https://github.com/Drapersniper/Qbitrr/commit/7fa3e9d1b66fe871ddf72e77a6cdb48ef7832ae4) - @Drapersniper
-- [Improve internet check so that it does not run if there is no torrents to check](https://github.com/Drapersniper/Qbitrr/commit/c201c535698a7e553b4ef90eb518c86f794d0e9c) - @Drapersniper
-- [[patch] Improved startup logging](https://github.com/Drapersniper/Qbitrr/commit/d858027c2bfb004f3b9ddf9ba0e71b83e8a1c977) - @Drapersniper
-- [Reduce the number of socket calls for the internet checks](https://github.com/Drapersniper/Qbitrr/commit/9c0686e5ae2957eeea71476d42303d77270cf422) - @Drapersniper
-- [[patch] Fixed an issue that caused logs to show incorrect info](https://github.com/Drapersniper/Qbitrr/commit/6ed607e6d102c6937a14e357a331e2753f609087) - @Drapersniper
-- [Ensure KeyboardInterrupt is caught correctly + fix an issue where logs where being duplicated](https://github.com/Drapersniper/Qbitrr/commit/313a26ffa21bfb0929921101d73cb39f65cbf002) - @Drapersniper
-- [Fixed a bug where there would be a crash if the user attempted to add a torrent to the recheck or failed category](https://github.com/Drapersniper/Qbitrr/commit/e4da075d0e864ec4f23c19bb1caf87cd8070151e) - @Drapersniper
-- [[patch] 2 enhancements and 1 bug fix.](https://github.com/Drapersniper/Qbitrr/commit/3e285bcf7dea29fa234508a8a920400f6b85e3f1) - @Drapersniper
-- [[patch] Build binary for all platforms properly](https://github.com/Drapersniper/Qbitrr/commit/23a65f963341123024f85f2ef110689e492e6b89) - @Drapersniper
-- [[patch] Fix an issue where logs where not shown correct + improve exiting logic](https://github.com/Drapersniper/Qbitrr/commit/3aa3f39c1d052e3b8201a7606fb3504077897ffc) - @Drapersniper
-- [Fixed the build spec to generate a portable binary](https://github.com/Drapersniper/Qbitrr/commit/4d2db601905f756289b15bef5f5219e131580fcf) - @Drapersniper
-- [[patch] Build binaries - properly this time v2](https://github.com/Drapersniper/Qbitrr/commit/da31cf5f135530cb7c2e0062f711f7b813b99f46) - @Drapersniper
-- [[patch] Build binaries - properly this time](https://github.com/Drapersniper/Qbitrr/commit/27784e1a96fba4b19fcfc1ae1a6a4bd2ac88439f) - @Drapersniper
-- [[patch] Build binaries](https://github.com/Drapersniper/Qbitrr/commit/9a4db8491deac9867975ecaab7f385d51eee8537) - @Drapersniper
 
 ---
 
