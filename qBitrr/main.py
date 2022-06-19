@@ -29,7 +29,8 @@ run_logs(logger)
 
 class qBitManager:
     min_supported_version = VersionClass("4.3.4")
-    max_supported_version = VersionClass("4.4")
+    soft_not_supported_supported_version = VersionClass("4.4")
+    max_supported_version = VersionClass("4.5")
     _head_less_mode = False
 
     def __init__(self):
@@ -70,8 +71,8 @@ class qBitManager:
                 )
             self._version_validator()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.cache = dict()
-        self.name_cache = dict()
+        self.cache = {}
+        self.name_cache = {}
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
         self.ffprobe_downloader = FFprobeDownloader()
@@ -86,8 +87,13 @@ class qBitManager:
         run_logs(self.logger)
 
     def _version_validator(self):
-        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
-            if self._validated_version:
+        if self.min_supported_version <= self.current_qbit_version < self.max_supported_version:
+            if self.soft_not_supported_supported_version <= self.current_qbit_version:
+                self.logger.warning("Current qBitTorrent version is not fully supported: %s, "
+                                    "historically there's been some issued with qBitTorrent 4.4+ and "
+                                    "qBitrr worked best with 4.3.9",
+                                    self.current_qbit_version, )
+            elif self._validated_version:
                 self.logger.hnotice(
                     "Current qBitTorrent version is supported: %s",
                     self.current_qbit_version,
@@ -101,7 +107,7 @@ class qBitManager:
         else:
             self.logger.critical(
                 "You are currently running qBitTorrent version %s, "
-                "Supported version range is %s to %s",
+                "Supported version range is %s to < %s",
                 self.current_qbit_version,
                 self.min_supported_version,
                 self.max_supported_version,
@@ -167,13 +173,12 @@ def run():
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
     try:
-        CHILD_PROCESSES = manager.get_child_processes()
-        if not CHILD_PROCESSES:
+        if CHILD_PROCESSES := manager.get_child_processes():
+            manager.run()
+        else:
             logger.warning(
                 "No tasks to perform, if this is unintended double check your config file."
             )
-        else:
-            manager.run()
     except KeyboardInterrupt:
         logger.hnotice("Detected Ctrl+C - Terminating process")
         sys.exit(0)
