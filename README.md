@@ -39,9 +39,10 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 
 Some things to know before using it.
 
-- 1. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
-- 2. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
-- 3. I have qBit setup to have to create sub-folder for downloads and for the download folder to
+- 1. Qbitrr works best with qBittorrent 4.3.9
+- 2. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
+- 3. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
+- 4. I have qBit setup to have to create sub-folder for downloads and for the download folder to
      use subcategories.
 
   ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
