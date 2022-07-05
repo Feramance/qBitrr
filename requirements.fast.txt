@@ -69,7 +69,7 @@ six==1.16.0
     #   qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr (setup.py)
-ujson==5.2.0
+ujson==5.4.0
     # via qBitrr (setup.py)
 urllib3==1.26.8
     # via
