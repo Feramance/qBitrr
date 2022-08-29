@@ -89,10 +89,12 @@ class qBitManager:
     def _version_validator(self):
         if self.min_supported_version <= self.current_qbit_version < self.max_supported_version:
             if self.soft_not_supported_supported_version <= self.current_qbit_version:
-                self.logger.warning("Current qBitTorrent version is not fully supported: %s, "
-                                    "historically there's been some issued with qBitTorrent 4.4+ and "
-                                    "qBitrr worked best with 4.3.9",
-                                    self.current_qbit_version, )
+                self.logger.warning(
+                    "Current qBitTorrent version is not fully supported: %s, "
+                    "historically there's been some issued with qBitTorrent 4.4+ and "
+                    "qBitrr worked best with 4.3.9",
+                    self.current_qbit_version,
+                )
             elif self._validated_version:
                 self.logger.hnotice(
                     "Current qBitTorrent version is supported: %s",
