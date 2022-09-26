@@ -15,7 +15,7 @@ repos:
   - id: pretty-format-json
     args: [--autofix, --indent, '2']
 - repo: https://github.com/asottile/pyupgrade
-  rev: v2.37.3
+  rev: v2.38.2
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -24,7 +24,7 @@ repos:
   hooks:
   - id: isort
 - repo: https://github.com/psf/black
-  rev: 22.6.0
+  rev: 22.8.0
   hooks:
   - id: black
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
@@ -41,8 +41,8 @@ repos:
   rev: v1.7.0   # Use the sha / tag you want to point at
   hooks:
   - id: autopep8
-- repo: https://github.com/myint/autoflake
-  rev: v1.5.1
+- repo: https://github.com/PyCQA/autoflake
+  rev: v1.6.1
   hooks:
   - id: autoflake
     args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]
