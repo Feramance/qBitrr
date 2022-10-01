@@ -3134,7 +3134,7 @@ class Arr:
             )
             self.manager.qbit_manager.child_processes.append(self.process_search_loop)
             _temp.append(self.process_search_loop)
-        if not (QBIT_DISABLED or SEARCH_ONLY):
+        if not any([QBIT_DISABLED, SEARCH_ONLY]):
             self.process_torrent_loop = pathos.helpers.mp.Process(
                 target=self.run_torrent_loop, daemon=True
             )
@@ -3303,7 +3303,7 @@ class ArrManager:
         )
         run_logs(self.logger)
         if not self.ffprobe_available:
-            if not (SEARCH_ONLY or QBIT_DISABLED):
+            if not any([QBIT_DISABLED, SEARCH_ONLY]):
                 self.logger.error(
                     "'%s' was not found, disabling all functionality dependant on it",
                     self.qbit_manager.ffprobe_downloader.probe_path,

@@ -52,7 +52,7 @@ class qBitManager:
         self._validated_version = False
         self.client = None
         self.current_qbit_version = None
-        if not (QBIT_DISABLED or SEARCH_ONLY):
+        if not any([QBIT_DISABLED, SEARCH_ONLY]):
             self.client = qbittorrentapi.Client(
                 host=self.qBit_Host,
                 port=self.qBit_Port,
@@ -77,7 +77,7 @@ class qBitManager:
         self.child_processes = []
         self.ffprobe_downloader = FFprobeDownloader()
         try:
-            if not (SEARCH_ONLY or QBIT_DISABLED):
+            if not any([QBIT_DISABLED, SEARCH_ONLY]):
                 self.ffprobe_downloader.update()
         except Exception as e:
             self.logger.error(
