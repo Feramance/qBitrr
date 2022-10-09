@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.6.0 (09/10/2022)
+- [[minor] Update to work with newer qbittorrent version](https://github.com/Drapersniper/Qbitrr/commit/c02c36d7d924cd8e54416568115ec495544c5136) - @Drapersniper
+- [Bump to qbittorrent-api==2022.8.38](https://github.com/Drapersniper/Qbitrr/commit/bfe3af3f432e8870a89e616263ec8a3b2a9dc883) - @Drapersniper
+- [Bump stefanzweifel/git-auto-commit-action from 4.14.1 to 4.15.0](https://github.com/Drapersniper/Qbitrr/commit/76cc5a1d5b1a1d6aa10eda625621cff62b25ae84) - @dependabot[bot]
+- [De Morgan's laws](https://github.com/Drapersniper/Qbitrr/commit/e7cef49b912b611a934c679340ba7e4f2db00502) - @Drapersniper
+- [Bump ujson from 5.2.0 to 5.4.0](https://github.com/Drapersniper/Qbitrr/commit/39cdf4c966bb349d1d3e896ab27db962fa5609c2) - @dependabot[bot]
+- [Update README.md](https://github.com/Drapersniper/Qbitrr/commit/9c66b02ce131414aa51ac842ea43f717c41d4a24) - @Drapersniper
+
+---
+
 ## v2.5.5 (19/06/2022)
 - [[patch] allow qbitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Drapersniper/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
 - [Closes #58 by allowing qbitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Drapersniper/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
@@ -177,8 +187,3 @@
 ## v2.1.12 (20/12/2021)
 - [[patch] replace requests complexjson with ujson if it is available (This affects the whole runtime meaning assuming the response isn't unsupported it should give a significant boost to requests performance.](https://github.com/Drapersniper/Qbitrr/commit/1ee15b5d3182251c6dcb127c7555205e95809ba1) - @Drapersniper
 - [[deps] Add ujson as an optional dep](https://github.com/Drapersniper/Qbitrr/commit/320f785e9c79e18772355e064650cba0a93a15d3) - @Drapersniper
-
----
-
-## v2.1.11 (20/12/2021)
-- [[patch] Make release](https://github.com/Drapersniper/Qbitrr/commit/441b54ec7eb294a919a00ba0b76e001aabd3ed35) - @Drapersniper
