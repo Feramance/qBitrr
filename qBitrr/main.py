@@ -11,7 +11,8 @@ import qbittorrentapi
 import requests
 from packaging import version as version_parser
 from packaging.version import Version as VersionClass
-from qbittorrentapi import APINames, login_required, response_text
+from qbittorrentapi import APINames
+from qbittorrentapi.decorators import response_text, login_required
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
@@ -29,7 +30,7 @@ run_logs(logger)
 
 class qBitManager:
     min_supported_version = VersionClass("4.3.4")
-    soft_not_supported_supported_version = VersionClass("4.4")
+    soft_not_supported_supported_version = VersionClass("4.5")
     max_supported_version = VersionClass("4.5")
     _head_less_mode = False
 
