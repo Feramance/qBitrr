@@ -1781,7 +1781,7 @@ class Arr:
             **kwargs,
         }
         path = "/api/v3/command"
-        res = self.client.request_post(path, data=data)
+        res = self.client.post_command(name, **kwargs)
         return res
 
     def process(self):
@@ -2720,9 +2720,9 @@ class Arr:
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
-            self.queue = self.client.get_queue(self, page=1, page_size=10000, sort_direction="ascending", sort_key="timeLeft")
+            self.queue = self.get_queue()
         elif self.type == "radarr":
-            self.queue = self.client.get_queue(self, page=1, page_size=10000, sort_direction="ascending", sort_key="timeLeft")
+            self.queue = self.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
@@ -2761,7 +2761,7 @@ class Arr:
             path = "/api/v3/queue"
         else:
             path = "/api/queue"
-        res = self.client.request_get(path, params=params)
+        res = self.client.get_queue(page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending")
         try:
             res = res.get("records", [])
         except AttributeError:
@@ -2771,7 +2771,7 @@ class Arr:
     def _update_bad_queue_items(self):
         if not self.arr_error_codes_to_blocklist:
             return
-        _temp = self.client.get_queue()
+        _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
             and x.get("trackedDownloadState") == "importPending"
@@ -2797,7 +2797,7 @@ class Arr:
         self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
-        _temp = self.client.get_queue()
+        _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
             _temp,
