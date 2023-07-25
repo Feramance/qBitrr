@@ -1349,11 +1349,7 @@ class Arr:
             if self.type == "sonarr":
                 if not series:
                     db_entry: EpisodesModel
-                    QualityUnmet = False
-                    if self.quality_unmet_search:
-                        QualityUnmet = self.client.get_episode_file(db_entry.Id).get(
-                            "qualityCutoffNotMet", False
-                        )
+                    QualityUnmet = True
                     if db_entry.EpisodeFileId != 0 and not QualityUnmet:
                         searched = True
                         self.model_queue.update(Completed=True).where(
@@ -1432,6 +1428,7 @@ class Arr:
                 else:
                     db_entry: SeriesModel
                     EntryId = db_entry.Id
+                    
                     metadata = self.client.get_series(id_=EntryId)
                     episode_count = metadata.get("episodeCount", -2)
                     searched = episode_count == metadata.get("episodeFileCount", -1)
@@ -1460,13 +1457,7 @@ class Arr:
             elif self.type == "radarr":
                 db_entry: MoviesModel
                 searched = False
-                QualityUnmet = False
-                if self.quality_unmet_search:
-                    QualityUnmet = any(
-                        i["qualityCutoffNotMet"]
-                        for i in self.client.get_movie_files_by_movie_id(db_entry.Id)
-                        if "qualityCutoffNotMet" in i
-                    )
+                QualityUnmet = True
                 if db_entry.MovieFileId != 0 and not QualityUnmet:
                     searched = True
                     self.model_queue.update(Completed=True).where(
@@ -2729,9 +2720,9 @@ class Arr:
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
-            self.queue = self.get_queue()
+            self.queue = self.client.get_queue()
         elif self.type == "radarr":
-            self.queue = self.get_queue()
+            self.queue = self.client.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
@@ -2780,7 +2771,7 @@ class Arr:
     def _update_bad_queue_items(self):
         if not self.arr_error_codes_to_blocklist:
             return
-        _temp = self.get_queue()
+        _temp = self.client.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
             and x.get("trackedDownloadState") == "importPending"
@@ -2806,7 +2797,7 @@ class Arr:
         self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
-        _temp = self.get_queue()
+        _temp = self.client.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
             _temp,

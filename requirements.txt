@@ -52,13 +52,13 @@ pox==0.3.0
     # via pathos
 ppft==1.6.6.4
     # via pathos
-pyarr==2.0.6
+pyarr==5.1.1
     # via qBitrr (setup.py)
 pyparsing==3.0.7
     # via packaging
 qbittorrent-api==2022.8.38
     # via qBitrr (setup.py)
-requests==2.26.0
+requests==2.31.0
     # via
     #   pyarr
     #   qBitrr (setup.py)
