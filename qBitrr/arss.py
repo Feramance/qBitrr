@@ -5,6 +5,7 @@ import itertools
 import logging
 import pathlib
 import re
+import shutil
 import sys
 import time
 from collections import defaultdict
@@ -303,6 +304,7 @@ class Arr:
         self.remove_from_qbit = set()
         self.overseerr_requests_release_cache = dict()
         self.files_to_explicitly_delete: Iterator = iter([])
+        self.files_to_cleanup = set()
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
@@ -1520,20 +1522,20 @@ class Arr:
                 self.logger.trace("Probeable: File has already been probed: %s", file)
                 return True
             if file.is_dir():
-                self.logger.trace("Not Probeable: File is a directory: %s", file)
+                self.logger.trace("Not probeable: File is a directory: %s", file)
                 return False
             output = ffmpeg.probe(
                 str(file.absolute()), cmd=self.manager.qbit_manager.ffprobe_downloader.probe_path
             )
             if not output:
-                self.logger.trace("Not Probeable: Probe returned no output: %s", file)
+                self.logger.trace("Not probeable: Probe returned no output: %s", file)
                 return False
             self.files_probed.add(file)
             return True
         except ffmpeg.Error as e:
             error = e.stderr.decode()
             self.logger.trace(
-                "Not Probeable: Probe returned an error: %s:\n%s",
+                "Not probeable: Probe returned an error: %s:\n%s",
                 file,
                 e.stderr,
                 exc_info=sys.exc_info(),
@@ -1542,15 +1544,14 @@ class Arr:
                 return False
             return False
 
-    def folder_cleanup(self) -> None:
+    def folder_cleanup(self, downloads_id: str | None, folder: pathlib.Path):
         if self.auto_delete is False:
             return
-        self._update_bad_queue_items()
-        if self.needs_cleanup is False:
-            return
-        folder = self.completed_folder
         self.logger.debug("Folder Cleanup: %s", folder)
-        for file in absolute_file_paths(folder):
+        all_files_in_folder = list(absolute_file_paths(folder))
+        invalid_files = set()
+        probeable = 0
+        for file in all_files_in_folder:
             if file.name in {"desktop.ini", ".DS_Store"}:
                 continue
             elif file.suffix.lower() == ".parts":
@@ -1567,25 +1568,74 @@ class Arr:
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
+                    probeable += 1
                     continue
+            else:
+                invalid_files.add(file)
+
+        if not probeable:
+            self.downloads_with_bad_error_message_blocklist.discard(downloads_id)
+            self.delete.discard(downloads_id)
+            self.remove_and_maybe_blocklist(downloads_id, folder)
+        elif invalid_files:
+            for file in invalid_files:
+                self.remove_and_maybe_blocklist(None, file)
+
+    def post_file_cleanup(self):
+        for downloads_id, file in self.files_to_cleanup:
+            self.folder_cleanup(downloads_id, file)
+        self.files_to_cleanup = set()
+
+    def post_download_error_cleanup(self):
+        for downloads_id, file in self.files_to_explicitly_delete:
+            self.remove_and_maybe_blocklist(downloads_id, file)
+
+    def remove_and_maybe_blocklist(self, downloads_id: str | None, file_or_folder: pathlib.Path):
+        if downloads_id is not None:
+            self.delete_from_queue(id_=downloads_id, blacklist=True)
+            self.logger.debug(
+                "Torrent removed and blocklisted: File was marked as failed by Arr " "| %s",
+                file_or_folder,
+            )
+
+        if file_or_folder.is_dir():
             try:
-                file.unlink(missing_ok=True)
-                self.logger.debug("File removed: %s", file)
+                shutil.rmtree(file_or_folder)
+                self.logger.debug(
+                    "Folder removed: Folder was marked as failed by Arr, "
+                    "manually removing it | %s",
+                    file_or_folder,
+                )
             except PermissionError:
-                self.logger.debug("File in use: Failed to remove file: %s", file)
-        for file in self.files_to_explicitly_delete:
-            if not file.exists():
-                continue
+                self.logger.debug(
+                    "Folder in use: Failed to remove Folder: Folder was marked as failed by Ar "
+                    "| %s",
+                    file_or_folder,
+                )
+        else:
             try:
-                file.unlink(missing_ok=True)
-                self.logger.debug("File removed: File was marked as failed by Arr | %s", file)
+                file_or_folder.unlink(missing_ok=True)
+                self.logger.debug(
+                    "File removed: File was marked as failed by Arr, " "manually removing it | %s",
+                    file_or_folder,
+                )
             except PermissionError:
                 self.logger.debug(
                     "File in use: Failed to remove file: File was marked as failed by Ar | %s",
-                    file,
+                    file_or_folder,
                 )
 
+    def all_folder_cleanup(self) -> None:
+        if self.auto_delete is False:
+            return
+        self._update_bad_queue_items()
+        self.post_file_cleanup()
+        if self.needs_cleanup is False:
+            return
+        folder = self.completed_folder
+        self.folder_cleanup(None, folder)
         self.files_to_explicitly_delete = iter([])
+        self.post_download_error_cleanup()
         self._remove_empty_folders()
         self.needs_cleanup = False
 
@@ -1791,7 +1841,7 @@ class Arr:
         self._process_file_priority()
         self._process_imports()
         self._process_failed()
-        self.folder_cleanup()
+        self.all_folder_cleanup()
 
     def process_entries(self, hashes: set[str]) -> tuple[list[tuple[int, str]], set[str]]:
         payload = [
@@ -2136,6 +2186,15 @@ class Arr:
                 torrent.hash,
             )
             self.pause.add(torrent.hash)
+            content_path = pathlib.Path(torrent.content_path)
+            if content_path.is_dir() and content_path.name == torrent.name:
+                torrent_folder = content_path
+            else:
+                if content_path.is_file() and content_path.parent.name == torrent.name:
+                    torrent_folder = content_path.parent
+                else:
+                    torrent_folder = content_path
+            self.files_to_cleanup.add((torrent.hash, torrent_folder))
             self.import_torrents.append(torrent)
 
     def _process_single_torrent_missing_files(self, torrent: qbittorrentapi.TorrentDictionary):
@@ -2659,7 +2718,7 @@ class Arr:
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_already_sent_to_scan(torrent)
             return
-        # Some times torrents will error, this causes them to be rechecked so they
+        # Sometimes torrents will error, this causes them to be rechecked so they
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
             self._process_single_torrent_errored(torrent)
@@ -2789,14 +2848,15 @@ class Arr:
                     continue
                 for _m in m.get("messages", []):
                     if _m in self.arr_error_codes_to_blocklist:
-                        _path_filter.add(pathlib.Path(output_path).joinpath(title))
                         e = entry.get("downloadId")
-                        self.downloads_with_bad_error_message_blocklist.add(e)
+                        _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
+                        # self.downloads_with_bad_error_message_blocklist.add(e)
         if len(_path_filter):
             self.needs_cleanup = True
         self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
+        return  # TODO: This may not be needed, pending more testing before it is enabled
         _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
