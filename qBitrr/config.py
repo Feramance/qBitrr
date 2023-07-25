@@ -41,7 +41,7 @@ def process_flags() -> argparse.Namespace | bool:
         "--source",
         action="store_const",
         dest="source",
-        const="Source code can be found on: https://github.com/Drapersniper/Qbitrr",
+        const="Source code can be found on: https://github.com/Feramance/Qbitrr",
         help="Shows a link to qBitrr's source",
     )
 

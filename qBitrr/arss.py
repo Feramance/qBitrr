@@ -2720,9 +2720,9 @@ class Arr:
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
-            self.queue = self.client.get_queue()
+            self.queue = self.client.get_queue(self, page=1, page_size=10000, sort_direction="ascending", sort_key="timeLeft")
         elif self.type == "radarr":
-            self.queue = self.client.get_queue()
+            self.queue = self.client.get_queue(self, page=1, page_size=10000, sort_direction="ascending", sort_key="timeLeft")
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }

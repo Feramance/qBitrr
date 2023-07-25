@@ -99,7 +99,7 @@ class FFprobeDownloader:
             raise RuntimeError(
                 "You are running in an unsupported platform, "
                 "if you expect this to be supported please open an issue on GitHub "
-                "https://github.com/Drapersniper/Qbitrr."
+                "https://github.com/Feramance/Qbitrr."
             )
 
         return part1 + part2
