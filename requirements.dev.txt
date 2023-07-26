@@ -128,7 +128,7 @@ pyupgrade==2.31.0
     # via qBitrr (setup.py)
 pyyaml==6.0
     # via pre-commit
-qbittorrent-api==2022.8.38
+qbittorrent-api==2023.7.52
     # via qBitrr (setup.py)
 readme-renderer==32.0
     # via twine

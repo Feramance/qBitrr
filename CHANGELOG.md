@@ -2,7 +2,7 @@
 
 ## v2.6.0 (09/10/2022)
 - [[minor] Update to work with newer qbittorrent version](https://github.com/Drapersniper/Qbitrr/commit/c02c36d7d924cd8e54416568115ec495544c5136) - @Drapersniper
-- [Bump to qbittorrent-api==2022.8.38](https://github.com/Drapersniper/Qbitrr/commit/bfe3af3f432e8870a89e616263ec8a3b2a9dc883) - @Drapersniper
+- [Bump to qbittorrent-api==2023.7.52](https://github.com/Drapersniper/Qbitrr/commit/bfe3af3f432e8870a89e616263ec8a3b2a9dc883) - @Drapersniper
 - [Bump stefanzweifel/git-auto-commit-action from 4.14.1 to 4.15.0](https://github.com/Drapersniper/Qbitrr/commit/76cc5a1d5b1a1d6aa10eda625621cff62b25ae84) - @dependabot[bot]
 - [De Morgan's laws](https://github.com/Drapersniper/Qbitrr/commit/e7cef49b912b611a934c679340ba7e4f2db00502) - @Drapersniper
 - [Bump ujson from 5.2.0 to 5.4.0](https://github.com/Drapersniper/Qbitrr/commit/39cdf4c966bb349d1d3e896ab27db962fa5609c2) - @dependabot[bot]

@@ -1854,7 +1854,7 @@ class Arr:
     def process_torrents(self):
         try:
             try:
-                torrents = self.manager.qbit_manager.client.torrents.info.all(
+                torrents = self.manager.qbit_manager.client.torrents.info(
                     category=self.category, sort="added_on", reverse=False
                 )
                 torrents = [t for t in torrents if hasattr(t, "category")]
@@ -2518,6 +2518,8 @@ class Arr:
         need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
+        self.logger.debug("Torrent: %s", torrent)
+        self.logger.debug("Trackers: %s", torrent.trackers)
         for tracker in torrent.trackers:
             if (
                 self.remove_dead_trackers

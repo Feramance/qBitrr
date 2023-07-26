@@ -12,7 +12,7 @@ import requests
 from packaging import version as version_parser
 from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames
-from qbittorrentapi.decorators import login_required, response_text
+from qbittorrentapi.decorators import login_required #, response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
@@ -29,9 +29,9 @@ run_logs(logger)
 
 
 class qBitManager:
-    min_supported_version = VersionClass("4.3.4")
+    min_supported_version = VersionClass("4.4.1")
     soft_not_supported_supported_version = VersionClass("4.5")
-    max_supported_version = VersionClass("4.5")
+    max_supported_version = VersionClass("4.5.4")
     _head_less_mode = False
 
     def __init__(self):
@@ -88,7 +88,7 @@ class qBitManager:
         run_logs(self.logger)
 
     def _version_validator(self):
-        if self.min_supported_version <= self.current_qbit_version < self.max_supported_version:
+        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
             if self.soft_not_supported_supported_version <= self.current_qbit_version:
                 self.logger.warning(
                     "Current qBitTorrent version is not fully supported: %s, "
@@ -117,7 +117,7 @@ class qBitManager:
             )
             sys.exit(1)
 
-    @response_text(str)
+    # @response_text(str)
     @login_required
     def app_version(self, **kwargs):
         return self.client._get(
