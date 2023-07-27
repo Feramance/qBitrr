@@ -3,7 +3,7 @@
 FROM python:3.10
 
 LABEL Name="qBitrr"
-LABEL Maintainer="Draper"
+LABEL Maintainer="Feramance"
 LABEL Version="2.7.0"
 
 # Env used by the script to determine if its inside a docker -
