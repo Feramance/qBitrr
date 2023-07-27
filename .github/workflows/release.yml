@@ -311,6 +311,6 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: drapersniper/qbitrr:latest,drapersniper/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
+        tags: feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
         cache-from: type=gha
         cache-to: type=gha,mode=max
