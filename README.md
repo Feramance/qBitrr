@@ -29,6 +29,7 @@ Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
 - Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
 - Auto add/remove trackers
 - Set per tracker values
+- Also supports Sonarr v4
 
 **This section requires the Arr databases to be locally available.**
 
