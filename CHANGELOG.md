@@ -1,8 +1,5 @@
 # Changelog
 
-## v2.7.3 (27/07/2023)
-- [Update README.md](https://github.com/Feramance/Qbitrr/commit/269ad3683a57be6a944feba9f180650a3308e56f) - @Feramance
-
 ## v2.6.0 (09/10/2022)
 - [[minor] Update to work with newer qbittorrent version](https://github.com/Drapersniper/Qbitrr/commit/c02c36d7d924cd8e54416568115ec495544c5136) - @Drapersniper
 - [Bump to qbittorrent-api==2023.7.52](https://github.com/Drapersniper/Qbitrr/commit/bfe3af3f432e8870a89e616263ec8a3b2a9dc883) - @Drapersniper
