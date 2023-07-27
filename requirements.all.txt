@@ -50,7 +50,7 @@ ffmpeg-python==0.2.0
     # via qBitrr (setup.py)
 filelock==3.4.2
     # via virtualenv
-future==0.18.2
+future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
