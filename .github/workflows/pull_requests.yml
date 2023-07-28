@@ -45,13 +45,13 @@ jobs:
     - name: Get git hash
       run: |
         echo "Current Hash: $(git rev-parse --short HEAD)"
-        echo "::set-output name=HASH::$(git rev-parse --short HEAD)"
+        echo "HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       id: git_hash
     - name: Set archive name
       run: |
         ARCHIVE_NAME=${{ env.project-name }}-${{ steps.git_hash.outputs.HASH }}-${{ matrix.os }}-${{ matrix.arch }}
         echo "Archive name set to: $ARCHIVE_NAME"
-        echo "::set-output name=NAME::$ARCHIVE_NAME"
+        echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
       id: archieve
     - name: Update git hash
       run: |
@@ -59,7 +59,7 @@ jobs:
     - name: Retrieve current version
       run: |
         echo "Current version: $(python setup.py --version)"
-        echo "::set-output name=VERSION::$(python setup.py --version)"
+        echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
     - name: Install Python dependencies
       run: |
