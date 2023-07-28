@@ -34,14 +34,14 @@ jobs:
     - name: Retrieve current version
       run: |
         echo "Current version: $(python setup.py --version)"
-        echo "::set-output name=VERSION::$(python setup.py --version)"
+        echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
     - name: Bump Patch Version
       run: |
         bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }}
     - name: Retrieve new version
       run: |
-        echo "::set-output name=VERSION::$(python setup.py --version)"
+        echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: new_version
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v5.3.0
@@ -117,7 +117,7 @@ jobs:
     - name: Get git hash
       run: |
         echo "Current Hash: $(git rev-parse --short HEAD)"
-        echo "::set-output name=HASH::$(git rev-parse --short HEAD)"
+        echo "HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       id: git_hash
     - name: Update git hash
       run: |
@@ -181,7 +181,7 @@ jobs:
       run: |
         ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
         echo "Archive name set to: $ARCHIVE_NAME"
-        echo "::set-output name=NAME::$ARCHIVE_NAME"
+        echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
       id: archieve
     - name: Install Python dependencies
       run: |
