@@ -34,7 +34,7 @@ colorama==0.4.4
     #   twine
 coloredlogs==15.0.1
     # via qBitrr (setup.py)
-cryptography==36.0.1
+cryptography==41.0.3
     # via secretstorage
 dill==0.3.4
     # via
