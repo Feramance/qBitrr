@@ -1855,7 +1855,10 @@ class Arr:
         try:
             try:
                 torrents = self.manager.qbit_manager.client.torrents.info(
-                    category=self.category, sort="added_on", reverse=False
+                    status_filter="all",
+                    category=self.category,
+                    sort="added_on",
+                    reverse=False
                 )
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
@@ -2402,7 +2405,11 @@ class Arr:
     def _get_torrent_important_trackers(
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
-        current_trackers = {i.url for i in torrent.trackers}
+        for i in torrent.trackers:
+            try:
+                current_trackers = {i.url}
+            except:
+                pass
         monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
         need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
         monitored_trackers = monitored_trackers.union(need_to_be_added)
@@ -2483,7 +2490,7 @@ class Arr:
         return_value = True
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             return return_value, -1  # Do not touch super seeding torrents.
-        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)        
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
         self.logger.trace("%r", torrent)
