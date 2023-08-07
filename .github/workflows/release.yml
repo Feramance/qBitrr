@@ -226,43 +226,6 @@ jobs:
         file_glob: true
         tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         overwrite: true
-  change_logs:
-    name: Generate Change Logs and Release Notes
-    needs: [bump_version, release_hash]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-        ref: master
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.x
-    - uses: actions/setup-node@v3
-      with:
-        node-version: 'latest'
-    - run: npm install github-release-notes -g
-    - name: Release Notes and Change logs
-      run: |
-        gren release
-        gren changelog
-    - name: Import GPG key
-      uses: crazy-max/ghaction-import-gpg@v5.3.0
-      with:
-        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-        git_user_signingkey: true
-        git_commit_gpgsign: true
-        git_tag_gpgsign: true
-      id: import_gpg
-    - name: Git Auto Commit
-      uses: stefanzweifel/git-auto-commit-action@v4.16.0
-      with:
-        commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
-        commit_options: -S
-        commit_user_name: ${{ steps.import_gpg.outputs.name }}
-        commit_user_email: ${{ steps.import_gpg.outputs.email }}
-        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
   docker_image:
     name: Build Docker Image
     needs: [bump_version, release_hash]
@@ -293,3 +256,41 @@ jobs:
         tags: feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+  change_logs:
+    name: Generate Change Logs and Release Notes
+    needs: [bump_version, release_hash, docker_image, package]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 'latest'
+    - run: npm install github-release-notes -g
+    - name: Release Notes and Change logs
+      run: |
+        gren release
+        gren changelog
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v5.3.0
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.16.0
+      with:
+        commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
