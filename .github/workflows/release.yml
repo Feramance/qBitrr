@@ -138,6 +138,8 @@ jobs:
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
       RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
   publish:
