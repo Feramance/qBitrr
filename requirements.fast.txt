@@ -8,7 +8,7 @@ attrs==21.4.0
     # via environ-config
 cachetools==4.2.4
     # via qBitrr (setup.py)
-certifi==2021.10.8
+certifi==2023.7.22
     # via requests
 charset-normalizer==2.0.11
     # via requests
