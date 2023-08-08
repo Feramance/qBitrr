@@ -24,7 +24,7 @@ environ-config==21.2.0
     # via qBitrr (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr (setup.py)
-future==0.18.2
+future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
