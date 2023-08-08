@@ -1689,7 +1689,21 @@ class Arr:
                     file_model.Searched = True
                     file_model.save()
                     return True
-                active_commands = self.arr_db_query_commands_count()
+                try:
+                    active_commands = self.arr_db_query_commands_count()
+                except Exception as ex:
+                    self.logger.error('Error type is %s', ex.type)
+                    relevant_path = "/config/.config/qBitManager"
+                    included_extensions = ['db','db-shm', 'db-wal']
+                    file_names = [fn for fn in os.listdir(relevant_path)]
+                    for f in file_names:
+                        os.remove('/config/.config/qBitManager/'+f)
+                    relevant_path_2 = "/config"
+                    file_names_2 = [fn for fn in os.listdir(relevant_path_2)]
+                    for f_2 in file_names_2:
+                        os.remove('/config/.config/qBitManager/'+f_2)
+                    cmd = "docker restart qbitrr"
+                    os.system(cmd)
                 self.logger.debug(
                     "%s%s active search commands",
                     request_tag,
@@ -1879,6 +1893,11 @@ class Arr:
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
+            except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -2405,11 +2424,7 @@ class Arr:
     def _get_torrent_important_trackers(
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
-        for i in torrent.trackers:
-            try:
-                current_trackers = {i.url}
-            except:
-                pass
+        current_trackers = {i.url for i in torrent.trackers}
         monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
         need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
         monitored_trackers = monitored_trackers.union(need_to_be_added)
@@ -2525,14 +2540,17 @@ class Arr:
         need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
-        for tracker in torrent.trackers:
-            if (
-                self.remove_dead_trackers
-                and (
-                    any(tracker.msg == m for m in self.seeding_mode_global_bad_tracker_msg)
-                )  # TODO: Add more messages
-            ) or tracker.url in self._remove_trackers_if_exists:
-                _remove_urls.add(tracker.url)
+        try:
+            for tracker in torrent.trackers:
+                if (
+                    self.remove_dead_trackers
+                    and (
+                        any(tracker.msg == m for m in self.seeding_mode_global_bad_tracker_msg)
+                    )  # TODO: Add more messages
+                ) or tracker.url in self._remove_trackers_if_exists:
+                    _remove_urls.add(tracker.url)
+        except:
+            pass
         if _remove_urls:
             self.logger.trace(
                 "Removing trackers from torrent: %s (%s) - %s",
@@ -2674,7 +2692,11 @@ class Arr:
         self._process_single_torrent_trackers(torrent)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
-        leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
+        try:
+            leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
+        except:
+            self.logger.warning(e)
+            raise DelayLoopException(length=300, type="qbit")
         self.logger.trace(
             "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s",
             torrent.name,
@@ -3140,6 +3162,12 @@ class Arr:
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
+                    except qbittorrentapi.exceptions.APIError as e:
+                        self.logger.warning(e)
+                        raise DelayLoopException(length=300, type="qbit")
+                    except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
+                        self.logger.warning(e)
+                        raise DelayLoopException(length=300, type="qbit")
                     except DelayLoopException:
                         raise
                     except KeyboardInterrupt:
@@ -3328,6 +3356,11 @@ class PlaceHolderArr(Arr):
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
+            except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
             except qbittorrentapi.exceptions.APIConnectionError as e:
