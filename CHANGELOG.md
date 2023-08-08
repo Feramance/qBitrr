@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.7.1 (08/08/2023)
+- [Update README.md](https://github.com/Feramance/Qbitrr/commit/38559b50468d15af080604d3e63cd52e14951616) - @Feramance
+- [[patch] Added handling of malformed db files](https://github.com/Feramance/Qbitrr/commit/6e5916d209aa57ce4afc1ab58dd6e97305be5cf4) - @Feramance
+- [Updated requirements](https://github.com/Feramance/Qbitrr/commit/056cd6bc6cde4e64c3a644a862b7e9903a1077cf) - @Feramance
+
+---
+
 ## v2.7.0 (08/08/2023)
 - [[minor] Added exception processing for a few new errors that are safe to skip and retry](https://github.com/Feramance/Qbitrr/commit/13c6fbe26dcac6691c05d40c6565b521227a5f9b) - @Feramance
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/59706472deb92771a4c43ce274e93830571e603b) - @Feramance
