@@ -121,7 +121,9 @@ def is_connected(hostname):
             hostname,
             e,
         )
-    except Exception:  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
+    except (
+        Exception
+    ):  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
         return _basic_ping(hostname)
 
 

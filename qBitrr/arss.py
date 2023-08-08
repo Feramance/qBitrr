@@ -1296,7 +1296,6 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
-
             if self.type == "sonarr":
                 if not self.series_search:
                     _series = set()
@@ -1327,7 +1326,6 @@ class Arr:
                     for series in self.model_arr_series_file.select().order_by(
                         self.model_arr_series_file.Added.desc()
                     ):
-
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
                 for series in (
@@ -1430,7 +1428,7 @@ class Arr:
                 else:
                     db_entry: SeriesModel
                     EntryId = db_entry.Id
-                    
+
                     metadata = self.client.get_series(id_=EntryId)
                     episode_count = metadata.get("episodeCount", -2)
                     searched = episode_count == metadata.get("episodeFileCount", -1)
@@ -1692,16 +1690,15 @@ class Arr:
                 try:
                     active_commands = self.arr_db_query_commands_count()
                 except Exception as ex:
-                    self.logger.error('Error type is %s', ex.type)
+                    self.logger.error("Error type is %s", ex.type)
                     relevant_path = "/config/.config/qBitManager"
-                    included_extensions = ['db','db-shm', 'db-wal']
                     file_names = [fn for fn in os.listdir(relevant_path)]
                     for f in file_names:
-                        os.remove('/config/.config/qBitManager/'+f)
+                        os.remove("/config/.config/qBitManager/" + f)
                     relevant_path_2 = "/config"
                     file_names_2 = [fn for fn in os.listdir(relevant_path_2)]
                     for f_2 in file_names_2:
-                        os.remove('/config/.config/qBitManager/'+f_2)
+                        os.remove("/config/.config/qBitManager/" + f_2)
                     cmd = "docker restart qbitrr"
                     os.system(cmd)
                 self.logger.debug(
@@ -1844,7 +1841,6 @@ class Arr:
             "name": name,
             **kwargs,
         }
-        path = "/api/v3/command"
         res = self.client.post_command(name, **kwargs)
         return res
 
@@ -1869,10 +1865,7 @@ class Arr:
         try:
             try:
                 torrents = self.manager.qbit_manager.client.torrents.info(
-                    status_filter="all",
-                    category=self.category,
-                    sort="added_on",
-                    reverse=False
+                    status_filter="all", category=self.category, sort="added_on", reverse=False
                 )
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
@@ -2505,7 +2498,7 @@ class Arr:
         return_value = True
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             return return_value, -1  # Do not touch super seeding torrents.
-        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)        
+        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
         self.logger.trace("%r", torrent)
@@ -2549,7 +2542,7 @@ class Arr:
                     )  # TODO: Add more messages
                 ) or tracker.url in self._remove_trackers_if_exists:
                     _remove_urls.add(tracker.url)
-        except:
+        except BaseException:
             pass
         if _remove_urls:
             self.logger.trace(
@@ -2694,7 +2687,7 @@ class Arr:
         time_now = time.time()
         try:
             leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
-        except:
+        except BaseException:
             self.logger.warning(e)
             raise DelayLoopException(length=300, type="qbit")
         self.logger.trace(
@@ -2846,10 +2839,12 @@ class Arr:
             "sortKey": sort_key,
         }
         if messages:
-            path = "/api/v3/queue"
+            pass
         else:
-            path = "/api/queue"
-        res = self.client.get_queue(page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending")
+            pass
+        res = self.client.get_queue(
+            page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending"
+        )
         try:
             res = res.get("records", [])
         except AttributeError:
@@ -3017,15 +3012,23 @@ class Arr:
                     raise DelayLoopException(length=300, type=e.type)
                 except peewee.DatabaseError as e:
                     self.logger.error(e.message)
-                    included_extensions = ['db','db-shm', 'db-wal']
+                    included_extensions = ["db", "db-shm", "db-wal"]
                     relevant_path = "/config"
-                    file_names = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                    file_names = [
+                        fn
+                        for fn in os.listdir(relevant_path)
+                        if any(fn.endswith(ext) for ext in included_extensions)
+                    ]
                     for f in file_names:
-                        os.remove(relevant_path+f)
+                        os.remove(relevant_path + f)
                     relevant_path_2 = "/config"
-                    file_names_2 = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                    file_names_2 = [
+                        fn
+                        for fn in os.listdir(relevant_path)
+                        if any(fn.endswith(ext) for ext in included_extensions)
+                    ]
                     for f_2 in file_names_2:
-                        os.remove(relevant_path_2+f_2)
+                        os.remove(relevant_path_2 + f_2)
                     cmd = "docker restart qbitrr"
                     os.system(cmd)
                     raise DelayLoopException(length=300, type=e.type)
@@ -3111,15 +3114,23 @@ class Arr:
                         raise DelayLoopException(length=300, type=e.type)
                     except peewee.DatabaseError as e:
                         self.logger.error(e.message)
-                        included_extensions = ['db','db-shm', 'db-wal']
+                        included_extensions = ["db", "db-shm", "db-wal"]
                         relevant_path = "/config"
-                        file_names = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                        file_names = [
+                            fn
+                            for fn in os.listdir(relevant_path)
+                            if any(fn.endswith(ext) for ext in included_extensions)
+                        ]
                         for f in file_names:
-                            os.remove(relevant_path+f)
+                            os.remove(relevant_path + f)
                         relevant_path_2 = "/config"
-                        file_names_2 = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                        file_names_2 = [
+                            fn
+                            for fn in os.listdir(relevant_path)
+                            if any(fn.endswith(ext) for ext in included_extensions)
+                        ]
                         for f_2 in file_names_2:
-                            os.remove(relevant_path_2+f_2)
+                            os.remove(relevant_path_2 + f_2)
                         cmd = "docker restart qbitrr"
                         os.system(cmd)
                         raise DelayLoopException(length=300, type=e.type)
@@ -3355,10 +3366,7 @@ class PlaceHolderArr(Arr):
         try:
             try:
                 torrents = self.manager.qbit_manager.client.torrents.info(
-                    status_filter="all",
-                    category=self.category,
-                    sort="added_on",
-                    reverse=False
+                    status_filter="all", category=self.category, sort="added_on", reverse=False
                 )
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):

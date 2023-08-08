@@ -54,7 +54,6 @@ class MoviesModel(Model):
 
 
 class EpisodesModel(Model):
-
     Id = IntegerField(null=False, primary_key=True)
     SeriesId = IntegerField(null=False)
     SeasonNumber = IntegerField(null=False)

@@ -12,7 +12,7 @@ import requests
 from packaging import version as version_parser
 from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames
-from qbittorrentapi.decorators import login_required #, response_text
+from qbittorrentapi.decorators import login_required  # , response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
