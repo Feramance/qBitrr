@@ -3015,6 +3015,20 @@ class Arr:
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
+                except peewee.DatabaseError as e:
+                    self.logger.error(e.message)
+                    included_extensions = ['db','db-shm', 'db-wal']
+                    relevant_path = "/config"
+                    file_names = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                    for f in file_names:
+                        os.remove(relevant_path+f)
+                    relevant_path_2 = "/config"
+                    file_names_2 = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                    for f_2 in file_names_2:
+                        os.remove(relevant_path_2+f_2)
+                    cmd = "docker restart qbitrr"
+                    os.system(cmd)
+                    raise DelayLoopException(length=300, type=e.type)
                 except DelayLoopException:
                     raise
                 except Exception as e:
@@ -3094,6 +3108,20 @@ class Arr:
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
+                        raise DelayLoopException(length=300, type=e.type)
+                    except peewee.DatabaseError as e:
+                        self.logger.error(e.message)
+                        included_extensions = ['db','db-shm', 'db-wal']
+                        relevant_path = "/config"
+                        file_names = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                        for f in file_names:
+                            os.remove(relevant_path+f)
+                        relevant_path_2 = "/config"
+                        file_names_2 = [fn for fn in os.listdir(relevant_path) if any(fn.endswith(ext) for ext in included_extensions)]
+                        for f_2 in file_names_2:
+                            os.remove(relevant_path_2+f_2)
+                        cmd = "docker restart qbitrr"
+                        os.system(cmd)
                         raise DelayLoopException(length=300, type=e.type)
                     except DelayLoopException:
                         raise
