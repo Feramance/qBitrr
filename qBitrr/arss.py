@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import logging
+import os
 import pathlib
 import re
 import shutil
@@ -12,13 +13,14 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime, timedelta, timezone
+from sqlite3 import DatabaseError
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import pathos
 import qbittorrentapi
 import requests
-from peewee import JOIN, SqliteDatabase
+from peewee import JOIN, DatabaseError, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
@@ -1687,20 +1689,7 @@ class Arr:
                     file_model.Searched = True
                     file_model.save()
                     return True
-                try:
-                    active_commands = self.arr_db_query_commands_count()
-                except Exception as ex:
-                    self.logger.error("Error type is %s", ex.type)
-                    relevant_path = "/config/.config/qBitManager"
-                    file_names = [fn for fn in os.listdir(relevant_path)]
-                    for f in file_names:
-                        os.remove("/config/.config/qBitManager/" + f)
-                    relevant_path_2 = "/config"
-                    file_names_2 = [fn for fn in os.listdir(relevant_path_2)]
-                    for f_2 in file_names_2:
-                        os.remove("/config/.config/qBitManager/" + f_2)
-                    cmd = "docker restart qbitrr"
-                    os.system(cmd)
+                active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
                     "%s%s active search commands",
                     request_tag,
@@ -2687,7 +2676,7 @@ class Arr:
         time_now = time.time()
         try:
             leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
-        except BaseException:
+        except BaseException as e:
             self.logger.warning(e)
             raise DelayLoopException(length=300, type="qbit")
         self.logger.trace(
@@ -3010,8 +2999,8 @@ class Arr:
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
-                except peewee.DatabaseError as e:
-                    self.logger.error(e.message)
+                except DatabaseError as e:
+                    self.logger.error(e)
                     included_extensions = ["db", "db-shm", "db-wal"]
                     relevant_path = "/config"
                     file_names = [
@@ -3020,18 +3009,17 @@ class Arr:
                         if any(fn.endswith(ext) for ext in included_extensions)
                     ]
                     for f in file_names:
-                        os.remove(relevant_path + f)
+                        os.remove(relevant_path + "/" + f)
                     relevant_path_2 = "/config"
                     file_names_2 = [
                         fn
-                        for fn in os.listdir(relevant_path)
+                        for fn in os.listdir(relevant_path_2)
                         if any(fn.endswith(ext) for ext in included_extensions)
                     ]
                     for f_2 in file_names_2:
-                        os.remove(relevant_path_2 + f_2)
+                        os.remove(relevant_path_2 + "/" + f_2)
                     cmd = "docker restart qbitrr"
                     os.system(cmd)
-                    raise DelayLoopException(length=300, type=e.type)
                 except DelayLoopException:
                     raise
                 except Exception as e:
@@ -3112,8 +3100,8 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type=e.type)
-                    except peewee.DatabaseError as e:
-                        self.logger.error(e.message)
+                    except DatabaseError as e:
+                        self.logger.error(e)
                         included_extensions = ["db", "db-shm", "db-wal"]
                         relevant_path = "/config"
                         file_names = [
@@ -3122,18 +3110,17 @@ class Arr:
                             if any(fn.endswith(ext) for ext in included_extensions)
                         ]
                         for f in file_names:
-                            os.remove(relevant_path + f)
+                            os.remove(relevant_path + "/" + f)
                         relevant_path_2 = "/config"
                         file_names_2 = [
                             fn
-                            for fn in os.listdir(relevant_path)
+                            for fn in os.listdir(relevant_path_2)
                             if any(fn.endswith(ext) for ext in included_extensions)
                         ]
                         for f_2 in file_names_2:
-                            os.remove(relevant_path_2 + f_2)
+                            os.remove(relevant_path_2 + "/" + f_2)
                         cmd = "docker restart qbitrr"
                         os.system(cmd)
-                        raise DelayLoopException(length=300, type=e.type)
                     except DelayLoopException:
                         raise
                     except ValueError:
@@ -3169,6 +3156,27 @@ class Arr:
                         )
                     time.sleep(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
+                except DatabaseError as e:
+                    self.logger.error(e)
+                    included_extensions = ["db", "db-shm", "db-wal"]
+                    relevant_path = "/config"
+                    file_names = [
+                        fn
+                        for fn in os.listdir(relevant_path)
+                        if any(fn.endswith(ext) for ext in included_extensions)
+                    ]
+                    for f in file_names:
+                        os.remove(relevant_path + "/" + f)
+                    relevant_path_2 = "/config"
+                    file_names_2 = [
+                        fn
+                        for fn in os.listdir(relevant_path_2)
+                        if any(fn.endswith(ext) for ext in included_extensions)
+                    ]
+                    for f_2 in file_names_2:
+                        os.remove(relevant_path_2 + "/" + f_2)
+                    cmd = "docker restart qbitrr"
+                    os.system(cmd)
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
