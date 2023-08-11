@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import itertools
 import logging
-import os
 import pathlib
 import re
 import shutil
@@ -13,18 +12,23 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from sqlite3 import DatabaseError
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import pathos
 import qbittorrentapi
 import requests
-from peewee import JOIN, DatabaseError, SqliteDatabase
+from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 
-from qBitrr.arr_tables import CommandsModel, EpisodesModel, MoviesModel, SeriesModel
+from qBitrr.arr_tables import (
+    CommandsModel,
+    EpisodesModel,
+    MoviesMetadataModel,
+    MoviesModel,
+    SeriesModel,
+)
 from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
@@ -462,6 +466,7 @@ class Arr:
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel = None
         self.model_arr_series_file: SeriesModel = None
+        self.model_arr_movies_file: MoviesMetadataModel = None
 
         self.model_arr_command: CommandsModel = None
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
@@ -536,12 +541,12 @@ class Arr:
     ) -> tuple[
         type[EpisodesModel] | type[MoviesModel],
         type[CommandsModel],
-        type[SeriesModel] | None,
+        type[SeriesModel] | type[MoviesMetadataModel],
     ]:
         if self.type == "sonarr":
             return EpisodesModel, CommandsModel, SeriesModel
         elif self.type == "radarr":
-            return MoviesModel, CommandsModel, None
+            return MoviesModel, CommandsModel, MoviesMetadataModel
 
     def _get_models(
         self,
@@ -956,9 +961,10 @@ class Arr:
                 (self.model_arr_command.EndedAt.is_null(True))
                 & (self.model_arr_command.Name.endswith("Search"))
             )
-            .execute()
+            .count()
         )
-        return len(list(search_commands))
+
+        return search_commands
 
     def _search_todays(self, condition):
         if self.prioritize_todays_release:
@@ -1231,14 +1237,15 @@ class Arr:
                     self.db_update_single_series(db_entry=db_entry, request=True)
             elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
                 self.model_arr_file: MoviesModel
-                condition = self.model_arr_file.Year <= datetime.now().year
-                condition &= self.model_arr_file.Year > 0
+                self.model_arr_movies_file: MoviesMetadataModel
+                condition = self.model_arr_movies_file.Year <= datetime.now().year
+                condition &= self.model_arr_movies_file.Year > 0
                 tmdb_con = None
                 imdb_con = None
                 if ImdbIds := request_ids.get("ImdbId"):
-                    imdb_con = self.model_arr_file.ImdbId.in_(ImdbIds)
+                    imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
                 if TmdbIds := request_ids.get("TmdbId"):
-                    tmdb_con = self.model_arr_file.TmdbId.in_(TmdbIds)
+                    tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
                 if tmdb_con and imdb_con:
                     condition &= tmdb_con | imdb_con
                 elif tmdb_con:
@@ -1246,7 +1253,11 @@ class Arr:
                 elif imdb_con:
                     condition &= imdb_con
                 for db_entry in (
-                    self.model_arr_file.select()
+                    self.model_arr_file.select(self.model_arr_file)
+                    .join(
+                        self.model_arr_movies_file,
+                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
+                    )
                     .where(condition)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
@@ -1330,12 +1341,16 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
-                for series in (
-                    self.model_arr_file.select()
-                    .where(self.model_arr_file.Year == self.search_current_year)
+                for movies in (
+                    self.model_arr_file.select(self.model_arr_file)
+                    .join(
+                        self.model_arr_movies_file,
+                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
+                    )
+                    .where(self.model_arr_movies_file.Year == self.search_current_year)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
-                    self.db_update_single_series(db_entry=series)
+                    self.db_update_single_series(db_entry=movies)
         self.logger.trace(f"Finished updating database")
 
     def db_update_single_series(
@@ -1466,10 +1481,14 @@ class Arr:
                         self.model_queue.EntryId == db_entry.Id
                     ).execute()
 
-                title = db_entry.Title
+                metadata = self.model_arr_movies_file.get(
+                    self.model_arr_movies_file.Id == db_entry.MovieMetadataId
+                )
+
+                title = metadata.Title
                 monitored = db_entry.Monitored
-                tmdbId = db_entry.TmdbId
-                year = db_entry.Year
+                tmdbId = metadata.TmdbId
+                year = metadata.Year
                 EntryId = db_entry.Id
                 MovieFileId = db_entry.MovieFileId
 
@@ -2964,7 +2983,7 @@ class Arr:
                 database = self.arr_db
                 table_name = "Commands"
 
-        if db3:
+        if self.type == "sonarr":
 
             class Series(db3):
                 class Meta:
@@ -2972,6 +2991,15 @@ class Arr:
                     table_name = "Series"
 
             self.model_arr_series_file = Series
+
+        elif self.type == "radarr":
+
+            class Movies(db3):
+                class Meta:
+                    database = self.arr_db
+                    table_name = "MovieMetadata"
+
+            self.model_arr_movies_file = Movies
 
         self.model_arr_file = Files
         self.model_arr_command = Commands
@@ -2999,27 +3027,17 @@ class Arr:
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
-                except DatabaseError as e:
-                    self.logger.error(e)
-                    included_extensions = ["db", "db-shm", "db-wal"]
-                    relevant_path = "/config"
-                    file_names = [
-                        fn
-                        for fn in os.listdir(relevant_path)
-                        if any(fn.endswith(ext) for ext in included_extensions)
-                    ]
-                    for f in file_names:
-                        os.remove(relevant_path + "/" + f)
-                    relevant_path_2 = "/config"
-                    file_names_2 = [
-                        fn
-                        for fn in os.listdir(relevant_path_2)
-                        if any(fn.endswith(ext) for ext in included_extensions)
-                    ]
-                    for f_2 in file_names_2:
-                        os.remove(relevant_path_2 + "/" + f_2)
-                    cmd = "docker restart qbitrr"
-                    os.system(cmd)
+                # except DatabaseError as e:
+                #     self.logger.error("Restarting to reconnect to Arr.db")
+                #     included_extensions = ["db", "db-shm", "db-wal"]
+                #     relevant_path = "/config/.config/qBitManager"
+                #     for fn in os.listdir(relevant_path):
+                #         for ext in included_extensions:
+                #             if fn.endswith(self._name + "." + ext):
+                #                 self.logger.error(fn)
+                #                 os.remove(relevant_path + "/" + fn)
+                #     cmd = "docker restart qbitrr"
+                #     os.system(cmd)
                 except DelayLoopException:
                     raise
                 except Exception as e:
@@ -3100,27 +3118,17 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type=e.type)
-                    except DatabaseError as e:
-                        self.logger.error(e)
-                        included_extensions = ["db", "db-shm", "db-wal"]
-                        relevant_path = "/config"
-                        file_names = [
-                            fn
-                            for fn in os.listdir(relevant_path)
-                            if any(fn.endswith(ext) for ext in included_extensions)
-                        ]
-                        for f in file_names:
-                            os.remove(relevant_path + "/" + f)
-                        relevant_path_2 = "/config"
-                        file_names_2 = [
-                            fn
-                            for fn in os.listdir(relevant_path_2)
-                            if any(fn.endswith(ext) for ext in included_extensions)
-                        ]
-                        for f_2 in file_names_2:
-                            os.remove(relevant_path_2 + "/" + f_2)
-                        cmd = "docker restart qbitrr"
-                        os.system(cmd)
+                    # except DatabaseError as e:
+                    #     self.logger.error("Restarting to reconnect to Arr.db")
+                    #     included_extensions = ["db", "db-shm", "db-wal"]
+                    #     relevant_path = "/config/.config/qBitManager"
+                    #     for fn in os.listdir(relevant_path):
+                    #         for ext in included_extensions:
+                    #             if fn.endswith(self._name + "." + ext):
+                    #                 self.logger.error(fn)
+                    #                 os.remove(relevant_path + "/" + fn)
+                    #     cmd = "docker restart qbitrr"
+                    #     os.system(cmd)
                     except DelayLoopException:
                         raise
                     except ValueError:
@@ -3156,27 +3164,17 @@ class Arr:
                         )
                     time.sleep(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
-                except DatabaseError as e:
-                    self.logger.error(e)
-                    included_extensions = ["db", "db-shm", "db-wal"]
-                    relevant_path = "/config"
-                    file_names = [
-                        fn
-                        for fn in os.listdir(relevant_path)
-                        if any(fn.endswith(ext) for ext in included_extensions)
-                    ]
-                    for f in file_names:
-                        os.remove(relevant_path + "/" + f)
-                    relevant_path_2 = "/config"
-                    file_names_2 = [
-                        fn
-                        for fn in os.listdir(relevant_path_2)
-                        if any(fn.endswith(ext) for ext in included_extensions)
-                    ]
-                    for f_2 in file_names_2:
-                        os.remove(relevant_path_2 + "/" + f_2)
-                    cmd = "docker restart qbitrr"
-                    os.system(cmd)
+                # except DatabaseError as e:
+                #     self.logger.error("Restarting to reconnect to Arr.db")
+                #     included_extensions = ["db", "db-shm", "db-wal"]
+                #     relevant_path = "/config/.config/qBitManager"
+                #     for fn in os.listdir(relevant_path):
+                #         for ext in included_extensions:
+                #             if fn.endswith(self._name + "." + ext):
+                #                 self.logger.error(fn)
+                #                 os.remove(relevant_path + "/" + fn)
+                #     cmd = "docker restart qbitrr"
+                #     os.system(cmd)
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
