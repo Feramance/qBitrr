@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.0.1 (13/08/2023)
+- [[patch] fixed some instances which caused the Database malformed error to pop up](https://github.com/Feramance/Qbitrr/commit/afce1f99ff0ed538be9c728d19307d3cf41ede3d) - @Feramance
+
+---
+
 ## v3.0.0 (11/08/2023)
 - [[major] Overhaul of all API related communication to be up to date with the latest from qbittorrent, Radarr and Sonarr](https://github.com/Feramance/Qbitrr/commit/028c756179928fb411e0b41182181312b3a4507e) - @Feramance
 - [Fixed Databse Error exception grabbing](https://github.com/Feramance/Qbitrr/commit/95ac7e79958ae9d72dd148b0d0a36140649e796d) - @Feramance
