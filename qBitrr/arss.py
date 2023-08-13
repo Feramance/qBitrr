@@ -955,14 +955,19 @@ class Arr:
     def arr_db_query_commands_count(self) -> int:
         if not self.search_missing:
             return 0
-        search_commands = (
-            self.model_arr_command.select()
-            .where(
-                (self.model_arr_command.EndedAt.is_null(True))
-                & (self.model_arr_command.Name.endswith("Search"))
+
+        try:
+            search_commands = (  # ilovemywife
+                self.model_arr_command.select()
+                .where(
+                    (self.model_arr_command.EndedAt.is_null(True))
+                    & (self.model_arr_command.Name.endswith("Search"))
+                )
+                .count()
             )
-            .count()
-        )
+        except BaseException:
+            self.logger.trace("No unended commands found")
+            search_commands = 0
 
         return search_commands
 

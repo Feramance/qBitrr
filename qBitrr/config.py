@@ -110,7 +110,8 @@ else:
     CONFIG = MyConfig("./config.toml")
 
 if COPIED_TO_NEW_DIR is not None:
-    print(f"STARTUP | {CONFIG.path} |\n{CONFIG}")
+    # print(f"STARTUP | {CONFIG.path} |\n{CONFIG}")
+    print(f"STARTUP")
 else:
     print(f"STARTUP |  CONFIG_FILE={CONFIG_FILE} | CONFIG_PATH={CONFIG_PATH}")
 

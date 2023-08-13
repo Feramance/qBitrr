@@ -2,7 +2,7 @@ from peewee import BooleanField, DateTimeField, IntegerField, Model, TextField
 
 
 class CommandsModel(Model):
-    Id = IntegerField()
+    Id = IntegerField(null=False, primary_key=True)
     Name = TextField()
     Body = TextField()
     Priority = IntegerField()
@@ -12,12 +12,12 @@ class CommandsModel(Model):
     EndedAt = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     Duration = TextField()
     Exception = TextField()
-    Trigger = TextField()
+    Trigger = IntegerField()
     Result = IntegerField()
 
 
 class MoviesMetadataModel(Model):
-    Id = IntegerField()
+    Id = IntegerField(null=False, primary_key=True)
     TmdbId = IntegerField()
     ImdbId = TextField()
     Images = TextField()
@@ -27,7 +27,7 @@ class MoviesMetadataModel(Model):
     CleanTitle = TextField()
     OriginalTitle = TextField()
     CleanOriginalTitle = TextField()
-    OriginalLanguage = TextField()
+    OriginalLanguage = IntegerField()
     Status = IntegerField()
     LastInfoSync = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     Runtime = IntegerField()
@@ -49,7 +49,7 @@ class MoviesMetadataModel(Model):
 
 
 class MoviesModel(Model):
-    Id = IntegerField()
+    Id = IntegerField(null=False, primary_key=True)
     Path = TextField()
     Monitored = IntegerField()
     ProfileId = IntegerField()
@@ -66,32 +66,29 @@ class EpisodesModel(Model):
     SeriesId = IntegerField(null=False)
     SeasonNumber = IntegerField(null=False)
     EpisodeNumber = IntegerField(null=False)
-
     Title = TextField()
     Overview = TextField()
-
     EpisodeFileId = IntegerField()
     AbsoluteEpisodeNumber = IntegerField()
     SceneAbsoluteEpisodeNumber = IntegerField()
     SceneEpisodeNumber = IntegerField()
     SceneSeasonNumber = IntegerField()
     Monitored = BooleanField()
-
     AirDateUtc = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
-
     AirDate = TextField()
     Ratings = TextField()
     Images = TextField()
     UnverifiedSceneNumbering = BooleanField(null=False, default=False)
     LastSearchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
-
     AiredAfterSeasonNumber = IntegerField()
     AiredBeforeSeasonNumber = IntegerField()
     AiredBeforeEpisodeNumber = IntegerField()
+    TvdbId = IntegerField()
+    Runtime = IntegerField()
 
 
 class SeriesModel(Model):
-    Id = IntegerField()
+    Id = IntegerField(null=False, primary_key=True)
     TvdbId = IntegerField()
     TvRageId = IntegerField()
     ImdbId = TextField()
@@ -104,12 +101,12 @@ class SeriesModel(Model):
     Images = TextField()
     Path = TextField()
     Monitored = BooleanField()
-    SeasonFolder = TextField()
+    SeasonFolder = IntegerField()
     LastInfoSync = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     LastDiskSync = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     Runtime = IntegerField()
     SeriesType = IntegerField()
-    Network = IntegerField()
+    Network = TextField()
     UseSceneNumbering = BooleanField()
     FirstAired = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     NextAiring = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
@@ -125,4 +122,4 @@ class SeriesModel(Model):
     Added = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     AddOptions = TextField()
     TvMazeId = IntegerField()
-    # LanguageProfileId = IntegerField()
+    OriginalLanguage = IntegerField()
