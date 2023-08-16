@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.1.0 (16/08/2023)
+- [[minor] Added Minimum Availability options for Radarr in configs](https://github.com/Feramance/Qbitrr/commit/0d2ae858398862aa2632c1f88d08ea01c0c0b1e2) - @Feramance
+
+---
+
 ## v3.0.1 (13/08/2023)
 - [[patch] fixed some instances which caused the Database malformed error to pop up](https://github.com/Feramance/Qbitrr/commit/afce1f99ff0ed538be9c728d19307d3cf41ede3d) - @Feramance
 
