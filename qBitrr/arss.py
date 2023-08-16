@@ -174,6 +174,9 @@ class Arr:
         self.quality_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.QualityUnmetSearch", fallback=False
         )
+        self.minimum_availability = CONFIG.get(
+            f"{name}.EntrySearch.MinimumAvailability", fallback=3
+        )
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -632,6 +635,10 @@ class Arr:
             self._temp_overseer_request_cache = data
         except requests.exceptions.ConnectionError:
             self.logger.warning("Couldn't connect to Overseerr")
+            self._temp_overseer_request_cache = defaultdict(set)
+            return self._temp_overseer_request_cache
+        except requests.exceptions.ReadTimeout:
+            self.logger.warning("Connection to Overseerr timed out")
             self._temp_overseer_request_cache = defaultdict(set)
             return self._temp_overseer_request_cache
         except Exception as e:
@@ -1245,6 +1252,7 @@ class Arr:
                 self.model_arr_movies_file: MoviesMetadataModel
                 condition = self.model_arr_movies_file.Year <= datetime.now().year
                 condition &= self.model_arr_movies_file.Year > 0
+                condition &= self.model_arr_file.MinimumAvailability == self.minimum_availability
                 tmdb_con = None
                 imdb_con = None
                 if ImdbIds := request_ids.get("ImdbId"):
@@ -1257,12 +1265,15 @@ class Arr:
                     condition &= tmdb_con
                 elif imdb_con:
                     condition &= imdb_con
+
                 for db_entry in (
-                    self.model_arr_file.select(self.model_arr_file)
+                    self.model_arr_file.select()
                     .join(
                         self.model_arr_movies_file,
                         on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
+                        join_type=JOIN.LEFT_OUTER,
                     )
+                    .switch(self.model_arr_file)
                     .where(condition)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
@@ -1352,7 +1363,11 @@ class Arr:
                         self.model_arr_movies_file,
                         on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
                     )
-                    .where(self.model_arr_movies_file.Year == self.search_current_year)
+                    .where(
+                        self.model_arr_movies_file.Year
+                        == self.search_current_year & self.model_arr_file.MinimumAvailability
+                        == self.minimum_availability
+                    )
                     .order_by(self.model_arr_file.Added.desc())
                 ):
                     self.db_update_single_series(db_entry=movies)
@@ -1371,7 +1386,7 @@ class Arr:
             if self.type == "sonarr":
                 if not series:
                     db_entry: EpisodesModel
-                    QualityUnmet = True
+                    QualityUnmet = self.quality_unmet_search
                     if db_entry.EpisodeFileId != 0 and not QualityUnmet:
                         searched = True
                         self.model_queue.update(Completed=True).where(
@@ -1479,7 +1494,7 @@ class Arr:
             elif self.type == "radarr":
                 db_entry: MoviesModel
                 searched = False
-                QualityUnmet = True
+                QualityUnmet = self.quality_unmet_search
                 if db_entry.MovieFileId != 0 and not QualityUnmet:
                     searched = True
                     self.model_queue.update(Completed=True).where(
@@ -1489,6 +1504,7 @@ class Arr:
                 metadata = self.model_arr_movies_file.get(
                     self.model_arr_movies_file.Id == db_entry.MovieMetadataId
                 )
+                metadata: MoviesMetadataModel
 
                 title = metadata.Title
                 monitored = db_entry.Monitored
@@ -1624,7 +1640,7 @@ class Arr:
 
         if file_or_folder.is_dir():
             try:
-                shutil.rmtree(file_or_folder)
+                shutil.rmtree(file_or_folder, ignore_errors=True)
                 self.logger.debug(
                     "Folder removed: Folder was marked as failed by Arr, "
                     "manually removing it | %s",

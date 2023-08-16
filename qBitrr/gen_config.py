@@ -612,6 +612,13 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
+            "Choose Minimum Availability for Radarr Instances. (Cinema=1, Digital=2, Physical=3)"
+        )
+    )
+    search_table.add("MinimumAvailability", 3)
+    search_table.add(nl())
+    search_table.add(
+        comment(
             "Once you have search all files on your specified year range restart the loop and "
             "search again."
         )
