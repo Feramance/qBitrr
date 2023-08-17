@@ -1252,7 +1252,14 @@ class Arr:
                 self.model_arr_movies_file: MoviesMetadataModel
                 condition = self.model_arr_movies_file.Year <= datetime.now().year
                 condition &= self.model_arr_movies_file.Year > 0
-                condition &= self.model_arr_file.MinimumAvailability == self.minimum_availability
+                if self.minimum_availability == 2:
+                    condition &= self.model_arr_movies_file.InCinemas <= datetime.now()
+                elif self.minimum_availability == 3:
+                    condition &= (
+                        self.model_arr_movies_file.DigitalRelease
+                        <= datetime.now() | self.model_arr_movies_file.PhysicalRelease
+                        <= datetime.now()
+                    )
                 tmdb_con = None
                 imdb_con = None
                 if ImdbIds := request_ids.get("ImdbId"):

@@ -612,7 +612,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
-            "Choose Minimum Availability for Radarr Instances. (Cinema=1, Digital=2, Physical=3)"
+            "Choose Minimum Availability for Radarr Instances. (Announced=1, In Cinemas=2, Released=3)"
         )
     )
     search_table.add("MinimumAvailability", 3)
