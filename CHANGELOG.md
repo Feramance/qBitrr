@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.1.1 (17/08/2023)
+- [[patch] fixed date issue with minimum availabilty conditions](https://github.com/Feramance/Qbitrr/commit/01cf104c12d553bca1d70f73a559d1f296f189dc) - @Feramance
+
+---
+
 ## v3.1.0 (16/08/2023)
 - [[minor] Added Minimum Availability options for Radarr in configs](https://github.com/Feramance/Qbitrr/commit/0d2ae858398862aa2632c1f88d08ea01c0c0b1e2) - @Feramance
 
