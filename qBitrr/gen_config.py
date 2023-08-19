@@ -612,13 +612,6 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(nl())
     search_table.add(
         comment(
-            "Choose Minimum Availability for Radarr Instances. (Announced=1, In Cinemas=2, Released=3)"
-        )
-    )
-    search_table.add("MinimumAvailability", 3)
-    search_table.add(nl())
-    search_table.add(
-        comment(
             "Once you have search all files on your specified year range restart the loop and "
             "search again."
         )
@@ -687,6 +680,9 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
     overseerr_table.add(nl())
     overseerr_table.add(comment("Only process approved requests"))
     overseerr_table.add("ApprovedOnly", True)
+    overseerr_table.add(nl())
+    overseerr_table.add(comment("Only for 4K Instances"))
+    overseerr_table.add("Is4K", False)
     overseerr_table.add(nl())
     search_table.add("Overseerr", overseerr_table)
 

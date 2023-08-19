@@ -174,9 +174,6 @@ class Arr:
         self.quality_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.QualityUnmetSearch", fallback=False
         )
-        self.minimum_availability = CONFIG.get(
-            f"{name}.EntrySearch.MinimumAvailability", fallback=3
-        )
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -1251,15 +1248,46 @@ class Arr:
                 self.model_arr_file: MoviesModel
                 self.model_arr_movies_file: MoviesMetadataModel
                 condition = self.model_arr_movies_file.Year <= datetime.now().year
-                condition &= self.model_arr_movies_file.Year > 0
-                if self.minimum_availability == 2:
-                    condition &= self.model_arr_movies_file.InCinemas <= datetime.now()
-                elif self.minimum_availability == 3:
-                    condition &= (
-                        self.model_arr_movies_file.DigitalRelease
-                        <= datetime.now() | self.model_arr_movies_file.PhysicalRelease
-                        <= datetime.now()
+
+                condition &= (
+                    (
+                        (
+                            (
+                                self.model_arr_movies_file.DigitalRelease
+                                <= datetime.now() | self.model_arr_movies_file.PhysicalRelease
+                                <= datetime.now()
+                            )
+                            | (
+                                self.model_arr_movies_file.InCinemas.is_null()
+                                & self.model_arr_movies_file.DigitalRelease.is_null()
+                                & self.model_arr_movies_file.PhysicalRelease.is_null()
+                            )
+                        )
+                        & self.model_arr_file.MinimumAvailability
+                        == 3
                     )
+                    | (
+                        (
+                            (self.model_arr_movies_file.InCinemas <= datetime.now())
+                            | (
+                                self.model_arr_movies_file.InCinemas.is_null()
+                                & self.model_arr_movies_file.DigitalRelease.is_null()
+                                & self.model_arr_movies_file.PhysicalRelease.is_null()
+                            )
+                        )
+                        & self.model_arr_file.MinimumAvailability
+                        == 2
+                    )
+                    | (
+                        (
+                            self.model_arr_movies_file.DigitalRelease.is_null()
+                            & self.model_arr_movies_file.PhysicalRelease.is_null()
+                        )
+                        & self.model_arr_file.MinimumAvailability
+                        == 1
+                    )
+                )
+
                 tmdb_con = None
                 imdb_con = None
                 if ImdbIds := request_ids.get("ImdbId"):
@@ -1370,11 +1398,7 @@ class Arr:
                         self.model_arr_movies_file,
                         on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
                     )
-                    .where(
-                        self.model_arr_movies_file.Year
-                        == self.search_current_year & self.model_arr_file.MinimumAvailability
-                        == self.minimum_availability
-                    )
+                    .where(self.model_arr_movies_file.Year == self.search_current_year)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
                     self.db_update_single_series(db_entry=movies)
