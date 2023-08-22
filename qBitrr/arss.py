@@ -1574,8 +1574,6 @@ class Arr:
                     MovieFileId = db_entry.MovieFileId
                     QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
 
-                    self.logger.notice("Searching for %s", title)
-
                     self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
                     to_update = {
                         self.model_file.MovieFileId: MovieFileId,
