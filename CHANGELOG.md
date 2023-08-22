@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.2.1 (22/08/2023)
+- [[patch] Quick fix for last commit](https://github.com/Feramance/Qbitrr/commit/68f8d627df7289a014d201a9239225144253055f) - @Feramance
+- [[pathc] Removed incorrect notice log](https://github.com/Feramance/Qbitrr/commit/558ccd456ccd44b2a4d2b7d6d96da67ee30f3cb4) - @Feramance
+
+---
+
 ## v3.2.0 (22/08/2023)
 - [[minor] Fixed the minimum availability to work off of Radarr directly rather than through config](https://github.com/Feramance/Qbitrr/commit/20acfae0abf5fe44eb36da76c171a33e6de0b9a8) - @Feramance
 
