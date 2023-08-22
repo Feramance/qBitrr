@@ -1580,6 +1580,7 @@ class Arr:
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: QualityMet,
                     }
+
                     if searched:
                         to_update[self.model_file.Searched] = searched
                     if request:
