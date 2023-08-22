@@ -566,10 +566,6 @@ class Arr:
                 key = "approved"
             else:
                 key = "unavailable"
-            if self.overseerr_is_4k:
-                status_key = "status4k"
-            else:
-                status_key = "status"
             data = defaultdict(set)
             response = self.session.get(
                 url=f"{self.overseerr_uri}/api/v1/request",
@@ -586,10 +582,27 @@ class Arr:
             _now = datetime.now()
             for entry in response:
                 type__ = entry.get("type")
-                id__ = entry.get("id")
+                if type__ == "movie":
+                    id__ = entry.get("media", {}).get("tmdbId")
+                if type__ == "tv":
+                    id__ = entry.get("media", {}).get("tvdbId")
                 if type_ != type__:
                     continue
-                if self.overseerr_approved_only and entry.get("media", {}).get(status_key) == 5:
+                if self.overseerr_is_4k and entry.get("is4k"):
+                    if self.overseerr_approved_only:
+                        if entry.get("media", {}).get("status4k") != 3:
+                            continue
+                    else:
+                        if entry.get("media", {}).get("status4k") == 5:
+                            continue
+                elif not self.overseerr_is_4k and not entry.get("is4k"):
+                    if self.overseerr_approved_only:
+                        if entry.get("media", {}).get("status") != 3:
+                            continue
+                    else:
+                        if entry.get("media", {}).get("status") == 5:
+                            continue
+                else:
                     continue
                 if id__ in self.overseerr_requests_release_cache:
                     date = self.overseerr_requests_release_cache[id__]
@@ -617,11 +630,11 @@ class Arr:
                         if not date_string:
                             date_string = date_string_backup
                         date = datetime.strptime(date_string, "%Y-%m-%d")
+                        if date > _now:
+                            continue
                         self.overseerr_requests_release_cache[id__] = date
                     except Exception as e:
                         self.logger.warning("Failed to query release date from Overserr: %s", e)
-                if date > _now:
-                    continue
                 if media := entry.get("media"):
                     if imdbId := media.get("imdbId"):
                         data["ImdbId"].add(imdbId)
@@ -1188,7 +1201,7 @@ class Arr:
                 .execute()
             )
         elif self.type == "radarr":
-            condition = self.model_file.Year <= datetime.now(timezone.utc).year
+            condition = self.model_file.Year <= datetime.now().year
             condition &= self.model_file.Year > 0
             if not self.do_upgrade_search:
                 if self.quality_unmet_search:
@@ -1248,45 +1261,6 @@ class Arr:
                 self.model_arr_file: MoviesModel
                 self.model_arr_movies_file: MoviesMetadataModel
                 condition = self.model_arr_movies_file.Year <= datetime.now().year
-
-                condition &= (
-                    (
-                        (
-                            (
-                                self.model_arr_movies_file.DigitalRelease
-                                <= datetime.now() | self.model_arr_movies_file.PhysicalRelease
-                                <= datetime.now()
-                            )
-                            | (
-                                self.model_arr_movies_file.InCinemas.is_null()
-                                & self.model_arr_movies_file.DigitalRelease.is_null()
-                                & self.model_arr_movies_file.PhysicalRelease.is_null()
-                            )
-                        )
-                        & self.model_arr_file.MinimumAvailability
-                        == 3
-                    )
-                    | (
-                        (
-                            (self.model_arr_movies_file.InCinemas <= datetime.now())
-                            | (
-                                self.model_arr_movies_file.InCinemas.is_null()
-                                & self.model_arr_movies_file.DigitalRelease.is_null()
-                                & self.model_arr_movies_file.PhysicalRelease.is_null()
-                            )
-                        )
-                        & self.model_arr_file.MinimumAvailability
-                        == 2
-                    )
-                    | (
-                        (
-                            self.model_arr_movies_file.DigitalRelease.is_null()
-                            & self.model_arr_movies_file.PhysicalRelease.is_null()
-                        )
-                        & self.model_arr_file.MinimumAvailability
-                        == 1
-                    )
-                )
 
                 tmdb_con = None
                 imdb_con = None
@@ -1392,17 +1366,70 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
-                for movies in (
-                    self.model_arr_file.select(self.model_arr_file)
-                    .join(
-                        self.model_arr_movies_file,
-                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
-                    )
-                    .where(self.model_arr_movies_file.Year == self.search_current_year)
-                    .order_by(self.model_arr_file.Added.desc())
-                ):
-                    self.db_update_single_series(db_entry=movies)
+                try:
+                    for movies in (
+                        self.model_arr_file.select(self.model_arr_file)
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                        )
+                        .where(self.model_arr_movies_file.Year == self.search_current_year)
+                        .order_by(self.model_arr_file.Added.desc())
+                    ):
+                        self.db_update_single_series(db_entry=movies)
+                except BaseException:
+                    pass
         self.logger.trace(f"Finished updating database")
+
+    def minimum_availability_check(
+        self,
+        db_entry: MoviesModel = None,
+        metadata: MoviesMetadataModel = None,
+    ) -> bool:
+        if (
+            metadata.InCinemas is None
+            and metadata.DigitalRelease is None
+            and metadata.PhysicalRelease is None
+            and db_entry.MinimumAvailability == 3
+        ):
+            return True
+        elif (
+            metadata.InCinemas is None
+            and metadata.DigitalRelease is None
+            and metadata.PhysicalRelease is None
+            and db_entry.MinimumAvailability == 2
+        ):
+            return True
+        elif (
+            metadata.DigitalRelease is None
+            and metadata.PhysicalRelease is None
+            and db_entry.MinimumAvailability == 1
+        ):
+            return True
+        elif (
+            metadata.DigitalRelease is not None
+            and metadata.PhysicalRelease is not None
+            and db_entry.MinimumAvailability == 3
+        ):
+            if (
+                datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                <= datetime.now()
+                or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                <= datetime.now()
+            ):
+                return True
+            else:
+                return False
+        elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
+            if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
+                return True
+            else:
+                return False
+        else:
+            return False
 
     def db_update_single_series(
         self,
@@ -1521,6 +1548,7 @@ class Arr:
                         conflict_target=[self.series_file_model.EntryId],
                         update=to_update,
                     )
+                db_commands.execute()
 
             elif self.type == "radarr":
                 db_entry: MoviesModel
@@ -1537,40 +1565,44 @@ class Arr:
                 )
                 metadata: MoviesMetadataModel
 
-                title = metadata.Title
-                monitored = db_entry.Monitored
-                tmdbId = metadata.TmdbId
-                year = metadata.Year
-                EntryId = db_entry.Id
-                MovieFileId = db_entry.MovieFileId
+                if self.minimum_availability_check(db_entry, metadata):
+                    title = metadata.Title
+                    monitored = db_entry.Monitored
+                    tmdbId = metadata.TmdbId
+                    year = metadata.Year
+                    EntryId = db_entry.Id
+                    MovieFileId = db_entry.MovieFileId
+                    QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
 
-                QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
+                    self.logger.notice("Searching for %s", title)
 
-                self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
-                to_update = {
-                    self.model_file.MovieFileId: MovieFileId,
-                    self.model_file.Monitored: monitored,
-                    self.model_file.QualityMet: QualityMet,
-                }
-                if searched:
-                    to_update[self.model_file.Searched] = searched
-                if request:
-                    to_update[self.model_file.IsRequest] = request
-                db_commands = self.model_file.insert(
-                    Title=title,
-                    Monitored=monitored,
-                    TmdbId=tmdbId,
-                    Year=year,
-                    EntryId=EntryId,
-                    Searched=searched,
-                    MovieFileId=MovieFileId,
-                    IsRequest=request,
-                    QualityMet=QualityMet,
-                ).on_conflict(
-                    conflict_target=[self.model_file.EntryId],
-                    update=to_update,
-                )
-            db_commands.execute()
+                    self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
+                    to_update = {
+                        self.model_file.MovieFileId: MovieFileId,
+                        self.model_file.Monitored: monitored,
+                        self.model_file.QualityMet: QualityMet,
+                    }
+                    if searched:
+                        to_update[self.model_file.Searched] = searched
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
+                    db_commands = self.model_file.insert(
+                        Title=title,
+                        Monitored=monitored,
+                        TmdbId=tmdbId,
+                        Year=year,
+                        EntryId=EntryId,
+                        Searched=searched,
+                        MovieFileId=MovieFileId,
+                        IsRequest=request,
+                        QualityMet=QualityMet,
+                    ).on_conflict(
+                        conflict_target=[self.model_file.EntryId],
+                        update=to_update,
+                    )
+                    db_commands.execute()
+                else:
+                    return
 
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
@@ -3079,17 +3111,6 @@ class Arr:
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
-                # except DatabaseError as e:
-                #     self.logger.error("Restarting to reconnect to Arr.db")
-                #     included_extensions = ["db", "db-shm", "db-wal"]
-                #     relevant_path = "/config/.config/qBitManager"
-                #     for fn in os.listdir(relevant_path):
-                #         for ext in included_extensions:
-                #             if fn.endswith(self._name + "." + ext):
-                #                 self.logger.error(fn)
-                #                 os.remove(relevant_path + "/" + fn)
-                #     cmd = "docker restart qbitrr"
-                #     os.system(cmd)
                 except DelayLoopException:
                     raise
                 except Exception as e:
@@ -3170,17 +3191,6 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type=e.type)
-                    # except DatabaseError as e:
-                    #     self.logger.error("Restarting to reconnect to Arr.db")
-                    #     included_extensions = ["db", "db-shm", "db-wal"]
-                    #     relevant_path = "/config/.config/qBitManager"
-                    #     for fn in os.listdir(relevant_path):
-                    #         for ext in included_extensions:
-                    #             if fn.endswith(self._name + "." + ext):
-                    #                 self.logger.error(fn)
-                    #                 os.remove(relevant_path + "/" + fn)
-                    #     cmd = "docker restart qbitrr"
-                    #     os.system(cmd)
                     except DelayLoopException:
                         raise
                     except ValueError:
@@ -3216,17 +3226,6 @@ class Arr:
                         )
                     time.sleep(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
-                # except DatabaseError as e:
-                #     self.logger.error("Restarting to reconnect to Arr.db")
-                #     included_extensions = ["db", "db-shm", "db-wal"]
-                #     relevant_path = "/config/.config/qBitManager"
-                #     for fn in os.listdir(relevant_path):
-                #         for ext in included_extensions:
-                #             if fn.endswith(self._name + "." + ext):
-                #                 self.logger.error(fn)
-                #                 os.remove(relevant_path + "/" + fn)
-                #     cmd = "docker restart qbitrr"
-                #     os.system(cmd)
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
