@@ -83,7 +83,7 @@ Alternatively:
 - The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 
 #### Docker Compose
-```json
+```yaml
 version: "3"
 services:
   qbitrr:
