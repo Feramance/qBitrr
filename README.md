@@ -13,8 +13,6 @@
 
 A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
-Join the [Official Discord Server](https://discord.gg/FT3puape2A) for help.
-
 ### Features
 
 - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
