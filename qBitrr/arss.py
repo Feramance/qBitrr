@@ -1317,16 +1317,19 @@ class Arr:
             return
         with self.db.atomic():
             if self.type == "sonarr":
-                for series in self.model_arr_file.select().where(
-                    (self.model_arr_file.AirDateUtc.is_null(False))
-                    & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                    & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
-                    & (
-                        self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                        | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                    )
-                ):
-                    self.db_update_single_series(db_entry=series)
+                try:
+                    for series in self.model_arr_file.select().where(
+                        (self.model_arr_file.AirDateUtc.is_null(False))
+                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                        & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
+                        & (
+                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        )
+                    ):
+                        self.db_update_single_series(db_entry=series)
+                except BaseException:
+                    self.logger.info("No apisode releases found for today")
 
     def db_update(self):
         if not self.search_missing:
@@ -1395,6 +1398,13 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 3
         ):
+            self.logger.trace(
+                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
             return True
         elif (
             metadata.InCinemas is None
@@ -1402,12 +1412,26 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 2
         ):
+            self.logger.trace(
+                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
             return True
         elif (
             metadata.DigitalRelease is None
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 1
         ):
+            self.logger.trace(
+                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
             return True
         elif (
             metadata.DigitalRelease is not None
@@ -1420,15 +1444,50 @@ class Arr:
                 or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
             ):
+                self.logger.trace(
+                    "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
                 return True
             else:
+                self.logger.trace(
+                    "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
                 return False
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
+                self.logger.trace(
+                    "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
                 return True
             else:
+                self.logger.trace(
+                    "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
                 return False
         else:
+            self.logger.trace(
+                "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
             return False
 
     def db_update_single_series(
@@ -1603,6 +1662,11 @@ class Arr:
                 else:
                     return
 
+        except requests.exceptions.ConnectionError as e:
+            self.logger.debug(
+                "Max retries exceeded for %s ID:%s", self._name, db_entry.Id, exc_info=e
+            )
+            raise DelayLoopException(length=300, type=self._name)
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
 
@@ -1981,6 +2045,10 @@ class Arr:
             except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
+            except AttributeError as e:
+                self.logger.info("Torrent still connecting to trackers")
+                self.logger.debug("No trackers found yet", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
@@ -2592,7 +2660,7 @@ class Arr:
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
-        self.logger.trace("%r", torrent)
+        # self.logger.trace("%r", torrent)
 
         ratio_limit_dat = data_settings.get("ratio_limit", -5)
         ratio_limit_tor = data_torrent.get("ratio_limit", -5)

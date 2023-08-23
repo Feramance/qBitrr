@@ -139,7 +139,7 @@ def _add_qbit_section(config: TOMLDocument):
     )
     qbit.add(nl())
     qbit.add(comment('Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
-    qbit.add("Host", ENVIRO_CONFIG.qbit.host or "localhost")
+    qbit.add("Host", ENVIRO_CONFIG.qbit.host or "CHANGE_ME")
     qbit.add(nl())
     qbit.add(
         comment(
@@ -147,7 +147,7 @@ def _add_qbit_section(config: TOMLDocument):
             "on top right corner of the window)"
         )
     )
-    qbit.add("Port", ENVIRO_CONFIG.qbit.port or 8105)
+    qbit.add("Port", ENVIRO_CONFIG.qbit.port or 8080)
     qbit.add(nl())
     qbit.add(
         comment("Qbit WebUI Authentication - Can be found in Options > Web UI > Authentication")
@@ -199,18 +199,18 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default.add("ReSearch", True)
     cat_default.add(nl())
     cat_default.add(comment("The Servarr's Import Mode(one of Move, Copy or Hardlink)"))
-    cat_default.add("importMode", "Move")
+    cat_default.add("importMode", "Hardlink")
     cat_default.add(nl())
     cat_default.add(comment("Timer to call RSSSync (In minutes) - Set to 0 to disable"))
-    cat_default.add("RssSyncTimer", 0)
+    cat_default.add("RssSyncTimer", 1)
     cat_default.add(nl())
     cat_default.add(
         comment(
-            "Timer to call RefreshDownloads tp update the queue. (In minutes) - "
+            "Timer to call RefreshDownloads to update the queue. (In minutes) - "
             "Set to 0 to disable"
         )
     )
-    cat_default.add("RefreshDownloadsTimer", 0)
+    cat_default.add("RefreshDownloadsTimer", 1)
     cat_default.add(nl())
 
     messages = []
@@ -343,7 +343,7 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
             "favoured over this value"
         )
     )
-    torrent_table.add("MaximumETA", 18000)
+    torrent_table.add("MaximumETA", 604800)
     torrent_table.add(nl())
     torrent_table.add(
         comment(
@@ -354,7 +354,7 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table.add("MaximumDeletablePercentage", 0.99)
     torrent_table.add(nl())
     torrent_table.add(comment("Ignore slow torrents."))
-    torrent_table.add("DoNotRemoveSlow", False)
+    torrent_table.add("DoNotRemoveSlow", True)
     torrent_table.add(nl())
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
@@ -384,7 +384,7 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     )
     seeding_table.add("UploadRateLimitPerTorrent", -1)
     seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum allowed download rate for torrents"))
+    seeding_table.add(comment("Set the maximum allowed upload ratio for torrents"))
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
@@ -394,7 +394,7 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     )
     seeding_table.add("MaxUploadRatio", -1)
     seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum allowed download rate for torrents"))
+    seeding_table.add(comment("Set the maximum seeding time for torrents"))
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(
@@ -404,7 +404,7 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     )
     seeding_table.add("MaxSeedingTime", -1)
     seeding_table.add(nl())
-    seeding_table.add(comment("Set the Maximum allowed download rate for torrents"))
+    seeding_table.add(comment("Enable if you want to remove dead trackers"))
     seeding_table.add("RemoveDeadTrackers", False)
     seeding_table.add(nl())
     seeding_table.add(
@@ -527,7 +527,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     )
     search_table.add(nl())
     search_table.add(comment("Should search for Missing files?"))
-    search_table.add("SearchMissing", False)
+    search_table.add("SearchMissing", True)
     search_table.add(nl())
     search_table.add(comment("Should search for specials episodes? (Season 00)"))
     search_table.add("AlsoSearchSpecials", False)
@@ -586,18 +586,18 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(
         comment("First year to search; Remove this field to set it to the current year.")
     )
-    search_table.add("StartYear", datetime.now().year)
+    search_table.add(comment("StartYear", datetime.now().year))
     search_table.add(nl())
     search_table.add(comment("Last Year to Search"))
-    search_table.add("LastYear", 1990)
+    search_table.add("LastYear", 1900)
     search_table.add(nl())
     search_table.add(
         comment('Reverse search order (Start searching in "LastYear" and finish in "StartYear")')
     )
-    search_table.add("SearchInReverse", False)
+    search_table.add("SearchInReverse", True)
     search_table.add(nl())
     search_table.add(comment("Delay between request searches in seconds"))
-    search_table.add("SearchRequestsEvery", 1800)
+    search_table.add("SearchRequestsEvery", 300)
     search_table.add(nl())
     search_table.add(
         comment(
@@ -650,7 +650,7 @@ def _gen_default_ombi_table(category: str, search_table: Table):
             "instance request (If you have multiple Ombi instances)"
         )
     )
-    ombi_table.add("OmbiURI", "http://localhost:5000")
+    ombi_table.add("OmbiURI", "CHANGE_ME")
     ombi_table.add(nl())
     ombi_table.add(comment("Ombi's API Key"))
     ombi_table.add("OmbiAPIKey", "CHANGE_ME")
@@ -673,7 +673,7 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
     overseerr_table.add("SearchOverseerrRequests", False)
     overseerr_table.add(nl())
     overseerr_table.add(comment("Overseerr's URI"))
-    overseerr_table.add("OverseerrURI", "http://localhost:5055")
+    overseerr_table.add("OverseerrURI", "CHANGE_ME")
     overseerr_table.add(nl())
     overseerr_table.add(comment("Overseerr's API Key"))
     overseerr_table.add("OverseerrAPIKey", "CHANGE_ME")
@@ -682,7 +682,10 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
     overseerr_table.add("ApprovedOnly", True)
     overseerr_table.add(nl())
     overseerr_table.add(comment("Only for 4K Instances"))
-    overseerr_table.add("Is4K", False)
+    if "radarr-4k" in category.lower():
+        overseerr_table.add("Is4K", True)
+    else:
+        overseerr_table.add("Is4K", False)
     overseerr_table.add(nl())
     search_table.add("Overseerr", overseerr_table)
 
