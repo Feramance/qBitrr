@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.2.2 (23/08/2023)
+- [[patch] Fixed spelling in config, updated config example to match updates and added more log messages](https://github.com/Feramance/Qbitrr/commit/dcca3670c91b0808f48c4c78ec42f2193c363200) - @Feramance
+
+---
+
 ## v3.2.1 (22/08/2023)
 - [[patch] Quick fix for last commit](https://github.com/Feramance/Qbitrr/commit/68f8d627df7289a014d201a9239225144253055f) - @Feramance
 - [[pathc] Removed incorrect notice log](https://github.com/Feramance/Qbitrr/commit/558ccd456ccd44b2a4d2b7d6d96da67ee30f3cb4) - @Feramance
