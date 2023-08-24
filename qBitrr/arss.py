@@ -1337,39 +1337,39 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
-            if self.type == "sonarr":
-                if not self.series_search:
-                    _series = set()
-                    for series in self.model_arr_file.select().where(
-                        (self.model_arr_file.AirDateUtc.is_null(False))
-                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                        & (
-                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                        )
-                        & (
-                            self.model_arr_file.AirDateUtc
-                            >= datetime(month=1, day=1, year=self.search_current_year)
-                        )
-                        & (
-                            self.model_arr_file.AirDateUtc
-                            <= datetime(month=12, day=31, year=self.search_current_year)
-                        )
-                    ):
-                        series: EpisodesModel
-                        _series.add(series.SeriesId)
-                        self.db_update_single_series(db_entry=series)
-                    for series in self.model_arr_file.select().where(
-                        self.model_arr_file.SeriesId.in_(_series)
-                    ):
-                        self.db_update_single_series(db_entry=series)
-                else:
-                    for series in self.model_arr_series_file.select().order_by(
-                        self.model_arr_series_file.Added.desc()
-                    ):
-                        self.db_update_single_series(db_entry=series, series=True)
-            elif self.type == "radarr":
-                try:
+            try:
+                if self.type == "sonarr":
+                    if not self.series_search:
+                        _series = set()
+                        for series in self.model_arr_file.select().where(
+                            (self.model_arr_file.AirDateUtc.is_null(False))
+                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                            & (
+                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                            )
+                            & (
+                                self.model_arr_file.AirDateUtc
+                                >= datetime(month=1, day=1, year=self.search_current_year)
+                            )
+                            & (
+                                self.model_arr_file.AirDateUtc
+                                <= datetime(month=12, day=31, year=self.search_current_year)
+                            )
+                        ):
+                            series: EpisodesModel
+                            _series.add(series.SeriesId)
+                            self.db_update_single_series(db_entry=series)
+                        for series in self.model_arr_file.select().where(
+                            self.model_arr_file.SeriesId.in_(_series)
+                        ):
+                            self.db_update_single_series(db_entry=series)
+                    else:
+                        for series in self.model_arr_series_file.select().order_by(
+                            self.model_arr_series_file.Added.desc()
+                        ):
+                            self.db_update_single_series(db_entry=series, series=True)
+                elif self.type == "radarr":
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
                         .join(
@@ -1383,8 +1383,9 @@ class Arr:
                         .order_by(self.model_arr_file.Added.desc())
                     ):
                         self.db_update_single_series(db_entry=movies)
-                except BaseException:
-                    pass
+            except BaseException:
+                self.logger.error(e.message)
+                raise DelayLoopException(length=300, type="delay")
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
@@ -2038,6 +2039,10 @@ class Arr:
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except requests.exceptions.ConnectionError:
+                self.logger.warning("Couldn't connect to %s", self.type)
+                self._temp_overseer_request_cache = defaultdict(set)
+                return self._temp_overseer_request_cache
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
@@ -3321,7 +3326,7 @@ class Arr:
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
-                        raise DelayLoopException(length=300, type=e.type)
+                        raise DelayLoopException(length=300, type="arr")
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")

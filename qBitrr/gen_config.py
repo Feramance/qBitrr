@@ -586,7 +586,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(
         comment("First year to search; Remove this field to set it to the current year.")
     )
-    search_table.add(comment("StartYear", datetime.now().year))
+    search_table.add("#StartYear", datetime.now().year)
     search_table.add(nl())
     search_table.add(comment("Last Year to Search"))
     search_table.add("LastYear", 1900)
