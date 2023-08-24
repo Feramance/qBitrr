@@ -1383,7 +1383,7 @@ class Arr:
                         .order_by(self.model_arr_file.Added.desc())
                     ):
                         self.db_update_single_series(db_entry=movies)
-            except BaseException:
+            except BaseException as e:
                 self.logger.error(e.message)
                 raise DelayLoopException(length=300, type="delay")
         self.logger.trace(f"Finished updating database")
