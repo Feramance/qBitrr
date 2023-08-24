@@ -1,5 +1,14 @@
 # Changelog
 
+## v3.2.5 (24/08/2023)
+- [[patch] Hotifx](https://github.com/Feramance/Qbitrr/commit/fb3664db362ec5c6cbc678f6da020828e4c8da4d) - @Feramance
+
+---
+
+## v3.2.4 (24/08/2023)
+
+---
+
 ## v3.2.3 (23/08/2023)
 - [[patch] Fixed reading qbittorrent 4.3.9 version](https://github.com/Feramance/Qbitrr/commit/27027376521cf9e48d8c50996f7354b09d33febb) - @Feramance
 - [Update compose format in README](https://github.com/Feramance/Qbitrr/commit/8beb1b1e827dc216152cda7b07913d482aba80ce) - @Feramance
