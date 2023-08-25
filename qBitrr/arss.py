@@ -634,7 +634,7 @@ class Arr:
                             continue
                         self.overseerr_requests_release_cache[id__] = date
                     except Exception as e:
-                        self.logger.warning("Failed to query release date from Overserr: %s", e)
+                        self.logger.warning("Failed to query release date from Overseerr: %s", e)
                 if media := entry.get("media"):
                     if imdbId := media.get("imdbId"):
                         data["ImdbId"].add(imdbId)
@@ -1329,7 +1329,7 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series)
                 except BaseException:
-                    self.logger.info("No apisode releases found for today")
+                    self.logger.info("No episode releases found for today")
 
     def db_update(self):
         if not self.search_missing:
@@ -1400,7 +1400,7 @@ class Arr:
             and db_entry.MinimumAvailability == 3
         ):
             self.logger.trace(
-                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1414,7 +1414,7 @@ class Arr:
             and db_entry.MinimumAvailability == 2
         ):
             self.logger.trace(
-                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1427,7 +1427,7 @@ class Arr:
             and db_entry.MinimumAvailability == 1
         ):
             self.logger.trace(
-                "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1446,7 +1446,7 @@ class Arr:
                 <= datetime.now()
             ):
                 self.logger.trace(
-                    "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1455,7 +1455,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1465,7 +1465,7 @@ class Arr:
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
                 self.logger.trace(
-                    "Grabbing - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1474,7 +1474,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1483,7 +1483,7 @@ class Arr:
                 return False
         else:
             self.logger.trace(
-                "Skipping - Minimum Availablity: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -2313,7 +2313,7 @@ class Arr:
 
     def _process_single_torrent_errored(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.trace(
-            "Rechecking Erroed torrent: "
+            "Rechecking Errored torrent: "
             "[Progress: %s%%][Added On: %s]"
             "[Availability: %s%%][Time Left: %s]"
             "[Last active: %s] "
