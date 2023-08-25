@@ -91,7 +91,7 @@ services:
       - TZ=Europe/London
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /path/to/appdata/qbitrr:/config  # Config folder for qbitrr 
+      - /path/to/appdata/qbitrr:/config  # Config folder for qbitrr
       - /path/to/sonarr/db:/databases/sonarr.db:ro # This is only needed if you want episode search handling :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
       - /path/to/radarr/db:/databases/radarr.db:ro # This is only needed if you want movie search handling, :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
       - /path/to/completed/downloads/folder:/completed_downloads:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.
