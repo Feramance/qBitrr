@@ -9,6 +9,7 @@ from tomlkit import comment, document, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.config import APPDATA_FOLDER
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import HOME_PATH
 
@@ -23,12 +24,7 @@ def generate_doc() -> TOMLDocument:
             'Make sure to change all entries of "CHANGE_ME".'
         )
     )
-    config.add(
-        comment(
-            'This is a config file should be moved to "'
-            f"{HOME_PATH.joinpath('.config', 'qBitManager', 'config.toml')}\"."
-        )
-    )
+    config.add(comment('This is a config file should be moved to "' f'{APPDATA_FOLDER}".'))
     config.add(nl())
     _add_settings_section(config)
     _add_qbit_section(config)
@@ -96,8 +92,8 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(comment("If this is disabled and you want ffprobe to work"))
     settings.add(
         comment(
-            "Ensure that you add the binary for your platform into ~/.config/qBitManager "
-            f"i.e \"{HOME_PATH.joinpath('.config', 'qBitManager', 'ffprobe.exe')}\""
+            "Ensure that you add the ffprobe binary to the folder"
+            f"\"{APPDATA_FOLDER.joinpath('ffprobe.exe')}\""
         )
     )
     settings.add(
@@ -772,7 +768,7 @@ def _write_config_file(docker=False) -> pathlib.Path:
         file_name = "config.rename_me.toml"
     else:
         file_name = "config.toml"
-    CONFIG_FILE = HOME_PATH.joinpath(".config", "qBitManager", file_name)
+    CONFIG_FILE = APPDATA_FOLDER.joinpath(file_name)
     if CONFIG_FILE.exists() and not docker:
         print(f"{CONFIG_FILE} already exists, File is not being replaced.")
         CONFIG_FILE = pathlib.Path.cwd().joinpath("config_new.toml")

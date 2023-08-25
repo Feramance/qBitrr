@@ -21,7 +21,7 @@ class Converter:
     def bool(value: Optional[str]) -> Optional[bool]:
         if value is None:
             return None
-        return strtobool(value)
+        return strtobool(value) == 1
 
 
 @environ.config(prefix="QBITRR", frozen=True)

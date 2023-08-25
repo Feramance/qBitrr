@@ -18,74 +18,65 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 ## Features
 
 - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
-- Monitor qBit for completed entries and tell the appropriate Arr instance to import it ( 'DownloadedMoviesScan' or 'DownloadedEpisodesScan' commands).
+- Monitor qBit for completed entries and tell the appropriate Arr instance to import it:
+  - `qbitrr DownloadedMoviesScan` for Radarr
+  - `qbitrr DownloadedEpisodesScan` for Sonarr
 - Skip files in qBit entries by extension, folder or regex.
-- Monitor completed folder and cleans it up.
-- Uses [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
+- Monitor completed folder and clean it up.
+- Usage of [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
 - Trigger periodic Rss Syncs on the appropriate Arr instances.
 - Trigger Queue update on appropriate Arr instances.
 - Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
 - Auto add/remove trackers
 - Set per tracker values
-- Also supports Sonarr v4
+- **Sonarr v4 support**
+- Available if provided with a Sonarr/Radarr database file:
+  - Monitor Arr's databases to trigger missing episode searches.
+  - Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc).
 
-**This section requires the Arr /databases to be locally available.**
-
-- Monitor Arr's /databases to trigger missing episode searches.
-- Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc).
-
-## Important mentions
+## Tested with
 
 Some things to know before using it.
 
-- 1. qBitrr works best with qBittorrent 4.5.x
-- 2. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
-- 3. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
-- 4. I have qBit setup to have to create sub-folder for downloads and for the download folder to
-     use subcategories.
+- qBittorrent 4.5.x
+- [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
+- qBit set to create sub-folders for tag.
 
-  ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
+![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
 
-### Install the requirements run
+## Usage
 
-- `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
+### Native
 
-Alternatively:
+***PyPI package is outdated, please use the docker image or download the latest release!***
 
-- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
+1. Download the latest release
+2. Run `qbitrr --gen-config` to generate a config file
+3. Edit the config file (located at `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`))
+4. Run `qbitrr` to start the script
 
-### Run the script
+***There is no auto-update feature, you will need to manually download the latest release and replace the old one.***
 
-- Make sure to update the settings in `~/.config/qBitManager/config.toml`
-- Activate your venv
-- Run `qbitrr`
+### Docker
 
-Alternatively:
+The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 
-- Unzip the downloaded release and run it
+#### Docker Run
 
-### How to update the script
+```bash
+docker run -d \
+  --name=qbitrr \
+  -e TZ=Europe/London \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /path/to/appdata/qbitrr:/config \
+  -v /path/to/sonarr/db:/databases/sonarr.db:ro \
+  -v /path/to/radarr/db:/databases/radarr.db:ro \
+  -v /path/to/completed/downloads/folder:/completed_downloads:rw \
+  --restart unless-stopped \
+  feramance/qbitrr
+```
 
-- Activate your venv
-- Run `python -m pip install -U qBitrr`
-
-Alternatively:
-
-- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
-
-### Contributions
-
-- I'm happy with any PRs and suggested changes to the logic I just put it together dirty for my own use case.
-
-### Example behaviour
-
-![image](https://user-images.githubusercontent.com/27962761/146447714-5309d3e6-51fd-472c-9587-9df491f121b3.png)
-
-### Docker Image
-
-- The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
-
-### Docker Compose
+#### Docker Compose
 
 ```yaml
 version: "3"
