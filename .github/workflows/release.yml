@@ -9,7 +9,7 @@ defaults:
   run:
     shell: bash
 env:
-  project-name: Qbitrr-Sonarr-v4
+  project-name: qBitrr-Sonarr-v4
   GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
 
 jobs:

@@ -138,19 +138,19 @@ def _add_qbit_section(config: TOMLDocument):
         "Disabled", False if ENVIRO_CONFIG.qbit.disabled is None else ENVIRO_CONFIG.qbit.disabled
     )
     qbit.add(nl())
-    qbit.add(comment('Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
+    qbit.add(comment('qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
     qbit.add("Host", ENVIRO_CONFIG.qbit.host or "CHANGE_ME")
     qbit.add(nl())
     qbit.add(
         comment(
-            'Qbit WebUI Port - Can be found in Options > Web UI (called "Port" '
+            'qBit WebUI Port - Can be found in Options > Web UI (called "Port" '
             "on top right corner of the window)"
         )
     )
     qbit.add("Port", ENVIRO_CONFIG.qbit.port or 8080)
     qbit.add(nl())
     qbit.add(
-        comment("Qbit WebUI Authentication - Can be found in Options > Web UI > Authentication")
+        comment("qBit WebUI Authentication - Can be found in Options > Web UI > Authentication")
     )
     qbit.add("UserName", ENVIRO_CONFIG.qbit.username or "CHANGE_ME")
     qbit.add(nl())
@@ -161,7 +161,7 @@ def _add_qbit_section(config: TOMLDocument):
     )
     qbit.add("Password", ENVIRO_CONFIG.qbit.password or "CHANGE_ME")
     qbit.add(nl())
-    config.add("QBit", qbit)
+    config.add("qBit", qbit)
 
 
 def _add_category_sections(config: TOMLDocument):
