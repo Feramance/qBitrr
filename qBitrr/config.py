@@ -13,7 +13,10 @@ from qBitrr.home_path import HOME_PATH, ON_DOCKER
 
 APPDATA_FOLDER = HOME_PATH.joinpath(".config", "qBitManager")
 if ON_DOCKER:
+
+
     APPDATA_FOLDER = pathlib.Path("/config")
+
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
@@ -92,6 +95,11 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
         CONFIG_FILE = _write_config_file(docker=True)
         print(f"'{CONFIG_FILE.name}' has been generated")
         print('Rename it to "config.toml" then edit it and restart the container')
+        import os
+        import signal
+
+        os.kill(os.getppid(), signal.SIGTERM)
+
     else:
         print(f"{file} has not been found")
         print(f"{file} must be added to {CONFIG_FILE}")
