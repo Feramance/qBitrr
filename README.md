@@ -85,19 +85,19 @@ Alternatively:
 version: "3"
 services:
   qbitrr:
-    image: qbitrr
+    image: feramance/qbitrr
     user: 1000:1000 # Required to ensure teh container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
     tty: true # Ensure the output of docker-compose logs qbitrr are properly colored.
     restart: unless-stopped
     # networks: This container MUST share a network with your Sonarr/Radarr instances
-    enviroment:
-      TZ: Europe/London
+    environment:
+      - TZ=Europe/London
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /path/to/appdata/qbitrr:/config  # All qbitrr files are stored in the `/config` folder when using a docker container
-      - /path/to/sonarr/db:/sonarr.db/path/in/container:ro # This is only needed if you want episode search handling :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
-      - /path/to/radarr/db:/radarr.db/path/in/container:ro # This is only needed if you want movie search handling, :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
-      - /path/to/completed/downloads/folder:/completed_downloads/folder/in/container:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.
+      - /path/to/appdata/qbitrr:/config  # Config folder for qbitrr 
+      - /path/to/sonarr/db:/databases/sonarr.db:ro # This is only needed if you want episode search handling :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
+      - /path/to/radarr/db:/databases/radarr.db:ro # This is only needed if you want movie search handling, :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
+      - /path/to/completed/downloads/folder:/completed_downloads:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.
       # Now just to make sure it is clean, when using this script in a docker you will need to ensure you config.toml values reflect the mounted folders.#
       # For example, for your Sonarr.DatabaseFile value using the values above you'd add
       # DatabaseFile = /sonarr.db/path/in/container/sonarr.db
@@ -105,11 +105,11 @@ services:
       # The same would apply to Settings.CompletedDownloadFolder
       # e.g CompletedDownloadFolder = /completed_downloads/folder/in/container
 
-    logging: # this script will generate a LOT of logs - so it is up to you to decide how much of it you want to store
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: 3
+    # logging: # this script will generate a LOT of logs - so it is up to you to decide how much of it you want to store
+      # driver: "json-file"
+      # options:
+        # max-size: "50m"
+        # max-file: 3
     depends_on: # Not needed but this ensures qBitrr only starts if the dependencies are up and running
       - qbittorrent
       - radarr-1080p
