@@ -827,7 +827,8 @@ class Arr:
                             "Re-Searching episode: %s",
                             object_id,
                         )
-                    self.post_command("EpisodeSearch", episodeIds=[object_id])
+                    if object_id not in self.queue_file_ids:
+                        self.post_command("EpisodeSearch", episodeIds=[object_id])
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
@@ -848,7 +849,8 @@ class Arr:
                         "Re-Searching movie: %s",
                         object_id,
                     )
-                self.post_command("MoviesSearch", movieIds=[object_id])
+                if object_id not in self.queue_file_ids:
+                    self.post_command("MoviesSearch", movieIds=[object_id])
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
@@ -1383,8 +1385,8 @@ class Arr:
                         .order_by(self.model_arr_file.Added.desc())
                     ):
                         self.db_update_single_series(db_entry=movies)
-            except BaseException as e:
-                self.logger.error(e.message)
+            except BaseException:
+                self.logger.error("Connection Error")
                 raise DelayLoopException(length=300, type="delay")
         self.logger.trace(f"Finished updating database")
 
@@ -1921,7 +1923,8 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                self.client.post_command(self.search_api_command, seriesId=file_model.EntryId)
+                if file_model.EntryId not in self.queue_file_ids:
+                    self.client.post_command(self.search_api_command, seriesId=file_model.EntryId)
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
@@ -3229,6 +3232,7 @@ class Arr:
             while True:
                 timer = datetime.now(timezone.utc)
                 try:
+                    self.refresh_download_queue()
                     self.db_maybe_reset_entry_searched_state()
                     self.db_update()
                     self.run_request_search()

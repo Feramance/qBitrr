@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.2.6 (25/08/2023)
+- [[patch] Added logic to check download queue before re-searching or posting any search at all](https://github.com/Feramance/qBitrr/commit/caa22a1004e1464f83a04a3690997fe43b7d8fd1) - @Feramance
+- [Spellchecking](https://github.com/Feramance/qBitrr/commit/3dfc3f6d1ac3cdc7bb1ebdf6699084ba4d9ee014) - @Feramance
+
+---
+
 ## v3.2.5 (24/08/2023)
 
 - [[patch] Hotifx](https://github.com/Feramance/qBitrr/commit/fb3664db362ec5c6cbc678f6da020828e4c8da4d) - @Feramance
