@@ -1,14 +1,14 @@
 # qBitrr
 
-[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
+[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/qBitrr/blob/master/LICENSE)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
 ![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--64%20%7C%20win--32%20%7C%20win--64-lightgrey)
 
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/Qbitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/Qbitrr/master)
-[![CodeQL](https://github.com/Feramance/Qbitrr/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)](https://github.com/Feramance/Qbitrr/actions/workflows/codeql-analysis.yml)
-[![Create a Release](https://github.com/Feramance/Qbitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/Qbitrr/actions/workflows/release.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
+[![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql-analysis.yml)
+[![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
@@ -38,7 +38,7 @@ A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) an
 
 Some things to know before using it.
 
-- 1. Qbitrr works best with qBittorrent 4.5.x
+- 1. qBitrr works best with qBittorrent 4.5.x
 - 2. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
 - 3. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - 4. I have qBit setup to have to create sub-folder for downloads and for the download folder to
@@ -52,7 +52,7 @@ Some things to know before using it.
 
 Alternatively:
 
-- Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
+- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
 
 ### Run the script
 
@@ -71,7 +71,7 @@ Alternatively:
 
 Alternatively:
 
-- Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
+- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
 
 ### Contributions
 
