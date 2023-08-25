@@ -11,7 +11,7 @@ from tomlkit.toml_document import TOMLDocument
 
 from qBitrr.config import APPDATA_FOLDER
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.home_path import HOME_PATH
+from qBitrr.home_path import ON_DOCKER
 
 T = TypeVar("T")
 
@@ -571,10 +571,16 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "API call."
         )
     )
-    if "sonarr" in category.lower():
-        search_table.add("DatabaseFile", "CHANGE_ME/sonarr.db")
-    elif "radarr" in category.lower():
-        search_table.add("DatabaseFile", "CHANGE_ME/radarr.db")
+    if ON_DOCKER:
+        if "sonarr" in category.lower():
+            search_table.add("DatabaseFile", f"{APPDATA_FOLDER}" "/sonarr.db")
+        elif "radarr" in category.lower():
+            search_table.add("DatabaseFile", f"{APPDATA_FOLDER}" "/radarr.db")
+    else:
+        if "sonarr" in category.lower():
+            search_table.add("DatabaseFile", "CHANGE_ME/sonarr.db")
+        elif "radarr" in category.lower():
+            search_table.add("DatabaseFile", "CHANGE_ME/radarr.db")
     search_table.add(nl())
     search_table.add(comment("It will order searches by the year the EPISODE was first aired"))
     search_table.add("SearchByYear", True)
