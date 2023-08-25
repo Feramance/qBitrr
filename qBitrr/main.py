@@ -35,16 +35,16 @@ class qBitManager:
     _head_less_mode = False
 
     def __init__(self):
-        self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
-        self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
-        self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
-        self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
+        self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
+        self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
+        self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
+        self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(
             "qBitrr.Manager",
         )
         run_logs(self.logger)
         self.logger.debug(
-            "QBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
+            "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,

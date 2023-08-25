@@ -1,19 +1,21 @@
-[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
+# qBitrr
+
+[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/qBitrr/blob/master/LICENSE)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
 ![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--64%20%7C%20win--32%20%7C%20win--64-lightgrey)
 
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/Qbitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/Qbitrr/master)
-[![CodeQL](https://github.com/Feramance/Qbitrr/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)](https://github.com/Feramance/Qbitrr/actions/workflows/codeql-analysis.yml)
-[![Create a Release](https://github.com/Feramance/Qbitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/Qbitrr/actions/workflows/release.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
+[![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql-analysis.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql-analysis.yml)
+[![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
-A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
+A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
-### Features
+## Features
 
 - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
 - Monitor qBit for completed entries and tell the appropriate Arr instance to import it ( 'DownloadedMoviesScan' or 'DownloadedEpisodesScan' commands).
@@ -27,16 +29,16 @@ A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) an
 - Set per tracker values
 - Also supports Sonarr v4
 
-**This section requires the Arr databases to be locally available.**
+**This section requires the Arr /databases to be locally available.**
 
-- Monitor Arr's databases to trigger missing episode searches.
+- Monitor Arr's /databases to trigger missing episode searches.
 - Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc).
 
-### Important mentions
+## Important mentions
 
 Some things to know before using it.
 
-- 1. Qbitrr works best with qBittorrent 4.5.x
+- 1. qBitrr works best with qBittorrent 4.5.x
 - 2. You need to run the `qbitrr --gen-config` move the generated file to `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`)
 - 3. I have [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - 4. I have qBit setup to have to create sub-folder for downloads and for the download folder to
@@ -44,43 +46,47 @@ Some things to know before using it.
 
   ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
 
-#### Install the requirements run
+### Install the requirements run
 
 - `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 Alternatively:
-- Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 
-#### Run the script
+- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
+
+### Run the script
 
 - Make sure to update the settings in `~/.config/qBitManager/config.toml`
 - Activate your venv
 - Run `qbitrr`
 
 Alternatively:
+
 - Unzip the downloaded release and run it
 
-#### How to update the script
+### How to update the script
 
 - Activate your venv
 - Run `python -m pip install -U qBitrr`
 
 Alternatively:
-- Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 
-#### Contributions
+- Download on the [latest release](https://github.com/Feramance/qBitrr/releases/latest)
+
+### Contributions
 
 - I'm happy with any PRs and suggested changes to the logic I just put it together dirty for my own use case.
 
-#### Example behaviour
+### Example behaviour
 
 ![image](https://user-images.githubusercontent.com/27962761/146447714-5309d3e6-51fd-472c-9587-9df491f121b3.png)
 
+### Docker Image
 
-#### Docker Image
 - The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 
-#### Docker Compose
+### Docker Compose
+
 ```yaml
 version: "3"
 services:
@@ -117,7 +123,9 @@ services:
       - animarr-1080p
       - overseerr
 ```
-##### Important mentions for docker
+
+#### Important mentions for docker
+
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
   - Make sure to rename it to 'config.toml' then edit it to your desired values

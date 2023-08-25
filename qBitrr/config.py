@@ -13,7 +13,10 @@ from qBitrr.home_path import HOME_PATH, ON_DOCKER
 
 APPDATA_FOLDER = HOME_PATH.joinpath(".config", "qBitManager")
 if ON_DOCKER:
-    APPDATA_FOLDER=HOME_PATH
+
+
+    APPDATA_FOLDER = pathlib.Path("/config")
+
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 
 
@@ -43,7 +46,7 @@ def process_flags() -> argparse.Namespace | bool:
         "--source",
         action="store_const",
         dest="source",
-        const="Source code can be found on: https://github.com/Feramance/Qbitrr",
+        const="Source code can be found on: https://github.com/Feramance/qBitrr",
         help="Shows a link to qBitrr's source",
     )
 
@@ -153,7 +156,7 @@ IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_th
     "Settings.IgnoreTorrentsYoungerThan", fallback=600
 )
 QBIT_DISABLED = (
-    CONFIG.get("QBit.Disabled", fallback=False)
+    CONFIG.get("qBit.Disabled", fallback=False)
     if ENVIRO_CONFIG.qbit.disabled is None
     else ENVIRO_CONFIG.qbit.disabled
 )
