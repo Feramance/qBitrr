@@ -11,7 +11,7 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, generate_doc
 from qBitrr.home_path import HOME_PATH, ON_DOCKER
 
-APPDATA_FOLDER = HOME_PATH.joinpath(".config", "qBitManager")
+APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 
 

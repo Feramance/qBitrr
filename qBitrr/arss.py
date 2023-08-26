@@ -1276,19 +1276,25 @@ class Arr:
                     condition &= tmdb_con
                 elif imdb_con:
                     condition &= imdb_con
-
-                for db_entry in (
-                    self.model_arr_file.select()
-                    .join(
-                        self.model_arr_movies_file,
-                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
-                        join_type=JOIN.LEFT_OUTER,
-                    )
-                    .switch(self.model_arr_file)
-                    .where(condition)
-                    .order_by(self.model_arr_file.Added.desc())
-                ):
-                    self.db_update_single_series(db_entry=db_entry, request=True)
+                try:
+                    for db_entry in (
+                        self.model_arr_file.select()
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                            join_type=JOIN.LEFT_OUTER,
+                        )
+                        .switch(self.model_arr_file)
+                        .where(condition)
+                        .order_by(self.model_arr_file.Added.desc())
+                    ):
+                        self.db_update_single_series(db_entry=db_entry, request=True)
+                except BaseException:
+                    self.logger.error("Connection Error")
+                    raise DelayLoopException(length=300, type="arr")
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
@@ -1386,7 +1392,7 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=movies)
             except BaseException:
-                self.logger.error("Connection Error")
+                self.logger.error("Error reading arr db file")
                 raise DelayLoopException(length=300, type="delay")
         self.logger.trace(f"Finished updating database")
 
@@ -3009,9 +3015,13 @@ class Arr:
             pass
         else:
             pass
-        res = self.client.get_queue(
-            page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending"
-        )
+        try:
+            res = self.client.get_queue(
+                page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending"
+            )
+        except requests.exceptions.ConnectionError:
+            self.logger.error("Failed to get queue")
+            raise DelayLoopException(length=300, type="arr")
         try:
             res = res.get("records", [])
         except AttributeError:
