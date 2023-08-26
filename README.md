@@ -114,7 +114,6 @@ services:
       - qbittorrent
       - radarr-1080p
       - sonarr-1080p
-      - animarr-1080p
       - overseerr
 ```
 ##### Important mentions for docker
