@@ -49,9 +49,9 @@ Some things to know before using it.
 ***PyPI package is outdated, please use the docker image or download the latest release!***
 
 1. Download the latest release
-2. Run `qbitrr --gen-config` to generate a config file
-3. Edit the config file (located at `~/config.toml` (~ is your home directory, i.e `C:\Users\{User}`))
-4. Run `qbitrr` to start the script
+2. Run `qbitrr` to generate a config file
+3. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
+4. Run `qbitrr` again to start the script
 
 ***There is no auto-update feature, you will need to manually download the latest release and replace the old one.***
 
