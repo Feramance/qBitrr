@@ -1,25 +1,14 @@
 # Changelog
 
+## v3.3.4 (27/08/2023)
+- [[patch] Updated error handling](https://github.com/Feramance/qBitrr/commit/187104d6e6d00f6d256883cc56d9249efde1b5ef) - @Feramance
+
+---
+
 ## v3.3.3 (27/08/2023)
 - [[patch] Pathing hotfix 2](https://github.com/Feramance/qBitrr/commit/c6357d75055554271c184ba79979a48d2a90541e) - @Feramance
 - [[patch] Pathing hotfix](https://github.com/Feramance/qBitrr/commit/f32e45402ea85888d423e5727be25b9568351854) - @Feramance
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/9b41dff3f7aa46159b018bae5c3155274daeb60f) - @Feramance
-
----
-
-## v3.3.0 (27/08/2023)
-- [[minor] Merge pull request #12 from ThePhaseless/master](https://github.com/Feramance/qBitrr/commit/c236d491c0684acd3344302ed33d1965b542afcc) - @Feramance
-- [Rename codeql-analysis.yml to codeql.yml](https://github.com/Feramance/qBitrr/commit/b08871ef2d740f323bdc360e04eef4ac934d4343) - @Feramance
-
----
-
-## v3.2.9 (27/08/2023)
-- [[patch] Updated home path](https://github.com/Feramance/qBitrr/commit/0114b2c0502ebda9983e7954d8f05562ddf93338) - @Feramance
-- [Changed branch name in workflow](https://github.com/Feramance/qBitrr/commit/131013183cbdd81f29dadbc069286ad401bf972c) - @Feramance
-- [Quickfix Docker Hub Description workflow](https://github.com/Feramance/qBitrr/commit/f30fc8b22c6dec91bccb254e108900cf76764e6d) - @Feramance
-- [Update dockerhub description workflow to enable manual trigger](https://github.com/Feramance/qBitrr/commit/4b030b9e09fba89d40eda53c750291164c10aa72) - @Feramance
-- [Fix release workflow and add dockerhub description workflow](https://github.com/Feramance/qBitrr/commit/38fcb5ec4279d8e794c2668dfe548034990b055a) - @Feramance
-- [Release flow fix](https://github.com/Feramance/qBitrr/commit/567b3c46e3540d193ebf01f4e28a625e74b6155d) - @Feramance
 
 ---
 
