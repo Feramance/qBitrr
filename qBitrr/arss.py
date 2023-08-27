@@ -1232,75 +1232,75 @@ class Arr:
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
         with self.db.atomic():
-            if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-                self.model_arr_file: EpisodesModel
-                self.model_arr_series_file: SeriesModel
-                condition = self.model_arr_file.AirDateUtc.is_null(False)
-                if not self.search_specials:
-                    condition &= self.model_arr_file.SeasonNumber != 0
-                condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
-                    False
-                ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
-                imdb_con = None
-                tvdb_con = None
-                if ImdbIds := request_ids.get("ImdbId"):
-                    imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
-                if tvDbIds := request_ids.get("TvdbId"):
-                    tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
-                if imdb_con and tvdb_con:
-                    condition &= imdb_con | tvdb_con
-                elif imdb_con:
-                    condition &= imdb_con
-                elif tvdb_con:
-                    condition &= tvdb_con
-                for db_entry in (
-                    self.model_arr_file.select()
-                    .join(
-                        self.model_arr_series_file,
-                        on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
-                        join_type=JOIN.LEFT_OUTER,
-                    )
-                    .switch(self.model_arr_file)
-                    .where(condition)
-                ):
-                    self.db_update_single_series(db_entry=db_entry, request=True)
-            elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                self.model_arr_file: MoviesModel
-                self.model_arr_movies_file: MoviesMetadataModel
-                condition = self.model_arr_movies_file.Year <= datetime.now().year
-
-                tmdb_con = None
-                imdb_con = None
-                if ImdbIds := request_ids.get("ImdbId"):
-                    imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
-                if TmdbIds := request_ids.get("TmdbId"):
-                    tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
-                if tmdb_con and imdb_con:
-                    condition &= tmdb_con | imdb_con
-                elif tmdb_con:
-                    condition &= tmdb_con
-                elif imdb_con:
-                    condition &= imdb_con
-                try:
+            try:
+                if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
+                    self.model_arr_file: EpisodesModel
+                    self.model_arr_series_file: SeriesModel
+                    condition = self.model_arr_file.AirDateUtc.is_null(False)
+                    if not self.search_specials:
+                        condition &= self.model_arr_file.SeasonNumber != 0
+                    condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
+                        False
+                    ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                    condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
+                    imdb_con = None
+                    tvdb_con = None
+                    if ImdbIds := request_ids.get("ImdbId"):
+                        imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
+                    if tvDbIds := request_ids.get("TvdbId"):
+                        tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
+                    if imdb_con and tvdb_con:
+                        condition &= imdb_con | tvdb_con
+                    elif imdb_con:
+                        condition &= imdb_con
+                    elif tvdb_con:
+                        condition &= tvdb_con
                     for db_entry in (
                         self.model_arr_file.select()
                         .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
+                            self.model_arr_series_file,
+                            on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
                             join_type=JOIN.LEFT_OUTER,
                         )
                         .switch(self.model_arr_file)
                         .where(condition)
-                        .order_by(self.model_arr_file.Added.desc())
                     ):
                         self.db_update_single_series(db_entry=db_entry, request=True)
-                except BaseException:
-                    self.logger.error("Connection Error")
-                    raise DelayLoopException(length=300, type="arr")
+                elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
+                    self.model_arr_file: MoviesModel
+                    self.model_arr_movies_file: MoviesMetadataModel
+                    condition = self.model_arr_movies_file.Year <= datetime.now().year
+
+                    tmdb_con = None
+                    imdb_con = None
+                    if ImdbIds := request_ids.get("ImdbId"):
+                        imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
+                    if TmdbIds := request_ids.get("TmdbId"):
+                        tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
+                    if tmdb_con and imdb_con:
+                        condition &= tmdb_con | imdb_con
+                    elif tmdb_con:
+                        condition &= tmdb_con
+                    elif imdb_con:
+                        condition &= imdb_con
+                        for db_entry in (
+                            self.model_arr_file.select()
+                            .join(
+                                self.model_arr_movies_file,
+                                on=(
+                                    self.model_arr_file.MovieMetadataId
+                                    == self.model_arr_movies_file.Id
+                                ),
+                                join_type=JOIN.LEFT_OUTER,
+                            )
+                            .switch(self.model_arr_file)
+                            .where(condition)
+                            .order_by(self.model_arr_file.Added.desc())
+                        ):
+                            self.db_update_single_series(db_entry=db_entry, request=True)
+            except BaseException:
+                self.logger.error("Connection Error")
+                raise DelayLoopException(length=300, type="arr")
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
