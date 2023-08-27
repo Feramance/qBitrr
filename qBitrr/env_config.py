@@ -21,7 +21,7 @@ class Converter:
     def bool(value: Optional[str]) -> Optional[bool]:
         if value is None:
             return None
-        return strtobool(value)
+        return strtobool(value) == 1
 
 
 @environ.config(prefix="QBITRR", frozen=True)
@@ -45,7 +45,7 @@ class AppConfig:
         ffprobe_auto_update = environ.var(None, converter=Converter.bool)
 
     @environ.config(prefix="QBIT", frozen=True)
-    class Qbit:
+    class qBit:
         disabled = environ.var(None, converter=Converter.bool)
         host = environ.var(None)
         port = environ.var(None, converter=Converter.int)
@@ -54,7 +54,7 @@ class AppConfig:
 
     overrides: Overrides = environ.group(Overrides)
     settings: Settings = environ.group(Settings)
-    qbit: Qbit = environ.group(Qbit)
+    qbit: qBit = environ.group(qBit)
 
 
 ENVIRO_CONFIG: AppConfig = environ.to_config(AppConfig)

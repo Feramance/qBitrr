@@ -36,19 +36,19 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 # By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
 
-[QBit]
+[qBit]
 # If this is enable qBitrr can run in a headless mode where it will only process searches.
 # If media search is enabled in their individual categories
 # This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
 Disabled = false
 
-# Qbit WebUI Port - Can be found in Options > Web UI (called "IP Address")
+# qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")
 Host = "CHANGE_ME"
 
-# Qbit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
+# qBit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)
 Port = 8080
 
-# Qbit WebUI Authentication - Can be found in Options > Web UI > Authentication
+# qBit WebUI Authentication - Can be found in Options > Web UI > Authentication
 UserName = "CHANGE_ME"
 
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
@@ -159,14 +159,38 @@ CaseSensitiveMatches = false
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FolderExclusionRegex = ["\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+FolderExclusionRegex = [
+    "\\bfeaturettes?\\b",
+    "\\bsamples?\\b",
+    "\\bscreens?\\b",
+    "\\bspecials?\\b",
+    "\\bova\\b",
+    "\\bnc(ed|op)?(\\\\d+)?\\b",
+]
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+FileNameExclusionRegex = [
+    "\\bncop\\\\d+?\\b",
+    "\\bnced\\\\d+?\\b",
+    "\\bsample\\b",
+    "brarbg.com\\b",
+    "\\btrailer\\b",
+    "music video",
+    "comandotorrents.com",
+]
 
 # Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
-FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts", ".avi"]
+FileExtensionAllowlist = [
+    ".mp4",
+    ".mkv",
+    ".sub",
+    ".ass",
+    ".srt",
+    ".!qB",
+    ".parts",
+    ".avi",
+]
 
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = true
@@ -209,7 +233,12 @@ MaxSeedingTime = -1
 RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
-RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+RemoveTrackerWithMessage = [
+    "skipping tracker announce (unreachable)",
+    "No such host is known",
+    "unsupported URL protocol",
+    "info hash is not authorized with this tracker",
+]
 
 # You can have multiple trackers set here or none just add more subsections.
 
@@ -317,14 +346,36 @@ CaseSensitiveMatches = false
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FolderExclusionRegex = ["\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+FolderExclusionRegex = [
+    "\\bfeaturettes?\\b",
+    "\\bsamples?\\b",
+    "\\bscreens?\\b",
+    "\\bnc(ed|op)?(\\\\d+)?\\b",
+]
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+FileNameExclusionRegex = [
+    "\\bncop\\\\d+?\\b",
+    "\\bnced\\\\d+?\\b",
+    "\\bsample\\b",
+    "brarbg.com\\b",
+    "\\btrailer\\b",
+    "music video",
+    "comandotorrents.com",
+]
 
 # Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
-FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts", ".avi"]
+FileExtensionAllowlist = [
+    ".mp4",
+    ".mkv",
+    ".sub",
+    ".ass",
+    ".srt",
+    ".!qB",
+    ".parts",
+    ".avi",
+]
 
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = true
@@ -367,7 +418,12 @@ MaxSeedingTime = -1
 RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
-RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+RemoveTrackerWithMessage = [
+    "skipping tracker announce (unreachable)",
+    "No such host is known",
+    "unsupported URL protocol",
+    "info hash is not authorized with this tracker",
+]
 
 # You can have multiple trackers set here or none just add more subsections.
 
@@ -472,14 +528,38 @@ CaseSensitiveMatches = false
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FolderExclusionRegex = ["\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+FolderExclusionRegex = [
+    "\\bfeaturettes?\\b",
+    "\\bsamples?\\b",
+    "\\bscreens?\\b",
+    "\\bspecials?\\b",
+    "\\bova\\b",
+    "\\bnc(ed|op)?(\\\\d+)?\\b",
+]
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+FileNameExclusionRegex = [
+    "\\bncop\\\\d+?\\b",
+    "\\bnced\\\\d+?\\b",
+    "\\bsample\\b",
+    "brarbg.com\\b",
+    "\\btrailer\\b",
+    "music video",
+    "comandotorrents.com",
+]
 
 # Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
-FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts", ".avi"]
+FileExtensionAllowlist = [
+    ".mp4",
+    ".mkv",
+    ".sub",
+    ".ass",
+    ".srt",
+    ".!qB",
+    ".parts",
+    ".avi",
+]
 
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = true
@@ -522,7 +602,12 @@ MaxSeedingTime = -1
 RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
-RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+RemoveTrackerWithMessage = [
+    "skipping tracker announce (unreachable)",
+    "No such host is known",
+    "unsupported URL protocol",
+    "info hash is not authorized with this tracker",
+]
 
 # You can have multiple trackers set here or none just add more subsections.
 
@@ -627,14 +712,38 @@ CaseSensitiveMatches = false
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FolderExclusionRegex = ["\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b", "\\bspecials?\\b", "\\bova\\b", "\\bnc(ed|op)?(\\\\d+)?\\b"]
+FolderExclusionRegex = [
+    "\\bfeaturettes?\\b",
+    "\\bsamples?\\b",
+    "\\bscreens?\\b",
+    "\\bspecials?\\b",
+    "\\bova\\b",
+    "\\bnc(ed|op)?(\\\\d+)?\\b",
+]
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FileNameExclusionRegex = ["\\bncop\\\\d+?\\b", "\\bnced\\\\d+?\\b", "\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "music video", "comandotorrents.com"]
+FileNameExclusionRegex = [
+    "\\bncop\\\\d+?\\b",
+    "\\bnced\\\\d+?\\b",
+    "\\bsample\\b",
+    "brarbg.com\\b",
+    "\\btrailer\\b",
+    "music video",
+    "comandotorrents.com",
+]
 
 # Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
-FileExtensionAllowlist = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts", ".avi"]
+FileExtensionAllowlist = [
+    ".mp4",
+    ".mkv",
+    ".sub",
+    ".ass",
+    ".srt",
+    ".!qB",
+    ".parts",
+    ".avi",
+]
 
 # Auto delete files that can't be playable (i.e .exe, .png)
 AutoDelete = true
@@ -677,6 +786,11 @@ MaxSeedingTime = -1
 RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
-RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+RemoveTrackerWithMessage = [
+    "skipping tracker announce (unreachable)",
+    "No such host is known",
+    "unsupported URL protocol",
+    "info hash is not authorized with this tracker",
+]
 
 # You can have multiple trackers set here or none just add more subsections.

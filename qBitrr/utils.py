@@ -33,7 +33,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         path = path.parent.absolute()
     count = 9
     while not path.exists():
-        logger.trace(
+        logger.debug(
             "Attempt %s/10: File does not yet exists! (Possibly being moved?) | "
             "%s | Sleeping for 0.1s",
             path,
@@ -50,7 +50,7 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
         if path.is_file():
             path = path.parent.absolute()
         while not path.exists():
-            logger.trace(
+            logger.debug(
                 "Attempt %s/10:File does not yet exists! (Possibly being moved?) | "
                 "%s | Sleeping for 0.1s",
                 path,
@@ -74,7 +74,7 @@ def has_internet():
     url = random.choice(PING_URLS)
     if not is_connected(url):
         return False
-    logger.trace("Successfully connected to %s", url)
+    logger.debug("Successfully connected to %s", url)
     return True
 
 
@@ -96,7 +96,7 @@ def _basic_ping(hostname):
         CACHE[hostname] = True
         return True
     except Exception as e:
-        logger.trace(
+        logger.debug(
             "Error when connecting to host: %s %s %s",
             hostname,
             host,
@@ -128,7 +128,7 @@ def is_connected(hostname):
 
 
 class ExpiringSet:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: list, **kwargs):
         max_age_seconds = kwargs.get("max_age_seconds", 0)
         assert max_age_seconds > 0
         self.age = max_age_seconds

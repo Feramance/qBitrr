@@ -36,16 +36,16 @@ class qBitManager:
     _head_less_mode = False
 
     def __init__(self):
-        self.qBit_Host = CONFIG.get("QBit.Host", fallback="localhost")
-        self.qBit_Port = CONFIG.get("QBit.Port", fallback=8105)
-        self.qBit_UserName = CONFIG.get("QBit.UserName", fallback=None)
-        self.qBit_Password = CONFIG.get("QBit.Password", fallback=None)
+        self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
+        self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
+        self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
+        self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(
             "qBitrr.Manager",
         )
         run_logs(self.logger)
         self.logger.debug(
-            "QBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
+            "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
@@ -91,12 +91,12 @@ class qBitManager:
     def _version_validator(self):
         if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
             if self._validated_version:
-                self.logger.hnotice(
+                self.logger.info(
                     "Current qBitTorrent version is supported: %s",
                     self.current_qbit_version,
                 )
             else:
-                self.logger.hnotice(
+                self.logger.warning(
                     "Could not validate current qBitTorrent version, assuming: %s",
                     self.current_qbit_version,
                 )
@@ -128,7 +128,7 @@ class qBitManager:
             if 1 in self.expiring_bool or self.client is None:
                 return True
             self.client.app_version()
-            self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
+            self.logger.info("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
             self.expiring_bool.add(1)
             return True
         except requests.RequestException:
@@ -138,7 +138,7 @@ class qBitManager:
 
     def get_child_processes(self) -> list[pathos.helpers.mp.Process]:
         run_logs(self.logger)
-        self.logger.hnotice("Managing %s categories", len(self.arr_manager.managed_objects))
+        self.logger.debug("Managing %s categories", len(self.arr_manager.managed_objects))
         count = 0
         procs = []
         for arr in self.arr_manager.managed_objects.values():
@@ -149,14 +149,14 @@ class qBitManager:
 
     def run(self):
         try:
-            self.logger.notice("Starting %s child processes", len(self.child_processes))
+            self.logger.debug("Starting %s child processes", len(self.child_processes))
             [p.start() for p in self.child_processes]
             [p.join() for p in self.child_processes]
         except KeyboardInterrupt:
-            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            self.logger.info("Detected Ctrl+C - Terminating process")
             sys.exit(0)
         except BaseException as e:
-            self.logger.hnotice("Detected Ctrl+C - Terminating process: %r", e)
+            self.logger.info("Detected Ctrl+C - Terminating process: %r", e)
             sys.exit(1)
 
 
@@ -165,7 +165,7 @@ def run():
     early_exit = process_flags()
     if early_exit is True:
         sys.exit(0)
-    logger.notice("Starting qBitrr: Version: %s.", patched_version)
+    logger.info("Starting qBitrr: Version: %s.", patched_version)
     manager = qBitManager()
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
@@ -177,10 +177,10 @@ def run():
                 "No tasks to perform, if this is unintended double check your config file."
             )
     except KeyboardInterrupt:
-        logger.hnotice("Detected Ctrl+C - Terminating process")
+        logger.info("Detected Ctrl+C - Terminating process")
         sys.exit(0)
     except Exception:
-        logger.notice("Attempting to terminate child processes, please wait a moment.")
+        logger.info("Attempting to terminate child processes, please wait a moment.")
         for child in manager.child_processes:
             child.kill()
 

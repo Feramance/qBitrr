@@ -67,7 +67,7 @@ logging.addLevelName(TRACE, "TRACE")
 logging.setLoggerClass(VerboseLogger)
 
 
-def getLogger(name: str | None = None) -> VerboseLogger:
+def getLogger(name: str | None = None):
     if name:
         return VerboseLogger.manager.getLogger(name)
     else:

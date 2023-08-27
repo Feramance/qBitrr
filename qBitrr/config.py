@@ -41,7 +41,7 @@ def process_flags() -> argparse.Namespace | bool:
         "--source",
         action="store_const",
         dest="source",
-        const="Source code can be found on: https://github.com/Feramance/Qbitrr",
+        const="Source code can be found on: https://github.com/Feramance/qBitrr",
         help="Shows a link to qBitrr's source",
     )
 
@@ -90,6 +90,11 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
         CONFIG_FILE = _write_config_file(docker=True)
         print(f"'{CONFIG_FILE.name}' has been generated")
         print('Rename it to "config.toml" then edit it and restart the container')
+        import os
+        import signal
+
+        os.kill(os.getppid(), signal.SIGTERM)
+
     else:
         print(f"{file} has not been found")
         print(f"{file} must be added to {CONFIG_FILE}")
@@ -146,7 +151,7 @@ IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_th
     "Settings.IgnoreTorrentsYoungerThan", fallback=600
 )
 QBIT_DISABLED = (
-    CONFIG.get("QBit.Disabled", fallback=False)
+    CONFIG.get("qBit.Disabled", fallback=False)
     if ENVIRO_CONFIG.qbit.disabled is None
     else ENVIRO_CONFIG.qbit.disabled
 )

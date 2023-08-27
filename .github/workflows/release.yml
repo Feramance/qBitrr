@@ -9,7 +9,7 @@ defaults:
   run:
     shell: bash
 env:
-  project-name: Qbitrr
+  project-name: qbitrr
   GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
 
 jobs:
