@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.3.1 (27/08/2023)
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/9b41dff3f7aa46159b018bae5c3155274daeb60f) - @Feramance
+
+---
+
 ## v3.3.0 (27/08/2023)
 - [[minor] Merge pull request #12 from ThePhaseless/master](https://github.com/Feramance/qBitrr/commit/c236d491c0684acd3344302ed33d1965b542afcc) - @Feramance
 - [Rename codeql-analysis.yml to codeql.yml](https://github.com/Feramance/qBitrr/commit/b08871ef2d740f323bdc360e04eef4ac934d4343) - @Feramance
