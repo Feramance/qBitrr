@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.3.5 (27/08/2023)
+- [[patch] Fixed error handling and pathing config](https://github.com/Feramance/qBitrr/commit/a64e55c262ad00d05755c3879fa34df0d7522223) - @Feramance
+- [Delete .vscode directory](https://github.com/Feramance/qBitrr/commit/4105d7b12ec5df9c309de9cbd5b59ece7a43a0ff) - @Feramance
+
+---
+
 ## v3.3.4 (27/08/2023)
 - [[patch] Updated error handling](https://github.com/Feramance/qBitrr/commit/187104d6e6d00f6d256883cc56d9249efde1b5ef) - @Feramance
 
