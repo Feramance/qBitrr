@@ -14,7 +14,8 @@ if (
         HOME_PATH.mkdir(parents=True, exist_ok=True)
     else:
         ON_DOCKER = False
-        HOME_PATH = pathlib.Path().home().joinpath(pathlib.Path("/qBitrr"))
+        HOME_PATH = pathlib.Path().home().joinpath(pathlib.Path("/.qBitrr"))
+        HOME_PATH.mkdir(parents=True, exist_ok=True)
 else:
     HOME_PATH = p
 
