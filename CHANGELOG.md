@@ -1,11 +1,8 @@
 # Changelog
 
-## v3.3.2 (27/08/2023)
+## v3.3.3 (27/08/2023)
+- [[patch] Pathing hotfix 2](https://github.com/Feramance/qBitrr/commit/c6357d75055554271c184ba79979a48d2a90541e) - @Feramance
 - [[patch] Pathing hotfix](https://github.com/Feramance/qBitrr/commit/f32e45402ea85888d423e5727be25b9568351854) - @Feramance
-
----
-
-## v3.3.1 (27/08/2023)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/9b41dff3f7aa46159b018bae5c3155274daeb60f) - @Feramance
 
 ---
@@ -23,10 +20,6 @@
 - [Update dockerhub description workflow to enable manual trigger](https://github.com/Feramance/qBitrr/commit/4b030b9e09fba89d40eda53c750291164c10aa72) - @Feramance
 - [Fix release workflow and add dockerhub description workflow](https://github.com/Feramance/qBitrr/commit/38fcb5ec4279d8e794c2668dfe548034990b055a) - @Feramance
 - [Release flow fix](https://github.com/Feramance/qBitrr/commit/567b3c46e3540d193ebf01f4e28a625e74b6155d) - @Feramance
-
----
-
-## v3.2.8 (27/08/2023)
 
 ---
 
