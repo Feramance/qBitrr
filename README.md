@@ -1,3 +1,6 @@
+
+# qBitrr
+
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
@@ -13,7 +16,7 @@
 
 A simple script to monitor [Qbit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
-### Features
+## Features
 
 - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
 - Monitor qBit for completed entries and tell the appropriate Arr instance to import it ( 'DownloadedMoviesScan' or 'DownloadedEpisodesScan' commands).
@@ -44,43 +47,51 @@ Some things to know before using it.
 
   ![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
 
-#### Install the requirements run
+## Installation
+
+### Install the requirements run
 
 - `python -m pip install qBitrr` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 Alternatively:
+
 - Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 
-#### Run the script
+### Run the script
 
 - Make sure to update the settings in `~/.config/qBitManager/config.toml`
 - Activate your venv
 - Run `qbitrr`
 
 Alternatively:
+
 - Unzip the downloaded release and run it
 
-#### How to update the script
+### How to update the script
 
 - Activate your venv
 - Run `python -m pip install -U qBitrr`
 
 Alternatively:
+
 - Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 
-#### Contributions
+### Contributions
 
 - I'm happy with any PRs and suggested changes to the logic I just put it together dirty for my own use case.
 
-#### Example behaviour
+### Example behaviour
 
 ![image](https://user-images.githubusercontent.com/27962761/146447714-5309d3e6-51fd-472c-9587-9df491f121b3.png)
 
+### Docker Installation
 
 #### Docker Image
+
 - The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 
 #### Docker Compose
+
 ```yaml
 version: "3"
 services:
@@ -116,7 +127,9 @@ services:
       - sonarr-1080p
       - overseerr
 ```
+
 ##### Important mentions for docker
+
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
   - Make sure to rename it to 'config.toml' then edit it to your desired values
