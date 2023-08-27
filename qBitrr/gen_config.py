@@ -10,7 +10,7 @@ from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.home_path import APPDATA_FOLDER, ON_DOCKER
+from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH, ON_DOCKER
 
 T = TypeVar("T")
 
@@ -23,7 +23,7 @@ def generate_doc() -> TOMLDocument:
             'Make sure to change all entries of "CHANGE_ME".'
         )
     )
-    config.add(comment('This is a config file should be moved to "' f'{APPDATA_FOLDER}".'))
+    config.add(comment('This is a config file should be moved to "' f'{HOME_PATH}".'))
     config.add(nl())
     _add_settings_section(config)
     _add_qbit_section(config)
@@ -773,7 +773,7 @@ def _write_config_file(docker=False) -> pathlib.Path:
         file_name = "config.rename_me.toml"
     else:
         file_name = "config.toml"
-    CONFIG_FILE = APPDATA_FOLDER.joinpath(file_name)
+    CONFIG_FILE = HOME_PATH.joinpath(file_name)
     if CONFIG_FILE.exists() and not docker:
         print(f"{CONFIG_FILE} already exists, File is not being replaced.")
         CONFIG_FILE = pathlib.Path.cwd().joinpath("config_new.toml")

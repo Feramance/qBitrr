@@ -1298,9 +1298,9 @@ class Arr:
                             .order_by(self.model_arr_file.Added.desc())
                         ):
                             self.db_update_single_series(db_entry=db_entry, request=True)
-            except BaseException:
+            except requests.exceptions.ConnectionError:
                 self.logger.error("Connection Error")
-                raise DelayLoopException(length=300, type="arr")
+                raise DelayLoopException(length=300, type=self._name)
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
@@ -1399,7 +1399,7 @@ class Arr:
                         self.db_update_single_series(db_entry=movies)
             except BaseException:
                 self.logger.error("Error reading arr db file")
-                raise DelayLoopException(length=300, type="delay")
+                raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
@@ -3027,7 +3027,7 @@ class Arr:
             )
         except requests.exceptions.ConnectionError:
             self.logger.error("Failed to get queue")
-            raise DelayLoopException(length=300, type="arr")
+            raise DelayLoopException(length=300, type=self._name)
         try:
             res = res.get("records", [])
         except AttributeError:
@@ -3256,6 +3256,7 @@ class Arr:
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
                             if timer < (datetime.now(timezone.utc) - loop_timer):
+                                self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                             while (
