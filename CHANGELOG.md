@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.3.2 (27/08/2023)
+- [[patch] Pathing hotfix](https://github.com/Feramance/qBitrr/commit/f32e45402ea85888d423e5727be25b9568351854) - @Feramance
+
+---
+
 ## v3.3.1 (27/08/2023)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/9b41dff3f7aa46159b018bae5c3155274daeb60f) - @Feramance
 
