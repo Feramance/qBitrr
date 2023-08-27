@@ -44,7 +44,7 @@ distlib==0.3.4
     # via virtualenv
 docutils==0.18.1
     # via readme-renderer
-environ-config==21.2.0
+environ-config==23.2.0
     # via qBitrr (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr (setup.py)

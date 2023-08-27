@@ -20,7 +20,7 @@ dill==0.3.4
     # via
     #   multiprocess
     #   pathos
-environ-config==21.2.0
+environ-config==23.2.0
     # via qBitrr (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr (setup.py)

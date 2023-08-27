@@ -547,10 +547,16 @@ class Arr:
             return EpisodesModel, CommandsModel, SeriesModel
         elif self.type == "radarr":
             return MoviesModel, CommandsModel, MoviesMetadataModel
+        else:
+            raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
 
     def _get_models(
         self,
-    ) -> tuple[type[EpisodeFilesModel], type[EpisodeQueueModel], type[SeriesFilesModel] | None]:
+    ) -> tuple[
+        type[EpisodeFilesModel] | type[MoviesFilesModel],
+        type[EpisodeQueueModel] | type[MovieQueueModel],
+        type[SeriesFilesModel] | None,
+    ]:
         if self.type == "sonarr":
             if self.series_search:
                 return EpisodeFilesModel, EpisodeQueueModel, SeriesFilesModel
@@ -584,7 +590,7 @@ class Arr:
                 type__ = entry.get("type")
                 if type__ == "movie":
                     id__ = entry.get("media", {}).get("tmdbId")
-                if type__ == "tv":
+                elif type__ == "tv":
                     id__ = entry.get("media", {}).get("tvdbId")
                 if type_ != type__:
                     continue

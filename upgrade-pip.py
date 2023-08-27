@@ -1,0 +1,3 @@
+import uppip
+
+uppip.startupgradepip()
