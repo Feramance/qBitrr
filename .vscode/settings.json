@@ -1,4 +1,8 @@
 {
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  },
   "cSpell.words": [
     "apikey",
     "Bitrr",
@@ -24,8 +28,5 @@
     "tvdb",
     "tvlite"
   ],
-  "python.analysis.typeCheckingMode": "basic",
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  },
+  "python.analysis.typeCheckingMode": "basic"
 }
