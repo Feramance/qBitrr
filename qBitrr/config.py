@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import os
 import pathlib
 import shutil
+import signal
 import sys
 
 from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.gen_config import MyConfig, generate_doc
+from qBitrr.gen_config import MyConfig, _write_config_file, generate_doc
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH, ON_DOCKER
 
 
@@ -82,24 +84,21 @@ if any(
 elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     if ON_DOCKER:
         print(f"{file} has not been found")
-        from qBitrr.gen_config import _write_config_file
 
         CONFIG_FILE = _write_config_file(docker=True)
         print(f"'{CONFIG_FILE.name}' has been generated")
         print('Rename it to "config.toml" then edit it and restart the container')
-        import os
-        import signal
 
         os.kill(os.getppid(), signal.SIGTERM)
 
     else:
         print(f"{file} has not been found")
-        print(f"{file} must be added to {CONFIG_FILE}")
-        print(
-            "You can run me with the `--gen-config` flag to generate a "
-            "template config file which you can then edit."
-        )
-    sys.exit(1)
+
+        CONFIG_FILE = _write_config_file(docker=True)
+        print(f"'{CONFIG_FILE.name}' has been generated")
+        print('Rename it to "config.toml" then edit it and restart the container')
+
+        os.kill(os.getppid(), signal.SIGTERM)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)
