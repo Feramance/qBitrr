@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import logging
+import shutil
 import sys
 import time
 from multiprocessing import freeze_support
@@ -16,7 +17,7 @@ from qbittorrentapi.decorators import login_required  # , response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
-from qBitrr.config import CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
+from qBitrr.config import APPDATA_FOLDER, CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
@@ -194,5 +195,6 @@ atexit.register(cleanup)
 
 
 if __name__ == "__main__":
+    shutil.rmtree(APPDATA_FOLDER)
     freeze_support()
     run()

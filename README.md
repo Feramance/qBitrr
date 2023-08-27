@@ -1,6 +1,7 @@
+
 # qBitrr
 
-[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/qBitrr/blob/master/LICENSE)
+[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
@@ -42,17 +43,14 @@ Some things to know before using it.
 - [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - qBit set to create sub-folders for tag.
 
-![image](https://user-images.githubusercontent.com/27962761/139117102-ec1d321a-1e64-4880-8ad1-ee2c9b805f92.png)
-
 ## Usage
-
 ### Native
 
 ***PyPI package is outdated, please use the docker image or download the latest release!***
 
 1. Download the latest release
 2. Run `qbitrr --gen-config` to generate a config file
-3. Edit the config file (located at `~/.config/qBitManager/config.toml` (~ is your home directory, i.e `C:\Users\{User}`))
+3. Edit the config file (located at `~/config.toml` (~ is your home directory, i.e `C:\Users\{User}`))
 4. Run `qbitrr` to start the script
 
 ***There is no auto-update feature, you will need to manually download the latest release and replace the old one.***
@@ -60,6 +58,10 @@ Some things to know before using it.
 ### Docker
 
 The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
+
+#### Docker Image
+
+- The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 
 #### Docker Run
 
@@ -111,11 +113,10 @@ services:
       - qbittorrent
       - radarr-1080p
       - sonarr-1080p
-      - animarr-1080p
       - overseerr
 ```
 
-#### Important mentions for docker
+##### Important mentions for docker
 
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`

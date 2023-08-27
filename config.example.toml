@@ -1,5 +1,5 @@
 # This is a config file for the qBitrr Script - Make sure to change all entries of "CHANGE_ME".
-# This is a config file should be moved to "C:\Users\techa\.config\qBitManager\config.toml".
+# This is a config file should be moved to "C:\Users\<user>\.config\qBitManager\config.toml".
 
 
 [Settings]
@@ -31,7 +31,7 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 
 # FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads
 # If this is disabled and you want ffprobe to work
-# Ensure that you add the binary for your platform into ~/.config/qBitManager i.e "C:\Users\techa\.config\qBitManager\ffprobe.exe"
+# Ensure that you add the binary for your platform into ~/.config/qBitManager i.e "C:\Users\<user>\.config\qBitManager\ffprobe.exe"
 # If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled.
 # By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
