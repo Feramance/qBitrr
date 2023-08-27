@@ -63,7 +63,7 @@ def process_flags() -> argparse.Namespace | bool:
 
 COPIED_TO_NEW_DIR = False
 file = "config.toml"
-CONFIG_FILE = APPDATA_FOLDER.joinpath(file)
+CONFIG_FILE = HOME_PATH.joinpath(file)
 CONFIG_PATH = pathlib.Path(f"./{file}")
 if any(
     a in sys.argv
