@@ -250,7 +250,7 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
-        repository: peterevans/dockerhub-description
+        repository: feramance/qbitrr
         readme-filepath: ./README.md
     - name: Build and push
       env:
