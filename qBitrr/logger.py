@@ -7,12 +7,12 @@ from logging import Logger
 import coloredlogs
 
 from qBitrr.config import (
-    APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     CONSOLE_LOGGING_LEVEL_STRING,
     COPIED_TO_NEW_DIR,
     FAILED_CATEGORY,
+    HOME_PATH,
     IGNORE_TORRENTS_YOUNGER_THAN,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
@@ -134,13 +134,13 @@ def run_logs(logger: Logger) -> None:
         HAS_RUN = True
 
 
-if COPIED_TO_NEW_DIR is False and not APPDATA_FOLDER.joinpath("config.toml").exists():
+if COPIED_TO_NEW_DIR is False and not HOME_PATH.joinpath("config.toml").exists():
     logger.warning(
         "Config.toml should exist in '%s', in a future update this will be a requirement.",
-        APPDATA_FOLDER,
+        HOME_PATH,
     )
     time.sleep(5)
 if COPIED_TO_NEW_DIR:
-    logger.warning("Config.toml new location is %s", APPDATA_FOLDER)
+    logger.warning("Config.toml new location is %s", HOME_PATH)
     time.sleep(5)
 run_logs(logger)

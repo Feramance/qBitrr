@@ -9,9 +9,8 @@ from tomlkit import comment, document, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
-from qBitrr.config import APPDATA_FOLDER
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.home_path import ON_DOCKER
+from qBitrr.home_path import APPDATA_FOLDER, ON_DOCKER
 
 T = TypeVar("T")
 

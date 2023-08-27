@@ -17,3 +17,6 @@ if (
         HOME_PATH = pathlib.Path().home().joinpath(pathlib.Path("/qBitrr"))
 else:
     HOME_PATH = p
+
+APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
+APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
