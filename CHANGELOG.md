@@ -1,7 +1,26 @@
 # Changelog
 
-## v3.2.7 (26/08/2023)
+## v3.3.0 (27/08/2023)
+- [[minor] Merge pull request #12 from ThePhaseless/master](https://github.com/Feramance/qBitrr/commit/c236d491c0684acd3344302ed33d1965b542afcc) - @Feramance
+- [Rename codeql-analysis.yml to codeql.yml](https://github.com/Feramance/qBitrr/commit/b08871ef2d740f323bdc360e04eef4ac934d4343) - @Feramance
 
+---
+
+## v3.2.9 (27/08/2023)
+- [[patch] Updated home path](https://github.com/Feramance/qBitrr/commit/0114b2c0502ebda9983e7954d8f05562ddf93338) - @Feramance
+- [Changed branch name in workflow](https://github.com/Feramance/qBitrr/commit/131013183cbdd81f29dadbc069286ad401bf972c) - @Feramance
+- [Quickfix Docker Hub Description workflow](https://github.com/Feramance/qBitrr/commit/f30fc8b22c6dec91bccb254e108900cf76764e6d) - @Feramance
+- [Update dockerhub description workflow to enable manual trigger](https://github.com/Feramance/qBitrr/commit/4b030b9e09fba89d40eda53c750291164c10aa72) - @Feramance
+- [Fix release workflow and add dockerhub description workflow](https://github.com/Feramance/qBitrr/commit/38fcb5ec4279d8e794c2668dfe548034990b055a) - @Feramance
+- [Release flow fix](https://github.com/Feramance/qBitrr/commit/567b3c46e3540d193ebf01f4e28a625e74b6155d) - @Feramance
+
+---
+
+## v3.2.8 (27/08/2023)
+
+---
+
+## v3.2.7 (26/08/2023)
 - [[patch] Update readme](https://github.com/Feramance/qBitrr/commit/9103a9322f5d410176841477432e2346558a8900) - @Feramance
 - [[patch] Adjusted appdata folder and set all files to be cleared upon restart except for config](https://github.com/Feramance/qBitrr/commit/45e943427db78378c6309622a34f22811f5fac91) - @Feramance
 - [Update .gitignore](https://github.com/Feramance/qBitrr/commit/997047ae12029361877e668bd2ce1a4a4cf22305) - @Feramance
@@ -11,14 +30,12 @@
 ---
 
 ## v3.2.6 (25/08/2023)
-
 - [[patch] Added logic to check download queue before re-searching or posting any search at all](https://github.com/Feramance/qBitrr/commit/caa22a1004e1464f83a04a3690997fe43b7d8fd1) - @Feramance
 - [Spellchecking](https://github.com/Feramance/qBitrr/commit/3dfc3f6d1ac3cdc7bb1ebdf6699084ba4d9ee014) - @Feramance
 
 ---
 
 ## v3.2.5 (24/08/2023)
-
 - [[patch] Hotifx](https://github.com/Feramance/Qbitrr/commit/fb3664db362ec5c6cbc678f6da020828e4c8da4d) - @Feramance
 
 ---
@@ -28,57 +45,48 @@
 ---
 
 ## v3.2.3 (23/08/2023)
-
 - [[patch] Fixed reading qbittorrent 4.3.9 version](https://github.com/Feramance/Qbitrr/commit/27027376521cf9e48d8c50996f7354b09d33febb) - @Feramance
 - [Update compose format in README](https://github.com/Feramance/Qbitrr/commit/8beb1b1e827dc216152cda7b07913d482aba80ce) - @Feramance
 
 ---
 
 ## v3.2.2 (23/08/2023)
-
 - [[patch] Fixed spelling in config, updated config example to match updates and added more log messages](https://github.com/Feramance/Qbitrr/commit/dcca3670c91b0808f48c4c78ec42f2193c363200) - @Feramance
 
 ---
 
 ## v3.2.1 (22/08/2023)
-
 - [[patch] Quick fix for last commit](https://github.com/Feramance/Qbitrr/commit/68f8d627df7289a014d201a9239225144253055f) - @Feramance
 - [[pathc] Removed incorrect notice log](https://github.com/Feramance/Qbitrr/commit/558ccd456ccd44b2a4d2b7d6d96da67ee30f3cb4) - @Feramance
 
 ---
 
 ## v3.2.0 (22/08/2023)
-
 - [[minor] Fixed the minimum availability to work off of Radarr directly rather than through config](https://github.com/Feramance/Qbitrr/commit/20acfae0abf5fe44eb36da76c171a33e6de0b9a8) - @Feramance
 
 ---
 
 ## v3.1.2 (19/08/2023)
-
 - [[patch] updated minimum availability to function off of radarr preferences rather than config file](https://github.com/Feramance/Qbitrr/commit/9a97456a4e73adb5b88b910ea289cc270538528d) - @Feramance
 
 ---
 
 ## v3.1.1 (17/08/2023)
-
 - [[patch] fixed date issue with minimum availabilty conditions](https://github.com/Feramance/Qbitrr/commit/01cf104c12d553bca1d70f73a559d1f296f189dc) - @Feramance
 
 ---
 
 ## v3.1.0 (16/08/2023)
-
 - [[minor] Added Minimum Availability options for Radarr in configs](https://github.com/Feramance/Qbitrr/commit/0d2ae858398862aa2632c1f88d08ea01c0c0b1e2) - @Feramance
 
 ---
 
 ## v3.0.1 (13/08/2023)
-
 - [[patch] fixed some instances which caused the Database malformed error to pop up](https://github.com/Feramance/Qbitrr/commit/afce1f99ff0ed538be9c728d19307d3cf41ede3d) - @Feramance
 
 ---
 
 ## v3.0.0 (11/08/2023)
-
 - [[major] Overhaul of all API related communication to be up to date with the latest from qbittorrent, Radarr and Sonarr](https://github.com/Feramance/Qbitrr/commit/028c756179928fb411e0b41182181312b3a4507e) - @Feramance
 - [Fixed Databse Error exception grabbing](https://github.com/Feramance/Qbitrr/commit/95ac7e79958ae9d72dd148b0d0a36140649e796d) - @Feramance
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/b456c994e97c3366584030001bc2809fe0657041) - @Feramance
@@ -88,7 +96,6 @@
 ---
 
 ## v2.7.1 (08/08/2023)
-
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/38559b50468d15af080604d3e63cd52e14951616) - @Feramance
 - [[patch] Added handling of malformed db files](https://github.com/Feramance/Qbitrr/commit/6e5916d209aa57ce4afc1ab58dd6e97305be5cf4) - @Feramance
 - [Updated requirements](https://github.com/Feramance/Qbitrr/commit/056cd6bc6cde4e64c3a644a862b7e9903a1077cf) - @Feramance
@@ -96,7 +103,6 @@
 ---
 
 ## v2.7.0 (08/08/2023)
-
 - [[minor] Added exception processing for a few new errors that are safe to skip and retry](https://github.com/Feramance/Qbitrr/commit/13c6fbe26dcac6691c05d40c6565b521227a5f9b) - @Feramance
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/59706472deb92771a4c43ce274e93830571e603b) - @Feramance
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/6c700f3a0213b21ebd31c4206ceeb10340458fc2) - @Feramance
