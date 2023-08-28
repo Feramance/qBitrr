@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.4.0 (28/08/2023)
+- [[minor] Added support for Radarr v5](https://github.com/Feramance/qBitrr/commit/eed797bd8409dbb213ecef91ff86ee29cbc3769f) - @Feramance
+- [Update pre-commit version and initial changes for Radarr v5 support](https://github.com/Feramance/qBitrr/commit/50bd62072781acc47c42a3ff25eb457c5217a0d9) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/9e20279e762336dd17beedca40ee64db49a1e067) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/76833aad98b73c1085c831d2f5e05246720762f9) - @Feramance
+
+---
+
 ## v3.3.7 (27/08/2023)
 - [[patch] Changed OS path to be same directory as the executable and set auto generate file structure and config file](https://github.com/Feramance/qBitrr/commit/12cbbf2a86ef40007504e2a39bc0d83d076b33a4) - @Feramance
 
@@ -12,18 +20,6 @@
 ## v3.3.5 (27/08/2023)
 - [[patch] Fixed error handling and pathing config](https://github.com/Feramance/qBitrr/commit/a64e55c262ad00d05755c3879fa34df0d7522223) - @Feramance
 - [Delete .vscode directory](https://github.com/Feramance/qBitrr/commit/4105d7b12ec5df9c309de9cbd5b59ece7a43a0ff) - @Feramance
-
----
-
-## v3.3.4 (27/08/2023)
-- [[patch] Updated error handling](https://github.com/Feramance/qBitrr/commit/187104d6e6d00f6d256883cc56d9249efde1b5ef) - @Feramance
-
----
-
-## v3.3.3 (27/08/2023)
-- [[patch] Pathing hotfix 2](https://github.com/Feramance/qBitrr/commit/c6357d75055554271c184ba79979a48d2a90541e) - @Feramance
-- [[patch] Pathing hotfix](https://github.com/Feramance/qBitrr/commit/f32e45402ea85888d423e5727be25b9568351854) - @Feramance
-- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/9b41dff3f7aa46159b018bae5c3155274daeb60f) - @Feramance
 
 ---
 
