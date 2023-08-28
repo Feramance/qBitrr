@@ -31,6 +31,7 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 - Auto add/remove trackers
 - Set per tracker values
 - **Sonarr v4 support**
+- **Radarr v4 and v5 support**
 - Available if provided with a Sonarr/Radarr database file:
   - Monitor Arr's databases to trigger missing episode searches.
   - Customizable year range to search for (at a later point will add more option here, for example search whole series/season instead of individual episodes, search by name, category etc).
