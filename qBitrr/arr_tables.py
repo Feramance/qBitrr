@@ -61,6 +61,19 @@ class MoviesModel(Model):
     MovieMetadataId = IntegerField()
 
 
+class MoviesModelv5(Model):
+    Id = IntegerField(null=False, primary_key=True)
+    Path = TextField()
+    Monitored = IntegerField()
+    QualityProfileId = IntegerField()
+    Added = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
+    Tags = TextField()
+    AddOptions = TextField()
+    MovieFileId = IntegerField()
+    MinimumAvailability = IntegerField()
+    MovieMetadataId = IntegerField()
+
+
 class EpisodesModel(Model):
     Id = IntegerField(null=False, primary_key=True)
     SeriesId = IntegerField(null=False)
