@@ -27,6 +27,7 @@ from qBitrr.arr_tables import (
     EpisodesModel,
     MoviesMetadataModel,
     MoviesModel,
+    MoviesModelv5,
     SeriesModel,
 )
 from qBitrr.config import (
@@ -96,11 +97,11 @@ class Arr:
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
-            except Exception:
+            except:
                 self.logger.warning(
-                    f"{self._name} completed folder is a soft requirement. "
-                    f"The specified folder does not exist '{self.completed_folder}' "
-                    "and cannot be created. This will disable all file monitoring."
+                    "%s completed folder is a soft requirement. The specified folder does not exist %s and cannot be created. This will disable all file monitoring.",
+                    self._name,
+                    self.completed_folder
                 )
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -280,13 +281,14 @@ class Arr:
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
+            version_info = self.client.get_update()
+            self.version = version_info[0].get("version")[:1]
+            self.logger.debug("%s version: %s", self._name, self.version)
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
             version_info = self.client.get_update()
-            version_info = version_info.json().get(
-                "version",
-            )
-            self.logger.debug("Radarr version: %s", version_info)
+            self.version = version_info[0].get("version")[:1]
+            self.logger.debug("%s version: %s", self._name, self.version)
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
@@ -469,7 +471,7 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.search_setup_completed = False
-        self.model_arr_file: EpisodesModel | MoviesModel = None
+        self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5= None
         self.model_arr_series_file: SeriesModel = None
         self.model_arr_movies_file: MoviesMetadataModel = None
 
@@ -544,14 +546,17 @@ class Arr:
     def _get_arr_modes(
         self,
     ) -> tuple[
-        type[EpisodesModel] | type[MoviesModel],
+        type[EpisodesModel] | type[MoviesModel] | type[MoviesModelv5],
         type[CommandsModel],
         type[SeriesModel] | type[MoviesMetadataModel],
     ]:
         if self.type == "sonarr":
             return EpisodesModel, CommandsModel, SeriesModel
         elif self.type == "radarr":
-            return MoviesModel, CommandsModel, MoviesMetadataModel
+            if self.version == "4":
+                return MoviesModel, CommandsModel, MoviesMetadataModel
+            elif self.version == "5":
+                return MoviesModelv5, CommandsModel, MoviesMetadataModel
         else:
             raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
 
@@ -1272,7 +1277,10 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=db_entry, request=True)
                 elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                    self.model_arr_file: MoviesModel
+                    if self.version == "4":
+                        self.model_arr_file: MoviesModel
+                    elif self.version == "5":
+                        self.model_arr_file: MoviesModelv5
                     self.model_arr_movies_file: MoviesMetadataModel
                     condition = self.model_arr_movies_file.Year <= datetime.now().year
 
@@ -1409,7 +1417,7 @@ class Arr:
 
     def minimum_availability_check(
         self,
-        db_entry: MoviesModel = None,
+        db_entry: MoviesModel | MoviesModelv5 = None,
         metadata: MoviesMetadataModel = None,
     ) -> bool:
         if (
@@ -1512,7 +1520,7 @@ class Arr:
 
     def db_update_single_series(
         self,
-        db_entry: EpisodesModel | SeriesModel | MoviesModel = None,
+        db_entry: EpisodesModel | SeriesModel | MoviesModel | MoviesModelv5 = None,
         request: bool = False,
         series: bool = False,
     ):
@@ -1630,7 +1638,10 @@ class Arr:
                 db_commands.execute()
 
             elif self.type == "radarr":
-                db_entry: MoviesModel
+                if self.version == "4":
+                    db_entry: MoviesModel
+                elif self.version == "5":
+                    db_entry: MoviesModelv5
                 searched = False
                 QualityUnmet = self.quality_unmet_search
                 if db_entry.MovieFileId != 0 and not QualityUnmet:
