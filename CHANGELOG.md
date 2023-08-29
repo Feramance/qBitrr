@@ -1,6 +1,10 @@
 # Changelog
 
-## v3.4.0 (28/08/2023)
+## v3.4.0 (29/08/2023)
+- [[build] Testing alternate hadling to database error](https://github.com/Feramance/qBitrr/commit/a1cb52abc9358d7388823b7432745060b198fd89) - @Feramance
+- [Pre-Release workflow update](https://github.com/Feramance/qBitrr/commit/eb039dd781794fd2d0b3d7bd2f8e0fd9e36d76b9) - @Feramance
+- [Update bump2version conf and added new pre-release workflow](https://github.com/Feramance/qBitrr/commit/956bf62038850fe9772ff1410d4a4e018b230ee2) - @Feramance
+- [Update README to reflect Arr supported versions](https://github.com/Feramance/qBitrr/commit/9bd4c7670f68e8f1fd5bb4bb93e5167ba2fe364c) - @Feramance
 - [[minor] Added support for Radarr v5](https://github.com/Feramance/qBitrr/commit/eed797bd8409dbb213ecef91ff86ee29cbc3769f) - @Feramance
 - [Update pre-commit version and initial changes for Radarr v5 support](https://github.com/Feramance/qBitrr/commit/50bd62072781acc47c42a3ff25eb457c5217a0d9) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/9e20279e762336dd17beedca40ee64db49a1e067) - @Feramance
@@ -10,10 +14,6 @@
 
 ## v3.3.7 (27/08/2023)
 - [[patch] Changed OS path to be same directory as the executable and set auto generate file structure and config file](https://github.com/Feramance/qBitrr/commit/12cbbf2a86ef40007504e2a39bc0d83d076b33a4) - @Feramance
-
----
-
-## v3.3.6 (27/08/2023)
 
 ---
 
