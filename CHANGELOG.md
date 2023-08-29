@@ -5,6 +5,10 @@
 
 ---
 
+## v3.4.6-4 (29/08/2023)
+
+---
+
 ## v3.4.6-3 (29/08/2023)
 
 ---
@@ -159,10 +163,3 @@
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/b456c994e97c3366584030001bc2809fe0657041) - @Feramance
 - [CI fixes](https://github.com/Feramance/Qbitrr/commit/b2e51fd21ecd4ade80d7c4f4a1ddcc8016c4808a) - @Feramance
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/6c5ba19a025020359546213955f300cee7e8510a) - @Feramance
-
----
-
-## v2.7.1 (08/08/2023)
-- [Update README.md](https://github.com/Feramance/Qbitrr/commit/38559b50468d15af080604d3e63cd52e14951616) - @Feramance
-- [[patch] Added handling of malformed db files](https://github.com/Feramance/Qbitrr/commit/6e5916d209aa57ce4afc1ab58dd6e97305be5cf4) - @Feramance
-- [Updated requirements](https://github.com/Feramance/Qbitrr/commit/056cd6bc6cde4e64c3a644a862b7e9903a1077cf) - @Feramance
