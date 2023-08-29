@@ -1036,7 +1036,7 @@ class Arr:
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
         elif self.type == "radarr":
-            for i1, i2, i3 in self.db_get_files_episodes():
+            for i1, i2, i3 in self.db_get_files_movies():
                 yield i1, i2, i3, False
 
     def db_maybe_reset_entry_searched_state(self):
