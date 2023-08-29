@@ -1405,6 +1405,7 @@ class Arr:
                         self.model_arr_movies_file,
                         on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
                     )
+                    .switch(self.model_arr_file)
                     .where(self.model_arr_movies_file.Year == self.search_current_year)
                     .order_by(self.model_arr_file.Added.desc())
                 ):
