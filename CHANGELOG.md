@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.4.6 (29/08/2023)
+- [[patch] FIX undo ffprobe location changes](https://github.com/Feramance/qBitrr/commit/6f7889e4f434d983e4720b6206f953773e0f4332) - @Feramance
+
+---
+
 ## v3.4.5 (29/08/2023)
 - [[patch] Fixed unable to open database error](https://github.com/Feramance/qBitrr/commit/f3df31784a1c2dd5861be84f35cab54f28addb7c) - @Feramance
 
