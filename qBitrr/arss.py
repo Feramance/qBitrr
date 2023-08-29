@@ -1421,7 +1421,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 3
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1435,7 +1435,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 2
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1448,7 +1448,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 1
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1467,7 +1467,7 @@ class Arr:
                 or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
             ):
-                self.logger.trace(
+                self.logger.debug(
                     "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1476,7 +1476,7 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.trace(
+                self.logger.debug(
                     "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1486,7 +1486,7 @@ class Arr:
                 return False
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
-                self.logger.trace(
+                self.logger.debug(
                     "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1495,7 +1495,7 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.trace(
+                self.logger.debug(
                     "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1504,7 +1504,7 @@ class Arr:
                 )
                 return False
         else:
-            self.logger.trace(
+            self.logger.debug(
                 "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
