@@ -10,7 +10,7 @@ from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.home_path import HOME_PATH
+from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
 T = TypeVar("T")
 
@@ -92,7 +92,7 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(
         comment(
             "Ensure that you add the ffprobe binary to the folder"
-            f"\"{HOME_PATH.joinpath('ffprobe.exe')}\""
+            f"\"{APPDATA_FOLDER.joinpath('ffprobe.exe')}\""
         )
     )
     settings.add(

@@ -11,7 +11,7 @@ import sys
 from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, _write_config_file, generate_doc
-from qBitrr.home_path import HOME_PATH, ON_DOCKER
+from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH, ON_DOCKER
 
 
 def process_flags() -> argparse.Namespace | bool:
@@ -168,8 +168,5 @@ if SEARCH_ONLY and QBIT_DISABLED is False:
     print("QBITRR_OVERRIDES_SEARCH_ONLY is enabled, forcing qBitTorrent setting off")
 
 # Settings Config Values
-FF_VERSION = HOME_PATH.joinpath("ffprobe_info.json")
-FF_PROBE = HOME_PATH.joinpath("ffprobe")
-
-APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
-APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
+FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
+FF_PROBE = APPDATA_FOLDER.joinpath("ffprobe")
