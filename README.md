@@ -2,6 +2,7 @@
 # qBitrr
 
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/feramance/qBitrr/total)](https://github.com/Feramance/qBitrr/releases/latest)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
@@ -10,6 +11,9 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
 [![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml)
 [![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
+
+[![Create a Pre-Release](https://github.com/Feramance/qBitrr/actions/workflows/pre-release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/pre-release.yml)
+[![Update dockerhub](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
