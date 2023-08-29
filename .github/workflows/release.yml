@@ -61,10 +61,16 @@ jobs:
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+    - uses: bhowell2/github-substring-action@1.0.2
+      id: clean_version
+      with:
+        value: ${{ steps.current_version.outputs.VERSION }}
+        length_from_start: 3
     outputs:
       RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
       CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
       NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
+      DOCKER_RELEASE: ${{ steps.clean_version.outputs.substring }}
   release:
     name: Create a GitHub Release
     needs: [bump_version]
