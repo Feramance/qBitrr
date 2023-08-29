@@ -2060,7 +2060,7 @@ class Arr:
                 self.api_calls()
                 self.refresh_download_queue()
                 for torrent in torrents:
-                    with contextlib.suppress(qbittorrentapi.exceptions.NotFound404Error):
+                    with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent)
                 self.process()
             except NoConnectionrException as e:
@@ -2069,13 +2069,9 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except qbittorrentapi.exceptions.APIError as e:
+            except qbittorrentapi.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
-                self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except AttributeError as e:
                 self.logger.info("Torrent still connecting to trackers")
@@ -2741,7 +2737,7 @@ class Arr:
                 torrent.hash,
                 _remove_urls,
             )
-            with contextlib.suppress(qbittorrentapi.exceptions.Conflict409Error):
+            with contextlib.suppress(qbittorrentapi.Conflict409Error):
                 torrent.remove_trackers(_remove_urls)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, _remove_urls
@@ -3300,7 +3296,7 @@ class Arr:
                     except ValueError:
                         self.logger.debug("Loop completed, restarting it.")
                         self.loop_completed = True
-                    except qbittorrentapi.exceptions.APIConnectionError as e:
+                    except qbittorrentapi.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
                     except Exception as e:
@@ -3359,13 +3355,10 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type="arr")
-                    except qbittorrentapi.exceptions.APIConnectionError as e:
+                    except qbittorrentapi.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
-                    except qbittorrentapi.exceptions.APIError as e:
-                        self.logger.warning(e)
-                        raise DelayLoopException(length=300, type="qbit")
-                    except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
+                    except qbittorrentapi.APIError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
                     except DelayLoopException:
@@ -3550,15 +3543,11 @@ class PlaceHolderArr(Arr):
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
-            except qbittorrentapi.exceptions.APIError as e:
+            except qbittorrentapi.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.exceptions.MissingRequiredParameters400Error as e:
-                self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.exceptions.APIConnectionError as e:
+            except qbittorrentapi.APIConnectionError as e:
                 self.logger.warning("Max retries exceeded")
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
