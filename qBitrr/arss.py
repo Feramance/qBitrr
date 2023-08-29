@@ -1179,11 +1179,7 @@ class Arr:
                     condition &= self.model_file.MovieFileId == 0
             entries = self.model_file.select().count()
             conditioned = self.model_file.select().where(condition).count()
-            self.logger.debug(
-                "Found %s entries, %s conditioned",
-                entries if entries.exists() else 0,
-                conditioned if conditioned.exists() else 0,
-            )
+            self.logger.debug("Found %s entries, %s conditioned", entries, conditioned)
             for entry in (
                 self.model_file.select()
                 .where(condition)
