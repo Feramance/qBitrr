@@ -17,9 +17,10 @@ from qbittorrentapi.decorators import login_required  # , response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
-from qBitrr.config import APPDATA_FOLDER, CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
+from qBitrr.config import CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
+from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
 
