@@ -274,7 +274,6 @@ jobs:
     - run: npm install github-release-notes -g
     - name: Pre-Release Notes and Change logs
       run: |
-        gren release
         gren changelog
     - name: Import GPG key
       uses: crazy-max/ghaction-import-gpg@v5.3.0
