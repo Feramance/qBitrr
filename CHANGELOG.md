@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.4.5 (29/08/2023)
+- [[patch] Fixed unable to open database error](https://github.com/Feramance/qBitrr/commit/f3df31784a1c2dd5861be84f35cab54f28addb7c) - @Feramance
+
+---
+
 ## v3.4.4 (29/08/2023)
 - [[patch] Hotfix for another instance of the same previouse issue](https://github.com/Feramance/qBitrr/commit/16410965d56ae2f4926d357b4b9f22868f810531) - @Feramance
 
