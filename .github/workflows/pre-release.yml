@@ -1,4 +1,4 @@
-name: Create a Release
+name: Create a Pre-Release
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
 
 jobs:
   bump_version:
-    name: Bump release version
+    name: Bump build version
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[build]') }}
     env:
@@ -63,10 +63,9 @@ jobs:
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
     outputs:
       RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
-      CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
-      NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
-  release:
-    name: Create a GitHub Release
+      NEW_BUILD: ${{ steps.new_version.outputs.VERSION }}
+  pre-release:
+    name: Create a GitHub Pre-Release
     needs: [bump_version]
     runs-on: ubuntu-latest
     steps:
@@ -95,11 +94,11 @@ jobs:
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: true
-        automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
-        title: v${{needs.bump_version.outputs.NEW_RELEASE}}
-  release_hash:
+        automatic_release_tag: v${{needs.bump_version.outputs.NEW_BUILD}}
+        title: v${{needs.bump_version.outputs.NEW_BUILD}}
+  pre-release_hash:
     name: Update The Version Hash
-    needs: [bump_version, release]
+    needs: [bump_version, pre-release]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -135,16 +134,16 @@ jobs:
     - name: Git Auto Commit
       uses: stefanzweifel/git-auto-commit-action@v4.16.0
       with:
-        commit_message: '[skip ci] Update Release Hash for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_message: '[skip ci] Update Pre-Release Hash for v${{needs.bump_version.outputs.NEW_BUILD}}'
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
     outputs:
-      RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
+      PRE_RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
   package:
     name: Build Binaries
-    needs: [bump_version, release_hash]
+    needs: [bump_version, pre-release_hash]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -181,7 +180,7 @@ jobs:
         sudo apt-get install libsdl2-dev
     - name: Set archive name
       run: |
-        ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
+        ARCHIVE_NAME=${{ env.project-name }}-${{ needs.pre-release_hash.outputs.PRE_RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
         echo "Archive name set to: $ARCHIVE_NAME"
         echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
       id: archieve
@@ -218,17 +217,17 @@ jobs:
         path: ${{ steps.archieve.outputs.NAME }}.*
         retention-days: 7
         if-no-files-found: error
-    - name: Upload release
+    - name: Upload pre-release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.PAT }}
         file: ${{ steps.archieve.outputs.NAME }}.*
         file_glob: true
-        tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        tag: v${{needs.bump_version.outputs.NEW_BUILD}}
         overwrite: true
   docker_image:
     name: Build Docker Image
-    needs: [bump_version, release_hash]
+    needs: [bump_version, pre-release_hash]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -257,8 +256,8 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
   change_logs:
-    name: Generate Change Logs and Release Notes
-    needs: [bump_version, release_hash, docker_image, package]
+    name: Generate Change Logs and Pre-Release Notes
+    needs: [bump_version, pre-release_hash, docker_image, package]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -273,7 +272,7 @@ jobs:
       with:
         node-version: latest
     - run: npm install github-release-notes -g
-    - name: Release Notes and Change logs
+    - name: Pre-Release Notes and Change logs
       run: |
         gren release
         gren changelog
@@ -289,7 +288,7 @@ jobs:
     - name: Git Auto Commit
       uses: stefanzweifel/git-auto-commit-action@v4.16.0
       with:
-        commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_message: '[skip ci] Update CHANGELOG.md and Pre-Release Notes for v${{needs.bump_version.outputs.NEW_BUILD}}'
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
