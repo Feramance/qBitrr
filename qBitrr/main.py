@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import atexit
 import logging
-import shutil
+import os
 import sys
 import time
 from multiprocessing import freeze_support
@@ -195,6 +195,7 @@ atexit.register(cleanup)
 
 
 if __name__ == "__main__":
-    shutil.rmtree(APPDATA_FOLDER)
+    for file in os.listdir(APPDATA_FOLDER):
+        os.remove(os.path.join(APPDATA_FOLDER, file))
     freeze_support()
     run()
