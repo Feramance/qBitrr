@@ -18,6 +18,3 @@ if (
         HOME_PATH.mkdir(parents=True, exist_ok=True)
 else:
     HOME_PATH = p
-
-APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
-APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)

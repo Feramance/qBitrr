@@ -10,7 +10,7 @@ from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH, ON_DOCKER
+from qBitrr.home_path import HOME_PATH
 
 T = TypeVar("T")
 
@@ -92,7 +92,7 @@ def _add_settings_section(config: TOMLDocument):
     settings.add(
         comment(
             "Ensure that you add the ffprobe binary to the folder"
-            f"\"{APPDATA_FOLDER.joinpath('ffprobe.exe')}\""
+            f"\"{HOME_PATH.joinpath('ffprobe.exe')}\""
         )
     )
     settings.add(
@@ -570,16 +570,10 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "API call."
         )
     )
-    if ON_DOCKER:
-        if "sonarr" in category.lower():
-            search_table.add("DatabaseFile", f"{APPDATA_FOLDER}" "/sonarr.db")
-        elif "radarr" in category.lower():
-            search_table.add("DatabaseFile", f"{APPDATA_FOLDER}" "/radarr.db")
-    else:
-        if "sonarr" in category.lower():
-            search_table.add("DatabaseFile", "CHANGE_ME/sonarr.db")
-        elif "radarr" in category.lower():
-            search_table.add("DatabaseFile", "CHANGE_ME/radarr.db")
+    if "sonarr" in category.lower():
+        search_table.add("DatabaseFile", "CHANGE_ME/sonarr.db")
+    elif "radarr" in category.lower():
+        search_table.add("DatabaseFile", "CHANGE_ME/radarr.db")
     search_table.add(nl())
     search_table.add(comment("It will order searches by the year the EPISODE was first aired"))
     search_table.add("SearchByYear", True)

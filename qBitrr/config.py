@@ -170,3 +170,6 @@ if SEARCH_ONLY and QBIT_DISABLED is False:
 # Settings Config Values
 FF_VERSION = HOME_PATH.joinpath("ffprobe_info.json")
 FF_PROBE = HOME_PATH.joinpath("ffprobe")
+
+APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
+APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)

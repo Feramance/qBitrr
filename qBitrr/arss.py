@@ -31,6 +31,7 @@ from qBitrr.arr_tables import (
     SeriesModel,
 )
 from qBitrr.config import (
+    APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     FAILED_CATEGORY,
@@ -48,7 +49,6 @@ from qBitrr.errors import (
     SkipException,
     UnhandledError,
 )
-from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.tables import (
     EpisodeFilesModel,
