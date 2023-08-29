@@ -1364,26 +1364,27 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
-            try:
-                if self.type == "sonarr":
-                    if not self.series_search:
-                        _series = set()
-                        for series in self.model_arr_file.select().where(
-                            (self.model_arr_file.AirDateUtc.is_null(False))
-                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                            & (
-                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                            )
-                            & (
-                                self.model_arr_file.AirDateUtc
-                                >= datetime(month=1, day=1, year=self.search_current_year)
-                            )
-                            & (
-                                self.model_arr_file.AirDateUtc
-                                <= datetime(month=12, day=31, year=self.search_current_year)
-                            )
-                        ):
+            if self.type == "sonarr":
+                if not self.series_search:
+                    _series = set()
+                    series_query = self.model_arr_file.select().where(
+                        (self.model_arr_file.AirDateUtc.is_null(False))
+                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                        & (
+                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        )
+                        & (
+                            self.model_arr_file.AirDateUtc
+                            >= datetime(month=1, day=1, year=self.search_current_year)
+                        )
+                        & (
+                            self.model_arr_file.AirDateUtc
+                            <= datetime(month=12, day=31, year=self.search_current_year)
+                        )
+                    )
+                    if series_query.exists():
+                        for series in series_query:
                             series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
@@ -1391,28 +1392,25 @@ class Arr:
                             self.model_arr_file.SeriesId.in_(_series)
                         ):
                             self.db_update_single_series(db_entry=series)
-                    else:
-                        for series in self.model_arr_series_file.select().order_by(
-                            self.model_arr_series_file.Added.desc()
-                        ):
-                            self.db_update_single_series(db_entry=series, series=True)
-                elif self.type == "radarr":
-                    for movies in (
-                        self.model_arr_file.select(self.model_arr_file)
-                        .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
-                        )
-                        .where(self.model_arr_movies_file.Year == self.search_current_year)
-                        .order_by(self.model_arr_file.Added.desc())
+                else:
+                    for series in self.model_arr_series_file.select().order_by(
+                        self.model_arr_series_file.Added.desc()
                     ):
-                        self.db_update_single_series(db_entry=movies)
-            except BaseException:
-                self.logger.error("Error reading arr db file")
-                raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                        self.db_update_single_series(db_entry=series, series=True)
+            elif self.type == "radarr":
+                for movies in (
+                    self.model_arr_file.select(self.model_arr_file)
+                    .join(
+                        self.model_arr_movies_file,
+                        on=(
+                            self.model_arr_file.MovieMetadataId
+                            == self.model_arr_movies_file.Id
+                        ),
+                    )
+                    .where(self.model_arr_movies_file.Year == self.search_current_year)
+                    .order_by(self.model_arr_file.Added.desc())
+                ):
+                    self.db_update_single_series(db_entry=movies)
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
