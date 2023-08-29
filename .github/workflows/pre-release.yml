@@ -1,0 +1,296 @@
+name: Create a Release
+
+on:
+  push:
+    branches:
+    - master
+
+defaults:
+  run:
+    shell: bash
+env:
+  project-name: qbitrr
+  GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
+
+jobs:
+  bump_version:
+    name: Bump release version
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.event.head_commit.message, '[build]') }}
+    env:
+      RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[ build]') && 'build'}}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT }}
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install bump2version setuptools wheel twine
+    - name: Retrieve current version
+      run: |
+        echo "Current version: $(python setup.py --version)"
+        echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
+      id: current_version
+    - name: Bump Patch Version
+      run: |
+        bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }}
+    - name: Retrieve new version
+      run: |
+        echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
+      id: new_version
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v5.3.0
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.16.0
+      with:
+        commit_message: '[skip ci]Automated version bump: v${{ steps.current_version.outputs.VERSION }} >> v${{ steps.new_version.outputs.VERSION }}'
+        tagging_message: v${{ steps.new_version.outputs.VERSION }}
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+    outputs:
+      RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
+      CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
+      NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
+  release:
+    name: Create a GitHub Release
+    needs: [bump_version]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: master
+        token: ${{ secrets.PAT }}
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v5.3.0
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: ${{ secrets.PAT }}
+        prerelease: true
+        automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        title: v${{needs.bump_version.outputs.NEW_RELEASE}}
+  release_hash:
+    name: Update The Version Hash
+    needs: [bump_version, release]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT }}
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools wheel twine
+    - name: Get git hash
+      run: |
+        echo "Current Hash: $(git rev-parse --short HEAD)"
+        echo "HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      id: git_hash
+    - name: Update git hash
+      run: |
+        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.outputs.HASH }}\"/g' ./qBitrr/bundled_data.py
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v5.3.0
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.16.0
+      with:
+        commit_message: '[skip ci] Update Release Hash for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
+    outputs:
+      RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
+  package:
+    name: Build Binaries
+    needs: [bump_version, release_hash]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python:
+        - '3.10'
+        os:
+        - windows-latest
+        - macos-latest
+        - ubuntu-latest
+        arch:
+        - x86
+        - x64
+        exclude:
+        - os: macOS-latest
+          arch: x86
+        - os: ubuntu-latest
+          arch: x86
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: master
+        fetch-depth: 0
+    - name: Set up Python ${{ matrix.python }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python}}
+        architecture: ${{ matrix.arch }}
+    - name: Install APT dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install libsdl2-dev
+    - name: Set archive name
+      run: |
+        ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
+        echo "Archive name set to: $ARCHIVE_NAME"
+        echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+      id: archieve
+    - name: Install Python dependencies
+      run: |
+        python -m pip install -U pip setuptools wheel
+        python -m pip install -r requirements.dev.txt
+    - name: Run PyInstaller
+      env:
+        PYTHONOPTIMIZE: 1       # Enable optimizations as if the -O flag is given.
+        PYTHONHASHSEED: 42       # Try to ensure deterministic results.
+        PYTHONUNBUFFERED: 1
+      run: |
+        pyinstaller build.spec
+        # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
+    - name: List distribution files
+      run: |
+        find dist
+        # Archive the PyInstaller build using the appropriate tool for the platform.
+    - name: Tar files
+      if: runner.os != 'Windows'
+      run: |
+        tar --format=ustar -czvf ${{ steps.archieve.outputs.NAME }}.tar.gz dist/
+    - name: Archive files
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
+        # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: automated-build-${{ steps.archieve.outputs.NAME }}
+        path: ${{ steps.archieve.outputs.NAME }}.*
+        retention-days: 7
+        if-no-files-found: error
+    - name: Upload release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.PAT }}
+        file: ${{ steps.archieve.outputs.NAME }}.*
+        file_glob: true
+        tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        overwrite: true
+  docker_image:
+    name: Build Docker Image
+    needs: [bump_version, release_hash]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: master
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Build and push
+      env:
+        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: feramance/qbitrr:testing
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+  change_logs:
+    name: Generate Change Logs and Release Notes
+    needs: [bump_version, release_hash, docker_image, package]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: master
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.x
+    - uses: actions/setup-node@v3
+      with:
+        node-version: latest
+    - run: npm install github-release-notes -g
+    - name: Release Notes and Change logs
+      run: |
+        gren release
+        gren changelog
+    - name: Import GPG key
+      uses: crazy-max/ghaction-import-gpg@v5.3.0
+      with:
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+        git_user_signingkey: true
+        git_commit_gpgsign: true
+        git_tag_gpgsign: true
+      id: import_gpg
+    - name: Git Auto Commit
+      uses: stefanzweifel/git-auto-commit-action@v4.16.0
+      with:
+        commit_message: '[skip ci] Update CHANGELOG.md and Release Notes for v${{needs.bump_version.outputs.NEW_RELEASE}}'
+        commit_options: -S
+        commit_user_name: ${{ steps.import_gpg.outputs.name }}
+        commit_user_email: ${{ steps.import_gpg.outputs.email }}
+        commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
