@@ -196,6 +196,7 @@ atexit.register(cleanup)
 
 if __name__ == "__main__":
     for file in os.listdir(APPDATA_FOLDER):
-        os.remove(os.path.join(APPDATA_FOLDER, file))
+        if file.find(".db"):
+            os.remove(os.path.join(APPDATA_FOLDER, file))
     freeze_support()
     run()

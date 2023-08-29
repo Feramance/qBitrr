@@ -3253,17 +3253,24 @@ class Arr:
             while True:
                 timer = datetime.now(timezone.utc)
                 try:
+                    self.logger.debug("Refreshing download queue")
                     self.refresh_download_queue()
+                    self.logger.debug("Checking entry searched state")
                     self.db_maybe_reset_entry_searched_state()
+                    self.logger.debug("Getting db update")
                     self.db_update()
+                    self.logger.debug("Runnig request search")
                     self.run_request_search()
+                    self.logger.debug("Grabbing")
                     self.force_grab()
+                    self.logger.debug("Getting entries")
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
                             if timer < (datetime.now(timezone.utc) - loop_timer):
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
+                            self.logger.debug("Maybe searching")
                             while (
                                 self.maybe_do_search(
                                     entry,
