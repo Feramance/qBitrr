@@ -5,6 +5,10 @@
 
 ---
 
+## v3.4.6-8 (29/08/2023)
+
+---
+
 ## v3.4.6-7 (29/08/2023)
 
 ---
@@ -151,8 +155,3 @@
 
 ## v3.1.2 (19/08/2023)
 - [[patch] updated minimum availability to function off of radarr preferences rather than config file](https://github.com/Feramance/Qbitrr/commit/9a97456a4e73adb5b88b910ea289cc270538528d) - @Feramance
-
----
-
-## v3.1.1 (17/08/2023)
-- [[patch] fixed date issue with minimum availabilty conditions](https://github.com/Feramance/Qbitrr/commit/01cf104c12d553bca1d70f73a559d1f296f189dc) - @Feramance
