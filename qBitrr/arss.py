@@ -1036,6 +1036,7 @@ class Arr:
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
         elif self.type == "radarr":
+            self.logger.debug("Getting radarr files")
             for i1, i2, i3 in self.db_get_files_movies():
                 yield i1, i2, i3, False
 
@@ -1176,6 +1177,9 @@ class Arr:
                 else:
                     condition &= self.model_file.Searched == False
                     condition &= self.model_file.MovieFileId == 0
+            entries = self.model_file.select().count()
+            conditioned = self.model_file.select().where(condition).count()
+            self.logger.debug("Found %s entries, %s conditioned", entries, conditioned)
             for entry in (
                 self.model_file.select()
                 .where(condition)
