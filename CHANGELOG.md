@@ -5,6 +5,10 @@
 
 ---
 
+## v3.4.4-1 (29/08/2023)
+
+---
+
 ## v3.4.3 (29/08/2023)
 - [[patch] Hotix for appdata folder](https://github.com/Feramance/qBitrr/commit/3d6c099ebc8d1da38e7e17f90c8f3f5bd7f60bda) - @Feramance
 
