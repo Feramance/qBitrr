@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.4.4 (29/08/2023)
+- [[patch] Hotfix for another instance of the same previouse issue](https://github.com/Feramance/qBitrr/commit/16410965d56ae2f4926d357b4b9f22868f810531) - @Feramance
+
+---
+
 ## v3.4.3 (29/08/2023)
 - [[patch] Hotix for appdata folder](https://github.com/Feramance/qBitrr/commit/3d6c099ebc8d1da38e7e17f90c8f3f5bd7f60bda) - @Feramance
 
