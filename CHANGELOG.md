@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.4.1 (29/08/2023)
+- [[patch] Updated qBitrr naming throughout repository](https://github.com/Feramance/qBitrr/commit/8a84e739e4f342407ca20d15463acd608d98c192) - @Feramance
+- [Revert changelog](https://github.com/Feramance/qBitrr/commit/2ee055d411d1eea1b6a2b5eb9e7e9b0b39ffaf76) - @Feramance
+- [Update release workflow to also update testing tag on dockerhub](https://github.com/Feramance/qBitrr/commit/22140741bfc92b1840870a9c48c6cccf790bc183) - @Feramance
+- [[patch] Updated qbittorrent exception handling](https://github.com/Feramance/qBitrr/commit/cc078e8a10419592fa69c555dbef162ca80f3044) - @Feramance
+
+---
+
 ## v3.4.0 (29/08/2023)
 - [[build] Testing alternate hadling to database error](https://github.com/Feramance/qBitrr/commit/a1cb52abc9358d7388823b7432745060b198fd89) - @Feramance
 - [Pre-Release workflow update](https://github.com/Feramance/qBitrr/commit/eb039dd781794fd2d0b3d7bd2f8e0fd9e36d76b9) - @Feramance
@@ -174,8 +182,8 @@
 - [De Morgan's laws](https://github.com/Feramance/Qbitrr/commit/e7cef49b912b611a934c679340ba7e4f2db00502) - @Drapersniper
 - [Bump ujson from 5.2.0 to 5.4.0](https://github.com/Feramance/Qbitrr/commit/39cdf4c966bb349d1d3e896ab27db962fa5609c2) - @dependabot[bot]
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/9c66b02ce131414aa51ac842ea43f717c41d4a24) - @Drapersniper
-- [[patch] allow qBitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Feramance/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
-- [Closes #58 by allowing qBitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Feramance/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
+- [[patch] allow qbitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Feramance/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
+- [Closes #58 by allowing qbitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Feramance/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
 - [Bump ujson from 5.1.0 to 5.2.0](https://github.com/Feramance/Qbitrr/commit/e3483d7f9de4f23619e0387ae64c986c4290cb1b) - @dependabot[bot]
 - [Bump crazy-max/ghaction-import-gpg from 4 to 5](https://github.com/Feramance/Qbitrr/commit/9b01efbdee7b3ebe02bc36dde5ea6bd7db79380d) - @dependabot[bot]
 - [Bump actions/setup-python from 3 to 4](https://github.com/Feramance/Qbitrr/commit/cd24e366dee8a8e065883876577def8d74db76be) - @dependabot[bot]
