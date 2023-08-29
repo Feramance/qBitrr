@@ -5,6 +5,10 @@
 
 ---
 
+## v3.4.6-1 (29/08/2023)
+
+---
+
 ## v3.4.5 (29/08/2023)
 - [[patch] Fixed unable to open database error](https://github.com/Feramance/qBitrr/commit/f3df31784a1c2dd5861be84f35cab54f28addb7c) - @Feramance
 
