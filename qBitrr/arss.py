@@ -1032,7 +1032,10 @@ class Arr:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
                 yield i1, i2, i3, i3 is not True
-        else:
+        elif self.type == "sonarr" and not self.series_search:
+            for i1, i2, i3 in self.db_get_files_episodes():
+                yield i1, i2, i3, False
+        elif self.type == "radarr":
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
 
@@ -1069,7 +1072,7 @@ class Arr:
 
     def db_get_files_series(
         self,
-    ) -> Iterable[tuple[MoviesFilesModel | SeriesFilesModel | EpisodeFilesModel, bool, bool]]:
+    ) -> Iterable[tuple[SeriesFilesModel, bool, bool]]:
         if not self.search_missing:
             yield None, False, False
         elif not self.series_search:
@@ -1101,22 +1104,10 @@ class Arr:
                 .execute()
             ):
                 yield entry_, False, False
-        elif self.type == "radarr":
-            condition = self.model_file.Year == self.search_current_year
-            if not self.do_upgrade_search:
-                condition &= self.model_file.Searched == False
-                condition &= self.model_file.MovieFileId == 0
-            for entry in (
-                self.model_file.select()
-                .where(condition)
-                .order_by(self.model_file.Title.asc())
-                .execute()
-            ):
-                yield entry, False, False
 
     def db_get_files_episodes(
         self,
-    ) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, bool, bool]]:
+    ) -> Iterable[tuple[EpisodeFilesModel, bool, bool]]:
         if not self.search_missing:
             yield None, False, False
         elif self.type == "sonarr":
@@ -1171,7 +1162,13 @@ class Arr:
                 for i1, i2, i3 in self._search_todays(today_condition):
                     if i1 is not None:
                         yield i1, i2, i3
-        elif self.type == "radarr":
+
+    def db_get_files_movies(
+        self,
+    ) -> Iterable[tuple[MoviesFilesModel, bool, bool]]:
+        if not self.search_missing:
+            yield None, False, False
+        if self.type == "radarr":
             condition = self.model_file.Year == self.search_current_year
             if not self.do_upgrade_search:
                 if self.quality_unmet_search:
@@ -1962,6 +1959,7 @@ class Arr:
 
                 return True
         elif self.type == "radarr":
+            file_model: MoviesFilesModel
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
