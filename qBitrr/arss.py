@@ -97,11 +97,11 @@ class Arr:
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
-            except:
+            except BaseException:
                 self.logger.warning(
                     "%s completed folder is a soft requirement. The specified folder does not exist %s and cannot be created. This will disable all file monitoring.",
                     self._name,
-                    self.completed_folder
+                    self.completed_folder,
                 )
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -471,7 +471,7 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.search_setup_completed = False
-        self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5= None
+        self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5 = None
         self.model_arr_series_file: SeriesModel = None
         self.model_arr_movies_file: MoviesMetadataModel = None
 
@@ -1402,10 +1402,7 @@ class Arr:
                     self.model_arr_file.select(self.model_arr_file)
                     .join(
                         self.model_arr_movies_file,
-                        on=(
-                            self.model_arr_file.MovieMetadataId
-                            == self.model_arr_movies_file.Id
-                        ),
+                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
                     )
                     .where(self.model_arr_movies_file.Year == self.search_current_year)
                     .order_by(self.model_arr_file.Added.desc())
@@ -3561,11 +3558,11 @@ class PlaceHolderArr(Arr):
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected Missing Requirements from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
+            except qbittorrentapi.exceptions.APIConnectionError as e:
+                self.logger.warning("Max retries exceeded")
+                raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
-            except qbittorrentapi.exceptions.APIConnectionError as e:
-                self.logger.warning(e)
-                raise DelayLoopException(length=300, type="qbit")
             except KeyboardInterrupt:
                 self.logger.hnotice("Detected Ctrl+C - Terminating process")
                 sys.exit(0)
