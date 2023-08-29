@@ -17,6 +17,10 @@
 
 ---
 
+## v3.4.0-2 (29/08/2023)
+
+---
+
 ## v3.3.7 (27/08/2023)
 - [[patch] Changed OS path to be same directory as the executable and set auto generate file structure and config file](https://github.com/Feramance/qBitrr/commit/12cbbf2a86ef40007504e2a39bc0d83d076b33a4) - @Feramance
 
