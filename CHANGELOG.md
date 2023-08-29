@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.4.0-1 (29/08/2023)
+- [[build] fix pre-release workflow](https://github.com/Feramance/qBitrr/commit/6f3d1560b76e7c646c5dcf0f0ddcab27a97cbc1f) - @Feramance
+
+---
+
 ## v3.4.0 (29/08/2023)
 - [[build] Testing alternate hadling to database error](https://github.com/Feramance/qBitrr/commit/a1cb52abc9358d7388823b7432745060b198fd89) - @Feramance
 - [Pre-Release workflow update](https://github.com/Feramance/qBitrr/commit/eb039dd781794fd2d0b3d7bd2f8e0fd9e36d76b9) - @Feramance
