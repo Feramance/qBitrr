@@ -426,9 +426,9 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
     tracker_table_list = []
     tracker_list = []
     if "anime" in category.lower():
-        tracker_list.append(("Nyaa", "http://nyaa.tracker.wf:7777/announce", ["qbitrr-anime"], 10))
+        tracker_list.append(("Nyaa", "http://nyaa.tracker.wf:7777/announce", ["qBitrr-anime"], 10))
     elif "radarr" in category.lower():
-        t = ["qbitrr-Rarbg", "Movies and TV"]
+        t = ["qBitrr-Rarbg", "Movies and TV"]
         t2 = []
         if "4k" in category.lower():
             t.append("4K")

@@ -87,14 +87,14 @@ services:
   qbitrr:
     image: feramance/qbitrr
     user: 1000:1000 # Required to ensure teh container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
-    tty: true # Ensure the output of docker-compose logs qbitrr are properly colored.
+    tty: true # Ensure the output of docker-compose logs qBitrr are properly colored.
     restart: unless-stopped
     # networks: This container MUST share a network with your Sonarr/Radarr instances
     environment:
       - TZ=Europe/London
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /path/to/appdata/qbitrr:/config  # Config folder for qbitrr
+      - /path/to/appdata/qbitrr:/config  # Config folder for qBitrr
       - /path/to/sonarr/db:/sonarr.db:ro # This is only needed if you want episode search handling :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
       - /path/to/radarr/db:/radarr.db:ro # This is only needed if you want movie search handling, :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
       - /path/to/completed/downloads/folder:/completed_downloads:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.

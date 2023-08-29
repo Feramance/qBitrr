@@ -174,8 +174,8 @@
 - [De Morgan's laws](https://github.com/Feramance/Qbitrr/commit/e7cef49b912b611a934c679340ba7e4f2db00502) - @Drapersniper
 - [Bump ujson from 5.2.0 to 5.4.0](https://github.com/Feramance/Qbitrr/commit/39cdf4c966bb349d1d3e896ab27db962fa5609c2) - @dependabot[bot]
 - [Update README.md](https://github.com/Feramance/Qbitrr/commit/9c66b02ce131414aa51ac842ea43f717c41d4a24) - @Drapersniper
-- [[patch] allow qbitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Feramance/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
-- [Closes #58 by allowing qbitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Feramance/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
+- [[patch] allow qBitrr to run agaisnt qBitTorrent 4.4+](https://github.com/Feramance/Qbitrr/commit/542ba3b5557aa8a37759f7ea2d89e96eb447da92) - @Drapersniper
+- [Closes #58 by allowing qBitrr to run against qBitTorrent 4.4+ - <4.5, Historically this has broken several things as the API for qbittorrent was returning bad values.](https://github.com/Feramance/Qbitrr/commit/7e0178eabfe7690fb06cf9fe9c12f5a8955c4561) - @Drapersniper
 - [Bump ujson from 5.1.0 to 5.2.0](https://github.com/Feramance/Qbitrr/commit/e3483d7f9de4f23619e0387ae64c986c4290cb1b) - @dependabot[bot]
 - [Bump crazy-max/ghaction-import-gpg from 4 to 5](https://github.com/Feramance/Qbitrr/commit/9b01efbdee7b3ebe02bc36dde5ea6bd7db79380d) - @dependabot[bot]
 - [Bump actions/setup-python from 3 to 4](https://github.com/Feramance/Qbitrr/commit/cd24e366dee8a8e065883876577def8d74db76be) - @dependabot[bot]

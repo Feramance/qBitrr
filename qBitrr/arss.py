@@ -2703,10 +2703,10 @@ class Arr:
             return_value = False  # Seeding time met - Can be cleaned up.
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
-        if return_value is True and "qbitrr-allowed_seeding" not in torrent.tags:
-            torrent.add_tags(tags=["qbitrr-allowed_seeding"])
-        elif return_value is False and "qbitrr-allowed_seeding" in torrent.tags:
-            torrent.remove_tags(tags=["qbitrr-allowed_seeding"])
+        if return_value is True and "qBitrr-allowed_seeding" not in torrent.tags:
+            torrent.add_tags(tags=["qBitrr-allowed_seeding"])
+        elif return_value is False and "qBitrr-allowed_seeding" in torrent.tags:
+            torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return return_value, data_settings.get(
             "max_eta", self.maximum_eta
         )  # Seeding is not complete needs more time
