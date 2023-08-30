@@ -8,6 +8,18 @@
 
 ---
 
+## v3.6.1 (30/08/2023)
+## Commits
+- 3452710: [release] Workflow fix (Feramance)
+- 3e8378a: [skip ci]Automated version bump: v >> vv3.6.1-beta-0 (Shaun Agius)
+- 7024787: [skip ci] Update Pre-Release Hash for vv3.6.1-beta-0 (Shaun Agius)
+- dad5d16: [release] Update workflow substring (Feramance)
+- d32e52f: [skip ci]Automated version bump: v >> vv3.6.1 (Shaun Agius)
+- dd464e8: [skip ci] Update Pre-Release Hash for vv3.6.1 (Shaun Agius)
+- 5464b0e: [skip ci] Update CHANGELOG.md and Pre-Release Notes for vv3.6.1 (Shaun Agius)
+- 9b677e2: [release] Fixed versioning (Feramance)
+---
+
 ## v3.6.0 (30/08/2023)
 
 ---
