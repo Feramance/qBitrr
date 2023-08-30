@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0-beta-2 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-1 (30/08/2023)
 
 ---
@@ -135,7 +139,3 @@
 - [Update pre-commit version and initial changes for Radarr v5 support](https://github.com/Feramance/qBitrr/commit/50bd62072781acc47c42a3ff25eb457c5217a0d9) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/9e20279e762336dd17beedca40ee64db49a1e067) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/76833aad98b73c1085c831d2f5e05246720762f9) - @Feramance
-
----
-
-## v3.4.0-3 (29/08/2023)
