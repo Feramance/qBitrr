@@ -84,7 +84,7 @@ jobs:
         length_from_start: 6
     outputs:
       RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
-      CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
+      CURRENT_RELEASE: ${{ github.job.get_current_version.current_version.outputs.VERSION }}
       NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
       DOCKER_RELEASE: ${{ steps.clean_version.outputs.substring }}
   release:
