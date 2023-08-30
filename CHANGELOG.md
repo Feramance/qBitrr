@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.5.1-beta-1 (30/08/2023)
+
+---
+
 ## v3.5.1-beta-0 (30/08/2023)
 
 ---
@@ -144,9 +148,3 @@
 - [Update .gitignore](https://github.com/Feramance/qBitrr/commit/997047ae12029361877e668bd2ce1a4a4cf22305) - @Feramance
 - [Update .gitignore](https://github.com/Feramance/qBitrr/commit/6b379c85cdc55703acb341abbb152138bcdd8c2b) - @Feramance
 - [Merge pull request #10 from Feramance/dependabot/github_actions/docker/build-push-action-4](https://github.com/Feramance/qBitrr/commit/75e8850fa88dd7e4f57edfdb3f46a592ba4e18d2) - @Feramance
-
----
-
-## v3.2.6 (25/08/2023)
-- [[patch] Added logic to check download queue before re-searching or posting any search at all](https://github.com/Feramance/qBitrr/commit/caa22a1004e1464f83a04a3690997fe43b7d8fd1) - @Feramance
-- [Spellchecking](https://github.com/Feramance/qBitrr/commit/3dfc3f6d1ac3cdc7bb1ebdf6699084ba4d9ee014) - @Feramance
