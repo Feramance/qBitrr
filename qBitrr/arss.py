@@ -3315,6 +3315,7 @@ class Arr:
                         self.model_arr_movies_file.select(
                             self.model_arr_movies_file.Year.distinct()
                         )
+                        .where(self.model_arr_movies_file.Year <= datetime.now().year)
                         .order_by(self.model_arr_movies_file.Year.asc())
                         .execute()
                     )
@@ -3323,6 +3324,7 @@ class Arr:
                         self.model_arr_movies_file.select(
                             self.model_arr_movies_file.Year.distinct()
                         )
+                        .where(self.model_arr_movies_file.Year <= datetime.now().year)
                         .order_by(self.model_arr_movies_file.Year.desc())
                         .execute()
                     )
@@ -3335,6 +3337,7 @@ class Arr:
                         self.model_arr_file.select(
                             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
                         )
+                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now().year)
                         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
                         .execute()
                     )
@@ -3343,6 +3346,7 @@ class Arr:
                         self.model_arr_file.select(
                             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
                         )
+                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now().year)
                         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
                         .execute()
                     )
