@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.6.0-alpha-0 (30/08/2023)
+
+---
+
+## v3.5.1-beta-3 (30/08/2023)
+
+---
+
 ## v3.5.1-beta-2 (30/08/2023)
 
 ---
@@ -132,14 +140,3 @@
 
 ## v3.4.0-1 (29/08/2023)
 - [[build] fix pre-release workflow](https://github.com/Feramance/qBitrr/commit/6f3d1560b76e7c646c5dcf0f0ddcab27a97cbc1f) - @Feramance
-
----
-
-## v3.3.7 (27/08/2023)
-- [[patch] Changed OS path to be same directory as the executable and set auto generate file structure and config file](https://github.com/Feramance/qBitrr/commit/12cbbf2a86ef40007504e2a39bc0d83d076b33a4) - @Feramance
-
----
-
-## v3.3.5 (27/08/2023)
-- [[patch] Fixed error handling and pathing config](https://github.com/Feramance/qBitrr/commit/a64e55c262ad00d05755c3879fa34df0d7522223) - @Feramance
-- [Delete .vscode directory](https://github.com/Feramance/qBitrr/commit/4105d7b12ec5df9c309de9cbd5b59ece7a43a0ff) - @Feramance
