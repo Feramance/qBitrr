@@ -1471,7 +1471,7 @@ class Arr:
         db_entry: MoviesModel | MoviesModelv5 = None,
         metadata: MoviesMetadataModel = None,
     ) -> bool:
-        if metadata.Year < datetime.now().year:
+        if metadata.Year < datetime.now().year and metadata.Year != 0:
             self.logger.debug(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
@@ -3431,7 +3431,11 @@ class Arr:
                         self.model_arr_movies_file.select(
                             self.model_arr_movies_file.Year.distinct()
                         )
-                        .where(self.model_arr_movies_file.Year <= datetime.now().year)
+                        .where(
+                            self.model_arr_movies_file.Year
+                            <= datetime.now().year & self.model_arr_movies_file.Year
+                            != 0
+                        )
                         .order_by(self.model_arr_movies_file.Year.asc())
                         .execute()
                     )
@@ -3440,7 +3444,11 @@ class Arr:
                         self.model_arr_movies_file.select(
                             self.model_arr_movies_file.Year.distinct()
                         )
-                        .where(self.model_arr_movies_file.Year <= datetime.now().year)
+                        .where(
+                            self.model_arr_movies_file.Year
+                            <= datetime.now().year & self.model_arr_movies_file.Year
+                            != 0
+                        )
                         .order_by(self.model_arr_movies_file.Year.desc())
                         .execute()
                     )
