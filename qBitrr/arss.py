@@ -1477,7 +1477,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 3
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
@@ -1492,7 +1492,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 2
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
@@ -1506,7 +1506,7 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 1
         ):
-            self.logger.trace(
+            self.logger.debug(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
@@ -1526,7 +1526,7 @@ class Arr:
                 or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
             ):
-                self.logger.trace(
+                self.logger.debug(
                     "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
@@ -1536,7 +1536,7 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.trace(
+                self.logger.debug(
                     "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
@@ -1547,7 +1547,7 @@ class Arr:
                 return False
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
-                self.logger.trace(
+                self.logger.debug(
                     "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
@@ -1557,7 +1557,7 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.trace(
+                self.logger.debug(
                     "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
@@ -1567,7 +1567,7 @@ class Arr:
                 )
                 return False
         else:
-            self.logger.trace(
+            self.logger.debug(
                 "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
@@ -2134,7 +2134,7 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except qbittorrentapi.APIError as e:
+            except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
@@ -3320,7 +3320,6 @@ class Arr:
                 else:
                     years.reverse()
                 years_count = len(years)
-                self.logger.trace("Years count: %s", years_count)
             elif self.type == "sonarr":
                 years_query = self.model_arr_file.select(
                     fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
@@ -3332,8 +3331,7 @@ class Arr:
                 else:
                     years.reverse()
                 years_count = len(years)
-                self.logger.trace("Years count: %s", years_count)
-        self.logger.debug("Years count: %s, Years: %s", years_count, years)
+        self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
     def run_search_loop(self) -> NoReturn:
@@ -3391,7 +3389,7 @@ class Arr:
                     except ValueError:
                         self.logger.debug("Loop completed, restarting it.")
                         self.loop_completed = True
-                    except qbittorrentapi.APIConnectionError as e:
+                    except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
                     except Exception as e:
@@ -3450,10 +3448,10 @@ class Arr:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
                         raise DelayLoopException(length=300, type="arr")
-                    except qbittorrentapi.APIConnectionError as e:
+                    except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
-                    except qbittorrentapi.APIError as e:
+                    except qbittorrentapi.exceptions.APIError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
                     except DelayLoopException:
@@ -3638,11 +3636,11 @@ class PlaceHolderArr(Arr):
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
-            except qbittorrentapi.APIError as e:
+            except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.APIConnectionError as e:
+            except qbittorrentapi.exceptions.APIConnectionError as e:
                 self.logger.warning("Max retries exceeded")
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
