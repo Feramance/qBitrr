@@ -1406,7 +1406,7 @@ class Arr:
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
                 if self.search_by_year:
-                    movies_query = (
+                    for movies in (
                         self.model_arr_file.select(self.model_arr_file)
                         .join(
                             self.model_arr_movies_file,
@@ -1419,9 +1419,11 @@ class Arr:
                         .where(self.model_arr_movies_file.Year == self.search_current_year)
                         .order_by(self.model_arr_file.Added.desc())
                         .execute()
-                    )
+                    ):
+                        self.db_update_single_series(db_entry=movies)
+
                 else:
-                    movies_query = (
+                    for movies in (
                         self.model_arr_file.select(self.model_arr_file)
                         .join(
                             self.model_arr_movies_file,
@@ -1433,9 +1435,7 @@ class Arr:
                         .switch(self.model_arr_file)
                         .order_by(self.model_arr_file.Added.desc())
                         .execute()
-                    )
-                if movies_query.exists():
-                    for movies in movies_query:
+                    ):
                         self.db_update_single_series(db_entry=movies)
         self.logger.trace(f"Finished updating database")
 
@@ -3295,7 +3295,7 @@ class Arr:
                 years_count = len(years)
                 self.logger.trace("Years count: %s", years_count)
             elif self.type == "sonarr":
-                years_query = self.model_arr_movies_file.select(
+                years_query = self.model_arr_file.select(
                     fn.DISTINCT(fn.Substr(self.model_arr_file.AirDate, 1, 4))
                 ).execute()
                 years = list(years_query)
