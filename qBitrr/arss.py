@@ -198,7 +198,7 @@ class Arr:
         )
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
-
+        self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
         else:
@@ -3281,22 +3281,22 @@ class Arr:
             self.register_search_mode()
             if not self.search_missing:
                 return None
-            if self.type == "radarr":
-                count_start = self.model_arr_movies_file.select(
-                    fn.MAX(self.model_arr_movies_file.Year)
-                ).scalar()
-                stopping_year = self.model_arr_movies_file.select(
-                    fn.MIN(self.model_arr_movies_file.Year)
-                ).scalar()
-            elif self.type == "sonarr":
-                count_start = self.model_arr_file.select(
-                    fn.MAX(self.model_arr_file.AirDate)
-                ).scalar()[:4]
-                stopping_year = self.model_arr_file.select(
-                    fn.MIN(self.model_arr_file.AirDate)
-                ).scalar()[:4]
             loop_timer = timedelta(minutes=15)
             while True:
+                if self.type == "radarr":
+                    count_start = self.model_arr_movies_file.select(
+                        fn.MAX(self.model_arr_movies_file.Year)
+                    ).scalar()
+                    stopping_year = self.model_arr_movies_file.select(
+                        fn.MIN(self.model_arr_movies_file.Year)
+                    ).scalar()
+                elif self.type == "sonarr":
+                    count_start = self.model_arr_file.select(
+                        fn.MAX(self.model_arr_file.AirDate)
+                    ).scalar()[:4]
+                    stopping_year = self.model_arr_file.select(
+                        fn.MIN(self.model_arr_file.AirDate)
+                    ).scalar()[:4]
                 timer = datetime.now(timezone.utc)
                 try:
                     self.refresh_download_queue()
