@@ -3279,8 +3279,8 @@ class Arr:
         with self.db.atomic():
             if self.type == "radarr":
                 years_query = self.model_arr_movies_file.select(
-                    self.model_arr_movies_file.Year
-                ).distict()
+                    fn.DISTINCT(self.model_arr_movies_file.Year)
+                )
                 years = list(years_query)
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
@@ -3291,8 +3291,8 @@ class Arr:
                 self.logger.trace("Years count: %s", years_count)
             elif self.type == "sonarr":
                 years_query = self.model_arr_movies_file.select(
-                    fn.Substr(self.model_arr_file.AirDate, 1, 4)
-                ).distict()
+                    fn.DISTINCT(fn.Substr(self.model_arr_file.AirDate, 1, 4))
+                )
                 years = list(years_query)
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
