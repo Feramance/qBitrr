@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-9 (30/08/2023)
 
 ---
@@ -116,7 +120,3 @@
 
 ## v3.4.7 (30/08/2023)
 - [[patch] Updated support for qbittorrent 4.5.5](https://github.com/Feramance/qBitrr/commit/bf57e65e035154db87e9397ffbf94d8e7eb9c081) - @Feramance
-
----
-
-## v3.4.6-9 (30/08/2023)
