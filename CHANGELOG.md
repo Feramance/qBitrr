@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0-beta-4 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-3 (30/08/2023)
 
 ---
@@ -123,11 +127,3 @@
 - [[patch] Updated ffprobe path so as not to force download every time the qBitrr restarts](https://github.com/Feramance/qBitrr/commit/8f9e5b8c356f265e897d989e77ed8b2367a76714) - @Feramance
 - [Update README](https://github.com/Feramance/qBitrr/commit/383ce81c6d7fd2e448d1d0b3f710f4ae00ea5215) - @Feramance
 - [Update README](https://github.com/Feramance/qBitrr/commit/6b8baf9ad1b0322be923c65ec50a1e8a6790fc8e) - @Feramance
-
----
-
-## v3.4.1 (29/08/2023)
-- [[patch] Updated qBitrr naming throughout repository](https://github.com/Feramance/qBitrr/commit/8a84e739e4f342407ca20d15463acd608d98c192) - @Feramance
-- [Revert changelog](https://github.com/Feramance/qBitrr/commit/2ee055d411d1eea1b6a2b5eb9e7e9b0b39ffaf76) - @Feramance
-- [Update release workflow to also update testing tag on dockerhub](https://github.com/Feramance/qBitrr/commit/22140741bfc92b1840870a9c48c6cccf790bc183) - @Feramance
-- [[patch] Updated qbittorrent exception handling](https://github.com/Feramance/qBitrr/commit/cc078e8a10419592fa69c555dbef162ca80f3044) - @Feramance
