@@ -32,6 +32,10 @@
 
 ---
 
+## v3.6.0-beta-18 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-17 (30/08/2023)
 
 ---
@@ -116,8 +120,3 @@
 ---
 
 ## v3.4.6-9 (30/08/2023)
-
----
-
-## v3.4.6 (29/08/2023)
-- [[patch] FIX undo ffprobe location changes](https://github.com/Feramance/qBitrr/commit/6f7889e4f434d983e4720b6206f953773e0f4332) - @Feramance
