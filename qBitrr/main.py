@@ -31,7 +31,7 @@ run_logs(logger)
 
 class qBitManager:
     min_supported_version = VersionClass("4.3.9")
-    soft_not_supported_supported_version = VersionClass("4.5.x")
+    soft_not_supported_supported_version = VersionClass("4.5")
     max_supported_version = VersionClass("4.5.5")
     _head_less_mode = False
 
