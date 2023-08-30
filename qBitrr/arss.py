@@ -1036,6 +1036,7 @@ class Arr:
             self.db_reset__movie_searched_state()
 
     def db_reset__series_searched_state(self):
+        self.model_file: EpisodeFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
@@ -1044,6 +1045,7 @@ class Arr:
             ).execute()
 
     def db_reset__episode_searched_state(self):
+        self.model_file: SeriesFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
@@ -1052,6 +1054,7 @@ class Arr:
             ).execute()
 
     def db_reset__movie_searched_state(self):
+        self.model_file: MoviesFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
