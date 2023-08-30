@@ -3287,7 +3287,7 @@ class Arr:
                     years.sort()
                 else:
                     years.reverse()
-                years_count = years.count()
+                years_count = len(years)
                 self.logger.trace("Years count: %s", years_count)
             elif self.type == "sonarr":
                 years_query = self.model_arr_movies_file.select(
@@ -3299,7 +3299,7 @@ class Arr:
                     years.sort()
                 else:
                     years.reverse()
-                years_count = years.count()
+                years_count = len(years)
                 self.logger.trace("Years count: %s", years_count)
         return years, years_count
 
