@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.4.6-9 (30/08/2023)
+
+---
+
 ## v3.4.6 (29/08/2023)
 - [[patch] FIX undo ffprobe location changes](https://github.com/Feramance/qBitrr/commit/6f7889e4f434d983e4720b6206f953773e0f4332) - @Feramance
 
@@ -150,8 +154,3 @@
 
 ## v3.2.0 (22/08/2023)
 - [[minor] Fixed the minimum availability to work off of Radarr directly rather than through config](https://github.com/Feramance/Qbitrr/commit/20acfae0abf5fe44eb36da76c171a33e6de0b9a8) - @Feramance
-
----
-
-## v3.1.2 (19/08/2023)
-- [[patch] updated minimum availability to function off of radarr preferences rather than config file](https://github.com/Feramance/Qbitrr/commit/9a97456a4e73adb5b88b910ea289cc270538528d) - @Feramance
