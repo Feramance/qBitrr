@@ -1,18 +1,22 @@
 # Changelog
 
+## v3.6.1 (30/08/2023)
+- [[release] Update release.yml](https://github.com/Feramance/qBitrr/commit/d5bac9c2559e339647a7bd983e9e83dd56ece414) - @Feramance
+- [Update pre-release.yml](https://github.com/Feramance/qBitrr/commit/6a95ad1abdf1823630f8ae32b0631a8c0e36a811) - @Feramance
+- [[release] Workflow test (fingers crossed)](https://github.com/Feramance/qBitrr/commit/f247036888b669733b6ad74abf21a5356c49675a) - @Feramance
+- [Update pre-release.yml](https://github.com/Feramance/qBitrr/commit/99551ed11353bbf6fcfb0d87f535989c7168fd8c) - @Feramance
+- [[release] Fixed versioning](https://github.com/Feramance/qBitrr/commit/9b677e29a20cab5abb777b1ad90754957fca0c50) - @Feramance
+- [[release] Update workflow substring](https://github.com/Feramance/qBitrr/commit/dad5d162bbab93ca1c79d65c37ebda2ec5985d11) - @Feramance
+
+---
+
 ## v3.6.1-beta-0 (30/08/2023)
-## Commits
-- 3452710: [release] Workflow fix (Feramance)
-- 3e8378a: [skip ci]Automated version bump: v >> vv3.6.1-beta-0 (Shaun Agius)
-- 7024787: [skip ci] Update Pre-Release Hash for vv3.6.1-beta-0 (Shaun Agius)
-- dad5d16: [release] Update workflow substring (Feramance)
-- d32e52f: [skip ci]Automated version bump: v >> vv3.6.1 (Shaun Agius)
-- dd464e8: [skip ci] Update Pre-Release Hash for vv3.6.1 (Shaun Agius)
-- 5464b0e: [skip ci] Update CHANGELOG.md and Pre-Release Notes for vv3.6.1 (Shaun Agius)
-- 9b677e2: [release] Fixed versioning (Feramance)
+
 ---
 
 ## v3.6.1-alpha-0 (30/08/2023)
+
+---
 
 ## v3.6.0 (30/08/2023)
 
