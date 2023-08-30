@@ -39,6 +39,7 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
   - Monitor Arr's databases to trigger missing episode searches.
   - Searches Radarr missing movies based on Minimum Availability
   - Customizable searching by series or singular episodes
+  - Optionally searches year by year is ascending or descending order (config option available)
 
 ## Tested with
 

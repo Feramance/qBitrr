@@ -80,8 +80,8 @@ jobs:
     - uses: bhowell2/github-substring-action@1.0.2
       id: clean_version
       with:
-        value: ${{ steps.current_version.outputs.VERSION }}
-        length_from_start: 3
+        value: ${{ github.job.get_current_version.current_version.outputs.VERSION }}
+        length_from_start: 6
     outputs:
       RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
       CURRENT_RELEASE: ${{ steps.current_version.outputs.VERSION }}
