@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0-beta-3 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-2 (30/08/2023)
 
 ---
@@ -127,15 +131,3 @@
 - [Revert changelog](https://github.com/Feramance/qBitrr/commit/2ee055d411d1eea1b6a2b5eb9e7e9b0b39ffaf76) - @Feramance
 - [Update release workflow to also update testing tag on dockerhub](https://github.com/Feramance/qBitrr/commit/22140741bfc92b1840870a9c48c6cccf790bc183) - @Feramance
 - [[patch] Updated qbittorrent exception handling](https://github.com/Feramance/qBitrr/commit/cc078e8a10419592fa69c555dbef162ca80f3044) - @Feramance
-
----
-
-## v3.4.0 (29/08/2023)
-- [[build] Testing alternate hadling to database error](https://github.com/Feramance/qBitrr/commit/a1cb52abc9358d7388823b7432745060b198fd89) - @Feramance
-- [Pre-Release workflow update](https://github.com/Feramance/qBitrr/commit/eb039dd781794fd2d0b3d7bd2f8e0fd9e36d76b9) - @Feramance
-- [Update bump2version conf and added new pre-release workflow](https://github.com/Feramance/qBitrr/commit/956bf62038850fe9772ff1410d4a4e018b230ee2) - @Feramance
-- [Update README to reflect Arr supported versions](https://github.com/Feramance/qBitrr/commit/9bd4c7670f68e8f1fd5bb4bb93e5167ba2fe364c) - @Feramance
-- [[minor] Added support for Radarr v5](https://github.com/Feramance/qBitrr/commit/eed797bd8409dbb213ecef91ff86ee29cbc3769f) - @Feramance
-- [Update pre-commit version and initial changes for Radarr v5 support](https://github.com/Feramance/qBitrr/commit/50bd62072781acc47c42a3ff25eb457c5217a0d9) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/9e20279e762336dd17beedca40ee64db49a1e067) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/76833aad98b73c1085c831d2f5e05246720762f9) - @Feramance
