@@ -3282,31 +3282,30 @@ class Arr:
             if not self.search_missing:
                 return None
             loop_timer = timedelta(minutes=15)
+            years_index = 0
             while True:
-                if self.type == "radarr":
+                if self.type == "radarr" and years_index == 0:
                     years_query = self.model_arr_movies_file.select(
                         self.model_arr_movies_file.Year
                     ).distict()
                     years = list(years_query)
-                    self.logger.debug("Years: %s", years)
-                    count_start = self.model_arr_movies_file.select(
-                        fn.MAX(self.model_arr_movies_file.Year)
-                    ).scalar()
-                    stopping_year = self.model_arr_movies_file.select(
-                        fn.MIN(self.model_arr_movies_file.Year)
-                    ).scalar()
-                elif self.type == "sonarr":
+                    if self.search_in_reverse:
+                        years.sort()
+                    else:
+                        years.reverse()
+                    years_count = years.count()
+                    self.search_current_year = years[years_index]
+                elif self.type == "sonarr" and years_index == 0:
                     years_query = self.model_arr_movies_file.select(
                         fn.Substr(self.model_arr_file.AirDate, 1, 4)
                     ).distict()
                     years = list(years_query)
-                    self.logger.debug("Years: %s", years)
-                    count_start = self.model_arr_file.select(
-                        fn.MAX(self.model_arr_file.AirDate)
-                    ).scalar()[:4]
-                    stopping_year = self.model_arr_file.select(
-                        fn.MIN(self.model_arr_file.AirDate)
-                    ).scalar()[:4]
+                    if self.search_in_reverse:
+                        years.sort()
+                    else:
+                        years.reverse()
+                    years_count = years.count()
+                    self.search_current_year = years[years_index]
                 timer = datetime.now(timezone.utc)
                 try:
                     self.refresh_download_queue()
@@ -3331,15 +3330,12 @@ class Arr:
                             ):
                                 time.sleep(30)
                         if self.search_by_year:
-                            self.search_current_year += self._delta
-                            if self.search_in_reverse:
-                                if self.search_current_year > stopping_year:
-                                    self.search_current_year = copy(count_start)
-                                    self.loop_completed = True
+                            if years.index(self.search_current_year) != years_count - 1:
+                                years_index += 1
+                                self.search_current_year = years[years_index]
                             else:
-                                if self.search_current_year < stopping_year:
-                                    self.search_current_year = copy(count_start)
-                                    self.loop_completed = True
+                                years_index = 0
+                                self.loop_completed = True
                         else:
                             self.loop_completed = True
                     except RestartLoopException:
