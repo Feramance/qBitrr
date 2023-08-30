@@ -1297,21 +1297,37 @@ class Arr:
                         condition &= tmdb_con
                     elif imdb_con:
                         condition &= imdb_con
-                        for db_entry in (
-                            self.model_arr_file.select()
-                            .join(
-                                self.model_arr_movies_file,
-                                on=(
-                                    self.model_arr_file.MovieMetadataId
-                                    == self.model_arr_movies_file.Id
-                                ),
-                                join_type=JOIN.LEFT_OUTER,
-                            )
-                            .switch(self.model_arr_file)
-                            .where(condition)
-                            .order_by(self.model_arr_file.Added.desc())
-                        ):
-                            self.db_update_single_series(db_entry=db_entry, request=True)
+                    entries = (
+                        self.model_arr_file.select()
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                            join_type=JOIN.LEFT_OUTER,
+                        )
+                        .switch(self.model_arr_file)
+                        .where(condition)
+                        .order_by(self.model_arr_file.Added.desc())
+                        .count()
+                    )
+                    self.logger.debug("DB Request Update %s entries", entries)
+                    for db_entry in (
+                        self.model_arr_file.select()
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                            join_type=JOIN.LEFT_OUTER,
+                        )
+                        .switch(self.model_arr_file)
+                        .where(condition)
+                        .order_by(self.model_arr_file.Added.desc())
+                    ):
+                        self.db_update_single_series(db_entry=db_entry, request=True)
             except requests.exceptions.ConnectionError:
                 self.logger.error("Connection Error")
                 raise DelayLoopException(length=300, type=self._name)
@@ -1399,6 +1415,18 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
+                entries = (
+                    self.model_arr_file.select(self.model_arr_file)
+                    .join(
+                        self.model_arr_movies_file,
+                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
+                    )
+                    .switch(self.model_arr_file)
+                    .where(self.model_arr_movies_file.Year == self.search_current_year)
+                    .order_by(self.model_arr_file.Added.desc())
+                    .count()
+                )
+                self.logger.debug("DB Request Update %s entries", entries)
                 for movies in (
                     self.model_arr_file.select(self.model_arr_file)
                     .join(
