@@ -5,6 +5,10 @@
 
 ---
 
+## v3.4.8-1 (30/08/2023)
+
+---
+
 ## v3.4.7 (30/08/2023)
 - [[patch] Updated support for qbittorrent 4.5.5](https://github.com/Feramance/qBitrr/commit/bf57e65e035154db87e9397ffbf94d8e7eb9c081) - @Feramance
 
@@ -148,8 +152,3 @@
 ## v3.2.3 (23/08/2023)
 - [[patch] Fixed reading qbittorrent 4.3.9 version](https://github.com/Feramance/Qbitrr/commit/27027376521cf9e48d8c50996f7354b09d33febb) - @Feramance
 - [Update compose format in README](https://github.com/Feramance/Qbitrr/commit/8beb1b1e827dc216152cda7b07913d482aba80ce) - @Feramance
-
----
-
-## v3.2.2 (23/08/2023)
-- [[patch] Fixed spelling in config, updated config example to match updates and added more log messages](https://github.com/Feramance/Qbitrr/commit/dcca3670c91b0808f48c4c78ec42f2193c363200) - @Feramance
