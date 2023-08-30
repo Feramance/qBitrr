@@ -3310,26 +3310,44 @@ class Arr:
     def get_year_search(self) -> tuple[list[int], int]:
         with self.db.atomic():
             if self.type == "radarr":
-                years_query = self.model_arr_movies_file.select(
-                    self.model_arr_movies_file.Year.distinct()
-                ).execute()
+                if self.search_in_reverse:
+                    years_query = (
+                        self.model_arr_movies_file.select(
+                            self.model_arr_movies_file.Year.distinct()
+                        )
+                        .order_by(self.model_arr_movies_file.Year.asc())
+                        .execute()
+                    )
+                else:
+                    years_query = (
+                        self.model_arr_movies_file.select(
+                            self.model_arr_movies_file.Year.distinct()
+                        )
+                        .order_by(self.model_arr_movies_file.Year.desc())
+                        .execute()
+                    )
                 years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
-                if self.search_in_reverse:
-                    years.sort()
-                else:
-                    years.reverse()
                 years_count = len(years)
             elif self.type == "sonarr":
-                years_query = self.model_arr_file.select(
-                    fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
-                ).execute()
+                if self.search_in_reverse:
+                    years_query = (
+                        self.model_arr_file.select(
+                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                        )
+                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
+                        .execute()
+                    )
+                else:
+                    years_query = (
+                        self.model_arr_file.select(
+                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                        )
+                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
+                        .execute()
+                    )
                 years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
-                if self.search_in_reverse:
-                    years.sort()
-                else:
-                    years.reverse()
                 years_count = len(years)
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
