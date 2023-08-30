@@ -987,6 +987,7 @@ class Arr:
                     & (self.model_arr_command.Name.endswith("Search"))
                 )
                 .count()
+                .execute()
             )
         except BaseException:
             self.logger.trace("No unended commands found")
@@ -1268,6 +1269,7 @@ class Arr:
                         )
                         .switch(self.model_arr_file)
                         .where(condition)
+                        .execute()
                     ):
                         self.db_update_single_series(db_entry=db_entry, request=True)
                 elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
@@ -1303,6 +1305,7 @@ class Arr:
                         .switch(self.model_arr_file)
                         .where(condition)
                         .order_by(self.model_arr_file.Added.desc())
+                        .execute()
                     ):
                         self.db_update_single_series(db_entry=db_entry, request=True)
             except requests.exceptions.ConnectionError:
@@ -1346,7 +1349,7 @@ class Arr:
                         & (
                             self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
                             | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                        )
+                        ).execute()
                     ):
                         self.db_update_single_series(db_entry=series)
                 except BaseException:
@@ -1376,7 +1379,7 @@ class Arr:
                             & (
                                 self.model_arr_file.AirDateUtc
                                 <= datetime(month=12, day=31, year=self.search_current_year)
-                            )
+                            ).execute()
                         )
                     else:
                         series_query = self.model_arr_file.select().where(
@@ -1385,7 +1388,7 @@ class Arr:
                             & (
                                 self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
                                 | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                            )
+                            ).execute()
                         )
                     if series_query.exists():
                         for series in series_query:
@@ -1393,12 +1396,12 @@ class Arr:
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
                         for series in self.model_arr_file.select().where(
-                            self.model_arr_file.SeriesId.in_(_series)
+                            self.model_arr_file.SeriesId.in_(_series).execute()
                         ):
                             self.db_update_single_series(db_entry=series)
                 else:
                     for series in self.model_arr_series_file.select().order_by(
-                        self.model_arr_series_file.Added.desc()
+                        self.model_arr_series_file.Added.desc().execute()
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
@@ -1415,6 +1418,7 @@ class Arr:
                         .switch(self.model_arr_file)
                         .where(self.model_arr_movies_file.Year == self.search_current_year)
                         .order_by(self.model_arr_file.Added.desc())
+                        .execute()
                     )
                 else:
                     movies_query = (
@@ -1428,6 +1432,7 @@ class Arr:
                         )
                         .switch(self.model_arr_file)
                         .order_by(self.model_arr_file.Added.desc())
+                        .execute()
                     )
                 if movies_query.exists():
                     for movies in movies_query:
@@ -3280,7 +3285,7 @@ class Arr:
             if self.type == "radarr":
                 years_query = self.model_arr_movies_file.select(
                     fn.DISTINCT(self.model_arr_movies_file.Year)
-                )
+                ).execute()
                 years = list(years_query)
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
@@ -3292,7 +3297,7 @@ class Arr:
             elif self.type == "sonarr":
                 years_query = self.model_arr_movies_file.select(
                     fn.DISTINCT(fn.Substr(self.model_arr_file.AirDate, 1, 4))
-                )
+                ).execute()
                 years = list(years_query)
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
