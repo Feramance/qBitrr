@@ -1,14 +1,6 @@
 # Changelog
 
 ## v3.6.1-beta-0 (30/08/2023)
-
----
-
-## v3.6.1-alpha-0 (30/08/2023)
-
----
-
-## v3.6.1 (30/08/2023)
 ## Commits
 - 3452710: [release] Workflow fix (Feramance)
 - 3e8378a: [skip ci]Automated version bump: v >> vv3.6.1-beta-0 (Shaun Agius)
@@ -19,6 +11,8 @@
 - 5464b0e: [skip ci] Update CHANGELOG.md and Pre-Release Notes for vv3.6.1 (Shaun Agius)
 - 9b677e2: [release] Fixed versioning (Feramance)
 ---
+
+## v3.6.1-alpha-0 (30/08/2023)
 
 ## v3.6.0 (30/08/2023)
 
