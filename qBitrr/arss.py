@@ -3284,6 +3284,11 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             while True:
                 if self.type == "radarr":
+                    years_query = self.model_arr_movies_file.select(
+                        self.model_arr_movies_file.Year
+                    ).distict()
+                    years = list(years_query)
+                    self.logger.debug("Years: %s", years)
                     count_start = self.model_arr_movies_file.select(
                         fn.MAX(self.model_arr_movies_file.Year)
                     ).scalar()
@@ -3291,6 +3296,11 @@ class Arr:
                         fn.MIN(self.model_arr_movies_file.Year)
                     ).scalar()
                 elif self.type == "sonarr":
+                    years_query = self.model_arr_movies_file.select(
+                        fn.Substr(self.model_arr_file.AirDate, 1, 4)
+                    ).distict()
+                    years = list(years_query)
+                    self.logger.debug("Years: %s", years)
                     count_start = self.model_arr_file.select(
                         fn.MAX(self.model_arr_file.AirDate)
                     ).scalar()[:4]
