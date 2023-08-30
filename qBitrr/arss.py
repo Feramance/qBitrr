@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 import ffmpeg
 import pathos
 import qbittorrentapi
+import qbittorrentapi.exceptions
 import requests
 from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
@@ -1297,22 +1298,6 @@ class Arr:
                         condition &= tmdb_con
                     elif imdb_con:
                         condition &= imdb_con
-                    entries = (
-                        self.model_arr_file.select()
-                        .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
-                            join_type=JOIN.LEFT_OUTER,
-                        )
-                        .switch(self.model_arr_file)
-                        .where(condition)
-                        .order_by(self.model_arr_file.Added.desc())
-                        .count()
-                    )
-                    self.logger.debug("DB Request Update %s entries", entries)
                     for db_entry in (
                         self.model_arr_file.select()
                         .join(
@@ -1415,18 +1400,6 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
-                entries = (
-                    self.model_arr_file.select(self.model_arr_file)
-                    .join(
-                        self.model_arr_movies_file,
-                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
-                    )
-                    .switch(self.model_arr_file)
-                    .where(self.model_arr_movies_file.Year == self.search_current_year)
-                    .order_by(self.model_arr_file.Added.desc())
-                    .count()
-                )
-                self.logger.debug("DB Update %s entries for %s", entries, self.search_current_year)
                 for movies in (
                     self.model_arr_file.select(self.model_arr_file)
                     .join(
@@ -1451,8 +1424,9 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 3
         ):
-            self.logger.debug(
-                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+            self.logger.trace(
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1465,8 +1439,9 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 2
         ):
-            self.logger.debug(
-                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+            self.logger.trace(
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1478,8 +1453,9 @@ class Arr:
             and metadata.PhysicalRelease is None
             and db_entry.MinimumAvailability == 1
         ):
-            self.logger.debug(
-                "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+            self.logger.trace(
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -1497,8 +1473,9 @@ class Arr:
                 or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
             ):
-                self.logger.debug(
-                    "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                self.logger.trace(
+                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1506,8 +1483,9 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.debug(
-                    "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                self.logger.trace(
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1516,8 +1494,9 @@ class Arr:
                 return False
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
-                self.logger.debug(
-                    "Grabbing - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                self.logger.trace(
+                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1525,8 +1504,9 @@ class Arr:
                 )
                 return True
             else:
-                self.logger.debug(
-                    "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                self.logger.trace(
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
                     metadata.DigitalRelease,
@@ -1534,8 +1514,9 @@ class Arr:
                 )
                 return False
         else:
-            self.logger.debug(
-                "Skipping - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+            self.logger.trace(
+                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
                 metadata.DigitalRelease,
@@ -3275,7 +3256,6 @@ class Arr:
 
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
-        self.logger.hnotice("Starting missing search for %s", self._name)
         try:
             self.register_search_mode()
             if not self.search_missing:
@@ -3286,24 +3266,17 @@ class Arr:
             while True:
                 timer = datetime.now(timezone.utc)
                 try:
-                    self.logger.debug("Refreshing download queue")
                     self.refresh_download_queue()
-                    self.logger.debug("Checking entry searched state")
                     self.db_maybe_reset_entry_searched_state()
-                    self.logger.debug("Getting db update")
                     self.db_update()
-                    self.logger.debug("Runnig request search")
                     self.run_request_search()
-                    self.logger.debug("Grabbing")
                     self.force_grab()
-                    self.logger.debug("Getting entries")
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
                             if timer < (datetime.now(timezone.utc) - loop_timer):
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                            self.logger.debug("Maybe searching")
                             while (
                                 self.maybe_do_search(
                                     entry,
