@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.2-alpha-0 (30/08/2023)
+
+---
+
 ## v3.6.1 (30/08/2023)
 - [[release] Update release.yml](https://github.com/Feramance/qBitrr/commit/d5bac9c2559e339647a7bd983e9e83dd56ece414) - @Feramance
 - [Update pre-release.yml](https://github.com/Feramance/qBitrr/commit/6a95ad1abdf1823630f8ae32b0631a8c0e36a811) - @Feramance
@@ -119,8 +123,3 @@
 ---
 
 ## v3.5.1-alpha-0 (30/08/2023)
-
----
-
-## v3.5.0 (30/08/2023)
-- [[minor] Radarr missing search should be fixed along with not deleting ffprobe](https://github.com/Feramance/qBitrr/commit/042f39a0d421c78cc44e30659fbba5d72b0a7707) - @Feramance
