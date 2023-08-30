@@ -1,15 +1,17 @@
 # Changelog
 
+## v3.6.2 (30/08/2023)
+- [[release] Another workflow release test](https://github.com/Feramance/qBitrr/commit/31415019708b0e9353152bcd25d67c21648ddcd8) - @Feramance
+- [[release] Last workflow update (hopefully)](https://github.com/Feramance/qBitrr/commit/3476cdb4efe64e0cc154208b9c1cbcc159bd2188) - @Feramance
+
+---
+
 ## v3.6.2-beta-0 (30/08/2023)
 - [[release] Changed order of qBittorrent queue update to run after loop reset instead of before](https://github.com/Feramance/qBitrr/commit/5045c46c17e6d9b8111874eb038c57d25531915a) - @Feramance
 
 ---
 
 ## v3.6.2-alpha-0 (30/08/2023)
-
----
-
-## v3.6.2 (30/08/2023)
 
 ---
 
