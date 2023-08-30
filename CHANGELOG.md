@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.5.0 (30/08/2023)
+- [[minor] Radarr missing search should be fixed along with not deleting ffprobe](https://github.com/Feramance/qBitrr/commit/042f39a0d421c78cc44e30659fbba5d72b0a7707) - @Feramance
+
+---
+
 ## v3.4.8 (30/08/2023)
 - [[patch] Hotfix invalid version](https://github.com/Feramance/qBitrr/commit/d11c5a441b77dbc7259e41938cd7acec7d169a3b) - @Feramance
 
@@ -146,9 +151,3 @@
 ---
 
 ## v3.2.4 (24/08/2023)
-
----
-
-## v3.2.3 (23/08/2023)
-- [[patch] Fixed reading qbittorrent 4.3.9 version](https://github.com/Feramance/Qbitrr/commit/27027376521cf9e48d8c50996f7354b09d33febb) - @Feramance
-- [Update compose format in README](https://github.com/Feramance/Qbitrr/commit/8beb1b1e827dc216152cda7b07913d482aba80ce) - @Feramance
