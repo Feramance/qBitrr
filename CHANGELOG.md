@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.6.4 (30/08/2023)
+- [[release] Proper fix for column error](https://github.com/Feramance/qBitrr/commit/df3c8d578f6439623055871eed0c55a40ba41cf4) - @Feramance
+
+---
+
 ## v3.6.3 (30/08/2023)
 - [[release] No such Column fix](https://github.com/Feramance/qBitrr/commit/25684f81409debe665b29519da10a9b7a8191392) - @Feramance
 
@@ -123,7 +128,3 @@
 ---
 
 ## v3.5.1-beta-3 (30/08/2023)
-
----
-
-## v3.5.1-beta-2 (30/08/2023)
