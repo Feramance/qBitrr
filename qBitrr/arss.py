@@ -1036,12 +1036,15 @@ class Arr:
             self.db_reset__movie_searched_state()
 
     def db_reset__series_searched_state(self):
-        self.model_file: SeriesFilesModel
+        self.series_file_model: SeriesFilesModel
+        self.model_file: EpisodeFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.series_file_model.update(Searched=False).where(
-                self.model_file.Searched == True
+            self.series_file_model.update(Searched=False).join(
+                self.model_file, on=(self.series_file_model.EntryId == self.model_file.SeriesId)
+            ).where(
+                self.series_model_file.Searched == True & self.model_file.EpisodeFileId == 0
             ).execute()
 
     def db_reset__episode_searched_state(self):
