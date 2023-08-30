@@ -600,7 +600,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "search again."
         )
     )
-    search_table.add("SearchAgainOnSearchCompletion", False)
+    search_table.add("SearchAgainOnSearchCompletion", True)
     search_table.add(nl())
 
     if "sonarr" in category.lower():

@@ -120,7 +120,7 @@ DoUpgradeSearch = false
 QualityUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
-SearchAgainOnSearchCompletion = false
+SearchAgainOnSearchCompletion = true
 
 # Search by series instead of by episode
 SearchBySeries = true
@@ -301,7 +301,7 @@ DoUpgradeSearch = false
 QualityUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
-SearchAgainOnSearchCompletion = false
+SearchAgainOnSearchCompletion = true
 
 # Search by series instead of by episode
 SearchBySeries = true
@@ -483,7 +483,7 @@ DoUpgradeSearch = false
 QualityUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
-SearchAgainOnSearchCompletion = false
+SearchAgainOnSearchCompletion = true
 
 
 [Radarr-1080.EntrySearch.Overseerr]
@@ -661,7 +661,7 @@ DoUpgradeSearch = false
 QualityUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
-SearchAgainOnSearchCompletion = false
+SearchAgainOnSearchCompletion = true
 
 
 [Radarr-4K.EntrySearch.Overseerr]
