@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0-beta-5 (30/08/2023)
+
+---
+
 ## v3.6.0-beta-4 (30/08/2023)
 
 ---
@@ -120,10 +124,3 @@
 
 ## v3.4.3 (29/08/2023)
 - [[patch] Hotix for appdata folder](https://github.com/Feramance/qBitrr/commit/3d6c099ebc8d1da38e7e17f90c8f3f5bd7f60bda) - @Feramance
-
----
-
-## v3.4.2 (29/08/2023)
-- [[patch] Updated ffprobe path so as not to force download every time the qBitrr restarts](https://github.com/Feramance/qBitrr/commit/8f9e5b8c356f265e897d989e77ed8b2367a76714) - @Feramance
-- [Update README](https://github.com/Feramance/qBitrr/commit/383ce81c6d7fd2e448d1d0b3f710f4ae00ea5215) - @Feramance
-- [Update README](https://github.com/Feramance/qBitrr/commit/6b8baf9ad1b0322be923c65ec50a1e8a6790fc8e) - @Feramance
