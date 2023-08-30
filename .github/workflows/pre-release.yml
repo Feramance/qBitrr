@@ -35,6 +35,7 @@ jobs:
       id: current_version
   bump_version:
     name: Bump build version
+    needs: [get_current_version]
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.event.head_commit.message, '[build]') || startsWith(github.event.head_commit.message, '[release]') && !contains(github.job.get_current_version.current_version.outputs.VERSION, 'beta' ) }}
     env:
