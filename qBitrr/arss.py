@@ -3275,6 +3275,30 @@ class Arr:
                     )
                 time.sleep(e.length)
 
+    def get_year_search(self) -> tuple[list[str], int]:
+        with self.db.atomic():
+            if self.type == "radarr":
+                years_query = self.model_arr_movies_file.select(
+                    self.model_arr_movies_file.Year
+                ).distict()
+                years = list(years_query)
+                if self.search_in_reverse:
+                    years.sort()
+                else:
+                    years.reverse()
+                years_count = years.count()
+            elif self.type == "sonarr":
+                years_query = self.model_arr_movies_file.select(
+                    fn.Substr(self.model_arr_file.AirDate, 1, 4)
+                ).distict()
+                years = list(years_query)
+                if self.search_in_reverse:
+                    years.sort()
+                else:
+                    years.reverse()
+                years_count = years.count()
+        return years, years_count
+
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
@@ -3284,27 +3308,8 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             years_index = 0
             while True:
-                if self.type == "radarr" and years_index == 0:
-                    years_query = self.model_arr_movies_file.select(
-                        self.model_arr_movies_file.Year
-                    ).distict()
-                    years = list(years_query)
-                    if self.search_in_reverse:
-                        years.sort()
-                    else:
-                        years.reverse()
-                    years_count = years.count()
-                    self.search_current_year = years[years_index]
-                elif self.type == "sonarr" and years_index == 0:
-                    years_query = self.model_arr_movies_file.select(
-                        fn.Substr(self.model_arr_file.AirDate, 1, 4)
-                    ).distict()
-                    years = list(years_query)
-                    if self.search_in_reverse:
-                        years.sort()
-                    else:
-                        years.reverse()
-                    years_count = years.count()
+                if self.search_by_year and years_index == 0:
+                    years, years_count = self.get_year_search()
                     self.search_current_year = years[years_index]
                 timer = datetime.now(timezone.utc)
                 try:
