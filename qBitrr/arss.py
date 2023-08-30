@@ -3282,21 +3282,25 @@ class Arr:
                     self.model_arr_movies_file.Year
                 ).distict()
                 years = list(years_query)
+                self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
                 else:
                     years.reverse()
                 years_count = years.count()
+                self.logger.trace("Years count: %s", years_count)
             elif self.type == "sonarr":
                 years_query = self.model_arr_movies_file.select(
                     fn.Substr(self.model_arr_file.AirDate, 1, 4)
                 ).distict()
                 years = list(years_query)
+                self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
                 else:
                     years.reverse()
                 years_count = years.count()
+                self.logger.trace("Years count: %s", years_count)
         return years, years_count
 
     def run_search_loop(self) -> NoReturn:
