@@ -19,6 +19,7 @@ import pathos
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
+from peewee import *
 from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
@@ -191,10 +192,6 @@ class Arr:
         self.search_by_year = CONFIG.get(f"{name}.EntrySearch.SearchByYear", fallback=True)
         self.search_in_reverse = CONFIG.get(f"{name}.EntrySearch.SearchInReverse", fallback=False)
 
-        self.search_starting_year = CONFIG.get(
-            f"{name}.EntrySearch.StartYear", fallback=datetime.now().year
-        )
-        self.search_ending_year = CONFIG.get(f"{name}.EntrySearch.LastYear", fallback=1990)
         self.search_command_limit = CONFIG.get(f"{name}.EntrySearch.SearchLimit", fallback=5)
         self.prioritize_todays_release = CONFIG.get(
             f"{name}.EntrySearch.PrioritizeTodaysReleases", fallback=True
@@ -203,10 +200,8 @@ class Arr:
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
 
         if self.search_in_reverse:
-            self.search_current_year = self.search_ending_year
             self._delta = 1
         else:
-            self.search_current_year = self.search_starting_year
             self._delta = -1
         arr_db_file = CONFIG.get(f"{name}.EntrySearch.DatabaseFile", fallback=None)
         self.arr_db_file = pathlib.Path("/.Invalid Place Holder")
@@ -396,14 +391,6 @@ class Arr:
             self.logger.debug(
                 "Script Config:  SearchInReverse=%s",
                 self.search_in_reverse,
-            )
-            self.logger.debug(
-                "Script Config:  StartYear=%s",
-                self.search_starting_year,
-            )
-            self.logger.debug(
-                "Script Config:  LastYear=%s",
-                self.search_ending_year,
             )
             self.logger.debug(
                 "Script Config:  CommandLimit=%s",
@@ -1171,16 +1158,21 @@ class Arr:
         if not self.search_missing:
             yield None, False, False
         if self.type == "radarr":
-            condition = self.model_file.Year == self.search_current_year
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
-                else:
-                    condition &= self.model_file.Searched == False
-                    condition &= self.model_file.MovieFileId == 0
-            entries = self.model_file.select().count()
-            conditioned = self.model_file.select().where(condition).count()
-            self.logger.debug("Found %s entries, %s conditioned", entries, conditioned)
+            if self.search_by_year:
+                condition = self.model_file.Year == self.search_current_year
+                if not self.do_upgrade_search:
+                    if self.quality_unmet_search:
+                        condition &= self.model_file.QualityMet == False
+                    else:
+                        condition &= self.model_file.Searched == False
+                        condition &= self.model_file.MovieFileId == 0
+            else:
+                if not self.do_upgrade_search:
+                    if self.quality_unmet_search:
+                        condition = self.model_file.QualityMet == False
+                    else:
+                        condition = self.model_file.Searched == False
+                        condition &= self.model_file.MovieFileId == 0
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1369,22 +1361,32 @@ class Arr:
             if self.type == "sonarr":
                 if not self.series_search:
                     _series = set()
-                    series_query = self.model_arr_file.select().where(
-                        (self.model_arr_file.AirDateUtc.is_null(False))
-                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                        & (
-                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                    if self.search_by_year:
+                        series_query = self.model_arr_file.select().where(
+                            (self.model_arr_file.AirDateUtc.is_null(False))
+                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                            & (
+                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                            )
+                            & (
+                                self.model_arr_file.AirDateUtc
+                                >= datetime(month=1, day=1, year=self.search_current_year)
+                            )
+                            & (
+                                self.model_arr_file.AirDateUtc
+                                <= datetime(month=12, day=31, year=self.search_current_year)
+                            )
                         )
-                        & (
-                            self.model_arr_file.AirDateUtc
-                            >= datetime(month=1, day=1, year=self.search_current_year)
+                    else:
+                        series_query = self.model_arr_file.select().where(
+                            (self.model_arr_file.AirDateUtc.is_null(False))
+                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                            & (
+                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                            )
                         )
-                        & (
-                            self.model_arr_file.AirDateUtc
-                            <= datetime(month=12, day=31, year=self.search_current_year)
-                        )
-                    )
                     if series_query.exists():
                         for series in series_query:
                             series: EpisodesModel
@@ -1400,17 +1402,36 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
-                for movies in (
-                    self.model_arr_file.select(self.model_arr_file)
-                    .join(
-                        self.model_arr_movies_file,
-                        on=(self.model_arr_file.MovieMetadataId == self.model_arr_movies_file.Id),
+                if self.search_by_year:
+                    movies_query = (
+                        self.model_arr_file.select(self.model_arr_file)
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                        )
+                        .switch(self.model_arr_file)
+                        .where(self.model_arr_movies_file.Year == self.search_current_year)
+                        .order_by(self.model_arr_file.Added.desc())
                     )
-                    .switch(self.model_arr_file)
-                    .where(self.model_arr_movies_file.Year == self.search_current_year)
-                    .order_by(self.model_arr_file.Added.desc())
-                ):
-                    self.db_update_single_series(db_entry=movies)
+                else:
+                    movies_query = (
+                        self.model_arr_file.select(self.model_arr_file)
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                        )
+                        .switch(self.model_arr_file)
+                        .order_by(self.model_arr_file.Added.desc())
+                    )
+                if movies_query.exists():
+                    for movies in movies_query:
+                        self.db_update_single_series(db_entry=movies)
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
@@ -3260,8 +3281,20 @@ class Arr:
             self.register_search_mode()
             if not self.search_missing:
                 return None
-            count_start = self.search_current_year
-            stopping_year = datetime.now().year if self.search_in_reverse else 1900
+            if self.type == "radarr":
+                count_start = self.model_arr_movies_file.select(
+                    fn.MAX(self.model_arr_movies_file.Year)
+                ).scalar()
+                stopping_year = self.model_arr_movies_file.select(
+                    fn.MIN(self.model_arr_movies_file.Year)
+                ).scalar()
+            elif self.type == "sonarr":
+                count_start = self.model_arr_file.select(
+                    fn.MAX(self.model_arr_file.AirDate)
+                ).scalar()[:4]
+                stopping_year = self.model_arr_file.select(
+                    fn.MIN(self.model_arr_file.AirDate)
+                ).scalar()[:4]
             loop_timer = timedelta(minutes=15)
             while True:
                 timer = datetime.now(timezone.utc)
@@ -3287,15 +3320,18 @@ class Arr:
                                 is False
                             ):
                                 time.sleep(30)
-                        self.search_current_year += self._delta
-                        if self.search_in_reverse:
-                            if self.search_current_year > stopping_year:
-                                self.search_current_year = copy(count_start)
-                                self.loop_completed = True
+                        if self.search_by_year:
+                            self.search_current_year += self._delta
+                            if self.search_in_reverse:
+                                if self.search_current_year > stopping_year:
+                                    self.search_current_year = copy(count_start)
+                                    self.loop_completed = True
+                            else:
+                                if self.search_current_year < stopping_year:
+                                    self.search_current_year = copy(count_start)
+                                    self.loop_completed = True
                         else:
-                            if self.search_current_year < stopping_year:
-                                self.search_current_year = copy(count_start)
-                                self.loop_completed = True
+                            self.loop_completed = True
                     except RestartLoopException:
                         self.logger.debug("Loop timer elapsed, restarting it.")
                     except NoConnectionrException as e:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pathlib
-from datetime import datetime
 from functools import reduce
 from typing import Any, TypeVar
 
@@ -578,18 +577,8 @@ def _gen_default_search_table(category: str, cat_default: Table):
     search_table.add(comment("It will order searches by the year the EPISODE was first aired"))
     search_table.add("SearchByYear", True)
     search_table.add(nl())
-    search_table.add(
-        comment("First year to search; Remove this field to set it to the current year.")
-    )
-    search_table.add("#StartYear", datetime.now().year)
-    search_table.add(nl())
-    search_table.add(comment("Last Year to Search"))
-    search_table.add("LastYear", 1900)
-    search_table.add(nl())
-    search_table.add(
-        comment('Reverse search order (Start searching in "LastYear" and finish in "StartYear")')
-    )
-    search_table.add("SearchInReverse", True)
+    search_table.add(comment("Reverse search order (Start searching oldest to newest)"))
+    search_table.add("SearchInReverse", False)
     search_table.add(nl())
     search_table.add(comment("Delay between request searches in seconds"))
     search_table.add("SearchRequestsEvery", 300)

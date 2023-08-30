@@ -107,14 +107,8 @@ DatabaseFile = "CHANGE_ME/sonarr.db"
 # It will order searches by the year the EPISODE was first aired
 SearchByYear = true
 
-# First year to search; Remove this field to set it to the current year.
-#StartYear = 2023
-
-# Last Year to Search
-LastYear = 1900
-
-# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
-SearchInReverse = true
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
 
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
@@ -294,14 +288,8 @@ DatabaseFile = "CHANGE_ME/sonarr.db"
 # It will order searches by the year the EPISODE was first aired
 SearchByYear = true
 
-# First year to search; Remove this field to set it to the current year.
-#StartYear = 2023
-
-# Last Year to Search
-LastYear = 1900
-
-# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
-SearchInReverse = true
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
 
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
@@ -482,14 +470,8 @@ DatabaseFile = "CHANGE_ME/radarr.db"
 # It will order searches by the year the EPISODE was first aired
 SearchByYear = true
 
-# First year to search; Remove this field to set it to the current year.
-#StartYear = 2023
-
-# Last Year to Search
-LastYear = 1900
-
-# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
-SearchInReverse = true
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
 
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
@@ -666,14 +648,8 @@ DatabaseFile = "CHANGE_ME/radarr.db"
 # It will order searches by the year the EPISODE was first aired
 SearchByYear = true
 
-# First year to search; Remove this field to set it to the current year.
-#StartYear = 2023
-
-# Last Year to Search
-LastYear = 1900
-
-# Reverse search order (Start searching in "LastYear" and finish in "StartYear")
-SearchInReverse = true
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
 
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
