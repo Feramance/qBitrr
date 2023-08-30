@@ -1025,7 +1025,6 @@ class Arr:
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
         elif self.type == "radarr":
-            self.logger.debug("Getting radarr files")
             for i1, i2, i3 in self.db_get_files_movies():
                 yield i1, i2, i3, False
 
@@ -1365,7 +1364,7 @@ class Arr:
                 if not self.series_search:
                     _series = set()
                     if self.search_by_year:
-                        series_query = self.model_arr_file.select().where(
+                        for series in self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                             & (
@@ -1380,18 +1379,25 @@ class Arr:
                                 self.model_arr_file.AirDateUtc
                                 <= datetime(month=12, day=31, year=self.search_current_year)
                             ).execute()
-                        )
+                        ):
+                            series: EpisodesModel
+                            _series.add(series.SeriesId)
+                            self.db_update_single_series(db_entry=series)
+                        for series in (
+                            self.model_arr_file.select()
+                            .where(self.model_arr_file.SeriesId.in_(_series))
+                            .execute()
+                        ):
+                            self.db_update_single_series(db_entry=series)
                     else:
-                        series_query = self.model_arr_file.select().where(
+                        for series in self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                             & (
                                 self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
                                 | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
                             ).execute()
-                        )
-                    if series_query.exists():
-                        for series in series_query:
+                        ):
                             series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
@@ -1410,6 +1416,24 @@ class Arr:
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
                 if self.search_by_year:
+                    movies_count = (
+                        self.model_arr_file.select(self.model_arr_file)
+                        .join(
+                            self.model_arr_movies_file,
+                            on=(
+                                self.model_arr_file.MovieMetadataId
+                                == self.model_arr_movies_file.Id
+                            ),
+                        )
+                        .switch(self.model_arr_file)
+                        .where(self.model_arr_movies_file.Year == self.search_current_year)
+                        .order_by(self.model_arr_file.Added.desc())
+                        .count()
+                        .execute()
+                    )
+                    self.logger.debug(
+                        "Movies found in %s:%s", self.search_current_year, movies_count
+                    )
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
                         .join(
@@ -3310,6 +3334,7 @@ class Arr:
                     years.reverse()
                 years_count = len(years)
                 self.logger.trace("Years count: %s", years_count)
+        self.logger.debug("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
     def run_search_loop(self) -> NoReturn:
