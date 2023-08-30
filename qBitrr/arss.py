@@ -1487,35 +1487,6 @@ class Arr:
             )
             return True
         elif (
-            metadata.InCinemas is None
-            and metadata.DigitalRelease is None
-            and metadata.PhysicalRelease is None
-            and db_entry.MinimumAvailability == 2
-        ):
-            self.logger.debug(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
-            )
-            return True
-        elif (
-            metadata.DigitalRelease is None
-            and metadata.PhysicalRelease is None
-            and db_entry.MinimumAvailability == 1
-        ):
-            self.logger.debug(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
-            )
-            return True
-        elif (
             metadata.DigitalRelease is not None
             and metadata.PhysicalRelease is not None
             and db_entry.MinimumAvailability == 3
@@ -1545,6 +1516,72 @@ class Arr:
                     metadata.PhysicalRelease,
                 )
                 return False
+        elif (
+            metadata.DigitalRelease is not None or metadata.PhysicalRelease is not None
+        ) and db_entry.MinimumAvailability == 3:
+            if metadata.DigitalRelease is not None:
+                if (
+                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    <= datetime.now()
+                ):
+                    self.logger.debug(
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return True
+                else:
+                    self.logger.debug(
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return False
+            else:
+                if (
+                    datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    <= datetime.now()
+                ):
+                    self.logger.debug(
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return True
+                else:
+                    self.logger.debug(
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return False
+        elif (
+            metadata.InCinemas is None
+            and metadata.DigitalRelease is None
+            and metadata.PhysicalRelease is None
+            and db_entry.MinimumAvailability == 2
+        ):
+            self.logger.debug(
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
+            return True
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
                 self.logger.debug(
@@ -1566,6 +1603,75 @@ class Arr:
                     metadata.PhysicalRelease,
                 )
                 return False
+        elif metadata.InCinemas is None and db_entry.MinimumAvailability == 2:
+            if metadata.DigitalRelease is not None:
+                if (
+                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    <= datetime.now()
+                ):
+                    self.logger.debug(
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return True
+                else:
+                    self.logger.debug(
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return False
+            elif metadata.PhysicalRelease is not None:
+                if (
+                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    <= datetime.now()
+                ):
+                    self.logger.debug(
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return True
+                else:
+                    self.logger.debug(
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
+                    )
+                    return False
+            else:
+                self.logger.debug(
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
+                return False
+        elif db_entry.MinimumAvailability == 1:
+            self.logger.debug(
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
+            return True
         else:
             self.logger.debug(
                 "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
