@@ -3480,8 +3480,8 @@ class Arr:
                         self.search_current_year = years[: years_index + 1]
                 timer = datetime.now(timezone.utc)
                 try:
-                    self.refresh_download_queue()
                     self.db_maybe_reset_entry_searched_state()
+                    self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
                     self.force_grab()
