@@ -39,7 +39,7 @@ jobs:
     name: Bump release version
     needs: [get_current_version]
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[release]') && contains(github.job.get_current_version.output.VERSION, 'beta') }}
+    if: ${{ startsWith(github.event.head_commit.message, '[release]') && !contains(github.job.get_current_version.output.VERSION, 'beta') }}
     env:
       RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[release]') && 'release' }}
     steps:
