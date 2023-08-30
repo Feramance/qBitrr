@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.5.1-beta-2 (30/08/2023)
+
+---
+
 ## v3.5.1-beta-1 (30/08/2023)
 
 ---
@@ -139,12 +143,3 @@
 ## v3.3.5 (27/08/2023)
 - [[patch] Fixed error handling and pathing config](https://github.com/Feramance/qBitrr/commit/a64e55c262ad00d05755c3879fa34df0d7522223) - @Feramance
 - [Delete .vscode directory](https://github.com/Feramance/qBitrr/commit/4105d7b12ec5df9c309de9cbd5b59ece7a43a0ff) - @Feramance
-
----
-
-## v3.2.7 (26/08/2023)
-- [[patch] Update readme](https://github.com/Feramance/qBitrr/commit/9103a9322f5d410176841477432e2346558a8900) - @Feramance
-- [[patch] Adjusted appdata folder and set all files to be cleared upon restart except for config](https://github.com/Feramance/qBitrr/commit/45e943427db78378c6309622a34f22811f5fac91) - @Feramance
-- [Update .gitignore](https://github.com/Feramance/qBitrr/commit/997047ae12029361877e668bd2ce1a4a4cf22305) - @Feramance
-- [Update .gitignore](https://github.com/Feramance/qBitrr/commit/6b379c85cdc55703acb341abbb152138bcdd8c2b) - @Feramance
-- [Merge pull request #10 from Feramance/dependabot/github_actions/docker/build-push-action-4](https://github.com/Feramance/qBitrr/commit/75e8850fa88dd7e4f57edfdb3f46a592ba4e18d2) - @Feramance
