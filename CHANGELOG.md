@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.5.1-alpha-0 (30/08/2023)
+
+---
+
 ## v3.5.0 (30/08/2023)
 - [[minor] Radarr missing search should be fixed along with not deleting ffprobe](https://github.com/Feramance/qBitrr/commit/042f39a0d421c78cc44e30659fbba5d72b0a7707) - @Feramance
 
@@ -147,7 +151,3 @@
 
 ## v3.2.5 (24/08/2023)
 - [[patch] Hotifx](https://github.com/Feramance/Qbitrr/commit/fb3664db362ec5c6cbc678f6da020828e4c8da4d) - @Feramance
-
----
-
-## v3.2.4 (24/08/2023)
