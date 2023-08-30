@@ -3313,7 +3313,7 @@ class Arr:
                 years_query = self.model_arr_movies_file.select(
                     self.model_arr_movies_file.Year.distinct()
                 ).execute()
-                years = [int(y.Year) for y in years_query]
+                years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
@@ -3324,7 +3324,7 @@ class Arr:
                 years_query = self.model_arr_file.select(
                     fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
                 ).execute()
-                years = [int(y.Year) for y in years_query]
+                years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
