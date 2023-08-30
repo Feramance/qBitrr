@@ -1426,7 +1426,7 @@ class Arr:
                     .order_by(self.model_arr_file.Added.desc())
                     .count()
                 )
-                self.logger.debug("DB Request Update %s entries", entries)
+                self.logger.debug("DB Update %s entries for %s", entries, self.search_current_year)
                 for movies in (
                     self.model_arr_file.select(self.model_arr_file)
                     .join(

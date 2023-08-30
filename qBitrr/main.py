@@ -195,8 +195,10 @@ atexit.register(cleanup)
 
 
 if __name__ == "__main__":
+    extensions = [".db", ".db-shm", ".db-wal"]
     for file in os.listdir(APPDATA_FOLDER):
-        if file.find(".db"):
-            os.remove(os.path.join(APPDATA_FOLDER, file))
+        for ext in extensions:
+            if file.endswith(ext):
+                os.remove(os.path.join(APPDATA_FOLDER, file))
     freeze_support()
     run()
