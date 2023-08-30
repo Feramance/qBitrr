@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.6.0-beta-0 (30/08/2023)
+
+---
+
 ## v3.6.0-alpha-0 (30/08/2023)
 
 ---
@@ -135,8 +139,3 @@
 ---
 
 ## v3.4.0-2 (29/08/2023)
-
----
-
-## v3.4.0-1 (29/08/2023)
-- [[build] fix pre-release workflow](https://github.com/Feramance/qBitrr/commit/6f3d1560b76e7c646c5dcf0f0ddcab27a97cbc1f) - @Feramance
