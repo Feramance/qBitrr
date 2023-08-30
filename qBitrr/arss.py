@@ -1429,7 +1429,6 @@ class Arr:
                         .where(self.model_arr_movies_file.Year == self.search_current_year)
                         .order_by(self.model_arr_file.Added.desc())
                         .count()
-                        .execute()
                     )
                     self.logger.debug(
                         "Movies found in %s:%s", self.search_current_year, movies_count
@@ -3314,7 +3313,7 @@ class Arr:
                 years_query = self.model_arr_movies_file.select(
                     fn.DISTINCT(self.model_arr_movies_file.Year)
                 ).execute()
-                years = list(years_query)
+                years = [y for y in years_query]
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
@@ -3326,7 +3325,7 @@ class Arr:
                 years_query = self.model_arr_file.select(
                     fn.DISTINCT(fn.Substr(self.model_arr_file.AirDate, 1, 4))
                 ).execute()
-                years = list(years_query)
+                years = [y for y in years_query]
                 self.logger.trace("Years: %s", years)
                 if self.search_in_reverse:
                     years.sort()
