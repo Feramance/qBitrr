@@ -1029,6 +1029,7 @@ class Arr:
                 yield i1, i2, i3, False
 
     def db_maybe_reset_entry_searched_state(self):
+        self.logger.info("Restarting loop")
         if self.type == "sonarr":
             self.db_reset__series_searched_state()
             self.db_reset__episode_searched_state()
@@ -1368,7 +1369,7 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series)
                 except BaseException:
-                    self.logger.info("No episode releases found for today")
+                    self.logger.debug("No episode releases found for today")
 
     def db_update(self):
         if not self.search_missing:
@@ -3250,7 +3251,7 @@ class Arr:
         self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
-        return  # TODO: This may not be needed, pending more testing before it is enabled
+        # return  # TODO: This may not be needed, pending more testing before it is enabled
         _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
@@ -3267,8 +3268,8 @@ class Arr:
 
     def _force_grab(self, id_):
         try:
-            path = f"/api/v3/queue/grab/{id_}"
-            res = self.client.request_post(path, data={})
+            path = f"queue/grab/{id_}"
+            res = self.client._post(path, self.client.ver_uri)
             self.logger.trace("Successful Grab: %s", id_)
             return res
         except Exception:
@@ -3497,7 +3498,6 @@ class Arr:
                 timer = datetime.now(timezone.utc)
                 try:
                     self.db_maybe_reset_entry_searched_state()
-                    self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
                     self.force_grab()

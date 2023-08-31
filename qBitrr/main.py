@@ -128,7 +128,7 @@ class qBitManager:
             if 1 in self.expiring_bool or self.client is None:
                 return True
             self.client.app_version()
-            self.logger.info("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
+            self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
             self.expiring_bool.add(1)
             return True
         except requests.RequestException:

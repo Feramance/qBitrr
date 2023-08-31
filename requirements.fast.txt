@@ -4,19 +4,19 @@
 #
 #    pip-compile --extra=fast --output-file=requirements.fast.txt
 #
-attrs==21.4.0
+attrs==23.1.0
     # via environ-config
 cachetools==4.2.4
     # via qBitrr (setup.py)
 certifi==2023.7.22
     # via requests
-charset-normalizer==2.0.11
+charset-normalizer==3.2.0
     # via requests
 colorama==0.4.4
     # via qBitrr (setup.py)
 coloredlogs==15.0.1
     # via qBitrr (setup.py)
-dill==0.3.4
+dill==0.3.7
     # via
     #   multiprocess
     #   pathos
@@ -28,17 +28,17 @@ future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-idna==3.3
+idna==3.4
     # via requests
-jaraco-context==4.1.1
+jaraco-context==4.3.0
     # via jaraco-docker
 jaraco-docker==2.0
     # via qBitrr (setup.py)
-jaraco-functools==3.5.0
+jaraco-functools==3.9.0
     # via jaraco-docker
-more-itertools==8.12.0
+more-itertools==10.1.0
     # via jaraco-functools
-multiprocess==0.70.12.2
+multiprocess==0.70.15
     # via pathos
 overrides==7.4.0
     # via pyarr
@@ -52,14 +52,16 @@ peewee==3.14.7
     # via qBitrr (setup.py)
 ping3==3.0.2
     # via qBitrr (setup.py)
-pox==0.3.0
+pox==0.3.3
     # via pathos
-ppft==1.6.6.4
+ppft==1.7.6.7
     # via pathos
 pyarr==5.2.0
     # via qBitrr (setup.py)
-pyparsing==3.0.7
+pyparsing==3.1.1
     # via packaging
+pyreadline3==3.4.1
+    # via humanfriendly
 qbittorrent-api==2023.7.52
     # via qBitrr (setup.py)
 requests==2.31.0
@@ -68,18 +70,18 @@ requests==2.31.0
     #   qBitrr (setup.py)
     #   qbittorrent-api
 six==1.16.0
-    # via
-    #   ppft
-    #   qbittorrent-api
+    # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr (setup.py)
 types-requests==2.31.0.2
     # via pyarr
 types-urllib3==1.26.25.14
     # via types-requests
+typing-extensions==4.7.1
+    # via jaraco-functools
 ujson==5.4.0
     # via qBitrr (setup.py)
-urllib3==1.26.8
+urllib3==2.0.4
     # via
     #   qbittorrent-api
     #   requests
