@@ -115,7 +115,7 @@ ppft==1.6.6.4
     # via pathos
 pre-commit==3.3.3
     # via qBitrr (setup.py)
-pyarr==5.1.1
+pyarr==5.2.0
     # via qBitrr (setup.py)
 pycparser==2.21
     # via cffi

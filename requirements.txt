@@ -56,7 +56,7 @@ pox==0.3.0
     # via pathos
 ppft==1.6.6.4
     # via pathos
-pyarr==5.1.1
+pyarr==5.2.0
     # via qBitrr (setup.py)
 pyparsing==3.0.7
     # via packaging
