@@ -1032,8 +1032,6 @@ class Arr:
                 yield i1, i2, i3, False
 
     def db_maybe_reset_entry_searched_state(self):
-        if self.loop_completed:
-            self.logger.info("Resetting loop")
         if self.type == "sonarr":
             self.db_reset__series_searched_state()
             self.db_reset__episode_searched_state()
@@ -3086,7 +3084,9 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if torrent.category == FAILED_CATEGORY:
+        if self.remove_torrent(torrent):
+            self._process_single_torrent_delete_ratio_seed(torrent)
+        elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
             self._process_single_torrent_failed_cat(torrent)
         elif torrent.category == RECHECK_CATEGORY:
@@ -3184,8 +3184,6 @@ class Arr:
                     return
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent)
-        elif self.remove_torrent(torrent):
-            self._process_single_torrent_delete_ratio_seed(torrent)
         else:
             self._process_single_torrent_unprocessed(torrent)
 
