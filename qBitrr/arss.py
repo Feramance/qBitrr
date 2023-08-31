@@ -2679,7 +2679,7 @@ class Arr:
         self.delete.add(torrent.hash)
 
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
-        self.logger.trace(
+        self.logger.info(
             "Deleting torrent that met remove config: "
             "[Progress: %s%%][Added On: %s]"
             "[Availability: %s%%][Time Left: %s]"
@@ -3084,7 +3084,7 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if self.remove_torrent(torrent):
+        if self.remove_torrent(torrent) and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
