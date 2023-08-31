@@ -398,6 +398,13 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     )
     seeding_table.add("MaxSeedingTime", -1)
     seeding_table.add(nl())
+    seeding_table.add(
+        comment(
+            "Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)"
+        )
+    )
+    seeding_table.add("RemoveTorrent", -1)
+    seeding_table.add(nl())
     seeding_table.add(comment("Enable if you want to remove dead trackers"))
     seeding_table.add("RemoveDeadTrackers", False)
     seeding_table.add(nl())

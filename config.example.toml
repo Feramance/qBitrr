@@ -580,6 +580,9 @@ MaxUploadRatio = -1
 # Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
 MaxSeedingTime = -1
 
+#Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)
+RemoveTorrent = -1
+
 # Enable if you want to remove dead trackers
 RemoveDeadTrackers = false
 

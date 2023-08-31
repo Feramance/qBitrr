@@ -143,6 +143,9 @@ class Arr:
         self.seeding_mode_global_max_seeding_time = CONFIG.get(
             f"{name}.Torrent.SeedingMode.MaxSeedingTime", fallback=-1
         )
+        self.seeding_mode_global_remove_torrent = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.RemoveTorrent", fallback=-1
+        )
         self.seeding_mode_global_bad_tracker_msg = CONFIG.get(
             f"{name}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
         )
@@ -1029,7 +1032,8 @@ class Arr:
                 yield i1, i2, i3, False
 
     def db_maybe_reset_entry_searched_state(self):
-        self.logger.info("Restarting loop")
+        if self.loop_completed:
+            self.logger.info("Resetting loop")
         if self.type == "sonarr":
             self.db_reset__series_searched_state()
             self.db_reset__episode_searched_state()
@@ -2676,6 +2680,24 @@ class Arr:
         )
         self.delete.add(torrent.hash)
 
+    def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.trace(
+            "Deleting torrent that met remove config: "
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
+            "[Last active: %s] "
+            "| [%s] | %s (%s)",
+            round(torrent.progress * 100, 2),
+            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
+            timedelta(seconds=torrent.eta),
+            datetime.fromtimestamp(torrent.last_activity),
+            torrent.state_enum,
+            torrent.name,
+            torrent.hash,
+        )
+        self.delete.add(torrent.hash)
+
     def _process_single_torrent_process_files(
         self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
     ):
@@ -3162,9 +3184,33 @@ class Arr:
                     return
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent)
-
+        elif self.remove_torrent(torrent):
+            self._process_single_torrent_delete_ratio_seed(torrent)
         else:
             self._process_single_torrent_unprocessed(torrent)
+
+    def remove_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
+        ratio_limit = (r if (r := torrent.ratio_limit) > 0 else -5,)
+        seeding_time_limit = (r if (r := torrent.seeding_time_limit) > 0 else -5,)
+        if (
+            self.seeding_mode_global_remove_torrent == 4
+            and torrent.ratio >= ratio_limit
+            and torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        elif self.seeding_mode_global_remove_torrent == 3 and (
+            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        elif (
+            self.seeding_mode_global_remove_torrent == 2
+            and torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
+            return True
+        else:
+            return False
 
     def refresh_download_queue(self):
         if self.type == "sonarr":
