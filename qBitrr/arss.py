@@ -3188,24 +3188,26 @@ class Arr:
             self._process_single_torrent_unprocessed(torrent)
 
     def remove_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
-        ratio_limit = (r if (r := torrent.ratio_limit) > 0 else -5,)
-        seeding_time_limit = (r if (r := torrent.seeding_time_limit) > 0 else -5,)
         if (
             self.seeding_mode_global_remove_torrent == 4
-            and torrent.ratio >= ratio_limit
-            and torrent.seeding_time >= seeding_time_limit
+            and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+            and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
         ):
             return True
         elif self.seeding_mode_global_remove_torrent == 3 and (
-            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+            torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+            or torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
         ):
             return True
         elif (
             self.seeding_mode_global_remove_torrent == 2
-            and torrent.seeding_time >= seeding_time_limit
+            and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
         ):
             return True
-        elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
+        elif (
+            self.seeding_mode_global_remove_torrent == 1
+            and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+        ):
             return True
         else:
             return False
