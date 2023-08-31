@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.6.5-beta-0 (31/08/2023)
+- [[release] Update pyarr and altered resetting series search state](https://github.com/Feramance/qBitrr/commit/3972e44e414351a368042039210d61872cd3485b) - @Feramance
+
+---
+
 ## v3.6.5-alpha-0 (30/08/2023)
 
 ---
@@ -124,7 +129,3 @@
 ---
 
 ## v3.6.0-beta-0 (30/08/2023)
-
----
-
-## v3.6.0-alpha-0 (30/08/2023)
