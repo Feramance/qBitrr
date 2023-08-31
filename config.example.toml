@@ -575,7 +575,7 @@ UploadRateLimitPerTorrent = -1
 # Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
 MaxUploadRatio = -1
 
-# Set the maximum seeding time for torrents
+# Set the maximum seeding time in seconds for torrents
 # Set this value to -1 to disabled it
 # Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
 MaxSeedingTime = -1

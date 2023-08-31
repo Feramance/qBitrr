@@ -388,7 +388,7 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
     )
     seeding_table.add("MaxUploadRatio", -1)
     seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum seeding time for torrents"))
+    seeding_table.add(comment("Set the maximum seeding time in seconds for torrents"))
     seeding_table.add(comment("Set this value to -1 to disabled it"))
     seeding_table.add(
         comment(

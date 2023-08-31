@@ -2682,13 +2682,13 @@ class Arr:
         self.logger.info(
             "Deleting torrent that met remove config: "
             "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
+            "[Ratio: %s%%][Seeding time: %s]"
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
             datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
+            torrent.ratio,
+            timedelta(seconds=torrent.seeding_time),
             datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
             torrent.name,
@@ -3189,26 +3189,36 @@ class Arr:
 
     def remove_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
         if (
-            self.seeding_mode_global_remove_torrent == 4
-            and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-            and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+            self.seeding_mode_global_max_seeding_time > 0
+            and self.seeding_mode_global_max_upload_ratio > 0
         ):
-            return True
-        elif self.seeding_mode_global_remove_torrent == 3 and (
-            torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-            or torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
-        ):
-            return True
+            if (
+                self.seeding_mode_global_remove_torrent == 4
+                and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+                and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+            ):
+                return True
         elif (
-            self.seeding_mode_global_remove_torrent == 2
-            and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+            self.seeding_mode_global_max_seeding_time > 0
+            or self.seeding_mode_global_max_upload_ratio > 0
         ):
-            return True
-        elif (
-            self.seeding_mode_global_remove_torrent == 1
-            and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-        ):
-            return True
+            if self.seeding_mode_global_remove_torrent == 3 and (
+                torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+                or torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+            ):
+                return True
+            elif (
+                self.seeding_mode_global_remove_torrent == 2
+                and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+            ):
+                return True
+            elif (
+                self.seeding_mode_global_remove_torrent == 1
+                and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
+            ):
+                return True
+            else:
+                return False
         else:
             return False
 
