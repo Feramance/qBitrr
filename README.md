@@ -27,10 +27,10 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
   - `qbitrr DownloadedEpisodesScan` for Sonarr
 - Skip files in qBit entries by extension, folder or regex.
 - Monitor completed folder and clean it up.
-- Usage of [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
+- Usage of [ffprobe](https://github.com/FFmpeg/FFmpeg){:target="_blank" rel="noopener noreferrer"} to ensure downloaded entries are valid media.
 - Trigger periodic Rss Syncs on the appropriate Arr instances.
 - Trigger Queue update on appropriate Arr instances.
-- Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
+- Search requests from [Overseerr](https://github.com/sct/overseerr){:target="_blank" rel="noopener noreferrer"} or [Ombi](https://github.com/Ombi-app/Ombi){:target="_blank" rel="noopener noreferrer"}.
 - Auto add/remove trackers
 - Set per tracker values
 - **Sonarr v4 support**
