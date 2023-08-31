@@ -39,7 +39,7 @@ jobs:
     name: Bump build version
     needs: [get_current_version]
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' || startsWith(github.event.head_commit.message, '[build]') || (startsWith(github.event.head_commit.message, '[release]') && !contains(github.job.get_current_version.output.VERSION, 'beta')) }}
+    if: ${{ startsWith(github.event.head_commit.message, '[patch]') || startsWith(github.event.head_commit.message, '[minor]')|| startsWith(github.event.head_commit.message, '[major]') || startsWith(github.event.head_commit.message, '[build]') || (startsWith(github.event.head_commit.message, '[release]') && !contains(github.job.get_current_version.output.VERSION, 'beta')) }}
     env:
       RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' || startsWith(github.event.head_commit.message, '[build]') && 'build' || startsWith(github.event.head_commit.message, '[release]') && 'release' }}
     steps:
