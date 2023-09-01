@@ -2892,8 +2892,11 @@ class Arr:
         }
         return data_settings, data_torrent
 
-    def _should_leave_alone(self, torrent: qbittorrentapi.TorrentDictionary) -> tuple[bool, int]:
+    def _should_leave_alone(
+        self, torrent: qbittorrentapi.TorrentDictionary
+    ) -> tuple[bool, int, bool]:
         return_value = True
+        remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
             return return_value, -1  # Do not touch super seeding torrents.
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
@@ -2909,22 +2912,28 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if torrent.ratio >= ratio_limit:
-            return_value = False  # Seeding ratio met - Can be cleaned up.
-        if torrent.seeding_time >= seeding_time_limit:
-            return_value = False  # Seeding time met - Can be cleaned up.
+        if self.seeding_mode_global_remove_torrent != -1:
+            if self.remove_torrent(torrent):
+                remove_torrent = True
+                return_value = False
+            else:
+                remove_torrent = False
+                return_value = True
+        else:
+            if torrent.ratio >= ratio_limit:
+                return_value = False  # Seeding ratio met - Can be cleaned up.
+            if torrent.seeding_time >= seeding_time_limit:
+                return_value = False  # Seeding time met - Can be cleaned up.
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if return_value is True and "qBitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        elif (
-            return_value is False
-            and "qBitrr-allowed_seeding" in torrent.tags
-            and self.seeding_mode_global_remove_torrent == -1
-        ):
+        elif return_value is False and "qBitrr-allowed_seeding" in torrent.tags:
             torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
-        return return_value, data_settings.get(
-            "max_eta", self.maximum_eta
+        return (
+            return_value,
+            data_settings.get("max_eta", self.maximum_eta),
+            remove_torrent,
         )  # Seeding is not complete needs more time
 
     def _process_single_torrent_trackers(self, torrent: qbittorrentapi.TorrentDictionary):
@@ -3085,7 +3094,7 @@ class Arr:
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         try:
-            leave_alone, _tracker_max_eta = self._should_leave_alone(torrent)
+            leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
         except BaseException as e:
             self.logger.warning(e)
             raise DelayLoopException(length=300, type="qbit")
@@ -3096,7 +3105,7 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if self.remove_torrent(torrent) and torrent.amount_left == 0:
+        if remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
