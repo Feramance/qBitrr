@@ -3148,14 +3148,14 @@ class Arr:
             self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
         elif torrent.state_enum == TorrentStates.MISSING_FILES:
             self._process_single_torrent_missing_files(torrent)
-        # If a torrent is Uploading Pause it, as long as its for being Forced Uploaded.
+        # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
         elif (
             self.is_uploading_state(torrent)
             and torrent.seeding_time > 1
             and torrent.amount_left == 0
             and torrent.added_on > 0
             and torrent.content_path
-            and torrent.amount_left == 0
+            and self.seeding_mode_global_remove_torrent == -1
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
