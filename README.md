@@ -2,6 +2,8 @@
 # qBitrr
 
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/qBitrr2)](https://pypi.org/project/qBitrr2/)
+[![PyPI](https://img.shields.io/pypi/dm/qbitrr2)](https://pypi.org/project/qBitrr2/)
 [![Downloads](https://img.shields.io/github/downloads/feramance/qBitrr/total)](https://github.com/Feramance/qBitrr/releases/latest)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
@@ -51,12 +53,35 @@ Some things to know before using it.
 ## Usage
 ### Native
 
-***PyPI package is outdated, please use the docker image or download the latest release!***
+- `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
-1. Download the latest release
-2. Run `qbitrr` to generate a config file
+Alternatively:
+- Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+
+#### Run the script
+
+1. Activate your venv
+2. Run `qBitrr2`  to generate a config file
 3. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
-4. Run `qbitrr` again to start the script
+4. Run `qBitrr2` if installed through pip again to start the script
+
+Alternatively:
+1. Unzip the downloaded release and run it
+2. Run `qBitrr`  to generate a config file
+3. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
+4. Run `qBitrr` if installed through pip again to start the script
+
+#### How to update the script
+
+1. Activate your venv
+2. Run `python -m pip install -U qBitrr2`
+
+Alternatively:
+1. Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+2. Unzip the downloaded release and run it
+3. Run `qBitrr`  to generate a config file
+4. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
+5. Run `qBitrr` if installed through pip again to start the script
 
 ***There is no auto-update feature, you will need to manually download the latest release and replace the old one.***
 
