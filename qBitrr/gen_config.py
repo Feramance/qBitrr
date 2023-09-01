@@ -84,9 +84,7 @@ def _add_settings_section(config: TOMLDocument):
             "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.",
         ],
         "PingURLS",
-        ENVIRO_CONFIG.settings.ping_urls or [
-            "one.one.one.one",
-            "dns.google.com"],
+        ENVIRO_CONFIG.settings.ping_urls or ["one.one.one.one", "dns.google.com"],
     )
     _gen_default_line(
         settings,
@@ -219,8 +217,7 @@ def _gen_default_cat(category: str, config: TOMLDocument):
             "If enabled qBitrr will remove the failed files and tell the Arr instance the download failed",
         ],
         "ArrErrorCodesToBlocklist",
-        list(
-            set(messages)),
+        list(set(messages)),
     )
     _gen_default_search_table(category, cat_default)
     _gen_default_torrent_table(category, cat_default)
@@ -236,47 +233,56 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         False,
     )
     if "anime" not in category.lower():
-        _gen_default_line(torrent_table,
-                          ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
-                           "These regex need to be escaped, that's why you see so many backslashes.",
-                           ],
-                          "FolderExclusionRegex",
-                          [r"\bextras?\b",
-                           r"\bfeaturettes?\b",
-                           r"\bsamples?\b",
-                           r"\bscreens?\b",
-                           r"\bnc(ed|op)?(\\d+)?\b",
-                           ],
-                          )
+        _gen_default_line(
+            torrent_table,
+            [
+                "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+                "These regex need to be escaped, that's why you see so many backslashes.",
+            ],
+            "FolderExclusionRegex",
+            [
+                r"\bextras?\b",
+                r"\bfeaturettes?\b",
+                r"\bsamples?\b",
+                r"\bscreens?\b",
+                r"\bnc(ed|op)?(\\d+)?\b",
+            ],
+        )
     else:
-        _gen_default_line(torrent_table,
-                          ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
-                           "These regex need to be escaped, that's why you see so many backslashes.",
-                           ],
-                          "FolderExclusionRegex",
-                          [r"\bextras?\b",
-                           r"\bfeaturettes?\b",
-                           r"\bsamples?\b",
-                           r"\bscreens?\b",
-                           r"\bspecials?\b",
-                           r"\bova\b",
-                           r"\bnc(ed|op)?(\\d+)?\b",
-                           ],
-                          )
-    _gen_default_line(torrent_table,
-                      ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
-                       "These regex need to be escaped, that's why you see so many backslashes.",
-                       ],
-                      "FileNameExclusionRegex",
-                      [r"\bncop\\d+?\b",
-                       r"\bnced\\d+?\b",
-                       r"\bsample\b",
-                       r"brarbg.com\b",
-                       r"\btrailer\b",
-                       r"music video",
-                       r"comandotorrents.com",
-                       ],
-                      )
+        _gen_default_line(
+            torrent_table,
+            [
+                "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+                "These regex need to be escaped, that's why you see so many backslashes.",
+            ],
+            "FolderExclusionRegex",
+            [
+                r"\bextras?\b",
+                r"\bfeaturettes?\b",
+                r"\bsamples?\b",
+                r"\bscreens?\b",
+                r"\bspecials?\b",
+                r"\bova\b",
+                r"\bnc(ed|op)?(\\d+)?\b",
+            ],
+        )
+    _gen_default_line(
+        torrent_table,
+        [
+            "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+            "These regex need to be escaped, that's why you see so many backslashes.",
+        ],
+        "FileNameExclusionRegex",
+        [
+            r"\bncop\\d+?\b",
+            r"\bnced\\d+?\b",
+            r"\bsample\b",
+            r"brarbg.com\b",
+            r"\btrailer\b",
+            r"music video",
+            r"comandotorrents.com",
+        ],
+    )
     _gen_default_line(
         torrent_table,
         "Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions",
@@ -632,13 +638,15 @@ def _gen_default_ombi_table(category: str, search_table: Table):
 
 def _gen_default_overseerr_table(category: str, search_table: Table):
     overseerr_table = table()
-    _gen_default_line(overseerr_table,
-                      ["Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)",
-                       "If this and Ombi are both enable, Ombi will be ignored",
-                       ],
-                      "SearchOverseerrRequests",
-                      False,
-                      )
+    _gen_default_line(
+        overseerr_table,
+        [
+            "Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)",
+            "If this and Ombi are both enable, Ombi will be ignored",
+        ],
+        "SearchOverseerrRequests",
+        False,
+    )
     _gen_default_line(overseerr_table, "Overseerr's URI", "OverseerrURI", "CHANGE_ME")
     _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
     _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
