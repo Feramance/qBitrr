@@ -788,7 +788,7 @@ class Arr:
                 except:
                     self.logger.error(
                         "Downloaded scan error: [%s][%s][%s]",
-                        path=str(path),
+                        str(path),
                         downloadClientId=torrent.hash.upper(),
                         importMode=self.import_mode,
                     )
