@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.2-beta-4 (01/09/2023)
+- [[build] Release workflow update](https://github.com/Feramance/qBitrr/commit/cdbe1c4e4921cce8647e12ba89e9fa8839a3bdba) - @Feramance
+
+---
+
 ## v3.7.2-beta-3 (01/09/2023)
 - [[build] Fix for docker build](https://github.com/Feramance/qBitrr/commit/db2f76ef84d9293593ff1e476550add9d7e7f1f4) - @Feramance
 
@@ -132,7 +137,3 @@
 ---
 
 ## v3.6.0-beta-5 (30/08/2023)
-
----
-
-## v3.6.0-beta-4 (30/08/2023)
