@@ -37,12 +37,12 @@ repos:
   hooks:
   - id: fix-smartquotes
   - id: fix-ligatures
-- repo: https://github.com/pre-commit/mirrors-autopep8
-  rev: v2.0.4   # Use the sha / tag you want to point at
-  hooks:
-  - id: autopep8
+# - repo: https://github.com/pre-commit/mirrors-autopep8
+#   rev: v2.0.4   # Use the sha / tag you want to point at
+#   hooks:
+#   - id: autopep8
 - repo: https://github.com/PyCQA/autoflake
-  rev: v2.2.0
+  rev: v2.2.1
   hooks:
   - id: autoflake
     args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]
