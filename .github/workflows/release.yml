@@ -303,7 +303,7 @@ jobs:
         cache-to: type=gha,mode=max
   change_logs:
     name: Generate Change Logs and Release Notes
-    needs: [bump_version, release_hash, docker_image]
+    needs: [bump_version, release_hash, package]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
