@@ -91,14 +91,14 @@ jobs:
         git_tag_gpgsign: true
       id: import_gpg
     - uses: marvinpinto/action-automatic-releases@latest
-      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true}}
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: true
         automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         title: v${{needs.bump_version.outputs.NEW_RELEASE}}
     - uses: marvinpinto/action-automatic-releases@latest
-      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: false
@@ -151,7 +151,7 @@ jobs:
       RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
   publish:
     name: Publish to PyPi
-    if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false
+    if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
     needs: [bump_version, release_hash]
     runs-on: ubuntu-latest
     steps:
@@ -278,7 +278,7 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build and push
-      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true}}
       env:
         DOCKER_BUILDKIT: 1
       uses: docker/build-push-action@v4
@@ -290,7 +290,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
     - name: Build and push
-      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
       env:
         DOCKER_BUILDKIT: 1
       uses: docker/build-push-action@v4
