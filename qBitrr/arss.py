@@ -781,9 +781,9 @@ class Arr:
                         self.logger.success("DownloadedMoviesScan: %s", path)
                         self.post_command(
                             "DownloadedMoviesScan",
-                            path=str(path),
-                            downloadClientId=torrent.hash.upper(),
-                            importMode=self.import_mode,
+                            str(path),
+                            torrent.hash.upper(),
+                            self.import_mode,
                         )
                 except:
                     self.logger.error(
