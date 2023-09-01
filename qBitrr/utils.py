@@ -19,7 +19,7 @@ CACHE = TTLCache(maxsize=50, ttl=60)
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
     error = True
-    while error is True:
+    while error:
         try:
             yield from pathlib.Path(directory).glob("**/*")
             error = False

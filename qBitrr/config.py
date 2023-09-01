@@ -82,23 +82,13 @@ if any(
     CONFIG = MyConfig(CONFIG_FILE, config=generate_doc())
     COPIED_TO_NEW_DIR = None
 elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
-    if ON_DOCKER:
-        print(f"{file} has not been found")
+    print(f"{file} has not been found")
 
-        CONFIG_FILE = _write_config_file(docker=True)
-        print(f"'{CONFIG_FILE.name}' has been generated")
-        print('Rename it to "config.toml" then edit it and restart the container')
+    CONFIG_FILE = _write_config_file(docker=True)
+    print(f"'{CONFIG_FILE.name}' has been generated")
+    print('Rename it to "config.toml" then edit it and restart the container')
 
-        os.kill(os.getppid(), signal.SIGTERM)
-
-    else:
-        print(f"{file} has not been found")
-
-        CONFIG_FILE = _write_config_file(docker=True)
-        print(f"'{CONFIG_FILE.name}' has been generated")
-        print('Rename it to "config.toml" then edit it and restart the container')
-
-        os.kill(os.getppid(), signal.SIGTERM)
+    os.kill(os.getppid(), signal.SIGTERM)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)
@@ -112,7 +102,7 @@ else:
 
 if COPIED_TO_NEW_DIR is not None:
     # print(f"STARTUP | {CONFIG.path} |\n{CONFIG}")
-    print(f"STARTUP")
+    print("STARTUP")
 else:
     print(f"STARTUP |  CONFIG_FILE={CONFIG_FILE} | CONFIG_PATH={CONFIG_PATH}")
 

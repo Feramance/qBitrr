@@ -68,10 +68,7 @@ logging.setLoggerClass(VerboseLogger)
 
 
 def getLogger(name: str | None = None):
-    if name:
-        return VerboseLogger.manager.getLogger(name)
-    else:
-        return logging.root
+    return VerboseLogger.manager.getLogger(name) if name else logging.root
 
 
 logging.getLogger = getLogger
