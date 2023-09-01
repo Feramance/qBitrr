@@ -5,6 +5,11 @@
 
 ---
 
+## v3.7.1-beta-0 (01/09/2023)
+- [[release] Update pypi config](https://github.com/Feramance/qBitrr/commit/6b8e27afff42ec1512aeef9892bc3d6f28c6c347) - @Feramance
+
+---
+
 ## v3.7.0 (01/09/2023)
 - [[release] Workflow test](https://github.com/Feramance/qBitrr/commit/6dc3d84f17f454e8e6adceb1b9e9c44b2cdf5f5f) - @Feramance
 - [[release] Final changes to prepare for release](https://github.com/Feramance/qBitrr/commit/e91e2590309528882c2f2079e9906450fbb5626c) - @Feramance
@@ -128,7 +133,3 @@
 ---
 
 ## v3.6.0-beta-17 (30/08/2023)
-
----
-
-## v3.6.0-beta-16 (30/08/2023)
