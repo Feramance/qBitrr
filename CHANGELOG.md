@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.2-beta-7 (01/09/2023)
+- [[build] Always allow seeding if remove torrent config is enabled](https://github.com/Feramance/qBitrr/commit/de46bf65e01c36303b41c86bc24a8211713c2bda) - @Feramance
+
+---
+
 ## v3.7.2-beta-6 (01/09/2023)
 - [[build] Workflow update](https://github.com/Feramance/qBitrr/commit/61922e2d23967fff7ab6618d4062916c9ac093e8) - @Feramance
 - [Pre-commit changes](https://github.com/Feramance/qBitrr/commit/04a9c1d509659f3d236f10f2d14142f18c9636f8) - @Feramance
@@ -136,7 +141,3 @@
 ---
 
 ## v3.6.0-beta-8 (30/08/2023)
-
----
-
-## v3.6.0-beta-7 (30/08/2023)
