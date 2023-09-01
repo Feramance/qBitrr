@@ -13,9 +13,12 @@ env:
   GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
 
 jobs:
-  get_current_version:
-    name: Get current version
+  bump_version:
+    name: Bump release version
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.event.head_commit.message, '[patch]') || startsWith(github.event.head_commit.message, '[minor]')|| startsWith(github.event.head_commit.message, '[major]') || startsWith(github.event.head_commit.message, '[build]') || startsWith(github.event.head_commit.message, '[release]') }}
+    env:
+      RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' || startsWith(github.event.head_commit.message, '[build]') && 'build' || startsWith(github.event.head_commit.message, '[release]') && 'release' }}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -33,27 +36,6 @@ jobs:
         echo "Current version: $(python setup.py --version)"
         echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
-    outputs:
-      VERSION: ${{ steps.current_version.outputs.VERSION }}
-  bump_version:
-    name: Bump release version
-    needs: [get_current_version]
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.event.head_commit.message, '[release]') && contains(github.job.get_current_version.output.VERSION, 'beta') }}
-    env:
-      RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[release]') && 'release' }}
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        token: ${{ secrets.PAT }}
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.x
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install bump2version setuptools wheel twine
     - name: Bump Patch Version
       run: |
         bump2version --current-version $(python setup.py --version) ${{ env.RELEASE_TYPE }}
@@ -79,15 +61,9 @@ jobs:
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
-    - id: clean_version
-      run: |
-        VERSION=$(echo ${{ github.job.get_current_version.current_version.outputs.VERSION }} | cut -d- -f1)
-        echo "::set-output name=VERSION::$VERSION"
     outputs:
       RELEASE_TYPE: ${{ env.RELEASE_TYPE }}
-      CURRENT_RELEASE: ${{ steps.clean_version.outputs.VERSION }}
       NEW_RELEASE: ${{ steps.new_version.outputs.VERSION }}
-      DOCKER_RELEASE: ${{ steps.clean_version.outputs.substring }}
   release:
     name: Create a GitHub Release
     needs: [bump_version]
@@ -115,9 +91,17 @@ jobs:
         git_tag_gpgsign: true
       id: import_gpg
     - uses: marvinpinto/action-automatic-releases@latest
+      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: false
+        automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
+        title: v${{needs.bump_version.outputs.NEW_RELEASE}}
+    - uses: marvinpinto/action-automatic-releases@latest
+      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true
+      with:
+        repo_token: ${{ secrets.PAT }}
+        prerelease: true
         automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         title: v${{needs.bump_version.outputs.NEW_RELEASE}}
   release_hash:
@@ -269,6 +253,7 @@ jobs:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build and push
+      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false
       env:
         DOCKER_BUILDKIT: 1
       uses: docker/build-push-action@v4
@@ -279,9 +264,21 @@ jobs:
         tags: feramance/qbitrr:testing,feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+    - name: Build and push
+      if: contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true
+      env:
+        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: feramance/qbitrr:testing
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
   change_logs:
     name: Generate Change Logs and Release Notes
-    needs: [bump_version, release_hash, docker_image, package]
+    needs: [bump_version, release_hash, docker_image]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
