@@ -439,9 +439,12 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         if "4k" in category.lower():
             t.append("4K")
             t2.append("4K")
-        tracker_list.append(("Rarbg-2810", "udp://9.rarbg.com:2810/announce", t, 1))
-        tracker_list.append(("Rarbg-2740", "udp://9.rarbg.to:2740/announce", t2, 2))
-
+        tracker_list.extend(
+            (
+                ("Rarbg-2810", "udp://9.rarbg.com:2810/announce", t, 1),
+                ("Rarbg-2740", "udp://9.rarbg.to:2740/announce", t2, 2),
+            )
+        )
     for name, url, tags, priority in tracker_list:
         tracker_table = table()
         tracker_table.add(
@@ -710,10 +713,7 @@ class MyConfig:
                 with self.path.open() as file:
                     self.config = parse(file.read())
                     return self
-            except OSError as err:
-                self.state = False
-                self.err = err
-            except TypeError as err:
+            except (OSError, TypeError) as err:
                 self.state = False
                 self.err = err
         return self
@@ -759,10 +759,7 @@ class MyConfig:
 
 def _write_config_file(docker=False) -> pathlib.Path:
     doc = generate_doc()
-    if docker:
-        file_name = "config.rename_me.toml"
-    else:
-        file_name = "config.toml"
+    file_name = "config.rename_me.toml" if docker else "config.toml"
     CONFIG_FILE = HOME_PATH.joinpath(file_name)
     if CONFIG_FILE.exists() and not docker:
         print(f"{CONFIG_FILE} already exists, File is not being replaced.")

@@ -7,21 +7,15 @@ import environ
 class Converter:
     @staticmethod
     def int(value: Optional[str]) -> Optional[int]:
-        if value is None:
-            return None
-        return int(value)
+        return None if value is None else int(value)
 
     @staticmethod
     def list(value: Optional[str], delimiter=",", converter=str) -> Optional[list]:
-        if value is None:
-            return None
-        return list(map(converter, value.split(delimiter)))
+        return None if value is None else list(map(converter, value.split(delimiter)))
 
     @staticmethod
     def bool(value: Optional[str]) -> Optional[bool]:
-        if value is None:
-            return None
-        return strtobool(value) == 1
+        return None if value is None else strtobool(value) == 1
 
 
 @environ.config(prefix="QBITRR", frozen=True)
