@@ -319,6 +319,11 @@ jobs:
         node-version: latest
     - run: npm install github-release-notes -g
     - name: Release Notes and Change logs
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true}}
+      run: |
+        gren changelog
+    - name: Release Notes and Change logs
+      if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
       run: |
         gren release
         gren changelog
