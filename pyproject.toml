@@ -25,6 +25,9 @@ known_local_folder = ["qBitrr"]
 line-length = 99
 target-version = ['py38']
 
+[[tool.poetry.source]]
+name = 'pypi-public'
+url = "https://pypi.org/simple/"
 
 [tool.autopep8]
 max_line_length = 99

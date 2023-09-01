@@ -2909,7 +2909,11 @@ class Arr:
             return_value = True
         if return_value is True and "qBitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        elif return_value is False and "qBitrr-allowed_seeding" in torrent.tags:
+        elif (
+            return_value is False
+            and "qBitrr-allowed_seeding" in torrent.tags
+            and self.seeding_mode_global_remove_torrent == -1
+        ):
             torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return return_value, data_settings.get(
             "max_eta", self.maximum_eta
@@ -3155,7 +3159,6 @@ class Arr:
             and torrent.amount_left == 0
             and torrent.added_on > 0
             and torrent.content_path
-            and self.seeding_mode_global_remove_torrent == -1
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
