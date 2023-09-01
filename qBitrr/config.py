@@ -11,7 +11,7 @@ import sys
 from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, _write_config_file, generate_doc
-from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH, ON_DOCKER
+from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
 
 def process_flags() -> argparse.Namespace | bool:
