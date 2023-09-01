@@ -32,81 +32,72 @@ def generate_doc() -> TOMLDocument:
 
 def _add_settings_section(config: TOMLDocument):
     settings = table()
-    settings.add(
-        comment("Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE")
+    _gen_default_line(
+        settings,
+        "Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE",
+        "ConsoleLevel",
+        ENVIRO_CONFIG.settings.console_level or "INFO",
     )
-    settings.add("ConsoleLevel", ENVIRO_CONFIG.settings.console_level or "INFO")
-    settings.add(nl())
-    settings.add(
-        comment(
-            "Folder where your completed downloads are put into. "
-            "Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path"
-        )
+    _gen_default_line(
+        settings,
+        "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path",
+        "CompletedDownloadFolder",
+        ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME",
     )
-    settings.add(
-        "CompletedDownloadFolder", ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME"
+    _gen_default_line(
+        settings,
+        "Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)",
+        "NoInternetSleepTimer",
+        ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15,
     )
-    settings.add(nl())
-    settings.add(
-        comment("Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)")
+    _gen_default_line(
+        settings,
+        "Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)",
+        "LoopSleepTimer",
+        ENVIRO_CONFIG.settings.loop_sleep_timer or 5,
     )
-    settings.add("NoInternetSleepTimer", ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15)
-    settings.add(nl())
-    settings.add(
-        comment("Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)")
+    _gen_default_line(
+        settings,
+        "Add torrents to this category to mark them as failed",
+        "FailedCategory",
+        ENVIRO_CONFIG.settings.failed_category or "failed",
     )
-    settings.add("LoopSleepTimer", ENVIRO_CONFIG.settings.loop_sleep_timer or 5)
-    settings.add(nl())
-    settings.add(comment("Add torrents to this category to mark them as failed"))
-    settings.add("FailedCategory", ENVIRO_CONFIG.settings.failed_category or "failed")
-    settings.add(nl())
-    settings.add(comment("Add torrents to this category to trigger them to be rechecked properly"))
-    settings.add("RecheckCategory", ENVIRO_CONFIG.settings.recheck_category or "recheck")
-    settings.add(nl())
-    settings.add(
-        comment("Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)")
+    _gen_default_line(
+        settings,
+        "Add torrents to this category to trigger them to be rechecked properly",
+        "RecheckCategory",
+        ENVIRO_CONFIG.settings.recheck_category or "recheck",
     )
-    settings.add(comment("Only applicable to Re-check and failed categories"))
-    settings.add(
-        "IgnoreTorrentsYoungerThan", ENVIRO_CONFIG.settings.ignore_torrents_younger_than or 180
+    _gen_default_line(
+        settings,
+        [
+            "Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)",
+            "Only applicable to Re-check and failed categories",
+        ],
+        "IgnoreTorrentsYoungerThan",
+        ENVIRO_CONFIG.settings.ignore_torrents_younger_than or 180,
     )
-    settings.add(nl())
-    settings.add(comment("URL to be pinged to check if you have a valid internet connection"))
-    settings.add(
-        comment(
-            "These will be pinged a **LOT** make sure the service is okay "
-            "with you sending all the continuous pings."
-        )
+    _gen_default_line(
+        settings,
+        [
+            "URL to be pinged to check if you have a valid internet connection",
+            "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.",
+        ],
+        "PingURLS",
+        ENVIRO_CONFIG.settings.ping_urls or [
+            "one.one.one.one",
+            "dns.google.com"],
     )
-    settings.add(
-        "PingURLS", ENVIRO_CONFIG.settings.ping_urls or ["one.one.one.one", "dns.google.com"]
-    )
-    settings.add(nl())
-    settings.add(
-        comment(
-            "FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads"
-        )
-    )
-    settings.add(comment("If this is disabled and you want ffprobe to work"))
-    settings.add(
-        comment(
+    _gen_default_line(
+        settings,
+        [
+            "FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads",
+            "If this is disabled and you want ffprobe to work",
             "Ensure that you add the ffprobe binary to the folder"
-            f"\"{APPDATA_FOLDER.joinpath('ffprobe.exe')}\""
-        )
-    )
-    settings.add(
-        comment(
-            "If no `ffprobe` binary is found in the folder above all "
-            "ffprobe functionality will be disabled."
-        )
-    )
-    settings.add(
-        comment(
-            "By default this will always be on even if config does not have these key - "
-            "to disable you need to explicitly set it to `False`"
-        )
-    )
-    settings.add(
+            f"\"{APPDATA_FOLDER.joinpath('ffprobe.exe')}\"",
+            "If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled.",
+            "By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`",
+        ],
         "FFprobeAutoUpdate",
         True if ENVIRO_CONFIG.settings.ping_urls is None else ENVIRO_CONFIG.settings.ping_urls,
     )
@@ -115,46 +106,40 @@ def _add_settings_section(config: TOMLDocument):
 
 def _add_qbit_section(config: TOMLDocument):
     qbit = table()
-    qbit.add(
-        comment(
-            "If this is enable qBitrr can run in a headless "
-            "mode where it will only process searches."
-        )
+    _gen_default_line(
+        qbit,
+        [
+            "If this is enable qBitrr can run in a headless mode where it will only process searches.",
+            "If media search is enabled in their individual categories",
+            "This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit",
+        ],
+        "Disabled",
+        False if ENVIRO_CONFIG.qbit.disabled is None else ENVIRO_CONFIG.qbit.disabled,
     )
-    qbit.add(comment("If media search is enabled in their individual categories"))
-    qbit.add(
-        comment(
-            "This is useful if you use for example Sabnzbd/NZBGet for downloading content "
-            "but still want the faster media searches provided by qbit"
-        )
+    _gen_default_line(
+        qbit,
+        'qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")',
+        "Host",
+        ENVIRO_CONFIG.qbit.host or "CHANGE_ME",
     )
-    qbit.add(
-        "Disabled", False if ENVIRO_CONFIG.qbit.disabled is None else ENVIRO_CONFIG.qbit.disabled
+    _gen_default_line(
+        qbit,
+        'qBit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
+        "Port",
+        ENVIRO_CONFIG.qbit.port or 8080,
     )
-    qbit.add(nl())
-    qbit.add(comment('qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")'))
-    qbit.add("Host", ENVIRO_CONFIG.qbit.host or "CHANGE_ME")
-    qbit.add(nl())
-    qbit.add(
-        comment(
-            'qBit WebUI Port - Can be found in Options > Web UI (called "Port" '
-            "on top right corner of the window)"
-        )
+    _gen_default_line(
+        qbit,
+        "qBit WebUI Authentication - Can be found in Options > Web UI > Authentication",
+        "UserName",
+        ENVIRO_CONFIG.qbit.username or "CHANGE_ME",
     )
-    qbit.add("Port", ENVIRO_CONFIG.qbit.port or 8080)
-    qbit.add(nl())
-    qbit.add(
-        comment("qBit WebUI Authentication - Can be found in Options > Web UI > Authentication")
+    _gen_default_line(
+        qbit,
+        'If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.',
+        "Password",
+        ENVIRO_CONFIG.qbit.password or "CHANGE_ME",
     )
-    qbit.add("UserName", ENVIRO_CONFIG.qbit.username or "CHANGE_ME")
-    qbit.add(nl())
-    qbit.add(
-        comment(
-            'If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.'
-        )
-    )
-    qbit.add("Password", ENVIRO_CONFIG.qbit.password or "CHANGE_ME")
-    qbit.add(nl())
     config.add("qBit", qbit)
 
 
@@ -165,65 +150,51 @@ def _add_category_sections(config: TOMLDocument):
 
 def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default = table()
-    cat_default.add(comment("Toggle whether to manage the Servarr instance torrents."))
-    cat_default.add("Managed", True)
-    cat_default.add(nl())
-    cat_default.add(
-        comment(
-            "The URL used to access Servarr interface "
-            "(if you use a domain enter the domain without a port)"
-        )
+    _gen_default_line(
+        cat_default, "Toggle whether to manage the Servarr instance torrents.", "Managed", True
     )
-    cat_default.add("URI", "CHANGE_ME")
-    cat_default.add(nl())
-    cat_default.add(comment("The Servarr API Key, Can be found it Settings > General > Security"))
-    cat_default.add("APIKey", "CHANGE_ME")
-    cat_default.add(nl())
-    cat_default.add(
-        comment(
-            "Category applied by Servarr to torrents in qBitTorrent, "
-            "can be found in Settings > Download Clients > qBit > Category"
-        )
+    _gen_default_line(
+        cat_default,
+        "The URL used to access Servarr interface "
+        "(if you use a domain enter the domain without a port)",
+        "URI",
+        "CHANGE_ME",
     )
-    cat_default.add("Category", category.lower())
-    cat_default.add(nl())
-    cat_default.add(
-        comment("Toggle whether to send a query to Servarr to search any failed torrents")
+    _gen_default_line(
+        cat_default,
+        "The Servarr API Key, Can be found it Settings > General > Security",
+        "APIKey",
+        "CHANGE_ME",
     )
-    cat_default.add("ReSearch", True)
-    cat_default.add(nl())
-    cat_default.add(comment("The Servarr's Import Mode(one of Move, Copy or Hardlink)"))
-    cat_default.add("importMode", "Hardlink")
-    cat_default.add(nl())
-    cat_default.add(comment("Timer to call RSSSync (In minutes) - Set to 0 to disable"))
-    cat_default.add("RssSyncTimer", 1)
-    cat_default.add(nl())
-    cat_default.add(
-        comment(
-            "Timer to call RefreshDownloads to update the queue. (In minutes) - "
-            "Set to 0 to disable"
-        )
+    _gen_default_line(
+        cat_default,
+        "Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category",
+        "Category",
+        category.lower(),
     )
-    cat_default.add("RefreshDownloadsTimer", 1)
-    cat_default.add(nl())
-
+    _gen_default_line(
+        cat_default,
+        "Toggle whether to send a query to Servarr to search any failed torrents",
+        "ReSearch",
+        True,
+    )
+    _gen_default_line(
+        cat_default,
+        "The Servarr's Import Mode(one of Move, Copy or Hardlink)",
+        "importMode",
+        "Hardlink",
+    )
+    _gen_default_line(
+        cat_default, "Timer to call RSSSync (In minutes) - Set to 0 to disable", "RssSyncTimer", 1
+    )
+    _gen_default_line(
+        cat_default,
+        "Timer to call RefreshDownloads to update the queue. (In minutes) - "
+        "Set to 0 to disable",
+        "RefreshDownloadsTimer",
+        1,
+    )
     messages = []
-    cat_default.add(
-        comment("Error messages shown my the Arr instance which should be considered failures.")
-    )
-    cat_default.add(
-        comment(
-            "This entry should be a list, "
-            "leave it empty if you want to disable this error handling."
-        )
-    )
-    cat_default.add(
-        comment(
-            "If enabled qBitrr will remove the failed files and "
-            "tell the Arr instance the download failed"
-        )
-    )
-
     if "radarr" in category.lower():
         messages.extend(
             [
@@ -240,10 +211,17 @@ def _gen_default_cat(category: str, config: TOMLDocument):
                 "Unable to determine if file is a sample",
             ]
         )
-
-    cat_default.add("ArrErrorCodesToBlocklist", list(set(messages)))
-    cat_default.add(nl())
-
+    _gen_default_line(
+        cat_default,
+        [
+            "Error messages shown my the Arr instance which should be considered failures.",
+            "This entry should be a list, leave it empty if you want to disable this error handling.",
+            "If enabled qBitrr will remove the failed files and tell the Arr instance the download failed",
+        ],
+        "ArrErrorCodesToBlocklist",
+        list(
+            set(messages)),
+    )
     _gen_default_search_table(category, cat_default)
     _gen_default_torrent_table(category, cat_default)
     config.add(category, cat_default)
@@ -251,105 +229,91 @@ def _gen_default_cat(category: str, config: TOMLDocument):
 
 def _gen_default_torrent_table(category: str, cat_default: Table):
     torrent_table = table()
-    torrent_table.add(comment("Set it to regex matches to respect/ignore case."))
-    torrent_table.add("CaseSensitiveMatches", False)
-    torrent_table.add(nl())
-    torrent_table.add(
-        comment(
-            "These regex values will match any folder where the full name matches "
-            "the specified values here, comma separated strings."
-        )
+    _gen_default_line(
+        torrent_table,
+        "Set it to regex matches to respect/ignore case.",
+        "CaseSensitiveMatches",
+        False,
     )
-    torrent_table.add(
-        comment("These regex need to be escaped, that's why you see so many backslashes.")
-    )
-    if "anime" in category.lower():
-        torrent_table.add(
-            "FolderExclusionRegex",
-            [
-                r"\bextras?\b",
-                r"\bfeaturettes?\b",
-                r"\bsamples?\b",
-                r"\bscreens?\b",
-                r"\bnc(ed|op)?(\\d+)?\b",
-            ],
-        )
+    if "anime" not in category.lower():
+        _gen_default_line(torrent_table,
+                          ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+                           "These regex need to be escaped, that's why you see so many backslashes.",
+                           ],
+                          "FolderExclusionRegex",
+                          [r"\bextras?\b",
+                           r"\bfeaturettes?\b",
+                           r"\bsamples?\b",
+                           r"\bscreens?\b",
+                           r"\bnc(ed|op)?(\\d+)?\b",
+                           ],
+                          )
     else:
-        torrent_table.add(
-            "FolderExclusionRegex",
-            [
-                r"\bextras?\b",
-                r"\bfeaturettes?\b",
-                r"\bsamples?\b",
-                r"\bscreens?\b",
-                r"\bspecials?\b",
-                r"\bova\b",
-                r"\bnc(ed|op)?(\\d+)?\b",
-            ],
-        )
-    torrent_table.add(nl())
-    torrent_table.add(
-        comment(
-            "These regex values will match any folder where the full name matches "
-            "the specified values here, comma separated strings."
-        )
+        _gen_default_line(torrent_table,
+                          ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+                           "These regex need to be escaped, that's why you see so many backslashes.",
+                           ],
+                          "FolderExclusionRegex",
+                          [r"\bextras?\b",
+                           r"\bfeaturettes?\b",
+                           r"\bsamples?\b",
+                           r"\bscreens?\b",
+                           r"\bspecials?\b",
+                           r"\bova\b",
+                           r"\bnc(ed|op)?(\\d+)?\b",
+                           ],
+                          )
+    _gen_default_line(torrent_table,
+                      ["These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+                       "These regex need to be escaped, that's why you see so many backslashes.",
+                       ],
+                      "FileNameExclusionRegex",
+                      [r"\bncop\\d+?\b",
+                       r"\bnced\\d+?\b",
+                       r"\bsample\b",
+                       r"brarbg.com\b",
+                       r"\btrailer\b",
+                       r"music video",
+                       r"comandotorrents.com",
+                       ],
+                      )
+    _gen_default_line(
+        torrent_table,
+        "Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions",
+        "FileExtensionAllowlist",
+        [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     )
-    torrent_table.add(
-        comment("These regex need to be escaped, that's why you see so many backslashes.")
+    _gen_default_line(
+        torrent_table,
+        "Auto delete files that can't be playable (i.e .exe, .png)",
+        "AutoDelete",
+        False,
     )
-    torrent_table.add(
-        "FileNameExclusionRegex",
-        [
-            r"\bncop\\d+?\b",
-            r"\bnced\\d+?\b",
-            r"\bsample\b",
-            r"brarbg.com\b",
-            r"\btrailer\b",
-            r"music video",
-            r"comandotorrents.com",
-        ],
+    _gen_default_line(
+        torrent_table,
+        "Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)",
+        "IgnoreTorrentsYoungerThan",
+        180,
     )
-    torrent_table.add(nl())
-    torrent_table.add(
-        comment(
-            "Only files with these extensions will be allowed to be downloaded, "
-            "comma separated strings, leave it empty to allow all extensions"
-        )
-    )
-    torrent_table.add(
-        "FileExtensionAllowlist", [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
-    )
-    torrent_table.add(nl())
-    torrent_table.add(comment("Auto delete files that can't be playable (i.e .exe, .png)"))
-    torrent_table.add("AutoDelete", False)
-    torrent_table.add(nl())
-    torrent_table.add(
-        comment("Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)")
-    )
-    torrent_table.add("IgnoreTorrentsYoungerThan", 180)
-    torrent_table.add(nl())
     torrent_table.add(
         comment("Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)")
     )
-    torrent_table.add(
-        comment(
-            "Note that if you set the MaximumETA on a tracker basis that value is "
-            "favoured over this value"
-        )
+    _gen_default_line(
+        torrent_table,
+        [
+            "Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)",
+            "Note that if you set the MaximumETA on a tracker basis that value is favoured over this value",
+        ],
+        "MaximumETA",
+        604800,
     )
-    torrent_table.add("MaximumETA", 604800)
-    torrent_table.add(nl())
-    torrent_table.add(
-        comment(
-            "Do not delete torrents with higher completion percentage than this setting "
-            "(0.5 = 50%, 1.0 = 100%)"
-        )
+    _gen_default_line(
+        torrent_table,
+        "Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)",
+        "MaximumDeletablePercentage",
+        0.99,
     )
-    torrent_table.add("MaximumDeletablePercentage", 0.99)
-    torrent_table.add(nl())
-    torrent_table.add(comment("Ignore slow torrents."))
-    torrent_table.add("DoNotRemoveSlow", True)
-    torrent_table.add(nl())
+    _gen_default_line(torrent_table, "Ignore slow torrents.", "DoNotRemoveSlow", True)
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
 
@@ -358,63 +322,58 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
 
 def _gen_default_seeding_table(category: str, torrent_table: Table):
     seeding_table = table()
-    seeding_table.add(comment("Set the maximum allowed download rate for torrents"))
-    seeding_table.add(comment("Set this value to -1 to disabled it"))
-    seeding_table.add(
-        comment(
-            "Note that if you set the DownloadRateLimit on a tracker basis that value is "
-            "avoured over this value"
-        )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Set the maximum allowed download rate for torrents",
+            "Set this value to -1 to disabled it",
+            "Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value",
+        ],
+        "DownloadRateLimitPerTorrent",
+        -1,
     )
-    seeding_table.add("DownloadRateLimitPerTorrent", -1)
-    seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum allowed upload rate for torrents"))
-    seeding_table.add(comment("Set this value to -1 to disabled it"))
-    seeding_table.add(
-        comment(
-            "Note that if you set the UploadRateLimit on a tracker basis that value is "
-            "favoured over this value"
-        )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Set the maximum allowed upload rate for torrents",
+            "Set this value to -1 to disabled it",
+            "Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value",
+        ],
+        "UploadRateLimitPerTorrent",
+        -1,
     )
-    seeding_table.add("UploadRateLimitPerTorrent", -1)
-    seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum allowed upload ratio for torrents"))
-    seeding_table.add(comment("Set this value to -1 to disabled it"))
-    seeding_table.add(
-        comment(
-            "Note that if you set the MaxUploadRatio on a tracker basis that value is "
-            "favoured over this value"
-        )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Set the maximum allowed upload ratio for torrents",
+            "Set this value to -1 to disabled it",
+            "Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value",
+        ],
+        "MaxUploadRatio",
+        -1,
     )
-    seeding_table.add("MaxUploadRatio", -1)
-    seeding_table.add(nl())
-    seeding_table.add(comment("Set the maximum seeding time in seconds for torrents"))
-    seeding_table.add(comment("Set this value to -1 to disabled it"))
-    seeding_table.add(
-        comment(
-            "Note that if you set the MaxSeedingTime on a tracker basis that value is "
-            "favoured over this value"
-        )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Set the maximum seeding time in seconds for torrents",
+            "Set this value to -1 to disabled it",
+            "Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value",
+        ],
+        "MaxSeedingTime",
+        -1,
     )
-    seeding_table.add("MaxSeedingTime", -1)
-    seeding_table.add(nl())
-    seeding_table.add(
-        comment(
-            "Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)"
-        )
+    _gen_default_line(
+        seeding_table,
+        "Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)",
+        "RemoveTorrent",
+        -1,
     )
-    seeding_table.add("RemoveTorrent", -1)
-    seeding_table.add(nl())
-    seeding_table.add(comment("Enable if you want to remove dead trackers"))
-    seeding_table.add("RemoveDeadTrackers", False)
-    seeding_table.add(nl())
-    seeding_table.add(
-        comment(
-            'If "RemoveDeadTrackers" is set to true then remove trackers with the '
-            "following messages"
-        )
+    _gen_default_line(
+        seeding_table, "Enable if you want to remove dead trackers", "RemoveDeadTrackers", False
     )
-    seeding_table.add(
+    _gen_default_line(
+        seeding_table,
+        'If "RemoveDeadTrackers" is set to true then remove trackers with the following messages',
         "RemoveTrackerWithMessage",
         [
             "skipping tracker announce (unreachable)",
@@ -423,7 +382,6 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
             "info hash is not authorized with this tracker",
         ],
     )
-    seeding_table.add(nl())
 
     torrent_table.add("SeedingMode", seeding_table)
 
@@ -447,78 +405,96 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         )
     for name, url, tags, priority in tracker_list:
         tracker_table = table()
-        tracker_table.add(
-            comment(
-                "This is only for your own benefit, it is not currently used anywhere, "
-                "but one day it may be."
-            )
+        _gen_default_line(
+            tracker_table,
+            "This is only for your own benefit, it is not currently used anywhere, but one day it may be.",
+            "Name",
+            name,
         )
-        tracker_table.add("Name", name)
-        tracker_table.add(nl())
         tracker_table.add(
             comment("This is used when multiple trackers are in one single torrent.")
         )
-        tracker_table.add(
-            comment(
-                "the tracker with the highest priority will have all its settings applied to "
-                "the torrent."
-            )
+        _gen_default_line(
+            tracker_table,
+            "the tracker with the highest priority will have all its settings applied to the torrent.",
+            "Priority",
+            priority,
         )
-        tracker_table.add("Priority", priority)
-        tracker_table.add(nl())
-        tracker_table.add(comment("The tracker URI used by qBit."))
-        tracker_table.add("URI", url)
-        tracker_table.add(nl())
-        tracker_table.add(
-            comment(
-                "Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)."
-            )
+        _gen_default_line(tracker_table, "The tracker URI used by qBit.", "URI", url)
+        _gen_default_line(
+            tracker_table,
+            "Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).",
+            "MaximumETA",
+            18000,
         )
-        tracker_table.add("MaximumETA", 18000)
-        tracker_table.add(nl())
-
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        tracker_table.add(comment("Set this value to -1 to disabled it"))
-        tracker_table.add("DownloadRateLimit", -1)
-        tracker_table.add(nl())
+        _gen_default_line(
+            tracker_table,
+            "Set this value to -1 to disabled it",
+            "DownloadRateLimit",
+            -1,
+        )
         tracker_table.add(comment("Set the maximum allowed upload rate for torrents"))
-        tracker_table.add(comment("Set this value to -1 to disabled it"))
-        tracker_table.add("UploadRateLimit", -1)
-        tracker_table.add(nl())
+        _gen_default_line(
+            tracker_table,
+            "Set this value to -1 to disabled it",
+            "UploadRateLimit",
+            -1,
+        )
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        tracker_table.add(comment("Set this value to -1 to disabled it"))
-        tracker_table.add("MaxUploadRatio", -1)
-        tracker_table.add(nl())
+        _gen_default_line(
+            tracker_table,
+            "Set this value to -1 to disabled it",
+            "MaxUploadRatio",
+            -1,
+        )
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        tracker_table.add(comment("Set this value to -1 to disabled it"))
-        tracker_table.add("MaxSeedingTime", -1)
-        tracker_table.add(nl())
-
-        tracker_table.add(comment("Add this tracker from any torrent that does not contains it."))
-        tracker_table.add(comment("This setting does not respect priority."))
-        tracker_table.add(comment("Meaning it always be applies."))
-        tracker_table.add("AddTrackerIfMissing", False)
-        tracker_table.add(nl())
-        tracker_table.add(comment("Remove this tracker from any torrent that contains it."))
-        tracker_table.add(comment("This setting does not respect priority."))
-        tracker_table.add(comment("Meaning it always be applies."))
-        tracker_table.add("RemoveIfExists", False)
-        tracker_table.add(nl())
-        tracker_table.add(comment("Enable Super Seeding setting for torrents with this tracker."))
-        tracker_table.add("SuperSeedMode", False)
-        tracker_table.add(nl())
+        _gen_default_line(
+            tracker_table,
+            "Set this value to -1 to disabled it",
+            "MaxSeedingTime",
+            -1,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Add this tracker from any torrent that does not contains it.",
+            "AddTrackerIfMissing",
+            False,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Remove this tracker from any torrent that contains it.",
+            "RemoveIfExists",
+            False,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Enable Super Seeding setting for torrents with this tracker.",
+            "SuperSeedMode",
+            False,
+        )
         if tags:
-            tracker_table.add(comment("Adds these tags to any torrents containing this tracker."))
-            tracker_table.add(comment("This setting does not respect priority."))
-            tracker_table.add(comment("Meaning it always be applies."))
-            tracker_table.add("AddTags", tags)
-            tracker_table.add(nl())
-
+            _gen_default_line(
+                tracker_table,
+                "Adds these tags to any torrents containing this tracker.",
+                "AddTags",
+                tags,
+            )
         tracker_table_list.append(tracker_table)
     torrent_table.add(
         comment("You can have multiple trackers set here or none just add more subsections.")
     )
     torrent_table.add("Trackers", tracker_table_list)
+
+
+def _gen_default_line(table, comments, field, value):
+    if isinstance(comments, list):
+        for c in comments:
+            table.add(comment(c))
+    else:
+        table.add(comment(comments))
+    table.add(field, value)
+    table.add(nl())
 
 
 def _gen_default_search_table(category: str, cat_default: Table):
@@ -530,102 +506,106 @@ def _gen_default_search_table(category: str, cat_default: Table):
         )
     )
     search_table.add(nl())
-    search_table.add(comment("Should search for Missing files?"))
-    search_table.add("SearchMissing", True)
-    search_table.add(nl())
-    search_table.add(comment("Should search for specials episodes? (Season 00)"))
-    search_table.add("AlsoSearchSpecials", False)
-    search_table.add(nl())
-    search_table.add(
-        comment(
-            "Maximum allowed Searches at any one points (I wouldn't recommend settings "
-            "this too high)"
-        )
+    _gen_default_line(search_table, "Should search for Missing files?", "SearchMissing", True)
+    _gen_default_line(
+        search_table,
+        "Should search for specials episodes? (Season 00)",
+        "AlsoSearchSpecials",
+        False,
     )
     if "sonarr" in category.lower():
-        search_table.add(comment("Sonarr has a hardcoded cap of 3 simultaneous tasks"))
+        _gen_default_line(
+            search_table,
+            [
+                "Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)",
+                "Sonarr has a hardcoded cap of 3 simultaneous tasks",
+            ],
+            "SearchLimit",
+            5,
+        )
     elif "radarr" in category.lower():
-        search_table.add(
-            comment(
-                "Radarr has a default of 3 simultaneous tasks, which can be increased up to "
-                "10 tasks"
-            )
+        _gen_default_line(
+            search_table,
+            [
+                "Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks",
+                'If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10',
+                "Radarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them.",
+                "That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.",
+            ],
+            "SearchLimit",
+            5,
         )
-        search_table.add(
-            comment(
-                'If you set the environment variable of "THREAD_LIMIT" to a number between and '
-                "including 2-10"
-            )
-        )
-        search_table.add(
-            comment(
-                "Radarr devs have stated that this is an unsupported feature so you will "
-                "not get any support for doing so from them."
-            )
-        )
-        search_table.add(
-            comment(
-                "That being said I've been daily driving 10 simultaneous tasks for quite a "
-                "while now with no issues."
-            )
-        )
-    search_table.add("SearchLimit", 5)
-    search_table.add(nl())
-    search_table.add(comment("Servarr Datapath file path"))
-    search_table.add(comment("This is required for any of the search functionality to work"))
-    search_table.add(
-        comment(
-            'The only exception for this is the "ReSearch" setting as that is done via an '
-            "API call."
-        )
-    )
     if "sonarr" in category.lower():
-        search_table.add("DatabaseFile", "CHANGE_ME/sonarr.db")
+        _gen_default_line(
+            search_table,
+            [
+                "Servarr Datapath file path",
+                "This is required for any of the search functionality to work",
+                'The only exception for this is the "ReSearch" setting as that is done via an API call.',
+            ],
+            "DatabaseFile",
+            "CHANGE_ME/sonarr.db",
+        )
     elif "radarr" in category.lower():
-        search_table.add("DatabaseFile", "CHANGE_ME/radarr.db")
-    search_table.add(nl())
-    search_table.add(comment("It will order searches by the year the EPISODE was first aired"))
-    search_table.add("SearchByYear", True)
-    search_table.add(nl())
-    search_table.add(comment("Reverse search order (Start searching oldest to newest)"))
-    search_table.add("SearchInReverse", False)
-    search_table.add(nl())
-    search_table.add(comment("Delay between request searches in seconds"))
-    search_table.add("SearchRequestsEvery", 300)
-    search_table.add(nl())
-    search_table.add(
-        comment(
-            "Search movies which already have a file in the database in hopes of finding a "
-            "better quality version."
+        _gen_default_line(
+            search_table,
+            [
+                "Servarr Datapath file path",
+                "This is required for any of the search functionality to work",
+                'The only exception for this is the "ReSearch" setting as that is done via an API call.',
+            ],
+            "DatabaseFile",
+            "CHANGE_ME/radarr.db",
         )
+    _gen_default_line(
+        search_table,
+        "It will order searches by the year the EPISODE was first aired",
+        "SearchByYear",
+        True,
     )
-    search_table.add("DoUpgradeSearch", False)
-    search_table.add(nl())
-    search_table.add(comment("Do a quality unmet search for existing entries."))
-    search_table.add("QualityUnmetSearch", False)
-    search_table.add(nl())
-    search_table.add(
-        comment(
-            "Once you have search all files on your specified year range restart the loop and "
-            "search again."
-        )
+    _gen_default_line(
+        search_table,
+        "Reverse search order (Start searching oldest to newest)",
+        "SearchInReverse",
+        False,
     )
-    search_table.add("SearchAgainOnSearchCompletion", True)
-    search_table.add(nl())
-
+    _gen_default_line(
+        search_table, "Delay between request searches in seconds", "SearchRequestsEvery", 300
+    )
+    _gen_default_line(
+        search_table,
+        "Search movies which already have a file in the database in hopes of finding a "
+        "better quality version.",
+        "DoUpgradeSearch",
+        False,
+    )
+    _gen_default_line(
+        search_table,
+        "Do a quality unmet search for existing entries.",
+        "QualityUnmetSearch",
+        False,
+    )
+    _gen_default_line(
+        search_table,
+        "Once you have search all files on your specified year range restart the loop and "
+        "search again.",
+        "SearchAgainOnSearchCompletion",
+        True,
+    )
     if "sonarr" in category.lower():
-        search_table.add(comment("Search by series instead of by episode"))
-        search_table.add("SearchBySeries", True)
-        search_table.add(nl())
-
-        search_table.add(
-            comment(
-                "Prioritize Today's releases (Similar effect as RSS Sync, where it searches "
-                "today's release episodes first, only works on Sonarr)."
-            )
+        _gen_default_line(
+            search_table,
+            "Search by series instead of by episode",
+            "SearchBySeries",
+            True,
         )
-        search_table.add("PrioritizeTodaysReleases", True)
-        search_table.add(nl())
+        _gen_default_line(
+            search_table,
+            "Prioritize Today's releases (Similar effect as RSS Sync, where it searches "
+            "today's release episodes first, only works on Sonarr).",
+            "PrioritizeTodaysReleases",
+            True,
+        )
     _gen_default_ombi_table(category, search_table)
     _gen_default_overseerr_table(category, search_table)
     cat_default.add("EntrySearch", search_table)
@@ -633,54 +613,40 @@ def _gen_default_search_table(category: str, cat_default: Table):
 
 def _gen_default_ombi_table(category: str, search_table: Table):
     ombi_table = table()
-    ombi_table.add(
-        comment("Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)")
+    _gen_default_line(
+        ombi_table,
+        "Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)",
+        "SearchOmbiRequests",
+        False,
     )
-    ombi_table.add("SearchOmbiRequests", False)
-    ombi_table.add(nl())
-    ombi_table.add(
-        comment(
-            "Ombi URI (Note that this has to be the instance of Ombi which manage the Arr "
-            "instance request (If you have multiple Ombi instances)"
-        )
+    _gen_default_line(
+        ombi_table,
+        "Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)",
+        "OmbiURI",
+        "CHANGE_ME",
     )
-    ombi_table.add("OmbiURI", "CHANGE_ME")
-    ombi_table.add(nl())
-    ombi_table.add(comment("Ombi's API Key"))
-    ombi_table.add("OmbiAPIKey", "CHANGE_ME")
-    ombi_table.add(nl())
-    ombi_table.add(comment("Only process approved requests"))
-    ombi_table.add("ApprovedOnly", True)
-    ombi_table.add(nl())
-
+    _gen_default_line(ombi_table, "Ombi's API Key", "OmbiAPIKey", "CHANGE_ME")
+    _gen_default_line(ombi_table, "Only process approved requests", "ApprovedOnly", True)
     search_table.add("Ombi", ombi_table)
 
 
 def _gen_default_overseerr_table(category: str, search_table: Table):
     overseerr_table = table()
-    overseerr_table.add(
-        comment(
-            "Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)"
-        )
-    )
-    overseerr_table.add(comment("If this and Ombi are both enable, Ombi will be ignored"))
-    overseerr_table.add("SearchOverseerrRequests", False)
-    overseerr_table.add(nl())
-    overseerr_table.add(comment("Overseerr's URI"))
-    overseerr_table.add("OverseerrURI", "CHANGE_ME")
-    overseerr_table.add(nl())
-    overseerr_table.add(comment("Overseerr's API Key"))
-    overseerr_table.add("OverseerrAPIKey", "CHANGE_ME")
-    overseerr_table.add(nl())
-    overseerr_table.add(comment("Only process approved requests"))
-    overseerr_table.add("ApprovedOnly", True)
-    overseerr_table.add(nl())
+    _gen_default_line(overseerr_table,
+                      ["Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)",
+                       "If this and Ombi are both enable, Ombi will be ignored",
+                       ],
+                      "SearchOverseerrRequests",
+                      False,
+                      )
+    _gen_default_line(overseerr_table, "Overseerr's URI", "OverseerrURI", "CHANGE_ME")
+    _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
+    _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
     overseerr_table.add(comment("Only for 4K Instances"))
     if "radarr-4k" in category.lower():
-        overseerr_table.add("Is4K", True)
+        _gen_default_line(overseerr_table, "Only for 4K Instances", "Is4K", True)
     else:
-        overseerr_table.add("Is4K", False)
-    overseerr_table.add(nl())
+        _gen_default_line(overseerr_table, "Only for 4K Instances", "Is4K", False)
     search_table.add("Overseerr", overseerr_table)
 
 
@@ -725,16 +691,18 @@ class MyConfig:
                     file.write(self.config.as_string())
                     return self
             except OSError as err:
-                self.state = False
-                self.err = err
-                raise ValueError(
-                    f"Possible permissions while attempting to read the config file.\n{err}"
+                self._value_error(
+                    err,
+                    "Possible permissions while attempting to read the config file.\n",
                 )
             except TypeError as err:
-                self.state = False
-                self.err = err
-                raise ValueError(f"While attempting to read the config file.\n{err}")
+                self._value_error(err, "While attempting to read the config file.\n")
         return self
+
+    def _value_error(self, err, arg1):
+        self.state = False
+        self.err = err
+        raise ValueError(f"{arg1}{err}")
 
     def get(self, section: str, fallback: Any = None) -> T:
         return self._deep_get(section, default=fallback)

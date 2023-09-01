@@ -114,21 +114,24 @@ def run_logs(logger: Logger) -> None:
         reconfigure=True,
     )
     if HAS_RUN is False:
-        logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
-        logger.debug("Ping URLs:  %s", PING_URLS)
-        logger.debug("Script Config:  FailedCategory=%s", FAILED_CATEGORY)
-        logger.debug("Script Config:  RecheckCategory=%s", RECHECK_CATEGORY)
-        logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
-        logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
-        logger.debug(
-            "Script Config:  NoInternetSleepTimer=%s",
-            NO_INTERNET_SLEEP_TIMER,
-        )
-        logger.debug(
-            "Script Config:  IgnoreTorrentsYoungerThan=%s",
-            IGNORE_TORRENTS_YOUNGER_THAN,
-        )
-        HAS_RUN = True
+        log_Debugs(logger)
+
+
+def log_Debugs(logger):
+    logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
+    logger.debug("Ping URLs:  %s", PING_URLS)
+    logger.debug("Script Config:  FailedCategory=%s", FAILED_CATEGORY)
+    logger.debug("Script Config:  RecheckCategory=%s", RECHECK_CATEGORY)
+    logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
+    logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
+    logger.debug(
+        "Script Config:  NoInternetSleepTimer=%s",
+        NO_INTERNET_SLEEP_TIMER,
+    )
+    logger.debug(
+        "Script Config:  IgnoreTorrentsYoungerThan=%s",
+        IGNORE_TORRENTS_YOUNGER_THAN,
+    )
 
 
 if COPIED_TO_NEW_DIR is False and not HOME_PATH.joinpath("config.toml").exists():

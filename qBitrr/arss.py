@@ -23,6 +23,7 @@ from peewee import *
 from peewee import JOIN, SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
+from ujson import JSONDecodeError
 
 from qBitrr.arr_tables import (
     CommandsModel,
@@ -1875,6 +1876,8 @@ class Arr:
                 "Max retries exceeded for %s ID:%s", self._name, db_entry.Id, exc_info=e
             )
             raise DelayLoopException(length=300, type=self._name)
+        except JSONDecodeError:
+            self.logger.warning("Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title)
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
 
@@ -2680,7 +2683,7 @@ class Arr:
 
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
-            "Deleting torrent that met remove config: "
+            "Removing completed torrent: "
             "[Progress: %s%%][Added On: %s]"
             "[Ratio: %s%%][Seeding time: %s]"
             "[Last active: %s] "
@@ -2987,11 +2990,9 @@ class Arr:
                 elif _l2 < 0:
                     data["ratio_limit"] = None
 
-                if any(v is not None for v in data.values()):
-                    if any(v is not None for v in data.values()):
-                        if data:
-                            with contextlib.suppress(Exception):
-                                torrent.set_share_limits(**data)
+                if any(v is not None for v in data.values()) and data:
+                    with contextlib.suppress(Exception):
+                        torrent.set_share_limits(**data)
             if (
                 r := most_important_tracker.get(
                     "DownloadRateLimit", self.seeding_mode_global_download_limit
@@ -3046,10 +3047,9 @@ class Arr:
                     data["ratio_limit"] = None
                 elif _l2 < 0:
                     data["ratio_limit"] = None
-                if any(v is not None for v in data.values()):
-                    if data:
-                        with contextlib.suppress(Exception):
-                            torrent.set_share_limits(**data)
+                if any(v is not None for v in data.values()) and data:
+                    with contextlib.suppress(Exception):
+                        torrent.set_share_limits(**data)
 
             if r := self.seeding_mode_global_download_limit != 0 and torrent.dl_limit != r:
                 torrent.set_download_limit(limit=r)
@@ -3596,6 +3596,9 @@ class Arr:
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, type="qbit")
+                    except requests.exceptions.ChunkedEncodingError:
+                        self.logger.warning(e)
+                        raise DelayLoopException(length=300, type=self._name)
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     time.sleep(LOOP_SLEEP_TIMER)
@@ -3879,12 +3882,11 @@ class ArrManager:
             "qBitrr.ArrManager",
         )
         run_logs(self.logger)
-        if not self.ffprobe_available:
-            if not any([QBIT_DISABLED, SEARCH_ONLY]):
-                self.logger.error(
-                    "'%s' was not found, disabling all functionality dependant on it",
-                    self.qbit_manager.ffprobe_downloader.probe_path,
-                )
+        if not self.ffprobe_available and not any([QBIT_DISABLED, SEARCH_ONLY]):
+            self.logger.error(
+                "'%s' was not found, disabling all functionality dependant on it",
+                self.qbit_manager.ffprobe_downloader.probe_path,
+            )
 
     def build_arr_instances(self):
         for key in CONFIG.sections():
