@@ -765,21 +765,29 @@ class Arr:
                 if path in self.sent_to_scan:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
-                if self.type == "sonarr":
-                    self.logger.success(
-                        "DownloadedEpisodesScan: %s",
-                        path,
-                    )
-                    self.post_command(
-                        "DownloadedEpisodesScan",
-                        path=str(path),
-                        downloadClientId=torrent.hash.upper(),
-                        importMode=self.import_mode,
-                    )
-                elif self.type == "radarr":
-                    self.logger.success("DownloadedMoviesScan: %s", path)
-                    self.post_command(
-                        "DownloadedMoviesScan",
+                try:
+                    if self.type == "sonarr":
+                        self.logger.success(
+                            "DownloadedEpisodesScan: %s",
+                            path,
+                        )
+                        self.post_command(
+                            "DownloadedEpisodesScan",
+                            path=str(path),
+                            downloadClientId=torrent.hash.upper(),
+                            importMode=self.import_mode,
+                        )
+                    elif self.type == "radarr":
+                        self.logger.success("DownloadedMoviesScan: %s", path)
+                        self.post_command(
+                            "DownloadedMoviesScan",
+                            path=str(path),
+                            downloadClientId=torrent.hash.upper(),
+                            importMode=self.import_mode,
+                        )
+                except:
+                    self.logger.error(
+                        "Downloaded scan error: [%s][%s][%s]",
                         path=str(path),
                         downloadClientId=torrent.hash.upper(),
                         importMode=self.import_mode,
