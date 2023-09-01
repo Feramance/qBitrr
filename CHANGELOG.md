@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.7.2-beta-3 (01/09/2023)
+- [[build] Fix for docker build](https://github.com/Feramance/qBitrr/commit/db2f76ef84d9293593ff1e476550add9d7e7f1f4) - @Feramance
+
+---
+
+## v3.7.2-beta-2 (01/09/2023)
+
+---
+
+## v3.7.2-beta-1 (01/09/2023)
+
+---
+
+## v3.7.1 (01/09/2023)
+- [[release] Fixed pypi workflow step](https://github.com/Feramance/qBitrr/commit/6e04b4ff8b417ccd118418da4a2f35788a5a0dad) - @Feramance
+- [[release] Initial release for pypi](https://github.com/Feramance/qBitrr/commit/d1bc62f569c2b9cf1415afa43357c2b9bc6498dc) - @Feramance
+
+---
+
 ## v3.7.1-beta-0 (01/09/2023)
 - [[release] Update pypi config](https://github.com/Feramance/qBitrr/commit/6b8e27afff42ec1512aeef9892bc3d6f28c6c347) - @Feramance
 
@@ -7,12 +26,6 @@
 
 ## v3.7.1-alpha-0 (01/09/2023)
 - [[patch] Updated workflow to include pypi release](https://github.com/Feramance/qBitrr/commit/640ed6c2346259b93351c7707805f4768d5d43ce) - @Feramance
-
----
-
-## v3.7.1 (01/09/2023)
-- [[release] Fixed pypi workflow step](https://github.com/Feramance/qBitrr/commit/6e04b4ff8b417ccd118418da4a2f35788a5a0dad) - @Feramance
-- [[release] Initial release for pypi](https://github.com/Feramance/qBitrr/commit/d1bc62f569c2b9cf1415afa43357c2b9bc6498dc) - @Feramance
 
 ---
 
@@ -123,15 +136,3 @@
 ---
 
 ## v3.6.0-beta-4 (30/08/2023)
-
----
-
-## v3.6.0-beta-3 (30/08/2023)
-
----
-
-## v3.6.0-beta-2 (30/08/2023)
-
----
-
-## v3.6.0-beta-18 (30/08/2023)
