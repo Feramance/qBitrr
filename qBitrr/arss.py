@@ -1393,6 +1393,11 @@ class Arr:
                 if not self.series_search:
                     _series = set()
                     if self.search_by_year:
+                        self.logger.info(
+                            "Current year %s:%s",
+                            self.search_current_year,
+                            type(self.search_current_year),
+                        )
                         for series in self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
@@ -3566,6 +3571,8 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             years_index = 0
             while True:
+                if self.loop_completed:
+                    years_index = 0
                 if self.search_by_year and years_index == 0:
                     years, years_count = self.get_year_search()
                     try:
