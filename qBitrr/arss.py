@@ -1402,11 +1402,11 @@ class Arr:
                             )
                             & (
                                 self.model_arr_file.AirDateUtc
-                                >= datetime(month=1, day=1, year=self.search_current_year)
+                                >= datetime(month=1, day=1, year=int(self.search_current_year))
                             )
                             & (
                                 self.model_arr_file.AirDateUtc
-                                <= datetime(month=12, day=31, year=self.search_current_year)
+                                <= datetime(month=12, day=31, year=int(self.search_current_year))
                             ).execute()
                         ):
                             series: EpisodesModel
