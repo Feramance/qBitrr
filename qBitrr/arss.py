@@ -3327,7 +3327,7 @@ class Arr:
         self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
-        # return  # TODO: This may not be needed, pending more testing before it is enabled
+        return  # TODO: This may not be needed, pending more testing before it is enabled
         _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
@@ -3344,7 +3344,7 @@ class Arr:
 
     def _force_grab(self, id_):
         try:
-            path = f"queue/grab/bulk"
+            path = f"queue/grab/{id_}"
             res = self.client._post(path, self.client.ver_uri)
             self.logger.trace("Successful Grab: %s", id_)
             return res
