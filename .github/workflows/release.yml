@@ -176,6 +176,7 @@ jobs:
         password: ${{ secrets.PYPI_API_TOKEN }}
   package:
     name: Build Binaries
+    if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
     needs: [bump_version, release_hash]
     runs-on: ${{ matrix.os }}
     strategy:
