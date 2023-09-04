@@ -870,15 +870,15 @@ class Arr:
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
-    def _process_errored(self) -> None:
-        # Recheck all torrents marked for rechecking.
-        if self.recheck:
-            self.needs_cleanup = True
-            updated_recheck = [r for r in self.recheck]
-            self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
-            for k in updated_recheck:
-                self.timed_ignore_cache.add(k)
-            self.recheck.clear()
+    # def _process_errored(self) -> None:
+    #     # Recheck all torrents marked for rechecking.
+    #     if self.recheck:
+    #         self.needs_cleanup = True
+    #         updated_recheck = [r for r in self.recheck]
+    #         self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
+    #         for k in updated_recheck:
+    #             self.timed_ignore_cache.add(k)
+    #         self.recheck.clear()
 
     def _process_failed(self) -> None:
         to_delete_all = self.delete.union(
@@ -3808,41 +3808,41 @@ class PlaceHolderArr(Arr):
                 self.timed_ignore_cache.add(k)
             self.recheck.clear()
 
-    def _process_failed(self):
-        if not (self.delete or self.skip_blacklist):
-            return
-        to_delete_all = self.delete
-        skip_blacklist = {i.upper() for i in self.skip_blacklist}
-        if to_delete_all:
-            for arr in self.manager.managed_objects.values():
-                payload = arr.process_entries(to_delete_all)
-                if payload:
-                    for entry, hash_ in payload:
-                        if hash_ in arr.cache:
-                            arr._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                            )
-        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            # Remove all bad torrents from the Client.
-            temp_to_delete = set()
-            if to_delete_all:
-                self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
-            if self.remove_from_qbit or self.skip_blacklist:
-                temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
-            to_delete_all = to_delete_all.union(temp_to_delete)
-            for h in to_delete_all:
-                if h in self.manager.qbit_manager.name_cache:
-                    del self.manager.qbit_manager.name_cache[h]
-                if h in self.manager.qbit_manager.cache:
-                    del self.manager.qbit_manager.cache[h]
-        self.skip_blacklist.clear()
-        self.remove_from_qbit.clear()
-        self.delete.clear()
+    # def _process_failed(self):
+    #     if not (self.delete or self.skip_blacklist):
+    #         return
+    #     to_delete_all = self.delete
+    #     skip_blacklist = {i.upper() for i in self.skip_blacklist}
+    #     if to_delete_all:
+    #         for arr in self.manager.managed_objects.values():
+    #             payload = arr.process_entries(to_delete_all)
+    #             if payload:
+    #                 for entry, hash_ in payload:
+    #                     if hash_ in arr.cache:
+    #                         arr._process_failed_individual(
+    #                             hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
+    #                         )
+    #     if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
+    #         # Remove all bad torrents from the Client.
+    #         temp_to_delete = set()
+    #         if to_delete_all:
+    #             self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+    #         if self.remove_from_qbit or self.skip_blacklist:
+    #             temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
+    #             self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
+    #         to_delete_all = to_delete_all.union(temp_to_delete)
+    #         for h in to_delete_all:
+    #             if h in self.manager.qbit_manager.name_cache:
+    #                 del self.manager.qbit_manager.name_cache[h]
+    #             if h in self.manager.qbit_manager.cache:
+    #                 del self.manager.qbit_manager.cache[h]
+    #     self.skip_blacklist.clear()
+    #     self.remove_from_qbit.clear()
+    #     self.delete.clear()
 
-    def process(self):
-        self._process_errored()
-        self._process_failed()
+    # def process(self):
+    #     self._process_errored()
+    #     self._process_failed()
 
     def process_torrents(self):
         try:
