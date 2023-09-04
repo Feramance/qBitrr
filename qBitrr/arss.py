@@ -893,7 +893,7 @@ class Arr:
         }
         if to_delete_all:
             self.needs_cleanup = True
-            payload, hashes = self.process_entries(to_delete_all)
+            payload = self.process_entries(to_delete_all)
             if payload:
                 for entry, hash_ in payload:
                     self._process_failed_individual(
@@ -2233,9 +2233,8 @@ class Arr:
         payload = [
             (_id, h.upper()) for h in hashes if (_id := self.cache.get(h.upper())) is not None
         ]
-        hashes = {h for h in hashes if (_id := self.cache.get(h.upper())) is not None}
 
-        return payload, hashes
+        return payload
 
     def process_torrents(self):
         try:
@@ -3176,6 +3175,7 @@ class Arr:
             and torrent.amount_left == 0
             and torrent.added_on > 0
             and torrent.content_path
+            and self.seeding_mode_global_remove_torrent != -1
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
@@ -3344,7 +3344,7 @@ class Arr:
 
     def _force_grab(self, id_):
         try:
-            path = f"queue/grab/{id_}"
+            path = f"queue/grab/bulk"
             res = self.client._post(path, self.client.ver_uri)
             self.logger.trace("Successful Grab: %s", id_)
             return res
@@ -3807,7 +3807,7 @@ class PlaceHolderArr(Arr):
         skip_blacklist = {i.upper() for i in self.skip_blacklist}
         if to_delete_all:
             for arr in self.manager.managed_objects.values():
-                payload, hashes = arr.process_entries(to_delete_all)
+                payload = arr.process_entries(to_delete_all)
                 if payload:
                     for entry, hash_ in payload:
                         if hash_ in arr.cache:
