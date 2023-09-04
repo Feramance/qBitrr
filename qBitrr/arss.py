@@ -3536,19 +3536,23 @@ class Arr:
                 self.model_arr_file: EpisodesModel
                 if self.search_in_reverse:
                     years_query = (
-                        self.model_arr_file.select(self.model_arr_file.AirDateUtc)
-                        .where(self.model_arr_file.AirDateUtc <= datetime.now())
-                        .order_by(self.model_arr_file.AirDateUtc.desc())
+                        self.model_arr_file.select(
+                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                        )
+                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
+                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
                         .execute()
                     )
                 else:
                     years_query = (
-                        self.model_arr_file.select(self.model_arr_file.AirDateUtc)
-                        .where(self.model_arr_file.AirDateUtc.year <= datetime.now().year)
-                        .order_by(self.model_arr_file.AirDateUtc.desc())
+                        self.model_arr_file.select(
+                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                        )
+                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
+                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
                         .execute()
                     )
-                years = [y.year for y in years_query]
+                years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
                 years_count = len(years)
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
