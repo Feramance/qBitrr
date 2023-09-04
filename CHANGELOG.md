@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-29 (04/09/2023)
+
+---
+
 ## v3.7.2-beta-28 (04/09/2023)
 
 ---
@@ -122,8 +126,3 @@
 ## v3.7.1 (01/09/2023)
 - [[release] Fixed pypi workflow step](https://github.com/Feramance/qBitrr/commit/6e04b4ff8b417ccd118418da4a2f35788a5a0dad) - @Feramance
 - [[release] Initial release for pypi](https://github.com/Feramance/qBitrr/commit/d1bc62f569c2b9cf1415afa43357c2b9bc6498dc) - @Feramance
-
----
-
-## v3.7.1-beta-0 (01/09/2023)
-- [[release] Update pypi config](https://github.com/Feramance/qBitrr/commit/6b8e27afff42ec1512aeef9892bc3d6f28c6c347) - @Feramance
