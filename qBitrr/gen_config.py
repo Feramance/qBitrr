@@ -183,12 +183,14 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         "Hardlink",
     )
     _gen_default_line(
-        cat_default, "Timer to call RSSSync (In minutes) - Set to 0 to disable", "RssSyncTimer", 1
+        cat_default,
+        "Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)",
+        "RssSyncTimer",
+        1,
     )
     _gen_default_line(
         cat_default,
-        "Timer to call RefreshDownloads to update the queue. (In minutes) - "
-        "Set to 0 to disable",
+        "Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)",
         "RefreshDownloadsTimer",
         1,
     )

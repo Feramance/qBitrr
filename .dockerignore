@@ -19,3 +19,4 @@ build/
 qBitrr.egg-info/
 venv/
 .venv/
+.sourcery.yaml

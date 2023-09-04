@@ -74,10 +74,10 @@ ReSearch = true
 # The Servarr's Import Mode(one of Move, Copy or Hardlink)
 importMode = "Hardlink"
 
-# Timer to call RSSSync (In minutes) - Set to 0 to disable
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
 
-# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RefreshDownloadsTimer = 1
 
 # Error messages shown my the Arr instance which should be considered failures.
@@ -255,10 +255,10 @@ ReSearch = true
 # The Servarr's Import Mode(one of Move, Copy or Hardlink)
 importMode = "Hardlink"
 
-# Timer to call RSSSync (In minutes) - Set to 0 to disable
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
 
-# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RefreshDownloadsTimer = 1
 
 # Error messages shown my the Arr instance which should be considered failures.
@@ -434,10 +434,10 @@ ReSearch = true
 # The Servarr's Import Mode(one of Move, Copy or Hardlink)
 importMode = "Hardlink"
 
-# Timer to call RSSSync (In minutes) - Set to 0 to disable
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
 
-# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RefreshDownloadsTimer = 1
 
 # Error messages shown my the Arr instance which should be considered failures.
@@ -615,10 +615,10 @@ ReSearch = true
 # The Servarr's Import Mode(one of Move, Copy or Hardlink)
 importMode = "Hardlink"
 
-# Timer to call RSSSync (In minutes) - Set to 0 to disable
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
 
-# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RefreshDownloadsTimer = 1
 
 # Error messages shown my the Arr instance which should be considered failures.

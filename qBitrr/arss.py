@@ -3275,21 +3275,18 @@ class Arr:
         sort_key="timeLeft",
         messages: bool = True,
     ):
-        params = {
-            "page": page,
-            "pageSize": page_size,
-            "sortDirection": sort_direction,
-            "sortKey": sort_key,
-        }
         if messages:
             pass
         else:
             pass
         try:
             res = self.client.get_queue(
-                page=1, page_size=10000, sort_key="timeLeft", sort_dir="ascending"
+                page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
             )
         except requests.exceptions.ConnectionError:
+            self.logger.error("Failed to get queue")
+            raise DelayLoopException(length=300, type=self._name)
+        except requests.exceptions.ChunkedEncodingError:
             self.logger.error("Failed to get queue")
             raise DelayLoopException(length=300, type=self._name)
         try:
