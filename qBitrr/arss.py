@@ -1393,11 +1393,6 @@ class Arr:
                 if not self.series_search:
                     _series = set()
                     if self.search_by_year:
-                        self.logger.info(
-                            "Current year %s:%s",
-                            self.search_current_year,
-                            type(self.search_current_year),
-                        )
                         for series in self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
@@ -3579,6 +3574,12 @@ class Arr:
                         self.search_current_year = years[years_index]
                     except BaseException:
                         self.search_current_year = years[: years_index + 1]
+                self.logger.info("%s years to search: %s", years_count, years)
+                self.logger.info(
+                    "Current year %s:%s",
+                    self.search_current_year,
+                    type(self.search_current_year),
+                )
                 timer = datetime.now(timezone.utc)
                 try:
                     self.db_maybe_reset_entry_searched_state()
