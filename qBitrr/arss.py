@@ -1046,6 +1046,7 @@ class Arr:
             self.db_reset__episode_searched_state()
         elif self.type == "radarr":
             self.db_reset__movie_searched_state()
+        self.loop_completed = False
 
     def db_reset__series_searched_state(self):
         self.series_file_model: SeriesFilesModel
@@ -3287,6 +3288,9 @@ class Arr:
             self.logger.error("Failed to get queue")
             raise DelayLoopException(length=300, type=self._name)
         except requests.exceptions.ChunkedEncodingError:
+            self.logger.error("Failed to get queue")
+            raise DelayLoopException(length=300, type=self._name)
+        except requests.exceptions.ContentDecodingError:
             self.logger.error("Failed to get queue")
             raise DelayLoopException(length=300, type=self._name)
         try:
