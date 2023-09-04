@@ -3578,10 +3578,9 @@ class Arr:
                         self.search_current_year = years[years_index]
                     except BaseException:
                         self.search_current_year = years[: years_index + 1]
-                self.logger.info(
-                    "Current year %s:%s",
+                self.logger.debug(
+                    "Current year %s",
                     self.search_current_year,
-                    type(self.search_current_year),
                 )
                 timer = datetime.now(timezone.utc)
                 try:
