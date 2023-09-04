@@ -843,8 +843,8 @@ class Arr:
                             "Re-Searching episode: %s",
                             object_id,
                         )
-                    if object_id not in self.queue_file_ids:
-                        self.post_command("EpisodeSearch", episodeIds=[object_id])
+                    self.queue_file_ids.remove(object_id)
+                    self.post_command("EpisodeSearch", episodeIds=[object_id])
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
@@ -865,8 +865,8 @@ class Arr:
                         "Re-Searching movie: %s",
                         object_id,
                     )
-                if object_id not in self.queue_file_ids:
-                    self.post_command("MoviesSearch", movieIds=[object_id])
+                self.queue_file_ids.remove(object_id)
+                self.post_command("MoviesSearch", movieIds=[object_id])
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
@@ -3533,22 +3533,23 @@ class Arr:
                 self.logger.trace("Years: %s", years)
                 years_count = len(years)
             elif self.type == "sonarr":
+                self.model_arr_file: EpisodesModel
                 if self.search_in_reverse:
                     years_query = (
                         self.model_arr_file.select(
-                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                            self.model_arr_file.AirDateUtc.year.distinct().alias("Year")
                         )
-                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now().year)
-                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
+                        .where(self.model_arr_file.AirDateUtc.year <= datetime.now().year)
+                        .order_by(self.model_arr_file.AirDateUtc.year.asc())
                         .execute()
                     )
                 else:
                     years_query = (
                         self.model_arr_file.select(
-                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                            self.model_arr_file.AirDateUtc.year.distinct().alias("Year")
                         )
-                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now().year)
-                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
+                        .where(self.model_arr_file.AirDateUtc.year <= datetime.now().year)
+                        .order_by(self.model_arr_file.AirDateUtc.year.desc())
                         .execute()
                     )
                 years = [y.Year for y in years_query]
