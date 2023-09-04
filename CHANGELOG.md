@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-14 (04/09/2023)
+
+---
+
 ## v3.7.2-beta-13 (04/09/2023)
 
 ---
@@ -132,7 +136,3 @@
 
 ## v3.6.2-beta-0 (30/08/2023)
 - [[release] Changed order of qBittorrent queue update to run after loop reset instead of before](https://github.com/Feramance/qBitrr/commit/5045c46c17e6d9b8111874eb038c57d25531915a) - @Feramance
-
----
-
-## v3.6.2-alpha-0 (30/08/2023)
