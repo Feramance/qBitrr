@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-16 (04/09/2023)
+
+---
+
 ## v3.7.2-beta-15 (04/09/2023)
 
 ---
@@ -129,9 +133,3 @@
 
 ## v3.6.3 (30/08/2023)
 - [[release] No such Column fix](https://github.com/Feramance/qBitrr/commit/25684f81409debe665b29519da10a9b7a8191392) - @Feramance
-
----
-
-## v3.6.2 (30/08/2023)
-- [[release] Another workflow release test](https://github.com/Feramance/qBitrr/commit/31415019708b0e9353152bcd25d67c21648ddcd8) - @Feramance
-- [[release] Last workflow update (hopefully)](https://github.com/Feramance/qBitrr/commit/3476cdb4efe64e0cc154208b9c1cbcc159bd2188) - @Feramance
