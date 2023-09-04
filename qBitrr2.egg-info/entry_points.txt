@@ -1,0 +1,2 @@
+[console_scripts]
+qbitrr = qBitrr.main:run
