@@ -3537,19 +3537,19 @@ class Arr:
                 if self.search_in_reverse:
                     years_query = (
                         self.model_arr_file.select(
-                            self.model_arr_file.AirDateUtc.year.distinct().alias("Year")
+                            (self.model_arr_file.AirDateUtc.year).distinct().alias("Year")
                         )
-                        .where(self.model_arr_file.AirDateUtc.year <= datetime.now().year)
-                        .order_by(self.model_arr_file.AirDateUtc.year.asc())
+                        .where((self.model_arr_file.AirDateUtc.year) <= datetime.now().year)
+                        .order_by((self.model_arr_file.AirDateUtc.year).asc())
                         .execute()
                     )
                 else:
                     years_query = (
                         self.model_arr_file.select(
-                            self.model_arr_file.AirDateUtc.year.distinct().alias("Year")
+                            (self.model_arr_file.AirDateUtc.year).distinct().alias("Year")
                         )
-                        .where(self.model_arr_file.AirDateUtc.year <= datetime.now().year)
-                        .order_by(self.model_arr_file.AirDateUtc.year.desc())
+                        .where((self.model_arr_file.AirDateUtc.year) <= datetime.now().year)
+                        .order_by((self.model_arr_file.AirDateUtc.year).desc())
                         .execute()
                     )
                 years = [y.Year for y in years_query]
