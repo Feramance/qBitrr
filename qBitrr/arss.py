@@ -1407,15 +1407,13 @@ class Arr:
                             & (
                                 self.model_arr_file.AirDateUtc
                                 <= datetime(month=12, day=31, year=int(self.search_current_year))
-                            ).execute()
+                            )
                         ):
                             series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
-                        for series in (
-                            self.model_arr_file.select()
-                            .where(self.model_arr_file.SeriesId.in_(_series))
-                            .execute()
+                        for series in self.model_arr_file.select().where(
+                            self.model_arr_file.SeriesId.in_(_series)
                         ):
                             self.db_update_single_series(db_entry=series)
                     else:
@@ -1425,15 +1423,13 @@ class Arr:
                             & (
                                 self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
                                 | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                            ).execute()
+                            )
                         ):
                             series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
-                        for series in (
-                            self.model_arr_file.select()
-                            .where(self.model_arr_file.SeriesId.in_(_series))
-                            .execute()
+                        for series in self.model_arr_file.select().where(
+                            self.model_arr_file.SeriesId.in_(_series)
                         ):
                             self.db_update_single_series(db_entry=series)
                 else:
@@ -3575,7 +3571,6 @@ class Arr:
                         self.search_current_year = years[years_index]
                     except BaseException:
                         self.search_current_year = years[: years_index + 1]
-                self.logger.info("%s years to search: %s", years_count, years)
                 self.logger.info(
                     "Current year %s:%s",
                     self.search_current_year,
