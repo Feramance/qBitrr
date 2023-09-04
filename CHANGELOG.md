@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-13 (04/09/2023)
+
+---
+
 ## v3.7.2-beta-9 (01/09/2023)
 
 ---
@@ -132,13 +136,3 @@
 ---
 
 ## v3.6.2-alpha-0 (30/08/2023)
-
----
-
-## v3.6.1 (30/08/2023)
-- [[release] Update release.yml](https://github.com/Feramance/qBitrr/commit/d5bac9c2559e339647a7bd983e9e83dd56ece414) - @Feramance
-- [Update pre-release.yml](https://github.com/Feramance/qBitrr/commit/6a95ad1abdf1823630f8ae32b0631a8c0e36a811) - @Feramance
-- [[release] Workflow test (fingers crossed)](https://github.com/Feramance/qBitrr/commit/f247036888b669733b6ad74abf21a5356c49675a) - @Feramance
-- [Update pre-release.yml](https://github.com/Feramance/qBitrr/commit/99551ed11353bbf6fcfb0d87f535989c7168fd8c) - @Feramance
-- [[release] Fixed versioning](https://github.com/Feramance/qBitrr/commit/9b677e29a20cab5abb777b1ad90754957fca0c50) - @Feramance
-- [[release] Update workflow substring](https://github.com/Feramance/qBitrr/commit/dad5d162bbab93ca1c79d65c37ebda2ec5985d11) - @Feramance
