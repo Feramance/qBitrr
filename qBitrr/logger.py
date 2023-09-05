@@ -65,8 +65,6 @@ logging.addLevelName(NOTICE, "NOTICE")
 logging.addLevelName(VERBOSE, "VERBOSE")
 logging.addLevelName(TRACE, "TRACE")
 logging.setLoggerClass(VerboseLogger)
-fh = logging.FileHandler("/config/logs.log")
-logging.Logger.addHandler(fh)
 
 
 def getLogger(name: str | None = None):
