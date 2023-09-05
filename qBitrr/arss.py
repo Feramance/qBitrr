@@ -94,7 +94,7 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        fh = logging.FileHandler("/config/" + self._name + "logs.log")
+        fh = logging.FileHandler("/config/" + self._name + "-logs.log")
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self.logger.addHandler(fh)
         run_logs(self.logger)
