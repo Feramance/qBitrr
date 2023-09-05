@@ -20,7 +20,7 @@ jobs:
     env:
       RELEASE_TYPE: ${{ startsWith(github.event.head_commit.message, '[patch]') && 'patch' || startsWith(github.event.head_commit.message, '[minor]') && 'minor' || startsWith(github.event.head_commit.message, '[major]') && 'major' || startsWith(github.event.head_commit.message, '[build]') && 'build' || startsWith(github.event.head_commit.message, '[release]') && 'release' }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         token: ${{ secrets.PAT }}
     - name: Set up Python
@@ -69,7 +69,7 @@ jobs:
     needs: [bump_version]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         ref: master
         token: ${{ secrets.PAT }}
@@ -109,7 +109,7 @@ jobs:
     needs: [bump_version, release]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         token: ${{ secrets.PAT }}
         fetch-depth: 0
@@ -155,7 +155,7 @@ jobs:
     needs: [bump_version, release_hash]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         ref: master
@@ -198,7 +198,7 @@ jobs:
           arch: x86
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: master
         fetch-depth: 0
@@ -265,7 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         fetch-depth: 0
         ref: master
@@ -307,7 +307,7 @@ jobs:
     needs: [bump_version, release_hash, docker_image]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
         ref: master
