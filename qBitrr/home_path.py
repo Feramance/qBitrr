@@ -20,3 +20,6 @@ else:
 
 APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
+
+LOGS_FOLDER = HOME_PATH.joinpath("logs")
+LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
