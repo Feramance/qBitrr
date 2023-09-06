@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.4-alpha-0 (06/09/2023)
+
+---
+
 ## v3.7.3 (06/09/2023)
 - [[release] Quick fix for resetting db when series search is diabled](https://github.com/Feramance/qBitrr/commit/56e31336885fe37d88afac1659187ec3dd4af14c) - @Feramance
 
@@ -116,7 +120,3 @@
 ---
 
 ## v3.7.2-beta-21 (04/09/2023)
-
----
-
-## v3.7.2-beta-20 (04/09/2023)
