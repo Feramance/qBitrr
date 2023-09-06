@@ -1368,9 +1368,9 @@ class Arr:
         request_ids = self._temp_overseer_request_cache
         if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
-        self.logger.notice(f"Started updating database with Overseerr request entries.")
+        self.logger.notice("Started updating database with Overseerr request entries.")
         self._db_request_update(request_ids)
-        self.logger.notice(f"Finished updating database with Overseerr request entries")
+        self.logger.notice("Finished updating database with Overseerr request entries")
 
     def db_ombi_update(self):
         if (not self.search_missing) or (not self.ombi_search_requests):
@@ -1380,9 +1380,9 @@ class Arr:
         request_ids = self._process_ombi_requests()
         if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
-        self.logger.notice(f"Started updating database with Ombi request entries.")
+        self.logger.notice("Started updating database with Ombi request entries.")
         self._db_request_update(request_ids)
-        self.logger.notice(f"Finished updating database with Ombi request entries")
+        self.logger.notice("Finished updating database with Ombi request entries")
 
     def db_update_todays_releases(self):
         if not self.prioritize_todays_release:
@@ -1748,14 +1748,14 @@ class Arr:
                         while completed:
                             try:
                                 completed = False
-                                metadata = self.client.get_episode_by_episode_id(EntryId)
+                                EpisodeMetadata = self.client.get_episode_by_episode_id(EntryId)
                             except (
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                             ):
                                 completed = True
 
-                        SeriesTitle = metadata.get("series", {}).get("title")
+                        SeriesTitle = EpisodeMetadata.get("series", {}).get("title")
                         SeasonNumber = db_entry.SeasonNumber
                         Title = db_entry.Title
                         SeriesId = db_entry.SeriesId
@@ -1830,12 +1830,12 @@ class Arr:
                     db_entry: SeriesModel
                     EntryId = db_entry.Id
                     if db_entry.Monitored == 1:
-                        metadata = self.client.get_series(id_=EntryId)
-                        episode_count = metadata.get("episodeCount", -2)
-                        searched = episode_count == metadata.get("episodeFileCount", -1)
+                        seriesMetadata = self.client.get_series(id_=EntryId)
+                        episode_count = seriesMetadata.get("episodeCount", -2)
+                        searched = episode_count == seriesMetadata.get("episodeFileCount", -1)
                         if episode_count == 0:
                             searched = True
-                        Title = metadata.get("title")
+                        Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
                         self.logger.trace(
                             "Updating database entry | %s",
@@ -1874,16 +1874,19 @@ class Arr:
                         self.model_queue.EntryId == db_entry.Id
                     ).execute()
 
-                metadata = self.model_arr_movies_file.get(
+                movieMetadata = self.model_arr_movies_file.get(
                     self.model_arr_movies_file.Id == db_entry.MovieMetadataId
                 )
-                metadata: MoviesMetadataModel
+                movieMetadata: MoviesMetadataModel
 
-                if self.minimum_availability_check(db_entry, metadata) and db_entry.Monitored == 1:
-                    title = metadata.Title
+                if (
+                    self.minimum_availability_check(db_entry, movieMetadata)
+                    and db_entry.Monitored == 1
+                ):
+                    title = movieMetadata.Title
                     monitored = db_entry.Monitored
-                    tmdbId = metadata.TmdbId
-                    year = metadata.Year
+                    tmdbId = movieMetadata.TmdbId
+                    year = movieMetadata.Year
                     EntryId = db_entry.Id
                     MovieFileId = db_entry.MovieFileId
                     QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
@@ -1986,7 +1989,7 @@ class Arr:
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
                     probeable += 1
-                    continue
+
             else:
                 invalid_files.add(file)
 
@@ -2245,10 +2248,6 @@ class Arr:
             return True
 
     def post_command(self, name, **kwargs):
-        data = {
-            "name": name,
-            **kwargs,
-        }
         res = self.client.post_command(name, **kwargs)
         return res
 
@@ -2518,7 +2517,6 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            return
 
     def _process_single_torrent_paused(self, torrent: qbittorrentapi.TorrentDictionary):
         self.timed_ignore_cache.add(torrent.hash)
@@ -2862,7 +2860,7 @@ class Arr:
         new_list = [
             i
             for i in self.monitored_trackers
-            if (i.get("URI") in monitored_trackers) and not i.get("RemoveIfExists") is True
+            if (i.get("URI") in monitored_trackers) and i.get("RemoveIfExists") is not True
         ]
         _list_of_tags = [i.get("AddTags", []) for i in new_list if i.get("URI") not in removed]
         if new_list:
@@ -3144,7 +3142,7 @@ class Arr:
             self._process_single_torrent_recheck_cat(torrent)
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
-            return  # Since to torrent is being ignored early exit here
+
         elif (
             torrent.state_enum.is_downloading
             and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
@@ -3156,7 +3154,7 @@ class Arr:
             # Do not touch torrents recently resumed/reached (A torrent can temporarily
             # stall after being resumed from a paused state).
             self._process_single_torrent_added_to_ignore_cache(torrent)
-            return
+
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif torrent.state_enum in (
@@ -3178,7 +3176,7 @@ class Arr:
             torrent.hash in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_already_sent_to_scan(torrent)
-            return
+
         # Sometimes torrents will error, this causes them to be rechecked so they
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
@@ -3560,7 +3558,7 @@ class Arr:
                             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
                         )
                         .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
-                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
+                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
                         .execute()
                     )
                 else:
