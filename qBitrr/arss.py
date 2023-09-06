@@ -856,7 +856,8 @@ class Arr:
                             "Re-Searching episode: %s",
                             object_id,
                         )
-                    self.queue_file_ids.remove(object_id)
+                    if object_id in self.queue_file_ids:
+                        self.queue_file_ids.remove(object_id)
                     self.post_command("EpisodeSearch", episodeIds=[object_id])
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
