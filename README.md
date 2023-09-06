@@ -152,3 +152,7 @@ services:
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
   - Make sure to rename it to 'config.toml' then edit it to your desired values
+
+## Reporting an Issue
+
+When reporting an issue, please set the log level to `TRACE` and restart qBitrr. You will notice log files being generated and once you see your error replicated, open an issue and attache the logs
