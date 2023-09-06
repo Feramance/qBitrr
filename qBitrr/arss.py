@@ -819,7 +819,14 @@ class Arr:
             if self.type == "sonarr":
                 object_ids = object_id
                 for object_id in object_ids:
-                    data = self.client.get_episode_by_episode_id(object_id)
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            data = self.client.get_episode_by_episode_id(object_id)
+                        except requests.exceptions.ContentDecodingError:
+                            completed = True
+
                     name = data.get("title")
                     series_id = data.get("series", {}).get("id")
                     if name:
@@ -1729,7 +1736,15 @@ class Arr:
 
                     if db_entry.Monitored == 1:
                         EntryId = db_entry.Id
-                        metadata = self.client.get_episode_by_episode_id(EntryId)
+
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                metadata = self.client.get_episode_by_episode_id(EntryId)
+                            except requests.exceptions.ContentDecodingError:
+                                completed = True
+
                         SeriesTitle = metadata.get("series", {}).get("title")
                         SeasonNumber = db_entry.SeasonNumber
                         Title = db_entry.Title
