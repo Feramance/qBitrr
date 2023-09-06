@@ -98,7 +98,8 @@ class Arr:
         if self._LOG_LEVEL == 0:
             logfile = LOGS_FOLDER.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logfile.rename(logfile + ".old")
+                logold = logfile.joinpath(".old")
+                logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
             self.logger.addHandler(fh)
