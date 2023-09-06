@@ -1072,7 +1072,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel
         self.model_file: EpisodeFilesModel
         if (
-            self.loop_completed is True and self.reset_on_completion
+            self.loop_completed is True and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
             series_query = (
                 self.series_file_model.select(self.series_file_model.EntryId)
