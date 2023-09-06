@@ -1,6 +1,7 @@
 # Changelog
 
 ## v3.7.2 (06/09/2023)
+- [[release] Quickfix for db reset when series search disabled](https://github.com/Feramance/qBitrr/commit/3a440604c84414876874da46cadeb5f23b307824) - @Feramance
 - [[release] Added Logging for Trace logs (todo configurable log file level) and fixed issue with torent handling and a number of new errors related to requests](https://github.com/Feramance/qBitrr/commit/d882d0acb4f7a74c317df6e2cbd9098d09f281bc) - @Feramance
 
 ---
