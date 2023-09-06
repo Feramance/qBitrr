@@ -96,7 +96,10 @@ class Arr:
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if self._LOG_LEVEL == 0:
-            fh = logging.FileHandler(LOGS_FOLDER.joinpath(self._name + "-logs.log"))
+            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            if pathlib.Path(logfile).is_file():
+                logfile.rename(logfile + ".old")
+            fh = logging.FileHandler(logfile)
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
             self.logger.addHandler(fh)
         else:
@@ -802,16 +805,15 @@ class Arr:
             self.import_torrents.clear()
 
     def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
-        with contextlib.suppress(Exception):
-            if hash_ not in skip_blacklist:
-                self.logger.debug(
-                    "Blocklisting: %s (%s)",
-                    hash_,
-                    self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
-                )
-                self.delete_from_queue(id_=entry, blacklist=True)
-            else:
-                self.delete_from_queue(id_=entry, blacklist=False)
+        if hash_ not in skip_blacklist:
+            self.logger.debug(
+                "Blocklisting: %s (%s)",
+                hash_,
+                self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
+            )
+            self.delete_from_queue(id_=entry, blacklist=True)
+        else:
+            self.delete_from_queue(id_=entry, blacklist=False)
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
