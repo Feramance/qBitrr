@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-41 (06/09/2023)
+
+---
+
 ## v3.7.2-beta-40 (06/09/2023)
 
 ---
@@ -113,8 +117,3 @@
 ---
 
 ## v3.7.2-beta-9 (01/09/2023)
-
----
-
-## v3.7.2-beta-8 (01/09/2023)
-- [[build] Grab data being passed through Downloaded scan command](https://github.com/Feramance/qBitrr/commit/e3eaedd1871947a8e2cf8e15ce20f15b17d9487d) - @Feramance
