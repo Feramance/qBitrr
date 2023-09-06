@@ -171,7 +171,7 @@ tqdm==4.66.1
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.28.2.2
+types-requests==2.31.0
     # via pyarr
 types-urllib3==1.26.25.14
     # via types-requests

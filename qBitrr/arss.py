@@ -94,9 +94,12 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        fh = logging.FileHandler("/config/" + self._name + "-logs.log")
-        self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        self.logger.addHandler(fh)
+        if self._LOG_LEVEL == "TRACE":
+            fh = logging.FileHandler("/config/logs/" + self._name + "-logs.log")
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
+            self.logger.addHandler(fh)
+        else:
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
@@ -543,7 +546,7 @@ class Arr:
         type[EpisodesModel] | type[MoviesModel] | type[MoviesModelv5],
         type[CommandsModel],
         type[SeriesModel] | type[MoviesMetadataModel],
-    ]:
+    ]:  # sourcery skip: replace-interpolation-with-fstring, switch
         if self.type == "sonarr":
             return EpisodesModel, CommandsModel, SeriesModel
         elif self.type == "radarr":
@@ -568,7 +571,7 @@ class Arr:
         elif self.type == "radarr":
             return MoviesFilesModel, MovieQueueModel, None
         else:
-            raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
+            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
