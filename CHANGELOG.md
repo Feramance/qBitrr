@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.2-beta-40 (06/09/2023)
+
+---
+
 ## v3.7.2-beta-39 (06/09/2023)
 
 ---
@@ -114,8 +118,3 @@
 
 ## v3.7.2-beta-8 (01/09/2023)
 - [[build] Grab data being passed through Downloaded scan command](https://github.com/Feramance/qBitrr/commit/e3eaedd1871947a8e2cf8e15ce20f15b17d9487d) - @Feramance
-
----
-
-## v3.7.2-beta-7 (01/09/2023)
-- [[build] Always allow seeding if remove torrent config is enabled](https://github.com/Feramance/qBitrr/commit/de46bf65e01c36303b41c86bc24a8211713c2bda) - @Feramance
