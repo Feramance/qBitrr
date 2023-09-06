@@ -98,7 +98,7 @@ class Arr:
         if self._LOG_LEVEL == 0:
             logfile = LOGS_FOLDER.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logold = logfile.joinpath(".old")
+                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
@@ -3864,9 +3864,18 @@ class PlaceHolderArr(Arr):
     def process_torrents(self):
         try:
             try:
-                torrents = self.manager.qbit_manager.client.torrents.info(
-                    status_filter="all", category=self.category, sort="added_on", reverse=False
-                )
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        torrents = self.manager.qbit_manager.client.torrents.info(
+                            status_filter="all",
+                            category=self.category,
+                            sort="added_on",
+                            reverse=False,
+                        )
+                    except qbittorrentapi.exceptions.APIError:
+                        completed = True
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
