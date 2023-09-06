@@ -828,6 +828,7 @@ class Arr:
                             completed = False
                             data = self.client.get_episode_by_episode_id(object_id)
                         except (
+                            requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                         ):
@@ -1750,6 +1751,7 @@ class Arr:
                                 completed = False
                                 EpisodeMetadata = self.client.get_episode_by_episode_id(EntryId)
                             except (
+                                requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                             ):
@@ -3306,10 +3308,11 @@ class Arr:
                 res = self.client.get_queue(
                     page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
                 )
-            except requests.exceptions.ConnectionError:
-                self.logger.error("Failed to get queue")
-                raise DelayLoopException(length=300, type=self._name)
-            except requests.exceptions.ChunkedEncodingError:
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
                 completed = True
         try:
             res = res.get("records", [])
