@@ -826,7 +826,10 @@ class Arr:
                         try:
                             completed = False
                             data = self.client.get_episode_by_episode_id(object_id)
-                        except requests.exceptions.ContentDecodingError:
+                        except (
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
                             completed = True
 
                     name = data.get("title")
@@ -1745,7 +1748,10 @@ class Arr:
                             try:
                                 completed = False
                                 metadata = self.client.get_episode_by_episode_id(EntryId)
-                            except requests.exceptions.ContentDecodingError:
+                            except (
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                            ):
                                 completed = True
 
                         SeriesTitle = metadata.get("series", {}).get("title")
@@ -1921,13 +1927,7 @@ class Arr:
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
-        params = {
-            "removeFromClient": remove_from_client,
-            "blocklist": blacklist,
-            "blacklist": blacklist,
-        }
-        path = f"/api/v3/queue/{id_}"
-        res = self.client.request_del(path, params=params)
+        res = self.client.del_queue(id_, remove_from_client, blacklist)
         return res
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
@@ -2942,13 +2942,11 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if self.seeding_mode_global_remove_torrent != -1:
-            if self.remove_torrent(torrent):
-                remove_torrent = True
-                return_value = False
-            else:
-                remove_torrent = False
-                return_value = True
+        if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
+            torrent, seeding_time_limit, ratio_limit
+        ):
+            remove_torrent = True
+            return_value = False
         else:
             if torrent.ratio >= ratio_limit:
                 return_value = False  # Seeding ratio met - Can be cleaned up.
@@ -3137,7 +3135,7 @@ class Arr:
         maximum_eta = _tracker_max_eta
         if remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
-        if torrent.category == FAILED_CATEGORY:
+        elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
             self._process_single_torrent_failed_cat(torrent)
         elif torrent.category == RECHECK_CATEGORY:
@@ -3238,35 +3236,27 @@ class Arr:
         else:
             self._process_single_torrent_unprocessed(torrent)
 
-    def remove_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
-        if (
-            self.seeding_mode_global_max_seeding_time > 0
-            and self.seeding_mode_global_max_upload_ratio > 0
-        ):
+    def remove_torrent(
+        self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
+    ):
+        if seeding_time_limit > 0 and ratio_limit > 0:
             if (
                 self.seeding_mode_global_remove_torrent == 4
-                and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-                and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+                and torrent.ratio >= ratio_limit
+                and torrent.seeding_time >= seeding_time_limit
             ):
                 return True
-        elif (
-            self.seeding_mode_global_max_seeding_time > 0
-            or self.seeding_mode_global_max_upload_ratio > 0
-        ):
+        elif seeding_time_limit > 0 or ratio_limit > 0:
             if self.seeding_mode_global_remove_torrent == 3 and (
-                torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-                or torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+                torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
             ):
                 return True
             elif (
                 self.seeding_mode_global_remove_torrent == 2
-                and torrent.seeding_time >= self.seeding_mode_global_max_seeding_time
+                and torrent.seeding_time >= seeding_time_limit
             ):
                 return True
-            elif (
-                self.seeding_mode_global_remove_torrent == 1
-                and torrent.ratio >= self.seeding_mode_global_max_upload_ratio
-            ):
+            elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
                 return True
             else:
                 return False
