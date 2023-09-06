@@ -10,7 +10,7 @@ peewee==3.14.7
 ping3==3.0.2
 pyarr==5.2.0
 qbittorrent-api==2023.7.52
-requests==2.28.2
+requests==2.31.0
 tomlkit==0.7.2
 
 [all]

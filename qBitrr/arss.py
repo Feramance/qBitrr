@@ -1712,184 +1712,85 @@ class Arr:
         request: bool = False,
         series: bool = False,
     ):
-        completed = True
-        while completed:
-            if self.search_missing is False:
-                completed = False
-                return
-            try:
-                searched = False
-                if self.type == "sonarr":
-                    if not series:
-                        db_entry: EpisodesModel
-                        self.client: SonarrAPI
-                        QualityUnmet = self.quality_unmet_search
-                        if db_entry.EpisodeFileId != 0 and not QualityUnmet:
-                            searched = True
-                            self.model_queue.update(Completed=True).where(
-                                self.model_queue.EntryId == db_entry.Id
-                            ).execute()
-
-                        if db_entry.Monitored == 1:
-                            EntryId = db_entry.Id
-                            metadata = self.client.get_episode_by_episode_id(EntryId)
-                            SeriesTitle = metadata.get("series", {}).get("title")
-                            SeasonNumber = db_entry.SeasonNumber
-                            Title = db_entry.Title
-                            SeriesId = db_entry.SeriesId
-                            EpisodeFileId = db_entry.EpisodeFileId
-                            EpisodeNumber = db_entry.EpisodeNumber
-                            AbsoluteEpisodeNumber = db_entry.AbsoluteEpisodeNumber
-                            SceneAbsoluteEpisodeNumber = db_entry.SceneAbsoluteEpisodeNumber
-                            LastSearchTime = db_entry.LastSearchTime
-                            AirDateUtc = db_entry.AirDateUtc
-                            Monitored = db_entry.Monitored
-                            searched = searched
-                            QualityMet = db_entry.EpisodeFileId != 0 and not QualityUnmet
-
-                            if self.quality_unmet_search and QualityMet:
-                                self.logger.trace(
-                                    "Quality Met | %s | S%02dE%03d",
-                                    SeriesTitle,
-                                    SeasonNumber,
-                                    EpisodeNumber,
-                                )
-
-                            self.logger.trace(
-                                "Updating database entry | %s | S%02dE%03d",
-                                SeriesTitle,
-                                SeasonNumber,
-                                EpisodeNumber,
-                            )
-                            to_update = {
-                                self.model_file.Monitored: Monitored,
-                                self.model_file.Title: Title,
-                                self.model_file.AirDateUtc: AirDateUtc,
-                                self.model_file.LastSearchTime: LastSearchTime,
-                                self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
-                                self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
-                                self.model_file.EpisodeNumber: EpisodeNumber,
-                                self.model_file.EpisodeFileId: EpisodeFileId,
-                                self.model_file.SeriesId: SeriesId,
-                                self.model_file.SeriesTitle: SeriesTitle,
-                                self.model_file.SeasonNumber: SeasonNumber,
-                                self.model_file.QualityMet: QualityMet,
-                            }
-                            if searched:
-                                to_update[self.model_file.Searched] = searched
-
-                            if request:
-                                to_update[self.model_file.IsRequest] = request
-
-                            db_commands = self.model_file.insert(
-                                EntryId=EntryId,
-                                Title=Title,
-                                SeriesId=SeriesId,
-                                EpisodeFileId=EpisodeFileId,
-                                EpisodeNumber=EpisodeNumber,
-                                AbsoluteEpisodeNumber=AbsoluteEpisodeNumber,
-                                SceneAbsoluteEpisodeNumber=SceneAbsoluteEpisodeNumber,
-                                LastSearchTime=LastSearchTime,
-                                AirDateUtc=AirDateUtc,
-                                Monitored=Monitored,
-                                SeriesTitle=SeriesTitle,
-                                SeasonNumber=SeasonNumber,
-                                Searched=searched,
-                                IsRequest=request,
-                                QualityMet=QualityMet,
-                            ).on_conflict(
-                                conflict_target=[self.model_file.EntryId],
-                                update=to_update,
-                            )
-                            db_commands.execute()
-                        else:
-                            completed = False
-                            return
-                    else:
-                        db_entry: SeriesModel
-                        EntryId = db_entry.Id
-                        if db_entry.Monitored == 1:
-                            metadata = self.client.get_series(id_=EntryId)
-                            episode_count = metadata.get("episodeCount", -2)
-                            searched = episode_count == metadata.get("episodeFileCount", -1)
-                            if episode_count == 0:
-                                searched = True
-                            Title = metadata.get("title")
-                            Monitored = db_entry.Monitored
-                            self.logger.trace(
-                                "Updating database entry | %s",
-                                Title,
-                            )
-                            to_update = {
-                                self.series_file_model.Monitored: Monitored,
-                                self.series_file_model.Title: Title,
-                            }
-                            if searched:
-                                to_update[self.series_file_model.Searched] = searched
-
-                            db_commands = self.series_file_model.insert(
-                                EntryId=EntryId,
-                                Title=Title,
-                                Searched=searched,
-                                Monitored=Monitored,
-                            ).on_conflict(
-                                conflict_target=[self.series_file_model.EntryId],
-                                update=to_update,
-                            )
-                            db_commands.execute()
-                        else:
-                            completed = False
-                            return
-
-                elif self.type == "radarr":
-                    if self.version == "4":
-                        db_entry: MoviesModel
-                    elif self.version == "5":
-                        db_entry: MoviesModelv5
-                    searched = False
+        if self.search_missing is False:
+            return
+        try:
+            searched = False
+            if self.type == "sonarr":
+                if not series:
+                    db_entry: EpisodesModel
                     QualityUnmet = self.quality_unmet_search
-                    if db_entry.MovieFileId != 0 and not QualityUnmet:
+                    if db_entry.EpisodeFileId != 0 and not QualityUnmet:
                         searched = True
                         self.model_queue.update(Completed=True).where(
                             self.model_queue.EntryId == db_entry.Id
                         ).execute()
 
-                    metadata = self.model_arr_movies_file.get(
-                        self.model_arr_movies_file.Id == db_entry.MovieMetadataId
-                    )
-                    metadata: MoviesMetadataModel
-
-                    if (
-                        self.minimum_availability_check(db_entry, metadata)
-                        and db_entry.Monitored == 1
-                    ):
-                        title = metadata.Title
-                        monitored = db_entry.Monitored
-                        tmdbId = metadata.TmdbId
-                        year = metadata.Year
+                    if db_entry.Monitored == 1:
                         EntryId = db_entry.Id
-                        MovieFileId = db_entry.MovieFileId
-                        QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
+                        metadata = self.client.get_episode_by_episode_id(EntryId)
+                        SeriesTitle = metadata.get("series", {}).get("title")
+                        SeasonNumber = db_entry.SeasonNumber
+                        Title = db_entry.Title
+                        SeriesId = db_entry.SeriesId
+                        EpisodeFileId = db_entry.EpisodeFileId
+                        EpisodeNumber = db_entry.EpisodeNumber
+                        AbsoluteEpisodeNumber = db_entry.AbsoluteEpisodeNumber
+                        SceneAbsoluteEpisodeNumber = db_entry.SceneAbsoluteEpisodeNumber
+                        LastSearchTime = db_entry.LastSearchTime
+                        AirDateUtc = db_entry.AirDateUtc
+                        Monitored = db_entry.Monitored
+                        searched = searched
+                        QualityMet = db_entry.EpisodeFileId != 0 and not QualityUnmet
 
-                        self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
+                        if self.quality_unmet_search and QualityMet:
+                            self.logger.trace(
+                                "Quality Met | %s | S%02dE%03d",
+                                SeriesTitle,
+                                SeasonNumber,
+                                EpisodeNumber,
+                            )
+
+                        self.logger.trace(
+                            "Updating database entry | %s | S%02dE%03d",
+                            SeriesTitle,
+                            SeasonNumber,
+                            EpisodeNumber,
+                        )
                         to_update = {
-                            self.model_file.MovieFileId: MovieFileId,
-                            self.model_file.Monitored: monitored,
+                            self.model_file.Monitored: Monitored,
+                            self.model_file.Title: Title,
+                            self.model_file.AirDateUtc: AirDateUtc,
+                            self.model_file.LastSearchTime: LastSearchTime,
+                            self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
+                            self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
+                            self.model_file.EpisodeNumber: EpisodeNumber,
+                            self.model_file.EpisodeFileId: EpisodeFileId,
+                            self.model_file.SeriesId: SeriesId,
+                            self.model_file.SeriesTitle: SeriesTitle,
+                            self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
                         }
-
                         if searched:
                             to_update[self.model_file.Searched] = searched
+
                         if request:
                             to_update[self.model_file.IsRequest] = request
+
                         db_commands = self.model_file.insert(
-                            Title=title,
-                            Monitored=monitored,
-                            TmdbId=tmdbId,
-                            Year=year,
                             EntryId=EntryId,
+                            Title=Title,
+                            SeriesId=SeriesId,
+                            EpisodeFileId=EpisodeFileId,
+                            EpisodeNumber=EpisodeNumber,
+                            AbsoluteEpisodeNumber=AbsoluteEpisodeNumber,
+                            SceneAbsoluteEpisodeNumber=SceneAbsoluteEpisodeNumber,
+                            LastSearchTime=LastSearchTime,
+                            AirDateUtc=AirDateUtc,
+                            Monitored=Monitored,
+                            SeriesTitle=SeriesTitle,
+                            SeasonNumber=SeasonNumber,
                             Searched=searched,
-                            MovieFileId=MovieFileId,
                             IsRequest=request,
                             QualityMet=QualityMet,
                         ).on_conflict(
@@ -1898,21 +1799,107 @@ class Arr:
                         )
                         db_commands.execute()
                     else:
-                        completed = False
+                        return
+                else:
+                    db_entry: SeriesModel
+                    EntryId = db_entry.Id
+                    if db_entry.Monitored == 1:
+                        metadata = self.client.get_series(id_=EntryId)
+                        episode_count = metadata.get("episodeCount", -2)
+                        searched = episode_count == metadata.get("episodeFileCount", -1)
+                        if episode_count == 0:
+                            searched = True
+                        Title = metadata.get("title")
+                        Monitored = db_entry.Monitored
+                        self.logger.trace(
+                            "Updating database entry | %s",
+                            Title,
+                        )
+                        to_update = {
+                            self.series_file_model.Monitored: Monitored,
+                            self.series_file_model.Title: Title,
+                        }
+                        if searched:
+                            to_update[self.series_file_model.Searched] = searched
+
+                        db_commands = self.series_file_model.insert(
+                            EntryId=EntryId,
+                            Title=Title,
+                            Searched=searched,
+                            Monitored=Monitored,
+                        ).on_conflict(
+                            conflict_target=[self.series_file_model.EntryId],
+                            update=to_update,
+                        )
+                        db_commands.execute()
+                    else:
                         return
 
-            except requests.exceptions.ConnectionError as e:
-                self.logger.debug(
-                    "Max retries exceeded for %s ID:%s", self._name, db_entry.Id, exc_info=e
+            elif self.type == "radarr":
+                if self.version == "4":
+                    db_entry: MoviesModel
+                elif self.version == "5":
+                    db_entry: MoviesModelv5
+                searched = False
+                QualityUnmet = self.quality_unmet_search
+                if db_entry.MovieFileId != 0 and not QualityUnmet:
+                    searched = True
+                    self.model_queue.update(Completed=True).where(
+                        self.model_queue.EntryId == db_entry.Id
+                    ).execute()
+
+                metadata = self.model_arr_movies_file.get(
+                    self.model_arr_movies_file.Id == db_entry.MovieMetadataId
                 )
-                raise DelayLoopException(length=300, type=self._name)
-            except JSONDecodeError:
-                self.logger.warning(
-                    "Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title
-                )
-            except Exception as e:
-                self.logger.error(e, exc_info=sys.exc_info())
-            completed = False
+                metadata: MoviesMetadataModel
+
+                if self.minimum_availability_check(db_entry, metadata) and db_entry.Monitored == 1:
+                    title = metadata.Title
+                    monitored = db_entry.Monitored
+                    tmdbId = metadata.TmdbId
+                    year = metadata.Year
+                    EntryId = db_entry.Id
+                    MovieFileId = db_entry.MovieFileId
+                    QualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
+
+                    self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
+                    to_update = {
+                        self.model_file.MovieFileId: MovieFileId,
+                        self.model_file.Monitored: monitored,
+                        self.model_file.QualityMet: QualityMet,
+                    }
+
+                    if searched:
+                        to_update[self.model_file.Searched] = searched
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
+                    db_commands = self.model_file.insert(
+                        Title=title,
+                        Monitored=monitored,
+                        TmdbId=tmdbId,
+                        Year=year,
+                        EntryId=EntryId,
+                        Searched=searched,
+                        MovieFileId=MovieFileId,
+                        IsRequest=request,
+                        QualityMet=QualityMet,
+                    ).on_conflict(
+                        conflict_target=[self.model_file.EntryId],
+                        update=to_update,
+                    )
+                    db_commands.execute()
+                else:
+                    return
+
+        except requests.exceptions.ConnectionError as e:
+            self.logger.debug(
+                "Max retries exceeded for %s ID:%s", self._name, db_entry.Id, exc_info=e
+            )
+            raise DelayLoopException(length=300, type=self._name)
+        except JSONDecodeError:
+            self.logger.warning("Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title)
+        except Exception as e:
+            self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
         params = {
@@ -3306,6 +3293,7 @@ class Arr:
             pass
         completed = True
         while completed:
+            completed = False
             try:
                 res = self.client.get_queue(
                     page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
@@ -3313,11 +3301,12 @@ class Arr:
             except requests.exceptions.ConnectionError:
                 self.logger.error("Failed to get queue")
                 raise DelayLoopException(length=300, type=self._name)
-            try:
-                res = res.get("records", [])
-            except AttributeError:
-                pass
-            completed = False
+            except requests.exceptions.ChunkedEncodingError:
+                completed = True
+        try:
+            res = res.get("records", [])
+        except AttributeError:
+            pass
         return res
 
     def _update_bad_queue_items(self):

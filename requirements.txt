@@ -73,7 +73,7 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0
+types-requests==2.31.0.2
     # via pyarr
 types-urllib3==1.26.25.14
     # via types-requests
