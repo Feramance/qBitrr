@@ -1836,7 +1836,17 @@ class Arr:
                     db_entry: SeriesModel
                     EntryId = db_entry.Id
                     if db_entry.Monitored == 1:
-                        seriesMetadata = self.client.get_series(id_=EntryId)
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                seriesMetadata = self.client.get_series(id_=EntryId)
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                            ):
+                                completed = True
                         episode_count = seriesMetadata.get("episodeCount", -2)
                         searched = episode_count == seriesMetadata.get("episodeFileCount", -1)
                         if episode_count == 0:
