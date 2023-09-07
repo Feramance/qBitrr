@@ -155,4 +155,4 @@ services:
 
 ## Reporting an Issue
 
-When reporting an issue, please set the log level to `TRACE` and restart qBitrr. You will notice log files being generated and once you see your error replicated, open an issue and attache the logs
+When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you
