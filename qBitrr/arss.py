@@ -777,23 +777,26 @@ class Arr:
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
                     if self.type == "sonarr":
-                        self.logger.success(
-                            "DownloadedEpisodesScan: %s",
-                            path,
-                        )
                         self.post_command(
                             "DownloadedEpisodesScan",
                             path=str(path),
                             downloadClientId=torrent.hash.upper(),
                             importMode=self.import_mode,
                         )
+                        self.logger.success(
+                            "DownloadedEpisodesScan: %s",
+                            path,
+                        )
                     elif self.type == "radarr":
-                        self.logger.success("DownloadedMoviesScan: %s", path)
                         self.post_command(
                             "DownloadedMoviesScan",
-                            str(path),
-                            torrent.hash.upper(),
-                            self.import_mode,
+                            path=str(path),
+                            downloadClientId=torrent.hash.upper(),
+                            importMode=self.import_mode,
+                        )
+                        self.logger.success(
+                            "DownloadedMoviesScan: %s",
+                            path,
                         )
                 except:
                     self.logger.error(
@@ -3240,27 +3243,23 @@ class Arr:
     def remove_torrent(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
     ):
-        if seeding_time_limit > 0 and ratio_limit > 0:
-            if (
-                self.seeding_mode_global_remove_torrent == 4
-                and torrent.ratio >= ratio_limit
-                and torrent.seeding_time >= seeding_time_limit
-            ):
-                return True
-        elif seeding_time_limit > 0 or ratio_limit > 0:
-            if self.seeding_mode_global_remove_torrent == 3 and (
-                torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
-            ):
-                return True
-            elif (
-                self.seeding_mode_global_remove_torrent == 2
-                and torrent.seeding_time >= seeding_time_limit
-            ):
-                return True
-            elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
-                return True
-            else:
-                return False
+        if (
+            self.seeding_mode_global_remove_torrent == 4
+            and torrent.ratio >= ratio_limit
+            and torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        if self.seeding_mode_global_remove_torrent == 3 and (
+            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        elif (
+            self.seeding_mode_global_remove_torrent == 2
+            and torrent.seeding_time >= seeding_time_limit
+        ):
+            return True
+        elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
+            return True
         else:
             return False
 
