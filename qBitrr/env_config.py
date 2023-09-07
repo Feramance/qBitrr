@@ -29,6 +29,7 @@ class AppConfig:
     @environ.config(prefix="SETTINGS", frozen=True)
     class Settings:
         console_level = environ.var(None)
+        logging = environ.var(None, converter=Converter.bool)
         completed_download_folder = environ.var(None)
         no_internet_sleep_timer = environ.var(None, converter=Converter.int)
         loop_sleep_timer = environ.var(None, converter=Converter.int)

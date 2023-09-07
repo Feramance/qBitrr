@@ -6,6 +6,9 @@
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
 
+# Enable logging to files
+Logging = true
+
 # Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path
 CompletedDownloadFolder = "CHANGE_ME"
 

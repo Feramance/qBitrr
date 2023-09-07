@@ -37,6 +37,7 @@ from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
+    ENABLE_LOGS,
     FAILED_CATEGORY,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
@@ -95,7 +96,7 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        if self._LOG_LEVEL == 0:
+        if ENABLE_LOGS:
             logfile = LOGS_FOLDER.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")

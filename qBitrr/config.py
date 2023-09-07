@@ -120,6 +120,7 @@ RECHECK_CATEGORY = ENVIRO_CONFIG.settings.recheck_category or CONFIG.get(
 CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get_or_raise(
     "Settings.ConsoleLevel"
 )
+ENABLE_LOGS = ENVIRO_CONFIG.settings.logging or CONFIG.get_or_raise("Settings.Logging")
 COMPLETED_DOWNLOAD_FOLDER = (
     ENVIRO_CONFIG.settings.completed_download_folder
     or CONFIG.get_or_raise("Settings.CompletedDownloadFolder")
