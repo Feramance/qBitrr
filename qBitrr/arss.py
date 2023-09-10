@@ -1919,7 +1919,7 @@ class Arr:
                         to_update[self.model_file.Searched] = searched
                     if request:
                         to_update[self.model_file.IsRequest] = request
-                    self.logger.info("Searching for %s", title)
+                    self.logger.trace("Adding %s to db: [%s][%s]", title, MovieFileId, searched)
                     db_commands = self.model_file.insert(
                         Title=title,
                         Monitored=monitored,
@@ -2266,7 +2266,17 @@ class Arr:
             return True
 
     def post_command(self, name, **kwargs):
-        res = self.client.post_command(name, **kwargs)
+        completed = True
+        while completed:
+            try:
+                completed = False
+                res = self.client.post_command(name, **kwargs)
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
+                completed = True
         return res
 
     def process(self):
