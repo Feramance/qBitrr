@@ -980,7 +980,8 @@ class Arr:
             return
         for path in absolute_file_paths(self.completed_folder):
             if path.is_dir() and not len(list(absolute_file_paths(path))):
-                path.rmdir()
+                with contextlib.suppress(FileNotFoundError):
+                    path.rmdir()
                 self.logger.trace("Removing empty folder: %s", path)
                 if path in self.sent_to_scan:
                     self.sent_to_scan.discard(path)
@@ -1918,6 +1919,7 @@ class Arr:
                         to_update[self.model_file.Searched] = searched
                     if request:
                         to_update[self.model_file.IsRequest] = request
+                    self.logger.info("Searching for %s", title)
                     db_commands = self.model_file.insert(
                         Title=title,
                         Monitored=monitored,
