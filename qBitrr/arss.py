@@ -1762,6 +1762,7 @@ class Arr:
             if self.type == "sonarr":
                 if not series:
                     db_entry: EpisodesModel
+                    self.model_file: EpisodeFilesModel
                     QualityUnmet = self.quality_unmet_search
                     if db_entry.EpisodeFileId != 0 and not QualityUnmet:
                         searched = True
@@ -1857,6 +1858,7 @@ class Arr:
                         return
                 else:
                     db_entry: SeriesModel
+                    self.model_file: SeriesFilesModel
                     EntryId = db_entry.Id
                     if db_entry.Monitored == 1:
                         completed = True
@@ -1901,6 +1903,7 @@ class Arr:
                         return
 
             elif self.type == "radarr":
+                self.model_file: MoviesFilesModel
                 if self.version == "4":
                     db_entry: MoviesModel
                 elif self.version == "5":
@@ -3674,10 +3677,12 @@ class Arr:
             if not self.search_missing:
                 return None
             loop_timer = timedelta(minutes=15)
+            timer = datetime.now()
             years_index = 0
             while True:
                 if self.loop_completed:
                     years_index = 0
+                    timer = datetime.now()
                 if self.search_by_year and years_index == 0:
                     years, years_count = self.get_year_search()
                     try:
@@ -3688,7 +3693,6 @@ class Arr:
                     "Current year %s",
                     self.search_current_year,
                 )
-                timer = datetime.now(timezone.utc)
                 try:
                     self.db_maybe_reset_entry_searched_state()
                     self.db_update()
@@ -3696,7 +3700,7 @@ class Arr:
                     self.force_grab()
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            if timer < (datetime.now(timezone.utc) - loop_timer):
+                            if datetime.now() > (timer + loop_timer):
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
@@ -3720,6 +3724,7 @@ class Arr:
                         else:
                             self.loop_completed = True
                     except RestartLoopException:
+                        self.loop_completed = True
                         self.logger.debug("Loop timer elapsed, restarting it.")
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
