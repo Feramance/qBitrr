@@ -1443,7 +1443,6 @@ class Arr:
                                 <= datetime(month=12, day=31, year=int(self.search_current_year))
                             )
                         ):
-                            series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
                         for series in self.model_arr_file.select().where(
@@ -1459,7 +1458,6 @@ class Arr:
                                 | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
                             )
                         ):
-                            series: EpisodesModel
                             _series.add(series.SeriesId)
                             self.db_update_single_series(db_entry=series)
                         for series in self.model_arr_file.select().where(
