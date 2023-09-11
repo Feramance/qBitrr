@@ -1425,6 +1425,7 @@ class Arr:
         with self.db.atomic():
             if self.type == "sonarr":
                 if not self.series_search:
+                    self.model_arr_file: EpisodesModel
                     _series = set()
                     if self.search_by_year:
                         for series in self.model_arr_file.select().where(
@@ -1465,6 +1466,7 @@ class Arr:
                         ):
                             self.db_update_single_series(db_entry=series)
                 else:
+                    self.model_arr_series_file: SeriesModel
                     for series in (
                         self.model_arr_series_file.select()
                         .order_by(self.model_arr_series_file.Added.desc())
@@ -1472,6 +1474,10 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
+                if self.version == "4":
+                    self.model_arr_file: MoviesModel
+                elif self.version == "5":
+                    self.model_arr_file: MoviesModelv5
                 if self.search_by_year:
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
