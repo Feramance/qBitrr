@@ -873,7 +873,15 @@ class Arr:
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
-                data = self.client.get_movie_by_movie_id(object_id)
+                try:
+                    completed = False
+                    data = self.client.get_movie_by_movie_id(object_id)
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ):
+                    completed = True
                 name = data.get("title")
                 if name:
                     year = data.get("year", 0)
@@ -1505,7 +1513,17 @@ class Arr:
         db_entry: MoviesModel | MoviesModelv5 = None,
         metadata: MoviesMetadataModel = None,
     ) -> bool:
-        if metadata.Year < datetime.now().year and metadata.Year != 0:
+        if metadata.Year > datetime.now().year or metadata.Year == 0:
+            self.logger.trace(
+                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
+            return False
+        elif metadata.Year < datetime.now().year and metadata.Year != 0:
             self.logger.trace(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
@@ -1949,7 +1967,17 @@ class Arr:
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
-        res = self.client.del_queue(id_, remove_from_client, blacklist)
+        completed = True
+        while completed:
+            try:
+                completed = False
+                res = self.client.del_queue(id_, remove_from_client, blacklist)
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
+                completed = True
         return res
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
@@ -2155,7 +2183,19 @@ class Arr:
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
-                    self.client.post_command("EpisodeSearch", episodeIds=[file_model.EntryId])
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            self.client.post_command(
+                                "EpisodeSearch", episodeIds=[file_model.EntryId]
+                            )
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
@@ -2193,7 +2233,19 @@ class Arr:
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
-                    self.client.post_command(self.search_api_command, seriesId=file_model.EntryId)
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            self.client.post_command(
+                                self.search_api_command, seriesId=file_model.EntryId
+                            )
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
                 file_model.Searched = True
                 file_model.save()
                 self.logger.hnotice(
@@ -2252,7 +2304,17 @@ class Arr:
                 EntryId=file_model.EntryId,
             ).on_conflict_replace().execute()
             if file_model.EntryId not in self.queue_file_ids:
-                self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
             file_model.Searched = True
             file_model.save()
             self.logger.hnotice(
