@@ -98,6 +98,7 @@ class EpisodesModel(Model):
     AiredBeforeEpisodeNumber = IntegerField()
     TvdbId = IntegerField()
     Runtime = IntegerField()
+    FinaleType = TextField()
 
 
 class SeriesModel(Model):
