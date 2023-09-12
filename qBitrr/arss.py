@@ -3704,16 +3704,13 @@ class Arr:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                            while (
-                                self.maybe_do_search(
-                                    entry,
-                                    todays=todays,
-                                    bypass_limit=limit_bypass,
-                                    series_search=series_search,
-                                )
-                                is False
-                            ):
-                                time.sleep(30)
+                            self.logger.info("Maybe searching for %s", entry.Title)
+                            self.maybe_do_search(
+                                entry,
+                                todays=todays,
+                                bypass_limit=limit_bypass,
+                                series_search=series_search,
+                            )
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
@@ -3725,7 +3722,7 @@ class Arr:
                             self.loop_completed = True
                     except RestartLoopException:
                         self.loop_completed = True
-                        self.logger.debug("Loop timer elapsed, restarting it.")
+                        self.logger.info("Loop timer elapsed, restarting it.")
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
@@ -3733,7 +3730,7 @@ class Arr:
                     except DelayLoopException:
                         raise
                     except ValueError:
-                        self.logger.debug("Loop completed, restarting it.")
+                        self.logger.info("Loop completed, restarting it.")
                         self.loop_completed = True
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
