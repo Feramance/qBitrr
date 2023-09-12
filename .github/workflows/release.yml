@@ -282,7 +282,7 @@ jobs:
       if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == true || contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == true}}
       env:
         DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64
@@ -294,7 +294,7 @@ jobs:
       if: ${{contains(needs.bump_version.outputs.NEW_RELEASE, 'beta') == false && contains(needs.bump_version.outputs.NEW_RELEASE, 'alpha') == false}}
       env:
         DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v4
+      uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64
