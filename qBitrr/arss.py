@@ -2112,12 +2112,12 @@ class Arr:
         self._remove_empty_folders()
         self.needs_cleanup = False
 
-    def get_single_queue(self, id_) -> bool:
+    def get_single_queue(self, id) -> bool:
         completed = True
         while completed:
             try:
                 completed = False
-                entry = self.client.get_queue_details(id=id_)
+                entry = self.client.get_queue_details(id_=id)
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
