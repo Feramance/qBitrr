@@ -24,6 +24,10 @@
 
 ---
 
+## v3.7.5-beta-15 (13/09/2023)
+
+---
+
 ## v3.7.5-beta-14 (13/09/2023)
 
 ---
@@ -116,7 +120,3 @@
 
 ## v3.7.2 (06/09/2023)
 - [[release] Added Logging for Trace logs (todo configurable log file level) and fixed issue with torent handling and a number of new errors related to requests](https://github.com/Feramance/qBitrr/commit/d882d0acb4f7a74c317df6e2cbd9098d09f281bc) - @Feramance
-
----
-
-## v3.7.2-beta-47 (06/09/2023)
