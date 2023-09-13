@@ -3372,6 +3372,8 @@ class Arr:
 
     def refresh_download_queue(self):
         active = []
+        model_list = []
+        modal_list = []
         if self.type == "sonarr":
             self.queue = self.get_queue()
         elif self.type == "radarr":
@@ -3391,12 +3393,14 @@ class Arr:
             for q in self.queue:
                 active.append(q.get("movieId"))
             self.logger.info("%s are downloading", active)
-            model_list = self.model_queue.select().execute()
+            for model in self.model_queue.select().execute():
+                model_list.append(model)
             self.logger.info("%s are in model_queue", model_list)
-            model_list = (
+            for modal in (
                 self.model_queue.select().where(self.model_queue.EntryId.not_in(active)).execute()
-            )
-            self.logger.info("%s being deleted from modal_queue", model_list)
+            ):
+                modal_list.append(modal)
+            self.logger.info("%s being deleted from modal_queue", modal_list)
             self.model_queue.delete().where(self.model_queue.EntryId.not_in(active)).execute()
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
