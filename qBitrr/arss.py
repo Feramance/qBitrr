@@ -2112,6 +2112,23 @@ class Arr:
         self._remove_empty_folders()
         self.needs_cleanup = False
 
+    def get_single_queue(self, id_) -> bool:
+        completed = True
+        while completed:
+            try:
+                completed = False
+                entry = self.client._get("queue/{id_}", self.client.ver_uri)
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
+                completed = True
+        if entry.get("movieId"):
+            return True
+        else:
+            return False
+
     def maybe_do_search(
         self,
         file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
@@ -2287,7 +2304,11 @@ class Arr:
                 )
             else:
                 queue = False
-            if queue:
+            if self.get_single_queue(file_model.EntryId):
+                searched = True
+            else:
+                searched = False
+            if queue and searched:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
@@ -3371,9 +3392,6 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
-        active = []
-        model_list = []
-        modal_list = []
         if self.type == "sonarr":
             self.queue = self.get_queue()
         elif self.type == "radarr":
@@ -3390,18 +3408,7 @@ class Arr:
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
         elif self.type == "radarr":
-            for q in self.queue:
-                active.append(q.get("movieId"))
-            self.logger.info("%s are downloading", active)
-            for model in self.model_queue.select().execute():
-                model_list.append(model)
-            self.logger.info("%s are in model_queue", model_list)
-            for modal in (
-                self.model_queue.select().where(self.model_queue.EntryId.not_in(active)).execute()
-            ):
-                modal_list.append(modal)
-            self.logger.info("%s being deleted from modal_queue", modal_list)
-            self.model_queue.delete().where(self.model_queue.EntryId.not_in(active)).execute()
+            self.requeue_cache = defaultdict(set)
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
