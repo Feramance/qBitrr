@@ -3740,8 +3740,6 @@ class Arr:
                             else:
                                 years_index = 0
                                 self.loop_completed = True
-                        else:
-                            self.loop_completed = True
                     except RestartLoopException:
                         self.loop_completed = True
                         self.logger.info("Loop timer elapsed, restarting it.")
