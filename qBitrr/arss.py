@@ -2129,6 +2129,7 @@ class Arr:
             if todays
             else ""
         )
+        self.logger.info("Maybe searching for %s", file_model.Title)
         if request or todays:
             bypass_limit = True
         if (not self.search_missing) or (file_model is None):
@@ -2161,6 +2162,9 @@ class Arr:
                     )
                     file_model.Searched = True
                     file_model.save()
+                    self.logger.info(
+                        "Searched is %s for %s", file_model.Searched, file_model.Title
+                    )
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
@@ -2180,6 +2184,9 @@ class Arr:
                         file_model.Title,
                         file_model.EntryId,
                         file_model.AirDateUtc,
+                    )
+                    self.logger.info(
+                        "Too many commands in queue: %s", file_model.Searched, file_model.Title
                     )
                     return False
                 self.persistent_queue.insert(
@@ -2231,6 +2238,9 @@ class Arr:
                         file_model.Title,
                         file_model.EntryId,
                     )
+                    self.logger.info(
+                        "Too many commands in queue: %s", file_model.Searched, file_model.Title
+                    )
                     return False
                 self.persistent_queue.insert(
                     EntryId=file_model.EntryId
@@ -2264,7 +2274,6 @@ class Arr:
                     file_model.Title,
                     file_model.EntryId,
                 )
-
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
@@ -2285,6 +2294,7 @@ class Arr:
                     file_model.TmdbId,
                     file_model.EntryId,
                 )
+                self.logger.info("Searched is %s for %s", file_model.Searched, file_model.Title)
                 file_model.Searched = True
                 file_model.save()
                 return True
@@ -2302,6 +2312,9 @@ class Arr:
                     file_model.Year,
                     file_model.TmdbId,
                     file_model.EntryId,
+                )
+                self.logger.info(
+                    "Too many commands in queue: %s", file_model.Searched, file_model.Title
                 )
                 return False
             self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
@@ -3704,7 +3717,6 @@ class Arr:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                            self.logger.info("Maybe searching for %s", entry.Title)
                             self.maybe_do_search(
                                 entry,
                                 todays=todays,
