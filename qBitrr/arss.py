@@ -3717,6 +3717,7 @@ class Arr:
                     self.db_maybe_reset_entry_searched_state()
                     self.db_update()
                     self.run_request_search()
+                    self.refresh_download_queue()
                     self.force_grab()
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
@@ -3724,12 +3725,13 @@ class Arr:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                            self.maybe_do_search(
+                            while self.maybe_do_search(
                                 entry,
                                 todays=todays,
                                 bypass_limit=limit_bypass,
                                 series_search=series_search,
-                            )
+                            ):
+                                time.sleep(30)
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
