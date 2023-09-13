@@ -2129,7 +2129,6 @@ class Arr:
             if todays
             else ""
         )
-        self.logger.info("Maybe searching for %s", file_model.Title)
         if request or todays:
             bypass_limit = True
         if (not self.search_missing) or (file_model is None):
@@ -2139,6 +2138,7 @@ class Arr:
         elif self.type == "sonarr":
             if not series_search:
                 file_model: EpisodeFilesModel
+                self.logger.info("Maybe searching for %s", file_model.Title)
                 if not (request or todays):
                     queue = (
                         self.model_queue.select()
@@ -2225,6 +2225,7 @@ class Arr:
                 return True
             else:
                 file_model: SeriesFilesModel
+                self.logger.info("Maybe searching for %s", file_model.Title)
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
                     "%s%s active search commands",
@@ -2277,6 +2278,7 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
+            self.logger.info("Maybe searching for %s", file_model.Title)
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
