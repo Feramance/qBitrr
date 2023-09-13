@@ -3391,7 +3391,13 @@ class Arr:
             for q in self.queue:
                 active.append(q.get("movieId"))
             self.logger.info("%s are downloading", active)
-            self.model_queue.delete().where(self.model_queue.EntryId.not_in(active))
+            model_list = self.model_queue.select().execute()
+            self.logger.info("%s are in model_queue", model_list)
+            model_list = (
+                self.model_queue.select().where(self.model_queue.EntryId.not_in(active)).execute()
+            )
+            self.logger.info("%s being deleted from modal_queue", model_list)
+            self.model_queue.delete().where(self.model_queue.EntryId.not_in(active)).execute()
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
