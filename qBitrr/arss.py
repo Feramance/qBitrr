@@ -2117,17 +2117,17 @@ class Arr:
         while completed:
             try:
                 completed = False
-                entry = self.client.get_queue_details(id_=id)
+                details = self.client.get_queue_details(id_=id)
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
             ):
                 completed = True
-        if entry.get("movieId"):
-            return True
-        else:
-            return False
+        for entry in details:
+            if entry.get("movieId"):
+                return True
+        return False
 
     def maybe_do_search(
         self,
@@ -3734,7 +3734,6 @@ class Arr:
                     self.db_maybe_reset_entry_searched_state()
                     self.db_update()
                     self.run_request_search()
-                    self.refresh_download_queue()
                     self.force_grab()
                     try:
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
