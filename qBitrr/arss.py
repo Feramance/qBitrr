@@ -2117,7 +2117,7 @@ class Arr:
         while completed:
             try:
                 completed = False
-                entry = self.client._get("queue/{id_}", self.client.ver_uri)
+                entry = self.client.get_queue_details(id=id_)
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
