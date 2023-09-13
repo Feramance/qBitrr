@@ -2155,7 +2155,6 @@ class Arr:
         elif self.type == "sonarr":
             if not series_search:
                 file_model: EpisodeFilesModel
-                self.logger.info("Maybe searching for %s", file_model.Title)
                 if not (request or todays):
                     queue = (
                         self.model_queue.select()
@@ -2179,9 +2178,6 @@ class Arr:
                     )
                     file_model.Searched = True
                     file_model.save()
-                    self.logger.info(
-                        "Searched is %s for %s", file_model.Searched, file_model.Title
-                    )
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
@@ -2201,9 +2197,6 @@ class Arr:
                         file_model.Title,
                         file_model.EntryId,
                         file_model.AirDateUtc,
-                    )
-                    self.logger.info(
-                        "Too many commands in queue: %s", file_model.Searched, file_model.Title
                     )
                     return False
                 self.persistent_queue.insert(
@@ -2242,7 +2235,6 @@ class Arr:
                 return True
             else:
                 file_model: SeriesFilesModel
-                self.logger.info("Maybe searching for %s", file_model.Title)
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
                     "%s%s active search commands",
@@ -2255,9 +2247,6 @@ class Arr:
                         request_tag,
                         file_model.Title,
                         file_model.EntryId,
-                    )
-                    self.logger.info(
-                        "Too many commands in queue: %s", file_model.Searched, file_model.Title
                     )
                     return False
                 self.persistent_queue.insert(
@@ -2295,7 +2284,6 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            self.logger.info("Maybe searching for %s", file_model.Title)
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
@@ -2319,7 +2307,6 @@ class Arr:
                 )
                 file_model.Searched = True
                 file_model.save()
-                self.logger.info("Searched is %s for %s", file_model.Searched, file_model.Title)
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
@@ -2335,9 +2322,6 @@ class Arr:
                     file_model.Year,
                     file_model.TmdbId,
                     file_model.EntryId,
-                )
-                self.logger.info(
-                    "Too many commands in queue: %s", file_model.Searched, file_model.Title
                 )
                 return False
             self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
@@ -3408,7 +3392,6 @@ class Arr:
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
         elif self.type == "radarr":
-            self.requeue_cache = defaultdict(set)
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
@@ -3741,12 +3724,14 @@ class Arr:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                            while self.maybe_do_search(
-                                entry,
-                                todays=todays,
-                                bypass_limit=limit_bypass,
-                                series_search=series_search,
-                            ):
+                            while (
+                                self.maybe_do_search(
+                                    entry,
+                                    todays=todays,
+                                    bypass_limit=limit_bypass,
+                                    series_search=series_search,
+                                )
+                            ) is False:
                                 time.sleep(30)
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
