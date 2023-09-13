@@ -2296,9 +2296,9 @@ class Arr:
                     file_model.TmdbId,
                     file_model.EntryId,
                 )
-                self.logger.info("Searched is %s for %s", file_model.Searched, file_model.Title)
                 file_model.Searched = True
                 file_model.save()
+                self.logger.info("Searched is %s for %s", file_model.Searched, file_model.Title)
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
@@ -3371,6 +3371,7 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
+        active = []
         if self.type == "sonarr":
             self.queue = self.get_queue()
         elif self.type == "radarr":
@@ -3387,6 +3388,10 @@ class Arr:
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
         elif self.type == "radarr":
+            for q in self.queue:
+                active.append(q.get("movieId"))
+            self.logger.info("%s are downloading", active)
+            self.model_queue.delete().where(self.model_queue.EntryId.not_in(active))
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
