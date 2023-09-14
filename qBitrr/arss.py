@@ -1103,6 +1103,7 @@ class Arr:
             self.series_file_model.update(Searched=False).where(
                 self.series_file_model.EntryId << series_ids
             ).execute()
+            self.queue_file_ids.clear()
 
     def db_reset__episode_searched_state(self):
         self.model_file: EpisodeFilesModel
@@ -1112,6 +1113,7 @@ class Arr:
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True & self.model_file.EpisodeFileId == 0
             ).execute()
+            self.queue_file_ids.clear()
 
     def db_reset__movie_searched_state(self):
         self.model_file: MoviesFilesModel
@@ -1121,6 +1123,7 @@ class Arr:
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True & self.model_file.MovieFileId == 0
             ).execute()
+            self.queue_file_ids.clear()
 
     def db_get_files_series(
         self,
@@ -2112,12 +2115,6 @@ class Arr:
         self._remove_empty_folders()
         self.needs_cleanup = False
 
-    def get_single_queue(self, id) -> bool:
-        if id in self.queue_file_ids:
-            return True
-        else:
-            return False
-
     def maybe_do_search(
         self,
         file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
@@ -2152,7 +2149,7 @@ class Arr:
                     )
                 else:
                     queue = False
-                if queue and self.get_single_queue(file_model.EntryId):
+                if queue:
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
                         "S%02dE%03d | "
@@ -2281,7 +2278,7 @@ class Arr:
                 )
             else:
                 queue = False
-            if queue and self.get_single_queue(file_model.EntryId):
+            if queue:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
