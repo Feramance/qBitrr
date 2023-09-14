@@ -2149,7 +2149,7 @@ class Arr:
                     )
                 else:
                     queue = False
-                if queue:
+                if queue and file_model.EntryId in self.queue_file_ids:
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
                         "S%02dE%03d | "
@@ -2278,7 +2278,7 @@ class Arr:
                 )
             else:
                 queue = False
-            if queue:
+            if queue and file_model.EntryId in self.queue_file_ids:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
