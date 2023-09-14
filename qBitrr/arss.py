@@ -2113,21 +2113,10 @@ class Arr:
         self.needs_cleanup = False
 
     def get_single_queue(self, id) -> bool:
-        completed = True
-        while completed:
-            try:
-                completed = False
-                details = self.client.get_queue_details(id_=id)
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-            ):
-                completed = True
-        for entry in details:
-            if entry.get("movieId"):
-                return True
-        return False
+        if id in self.queue_file_ids:
+            return True
+        else:
+            return False
 
     def maybe_do_search(
         self,
@@ -2163,7 +2152,7 @@ class Arr:
                     )
                 else:
                     queue = False
-                if queue:
+                if queue and self.get_single_queue(file_model.EntryId):
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
                         "S%02dE%03d | "
@@ -2292,11 +2281,7 @@ class Arr:
                 )
             else:
                 queue = False
-            if self.get_single_queue(file_model.EntryId):
-                searched = True
-            else:
-                searched = False
-            if queue and searched:
+            if queue and self.get_single_queue(file_model.EntryId):
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
@@ -3376,10 +3361,7 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
-        if self.type == "sonarr":
-            self.queue = self.get_queue()
-        elif self.type == "radarr":
-            self.queue = self.get_queue()
+        self.queue = self.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
