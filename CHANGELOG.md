@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.5-beta-24 (15/09/2023)
+
+---
+
 ## v3.7.5-beta-23 (15/09/2023)
 
 ---
@@ -113,8 +117,3 @@
 ---
 
 ## v3.7.4-0-1 (10/09/2023)
-
----
-
-## v3.7.4 (07/09/2023)
-- [[release] Updated README to reflect changes to log files](https://github.com/Feramance/qBitrr/commit/95173eb1be8efd2a6de05c83ab707fbb2efa21fc) - @Feramance
