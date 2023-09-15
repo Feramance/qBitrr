@@ -2268,7 +2268,11 @@ class Arr:
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
-                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .where(
+                        self.model_queue.EntryId
+                        == file_model.EntryId & self.model_file.Searched
+                        == True
+                    )
                     .execute()
                 )
             else:
@@ -3674,10 +3678,6 @@ class Arr:
             timer = datetime.now()
             years_index = 0
             while True:
-                self.logger.info("Loop completed: %s", self.loop_completed)
-                self.logger.info(
-                    "Last loop started at %s, next loop to start at %s", timer, timer + loop_timer
-                )
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
@@ -3692,6 +3692,12 @@ class Arr:
                     self.search_current_year,
                 )
                 try:
+                    self.logger.info("Loop completed: %s", self.loop_completed)
+                    self.logger.info(
+                        "Last loop started at %s, next loop to start at %s",
+                        timer,
+                        timer + loop_timer,
+                    )
                     self.db_maybe_reset_entry_searched_state()
                     self.db_update()
                     self.run_request_search()
