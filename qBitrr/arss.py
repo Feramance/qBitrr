@@ -1094,16 +1094,13 @@ class Arr:
                     self.model_file,
                     on=(self.series_file_model.EntryId == self.model_file.SeriesId),
                 )
-                .where(
-                    self.series_file_model.Searched == True & self.model_file.EpisodeFileId == 0
-                )
+                .where(self.series_file_model.Searched == True)
                 .execute()
             )
             series_ids = [s.EntryId for s in series_query]
             self.series_file_model.update(Searched=False).where(
-                self.series_file_model.EntryId << series_ids
+                self.series_file_model.EntryId.in_(series_ids)
             ).execute()
-            self.queue_file_ids.clear()
 
     def db_reset__episode_searched_state(self):
         self.model_file: EpisodeFilesModel
@@ -1111,9 +1108,8 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False).where(
-                self.model_file.Searched == True & self.model_file.EpisodeFileId == 0
+                self.model_file.Searched == True
             ).execute()
-            self.queue_file_ids.clear()
 
     def db_reset__movie_searched_state(self):
         self.model_file: MoviesFilesModel
@@ -1121,9 +1117,8 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False).where(
-                self.model_file.Searched == True & self.model_file.MovieFileId == 0
+                self.model_file.Searched == True
             ).execute()
-            self.queue_file_ids.clear()
 
     def db_get_files_series(
         self,
@@ -2141,8 +2136,12 @@ class Arr:
         elif self.type == "sonarr":
             if not series_search:
                 file_model: EpisodeFilesModel
-                if not (request or todays) and file_model.EntryId in self.queue_file_ids:
-                    queue = True
+                if not (request or todays):
+                    queue = (
+                        self.model_queue.select()
+                        .where(self.model_queue.EntryId == file_model.EntryId)
+                        .execute()
+                    )
                 else:
                     queue = False
                 if queue:
@@ -2266,10 +2265,12 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            self.logger.info("Queue Ids: %s", list(dict.fromkeys(self.queue_file_ids)))
-            self.logger.info("EntryId: %s", file_model.EntryId)
-            if file_model.EntryId in self.queue_file_ids:
-                queue = True
+            if not (request or todays):
+                queue = (
+                    self.model_queue.select()
+                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .execute()
+                )
             else:
                 queue = False
             if queue:
@@ -3673,6 +3674,10 @@ class Arr:
             timer = datetime.now()
             years_index = 0
             while True:
+                self.logger.info("Loop completed: %s", self.loop_completed)
+                self.logger.info(
+                    "Last loop started at %s, next loop to start at %s", timer, timer + loop_timer
+                )
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
