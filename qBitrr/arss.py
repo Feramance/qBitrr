@@ -2141,15 +2141,11 @@ class Arr:
         elif self.type == "sonarr":
             if not series_search:
                 file_model: EpisodeFilesModel
-                if not (request or todays):
-                    queue = (
-                        self.model_queue.select()
-                        .where(self.model_queue.EntryId == file_model.EntryId)
-                        .execute()
-                    )
+                if not (request or todays) and file_model.EntryId in self.queue_file_ids:
+                    queue = True
                 else:
                     queue = False
-                if queue and file_model.EntryId in self.queue_file_ids:
+                if queue:
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
                         "S%02dE%03d | "
@@ -2270,15 +2266,11 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            if not (request or todays):
-                queue = (
-                    self.model_queue.select()
-                    .where(self.model_queue.EntryId == file_model.EntryId)
-                    .execute()
-                )
+            if not (request or todays) and file_model.EntryId in self.queue_file_ids:
+                queue = True
             else:
                 queue = False
-            if queue and file_model.EntryId in self.queue_file_ids:
+            if queue:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
@@ -3717,8 +3709,9 @@ class Arr:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
                             else:
-                                years_index = 0
-                                self.loop_completed = True
+                                self.refresh_download_queue()
+                                self.force_grab()
+                                raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
                         self.logger.info("Loop timer elapsed, restarting it.")
