@@ -2268,11 +2268,7 @@ class Arr:
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
-                    .where(
-                        self.model_queue.EntryId
-                        == file_model.EntryId & self.model_file.Searched
-                        == True
-                    )
+                    .where(self.model_queue.EntryId == file_model.EntryId)
                     .execute()
                 )
             else:
@@ -2310,6 +2306,8 @@ class Arr:
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
+                Monitored=file_model.Monitored,
+                Searched=True,
             ).on_conflict_replace().execute()
             if file_model.EntryId not in self.queue_file_ids:
                 completed = True
@@ -3376,6 +3374,12 @@ class Arr:
             self.queue_file_ids = {
                 entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
+            for entry in self.queue:
+                if r := entry.get("movieId"):
+                    self.model_queue.update(Searched=True).where(
+                        self.model_queue.EntryId == r
+                    ).execute()
+
         self._update_bad_queue_items()
 
     def get_queue(
@@ -3561,6 +3565,7 @@ class Arr:
         ):
             return None
         self.register_search_mode()
+        self.refresh_download_queue()
         if not self.search_missing:
             return None
         self.logger.notice("Starting Request search")
