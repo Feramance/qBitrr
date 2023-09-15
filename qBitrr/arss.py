@@ -1119,6 +1119,9 @@ class Arr:
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True
             ).execute()
+            self.model_queue.update(Searched=False).where(
+                self.model_queue.Searched == True
+            ).execute()
 
     def db_get_files_series(
         self,
@@ -3565,7 +3568,6 @@ class Arr:
         ):
             return None
         self.register_search_mode()
-        self.refresh_download_queue()
         if not self.search_missing:
             return None
         self.logger.notice("Starting Request search")
@@ -3704,6 +3706,7 @@ class Arr:
                         timer + loop_timer,
                     )
                     self.db_maybe_reset_entry_searched_state()
+                    self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
                     self.force_grab()
