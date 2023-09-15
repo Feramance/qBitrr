@@ -2266,7 +2266,9 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            if not (request or todays) and file_model.EntryId in self.queue_file_ids:
+            self.logger.info("Queue Ids: %s", self.queue_file_ids)
+            self.logger.info("EntryId: %s", file_model.EntryId)
+            if file_model.EntryId in self.queue_file_ids:
                 queue = True
             else:
                 queue = False
