@@ -2271,7 +2271,11 @@ class Arr:
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
-                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .where(
+                        self.model_queue.EntryId
+                        == file_model.EntryId & self.model_queue.Searched
+                        == True
+                    )
                     .execute()
                 )
             else:
