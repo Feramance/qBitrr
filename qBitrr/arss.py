@@ -3697,11 +3697,19 @@ class Arr:
                     self.run_request_search()
                     self.force_grab()
                     try:
-                        for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            if datetime.now() > (timer + loop_timer):
+                        if self.search_by_year:
+                            if years.index(self.search_current_year) != years_count - 1:
+                                years_index += 1
+                                self.search_current_year = years[years_index]
+                            else:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
+                        elif datetime.now() > (timer + loop_timer):
+                            self.refresh_download_queue()
+                            self.force_grab()
+                            raise RestartLoopException
+                        for entry, todays, limit_bypass, series_search in self.db_get_files():
                             while (
                                 self.maybe_do_search(
                                     entry,
@@ -3711,14 +3719,6 @@ class Arr:
                                 )
                             ) is False:
                                 time.sleep(30)
-                        if self.search_by_year:
-                            if years.index(self.search_current_year) != years_count - 1:
-                                years_index += 1
-                                self.search_current_year = years[years_index]
-                            else:
-                                self.refresh_download_queue()
-                                self.force_grab()
-                                raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
                         self.logger.info("Loop timer elapsed, restarting it.")
