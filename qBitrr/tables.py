@@ -45,12 +45,8 @@ class SeriesFilesModel(Model):
 class MovieQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
-    Monitored = BooleanField(null=True)
-    Searched = BooleanField(default=False)
 
 
 class EpisodeQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
-    Monitored = BooleanField(null=True)
-    Searched = BooleanField(default=False)

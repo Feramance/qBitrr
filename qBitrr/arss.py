@@ -898,7 +898,8 @@ class Arr:
                         "Re-Searching movie: %s",
                         object_id,
                     )
-                self.queue_file_ids.remove(object_id)
+                if object_id in self.queue_file_ids:
+                    self.queue_file_ids.remove(object_id)
                 self.post_command("MoviesSearch", movieIds=[object_id])
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
@@ -1118,9 +1119,6 @@ class Arr:
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True
-            ).execute()
-            self.model_queue.update(Searched=False).where(
-                self.model_queue.Searched == True
             ).execute()
 
     def db_get_files_series(
@@ -2271,11 +2269,7 @@ class Arr:
             if not (request or todays):
                 queue = (
                     self.model_queue.select()
-                    .where(
-                        self.model_queue.EntryId
-                        == file_model.EntryId & self.model_queue.Searched
-                        == True
-                    )
+                    .where(self.model_queue.EntryId == file_model.EntryId)
                     .execute()
                 )
             else:
@@ -2313,8 +2307,6 @@ class Arr:
             self.model_queue.insert(
                 Completed=False,
                 EntryId=file_model.EntryId,
-                Monitored=file_model.Monitored,
-                Searched=True,
             ).on_conflict_replace().execute()
             if file_model.EntryId not in self.queue_file_ids:
                 completed = True
@@ -3381,11 +3373,11 @@ class Arr:
             self.queue_file_ids = {
                 entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
+            queue = []
             for entry in self.queue:
                 if r := entry.get("movieId"):
-                    self.model_queue.update(Searched=True).where(
-                        self.model_queue.EntryId == r
-                    ).execute()
+                    queue.append(r)
+            self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
 
         self._update_bad_queue_items()
 
@@ -3703,12 +3695,6 @@ class Arr:
                     self.search_current_year,
                 )
                 try:
-                    self.logger.info("Loop completed: %s", self.loop_completed)
-                    self.logger.info(
-                        "Last loop started at %s, next loop to start at %s",
-                        timer,
-                        timer + loop_timer,
-                    )
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
                     self.db_update()
