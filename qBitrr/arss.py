@@ -1031,7 +1031,6 @@ class Arr:
                 & self.model_arr_command.Name.endswith("Search")
             )
             .count()
-            .execute()
         )
         if not search_commands:
             self.logger.trace("No unended commands found")
