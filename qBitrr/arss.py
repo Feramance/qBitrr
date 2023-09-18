@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import pathos
+import peewee
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
@@ -872,15 +873,17 @@ class Arr:
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
-                try:
-                    completed = False
-                    data = self.client.get_movie_by_movie_id(object_id)
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                ):
-                    completed = True
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        data = self.client.get_movie_by_movie_id(object_id)
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
                 name = data.get("title")
                 if name:
                     year = data.get("year", 0)
@@ -1024,15 +1027,16 @@ class Arr:
     def arr_db_query_commands_count(self) -> int:
         if not self.search_missing:
             return 0
-        search_commands = (  # ilovemywife
-            self.model_arr_command.select()
-            .where(
-                self.model_arr_command.EndedAt.is_null(True)
-                & self.model_arr_command.Name.endswith("Search")
+        try:
+            search_commands = (  # ilovemywife
+                self.model_arr_command.select()
+                .where(
+                    self.model_arr_command.EndedAt.is_null(True)
+                    & self.model_arr_command.Name.endswith("Search")
+                )
+                .count()
             )
-            .count()
-        )
-        if not search_commands:
+        except peewee.DatabaseError:
             self.logger.trace("No unended commands found")
             search_commands = 0
 
