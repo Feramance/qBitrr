@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.5 (18/09/2023)
+- [[release] Fixed search loop for missing movies/episodes and fixed the command count function](https://github.com/Feramance/qBitrr/commit/368c7eec5e3a7e7af9534e5110ba1c4cc833dd93) - @Feramance
+
+---
+
 ## v3.7.5-beta-36 (18/09/2023)
 
 ---
@@ -113,7 +118,3 @@
 ---
 
 ## v3.7.5-beta-14 (13/09/2023)
-
----
-
-## v3.7.5-beta-13 (13/09/2023)
