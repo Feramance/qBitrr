@@ -1027,7 +1027,7 @@ class Arr:
             return 0
 
         search_commands = (  # ilovemywife
-            self.model_arr_command.select(fn.COUNT(self.model_arr_command.Id))
+            self.model_arr_command.select(fn.Count(self.model_arr_command.Id))
             .where(
                 (self.model_arr_command.EndedAt.is_null(True))
                 & (self.model_arr_command.Name.endswith("Search"))
