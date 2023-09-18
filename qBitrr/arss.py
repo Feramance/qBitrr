@@ -19,8 +19,7 @@ import pathos
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
-from peewee import *
-from peewee import JOIN, SqliteDatabase
+from peewee import JOIN, SqliteDatabase, fn
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
@@ -1025,14 +1024,14 @@ class Arr:
     def arr_db_query_commands_count(self) -> int:
         if not self.search_missing:
             return 0
-
         search_commands = (  # ilovemywife
-            self.model_arr_command.select(fn.Count(self.model_arr_command.Id))
+            self.model_arr_command.select()
             .where(
-                (self.model_arr_command.EndedAt.is_null(True))
-                & (self.model_arr_command.Name.endswith("Search"))
+                self.model_arr_command.EndedAt.is_null(True)
+                & self.model_arr_command.Name.endswith("Search")
             )
-            .scalar()
+            .count()
+            .execute()
         )
         if not search_commands:
             self.logger.trace("No unended commands found")
