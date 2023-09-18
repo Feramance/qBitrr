@@ -1427,7 +1427,7 @@ class Arr:
                     self.model_arr_file: EpisodesModel
                     _series = set()
                     if self.search_by_year:
-                        for series in self.model_arr_file.select().where(
+                        series_query = self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                             & (
@@ -1442,28 +1442,32 @@ class Arr:
                                 self.model_arr_file.AirDateUtc
                                 <= datetime(month=12, day=31, year=int(self.search_current_year))
                             )
-                        ):
-                            _series.add(series.SeriesId)
-                            self.db_update_single_series(db_entry=series)
-                        for series in self.model_arr_file.select().where(
-                            self.model_arr_file.SeriesId.in_(_series)
-                        ):
-                            self.db_update_single_series(db_entry=series)
+                        )
+                        if series_query:
+                            for series in series_query:
+                                _series.add(series.SeriesId)
+                                self.db_update_single_series(db_entry=series)
+                            for series in self.model_arr_file.select().where(
+                                self.model_arr_file.SeriesId.in_(_series)
+                            ):
+                                self.db_update_single_series(db_entry=series)
                     else:
-                        for series in self.model_arr_file.select().where(
+                        series_query = self.model_arr_file.select().where(
                             (self.model_arr_file.AirDateUtc.is_null(False))
                             & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
                             & (
                                 self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
                                 | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
                             )
-                        ):
-                            _series.add(series.SeriesId)
-                            self.db_update_single_series(db_entry=series)
-                        for series in self.model_arr_file.select().where(
-                            self.model_arr_file.SeriesId.in_(_series)
-                        ):
-                            self.db_update_single_series(db_entry=series)
+                        )
+                        if series_query:
+                            for series in series_query:
+                                _series.add(series.SeriesId)
+                                self.db_update_single_series(db_entry=series)
+                            for series in self.model_arr_file.select().where(
+                                self.model_arr_file.SeriesId.in_(_series)
+                            ):
+                                self.db_update_single_series(db_entry=series)
                 else:
                     self.model_arr_series_file: SeriesModel
                     for series in (
