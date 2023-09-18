@@ -3,7 +3,7 @@
 
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/qBitrr2?label=PyPI)](https://pypi.org/project/qBitrr2/)
-[![Downloads](https://img.shields.io/github/downloads/feramance/qBitrr/total)](https://github.com/Feramance/qBitrr/releases/latest)
+[![Downloads](https://img.shields.io/pypi/dm/qbitrr2)](https://pypi.org/project/qBitrr2/)
 [![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
