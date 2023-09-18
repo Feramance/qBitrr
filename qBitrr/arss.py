@@ -3725,14 +3725,11 @@ class Arr:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
-                            elif self.arr_db_query_commands_count == 0:
+                            else:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif (
-                            datetime.now() > (timer + loop_timer)
-                            and self.arr_db_query_commands_count == 0
-                        ):
+                        elif datetime.now() > (timer + loop_timer):
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
