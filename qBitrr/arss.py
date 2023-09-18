@@ -1026,17 +1026,15 @@ class Arr:
         if not self.search_missing:
             return 0
 
-        try:
-            search_commands = (  # ilovemywife
-                self.model_arr_command.select()
-                .where(
-                    (self.model_arr_command.EndedAt.is_null(True))
-                    & (self.model_arr_command.Name.endswith("Search"))
-                )
-                .count()
-                .execute()
+        search_commands = (  # ilovemywife
+            self.model_arr_command.select(fn.COUNT(self.model_arr_command.Id))
+            .where(
+                (self.model_arr_command.EndedAt.is_null(True))
+                & (self.model_arr_command.Name.endswith("Search"))
             )
-        except BaseException:
+            .execute()
+        )
+        if not search_commands:
             self.logger.trace("No unended commands found")
             search_commands = 0
 
@@ -3366,6 +3364,16 @@ class Arr:
             self.queue_file_ids = {
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
+            if self.model_queue:
+                queue = []
+                for entry in self.queue:
+                    if r := entry.get("movieId"):
+                        queue.append(r)
+                        self.model_queue.insert(
+                            Completed=False,
+                            EntryId=r,
+                        ).on_conflict_replace().execute()
+                self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -3373,11 +3381,16 @@ class Arr:
             self.queue_file_ids = {
                 entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
-            queue = []
-            for entry in self.queue:
-                if r := entry.get("movieId"):
-                    queue.append(r)
-            self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
+            if self.model_queue:
+                queue = []
+                for entry in self.queue:
+                    if r := entry.get("movieId"):
+                        queue.append(r)
+                        self.model_queue.insert(
+                            Completed=False,
+                            EntryId=r,
+                        ).on_conflict_replace().execute()
+                self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
 
         self._update_bad_queue_items()
 
@@ -3684,16 +3697,17 @@ class Arr:
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
-                if self.search_by_year and years_index == 0:
-                    years, years_count = self.get_year_search()
-                    try:
-                        self.search_current_year = years[years_index]
-                    except BaseException:
-                        self.search_current_year = years[: years_index + 1]
-                self.logger.debug(
-                    "Current year %s",
-                    self.search_current_year,
-                )
+                if self.search_by_year:
+                    if years_index == 0:
+                        years, years_count = self.get_year_search()
+                        try:
+                            self.search_current_year = years[years_index]
+                        except BaseException:
+                            self.search_current_year = years[: years_index + 1]
+                    self.logger.debug(
+                        "Current year %s",
+                        self.search_current_year,
+                    )
                 try:
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
