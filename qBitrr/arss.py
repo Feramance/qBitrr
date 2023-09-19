@@ -2270,12 +2270,8 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            if not (request or todays):
-                queue = (
-                    self.model_queue.select()
-                    .where(self.model_queue.EntryId == file_model.EntryId)
-                    .execute()
-                )
+            if not (request or todays) and file_model.EntryId in self.queue_file_ids:
+                queue = True
             else:
                 queue = False
             if queue:
@@ -3370,16 +3366,16 @@ class Arr:
             self.queue_file_ids = {
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
-            if self.model_queue:
-                queue = []
-                for entry in self.queue:
-                    if r := entry.get("movieId"):
-                        queue.append(r)
-                        self.model_queue.insert(
-                            Completed=False,
-                            EntryId=r,
-                        ).on_conflict_replace().execute()
-                self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
+            # if self.model_queue:
+            #     queue = []
+            #     for entry in self.queue:
+            #         if r := entry.get("movieId"):
+            #             queue.append(r)
+            #             self.model_queue.insert(
+            #                 Completed=False,
+            #                 EntryId=r,
+            #             ).on_conflict_replace().execute()
+            #     self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -3387,16 +3383,16 @@ class Arr:
             self.queue_file_ids = {
                 entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
-            if self.model_queue:
-                queue = []
-                for entry in self.queue:
-                    if r := entry.get("movieId"):
-                        queue.append(r)
-                        self.model_queue.insert(
-                            Completed=False,
-                            EntryId=r,
-                        ).on_conflict_replace().execute()
-                self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
+            # if self.model_queue:
+            #     queue = []
+            #     for entry in self.queue:
+            #         if r := entry.get("movieId"):
+            #             queue.append(r)
+            #             self.model_queue.insert(
+            #                 Completed=False,
+            #                 EntryId=r,
+            #             ).on_conflict_replace().execute()
+            #     self.model_queue.delete().where(self.model_queue.EntryId.not_in(queue)).execute()
 
         self._update_bad_queue_items()
 
