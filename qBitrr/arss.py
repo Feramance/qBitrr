@@ -1810,6 +1810,32 @@ class Arr:
                                 EpisodeNumber,
                             )
 
+                        self.logger.trace(
+                            "Updating database entry | %s | S%02dE%03d",
+                            SeriesTitle,
+                            SeasonNumber,
+                            EpisodeNumber,
+                        )
+                        to_update = {
+                            self.model_file.Monitored: Monitored,
+                            self.model_file.Title: Title,
+                            self.model_file.AirDateUtc: AirDateUtc,
+                            self.model_file.LastSearchTime: LastSearchTime,
+                            self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
+                            self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
+                            self.model_file.EpisodeNumber: EpisodeNumber,
+                            self.model_file.EpisodeFileId: EpisodeFileId,
+                            self.model_file.SeriesId: SeriesId,
+                            self.model_file.SeriesTitle: SeriesTitle,
+                            self.model_file.SeasonNumber: SeasonNumber,
+                            self.model_file.QualityMet: QualityMet,
+                        }
+                        if searched:
+                            to_update[self.model_file.Searched] = searched
+
+                        if request:
+                            to_update[self.model_file.IsRequest] = request
+
                         db_commands = self.model_file.insert(
                             EntryId=EntryId,
                             Title=Title,
@@ -1826,7 +1852,10 @@ class Arr:
                             Searched=searched,
                             IsRequest=request,
                             QualityMet=QualityMet,
-                        ).on_conflict_replace()
+                        ).on_conflict(
+                            conflict_target=[self.model_file.EntryId],
+                            update=to_update,
+                        )
                         db_commands.execute()
                     else:
                         return
@@ -1852,13 +1881,26 @@ class Arr:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
+                        self.logger.trace(
+                            "Updating database entry | %s",
+                            Title,
+                        )
+                        to_update = {
+                            self.series_file_model.Monitored: Monitored,
+                            self.series_file_model.Title: Title,
+                        }
+                        if searched:
+                            to_update[self.series_file_model.Searched] = searched
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
                             Title=Title,
                             Searched=searched,
                             Monitored=Monitored,
-                        ).on_conflict_replace()
+                        ).on_conflict(
+                            conflict_target=[self.series_file_model.EntryId],
+                            update=to_update,
+                        )
                         db_commands.execute()
                     else:
                         return
@@ -1894,6 +1936,17 @@ class Arr:
                     movieFileId = db_entry.MovieFileId
                     qualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
 
+                    self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
+                    to_update = {
+                        self.model_file.MovieFileId: movieFileId,
+                        self.model_file.Monitored: monitored,
+                        self.model_file.QualityMet: qualityMet,
+                    }
+
+                    if searched:
+                        to_update[self.model_file.Searched] = searched
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
                     self.logger.trace("Adding %s to db: [%s][%s]", title, movieFileId, searched)
                     db_commands = self.model_file.insert(
                         Title=title,
@@ -1905,7 +1958,10 @@ class Arr:
                         MovieFileId=movieFileId,
                         IsRequest=request,
                         QualityMet=qualityMet,
-                    ).on_conflict_replace()
+                    ).on_conflict(
+                        conflict_target=[self.model_file.EntryId],
+                        update=to_update,
+                    )
                     db_commands.execute()
                 else:
                     return
