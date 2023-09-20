@@ -778,7 +778,7 @@ class Arr:
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
                     if self.type == "sonarr":
-                        self.post_command(
+                        self.client.post_command(
                             "DownloadedEpisodesScan",
                             path=str(path),
                             downloadClientId=torrent.hash.upper(),
@@ -789,7 +789,7 @@ class Arr:
                             path,
                         )
                     elif self.type == "radarr":
-                        self.post_command(
+                        self.client.post_command(
                             "DownloadedMoviesScan",
                             path=str(path),
                             downloadClientId=torrent.hash.upper(),
@@ -869,7 +869,7 @@ class Arr:
                         )
                     if object_id in self.queue_file_ids:
                         self.queue_file_ids.remove(object_id)
-                    self.post_command("EpisodeSearch", episodeIds=[object_id])
+                    self.client.post_command("EpisodeSearch", episodeIds=[object_id])
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
@@ -902,7 +902,7 @@ class Arr:
                     )
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
-                self.post_command("MoviesSearch", movieIds=[object_id])
+                self.client.post_command("MoviesSearch", movieIds=[object_id])
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
@@ -1013,7 +1013,7 @@ class Arr:
             self.rss_sync_timer_last_checked is not None
             and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
         ):
-            self.post_command("RssSync")
+            self.client.post_command("RssSync")
             self.rss_sync_timer_last_checked = now
 
         if (
@@ -1021,7 +1021,7 @@ class Arr:
             and self.refresh_downloads_timer_last_checked
             < now - timedelta(minutes=self.refresh_downloads_timer)
         ):
-            self.post_command("RefreshMonitoredDownloads")
+            self.client.post_command("RefreshMonitoredDownloads")
             self.refresh_downloads_timer_last_checked = now
 
     def arr_db_query_commands_count(self) -> int:
@@ -1488,7 +1488,13 @@ class Arr:
                 elif self.version == "5":
                     self.model_arr_file: MoviesModelv5
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
-                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
+                deleted = (
+                    self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
+                )
+                if deleted == 0:
+                    self.logger.info("No records deleted")
+                elif deleted > 0:
+                    self.logger.info("Deleted %s records", deleted)
                 if self.search_by_year:
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
