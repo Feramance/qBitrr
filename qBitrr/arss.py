@@ -1425,7 +1425,7 @@ class Arr:
             if self.type == "sonarr":
                 if not self.series_search:
                     self.model_arr_file: EpisodesModel
-                    Ids = list(self.model_arr_file.select(self.model_arr_file.Id).execute())
+                    Ids = [id.Id for id in self.model_arr_file.select().execute()]
                     self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
                     _series = set()
                     if self.search_by_year:
@@ -1472,9 +1472,7 @@ class Arr:
                                 self.db_update_single_series(db_entry=series)
                 else:
                     self.model_arr_series_file: SeriesModel
-                    Ids = list(
-                        self.model_arr_series_file.select(self.model_arr_series_file.Id).execute()
-                    )
+                    Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
                     self.series_file_model.delete().where(
                         self.series_file_model.EntryId.not_in(Ids)
                     ).execute()
@@ -1490,7 +1488,6 @@ class Arr:
                 elif self.version == "5":
                     self.model_arr_file: MoviesModelv5
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
-                self.logger.info("Current Id List: %s", Ids)
                 self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
                 if self.search_by_year:
                     for movies in (
