@@ -1490,7 +1490,7 @@ class Arr:
                 elif self.version == "5":
                     self.model_arr_file: MoviesModelv5
                 Ids = [id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()]
-                self.file_model.delete().where(self.file_model.EntryId.not_in(Ids)).execute()
+                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
                 if self.search_by_year:
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
