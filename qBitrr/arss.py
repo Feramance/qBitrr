@@ -1102,8 +1102,6 @@ class Arr:
             self.series_file_model.update(Searched=False).where(
                 self.series_file_model.EntryId.in_(series_ids)
             ).execute()
-            Ids = [id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()]
-            self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
 
     def db_reset__episode_searched_state(self):
         self.model_file: EpisodeFilesModel
@@ -1112,10 +1110,6 @@ class Arr:
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True
-            ).execute()
-            Ids = [id for id in self.model_arr_series_file.select().execute()]
-            self.series_file_model.delete().where(
-                self.series_file_model.EntryId.not_in(Ids)
             ).execute()
 
     def db_reset__movie_searched_state(self):
@@ -1126,8 +1120,6 @@ class Arr:
             self.model_file.update(Searched=False).where(
                 self.model_file.Searched == True
             ).execute()
-            Ids = [id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()]
-            self.file_model.delete().where(self.file_model.EntryId.not_in(Ids)).execute()
 
     def db_get_files_series(
         self,
@@ -1433,6 +1425,10 @@ class Arr:
             if self.type == "sonarr":
                 if not self.series_search:
                     self.model_arr_file: EpisodesModel
+                    Ids = [
+                        id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()
+                    ]
+                    self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
                     _series = set()
                     if self.search_by_year:
                         series_query = self.model_arr_file.select().where(
@@ -1478,6 +1474,10 @@ class Arr:
                                 self.db_update_single_series(db_entry=series)
                 else:
                     self.model_arr_series_file: SeriesModel
+                    Ids = [id for id in self.model_arr_series_file.select().execute()]
+                    self.series_file_model.delete().where(
+                        self.series_file_model.EntryId.not_in(Ids)
+                    ).execute()
                     for series in (
                         self.model_arr_series_file.select()
                         .order_by(self.model_arr_series_file.Added.desc())
@@ -1489,6 +1489,8 @@ class Arr:
                     self.model_arr_file: MoviesModel
                 elif self.version == "5":
                     self.model_arr_file: MoviesModelv5
+                Ids = [id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()]
+                self.file_model.delete().where(self.file_model.EntryId.not_in(Ids)).execute()
                 if self.search_by_year:
                     for movies in (
                         self.model_arr_file.select(self.model_arr_file)
@@ -1837,9 +1839,12 @@ class Arr:
                             self.model_file.SeriesTitle: SeriesTitle,
                             self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
-                            self.model_file.Searched: searched,
-                            self.model_file.IsRequest: request,
                         }
+                        if searched:
+                            to_update[self.model_file.Searched] = searched
+
+                        if request:
+                            to_update[self.model_file.IsRequest] = request
 
                         db_commands = self.model_file.insert(
                             EntryId=EntryId,
@@ -1893,8 +1898,9 @@ class Arr:
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
-                            self.series_file_model.Searched: searched,
                         }
+                        if searched:
+                            to_update[self.series_file_model.Searched] = searched
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
@@ -1945,10 +1951,12 @@ class Arr:
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: qualityMet,
-                        self.model_file.Searched: searched,
-                        self.model_file.IsRequest: request,
                     }
 
+                    if searched:
+                        to_update[self.model_file.Searched] = searched
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
                     self.logger.trace("Adding %s to db: [%s][%s]", title, movieFileId, searched)
                     db_commands = self.model_file.insert(
                         Title=title,
