@@ -1426,7 +1426,9 @@ class Arr:
                 if not self.series_search:
                     self.model_arr_file: EpisodesModel
                     self.file_model: EpisodeFilesModel
-                    Ids = self.model_arr_file.select(self.model_arr_file.Id)
+                    Ids = [
+                        id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()
+                    ]
                     self.file_model.delete().where(self.file_model.EntryId.not_in(Ids)).execute()
                     _series = set()
                     if self.search_by_year:
@@ -1474,7 +1476,12 @@ class Arr:
                 else:
                     self.model_arr_series_file: SeriesModel
                     self.series_file_model: SeriesFilesModel
-                    Ids = self.model_arr_series_file.select(self.model_arr_series_file.Id)
+                    Ids = [
+                        id
+                        for id in self.model_arr_series_file.select(
+                            self.model_arr_series_file.Id
+                        ).execute()
+                    ]
                     self.series_file_model.delete().where(
                         self.series_file_model.EntryId.not_in(Ids)
                     ).execute()
@@ -1490,7 +1497,7 @@ class Arr:
                 elif self.version == "5":
                     self.model_arr_file: MoviesModelv5
                 self.model_file: MoviesFilesModel
-                Ids = self.model_arr_file.select(self.model_arr_file.Id)
+                Ids = [id for id in self.model_arr_file.select(self.model_arr_file.Id).execute()]
                 self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
                 if self.search_by_year:
                     for movies in (
