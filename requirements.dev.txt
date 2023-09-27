@@ -10,9 +10,7 @@ attrs==23.1.0
     # via environ-config
 black==22.1.0
     # via qBitrr2 (setup.py)
-bleach==6.0.0
-    # via readme-renderer
-build==1.0.0
+build==1.0.3
     # via pip-tools
 bump2version==1.0.1
     # via qBitrr2 (setup.py)
@@ -49,13 +47,13 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.12.3
+filelock==3.12.4
     # via virtualenv
 future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.27
+identify==2.5.29
     # via pre-commit
 idna==3.4
     # via requests
@@ -83,6 +81,8 @@ multiprocess==0.70.15
     # via pathos
 mypy-extensions==1.0.0
     # via black
+nh3==0.2.14
+    # via readme-renderer
 nodeenv==1.8.0
     # via pre-commit
 overrides==7.4.0
@@ -140,7 +140,7 @@ pyyaml==6.0.1
     # via pre-commit
 qbittorrent-api==2023.7.52
     # via qBitrr2 (setup.py)
-readme-renderer==41.0
+readme-renderer==42.0
     # via twine
 requests==2.31.0
     # via
@@ -154,9 +154,7 @@ requests-toolbelt==1.0.0
 rfc3986==2.0.0
     # via twine
 six==1.16.0
-    # via
-    #   bleach
-    #   qbittorrent-api
+    # via qbittorrent-api
 tokenize-rt==5.2.0
     # via pyupgrade
 tomli==2.0.1
@@ -171,29 +169,25 @@ tqdm==4.66.1
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.2
+types-requests==2.31.0.4
     # via pyarr
 types-urllib3==1.26.25.14
     # via types-requests
-typing-extensions==4.7.1
-    # via
-    #   filelock
-    #   jaraco-functools
+typing-extensions==4.8.0
+    # via jaraco-functools
 ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.0.4
+urllib3==2.0.5
     # via
     #   qbittorrent-api
     #   requests
-virtualenv==20.24.4
+virtualenv==20.24.5
     # via pre-commit
-webencodings==0.5.1
-    # via bleach
 wheel==0.41.2
     # via pip-tools
-zipp==3.16.2
+zipp==3.17.0
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:

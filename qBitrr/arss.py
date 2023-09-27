@@ -778,23 +778,43 @@ class Arr:
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
                     if self.type == "sonarr":
-                        self.client.post_command(
-                            "DownloadedEpisodesScan",
-                            path=str(path),
-                            downloadClientId=torrent.hash.upper(),
-                            importMode=self.import_mode,
-                        )
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                self.client.post_command(
+                                    "DownloadedEpisodesScan",
+                                    path=str(path),
+                                    downloadClientId=torrent.hash.upper(),
+                                    importMode=self.import_mode,
+                                )
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                            ):
+                                completed = True
                         self.logger.success(
                             "DownloadedEpisodesScan: %s",
                             path,
                         )
                     elif self.type == "radarr":
-                        self.client.post_command(
-                            "DownloadedMoviesScan",
-                            path=str(path),
-                            downloadClientId=torrent.hash.upper(),
-                            importMode=self.import_mode,
-                        )
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                self.client.post_command(
+                                    "DownloadedMoviesScan",
+                                    path=str(path),
+                                    downloadClientId=torrent.hash.upper(),
+                                    importMode=self.import_mode,
+                                )
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                            ):
+                                completed = True
                         self.logger.success(
                             "DownloadedMoviesScan: %s",
                             path,
@@ -869,7 +889,17 @@ class Arr:
                         )
                     if object_id in self.queue_file_ids:
                         self.queue_file_ids.remove(object_id)
-                    self.client.post_command("EpisodeSearch", episodeIds=[object_id])
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            self.client.post_command("EpisodeSearch", episodeIds=[object_id])
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
@@ -902,7 +932,17 @@ class Arr:
                     )
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
-                self.client.post_command("MoviesSearch", movieIds=[object_id])
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        self.client.post_command("MoviesSearch", movieIds=[object_id])
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
@@ -1013,7 +1053,17 @@ class Arr:
             self.rss_sync_timer_last_checked is not None
             and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
         ):
-            self.client.post_command("RssSync")
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    self.client.post_command("RssSync")
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ):
+                    completed = True
             self.rss_sync_timer_last_checked = now
 
         if (
@@ -1021,7 +1071,17 @@ class Arr:
             and self.refresh_downloads_timer_last_checked
             < now - timedelta(minutes=self.refresh_downloads_timer)
         ):
-            self.client.post_command("RefreshMonitoredDownloads")
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    self.client.post_command("RefreshMonitoredDownloads")
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ):
+                    completed = True
             self.refresh_downloads_timer_last_checked = now
 
     def arr_db_query_commands_count(self) -> int:
@@ -2339,20 +2399,6 @@ class Arr:
                 file_model.EntryId,
             )
             return True
-
-    def post_command(self, name, **kwargs):
-        completed = True
-        while completed:
-            try:
-                completed = False
-                res = self.client.post_command(name, **kwargs)
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-            ):
-                completed = True
-        return res
 
     def process(self):
         self._process_resume()
