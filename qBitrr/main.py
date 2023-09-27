@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 import time
+from datetime import datetime, timedelta
 from multiprocessing import freeze_support
 
 import pathos
@@ -166,6 +167,8 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
+    delay = os.getenv("RESTART_TIMER", 24)
+    logger.info("Restart timer is set to %s", delay)
     manager = qBitManager()
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
@@ -189,16 +192,23 @@ def cleanup():
     for p in CHILD_PROCESSES:
         p.kill()
         p.terminate()
+    extensions = [".db", ".db-shm", ".db-wal"]
+    for file in os.listdir(APPDATA_FOLDER):
+        for ext in extensions:
+            if file.endswith(ext):
+                os.remove(os.path.join(APPDATA_FOLDER, file))
 
 
 atexit.register(cleanup)
 
 
 if __name__ == "__main__":
-    extensions = [".db", ".db-shm", ".db-wal"]
-    for file in os.listdir(APPDATA_FOLDER):
-        for ext in extensions:
-            if file.endswith(ext):
-                os.remove(os.path.join(APPDATA_FOLDER, file))
     freeze_support()
     run()
+    delay = os.getenv("RESTART_TIMER", 24)
+    loop_delay = datetime.now() + timedelta(hours=delay)
+    while True:
+        if datetime.now() == loop_delay:
+            cleanup()
+            run()
+            loop_delay = datetime.now() + timedelta(hours=delay)
