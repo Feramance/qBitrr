@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.7 (27/09/2023)
+- [[release] Restart timer ready, docker examples updated](https://github.com/Feramance/qBitrr/commit/dbb95b7c6d651c14f6b7d082e713e0b3b1fa5297) - @Feramance
+
+---
+
 ## v3.7.7-beta-0 (27/09/2023)
 
 ---
@@ -115,7 +120,3 @@
 ---
 
 ## v3.7.5-beta-32 (18/09/2023)
-
----
-
-## v3.7.5-beta-31 (18/09/2023)
