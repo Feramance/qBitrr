@@ -3731,7 +3731,6 @@ class Arr:
             years_index = 0
             while True:
                 if self.loop_completed:
-                    self.register_search_mode()
                     years_index = 0
                     timer = datetime.now()
                 if self.search_by_year:

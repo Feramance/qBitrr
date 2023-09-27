@@ -168,7 +168,7 @@ def run():
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
     delay = os.getenv("RESTART_TIMER", 24)
-    logger.info("Restart timer is set to %s", delay)
+    logger.info("Restart timer is set to %s hours", delay)
     manager = qBitManager()
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
