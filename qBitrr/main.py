@@ -167,8 +167,11 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
-    delay = os.getenv("RESTART_TIMER", 24)
-    logger.info("Restart timer is set to %s hours", delay)
+    delay = os.getenv("RESTART_TIMER", 0)
+    if delay == 0:
+        logger.info("Restart timer is disabled")
+    else:
+        logger.info("Restart timer is set to %s hours", delay)
     manager = qBitManager()
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
@@ -205,10 +208,12 @@ atexit.register(cleanup)
 if __name__ == "__main__":
     freeze_support()
     run()
-    delay = os.getenv("RESTART_TIMER", 24)
-    loop_delay = datetime.now() + timedelta(hours=delay)
-    while True:
-        if datetime.now() == loop_delay:
-            cleanup()
-            run()
-            loop_delay = datetime.now() + timedelta(hours=delay)
+    delay = os.getenv("RESTART_TIMER", 0)
+    if delay != 0:
+        loop_delay = datetime.now() + timedelta(hours=delay)
+        while True:
+            if datetime.now() == loop_delay:
+                logger.info("Restarting processes", delay)
+                cleanup()
+                run()
+                loop_delay = datetime.now() + timedelta(hours=delay)
