@@ -86,8 +86,6 @@ Alternatively:
 
 ### Docker
 
-The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
-
 #### Docker Image
 
 - The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
@@ -154,6 +152,10 @@ services:
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
   - Make sure to rename it to 'config.toml' then edit it to your desired values
+
+## Feature Suggestions
+
+Please do not hesitate to open an issue for feature requests or any suggestions you may have. I plan on periodically adding any features I might feel I want to add but welcome to other suggestions I might not have thought of yet.
 
 ## Reporting an Issue
 
