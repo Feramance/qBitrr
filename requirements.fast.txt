@@ -81,7 +81,7 @@ typing-extensions==4.8.0
     # via jaraco-functools
 ujson==5.4.0
     # via qBitrr2 (setup.py)
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   qbittorrent-api
     #   requests

@@ -179,7 +179,7 @@ ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   qbittorrent-api
     #   requests
