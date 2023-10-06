@@ -1290,19 +1290,21 @@ class Arr:
         if self.type == "radarr":
             if self.search_by_year:
                 condition = self.model_file.Year == self.search_current_year
+                condition &= self.model_file.Searched == False
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
                         condition &= self.model_file.QualityMet == False
-                    else:
-                        condition &= self.model_file.Searched == False
-                        condition &= self.model_file.MovieFileId == 0
+                    condition &= self.model_file.MovieFileId == 1
+                else:
+                    condition &= self.model_file.MovieFileId == 0
             else:
+                condition = self.model_file.Searched == False
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
-                        condition = self.model_file.QualityMet == False
-                    else:
-                        condition = self.model_file.Searched == False
-                        condition &= self.model_file.MovieFileId == 0
+                        condition &= self.model_file.QualityMet == False
+                    condition &= self.model_file.MovieFileId == 1
+                else:
+                    condition &= self.model_file.MovieFileId == 0
             for entry in (
                 self.model_file.select()
                 .where(condition)

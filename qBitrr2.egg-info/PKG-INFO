@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qBitrr2
-Version: 3.7.6b15
+Version: 3.7.7
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -156,8 +156,6 @@ Alternatively:
 
 ### Docker
 
-The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
-
 #### Docker Image
 
 - The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
@@ -168,6 +166,7 @@ The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
 docker run -d \
   --name=qbitrr \
   -e TZ=Europe/London \
+  -e RESTART_TIMER=0 \
   -v /etc/localtime:/etc/localtime:ro \
   -v /path/to/appdata/qbitrr:/config \
   -v /path/to/sonarr/db:/databases/sonarr.db:ro \
@@ -190,6 +189,7 @@ services:
     # networks: This container MUST share a network with your Sonarr/Radarr instances
     environment:
       - TZ=Europe/London
+      - RESTART_TIMER=0 #Number of hours after which to restart the child processes (default=0, set 0 to disable)
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /path/to/appdata/qbitrr:/config  # Config folder for qBitrr
@@ -222,6 +222,10 @@ services:
 - The script will always expect a completed config.toml file
 - When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
   - Make sure to rename it to 'config.toml' then edit it to your desired values
+
+## Feature Suggestions
+
+Please do not hesitate to open an issue for feature requests or any suggestions you may have. I plan on periodically adding any features I might feel I want to add but welcome to other suggestions I might not have thought of yet.
 
 ## Reporting an Issue
 

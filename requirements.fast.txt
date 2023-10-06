@@ -10,7 +10,7 @@ cachetools==4.2.4
     # via qBitrr2 (setup.py)
 certifi==2023.7.22
     # via requests
-charset-normalizer==3.2.0
+charset-normalizer==3.3.0
     # via requests
 colorama==0.4.4
     # via qBitrr2 (setup.py)
@@ -73,15 +73,14 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.4
+types-requests==2.31.0.8
     # via pyarr
-types-urllib3==1.26.25.14
-    # via types-requests
 typing-extensions==4.8.0
     # via jaraco-functools
 ujson==5.4.0
     # via qBitrr2 (setup.py)
-urllib3==2.0.5
+urllib3==2.0.6
     # via
     #   qbittorrent-api
     #   requests
+    #   types-requests
