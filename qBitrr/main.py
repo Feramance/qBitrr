@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import itertools
 import logging
 import os
 import sys
@@ -22,7 +23,7 @@ from qBitrr.config import APPDATA_FOLDER, CONFIG, QBIT_DISABLED, SEARCH_ONLY, pr
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
-from qBitrr.utils import ExpiringSet
+from qBitrr.utils import ExpiringSet, absolute_file_paths
 
 CHILD_PROCESSES = []
 
@@ -196,10 +197,11 @@ def cleanup():
         p.kill()
         p.terminate()
     extensions = [".db", ".db-shm", ".db-wal"]
-    for file in os.listdir(APPDATA_FOLDER):
-        for ext in extensions:
-            if file.endswith(ext):
-                os.remove(os.path.join(APPDATA_FOLDER, file))
+    all_files_in_folder = list(absolute_file_paths(APPDATA_FOLDER))
+    for file, ext in itertools.product(all_files_in_folder, extensions):
+        if file.name.endswith(ext):
+            APPDATA_FOLDER.joinpath(file).unlink(missing_ok=True)
+    time.sleep(1)
 
 
 atexit.register(cleanup)
