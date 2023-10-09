@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.9 (09/10/2023)
+- [[release] Hotfix fixed attribute error](https://github.com/Feramance/qBitrr/commit/c5b9bcbdc8f1db24575eddba5df0e3990a9815b6) - @Feramance
+
+---
+
 ## v3.7.8 (09/10/2023)
 - [[release] Extension allow list now also except regex to parse extensions](https://github.com/Feramance/qBitrr/commit/b0a1d6382676734405adc9b6b45d2855ed465a5c) - @Feramance
 
@@ -116,7 +121,3 @@
 ---
 
 ## v3.7.6-beta-1 (18/09/2023)
-
----
-
-## v3.7.6-beta-0 (18/09/2023)
