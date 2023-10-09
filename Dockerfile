@@ -4,7 +4,7 @@ FROM python:3.10
 
 LABEL Name="qBitrr"
 LABEL Maintainer="Feramance"
-LABEL Version="3.7.8-alpha-1"
+LABEL Version="3.7.8-beta-0"
 
 # Env used by the script to determine if its inside a docker -
 # if this is set to 69420 it will change the working dir for docker specific values
