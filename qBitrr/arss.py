@@ -3408,7 +3408,7 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
-        self.queue = self.client.get_queue()
+        self.queue = self.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
@@ -3430,10 +3430,37 @@ class Arr:
 
         self._update_bad_queue_items()
 
+    def get_queue(
+        self,
+        page=1,
+        page_size=10000,
+        sort_direction="ascending",
+        sort_key="timeLeft",
+        messages: bool = True,
+    ):
+        completed = True
+        while completed:
+            completed = False
+            try:
+                res = self.client.get_queue(
+                    page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
+                )
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
+                completed = True
+        try:
+            res = res.get("records", [])
+        except AttributeError:
+            pass
+        return res
+
     def _update_bad_queue_items(self):
         if not self.arr_error_codes_to_blocklist:
             return
-        _temp = self.client.get_queue()
+        _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
             and x.get("trackedDownloadState") == "importPending"
@@ -3460,7 +3487,7 @@ class Arr:
 
     def force_grab(self):
         return  # TODO: This may not be needed, pending more testing before it is enabled
-        _temp = self.client.get_queue()
+        _temp = self.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
             _temp,
