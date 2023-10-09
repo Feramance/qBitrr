@@ -138,6 +138,13 @@ class Arr:
         self.file_extension_allowlist = CONFIG.get(
             f"{name}.Torrent.FileExtensionAllowlist", fallback=[]
         )
+        self.logger.debug("file_extension_allowlist: ", self.file_extension_allowlist)
+        for ext in self.file_extension_allowlist:
+            if ext[0] != "\\":
+                self.file_extension_allowlist[self.file_extension_allowlist.index(ext)] = (
+                    "\\" + ext
+                )
+        self.logger.debug("file_extension_allowlist: ", self.file_extension_allowlist)
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
@@ -2933,7 +2940,11 @@ class Arr:
                 total -= 1
             elif (
                 self.file_extension_allowlist
-                and file_path.suffix.lower() not in self.file_extension_allowlist
+                and (
+                    (match := self.file_extension_allowlist.search(file_path.suffix))
+                    and match.group()
+                )
+                # and file_path.suffix.lower() not in self.file_extension_allowlist
             ):
                 self.logger.debug(
                     "Removing File: Not allowed | Extension: %s  | %s (%s) | %s ",
