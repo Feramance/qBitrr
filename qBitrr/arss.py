@@ -587,10 +587,7 @@ class Arr:
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
-            if self.overseerr_approved_only:
-                key = "approved"
-            else:
-                key = "unavailable"
+            key = "approved" if self.overseerr_approved_only else "unavailable"
             data = defaultdict(set)
             response = self.session.get(
                 url=f"{self.overseerr_uri}/api/v1/request",
@@ -600,10 +597,10 @@ class Arr:
             )
             response = response.json().get("results", [])
             type_ = None
-            if self.type == "sonarr":
-                type_ = "tv"
-            elif self.type == "radarr":
+            if self.type == "radarr":
                 type_ = "movie"
+            elif self.type == "sonarr":
+                type_ = "tv"
             _now = datetime.now()
             for entry in response:
                 type__ = entry.get("type")
@@ -617,16 +614,14 @@ class Arr:
                     if self.overseerr_approved_only:
                         if entry.get("media", {}).get("status4k") != 3:
                             continue
-                    else:
-                        if entry.get("media", {}).get("status4k") == 5:
-                            continue
+                    elif entry.get("media", {}).get("status4k") == 5:
+                        continue
                 elif not self.overseerr_is_4k and not entry.get("is4k"):
                     if self.overseerr_approved_only:
                         if entry.get("media", {}).get("status") != 3:
                             continue
-                    else:
-                        if entry.get("media", {}).get("status") == 5:
-                            continue
+                    elif entry.get("media", {}).get("status") == 5:
+                        continue
                 else:
                     continue
                 if id__ in self.overseerr_requests_release_cache:
@@ -669,19 +664,25 @@ class Arr:
                         data["TmdbId"].add(tmdbId)
             self._temp_overseer_request_cache = data
         except requests.exceptions.ConnectionError:
-            self.logger.warning("Couldn't connect to Overseerr")
-            self._temp_overseer_request_cache = defaultdict(set)
-            return self._temp_overseer_request_cache
+            return self._extracted_from__get_oversee_requests_all_85(
+                "Couldn't connect to Overseerr"
+            )
         except requests.exceptions.ReadTimeout:
-            self.logger.warning("Connection to Overseerr timed out")
-            self._temp_overseer_request_cache = defaultdict(set)
-            return self._temp_overseer_request_cache
+            return self._extracted_from__get_oversee_requests_all_85(
+                "Connection to Overseerr timed out"
+            )
         except Exception as e:
             self.logger.exception(e, exc_info=sys.exc_info())
             self._temp_overseer_request_cache = defaultdict(set)
             return self._temp_overseer_request_cache
         else:
             return self._temp_overseer_request_cache
+
+    # TODO Rename this here and in `_get_oversee_requests_all`
+    def _extracted_from__get_oversee_requests_all_85(self, arg0):
+        self.logger.warning(arg0)
+        self._temp_overseer_request_cache = defaultdict(set)
+        return self._temp_overseer_request_cache
 
     def _get_overseerr_requests_count(self) -> int:
         self._get_oversee_requests_all()
@@ -3016,10 +3017,7 @@ class Arr:
             if (i.get("URI") in monitored_trackers) and i.get("RemoveIfExists") is not True
         ]
         _list_of_tags = [i.get("AddTags", []) for i in new_list if i.get("URI") not in removed]
-        if new_list:
-            max_item = max(new_list, key=self.__return_max)
-        else:
-            max_item = {}
+        max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
@@ -3106,9 +3104,9 @@ class Arr:
                 return_value = False  # Seeding time met - Can be cleaned up.
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
-        if return_value is True and "qBitrr-allowed_seeding" not in torrent.tags:
+        if return_value and "qBitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        elif return_value is False and "qBitrr-allowed_seeding" in torrent.tags:
+        elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
             torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return (
             return_value,
@@ -3124,7 +3122,7 @@ class Arr:
         need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
-        try:
+        with contextlib.suppress(BaseException):
             for tracker in torrent.trackers:
                 if (
                     self.remove_dead_trackers
@@ -3133,8 +3131,6 @@ class Arr:
                     )  # TODO: Add more messages
                 ) or tracker.url in self._remove_trackers_if_exists:
                     _remove_urls.add(tracker.url)
-        except BaseException:
-            pass
         if _remove_urls:
             self.logger.trace(
                 "Removing trackers from torrent: %s (%s) - %s",
@@ -3412,7 +3408,7 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
-        self.queue = self.get_queue()
+        self.queue = self.client.get_queue()
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
@@ -3434,41 +3430,10 @@ class Arr:
 
         self._update_bad_queue_items()
 
-    def get_queue(
-        self,
-        page=1,
-        page_size=10000,
-        sort_direction="ascending",
-        sort_key="timeLeft",
-        messages: bool = True,
-    ):
-        if messages:
-            pass
-        else:
-            pass
-        completed = True
-        while completed:
-            completed = False
-            try:
-                res = self.client.get_queue(
-                    page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
-                )
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-            ):
-                completed = True
-        try:
-            res = res.get("records", [])
-        except AttributeError:
-            pass
-        return res
-
     def _update_bad_queue_items(self):
         if not self.arr_error_codes_to_blocklist:
             return
-        _temp = self.get_queue()
+        _temp = self.client.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "completed"
             and x.get("trackedDownloadState") == "importPending"
@@ -3495,7 +3460,7 @@ class Arr:
 
     def force_grab(self):
         return  # TODO: This may not be needed, pending more testing before it is enabled
-        _temp = self.get_queue()
+        _temp = self.client.get_queue()
         _temp = filter(
             lambda x: x.get("status") == "delay",
             _temp,
@@ -3841,7 +3806,7 @@ class Arr:
                             )
                         if not self.is_alive:
                             raise NoConnectionrException(
-                                "Could not connect to %s" % self.uri, type="arr"
+                                f"Could not connect to {self.uri}", type="arr"
                             )
                         self.process_torrents()
                     except NoConnectionrException as e:
@@ -3935,7 +3900,7 @@ class PlaceHolderArr(Arr):
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
         self.import_torrents = []
-        self.change_priority = dict()
+        self.change_priority = {}
         self.recheck = set()
         self.pause = set()
         self.skip_blacklist = set()
@@ -3958,20 +3923,21 @@ class PlaceHolderArr(Arr):
 
     def _process_errored(self):
         # Recheck all torrents marked for rechecking.
-        if self.recheck:
-            temp = defaultdict(list)
-            updated_recheck = []
-            for h in self.recheck:
-                updated_recheck.append(h)
-                if c := self.manager.qbit_manager.cache.get(h):
-                    temp[c].append(h)
-            self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
-            for k, v in temp.items():
-                self.manager.qbit.torrents_set_category(torrent_hashes=v, category=k)
+        if not self.recheck:
+            return
+        temp = defaultdict(list)
+        updated_recheck = []
+        for h in self.recheck:
+            updated_recheck.append(h)
+            if c := self.manager.qbit_manager.cache.get(h):
+                temp[c].append(h)
+        self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
+        for k, v in temp.items():
+            self.manager.qbit.torrents_set_category(torrent_hashes=v, category=k)
 
-            for k in updated_recheck:
-                self.timed_ignore_cache.add(k)
-            self.recheck.clear()
+        for k in updated_recheck:
+            self.timed_ignore_cache.add(k)
+        self.recheck.clear()
 
     def _process_failed(self):
         if not (self.delete or self.skip_blacklist):
@@ -3980,8 +3946,7 @@ class PlaceHolderArr(Arr):
         skip_blacklist = {i.upper() for i in self.skip_blacklist}
         if to_delete_all:
             for arr in self.manager.managed_objects.values():
-                payload = arr.process_entries(to_delete_all)
-                if payload:
+                if payload := arr.process_entries(to_delete_all):
                     for entry, hash_ in payload:
                         if hash_ in arr.cache:
                             arr._process_failed_individual(

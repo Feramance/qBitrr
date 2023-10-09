@@ -177,7 +177,7 @@ FileNameExclusionRegex = [
     "comandotorrents.com",
 ]
 
-# Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
 FileExtensionAllowlist = [
     ".mp4",
     ".mkv",
@@ -356,7 +356,7 @@ FileNameExclusionRegex = [
     "comandotorrents.com",
 ]
 
-# Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
 FileExtensionAllowlist = [
     ".mp4",
     ".mkv",
@@ -534,7 +534,7 @@ FileNameExclusionRegex = [
     "comandotorrents.com",
 ]
 
-# Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
 FileExtensionAllowlist = [
     ".mp4",
     ".mkv",
@@ -715,7 +715,7 @@ FileNameExclusionRegex = [
     "comandotorrents.com",
 ]
 
-# Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
 FileExtensionAllowlist = [
     ".mp4",
     ".mkv",

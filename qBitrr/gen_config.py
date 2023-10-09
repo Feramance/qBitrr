@@ -293,7 +293,7 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     )
     _gen_default_line(
         torrent_table,
-        "Only files with these extensions will be allowed to be downloaded, comma separated strings, leave it empty to allow all extensions",
+        "Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions",
         "FileExtensionAllowlist",
         [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     )
