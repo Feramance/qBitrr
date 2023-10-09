@@ -138,6 +138,9 @@ class Arr:
         self.file_extension_allowlist = CONFIG.get(
             f"{name}.Torrent.FileExtensionAllowlist", fallback=[]
         )
+        self.file_extension_allowlist = [
+            rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
+        ]
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
