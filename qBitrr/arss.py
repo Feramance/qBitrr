@@ -138,13 +138,6 @@ class Arr:
         self.file_extension_allowlist = CONFIG.get(
             f"{name}.Torrent.FileExtensionAllowlist", fallback=[]
         )
-        self.logger.debug("file_extension_allowlist: %s", self.file_extension_allowlist)
-        for ext in self.file_extension_allowlist:
-            if ext[0] != "\\":
-                self.file_extension_allowlist[self.file_extension_allowlist.index(ext)] = (
-                    "\\" + ext
-                )
-        self.logger.debug("file_extension_allowlist: %s", self.file_extension_allowlist)
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
@@ -289,12 +282,18 @@ class Arr:
             self.file_name_exclusion_regex_re = re.compile(
                 "|".join(self.file_name_exclusion_regex), re.DOTALL
             )
+            self.file_extension_allowlist = re.compile(
+                "|".join(self.file_extension_allowlist), re.DOTALL
+            )
         else:
             self.folder_exclusion_regex_re = re.compile(
                 "|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL
             )
             self.file_name_exclusion_regex_re = re.compile(
                 "|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL
+            )
+            self.file_extension_allowlist = re.compile(
+                "|".join(self.file_extension_allowlist), re.DOTALL
             )
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
@@ -2112,9 +2111,8 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder: %s", file)
                 continue
-            if (
-                file.suffix.lower() in self.file_extension_allowlist
-                or not self.file_extension_allowlist
+            if self.file_extension_allowlist and (
+                (match := self.file_extension_allowlist.search(file.suffix)) and match.group()
             ):
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
@@ -2938,13 +2936,8 @@ class Arr:
                 )
                 _remove_files.add(file.id)
                 total -= 1
-            elif (
-                self.file_extension_allowlist
-                and (
-                    (match := self.file_extension_allowlist.search(file_path.suffix))
-                    and match.group()
-                )
-                # and file_path.suffix.lower() not in self.file_extension_allowlist
+            elif self.file_extension_allowlist and (
+                (match := self.file_extension_allowlist.search(file_path.suffix)) and match.group()
             ):
                 self.logger.debug(
                     "Removing File: Not allowed | Extension: %s  | %s (%s) | %s ",
