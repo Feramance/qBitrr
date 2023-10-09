@@ -285,9 +285,6 @@ class Arr:
             self.file_name_exclusion_regex_re = re.compile(
                 "|".join(self.file_name_exclusion_regex), re.DOTALL
             )
-            self.file_extension_allowlist = re.compile(
-                "|".join(self.file_extension_allowlist), re.DOTALL
-            )
         else:
             self.folder_exclusion_regex_re = re.compile(
                 "|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL
@@ -295,9 +292,9 @@ class Arr:
             self.file_name_exclusion_regex_re = re.compile(
                 "|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL
             )
-            self.file_extension_allowlist = re.compile(
-                "|".join(self.file_extension_allowlist), re.DOTALL
-            )
+        self.file_extension_allowlist = re.compile(
+            "|".join(self.file_extension_allowlist), re.DOTALL
+        )
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
@@ -2939,7 +2936,7 @@ class Arr:
                 )
                 _remove_files.add(file.id)
                 total -= 1
-            elif self.file_extension_allowlist and (
+            elif self.file_extension_allowlist and not (
                 (match := self.file_extension_allowlist.search(file_path.suffix)) and match.group()
             ):
                 self.logger.debug(
