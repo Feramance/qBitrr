@@ -1303,6 +1303,9 @@ class Arr:
                     else:
                         condition &= self.model_file.MovieFileId == 0
                         condition &= self.model_file.Searched == False
+                else:
+                    condition &= self.model_file.MovieFileId == 0
+                    condition &= self.model_file.Searched == False
             else:
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
@@ -1310,6 +1313,9 @@ class Arr:
                     else:
                         condition = self.model_file.MovieFileId == 0
                         condition &= self.model_file.Searched == False
+                else:
+                    condition = self.model_file.MovieFileId == 0
+                    condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -3449,6 +3455,7 @@ class Arr:
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
+                JSONDecodeError,
             ):
                 completed = True
         try:
