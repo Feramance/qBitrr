@@ -73,13 +73,13 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.8
+types-requests==2.31.0.10
     # via pyarr
 typing-extensions==4.8.0
     # via jaraco-functools
 ujson==5.4.0
     # via qBitrr2 (setup.py)
-urllib3==2.0.6
+urllib3==2.0.7
     # via
     #   qbittorrent-api
     #   requests
