@@ -53,7 +53,7 @@ from qBitrr.errors import (
     SkipException,
     UnhandledError,
 )
-from qBitrr.home_path import LOGS_FOLDER
+from qBitrr.home_path import HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.tables import (
     EpisodeFilesModel,
@@ -97,6 +97,8 @@ class Arr:
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
+            LOGS_FOLDER = HOME_PATH.joinpath("logs")
+            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
             logfile = LOGS_FOLDER.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")

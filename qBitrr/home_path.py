@@ -21,7 +21,3 @@ else:
 APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
 APPDATA_FOLDER.chmod(mode=0o777)
-
-LOGS_FOLDER = HOME_PATH.joinpath("logs")
-LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-LOGS_FOLDER.chmod(mode=0o777)
