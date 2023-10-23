@@ -99,6 +99,7 @@ class Arr:
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
             LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+            LOGS_FOLDER.chmod(mode=0o777)
             logfile = LOGS_FOLDER.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
