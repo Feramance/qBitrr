@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.12-beta-7 (23/10/2023)
+
+---
+
 ## v3.7.12-beta-6 (23/10/2023)
 
 ---
@@ -119,7 +123,3 @@
 
 ## v3.7.6 (27/09/2023)
 - [[release] Added more error handling and updated queue functionality](https://github.com/Feramance/qBitrr/commit/ffeecb09c6aa9df46040b68b83bc565ca6cb3043) - @Feramance
-
----
-
-## v3.7.6-beta-17 (27/09/2023)
