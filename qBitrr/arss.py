@@ -305,12 +305,12 @@ class Arr:
             self.type = "sonarr"
             version_info = self.client.get_update()
             self.version = version_parser.parse(version_info[0].get("version"))
-            self.logger.debug("%s version: %s", self._name, self.version.release)
+            self.logger.debug("%s version: %s", self._name, self.version.__str__)
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
             version_info = self.client.get_update()
             self.version = version_parser.parse(version_info[0].get("version"))
-            self.logger.debug("%s version: %s", self._name, self.version.release)
+            self.logger.debug("%s version: %s", self._name, self.version.__str__)
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
