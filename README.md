@@ -55,7 +55,7 @@ Some things to know before using it.
 - `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 Alternatively:
-- Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+- Download the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
 
 #### Run the script
 
