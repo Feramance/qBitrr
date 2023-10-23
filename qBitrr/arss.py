@@ -3761,11 +3761,14 @@ class Arr:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
-                            else:
+                            elif self.arr_db_query_commands_count() == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif datetime.now() > (timer + loop_timer):
+                        elif (
+                            datetime.now() > (timer + loop_timer)
+                            and self.arr_db_query_commands_count() == 0
+                        ):
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
@@ -3781,7 +3784,9 @@ class Arr:
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
-                        self.logger.info("Loop timer elapsed, restarting it.")
+                        self.logger.info(
+                            "Loop timer elapsed and search commands completed, restarting it."
+                        )
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
