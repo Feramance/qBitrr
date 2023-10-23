@@ -20,6 +20,7 @@ import peewee
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
+from packaging import version as version_parser
 from peewee import JOIN, SqliteDatabase, fn
 from pyarr import RadarrAPI, SonarrAPI
 from qbittorrentapi import TorrentDictionary, TorrentStates
@@ -113,7 +114,8 @@ class Arr:
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
-                self.completed_folder.mkdir(mode=777, parents=True, exist_ok=True)
+                self.completed_folder.mkdir(parents=True, exist_ok=True)
+                self.completed_folder.chmod(mode=0o777)
             except BaseException:
                 self.logger.warning(
                     "%s completed folder is a soft requirement. The specified folder does not exist %s and cannot be created. This will disable all file monitoring.",
@@ -302,13 +304,13 @@ class Arr:
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
             version_info = self.client.get_update()
-            self.version = version_info[0].get("version")[:1]
-            self.logger.debug("%s version: %s", self._name, self.version)
+            self.version = version_parser.parse(version_info[0].get("version"))
+            self.logger.debug("%s version: %s", self.version)
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
             version_info = self.client.get_update()
-            self.version = version_info[0].get("version")[:1]
-            self.logger.debug("%s version: %s", self._name, self.version)
+            self.version = version_parser.parse(version_info[0].get("version"))
+            self.logger.debug("%s version: %s", self.version)
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
@@ -565,9 +567,9 @@ class Arr:
         if self.type == "sonarr":
             return EpisodesModel, CommandsModel, SeriesModel
         elif self.type == "radarr":
-            if self.version == "4":
+            if self.version.major == 4:
                 return MoviesModel, CommandsModel, MoviesMetadataModel
-            elif self.version == "5":
+            elif self.version.major == 5:
                 return MoviesModelv5, CommandsModel, MoviesMetadataModel
         else:
             raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
@@ -1418,9 +1420,9 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=db_entry, request=True)
                 elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                    if self.version == "4":
+                    if self.version.major == 4:
                         self.model_arr_file: MoviesModel
-                    elif self.version == "5":
+                    elif self.version.major == 5:
                         self.model_arr_file: MoviesModelv5
                     self.model_arr_movies_file: MoviesMetadataModel
                     condition = self.model_arr_movies_file.Year <= datetime.now().year
@@ -1561,9 +1563,9 @@ class Arr:
                     ):
                         self.db_update_single_series(db_entry=series, series=True)
             elif self.type == "radarr":
-                if self.version == "4":
+                if self.version.major == 4:
                     self.model_arr_file: MoviesModel
-                elif self.version == "5":
+                elif self.version.major == 5:
                     self.model_arr_file: MoviesModelv5
                 if self.search_by_year:
                     for movies in (
@@ -1991,9 +1993,9 @@ class Arr:
 
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
-                if self.version == "4":
+                if self.version.major == 4:
                     db_entry: MoviesModel
-                elif self.version == "5":
+                elif self.version.major == 5:
                     db_entry: MoviesModelv5
                 searched = False
                 QualityUnmet = self.quality_unmet_search
