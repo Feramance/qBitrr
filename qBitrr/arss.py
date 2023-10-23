@@ -707,7 +707,7 @@ class Arr:
         elif self.type == "radarr":
             extras = "/api/v1/Request/movie/total"
         else:
-            raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
+            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
         try:
             response = self.session.get(
                 url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}
@@ -724,7 +724,7 @@ class Arr:
         elif self.type == "radarr":
             extras = "/api/v1/Request/movie"
         else:
-            raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
+            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
         try:
             response = self.session.get(
                 url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}

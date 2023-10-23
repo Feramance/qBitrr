@@ -209,6 +209,7 @@ atexit.register(cleanup)
 
 if __name__ == "__main__":
     freeze_support()
+    cleanup()
     run()
     delay = os.getenv("RESTART_TIMER", 0)
     if delay != 0:
