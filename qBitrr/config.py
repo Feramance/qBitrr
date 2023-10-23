@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import os
 import pathlib
 import shutil
-import signal
 import sys
 
 from qBitrr.bundled_data import license_text, patched_version
@@ -88,7 +86,7 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     print(f"'{CONFIG_FILE.name}' has been generated")
     print('Rename it to "config.toml" then edit it and restart the container')
 
-    os.kill(os.getppid(), signal.SIGTERM)
+    sys.exit(1)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)

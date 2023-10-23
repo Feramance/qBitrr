@@ -110,7 +110,7 @@ class Arr:
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
-                self.completed_folder.mkdir(parents=True, exist_ok=True)
+                self.completed_folder.mkdir(mode=777, parents=True, exist_ok=True)
             except BaseException:
                 self.logger.warning(
                     "%s completed folder is a soft requirement. The specified folder does not exist %s and cannot be created. This will disable all file monitoring.",

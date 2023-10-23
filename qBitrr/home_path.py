@@ -14,12 +14,12 @@ if (
     else:
         ON_DOCKER = False
         HOME_PATH = pathlib.Path().absolute().joinpath(".config")
-    HOME_PATH.mkdir(parents=True, exist_ok=True)
+    HOME_PATH.mkdir(mode=777, parents=True, exist_ok=True)
 else:
     HOME_PATH = p
 
 APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
-APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
+APPDATA_FOLDER.mkdir(mode=777, parents=True, exist_ok=True)
 
 LOGS_FOLDER = HOME_PATH.joinpath("logs")
-LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+LOGS_FOLDER.mkdir(mode=777, parents=True, exist_ok=True)
