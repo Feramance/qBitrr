@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.7.12-beta-0 (23/10/2023)
+
+---
+
+## v3.7.11 (23/10/2023)
+- [[release] Restart cleanup fix](https://github.com/Feramance/qBitrr/commit/5eab6deb521b4b40e884eac021647fa756ef268e) - @Feramance
+
+---
+
+## v3.7.11-beta-0 (23/10/2023)
+
+---
+
 ## v3.7.10 (23/10/2023)
 - [[release] Folder permissions final fix](https://github.com/Feramance/qBitrr/commit/2563b4a9aa6775dce4df20430b61fad599b9cd0c) - @Feramance
 
@@ -110,15 +123,3 @@
 ---
 
 ## v3.7.6-beta-16 (20/09/2023)
-
----
-
-## v3.7.6-beta-15 (20/09/2023)
-
----
-
-## v3.7.6-beta-14 (20/09/2023)
-
----
-
-## v3.7.6-beta-13 (20/09/2023)
