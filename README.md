@@ -55,7 +55,7 @@ Some things to know before using it.
 - `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
 
 Alternatively:
-- Download the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+- Download the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 
 #### Run the script
 
@@ -76,7 +76,7 @@ Alternatively:
 2. Run `python -m pip install -U qBitrr2`
 
 Alternatively:
-1. Download on the [latest release](https://github.com/Drapersniper/Qbitrr/releases/latest)
+1. Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
 2. Unzip the downloaded release and run it
 3. Run `qBitrr`  to generate a config file
 4. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
