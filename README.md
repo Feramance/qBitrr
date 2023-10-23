@@ -145,6 +145,7 @@ services:
       - sonarr-1080p
       - sonarr-anime
       - overseerr
+      - ombi
 ```
 
 ##### Important mentions for docker
