@@ -196,12 +196,14 @@ def cleanup():
     for p in CHILD_PROCESSES:
         p.kill()
         p.terminate()
+
+
+def file_cleanup():
     extensions = [".db", ".db-shm", ".db-wal"]
     all_files_in_folder = list(absolute_file_paths(APPDATA_FOLDER))
     for file, ext in itertools.product(all_files_in_folder, extensions):
         if file.name.endswith(ext):
             APPDATA_FOLDER.joinpath(file).unlink(missing_ok=True)
-    time.sleep(1)
 
 
 atexit.register(cleanup)
@@ -209,7 +211,7 @@ atexit.register(cleanup)
 
 if __name__ == "__main__":
     freeze_support()
-    cleanup()
+    file_cleanup()
     run()
     delay = os.getenv("RESTART_TIMER", 0)
     if delay != 0:
@@ -218,5 +220,7 @@ if __name__ == "__main__":
             if datetime.now() == loop_delay:
                 logger.info("Restarting processes", delay)
                 cleanup()
+                file_cleanup()
+                time.sleep(10)
                 run()
                 loop_delay = datetime.now() + timedelta(hours=delay)
