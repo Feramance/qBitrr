@@ -221,6 +221,6 @@ if __name__ == "__main__":
                 logger.info("Restarting processes", delay)
                 cleanup()
                 file_cleanup()
-                time.sleep(10)
+                time.sleep(60)
                 run()
                 loop_delay = datetime.now() + timedelta(hours=delay)
