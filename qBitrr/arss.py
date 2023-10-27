@@ -1201,6 +1201,12 @@ class Arr:
             Ids = [id.Id for id in self.model_arr_file.select().execute()]
             self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
 
+    def db_reset_arr_search_commands(self):
+        self.model_arr_command.delete().where(
+            self.model_arr_command.EndedAt.is_null(True)
+            & self.model_arr_command.Name.endswith("Search")
+        ).execute()
+
     def db_get_files_series(
         self,
     ) -> Iterable[tuple[SeriesFilesModel, bool, bool]]:
@@ -3737,6 +3743,7 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
+            self.db_reset_arr_search_commands()
             while True:
                 if self.loop_completed:
                     years_index = 0
@@ -3783,9 +3790,7 @@ class Arr:
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
-                        self.logger.info(
-                            "Loop timer elapsed and search commands completed, restarting it."
-                        )
+                        self.logger.info("Loop timer elapsed, restarting it.")
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
