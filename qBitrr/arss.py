@@ -1201,12 +1201,6 @@ class Arr:
             Ids = [id.Id for id in self.model_arr_file.select().execute()]
             self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
 
-    def db_reset_arr_search_commands(self):
-        self.model_arr_command.delete().where(
-            self.model_arr_command.EndedAt.is_null(True)
-            & self.model_arr_command.Name.endswith("Search")
-        ).execute()
-
     def db_get_files_series(
         self,
     ) -> Iterable[tuple[SeriesFilesModel, bool, bool]]:
@@ -3743,7 +3737,6 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
-            self.db_reset_arr_search_commands()
             while True:
                 if self.loop_completed:
                     years_index = 0
