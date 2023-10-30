@@ -1963,8 +1963,11 @@ class Arr:
                             ):
                                 completed = True
                         statistics = seriesMetadata.get("statistics")
-                        episode_count = statistics.get("episodeCount")
-                        searched = episode_count == statistics.get("episodeFileCount")
+                        if statistics:
+                            episode_count = statistics.get("episodeCount")
+                            searched = episode_count == statistics.get("episodeFileCount")
+                        else:
+                            searched = True
                         if episode_count == 0:
                             searched = True
                         Title = seriesMetadata.get("title")
