@@ -1976,7 +1976,6 @@ class Arr:
                             "Updating database entry | %s",
                             Title,
                         )
-                        self.logger.debug("Updating database entry | %s | %s", Title, searched)
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
