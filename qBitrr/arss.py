@@ -1967,7 +1967,7 @@ class Arr:
                             episode_count = statistics.get("episodeCount")
                             searched = episode_count == statistics.get("episodeFileCount")
                         else:
-                            searched = True
+                            episode_count = 0
                         if episode_count == 0:
                             searched = True
                         Title = seriesMetadata.get("title")
