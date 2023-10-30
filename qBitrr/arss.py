@@ -1976,6 +1976,7 @@ class Arr:
                             "Updating database entry | %s",
                             Title,
                         )
+                        self.logger.trace("Updating database entry | %s | %s", Title, searched)
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
@@ -3778,6 +3779,7 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
+                            self.logger.debug("Maybe searching %s", entry.Title)
                             while (
                                 self.maybe_do_search(
                                     entry,
