@@ -1105,6 +1105,7 @@ class Arr:
                 .where(
                     self.model_arr_command.EndedAt.is_null(True)
                     & self.model_arr_command.Name.endswith("Search")
+                    & ~(self.model_arr_command.Name.contains("Missing"))
                 )
                 .count()
             )
