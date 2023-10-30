@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.13 (30/10/2023)
+- [[release] Fixed series search loop](https://github.com/Feramance/qBitrr/commit/3194c816ae7b91d860b7a969871ebbe8fcaaa92c) - @Feramance
+
+---
+
 ## v3.7.13-beta-9 (30/10/2023)
 
 ---
@@ -116,7 +121,3 @@
 ---
 
 ## v3.7.10-beta-4 (23/10/2023)
-
----
-
-## v3.7.10-beta-3 (23/10/2023)
