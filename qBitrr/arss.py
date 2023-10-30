@@ -1961,13 +1961,20 @@ class Arr:
                                 requests.exceptions.ConnectionError,
                             ):
                                 completed = True
-                        episode_count = seriesMetadata.get("episodeCount", -2)
-                        searched = episode_count == seriesMetadata.get("episodeFileCount", -1)
+                        statistics = seriesMetadata.get("statistics")
+                        self.logger.debug("statistics: %s", statistics)
+                        episode_count = statistics.get("episodeCount")
+                        self.logger.debug("episode_count: %s", episode_count)
+                        searched = episode_count == statistics.get("episodeFileCount")
+                        self.logger.debug("searched: %s", searched)
                         if episode_count == 0:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
-                        self.logger.debug("Updating database entry | %s | %s", Title, searched)
+                        self.logger.trace(
+                            "Updating database entry | %s",
+                            Title,
+                        )
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
@@ -3738,7 +3745,6 @@ class Arr:
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
-                self.logger.debug("Loop completed: %s", self.loop_completed)
                 if self.search_by_year:
                     if years_index == 0:
                         years, years_count = self.get_year_search()
@@ -3769,10 +3775,7 @@ class Arr:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
-                        else:
-                            self.logger.debug("Timer not elapsed")
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.debug("Entry: %s", entry.Title)
                             while (
                                 self.maybe_do_search(
                                     entry,
@@ -3781,9 +3784,7 @@ class Arr:
                                     series_search=series_search,
                                 )
                             ) is False:
-                                self.logger.debug("maybe_do_search running")
                                 time.sleep(30)
-                            self.logger.debug("maybe_do_search completed/skipped")
                     except RestartLoopException:
                         self.loop_completed = True
                         self.logger.info("Loop timer elapsed, restarting it.")
