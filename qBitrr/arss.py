@@ -1962,11 +1962,8 @@ class Arr:
                             ):
                                 completed = True
                         statistics = seriesMetadata.get("statistics")
-                        self.logger.debug("statistics: %s", statistics)
                         episode_count = statistics.get("episodeCount")
-                        self.logger.debug("episode_count: %s", episode_count)
                         searched = episode_count == statistics.get("episodeFileCount")
-                        self.logger.debug("searched: %s", searched)
                         if episode_count == 0:
                             searched = True
                         Title = seriesMetadata.get("title")
@@ -3745,6 +3742,7 @@ class Arr:
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
+                self.logger.debug("Loop restarting at %s", timer + loop_timer)
                 if self.search_by_year:
                     if years_index == 0:
                         years, years_count = self.get_year_search()
@@ -3771,7 +3769,7 @@ class Arr:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif datetime.now() > (timer + loop_timer):
+                        elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
