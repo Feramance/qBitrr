@@ -2333,7 +2333,7 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                if file_model.EntryId not in self.queue_file_ids:
+                if file_model.EntryId:
                     completed = True
                     while completed:
                         try:
