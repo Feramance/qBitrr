@@ -16,6 +16,10 @@
 
 ---
 
+## v3.7.13-beta-10 (30/10/2023)
+
+---
+
 ## v3.7.13-beta-5 (27/10/2023)
 
 ---
@@ -116,8 +120,3 @@
 ---
 
 ## v3.7.10-alpha-0 (18/10/2023)
-
----
-
-## v3.7.9 (09/10/2023)
-- [[release] Hotfix fixed attribute error](https://github.com/Feramance/qBitrr/commit/c5b9bcbdc8f1db24575eddba5df0e3990a9815b6) - @Feramance
