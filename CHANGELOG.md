@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.14-beta-0 (31/10/2023)
+
+---
+
 ## v3.7.13 (30/10/2023)
 - [[release] Fixed series search loop](https://github.com/Feramance/qBitrr/commit/3194c816ae7b91d860b7a969871ebbe8fcaaa92c) - @Feramance
 
@@ -117,7 +121,3 @@
 
 ## v3.7.10 (23/10/2023)
 - [[release] Folder permissions final fix](https://github.com/Feramance/qBitrr/commit/2563b4a9aa6775dce4df20430b61fad599b9cd0c) - @Feramance
-
----
-
-## v3.7.10-beta-4 (23/10/2023)
