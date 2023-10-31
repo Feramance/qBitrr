@@ -1948,7 +1948,7 @@ class Arr:
                         return
                 else:
                     db_entry: SeriesModel
-                    self.model_file: SeriesFilesModel
+                    self.series_file_model: SeriesFilesModel
                     EntryId = db_entry.Id
                     if db_entry.Monitored == 1:
                         completed = True
@@ -1972,10 +1972,7 @@ class Arr:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
-                        self.logger.trace(
-                            "Updating database entry | %s",
-                            Title,
-                        )
+                        self.logger.debug("Updating database entry | %s | %s", Title, searched)
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
@@ -2332,7 +2329,7 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                if file_model.EntryId:
+                if file_model.EntryId not in self.queue_file_ids:
                     completed = True
                     while completed:
                         try:
