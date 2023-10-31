@@ -2465,7 +2465,7 @@ class Arr:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except AttributeError as e:
+            except ~(AttributeError, JSONDecodeError) as e:
                 self.logger.info("Torrent still connecting to trackers")
                 self.logger.debug("No trackers found yet", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
@@ -3784,6 +3784,7 @@ class Arr:
                                     series_search=series_search,
                                 )
                             ) is False:
+                                self.logger.debug("Waiting for active search commands")
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
