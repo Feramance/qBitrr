@@ -3743,7 +3743,6 @@ class Arr:
                 if self.loop_completed:
                     years_index = 0
                     timer = datetime.now()
-                self.logger.debug("Loop restarting at %s", timer + loop_timer)
                 if self.search_by_year:
                     if years_index == 0:
                         years, years_count = self.get_year_search()
