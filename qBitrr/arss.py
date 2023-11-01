@@ -1224,6 +1224,7 @@ class Arr:
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
+                    self.logger.debug("Searching todays %s", i1.Title)
                     yield i1, i2, i3
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
@@ -1977,8 +1978,8 @@ class Arr:
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
                         }
-                        if searched:
-                            to_update[self.series_file_model.Searched] = searched
+
+                        to_update[self.series_file_model.Searched] = searched
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
