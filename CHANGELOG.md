@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.7.14-beta-1 (01/11/2023)
+
+---
+
 ## v3.7.14-beta-0 (31/10/2023)
 
 ---
@@ -116,8 +120,3 @@
 ---
 
 ## v3.7.11-beta-0 (23/10/2023)
-
----
-
-## v3.7.10 (23/10/2023)
-- [[release] Folder permissions final fix](https://github.com/Feramance/qBitrr/commit/2563b4a9aa6775dce4df20430b61fad599b9cd0c) - @Feramance
