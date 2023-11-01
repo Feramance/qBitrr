@@ -1224,7 +1224,6 @@ class Arr:
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
-                    self.logger.debug("Searching todays %s", i1.Title)
                     yield i1, i2, i3
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
@@ -1973,7 +1972,7 @@ class Arr:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
-                        self.logger.debug("Updating database entry | %s | %s", Title, searched)
+                        self.logger.trace("Updating database entry | %s | %s", Title, searched)
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
@@ -2466,7 +2465,7 @@ class Arr:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except ~(AttributeError, JSONDecodeError) as e:
+            except (AttributeError, JSONDecodeError) as e:
                 self.logger.info("Torrent still connecting to trackers")
                 self.logger.debug("No trackers found yet", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
@@ -3776,7 +3775,6 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.debug("Maybe searching %s", entry.Title)
                             while (
                                 self.maybe_do_search(
                                     entry,
