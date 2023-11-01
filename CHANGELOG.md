@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.7.14 (01/11/2023)
+- [[release] Removed redundant debugs](https://github.com/Feramance/qBitrr/commit/d31f906c5172a392656bcb3244801849a0f698c7) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/b6fde7c4adecbadcb3b2136d1b9995607a009f5a) - @Feramance
+- [[release] Actual fix for series search loop](https://github.com/Feramance/qBitrr/commit/dd6dc298c60728eca6d30a86b07d06fa5a30c892) - @Feramance
+
+---
+
 ## v3.7.14-beta-1 (01/11/2023)
 
 ---
@@ -116,7 +123,3 @@
 
 ## v3.7.11 (23/10/2023)
 - [[release] Restart cleanup fix](https://github.com/Feramance/qBitrr/commit/5eab6deb521b4b40e884eac021647fa756ef268e) - @Feramance
-
----
-
-## v3.7.11-beta-0 (23/10/2023)
