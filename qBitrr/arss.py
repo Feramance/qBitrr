@@ -1160,20 +1160,23 @@ class Arr:
         self.series_file_model: SeriesFilesModel
         self.model_file: EpisodeFilesModel
         if (
-            self.loop_completed is True and self.reset_on_completion and self.series_search
+            self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
-            series_query = (
-                self.series_file_model.select(self.series_file_model.EntryId)
-                .join(
-                    self.model_file,
-                    on=(self.series_file_model.EntryId == self.model_file.SeriesId),
-                )
-                .where(self.series_file_model.Searched == True)
-                .execute()
-            )
-            series_ids = [s.EntryId for s in series_query]
+            # series_query = (
+            #     self.series_file_model.select(self.series_file_model.EntryId)
+            #     .join(
+            #         self.model_file,
+            #         on=(self.series_file_model.EntryId == self.model_file.SeriesId),
+            #     )
+            #     .where(self.series_file_model.Searched == True)
+            #     .execute()
+            # )
+            # series_ids = [s.EntryId for s in series_query]
+            # self.series_file_model.update(Searched=False).where(
+            #     self.series_file_model.EntryId.in_(series_ids)
+            # ).execute()
             self.series_file_model.update(Searched=False).where(
-                self.series_file_model.EntryId.in_(series_ids)
+                self.series_file_model.Searched == True
             ).execute()
             Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
             self.series_file_model.delete().where(
@@ -1978,7 +1981,8 @@ class Arr:
                             self.series_file_model.Title: Title,
                         }
 
-                        to_update[self.series_file_model.Searched] = searched
+                        if searched:
+                            to_update[self.series_file_model.Searched] = searched
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
