@@ -1162,19 +1162,6 @@ class Arr:
         if (
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
-            # series_query = (
-            #     self.series_file_model.select(self.series_file_model.EntryId)
-            #     .join(
-            #         self.model_file,
-            #         on=(self.series_file_model.EntryId == self.model_file.SeriesId),
-            #     )
-            #     .where(self.series_file_model.Searched == True)
-            #     .execute()
-            # )
-            # series_ids = [s.EntryId for s in series_query]
-            # self.series_file_model.update(Searched=False).where(
-            #     self.series_file_model.EntryId.in_(series_ids)
-            # ).execute()
             self.series_file_model.update(Searched=False).where(
                 self.series_file_model.Searched == True
             ).execute()
