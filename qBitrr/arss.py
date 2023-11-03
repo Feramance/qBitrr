@@ -33,6 +33,7 @@ from qBitrr.arr_tables import (
     MoviesModel,
     MoviesModelv5,
     SeriesModel,
+    SeriesModelv4,
 )
 from qBitrr.config import (
     APPDATA_FOLDER,
@@ -486,7 +487,7 @@ class Arr:
 
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5 = None
-        self.model_arr_series_file: SeriesModel = None
+        self.model_arr_series_file: SeriesModel | SeriesModelv4 = None
         self.model_arr_movies_file: MoviesMetadataModel = None
 
         self.model_arr_command: CommandsModel = None
@@ -562,10 +563,13 @@ class Arr:
     ) -> tuple[
         type[EpisodesModel] | type[MoviesModel] | type[MoviesModelv5],
         type[CommandsModel],
-        type[SeriesModel] | type[MoviesMetadataModel],
+        type[SeriesModel | SeriesModelv4] | type[MoviesMetadataModel],
     ]:  # sourcery skip: replace-interpolation-with-fstring, switch
         if self.type == "sonarr":
-            return EpisodesModel, CommandsModel, SeriesModel
+            if self.version.major == 3:
+                return EpisodesModel, CommandsModel, SeriesModel
+            elif self.version.major == 4:
+                return EpisodesModel, CommandsModel, SeriesModelv4
         elif self.type == "radarr":
             if self.version.major == 4:
                 return MoviesModel, CommandsModel, MoviesMetadataModel
@@ -1378,7 +1382,10 @@ class Arr:
             try:
                 if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
                     self.model_arr_file: EpisodesModel
-                    self.model_arr_series_file: SeriesModel
+                    if self.version.major == 3:
+                        self.model_arr_series_file: SeriesModel
+                    elif self.version.major == 4:
+                        self.model_arr_series_file: SeriesModelv4
                     condition = self.model_arr_file.AirDateUtc.is_null(False)
                     if not self.search_specials:
                         condition &= self.model_arr_file.SeasonNumber != 0
@@ -1546,7 +1553,10 @@ class Arr:
                             ):
                                 self.db_update_single_series(db_entry=series)
                 else:
-                    self.model_arr_series_file: SeriesModel
+                    if self.version.major == 3:
+                        self.model_arr_series_file: SeriesModel
+                    elif self.version.major == 4:
+                        self.model_arr_series_file: SeriesModelv4
                     for series in (
                         self.model_arr_series_file.select()
                         .order_by(self.model_arr_series_file.Added.desc())
@@ -1831,7 +1841,7 @@ class Arr:
 
     def db_update_single_series(
         self,
-        db_entry: EpisodesModel | SeriesModel | MoviesModel | MoviesModelv5 = None,
+        db_entry: EpisodesModel | SeriesModel | SeriesModelv4 | MoviesModel | MoviesModelv5 = None,
         request: bool = False,
         series: bool = False,
     ):
@@ -1937,7 +1947,10 @@ class Arr:
                     else:
                         return
                 else:
-                    db_entry: SeriesModel
+                    if self.version.major == 3:
+                        db_entry: SeriesModel
+                    elif self.version.major == 4:
+                        db_entry: SeriesModelv4
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry.Id
                     if db_entry.Monitored == 1:
