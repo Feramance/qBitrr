@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.15 (06/11/2023)
+- [[release] Fix db issue with sonarr field changes and set loop to restart only when there are 0 commands left](https://github.com/Feramance/qBitrr/commit/25e67fb818ae3b4f4ffbec8bc413c39a25b1e862) - @Feramance
+
+---
+
 ## v3.7.15-beta-1 (03/11/2023)
 
 ---
@@ -118,7 +123,3 @@
 ---
 
 ## v3.7.12-beta-2 (23/10/2023)
-
----
-
-## v3.7.12-beta-1 (23/10/2023)
