@@ -563,7 +563,7 @@ class Arr:
     ) -> tuple[
         type[EpisodesModel] | type[MoviesModel] | type[MoviesModelv5],
         type[CommandsModel],
-        type[SeriesModel | SeriesModelv4] | type[MoviesMetadataModel],
+        type[SeriesModel] | type[SeriesModelv4] | type[MoviesMetadataModel],
     ]:  # sourcery skip: replace-interpolation-with-fstring, switch
         if self.type == "sonarr":
             if self.version.major == 3:
@@ -3769,11 +3769,15 @@ class Arr:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
-                            else:
+                            elif (
+                                datetime.now() >= (timer + loop_timer)
+                            ) or self.arr_db_query_commands_count == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer):
+                        elif (
+                            datetime.now() >= (timer + loop_timer)
+                        ) or self.arr_db_query_commands_count == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
