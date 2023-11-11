@@ -160,4 +160,4 @@ Please do not hesitate to open an issue for feature requests or any suggestions 
 
 ## Reporting an Issue
 
-When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you
+When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you.
