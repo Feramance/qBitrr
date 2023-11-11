@@ -51,7 +51,7 @@ class MoviesMetadataModel(Model):
 class MoviesModel(Model):
     Id = IntegerField(null=False, primary_key=True)
     Path = TextField()
-    Monitored = IntegerField()
+    Monitored = BooleanField()
     ProfileId = IntegerField()
     Added = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     Tags = TextField()
@@ -64,7 +64,7 @@ class MoviesModel(Model):
 class MoviesModelv5(Model):
     Id = IntegerField(null=False, primary_key=True)
     Path = TextField()
-    Monitored = IntegerField()
+    Monitored = BooleanField()
     QualityProfileId = IntegerField()
     Added = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"])
     Tags = TextField()
