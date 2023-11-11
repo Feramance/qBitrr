@@ -1,15 +1,15 @@
 # Changelog
 
+## v3.7.15 (11/11/2023)
+- [[release] Databse malformed fix](https://github.com/Feramance/qBitrr/commit/78458d8940acf6362a3f17ce75bee8435b56baea) - @Feramance
+
+---
+
 ## v3.7.15-beta-2 (11/11/2023)
 
 ---
 
 ## v3.7.15-beta-1 (11/11/2023)
-
----
-
-## v3.7.15 (06/11/2023)
-- [[release] Fix db issue with sonarr field changes and set loop to restart only when there are 0 commands left](https://github.com/Feramance/qBitrr/commit/25e67fb818ae3b4f4ffbec8bc413c39a25b1e862) - @Feramance
 
 ---
 
