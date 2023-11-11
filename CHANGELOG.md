@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.7.16 (11/11/2023)
+- [[release] Fix version number](https://github.com/Feramance/qBitrr/commit/94897faa7a6e03f6a1dcec0de60dff908b0fb7d1) - @Feramance
+
+---
+
 ## v3.7.15 (11/11/2023)
 - [[release] Databse malformed fix](https://github.com/Feramance/qBitrr/commit/78458d8940acf6362a3f17ce75bee8435b56baea) - @Feramance
 
@@ -119,7 +124,3 @@
 ---
 
 ## v3.7.12-beta-5 (23/10/2023)
-
----
-
-## v3.7.12-beta-4 (23/10/2023)
