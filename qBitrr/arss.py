@@ -3690,7 +3690,7 @@ class Arr:
                             != 0
                         )
                         .order_by(self.model_arr_movies_file.Year.asc())
-                        .execute()
+                        # .execute()
                     )
                 else:
                     years_query = (
@@ -3703,7 +3703,7 @@ class Arr:
                             != 0
                         )
                         .order_by(self.model_arr_movies_file.Year.desc())
-                        .execute()
+                        # .execute()
                     )
                 years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
