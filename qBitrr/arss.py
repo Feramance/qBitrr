@@ -2296,9 +2296,8 @@ class Arr:
                         file_model.AirDateUtc,
                     )
                     file_model.Searched = True
-                    file_model.save()
                     file_model.Upgrade = True
-                    file_model.save()
+                    file_model.save(True)
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
@@ -2342,9 +2341,8 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
-                file_model.save()
                 file_model.Upgrade = True
-                file_model.save()
+                file_model.save(True)
                 self.logger.hnotice(
                     "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
                     request_tag,
@@ -2394,9 +2392,8 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
-                file_model.save()
                 file_model.Upgrade = True
-                file_model.save()
+                file_model.save(True)
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
                     request_tag,
@@ -2423,9 +2420,8 @@ class Arr:
                     file_model.EntryId,
                 )
                 file_model.Searched = True
-                file_model.save()
                 file_model.Upgrade = True
-                file_model.save()
+                file_model.save(True)
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
@@ -2462,9 +2458,8 @@ class Arr:
                     ):
                         completed = True
             file_model.Searched = True
-            file_model.save()
             file_model.Upgrade = True
-            file_model.save()
+            file_model.save(True)
             self.logger.hnotice(
                 "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
                 request_tag,
