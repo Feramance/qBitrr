@@ -2070,7 +2070,13 @@ class Arr:
 
                     if request:
                         to_update[self.model_file.IsRequest] = request
-                    self.logger.trace("Adding %s to db: [%s][%s]", title, movieFileId, searched)
+                    self.logger.trace(
+                        "Adding %s to db: [%s][Searched:%s][Upgrade:%s]",
+                        title,
+                        movieFileId,
+                        searched,
+                        upgrade,
+                    )
                     db_commands = self.model_file.insert(
                         Title=title,
                         Monitored=monitored,
