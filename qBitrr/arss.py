@@ -2062,7 +2062,7 @@ class Arr:
 
                     upgrade = (
                         self.model_file.select(self.model_file.Upgrade)
-                        .where(self.model_file.EntryId == EntryId)
+                        .where(self.model_file.EntryId == entryId)
                         .execute()
                     )
                     if upgrade:
