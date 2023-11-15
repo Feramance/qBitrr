@@ -1219,6 +1219,10 @@ class Arr:
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
                     yield i1, i2, i3
+            if not self.do_upgrade_search:
+                condition = self.series_file_model.Searched == False
+            else:
+                condition &= self.model_file.Upgrade == False
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
