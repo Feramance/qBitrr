@@ -1924,12 +1924,8 @@ class Arr:
                         if searched:
                             to_update[self.model_file.Searched] = searched
 
-                        upgrade = (
-                            self.model_file.select(self.model_file.Upgrade)
-                            .where(self.model_file.EntryId == EntryId)
-                            .execute()
-                        )
-                        if upgrade:
+                        if self.model_file.get(self.model_file.Upgrade == True):
+                            upgrade = True
                             to_update[self.model_file.Upgrade] = upgrade
 
                         if request:
@@ -1997,12 +1993,8 @@ class Arr:
                         if searched:
                             to_update[self.series_file_model.Searched] = searched
 
-                        upgrade = (
-                            self.series_file_model.select(self.series_file_model.Upgrade)
-                            .where(self.series_file_model.EntryId == EntryId)
-                            .execute()
-                        )
-                        if upgrade:
+                        if self.series_file_model.get(self.series_file_model.Upgrade == True):
+                            upgrade = True
                             to_update[self.series_file_model.Upgrade] = upgrade
 
                         db_commands = self.series_file_model.insert(
@@ -2060,12 +2052,8 @@ class Arr:
                     if searched:
                         to_update[self.model_file.Searched] = searched
 
-                    upgrade = (
-                        self.model_file.select(self.model_file.Upgrade)
-                        .where(self.model_file.EntryId == entryId)
-                        .execute()
-                    )
-                    if upgrade:
+                    if self.model_file.get(self.model_file.Upgrade == True):
+                        upgrade = True
                         to_update[self.model_file.Upgrade] = upgrade
 
                     if request:
