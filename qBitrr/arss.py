@@ -1924,7 +1924,7 @@ class Arr:
                         if searched:
                             to_update[self.model_file.Searched] = searched
 
-                        if self.model_file.get(self.model_file.Upgrade == True):
+                        if self.model_file.get(self.model_file.EntryId == EntryId).Upgrade:
                             upgrade = True
                             to_update[self.model_file.Upgrade] = upgrade
 
@@ -1993,7 +1993,9 @@ class Arr:
                         if searched:
                             to_update[self.series_file_model.Searched] = searched
 
-                        if self.series_file_model.get(self.series_file_model.Upgrade == True):
+                        if self.series_file_model.get(
+                            self.series_file_model.EntryId == EntryId
+                        ).Upgrade:
                             upgrade = True
                             to_update[self.series_file_model.Upgrade] = upgrade
 
@@ -2052,7 +2054,7 @@ class Arr:
                     if searched:
                         to_update[self.model_file.Searched] = searched
 
-                    if self.model_file.get(self.model_file.Upgrade == True):
+                    if self.model_file.get(self.model_file.EntryId == entryId).Upgrade:
                         upgrade = True
                         to_update[self.model_file.Upgrade] = upgrade
 
