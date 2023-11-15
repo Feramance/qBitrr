@@ -1293,7 +1293,7 @@ class Arr:
         if not self.search_missing:
             yield None, False, False
         if self.type == "radarr":
-            condition = self.model_file.Year.is_null(False)
+            condition = self.model_file.Searched == False
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
                 if not self.do_upgrade_search:
@@ -1301,14 +1301,12 @@ class Arr:
                         condition &= self.model_file.QualityMet == False
                     else:
                         condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
             else:
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
                         condition &= self.model_file.QualityMet == False
                     else:
                         condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
