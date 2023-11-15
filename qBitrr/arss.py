@@ -2063,7 +2063,7 @@ class Arr:
                         to_update[self.model_file.Searched] = searched
 
                     try:
-                        if self.model_file.get_or_none(self.model_file.EntryId == EntryId).Upgrade:
+                        if self.model_file.get_or_none(self.model_file.EntryId == entryId).Upgrade:
                             upgrade = True
                             to_update[self.model_file.Upgrade] = upgrade
                     except AttributeError:
