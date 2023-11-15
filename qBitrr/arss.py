@@ -1222,7 +1222,7 @@ class Arr:
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
             else:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.series_file_model.Upgrade == False
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -1924,6 +1924,14 @@ class Arr:
                         if searched:
                             to_update[self.model_file.Searched] = searched
 
+                        upgrade = (
+                            self.model_file.select(self.model_file.Upgrade)
+                            .where(self.model_file.EntryId == EntryId)
+                            .execute()
+                        )
+                        if upgrade:
+                            to_update[self.model_file.Upgrade] = upgrade
+
                         if request:
                             to_update[self.model_file.IsRequest] = request
 
@@ -1943,7 +1951,7 @@ class Arr:
                             Searched=searched,
                             IsRequest=request,
                             QualityMet=QualityMet,
-                            Upgrade=False,
+                            Upgrade=upgrade,
                         ).on_conflict(
                             conflict_target=[self.model_file.EntryId],
                             update=to_update,
@@ -1989,12 +1997,20 @@ class Arr:
                         if searched:
                             to_update[self.series_file_model.Searched] = searched
 
+                        upgrade = (
+                            self.series_file_model.select(self.series_file_model.Upgrade)
+                            .where(self.series_file_model.EntryId == EntryId)
+                            .execute()
+                        )
+                        if upgrade:
+                            to_update[self.series_file_model.Upgrade] = upgrade
+
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
                             Title=Title,
                             Searched=searched,
                             Monitored=Monitored,
-                            Upgrade=False,
+                            Upgrade=upgrade,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId],
                             update=to_update,
@@ -2043,6 +2059,15 @@ class Arr:
 
                     if searched:
                         to_update[self.model_file.Searched] = searched
+
+                    upgrade = (
+                        self.model_file.select(self.model_file.Upgrade)
+                        .where(self.model_file.EntryId == EntryId)
+                        .execute()
+                    )
+                    if upgrade:
+                        to_update[self.model_file.Upgrade] = upgrade
+
                     if request:
                         to_update[self.model_file.IsRequest] = request
                     self.logger.trace("Adding %s to db: [%s][%s]", title, movieFileId, searched)
@@ -2056,7 +2081,7 @@ class Arr:
                         MovieFileId=movieFileId,
                         IsRequest=request,
                         QualityMet=qualityMet,
-                        Upgrade=False,
+                        Upgrade=upgrade,
                     ).on_conflict(
                         conflict_target=[self.model_file.EntryId],
                         update=to_update,
