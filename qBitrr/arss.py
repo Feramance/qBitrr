@@ -3812,13 +3812,13 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif (
                                 datetime.now() >= (timer + loop_timer)
-                            ) or self.arr_db_query_commands_count == 0:
+                            ) and self.arr_db_query_commands_count == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                         elif (
                             datetime.now() >= (timer + loop_timer)
-                        ) or self.arr_db_query_commands_count == 0:
+                        ) and self.arr_db_query_commands_count == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
