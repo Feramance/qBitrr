@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qBitrr2
-Version: 3.7.10b2
+Version: 3.7.16
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -115,7 +115,7 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 
 Some things to know before using it.
 
-- qBittorrent 4.5.x
+- qBittorrent >= 4.5.x
 - [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - qBit set to create sub-folders for tag.
 
@@ -215,6 +215,7 @@ services:
       - sonarr-1080p
       - sonarr-anime
       - overseerr
+      - ombi
 ```
 
 ##### Important mentions for docker
@@ -229,4 +230,4 @@ Please do not hesitate to open an issue for feature requests or any suggestions 
 
 ## Reporting an Issue
 
-When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you
+When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you.

@@ -20,7 +20,7 @@ certifi==2023.7.22
     # via requests
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.1
+charset-normalizer==3.3.2
     # via requests
 click==8.1.7
     # via
@@ -47,13 +47,13 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.12.4
+filelock==3.13.1
     # via virtualenv
 future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.30
+identify==2.5.31
     # via pre-commit
 idna==3.4
     # via requests
@@ -69,9 +69,9 @@ jaraco-context==4.3.0
     # via jaraco-docker
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
-jaraco-functools==3.9.0
+jaraco-functools==4.0.0
     # via jaraco-docker
-keyring==24.2.0
+keyring==24.3.0
     # via twine
 more-itertools==10.1.0
     # via
@@ -171,20 +171,18 @@ twine==3.7.1
     # via qBitrr2 (setup.py)
 types-requests==2.31.0.10
     # via pyarr
-typing-extensions==4.8.0
-    # via jaraco-functools
 ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.0.7
+urllib3==2.1.0
     # via
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.24.5
+virtualenv==20.24.6
     # via pre-commit
-wheel==0.41.2
+wheel==0.41.3
     # via pip-tools
 zipp==3.17.0
     # via importlib-metadata

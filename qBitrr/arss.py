@@ -673,25 +673,19 @@ class Arr:
                         data["TmdbId"].add(tmdbId)
             self._temp_overseer_request_cache = data
         except requests.exceptions.ConnectionError:
-            return self._extracted_from__get_oversee_requests_all_85(
-                "Couldn't connect to Overseerr"
-            )
+            self.logger.warning("Couldn't connect to Overseerr")
+            self._temp_overseer_request_cache = defaultdict(set)
+            return self._temp_overseer_request_cache
         except requests.exceptions.ReadTimeout:
-            return self._extracted_from__get_oversee_requests_all_85(
-                "Connection to Overseerr timed out"
-            )
+            self.logger.warning("Connection to Overseerr timed out")
+            self._temp_overseer_request_cache = defaultdict(set)
+            return self._temp_overseer_request_cache
         except Exception as e:
             self.logger.exception(e, exc_info=sys.exc_info())
             self._temp_overseer_request_cache = defaultdict(set)
             return self._temp_overseer_request_cache
         else:
             return self._temp_overseer_request_cache
-
-    # TODO Rename this here and in `_get_oversee_requests_all`
-    def _extracted_from__get_oversee_requests_all_85(self, arg0):
-        self.logger.warning(arg0)
-        self._temp_overseer_request_cache = defaultdict(set)
-        return self._temp_overseer_request_cache
 
     def _get_overseerr_requests_count(self) -> int:
         self._get_oversee_requests_all()
@@ -1161,6 +1155,10 @@ class Arr:
         self.loop_completed = False
 
     def db_reset__series_searched_state(self):
+        if self.version.major == 3:
+            self.model_arr_series_file: SeriesModel
+        elif self.version.major == 4:
+            self.model_arr_series_file: SeriesModelv4
         self.series_file_model: SeriesFilesModel
         self.model_file: EpisodeFilesModel
         if (
@@ -1303,9 +1301,6 @@ class Arr:
                     else:
                         condition &= self.model_file.MovieFileId == 0
                         condition &= self.model_file.Searched == False
-                else:
-                    condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.Searched == False
             else:
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
@@ -1313,9 +1308,6 @@ class Arr:
                     else:
                         condition = self.model_file.MovieFileId == 0
                         condition &= self.model_file.Searched == False
-                else:
-                    condition = self.model_file.MovieFileId == 0
-                    condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
