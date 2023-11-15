@@ -1308,6 +1308,7 @@ class Arr:
                     else:
                         condition = self.model_file.MovieFileId == 0
                         condition &= self.model_file.Searched == False
+                condition = self.model_file.Year.is_null(False)
             for entry in (
                 self.model_file.select()
                 .where(condition)
