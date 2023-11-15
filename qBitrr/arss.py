@@ -2296,6 +2296,7 @@ class Arr:
                         file_model.AirDateUtc,
                     )
                     file_model.Searched = True
+                    file_model.save()
                     file_model.Upgrade = True
                     file_model.save()
                     return True
@@ -2341,6 +2342,7 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
+                file_model.save()
                 file_model.Upgrade = True
                 file_model.save()
                 self.logger.hnotice(
@@ -2392,6 +2394,7 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
+                file_model.save()
                 file_model.Upgrade = True
                 file_model.save()
                 self.logger.hnotice(
@@ -2420,6 +2423,7 @@ class Arr:
                     file_model.EntryId,
                 )
                 file_model.Searched = True
+                file_model.save()
                 file_model.Upgrade = True
                 file_model.save()
                 return True
@@ -2458,6 +2462,7 @@ class Arr:
                     ):
                         completed = True
             file_model.Searched = True
+            file_model.save()
             file_model.Upgrade = True
             file_model.save()
             self.logger.hnotice(
