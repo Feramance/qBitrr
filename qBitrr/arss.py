@@ -1164,7 +1164,7 @@ class Arr:
         if (
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
-            self.series_file_model.update(Searched=False).where(
+            self.series_file_model.update(Searched=False, Upgrade=False).where(
                 self.series_file_model.Searched == True
             ).execute()
             Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
@@ -1177,7 +1177,7 @@ class Arr:
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.model_file.update(Searched=False).where(
+            self.model_file.update(Searched=False, Upgrade=False).where(
                 self.model_file.Searched == True
             ).execute()
             Ids = [id.Id for id in self.model_arr_file.select().execute()]
@@ -1188,7 +1188,7 @@ class Arr:
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.model_file.update(Searched=False).where(
+            self.model_file.update(Searched=False, Upgrade=False).where(
                 self.model_file.Searched == True
             ).execute()
             Ids = [id.Id for id in self.model_arr_file.select().execute()]
@@ -1203,11 +1203,13 @@ class Arr:
             yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if not self.do_upgrade_search:
+                condition &= self.model_file.Searched == False
                 condition &= self.model_file.EpisodeFileId == 0
+            else:
+                condition &= self.model_file.Upgrade == False
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
@@ -1232,7 +1234,6 @@ class Arr:
             yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
@@ -1240,7 +1241,10 @@ class Arr:
                 if self.quality_unmet_search:
                     condition &= self.model_file.QualityMet == False
                 else:
+                    condition &= self.model_file.Searched == False
                     condition &= self.model_file.EpisodeFileId == 0
+            else:
+                condition &= self.model_file.Upgrade == False
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
@@ -1288,7 +1292,7 @@ class Arr:
         if not self.search_missing:
             yield None, False, False
         if self.type == "radarr":
-            condition = self.model_file.Searched == False
+            condition = self.model_file.Year.is_null(False)
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
                 if not self.do_upgrade_search:
@@ -1296,12 +1300,18 @@ class Arr:
                         condition &= self.model_file.QualityMet == False
                     else:
                         condition &= self.model_file.MovieFileId == 0
+                        condition &= self.model_file.Searched == False
+                else:
+                    condition &= self.model_file.Upgrade == False
             else:
                 if not self.do_upgrade_search:
                     if self.quality_unmet_search:
                         condition &= self.model_file.QualityMet == False
                     else:
                         condition &= self.model_file.MovieFileId == 0
+                        condition &= self.model_file.Searched == False
+                else:
+                    condition &= self.model_file.Upgrade == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1322,6 +1332,8 @@ class Arr:
                     condition &= self.model_file.QualityMet == False
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
+            else:
+                condition &= self.model_file.Upgrade == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
@@ -1350,6 +1362,8 @@ class Arr:
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.IsRequest == True
+            else:
+                condition &= self.model_file.Upgrade == False
             yield from (
                 self.model_file.select()
                 .where(condition)
@@ -1925,6 +1939,7 @@ class Arr:
                             Searched=searched,
                             IsRequest=request,
                             QualityMet=QualityMet,
+                            Upgrade=False,
                         ).on_conflict(
                             conflict_target=[self.model_file.EntryId],
                             update=to_update,
@@ -1975,6 +1990,7 @@ class Arr:
                             Title=Title,
                             Searched=searched,
                             Monitored=Monitored,
+                            Upgrade=False,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId],
                             update=to_update,
@@ -2036,6 +2052,7 @@ class Arr:
                         MovieFileId=movieFileId,
                         IsRequest=request,
                         QualityMet=qualityMet,
+                        Upgrade=False,
                     ).on_conflict(
                         conflict_target=[self.model_file.EntryId],
                         update=to_update,
@@ -2284,6 +2301,7 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
+                file_model.Upgrade = True
                 file_model.save()
                 self.logger.hnotice(
                     "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
@@ -2334,6 +2352,7 @@ class Arr:
                         ):
                             completed = True
                 file_model.Searched = True
+                file_model.Upgrade = True
                 file_model.save()
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
@@ -2398,6 +2417,7 @@ class Arr:
                     ):
                         completed = True
             file_model.Searched = True
+            file_model.Upgrade = True
             file_model.save()
             self.logger.hnotice(
                 "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
