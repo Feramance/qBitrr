@@ -1924,9 +1924,14 @@ class Arr:
                         if searched:
                             to_update[self.model_file.Searched] = searched
 
-                        if self.model_file.get_or_none(self.model_file.EntryId == EntryId).Upgrade:
-                            upgrade = True
-                            to_update[self.model_file.Upgrade] = upgrade
+                        try:
+                            if self.model_file.get_or_none(
+                                self.model_file.EntryId == EntryId
+                            ).Upgrade:
+                                upgrade = True
+                                to_update[self.model_file.Upgrade] = upgrade
+                        except AttributeError:
+                            upgrade = False
 
                         if request:
                             to_update[self.model_file.IsRequest] = request
@@ -1993,11 +1998,14 @@ class Arr:
                         if searched:
                             to_update[self.series_file_model.Searched] = searched
 
-                        if self.series_file_model.get_or_none(
-                            self.series_file_model.EntryId == EntryId
-                        ).Upgrade:
-                            upgrade = True
-                            to_update[self.series_file_model.Upgrade] = upgrade
+                        try:
+                            if self.series_file_model.get_or_none(
+                                self.series_file_model.EntryId == EntryId
+                            ).Upgrade:
+                                upgrade = True
+                                to_update[self.series_file_model.Upgrade] = upgrade
+                        except AttributeError:
+                            upgrade = False
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
@@ -2054,9 +2062,12 @@ class Arr:
                     if searched:
                         to_update[self.model_file.Searched] = searched
 
-                    if self.model_file.get_or_none(self.model_file.EntryId == entryId).Upgrade:
-                        upgrade = True
-                        to_update[self.model_file.Upgrade] = upgrade
+                    try:
+                        if self.model_file.get_or_none(self.model_file.EntryId == EntryId).Upgrade:
+                            upgrade = True
+                            to_update[self.model_file.Upgrade] = upgrade
+                    except AttributeError:
+                        upgrade = False
 
                     if request:
                         to_update[self.model_file.IsRequest] = request
