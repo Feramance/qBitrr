@@ -1203,10 +1203,10 @@ class Arr:
             yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
+            condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if not self.do_upgrade_search:
-                condition &= self.model_file.Searched == False
                 condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
@@ -1217,10 +1217,6 @@ class Arr:
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
                     yield i1, i2, i3
-            if not self.do_upgrade_search:
-                condition = self.series_file_model.Searched == False
-            else:
-                condition = self.series_file_model.Searched.is_null(False)
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -1236,7 +1232,7 @@ class Arr:
             yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
-
+            condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
@@ -1244,7 +1240,6 @@ class Arr:
                 if self.quality_unmet_search:
                     condition &= self.model_file.QualityMet == False
                 else:
-                    condition &= self.model_file.Searched == False
                     condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
