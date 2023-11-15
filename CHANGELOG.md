@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.8.0-beta-0 (15/11/2023)
+
+---
+
+## v3.7.17 (15/11/2023)
+
+---
+
 ## v3.7.17-beta-2 (15/11/2023)
 
 ---
@@ -115,12 +123,3 @@
 ---
 
 ## v3.7.13-beta-0 (23/10/2023)
-
----
-
-## v3.7.12 (23/10/2023)
-- [[release] Better Arr version handling](https://github.com/Feramance/qBitrr/commit/cfe691530936b4a4ec115dc71a55b85bacc2888e) - @Feramance
-
----
-
-## v3.7.12-beta-8 (23/10/2023)
