@@ -1872,7 +1872,7 @@ class Arr:
                         ):
                             completed = True
 
-                    QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet")
+                    QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet", False)
                     if db_entry.EpisodeFileId != 0 and not self.quality_unmet_search:
                         searched = True
                         self.model_queue.update(Completed=True).where(
@@ -2044,7 +2044,7 @@ class Arr:
                         requests.exceptions.ConnectionError,
                     ):
                         completed = True
-                QualityUnmet = movieData.get("qualityCutoffNotMet")
+                QualityUnmet = movieData.get("qualityCutoffNotMet", False)
                 if db_entry.MovieFileId != 0 and not self.quality_unmet_search:
                     searched = True
                     self.model_queue.update(Completed=True).where(
