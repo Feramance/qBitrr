@@ -1873,11 +1873,7 @@ class Arr:
                             completed = True
 
                     QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet")
-                    if (
-                        db_entry.EpisodeFileId != 0
-                        and QualityUnmet
-                        and not self.quality_unmet_search
-                    ):
+                    if db_entry.EpisodeFileId != 0 and not self.quality_unmet_search:
                         searched = True
                         self.model_queue.update(Completed=True).where(
                             self.model_queue.EntryId == db_entry.Id
@@ -2049,7 +2045,7 @@ class Arr:
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet")
-                if db_entry.MovieFileId != 0 and QualityUnmet and not self.quality_unmet_search:
+                if db_entry.MovieFileId != 0 and not self.quality_unmet_search:
                     searched = True
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry.Id
@@ -2070,7 +2066,7 @@ class Arr:
                     year = movieMetadata.Year
                     entryId = db_entry.Id
                     movieFileId = db_entry.MovieFileId
-                    qualityMet = db_entry.MovieFileId != 0 and not QualityUnmet
+                    qualityMet = QualityUnmet
 
                     self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
                     to_update = {
