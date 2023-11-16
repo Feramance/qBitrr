@@ -2122,7 +2122,14 @@ class Arr:
             )
             raise DelayLoopException(length=300, type=self._name)
         except JSONDecodeError:
-            self.logger.warning("Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title)
+            if self.type == "sonarr":
+                self.logger.warning(
+                    "Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title
+                )
+            elif self.type == "radarr":
+                self.logger.warning(
+                    "Error getting movie info: [%s][%s]", db_entry.Id, movieMetadata.Title
+                )
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
 
