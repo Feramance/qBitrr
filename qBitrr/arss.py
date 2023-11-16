@@ -2340,9 +2340,9 @@ class Arr:
                             requests.exceptions.ConnectionError,
                         ):
                             completed = True
-                file_model.Searched = True
-                file_model.Upgrade = True
-                file_model.save(True)
+                self.model_file.update(Searched=True, Upgrade=True).where(
+                    self.model_file.EntryId == file_model.EntryId
+                ).execute()
                 self.logger.hnotice(
                     "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
                     request_tag,
@@ -2391,9 +2391,9 @@ class Arr:
                             requests.exceptions.ConnectionError,
                         ):
                             completed = True
-                file_model.Searched = True
-                file_model.Upgrade = True
-                file_model.save(True)
+                self.model_file.update(Searched=True, Upgrade=True).where(
+                    self.model_file.EntryId == file_model.EntryId
+                ).execute()
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
                     request_tag,
@@ -2457,9 +2457,9 @@ class Arr:
                         requests.exceptions.ConnectionError,
                     ):
                         completed = True
-            file_model.Searched = True
-            file_model.Upgrade = True
-            file_model.save(True)
+            self.model_file.update(Searched=True, Upgrade=True).where(
+                self.model_file.EntryId == file_model.EntryId
+            ).execute()
             self.logger.hnotice(
                 "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
                 request_tag,
