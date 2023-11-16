@@ -861,42 +861,43 @@ class Arr:
                         try:
                             completed = False
                             data = self.client.get_episode_by_episode_id(object_id)
+                            name = data.get("title")
+                            series_id = data.get("series", {}).get("id")
+                            if name:
+                                episodeNumber = data.get("episodeNumber", 0)
+                                absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
+                                seasonNumber = data.get("seasonNumber", 0)
+                                seriesTitle = data.get("series", {}).get("title")
+                                year = data.get("series", {}).get("year", 0)
+                                tvdbId = data.get("series", {}).get("tvdbId", 0)
+                                self.logger.notice(
+                                    "Re-Searching episode: %s (%s) | "
+                                    "S%02dE%03d "
+                                    "(E%04d) | "
+                                    "%s | "
+                                    "[tvdbId=%s|id=%s]",
+                                    seriesTitle,
+                                    year,
+                                    seasonNumber,
+                                    episodeNumber,
+                                    absoluteEpisodeNumber,
+                                    name,
+                                    tvdbId,
+                                    object_id,
+                                )
+                            else:
+                                self.logger.notice(
+                                    "Re-Searching episode: %s",
+                                    object_id,
+                                )
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
+                            AttributeError,
                         ):
                             completed = True
 
-                    name = data.get("title")
-                    series_id = data.get("series", {}).get("id")
-                    if name:
-                        episodeNumber = data.get("episodeNumber", 0)
-                        absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
-                        seasonNumber = data.get("seasonNumber", 0)
-                        seriesTitle = data.get("series", {}).get("title")
-                        year = data.get("series", {}).get("year", 0)
-                        tvdbId = data.get("series", {}).get("tvdbId", 0)
-                        self.logger.notice(
-                            "Re-Searching episode: %s (%s) | "
-                            "S%02dE%03d "
-                            "(E%04d) | "
-                            "%s | "
-                            "[tvdbId=%s|id=%s]",
-                            seriesTitle,
-                            year,
-                            seasonNumber,
-                            episodeNumber,
-                            absoluteEpisodeNumber,
-                            name,
-                            tvdbId,
-                            object_id,
-                        )
-                    else:
-                        self.logger.notice(
-                            "Re-Searching episode: %s",
-                            object_id,
-                        )
                     if object_id in self.queue_file_ids:
                         self.queue_file_ids.remove(object_id)
                     completed = True
@@ -918,28 +919,29 @@ class Arr:
                     try:
                         completed = False
                         data = self.client.get_movie_by_movie_id(object_id)
+                        name = data.get("title")
+                        if name:
+                            year = data.get("year", 0)
+                            tmdbId = data.get("tmdbId", 0)
+                            self.logger.notice(
+                                "Re-Searching movie: %s (%s) | [tmdbId=%s|id=%s]",
+                                name,
+                                year,
+                                tmdbId,
+                                object_id,
+                            )
+                        else:
+                            self.logger.notice(
+                                "Re-Searching movie: %s",
+                                object_id,
+                            )
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        AttributeError,
                     ):
                         completed = True
-                name = data.get("title")
-                if name:
-                    year = data.get("year", 0)
-                    tmdbId = data.get("tmdbId", 0)
-                    self.logger.notice(
-                        "Re-Searching movie: %s (%s) | [tmdbId=%s|id=%s]",
-                        name,
-                        year,
-                        tmdbId,
-                        object_id,
-                    )
-                else:
-                    self.logger.notice(
-                        "Re-Searching movie: %s",
-                        object_id,
-                    )
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
                 completed = True
@@ -1857,8 +1859,25 @@ class Arr:
                 if not series:
                     db_entry: EpisodesModel
                     self.model_file: EpisodeFilesModel
-                    QualityUnmet = self.quality_unmet_search
-                    if db_entry.EpisodeFileId != 0 and not QualityUnmet:
+
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            EpisodeMetadata = self.client.get_episode_by_episode_id(EntryId)
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
+
+                    QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet")
+                    if (
+                        db_entry.EpisodeFileId != 0
+                        and QualityUnmet
+                        and not self.quality_unmet_search
+                    ):
                         searched = True
                         self.model_queue.update(Completed=True).where(
                             self.model_queue.EntryId == db_entry.Id
@@ -1866,18 +1885,6 @@ class Arr:
 
                     if db_entry.Monitored == 1:
                         EntryId = db_entry.Id
-
-                        completed = True
-                        while completed:
-                            try:
-                                completed = False
-                                EpisodeMetadata = self.client.get_episode_by_episode_id(EntryId)
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                            ):
-                                completed = True
 
                         SeriesTitle = EpisodeMetadata.get("series", {}).get("title")
                         SeasonNumber = db_entry.SeasonNumber
@@ -1891,7 +1898,7 @@ class Arr:
                         AirDateUtc = db_entry.AirDateUtc
                         Monitored = db_entry.Monitored
                         searched = searched
-                        QualityMet = db_entry.EpisodeFileId != 0 and not QualityUnmet
+                        QualityMet = QualityUnmet
 
                         if self.quality_unmet_search and QualityMet:
                             self.logger.trace(
@@ -2030,8 +2037,19 @@ class Arr:
                 elif self.version.major == 5:
                     db_entry: MoviesModelv5
                 searched = False
-                QualityUnmet = self.quality_unmet_search
-                if db_entry.MovieFileId != 0 and not QualityUnmet:
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        movieData = self.client.get_movie(id_=EntryId)
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
+                QualityUnmet = movieData.get("qualityCutoffNotMet")
+                if db_entry.MovieFileId != 0 and QualityUnmet and not self.quality_unmet_search:
                     searched = True
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry.Id
@@ -2074,6 +2092,7 @@ class Arr:
 
                     if request:
                         to_update[self.model_file.IsRequest] = request
+
                     self.logger.trace(
                         "Adding %s to db: [%s][Searched:%s][Upgrade:%s]",
                         title,
@@ -2081,6 +2100,7 @@ class Arr:
                         searched,
                         upgrade,
                     )
+
                     db_commands = self.model_file.insert(
                         Title=title,
                         Monitored=monitored,

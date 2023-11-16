@@ -609,7 +609,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
-            "Search by series instead of by episode",
+            "Search by series instead of by episode (This ignored the QualityUnmetSearch setting)",
             "SearchBySeries",
             True,
         )
