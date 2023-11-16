@@ -2295,9 +2295,9 @@ class Arr:
                         file_model.EntryId,
                         file_model.AirDateUtc,
                     )
-                    file_model.Searched = True
-                    file_model.Upgrade = True
-                    file_model.save(True)
+                    self.model_file.update(Searched=True, Upgrade=True).where(
+                        self.model_file.EntryId == file_model.EntryId
+                    ).execute()
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.debug(
@@ -2419,9 +2419,9 @@ class Arr:
                     file_model.TmdbId,
                     file_model.EntryId,
                 )
-                file_model.Searched = True
-                file_model.Upgrade = True
-                file_model.save(True)
+                self.model_file.update(Searched=True, Upgrade=True).where(
+                    self.model_file.EntryId == file_model.EntryId
+                ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.debug(
