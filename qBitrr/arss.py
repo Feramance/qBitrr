@@ -1864,7 +1864,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            EpisodeMetadata = self.client.get_episode_by_episode_id(EntryId)
+                            EpisodeMetadata = self.client.get_episode_by_episode_id(db_entry.Id)
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -2041,7 +2041,7 @@ class Arr:
                 while completed:
                     try:
                         completed = False
-                        movieData = self.client.get_movie(id_=EntryId)
+                        movieData = self.client.get_movie(id_=db_entry.Id)
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
