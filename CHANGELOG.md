@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.9.0-beta-0 (16/11/2023)
+
+---
+
 ## v3.8.1 (16/11/2023)
 - [[release] Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/ec2ce270bd42b0ffbbf2fc8e71b93e25efc03794) - @Feramance
 - [[release] Hotifx, bad function call](https://github.com/Feramance/qBitrr/commit/2eaaf72c60723267be4dfde335fbcb681fd51179) - @Feramance
@@ -141,7 +145,3 @@
 ---
 
 ## v3.7.13-beta-3 (25/10/2023)
-
----
-
-## v3.7.13-beta-2 (23/10/2023)
