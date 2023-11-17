@@ -2017,7 +2017,7 @@ class Arr:
 
                         self.logger.trace(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
-                            title,
+                            Title,
                             searched,
                             upgrade,
                         )
