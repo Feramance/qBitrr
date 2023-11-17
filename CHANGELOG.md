@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.8.3 (17/11/2023)
+- [[release] Release fix](https://github.com/Feramance/qBitrr/commit/8317b993cd2b1650327665b63152bb207163d01f) - @Feramance
+- [[release] Release fix and logging changes](https://github.com/Feramance/qBitrr/commit/ed3a58dae64f98d8d2add6182940688117331210) - @Feramance
+
+---
+
 ## v3.8.2 (17/11/2023)
 - [[release] Final loop hotfix](https://github.com/Feramance/qBitrr/commit/91404932645c03a8a06ee54201e1c75ccd11cf55) - @Feramance
 - [[release] Hotfix for search loop](https://github.com/Feramance/qBitrr/commit/4ababfb6ab7616fd53cf150342a3dde0db282c62) - @Feramance
@@ -144,7 +150,3 @@
 ---
 
 ## v3.7.13-beta-5 (27/10/2023)
-
----
-
-## v3.7.13-beta-4 (27/10/2023)
