@@ -2318,8 +2318,8 @@ class Arr:
                         file_model.EntryId,
                         file_model.AirDateUtc,
                     )
-                    self.model_file.update(Searched=True, Upgrade=True).where(
-                        self.model_file.EntryId == file_model.EntryId
+                    self.file_model.update(Searched=True, Upgrade=True).where(
+                        self.file_model.EntryId == file_model.EntryId
                     ).execute()
                     return True
                 active_commands = self.arr_db_query_commands_count()
@@ -2363,8 +2363,8 @@ class Arr:
                             requests.exceptions.ConnectionError,
                         ):
                             completed = True
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    self.model_file.EntryId == file_model.EntryId
+                self.file_model.update(Searched=True, Upgrade=True).where(
+                    self.file_model.EntryId == file_model.EntryId
                 ).execute()
                 self.logger.hnotice(
                     "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
@@ -2414,8 +2414,8 @@ class Arr:
                             requests.exceptions.ConnectionError,
                         ):
                             completed = True
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    self.model_file.EntryId == file_model.EntryId
+                self.file_model.update(Searched=True, Upgrade=True).where(
+                    self.file_model.EntryId == file_model.EntryId
                 ).execute()
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
@@ -2442,8 +2442,8 @@ class Arr:
                     file_model.TmdbId,
                     file_model.EntryId,
                 )
-                self.model_file.update(Searched=True, Upgrade=True).where(
-                    self.model_file.EntryId == file_model.EntryId
+                self.file_model.update(Searched=True, Upgrade=True).where(
+                    self.file_model.EntryId == file_model.EntryId
                 ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
@@ -2480,8 +2480,8 @@ class Arr:
                         requests.exceptions.ConnectionError,
                     ):
                         completed = True
-            self.model_file.update(Searched=True, Upgrade=True).where(
-                self.model_file.EntryId == file_model.EntryId
+            self.file_model.update(Searched=True, Upgrade=True).where(
+                self.file_model.EntryId == file_model.EntryId
             ).execute()
             self.logger.hnotice(
                 "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
