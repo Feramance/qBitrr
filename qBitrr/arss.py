@@ -1904,12 +1904,6 @@ class Arr:
                                 EpisodeNumber,
                             )
 
-                        self.logger.trace(
-                            "Updating database entry | %s | S%02dE%03d",
-                            SeriesTitle,
-                            SeasonNumber,
-                            EpisodeNumber,
-                        )
                         to_update = {
                             self.model_file.Monitored: Monitored,
                             self.model_file.Title: Title,
@@ -1936,6 +1930,15 @@ class Arr:
                                 to_update[self.model_file.Upgrade] = upgrade
                         except AttributeError:
                             pass
+
+                        self.logger.trace(
+                            "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s]",
+                            SeriesTitle,
+                            SeasonNumber,
+                            EpisodeNumber,
+                            searched,
+                            upgrade,
+                        )
 
                         if request:
                             to_update[self.model_file.IsRequest] = request
@@ -1993,7 +1996,7 @@ class Arr:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
-                        self.logger.trace("Updating database entry | %s | %s", Title, searched)
+
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
@@ -2011,6 +2014,13 @@ class Arr:
                                 to_update[self.series_file_model.Upgrade] = upgrade
                         except AttributeError:
                             pass
+
+                        self.logger.trace(
+                            "Updating database entry | %s [Searched:%s][Upgrade:%s]",
+                            title,
+                            searched,
+                            upgrade,
+                        )
 
                         db_commands = self.series_file_model.insert(
                             EntryId=EntryId,
@@ -2068,7 +2078,6 @@ class Arr:
                     movieFileId = db_entry.MovieFileId
                     qualityMet = QualityUnmet
 
-                    self.logger.trace("Updating database entry | %s (%s)", title, tmdbId)
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
@@ -2090,9 +2099,8 @@ class Arr:
                         to_update[self.model_file.IsRequest] = request
 
                     self.logger.trace(
-                        "Adding %s to db: [%s][Searched:%s][Upgrade:%s]",
+                        "Updating database entry | %s [Searched:%s][Upgrade:%s]",
                         title,
-                        movieFileId,
                         searched,
                         upgrade,
                     )
