@@ -1,6 +1,7 @@
 # Changelog
 
 ## v3.8.2 (17/11/2023)
+- [[release] Final loop hotfix](https://github.com/Feramance/qBitrr/commit/91404932645c03a8a06ee54201e1c75ccd11cf55) - @Feramance
 - [[release] Hotfix for search loop](https://github.com/Feramance/qBitrr/commit/4ababfb6ab7616fd53cf150342a3dde0db282c62) - @Feramance
 - [Error handling fix for radarr](https://github.com/Feramance/qBitrr/commit/9976a3c97ff26ea19dede9287bce3ccda9b6a1dd) - @Feramance
 
