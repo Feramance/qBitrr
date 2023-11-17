@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.8.4 (17/11/2023)
+- [[release] Hopefully the final fix for 3.8 before 3.9](https://github.com/Feramance/qBitrr/commit/cd55708e29a09e9a289549414713af7e42583c5d) - @Feramance
+
+---
+
 ## v3.8.3 (17/11/2023)
 - [[release] Release fix](https://github.com/Feramance/qBitrr/commit/8317b993cd2b1650327665b63152bb207163d01f) - @Feramance
 - [[release] Release fix and logging changes](https://github.com/Feramance/qBitrr/commit/ed3a58dae64f98d8d2add6182940688117331210) - @Feramance
@@ -146,7 +151,3 @@
 ---
 
 ## v3.7.13-beta-10 (30/10/2023)
-
----
-
-## v3.7.13-beta-5 (27/10/2023)
