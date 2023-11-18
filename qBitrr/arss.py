@@ -1994,12 +1994,14 @@ class Arr:
                         statistics = seriesMetadata.get("statistics")
                         if statistics:
                             if self.search_specials:
-                                episode_count = statistics.get("statistics").get(
+                                episode_count = seriesMetadata.get("statistics").get(
                                     "totalEpisodeCount"
                                 )
                             else:
-                                episode_count = statistics.get("statistics").get("episodeCount")
-                            searched = episode_count == statistics.get("statistics").get(
+                                episode_count = seriesMetadata.get("statistics").get(
+                                    "episodeCount"
+                                )
+                            searched = episode_count == seriesMetadata.get("statistics").get(
                                 "episodeFileCount"
                             )
                         else:
