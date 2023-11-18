@@ -1512,100 +1512,105 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
-            if self.type == "sonarr":
-                if not self.series_search:
-                    self.model_arr_file: EpisodesModel
-                    _series = set()
-                    if self.search_by_year:
-                        series_query = self.model_arr_file.select().where(
-                            (self.model_arr_file.AirDateUtc.is_null(False))
-                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                            & (
-                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            try:
+                if self.type == "sonarr":
+                    if not self.series_search:
+                        self.model_arr_file: EpisodesModel
+                        _series = set()
+                        if self.search_by_year:
+                            series_query = self.model_arr_file.select().where(
+                                (self.model_arr_file.AirDateUtc.is_null(False))
+                                & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                                & (
+                                    self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                                    | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                                )
+                                & (
+                                    self.model_arr_file.AirDateUtc
+                                    >= datetime(month=1, day=1, year=int(self.search_current_year))
+                                )
+                                & (
+                                    self.model_arr_file.AirDateUtc
+                                    <= datetime(
+                                        month=12, day=31, year=int(self.search_current_year)
+                                    )
+                                )
                             )
-                            & (
-                                self.model_arr_file.AirDateUtc
-                                >= datetime(month=1, day=1, year=int(self.search_current_year))
+                            if series_query:
+                                for series in series_query:
+                                    _series.add(series.SeriesId)
+                                    self.db_update_single_series(db_entry=series)
+                                for series in self.model_arr_file.select().where(
+                                    self.model_arr_file.SeriesId.in_(_series)
+                                ):
+                                    self.db_update_single_series(db_entry=series)
+                        else:
+                            series_query = self.model_arr_file.select().where(
+                                (self.model_arr_file.AirDateUtc.is_null(False))
+                                & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                                & (
+                                    self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                                    | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                                )
                             )
-                            & (
-                                self.model_arr_file.AirDateUtc
-                                <= datetime(month=12, day=31, year=int(self.search_current_year))
-                            )
-                        )
-                        if series_query:
-                            for series in series_query:
-                                _series.add(series.SeriesId)
-                                self.db_update_single_series(db_entry=series)
-                            for series in self.model_arr_file.select().where(
-                                self.model_arr_file.SeriesId.in_(_series)
-                            ):
-                                self.db_update_single_series(db_entry=series)
+                            if series_query:
+                                for series in series_query:
+                                    _series.add(series.SeriesId)
+                                    self.db_update_single_series(db_entry=series)
+                                for series in self.model_arr_file.select().where(
+                                    self.model_arr_file.SeriesId.in_(_series)
+                                ):
+                                    self.db_update_single_series(db_entry=series)
                     else:
-                        series_query = self.model_arr_file.select().where(
-                            (self.model_arr_file.AirDateUtc.is_null(False))
-                            & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                            & (
-                                self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                                | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        if self.version.major == 3:
+                            self.model_arr_series_file: SeriesModel
+                        elif self.version.major == 4:
+                            self.model_arr_series_file: SeriesModelv4
+                        for series in (
+                            self.model_arr_series_file.select()
+                            .order_by(self.model_arr_series_file.Added.desc())
+                            .execute()
+                        ):
+                            self.db_update_single_series(db_entry=series, series=True)
+                elif self.type == "radarr":
+                    if self.version.major == 4:
+                        self.model_arr_file: MoviesModel
+                    elif self.version.major == 5:
+                        self.model_arr_file: MoviesModelv5
+                    if self.search_by_year:
+                        for movies in (
+                            self.model_arr_file.select(self.model_arr_file)
+                            .join(
+                                self.model_arr_movies_file,
+                                on=(
+                                    self.model_arr_file.MovieMetadataId
+                                    == self.model_arr_movies_file.Id
+                                ),
                             )
-                        )
-                        if series_query:
-                            for series in series_query:
-                                _series.add(series.SeriesId)
-                                self.db_update_single_series(db_entry=series)
-                            for series in self.model_arr_file.select().where(
-                                self.model_arr_file.SeriesId.in_(_series)
-                            ):
-                                self.db_update_single_series(db_entry=series)
-                else:
-                    if self.version.major == 3:
-                        self.model_arr_series_file: SeriesModel
-                    elif self.version.major == 4:
-                        self.model_arr_series_file: SeriesModelv4
-                    for series in (
-                        self.model_arr_series_file.select()
-                        .order_by(self.model_arr_series_file.Added.desc())
-                        .execute()
-                    ):
-                        self.db_update_single_series(db_entry=series, series=True)
-            elif self.type == "radarr":
-                if self.version.major == 4:
-                    self.model_arr_file: MoviesModel
-                elif self.version.major == 5:
-                    self.model_arr_file: MoviesModelv5
-                if self.search_by_year:
-                    for movies in (
-                        self.model_arr_file.select(self.model_arr_file)
-                        .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
-                        )
-                        .switch(self.model_arr_file)
-                        .where(self.model_arr_movies_file.Year == self.search_current_year)
-                        .order_by(self.model_arr_file.Added.desc())
-                        .execute()
-                    ):
-                        self.db_update_single_series(db_entry=movies)
+                            .switch(self.model_arr_file)
+                            .where(self.model_arr_movies_file.Year == self.search_current_year)
+                            .order_by(self.model_arr_file.Added.desc())
+                            .execute()
+                        ):
+                            self.db_update_single_series(db_entry=movies)
 
-                else:
-                    for movies in (
-                        self.model_arr_file.select(self.model_arr_file)
-                        .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
-                        )
-                        .switch(self.model_arr_file)
-                        .order_by(self.model_arr_file.Added.desc())
-                        .execute()
-                    ):
-                        self.db_update_single_series(db_entry=movies)
+                    else:
+                        for movies in (
+                            self.model_arr_file.select(self.model_arr_file)
+                            .join(
+                                self.model_arr_movies_file,
+                                on=(
+                                    self.model_arr_file.MovieMetadataId
+                                    == self.model_arr_movies_file.Id
+                                ),
+                            )
+                            .switch(self.model_arr_file)
+                            .order_by(self.model_arr_file.Added.desc())
+                            .execute()
+                        ):
+                            self.db_update_single_series(db_entry=movies)
+            except peewee.DatabaseError:
+                self.logger.error("Database disk image malformed")
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
