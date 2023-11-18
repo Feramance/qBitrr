@@ -1984,16 +1984,25 @@ class Arr:
                         while completed:
                             try:
                                 completed = False
-                                seriesMetadata = self.client.get_series(id_=EntryId)
+                                seriesMetadata = self.client.get_series(id_=EntryId).json()
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                             ):
                                 completed = True
-                        statistics = seriesMetadata.get("statistics")
+                        self.logger.info(
+                            "%s | Episodes:%s | Files:%s",
+                            db_entry.Title,
+                            seriesMetadata["statistics"]["episodeCount"],
+                            seriesMetadata["statistics"]["episodeFileCount"],
+                        )
+                        statistics = seriesMetadata("statistics")
                         if statistics:
-                            episode_count = statistics.get("episodeCount")
+                            if self.search_specials:
+                                episode_count = statistics.get("totalEpisodeCount")
+                            else:
+                                episode_count = statistics.get("episodeCount")
                             searched = episode_count == statistics.get("episodeFileCount")
                         else:
                             episode_count = 0
