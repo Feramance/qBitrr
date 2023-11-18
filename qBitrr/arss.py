@@ -1991,22 +1991,18 @@ class Arr:
                                 requests.exceptions.ConnectionError,
                             ):
                                 completed = True
-                        self.logger.info(
-                            "%s | Episodes:%s | Files:%s",
-                            db_entry.Title,
-                            seriesMetadata.get("statistics").get("episodeCount"),
-                            seriesMetadata.get("statistics").get("episodeFileCount"),
-                        )
-                        statistics = seriesMetadata("statistics")
+                        statistics = seriesMetadata.get("statistics")
                         if statistics:
                             if self.search_specials:
-                                episode_count = statistics.get("totalEpisodeCount")
+                                episode_count = statistics.get("statistics").get(
+                                    "totalEpisodeCount"
+                                )
                             else:
-                                episode_count = statistics.get("episodeCount")
-                            searched = episode_count == statistics.get("episodeFileCount")
+                                episode_count = statistics.get("statistics").get("episodeCount")
+                            searched = episode_count == statistics.get("statistics").get(
+                                "episodeFileCount"
+                            )
                         else:
-                            episode_count = 0
-                        if episode_count == 0:
                             searched = True
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
