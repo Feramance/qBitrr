@@ -2559,8 +2559,8 @@ class Arr:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 exceptionstr = str(e)
                 if (
-                    exceptionstr.find(JSONDecodeError) != 0
-                    or exceptionstr.find(AttributeError) != 0
+                    exceptionstr.find("JSONDecodeError") != 0
+                    or exceptionstr.find("AttributeError") != 0
                 ):
                     self.logger.info("Torrent still connecting to trackers")
                 else:
