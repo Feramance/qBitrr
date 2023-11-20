@@ -1232,6 +1232,12 @@ class Arr:
                 .execute()
             ):
                 self.logger.trace("Getting %s | %s", entry_.Title, entry_.Searched)
+            for entry_ in (
+                self.series_file_model.select()
+                .where(condition)
+                .order_by(self.series_file_model.EntryId.asc())
+                .execute()
+            ):
                 yield entry_, False, False
 
     def db_get_files_episodes(
