@@ -480,7 +480,7 @@ class Arr:
                 )
 
             if self.type == "sonarr":
-                if self.quality_unmet_search:
+                if self.quality_unmet_search or self.do_upgrade_search:
                     self.search_api_command = "SeriesSearch"
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
@@ -2400,6 +2400,11 @@ class Arr:
             else:
                 file_model: SeriesFilesModel
                 active_commands = self.arr_db_query_commands_count()
+                self.logger.trace(
+                    "Starting search for: %s | [id=%s]",
+                    file_model.Title,
+                    file_model.EntryId,
+                )
                 self.logger.debug(
                     "%s%s active search commands",
                     request_tag,
@@ -3862,13 +3867,13 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif (
                                 datetime.now() >= (timer + loop_timer)
-                            ) or self.arr_db_query_commands_count() == 0:
+                            ) or self.arr_db_query_commands_count == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                         elif (
                             datetime.now() >= (timer + loop_timer)
-                        ) or self.arr_db_query_commands_count() == 0:
+                        ) or self.arr_db_query_commands_count == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
