@@ -3881,6 +3881,9 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
+                            self.logger.trace(
+                                "Running search for %s | %s", entry.Title, entry.Searched
+                            )
                             while (
                                 self.maybe_do_search(
                                     entry,
