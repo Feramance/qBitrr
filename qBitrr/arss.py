@@ -1096,6 +1096,30 @@ class Arr:
                     completed = True
             self.refresh_downloads_timer_last_checked = now
 
+    def remaining_to_search(self) -> int:
+        if not self.search_missing:
+            return 0
+        try:
+            if self.type == "sonarr" and self.series_search:
+                to_search = (
+                    self.series_file_model.select()
+                    .where(self.series_file_model.Searched == True)
+                    .count()
+                )
+            elif self.type == "sonarr" and not self.series_search:
+                to_search = (
+                    self.model_file.select().where(self.model_file.Searched == True).count()
+                )
+            elif self.type == "radarr":
+                to_search = (
+                    self.model_file.select().where(self.model_file.Searched == True).count()
+                )
+        except peewee.DatabaseError:
+            self.logger.trace("No remaining searches found")
+            to_search = 0
+
+        return to_search
+
     def arr_db_query_commands_count(self) -> int:
         if not self.search_missing:
             return 0
@@ -1140,9 +1164,6 @@ class Arr:
     ]:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
-                self.logger.trace("Sending 1 %s | %s", i1.Title, i1.Searched)
-            for i1, i2, i3 in self.db_get_files_series():
-                self.logger.trace("Sending 2 %s | %s", i1.Title, i1.Searched)
                 yield i1, i2, i3, i3 is not True
         elif self.type == "sonarr" and not self.series_search:
             for i1, i2, i3 in self.db_get_files_episodes():
@@ -1228,13 +1249,6 @@ class Arr:
                 condition = self.series_file_model.Searched == False
             else:
                 condition = self.series_file_model.Upgrade == False
-            for entry_ in (
-                self.series_file_model.select()
-                .where(condition)
-                .order_by(self.series_file_model.EntryId.asc())
-                .execute()
-            ):
-                self.logger.trace("Getting %s | %s", entry_.Title, entry_.Searched)
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -3872,17 +3886,23 @@ class Arr:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
                             elif (
-                                datetime.now() >= (timer + loop_timer)
-                            ) or self.arr_db_query_commands_count == 0:
+                                (datetime.now() >= (timer + loop_timer))
+                                or self.arr_db_query_commands_count() == 0
+                            ) and self.remaining_to_search() == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                         elif (
-                            datetime.now() >= (timer + loop_timer)
-                        ) or self.arr_db_query_commands_count == 0:
+                            (datetime.now() >= (timer + loop_timer))
+                            or self.arr_db_query_commands_count() == 0
+                        ) and self.remaining_to_search() == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
+                        for entry, todays, limit_bypass, series_search in self.db_get_files():
+                            self.logger.trace(
+                                "Running search for %s | %s", entry.Title, entry.Searched
+                            )
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
                             self.logger.trace(
                                 "Running search for %s | %s", entry.Title, entry.Searched
