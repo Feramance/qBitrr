@@ -1224,13 +1224,14 @@ class Arr:
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
             else:
-                condition &= self.series_file_model.Upgrade == False
+                condition = self.series_file_model.Upgrade == False
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
+                self.logger.trace("Getting %s | %s", entry_.Title, entry_.Searched)
                 yield entry_, False, False
 
     def db_get_files_episodes(
