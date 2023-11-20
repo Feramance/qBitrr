@@ -3546,13 +3546,22 @@ class Arr:
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
         if self.type == "sonarr":
-            self.requeue_cache = defaultdict(set)
-            for entry in self.queue:
-                if r := entry.get("episodeId"):
-                    self.requeue_cache[entry["id"]].add(r)
-            self.queue_file_ids = {
-                entry["episodeId"] for entry in self.queue if entry.get("episodeId")
-            }
+            if not self.series_search:
+                self.requeue_cache = defaultdict(set)
+                for entry in self.queue:
+                    if r := entry.get("episodeId"):
+                        self.requeue_cache[entry["id"]].add(r)
+                self.queue_file_ids = {
+                    entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+                }
+            else:
+                self.requeue_cache = defaultdict(set)
+                for entry in self.queue:
+                    if r := entry.get("seriesId"):
+                        self.requeue_cache[entry["id"]].add(r)
+                self.queue_file_ids = {
+                    entry["seriesId"] for entry in self.queue if entry.get("seriesId")
+                }
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -3900,13 +3909,6 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.trace(
-                                "Running search for %s | %s", entry.Title, entry.Searched
-                            )
-                        for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.trace(
-                                "Running search for %s | %s", entry.Title, entry.Searched
-                            )
                             while (
                                 self.maybe_do_search(
                                     entry,
