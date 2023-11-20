@@ -1140,6 +1140,7 @@ class Arr:
     ]:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
+                self.logger.trace("Sending %s | %s", i1.Title, i1.Searched)
                 yield i1, i2, i3, i3 is not True
         elif self.type == "sonarr" and not self.series_search:
             for i1, i2, i3 in self.db_get_files_episodes():
