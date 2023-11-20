@@ -1096,30 +1096,6 @@ class Arr:
                     completed = True
             self.refresh_downloads_timer_last_checked = now
 
-    def remaining_to_search(self) -> int:
-        if not self.search_missing:
-            return 0
-        try:
-            if self.type == "sonarr" and self.series_search:
-                to_search = (
-                    self.series_file_model.select()
-                    .where(self.series_file_model.Searched == True)
-                    .count()
-                )
-            elif self.type == "sonarr" and not self.series_search:
-                to_search = (
-                    self.model_file.select().where(self.model_file.Searched == True).count()
-                )
-            elif self.type == "radarr":
-                to_search = (
-                    self.model_file.select().where(self.model_file.Searched == True).count()
-                )
-        except peewee.DatabaseError:
-            self.logger.trace("No remaining searches found")
-            to_search = 0
-
-        return to_search
-
     def arr_db_query_commands_count(self) -> int:
         if not self.search_missing:
             return 0
@@ -2444,7 +2420,7 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                if file_model.EntryId not in self.queue_file_ids:
+                if file_model.EntryId:
                     completed = True
                     while completed:
                         try:
@@ -3546,22 +3522,13 @@ class Arr:
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
         if self.type == "sonarr":
-            if not self.series_search:
-                self.requeue_cache = defaultdict(set)
-                for entry in self.queue:
-                    if r := entry.get("episodeId"):
-                        self.requeue_cache[entry["id"]].add(r)
-                self.queue_file_ids = {
-                    entry["episodeId"] for entry in self.queue if entry.get("episodeId")
-                }
-            else:
-                self.requeue_cache = defaultdict(set)
-                for entry in self.queue:
-                    if r := entry.get("seriesId"):
-                        self.requeue_cache[entry["id"]].add(r)
-                self.queue_file_ids = {
-                    entry["seriesId"] for entry in self.queue if entry.get("seriesId")
-                }
+            self.requeue_cache = defaultdict(set)
+            for entry in self.queue:
+                if r := entry.get("episodeId"):
+                    self.requeue_cache[entry["id"]].add(r)
+            self.queue_file_ids = {
+                entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+            }
         elif self.type == "radarr":
             self.requeue_cache = {
                 entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -3895,16 +3862,14 @@ class Arr:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
                             elif (
-                                (datetime.now() >= (timer + loop_timer))
-                                or self.arr_db_query_commands_count() == 0
-                            ) and self.remaining_to_search() == 0:
+                                datetime.now() >= (timer + loop_timer)
+                            ) or self.arr_db_query_commands_count() == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                         elif (
-                            (datetime.now() >= (timer + loop_timer))
-                            or self.arr_db_query_commands_count() == 0
-                        ) and self.remaining_to_search() == 0:
+                            datetime.now() >= (timer + loop_timer)
+                        ) or self.arr_db_query_commands_count() == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
