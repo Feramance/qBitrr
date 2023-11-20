@@ -2408,7 +2408,7 @@ class Arr:
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
                     self.logger.trace(
-                        "%sIdle: Too many commands in queue: %s | %[id=%s]",
+                        "%sIdle: Too many commands in queue: %s | [id=%s]",
                         request_tag,
                         file_model.Title,
                         file_model.EntryId,
@@ -2459,8 +2459,6 @@ class Arr:
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
                     file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
                     file_model.EntryId,
                 )
                 file_model.update(Searched=True, Upgrade=True).where(
@@ -2475,11 +2473,9 @@ class Arr:
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "%sSkipping: Too many in queue: %s (%s) [tmdbId=%s|id=%s]",
+                    "%sIdle: Too many commands in queue: %s | [id=%s]",
                     request_tag,
                     file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
                     file_model.EntryId,
                 )
                 return False
