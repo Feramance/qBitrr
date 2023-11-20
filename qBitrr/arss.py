@@ -2400,11 +2400,6 @@ class Arr:
             else:
                 file_model: SeriesFilesModel
                 active_commands = self.arr_db_query_commands_count()
-                self.logger.trace(
-                    "Starting search for: %s | [id=%s]",
-                    file_model.Title,
-                    file_model.EntryId,
-                )
                 self.logger.debug(
                     "%s%s active search commands",
                     request_tag,
