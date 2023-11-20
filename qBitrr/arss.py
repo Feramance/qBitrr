@@ -2420,20 +2420,19 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                if file_model.EntryId:
-                    completed = True
-                    while completed:
-                        try:
-                            completed = False
-                            self.client.post_command(
-                                self.search_api_command, seriesId=file_model.EntryId
-                            )
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                        ):
-                            completed = True
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        self.client.post_command(
+                            self.search_api_command, seriesId=file_model.EntryId
+                        )
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
                 file_model.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
