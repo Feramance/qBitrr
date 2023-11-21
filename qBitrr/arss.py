@@ -2537,7 +2537,6 @@ class Arr:
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
             except qbittorrentapi.exceptions.APIError as e:
-                self.logger.error("The qBittorrent API returned an unexpected error")
                 exceptionstr = str(e)
                 if (
                     exceptionstr.find("JSONDecodeError") != 0
@@ -2545,11 +2544,11 @@ class Arr:
                 ):
                     self.logger.info("Torrent still connecting to trackers")
                 else:
+                    self.logger.error("The qBittorrent API returned an unexpected error")
                     self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
+                    raise DelayLoopException(length=300, type="qbit")
             except (AttributeError, JSONDecodeError):
                 self.logger.info("Torrent still connecting to trackers")
-                raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
