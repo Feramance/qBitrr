@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.8.6 (21/11/2023)
+- [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/3d8b8a32663ec996e746f6aafeb2ee2eb60d3e71) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/cb477b3410e4edd52e5fecd7ff39faf80916f8e8) - @Feramance
+- [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/0506ec53b878e65a0d55b0ad1297b4bb29090101) - @Feramance
+
+---
+
 ## v3.8.5 (20/11/2023)
 - [[release] Release commit](https://github.com/Feramance/qBitrr/commit/6078ab5992f949e8d5fc473bb6ac5d65e6939ca5) - @Feramance
 - [Series search final fix](https://github.com/Feramance/qBitrr/commit/00ec3ccdf1f5c27ac45557d7b5df8f8f7164954b) - @Feramance
@@ -169,7 +176,3 @@
 ---
 
 ## v3.7.13-beta-12 (30/10/2023)
-
----
-
-## v3.7.13-beta-11 (30/10/2023)
