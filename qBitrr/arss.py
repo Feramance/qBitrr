@@ -1536,14 +1536,6 @@ class Arr:
                                     )
                                 )
                             )
-                            if series_query:
-                                for series in series_query:
-                                    _series.add(series.SeriesId)
-                                    self.db_update_single_series(db_entry=series)
-                                for series in self.model_arr_file.select().where(
-                                    self.model_arr_file.SeriesId.in_(_series)
-                                ):
-                                    self.db_update_single_series(db_entry=series)
                         else:
                             series_query = self.model_arr_file.select().where(
                                 (self.model_arr_file.AirDateUtc.is_null(False))
@@ -1553,14 +1545,14 @@ class Arr:
                                     | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
                                 )
                             )
-                            if series_query:
-                                for series in series_query:
-                                    _series.add(series.SeriesId)
-                                    self.db_update_single_series(db_entry=series)
-                                for series in self.model_arr_file.select().where(
-                                    self.model_arr_file.SeriesId.in_(_series)
-                                ):
-                                    self.db_update_single_series(db_entry=series)
+                        if series_query:
+                            for series in series_query:
+                                _series.add(series.SeriesId)
+                                self.db_update_single_series(db_entry=series)
+                            for series in self.model_arr_file.select().where(
+                                self.model_arr_file.SeriesId.in_(_series)
+                            ):
+                                self.db_update_single_series(db_entry=series)
                     else:
                         if self.version.major == 3:
                             self.model_arr_series_file: SeriesModel
@@ -1994,16 +1986,10 @@ class Arr:
                         statistics = seriesMetadata.get("statistics")
                         if statistics:
                             if self.search_specials:
-                                episode_count = seriesMetadata.get("statistics").get(
-                                    "totalEpisodeCount"
-                                )
+                                episode_count = seriesMetadata.get("totalEpisodeCount")
                             else:
-                                episode_count = seriesMetadata.get("statistics").get(
-                                    "episodeCount"
-                                )
-                            searched = episode_count == seriesMetadata.get("statistics").get(
-                                "episodeFileCount"
-                            )
+                                episode_count = seriesMetadata.get("episodeCount")
+                            searched = episode_count == seriesMetadata.get("episodeFileCount")
                         else:
                             searched = True
                         Title = seriesMetadata.get("title")
