@@ -2440,7 +2440,7 @@ class Arr:
                 queue = False
             if queue:
                 self.logger.debug(
-                    "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
+                    "%sSkipping: Already Searched: %s (%s)",
                     request_tag,
                     file_model.Title,
                     file_model.EntryId,
