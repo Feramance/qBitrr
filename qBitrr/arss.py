@@ -480,7 +480,7 @@ class Arr:
                 )
 
             if self.type == "sonarr":
-                if self.quality_unmet_search:
+                if self.quality_unmet_search or self.do_upgrade_search:
                     self.search_api_command = "SeriesSearch"
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
@@ -1224,7 +1224,7 @@ class Arr:
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
             else:
-                condition &= self.series_file_model.Upgrade == False
+                condition = self.series_file_model.Upgrade == False
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -2393,7 +2393,7 @@ class Arr:
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
                     self.logger.trace(
-                        "%sIdle: Too many commands in queue: %s | %[id=%s]",
+                        "%sIdle: Too many commands in queue: %s | [id=%s]",
                         request_tag,
                         file_model.Title,
                         file_model.EntryId,
@@ -2406,20 +2406,19 @@ class Arr:
                     Completed=False,
                     EntryId=file_model.EntryId,
                 ).on_conflict_replace().execute()
-                if file_model.EntryId not in self.queue_file_ids:
-                    completed = True
-                    while completed:
-                        try:
-                            completed = False
-                            self.client.post_command(
-                                self.search_api_command, seriesId=file_model.EntryId
-                            )
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                        ):
-                            completed = True
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        self.client.post_command(
+                            self.search_api_command, seriesId=file_model.EntryId
+                        )
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
                 file_model.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
@@ -2444,8 +2443,6 @@ class Arr:
                     "%sSkipping: Already Searched: %s (%s) [tmdbId=%s|id=%s]",
                     request_tag,
                     file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
                     file_model.EntryId,
                 )
                 file_model.update(Searched=True, Upgrade=True).where(
@@ -2460,11 +2457,9 @@ class Arr:
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "%sSkipping: Too many in queue: %s (%s) [tmdbId=%s|id=%s]",
+                    "%sIdle: Too many commands in queue: %s | [id=%s]",
                     request_tag,
                     file_model.Title,
-                    file_model.Year,
-                    file_model.TmdbId,
                     file_model.EntryId,
                 )
                 return False
@@ -2543,11 +2538,17 @@ class Arr:
                 return self._temp_overseer_request_cache
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                exceptionstr = str(e)
+                if (
+                    exceptionstr.find("JSONDecodeError") != 0
+                    or exceptionstr.find("AttributeError") != 0
+                ):
+                    self.logger.info("Torrent still connecting to trackers")
+                else:
+                    self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except (AttributeError, JSONDecodeError) as e:
+            except (AttributeError, JSONDecodeError):
                 self.logger.info("Torrent still connecting to trackers")
-                self.logger.debug("No trackers found yet", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
@@ -3847,13 +3848,13 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif (
                                 datetime.now() >= (timer + loop_timer)
-                            ) or self.arr_db_query_commands_count == 0:
+                            ) or self.arr_db_query_commands_count() == 0:
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
                         elif (
                             datetime.now() >= (timer + loop_timer)
-                        ) or self.arr_db_query_commands_count == 0:
+                        ) or self.arr_db_query_commands_count() == 0:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
