@@ -1171,11 +1171,11 @@ class Arr:
             ).execute()
             try:
                 Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
+                self.series_file_model.delete().where(
+                    self.series_file_model.EntryId.not_in(Ids)
+                ).execute()
             except peewee.DatabaseError:
                 self.logger.error("Database disk image malformed")
-            self.series_file_model.delete().where(
-                self.series_file_model.EntryId.not_in(Ids)
-            ).execute()
 
     def db_reset__episode_searched_state(self):
         self.model_file: EpisodeFilesModel
@@ -1187,9 +1187,9 @@ class Arr:
             ).execute()
             try:
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
+                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
             except peewee.DatabaseError:
                 self.logger.error("Database disk image malformed")
-            self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
 
     def db_reset__movie_searched_state(self):
         self.model_file: MoviesFilesModel
@@ -1201,9 +1201,9 @@ class Arr:
             ).execute()
             try:
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
+                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
             except peewee.DatabaseError:
                 self.logger.error("Database disk image malformed")
-            self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
 
     def db_get_files_series(
         self,
