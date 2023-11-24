@@ -1175,7 +1175,7 @@ class Arr:
                     self.series_file_model.EntryId.not_in(Ids)
                 ).execute()
             except peewee.DatabaseError:
-                self.logger.error("Database disk image malformed")
+                self.logger.error("Database error")
 
     def db_reset__episode_searched_state(self):
         self.model_file: EpisodeFilesModel
@@ -1189,7 +1189,7 @@ class Arr:
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
                 self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
             except peewee.DatabaseError:
-                self.logger.error("Database disk image malformed")
+                self.logger.error("Database error")
 
     def db_reset__movie_searched_state(self):
         self.model_file: MoviesFilesModel
@@ -1203,7 +1203,7 @@ class Arr:
                 Ids = [id.Id for id in self.model_arr_file.select().execute()]
                 self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
             except peewee.DatabaseError:
-                self.logger.error("Database disk image malformed")
+                self.logger.error("Database error")
 
     def db_get_files_series(
         self,
@@ -1611,7 +1611,7 @@ class Arr:
                         ):
                             self.db_update_single_series(db_entry=movies)
             except peewee.DatabaseError:
-                self.logger.error("Database disk image malformed")
+                self.logger.error("Database error")
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
