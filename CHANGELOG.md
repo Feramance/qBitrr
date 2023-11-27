@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.8.7 (27/11/2023)
+- [[release] Update PyPi description](https://github.com/Feramance/qBitrr/commit/d2990eec4e02f6edb30c8215d48286720fe20af7) - @Feramance
+- [README update](https://github.com/Feramance/qBitrr/commit/f56a7cf4454e4a93e2a522d8d1611f80af6e5818) - @Feramance
+- [Update README and pre-commit all files](https://github.com/Feramance/qBitrr/commit/86555d0ce5cc872c3a9e005e691a429a3abee172) - @Feramance
+
+---
+
 ## v3.8.7-beta-1 (27/11/2023)
 
 ---
@@ -172,7 +179,3 @@
 ---
 
 ## v3.7.13-beta-14 (30/10/2023)
-
----
-
-## v3.7.13-beta-13 (30/10/2023)
