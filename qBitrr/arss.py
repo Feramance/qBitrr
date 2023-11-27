@@ -3514,6 +3514,7 @@ class Arr:
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
+        self.model_queue.delete().where(self.model_queue.EntryId.not_in(self.cache))
         if self.type == "sonarr":
             self.requeue_cache = defaultdict(set)
             for entry in self.queue:
