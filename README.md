@@ -104,7 +104,7 @@ docker run -d \
   -v /path/to/radarr/db:/databases/radarr.db:ro \
   -v /path/to/completed/downloads/folder:/completed_downloads:rw \
   --restart unless-stopped \
-  feramance/qbitrr
+  feramance/qbitrr:latest
 ```
 
 #### Docker Compose
