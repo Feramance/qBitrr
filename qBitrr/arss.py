@@ -2557,7 +2557,7 @@ class Arr:
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except (AttributeError, JSONDecodeError):
-                self.logger.info("Torrent still connecting to trackers")
+                self.logger.info("Torrent still connecting to trackers %s", torrents)
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
