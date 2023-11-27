@@ -113,7 +113,7 @@ docker run -d \
 version: "3"
 services:
   qbitrr:
-    image: feramance/qbitrr
+    image: feramance/qbitrr:latest
     user: 1000:1000 # Required to ensure teh container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
     tty: true # Ensure the output of docker-compose logs qBitrr are properly colored.
     restart: unless-stopped
