@@ -1,5 +1,9 @@
 # Changelog
 
+## v3.8.7-beta-1 (27/11/2023)
+
+---
+
 ## v3.8.6 (21/11/2023)
 - [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/3d8b8a32663ec996e746f6aafeb2ee2eb60d3e71) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/cb477b3410e4edd52e5fecd7ff39faf80916f8e8) - @Feramance
@@ -172,7 +176,3 @@
 ---
 
 ## v3.7.13-beta-13 (30/10/2023)
-
----
-
-## v3.7.13-beta-12 (30/10/2023)
