@@ -8,7 +8,7 @@ attrs==23.1.0
     # via environ-config
 cachetools==4.2.4
     # via qBitrr2 (setup.py)
-certifi==2023.7.22
+certifi==2023.11.17
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -28,7 +28,7 @@ future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-idna==3.4
+idna==3.6
     # via requests
 jaraco-context==4.3.0
     # via jaraco-docker

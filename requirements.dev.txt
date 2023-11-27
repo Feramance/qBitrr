@@ -16,7 +16,7 @@ bump2version==1.0.1
     # via qBitrr2 (setup.py)
 cachetools==4.2.4
     # via qBitrr2 (setup.py)
-certifi==2023.7.22
+certifi==2023.11.17
     # via requests
 cfgv==3.4.0
     # via pre-commit
@@ -53,9 +53,9 @@ future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.31
+identify==2.5.32
     # via pre-commit
-idna==3.4
+idna==3.6
     # via requests
 importlib-metadata==6.8.0
     # via
@@ -106,7 +106,7 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.9.6
     # via twine
-platformdirs==3.11.0
+platformdirs==4.0.0
     # via
     #   black
     #   virtualenv
@@ -118,7 +118,7 @@ pre-commit==3.3.3
     # via qBitrr2 (setup.py)
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
-pygments==2.16.1
+pygments==2.17.2
     # via readme-renderer
 pyinstaller==4.8
     # via qBitrr2 (setup.py)
@@ -180,9 +180,9 @@ urllib3==2.1.0
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.24.6
+virtualenv==20.24.7
     # via pre-commit
-wheel==0.41.3
+wheel==0.42.0
     # via pip-tools
 zipp==3.17.0
     # via importlib-metadata
