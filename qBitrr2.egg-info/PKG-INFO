@@ -68,7 +68,6 @@ Requires-Dist: ujson==5.4.0; extra == "all"
 Requires-Dist: upgrade-pip==0.1.4; extra == "all"
 Requires-Dist: ujson==5.4.0; extra == "all"
 
-
 # qBitrr
 
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
@@ -83,6 +82,7 @@ Requires-Dist: ujson==5.4.0; extra == "all"
 [![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml)
 [![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
 [![Update dockerhub](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml)
+[![Nightly Build](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
@@ -173,7 +173,7 @@ docker run -d \
   -v /path/to/radarr/db:/databases/radarr.db:ro \
   -v /path/to/completed/downloads/folder:/completed_downloads:rw \
   --restart unless-stopped \
-  feramance/qbitrr
+  feramance/qbitrr:latest
 ```
 
 #### Docker Compose
@@ -182,7 +182,7 @@ docker run -d \
 version: "3"
 services:
   qbitrr:
-    image: feramance/qbitrr
+    image: feramance/qbitrr:latest
     user: 1000:1000 # Required to ensure teh container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
     tty: true # Ensure the output of docker-compose logs qBitrr are properly colored.
     restart: unless-stopped
