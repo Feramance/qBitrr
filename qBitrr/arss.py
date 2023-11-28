@@ -3572,7 +3572,6 @@ class Arr:
                 res = self.client.get_queue(
                     page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
                 )
-                res = res.get("records", [])
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
