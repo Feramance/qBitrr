@@ -2564,8 +2564,8 @@ class Arr:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except (AttributeError, JSONDecodeError):
-                self.logger.info("Torrent still connecting to trackers")
+            # except (AttributeError, JSONDecodeError):
+            #     self.logger.info("Torrent still connecting to trackers")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -3577,12 +3577,9 @@ class Arr:
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
-                JSONDecodeError,
-                AttributeError,
             ) as e:
-                self.logger.error("Get queue error: %s", res)
-                self.logger.error(exc_info=e)
                 completed = True
+        res = res.get("records", [])
         return res
 
     def _update_bad_queue_items(self):
