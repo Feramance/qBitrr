@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.8.8 (28/11/2023)
+- [[release] Critical torrent handling fix](https://github.com/Feramance/qBitrr/commit/17dd21ea564bddcb778e16199c36cf80a29daeb4) - @Feramance
+- [Error fix 2](https://github.com/Feramance/qBitrr/commit/a1a4292d6c9b41140640cc0492184861ca579980) - @Feramance
+- [Error fix 1](https://github.com/Feramance/qBitrr/commit/7049e2f600405b73f67eb4078dd4ce075ced1b4c) - @Feramance
+- [More debugging](https://github.com/Feramance/qBitrr/commit/6c12cc0e905b8c1f53789d8b4594c3ef160e2f76) - @Feramance
+- [The debugging continues](https://github.com/Feramance/qBitrr/commit/222a75acccd9069df652c8d0f9e251677b825849) - @Feramance
+- [Fixing queue delete issue](https://github.com/Feramance/qBitrr/commit/61937ca1e9699a3b75c542d0f204496a5eb7ef59) - @Feramance
+- [Debugging continues ...](https://github.com/Feramance/qBitrr/commit/437ee0ec7c258364ae132419c8fafb1d169080f3) - @Feramance
+- [Debug updates](https://github.com/Feramance/qBitrr/commit/6503c634bd425c8661988b4b2189d754e6498de4) - @Feramance
+- [Update qbit version](https://github.com/Feramance/qBitrr/commit/b519c6b2c351a5cb3c2eaa2482c5f4036e37b486) - @Feramance
+- [Added debug logs](https://github.com/Feramance/qBitrr/commit/75536cac848af566c86f192d65d445e2d3159731) - @Feramance
+
+---
+
 ## v3.8.8-beta-1 (27/11/2023)
 
 ---
@@ -175,7 +189,3 @@
 ---
 
 ## v3.7.13-beta-8 (30/10/2023)
-
----
-
-## v3.7.13-beta-7 (30/10/2023)
