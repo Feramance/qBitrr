@@ -3524,8 +3524,6 @@ class Arr:
         self.cache = {
             entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
         }
-        self.logger.debug("Test 3")
-        self.model_queue.delete().where(self.model_queue.EntryId.not_in(self.cache))
         self.logger.debug("Test 4")
         if self.type == "sonarr":
             self.requeue_cache = defaultdict(set)
@@ -3535,6 +3533,8 @@ class Arr:
             self.queue_file_ids = {
                 entry["episodeId"] for entry in self.queue if entry.get("episodeId")
             }
+            self.logger.debug("Test 3")
+            self.model_queue.delete().where(self.model_queue.EntryId.not_in(self.queue_file_ids))
         elif self.type == "radarr":
             self.logger.debug("Test 5")
             self.requeue_cache = {
@@ -3544,6 +3544,8 @@ class Arr:
             self.queue_file_ids = {
                 entry["movieId"] for entry in self.queue if entry.get("movieId")
             }
+            self.logger.debug("Test 3")
+            self.model_queue.delete().where(self.model_queue.EntryId.not_in(self.queue_file_ids))
             self.logger.debug("Test 7")
 
         self._update_bad_queue_items()
