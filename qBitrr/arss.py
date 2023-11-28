@@ -2143,7 +2143,7 @@ class Arr:
                 )
             elif self.type == "radarr":
                 self.logger.warning(
-                    "Error getting movie info: [%s][%s]", db_entry.Id, movieMetadata.Title
+                    "Error getting movie info: [%s][%s]", db_entry.Id, db_entry.Path
                 )
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
@@ -3554,19 +3554,19 @@ class Arr:
             completed = False
             try:
                 res = self.client.get_queue(
-                    page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
+                    # page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
                 )
+                res = res.get("records", [])
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ):
+                AttributeError,
+            ) as e:
+                self.logger.error("Get queue error: %s", res)
+                self.logger.error(exc_info=e)
                 completed = True
-        try:
-            res = res.get("records", [])
-        except AttributeError:
-            pass
         return res
 
     def _update_bad_queue_items(self):
