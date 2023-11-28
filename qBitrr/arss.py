@@ -2525,18 +2525,26 @@ class Arr:
                 torrents = self.manager.qbit_manager.client.torrents.info(
                     status_filter="all", category=self.category, sort="added_on", reverse=False
                 )
+                self.logger.debug("Collected data from qbittorrent")
                 torrents = [t for t in torrents if hasattr(t, "category")]
+                self.logger.debug("Filtered torrents with category")
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
+                self.logger.debug("Checked list length")
                 if has_internet() is False:
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                self.logger.debug("Checked for internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                self.logger.debug("Starting api calls")
                 self.api_calls()
+                self.logger.debug("Finished api calls, refreshing download queue")
                 self.refresh_download_queue()
+                self.logger.debug("Refreshed queue, processing torrents")
                 for torrent in torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
+                        self.logger.debug("Processing %s", torrent)
                         self._process_single_torrent(torrent)
                 self.process()
             except NoConnectionrException as e:
@@ -2557,7 +2565,7 @@ class Arr:
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except (AttributeError, JSONDecodeError):
-                self.logger.info("Torrent still connecting to trackers %s", torrents)
+                self.logger.info("Torrent still connecting to trackers")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
