@@ -16,3 +16,4 @@ build.bat
 /main.exe
 .run/
 .vscode/
+test.py
