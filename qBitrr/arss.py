@@ -1888,7 +1888,7 @@ class Arr:
                             self.model_queue.EntryId == db_entry.Id
                         ).execute()
 
-                    if db_entry.Monitored == 1:
+                    if db_entry.Monitored == True:
                         EntryId = db_entry.Id
 
                         SeriesTitle = EpisodeMetadata.get("series", {}).get("title")
@@ -1983,7 +1983,7 @@ class Arr:
                         db_entry: SeriesModelv4
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry.Id
-                    if db_entry.Monitored == 1:
+                    if db_entry.Monitored == True:
                         completed = True
                         while completed:
                             try:
@@ -2100,7 +2100,7 @@ class Arr:
 
                 if (
                     self.minimum_availability_check(db_entry, movieMetadata)
-                    and db_entry.Monitored == 1
+                    and db_entry.Monitored == True
                 ):
                     title = movieMetadata.Title
                     monitored = db_entry.Monitored
