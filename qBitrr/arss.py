@@ -1242,7 +1242,7 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
-                self.logger.trace("Yielding %s", i1.Title)
+                self.logger.trace("Yielding %s", entry_.Title)
                 yield entry_, False, False
 
     def db_get_files_episodes(
