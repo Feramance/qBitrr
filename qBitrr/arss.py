@@ -1995,15 +1995,37 @@ class Arr:
                                 requests.exceptions.ConnectionError,
                             ):
                                 completed = True
-                        statistics = seriesMetadata.get("statistics")
-                        if statistics:
-                            if self.search_specials:
-                                episode_count = statistics.get("totalEpisodeCount")
+                        episodeCount = 0
+                        episodeFileCount = 0
+                        totalEpisodeCount = 0
+                        monitoredEpisodeCount = 0
+                        seasons = seriesMetadata.get("seasons")
+                        for season in seasons:
+                            sdict = dict(season)
+                            if sdict.get("seasonNumber") == 0:
+                                statistics = sdict.get("statistics")
+                                monitoredEpisodeCount = monitoredEpisodeCount + statistics.get(
+                                    "episodeCount"
+                                )
+                                totalEpisodeCount = totalEpisodeCount + statistics.get(
+                                    "totalEpisodeCount"
+                                )
+                                episodeFileCount = episodeFileCount + statistics.get(
+                                    "episodeFileCount"
+                                )
                             else:
-                                episode_count = statistics.get("episodeCount")
-                            searched = episode_count == statistics.get("episodeFileCount")
+                                statistics = sdict.get("statistics")
+                                episodeCount = episodeCount + statistics.get("episodeCount")
+                                totalEpisodeCount = totalEpisodeCount + statistics.get(
+                                    "totalEpisodeCount"
+                                )
+                                episodeFileCount = episodeFileCount + statistics.get(
+                                    "episodeFileCount"
+                                )
+                        if self.search_specials:
+                            searched = totalEpisodeCount == episodeFileCount
                         else:
-                            searched = True
+                            searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry.Monitored
 
