@@ -1140,6 +1140,7 @@ class Arr:
     ]:
         if self.type == "sonarr" and self.series_search:
             for i1, i2, i3 in self.db_get_files_series():
+                self.logger.trace("Yielding %s", i1.Title)
                 yield i1, i2, i3, i3 is not True
         elif self.type == "sonarr" and not self.series_search:
             for i1, i2, i3 in self.db_get_files_episodes():
@@ -1229,6 +1230,7 @@ class Arr:
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
+                    self.logger.trace("Yielding %s", i1.Title)
                     yield i1, i2, i3
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
@@ -1240,6 +1242,7 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
+                self.logger.trace("Yielding %s", i1.Title)
                 yield entry_, False, False
 
     def db_get_files_episodes(
@@ -3867,6 +3870,7 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
+                            self.logger.trace("Running search for %s", entry.Title)
                             while (
                                 self.maybe_do_search(
                                     entry,
