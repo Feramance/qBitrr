@@ -24,7 +24,7 @@ jobs:
       with:
         token: ${{ secrets.PAT }}
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -74,7 +74,7 @@ jobs:
         ref: master
         token: ${{ secrets.PAT }}
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -115,7 +115,7 @@ jobs:
         fetch-depth: 0
         ref: master
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -160,7 +160,7 @@ jobs:
         fetch-depth: 0
         ref: master
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - name: Install dependencies
@@ -203,7 +203,7 @@ jobs:
         ref: master
         fetch-depth: 0
     - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python}}
         architecture: ${{ matrix.arch }}
@@ -312,7 +312,7 @@ jobs:
         fetch-depth: 0
         ref: master
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
     - uses: actions/setup-node@v4
