@@ -120,7 +120,7 @@ pyarr==5.2.0
     # via qBitrr2 (setup.py)
 pygments==2.17.2
     # via readme-renderer
-pyinstaller==4.8
+pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
 pyinstaller-hooks-contrib==2023.10
     # via pyinstaller
