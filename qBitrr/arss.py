@@ -2084,6 +2084,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
