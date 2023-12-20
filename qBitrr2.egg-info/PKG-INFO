@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qBitrr2
-Version: 3.8.7b1
+Version: 3.8.8
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -48,7 +48,7 @@ Requires-Dist: bump2version==1.0.1; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"
 Requires-Dist: pip-tools==7.3.0; extra == "dev"
 Requires-Dist: pre-commit==3.3.3; extra == "dev"
-Requires-Dist: pyinstaller==4.8; extra == "dev"
+Requires-Dist: pyinstaller==5.13.1; extra == "dev"
 Requires-Dist: pyupgrade==2.31.0; extra == "dev"
 Requires-Dist: twine==3.7.1; extra == "dev"
 Requires-Dist: ujson==5.4.0; extra == "dev"
@@ -61,7 +61,7 @@ Requires-Dist: bump2version==1.0.1; extra == "all"
 Requires-Dist: isort==5.10.1; extra == "all"
 Requires-Dist: pip-tools==7.3.0; extra == "all"
 Requires-Dist: pre-commit==3.3.3; extra == "all"
-Requires-Dist: pyinstaller==4.8; extra == "all"
+Requires-Dist: pyinstaller==5.13.1; extra == "all"
 Requires-Dist: pyupgrade==2.31.0; extra == "all"
 Requires-Dist: twine==3.7.1; extra == "all"
 Requires-Dist: ujson==5.4.0; extra == "all"

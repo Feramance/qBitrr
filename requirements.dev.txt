@@ -39,7 +39,7 @@ dill==0.3.7
     # via
     #   multiprocess
     #   pathos
-distlib==0.3.7
+distlib==0.3.8
     # via virtualenv
 docutils==0.20.1
     # via readme-renderer
@@ -53,11 +53,11 @@ future==0.18.3
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.32
+identify==2.5.33
     # via pre-commit
 idna==3.6
     # via requests
-importlib-metadata==6.8.0
+importlib-metadata==7.0.0
     # via
     #   keyring
     #   twine
@@ -81,7 +81,7 @@ multiprocess==0.70.15
     # via pathos
 mypy-extensions==1.0.0
     # via black
-nh3==0.2.14
+nh3==0.2.15
     # via readme-renderer
 nodeenv==1.8.0
     # via pre-commit
@@ -94,7 +94,7 @@ packaging==21.3
     #   qbittorrent-api
 pathos==0.2.8
     # via qBitrr2 (setup.py)
-pathspec==0.11.2
+pathspec==0.12.1
     # via black
 peewee==3.14.7
     # via qBitrr2 (setup.py)
@@ -106,7 +106,7 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.9.6
     # via twine
-platformdirs==4.0.0
+platformdirs==4.1.0
     # via
     #   black
     #   virtualenv
@@ -180,7 +180,7 @@ urllib3==2.1.0
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.24.7
+virtualenv==20.25.0
     # via pre-commit
 wheel==0.42.0
     # via pip-tools
