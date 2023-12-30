@@ -767,77 +767,78 @@ class Arr:
             self.pause.clear()
 
     def _process_imports(self) -> None:
-        if self.import_torrents:
-            self.needs_cleanup = True
-            for torrent in self.import_torrents:
-                if torrent.hash in self.sent_to_scan:
-                    continue
-                path = validate_and_return_torrent_file(torrent.content_path)
-                if not path.exists():
-                    self.timed_ignore_cache.add(torrent.hash)
-                    self.logger.warning(
-                        "Missing Torrent: [%s] %s (%s) - File does not seem to exist: %s",
-                        torrent.state_enum,
-                        torrent.name,
-                        torrent.hash,
+        if not self.import_torrents:
+            return
+        self.needs_cleanup = True
+        for torrent in self.import_torrents:
+            if torrent.hash in self.sent_to_scan:
+                continue
+            path = validate_and_return_torrent_file(torrent.content_path)
+            if not path.exists():
+                self.timed_ignore_cache.add(torrent.hash)
+                self.logger.warning(
+                    "Missing Torrent: [%s] %s (%s) - File does not seem to exist: %s",
+                    torrent.state_enum,
+                    torrent.name,
+                    torrent.hash,
+                    path,
+                )
+                continue
+            if path in self.sent_to_scan:
+                continue
+            self.sent_to_scan_hashes.add(torrent.hash)
+            try:
+                if self.type == "sonarr":
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            self.client.post_command(
+                                "DownloadedEpisodesScan",
+                                path=str(path),
+                                downloadClientId=torrent.hash.upper(),
+                                importMode=self.import_mode,
+                            )
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
+                    self.logger.success(
+                        "DownloadedEpisodesScan: %s",
                         path,
                     )
-                    continue
-                if path in self.sent_to_scan:
-                    continue
-                self.sent_to_scan_hashes.add(torrent.hash)
-                try:
-                    if self.type == "sonarr":
-                        completed = True
-                        while completed:
-                            try:
-                                completed = False
-                                self.client.post_command(
-                                    "DownloadedEpisodesScan",
-                                    path=str(path),
-                                    downloadClientId=torrent.hash.upper(),
-                                    importMode=self.import_mode,
-                                )
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                            ):
-                                completed = True
-                        self.logger.success(
-                            "DownloadedEpisodesScan: %s",
-                            path,
-                        )
-                    elif self.type == "radarr":
-                        completed = True
-                        while completed:
-                            try:
-                                completed = False
-                                self.client.post_command(
-                                    "DownloadedMoviesScan",
-                                    path=str(path),
-                                    downloadClientId=torrent.hash.upper(),
-                                    importMode=self.import_mode,
-                                )
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                            ):
-                                completed = True
-                        self.logger.success(
-                            "DownloadedMoviesScan: %s",
-                            path,
-                        )
-                except:
-                    self.logger.error(
-                        "Downloaded scan error: [%s][%s][%s]",
+                elif self.type == "radarr":
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            self.client.post_command(
+                                "DownloadedMoviesScan",
+                                path=str(path),
+                                downloadClientId=torrent.hash.upper(),
+                                importMode=self.import_mode,
+                            )
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                        ):
+                            completed = True
+                    self.logger.success(
+                        "DownloadedMoviesScan: %s",
                         path,
-                        torrent.hash.upper(),
-                        self.import_mode,
                     )
-                self.sent_to_scan.add(path)
-            self.import_torrents.clear()
+            except:
+                self.logger.error(
+                    "Downloaded scan error: [%s][%s][%s]",
+                    path,
+                    torrent.hash.upper(),
+                    self.import_mode,
+                )
+            self.sent_to_scan.add(path)
+        self.import_torrents.clear()
 
     def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
         if hash_ not in skip_blacklist:
@@ -919,8 +920,7 @@ class Arr:
                     try:
                         completed = False
                         data = self.client.get_movie_by_movie_id(object_id)
-                        name = data.get("title")
-                        if name:
+                        if name := data.get("title"):
                             year = data.get("year", 0)
                             tmdbId = data.get("tmdbId", 0)
                             self.logger.notice(
@@ -962,7 +962,7 @@ class Arr:
         # Recheck all torrents marked for rechecking.
         if self.recheck:
             self.needs_cleanup = True
-            updated_recheck = [r for r in self.recheck]
+            updated_recheck = list(self.recheck)
             self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
             for k in updated_recheck:
                 self.timed_ignore_cache.add(k)
@@ -972,17 +972,16 @@ class Arr:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
-        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            delete_ = True
-        else:
-            delete_ = False
+        delete_ = bool(
+            self.missing_files_post_delete
+            or self.downloads_with_bad_error_message_blocklist
+        )
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
         if to_delete_all:
             self.needs_cleanup = True
-            payload = self.process_entries(to_delete_all)
-            if payload:
+            if payload := self.process_entries(to_delete_all):
                 for entry, hash_ in payload:
                     self._process_failed_individual(
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
@@ -1015,8 +1014,7 @@ class Arr:
         # Set all files marked as "Do not download" to not download.
         for hash_, files in self.change_priority.copy().items():
             self.needs_cleanup = True
-            name = self.manager.qbit_manager.name_cache.get(hash_)
-            if name:
+            if name := self.manager.qbit_manager.name_cache.get(hash_):
                 self.logger.debug(
                     "Updating file priority on torrent: %s (%s)",
                     name,
@@ -1142,7 +1140,7 @@ class Arr:
             for i1, i2, i3 in self.db_get_files_series():
                 self.logger.trace("Yielding %s", i1.Title)
                 yield i1, i2, i3, i3 is not True
-        elif self.type == "sonarr" and not self.series_search:
+        elif self.type == "sonarr":
             for i1, i2, i3 in self.db_get_files_episodes():
                 yield i1, i2, i3, False
         elif self.type == "radarr":
@@ -1209,9 +1207,7 @@ class Arr:
     def db_get_files_series(
         self,
     ) -> Iterable[tuple[SeriesFilesModel, bool, bool]]:
-        if not self.search_missing:
-            yield None, False, False
-        elif not self.series_search:
+        if not self.search_missing or not self.series_search:
             yield None, False, False
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
@@ -1255,14 +1251,13 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
-                else:
-                    condition &= self.model_file.Searched == False
-                    condition &= self.model_file.EpisodeFileId == 0
-            else:
+            if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
+            elif self.quality_unmet_search:
+                condition &= self.model_file.QualityMet == False
+            else:
+                condition &= self.model_file.Searched == False
+                condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
@@ -1313,23 +1308,13 @@ class Arr:
             condition = self.model_file.Year.is_null(False)
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
-                if not self.do_upgrade_search:
-                    if self.quality_unmet_search:
-                        condition &= self.model_file.QualityMet == False
-                    else:
-                        condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
-                else:
-                    condition &= self.model_file.Upgrade == False
+            if self.do_upgrade_search:
+                condition &= self.model_file.Upgrade == False
+            elif self.quality_unmet_search:
+                condition &= self.model_file.QualityMet == False
             else:
-                if not self.do_upgrade_search:
-                    if self.quality_unmet_search:
-                        condition &= self.model_file.QualityMet == False
-                    else:
-                        condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
-                else:
-                    condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.MovieFileId == 0
+                condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1345,13 +1330,12 @@ class Arr:
             yield None
         elif self.type == "sonarr":
             condition = self.model_file.IsRequest == True
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
-                else:
-                    condition &= self.model_file.EpisodeFileId == 0
-            else:
+            if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
+            elif self.quality_unmet_search:
+                condition &= self.model_file.QualityMet == False
+            else:
+                condition &= self.model_file.EpisodeFileId == 0
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
@@ -1374,14 +1358,13 @@ class Arr:
         elif self.type == "radarr":
             condition = self.model_file.Year <= datetime.now().year
             condition &= self.model_file.Year > 0
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
-                else:
-                    condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.IsRequest == True
-            else:
+            if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
+            elif self.quality_unmet_search:
+                condition &= self.model_file.QualityMet == False
+            else:
+                condition &= self.model_file.MovieFileId == 0
+                condition &= self.model_file.IsRequest == True
             yield from (
                 self.model_file.select()
                 .where(condition)
@@ -1481,7 +1464,7 @@ class Arr:
         if self._get_overseerr_requests_count() == 0:
             return
         request_ids = self._temp_overseer_request_cache
-        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
+        if all(i not in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
         self.logger.notice("Started updating database with Overseerr request entries.")
         self._db_request_update(request_ids)
@@ -1493,7 +1476,7 @@ class Arr:
         if self._get_ombi_request_count() == 0:
             return
         request_ids = self._process_ombi_requests()
-        if not any(i in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
+        if all(i not in request_ids for i in ["ImdbId", "TmdbId", "TvdbId"]):
             return
         self.logger.notice("Started updating database with Ombi request entries.")
         self._db_request_update(request_ids)
@@ -1521,7 +1504,7 @@ class Arr:
     def db_update(self):
         if not self.search_missing:
             return
-        self.logger.trace(f"Started updating database")
+        self.logger.trace("Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
             try:
@@ -1615,7 +1598,7 @@ class Arr:
                             self.db_update_single_series(db_entry=movies)
             except peewee.DatabaseError:
                 self.logger.error("Database error")
-        self.logger.trace(f"Finished updating database")
+        self.logger.trace("Finished updating database")
 
     def minimum_availability_check(
         self,
@@ -1690,31 +1673,7 @@ class Arr:
         elif (
             metadata.DigitalRelease is not None or metadata.PhysicalRelease is not None
         ) and db_entry.MinimumAvailability == 3:
-            if metadata.DigitalRelease is not None:
-                if (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
-                    <= datetime.now()
-                ):
-                    self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
-                    )
-                    return True
-                else:
-                    self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
-                    )
-                    return False
-            else:
+            if metadata.DigitalRelease is None:
                 if (
                     datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
@@ -1738,6 +1697,29 @@ class Arr:
                         metadata.PhysicalRelease,
                     )
                     return False
+            elif (
+                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    <= datetime.now()
+                ):
+                self.logger.trace(
+                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
+                return True
+            else:
+                self.logger.trace(
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
+                )
+                return False
         elif (
             metadata.InCinemas is None
             and metadata.DigitalRelease is None
