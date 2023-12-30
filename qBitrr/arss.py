@@ -973,8 +973,7 @@ class Arr:
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
         delete_ = bool(
-            self.missing_files_post_delete
-            or self.downloads_with_bad_error_message_blocklist
+            self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist
         )
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
@@ -1698,9 +1697,9 @@ class Arr:
                     )
                     return False
             elif (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
-                    <= datetime.now()
-                ):
+                datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                <= datetime.now()
+            ):
                 self.logger.trace(
                     "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
