@@ -3206,7 +3206,7 @@ class Arr:
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-            return return_value, -1  # Do not touch super seeding torrents.
+            return return_value, -1, remove_torrent  # Do not touch super seeding torrents.
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
