@@ -1622,27 +1622,27 @@ class Arr:
         db_entry: MoviesModel | MoviesModelv5 = None,
         metadata: MoviesMetadataModel = None,
     ) -> bool:
-        # if metadata.Year > datetime.now().year or metadata.Year == 0:
-        #     self.logger.trace(
-        #         "[AnyY] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-        #         metadata.Title,
-        #         db_entry.MinimumAvailability,
-        #         metadata.InCinemas,
-        #         metadata.DigitalRelease,
-        #         metadata.PhysicalRelease,
-        #     )
-        #     return False
-        # elif metadata.Year < datetime.now().year and metadata.Year != 0:
-        #     self.logger.trace(
-        #         "[AnyY] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-        #         metadata.Title,
-        #         db_entry.MinimumAvailability,
-        #         metadata.InCinemas,
-        #         metadata.DigitalRelease,
-        #         metadata.PhysicalRelease,
-        #     )
-        #     return True
-        if (
+        if metadata.Year > datetime.now().year or metadata.Year == 0:
+            self.logger.trace(
+                "[AnyY] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
+            return False
+        elif metadata.Year < datetime.now().year - 1 and metadata.Year != 0:
+            self.logger.trace(
+                "[AnyY] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
+            )
+            return True
+        elif (
             metadata.InCinemas is None
             and metadata.DigitalRelease is None
             and metadata.PhysicalRelease is None
