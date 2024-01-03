@@ -93,7 +93,7 @@ jobs:
     - uses: marvinpinto/action-automatic-releases@latest
       with:
         repo_token: ${{ secrets.PAT }}
-        prerelease: true
+        prerelease: false
         automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
         title: v${{needs.bump_version.outputs.NEW_RELEASE}}
   release_hash:
