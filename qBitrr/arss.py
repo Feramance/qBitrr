@@ -3858,7 +3858,7 @@ class Arr:
             )
         else:
             search_completed = (
-                self.model_file.select().where(self.model_file.Searched == False).count().execute()
+                self.model_file.select().where(self.model_file.Searched == False).count()
             )
         if search_completed > 0:
             self.logger.debug("All searches completed [%s]", search_completed)
