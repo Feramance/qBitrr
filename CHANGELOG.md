@@ -1,5 +1,42 @@
 # Changelog
 
+## v3.8.9 (03/01/2024)
+- [[patch] Fixes described in previous commits](https://github.com/Feramance/qBitrr/commit/e7ecab573951f47546d718edf795e6dbecd84552) - @Feramance
+- [[release] Minimum availability fix for the new year aswell as loop restarts only after searches are completed](https://github.com/Feramance/qBitrr/commit/c80757b99f8496385877697ce4e3133df537c470) - @Feramance
+- [All searched test](https://github.com/Feramance/qBitrr/commit/60a2f83a27d7f97e422a5bd573ea6c4ff172342b) - @Feramance
+- [Minimum availability fix](https://github.com/Feramance/qBitrr/commit/9730f41bd4753984f939df27ab02174c330db0e9) - @Feramance
+- [Remove minimum any year prior check](https://github.com/Feramance/qBitrr/commit/d7825ef46ae15ab50a5fed57677961d40a671b05) - @Feramance
+- [Enhanced minimum availability logging](https://github.com/Feramance/qBitrr/commit/0dd17622a679ff8417e67fbd6f4c3428ef63d99b) - @Feramance
+- [Fixed correct date usage for minimum availability](https://github.com/Feramance/qBitrr/commit/0201f2cbbcb5244aeb31f3d81906b7e449661064) - @Feramance
+- [Merge pull request #43 from hunmar/patch-1](https://github.com/Feramance/qBitrr/commit/0b9e61d7eb644fb78fc3f2ff5dc40dc307f97e8c) - @Feramance
+- [Update arss.py](https://github.com/Feramance/qBitrr/commit/e9d81b174dd6520053984ed16ae2f967bae9c102) - @hunmar
+- [Merge pull request #42 from Feramance/dependabot/github_actions/crazy-max/ghaction-import-gpg-6.1.0](https://github.com/Feramance/qBitrr/commit/9d52e48eadfb5658afdfae6c189f9603f5ca16cf) - @Feramance
+- [Bump crazy-max/ghaction-import-gpg from 6.0.0 to 6.1.0](https://github.com/Feramance/qBitrr/commit/be6927b5cb3731c4903abab831fc72f04d44a0c3) - @dependabot[bot]
+- [Requirements update](https://github.com/Feramance/qBitrr/commit/b9b825a5d50ea45f7a6282640064b40d7b88533e) - @Feramance
+- [Updated release workflow](https://github.com/Feramance/qBitrr/commit/48b012f29efa1aaaa5d802dfc70e18ad96e2e0c0) - @Feramance
+- [Merge pull request #41 from Feramance/dependabot/github_actions/actions/upload-artifact-4](https://github.com/Feramance/qBitrr/commit/a83bac1fec28734c930a9f2c829e144800769a64) - @Feramance
+- [Added another exception handler to series metadata](https://github.com/Feramance/qBitrr/commit/2fb399756a54da3ea38181149d78ffdd243f8cb6) - @Feramance
+- [Bump actions/upload-artifact from 3 to 4](https://github.com/Feramance/qBitrr/commit/6b82954c760e808abde0562c85df48c88df5e757) - @dependabot[bot]
+- [Merge pull request #39 from Feramance/dependabot/github_actions/github/codeql-action-3](https://github.com/Feramance/qBitrr/commit/82098beca76e58287ed6ca5e71000abd520894f4) - @Feramance
+- [Bump github/codeql-action from 2 to 3](https://github.com/Feramance/qBitrr/commit/4b0f728950b73a5f185baa19ed9a6fda729538a2) - @dependabot[bot]
+- [Delete SECURITY.md](https://github.com/Feramance/qBitrr/commit/f44034888a2e725e0028a2f7c84f33569ad283b8) - @Feramance
+- [Create SECURITY.md](https://github.com/Feramance/qBitrr/commit/dc3fd7b42aad8d34cc8b4737c8f2c07c20dcd33b) - @Feramance
+- [Merge pull request #37 from Feramance/dependabot/pip/pyinstaller-5.13.1](https://github.com/Feramance/qBitrr/commit/4ba90818d5ca2e5ee11da4b03e93239e89fd6260) - @Feramance
+- [Bump pyinstaller from 4.8 to 5.13.1](https://github.com/Feramance/qBitrr/commit/302ef4da4bbc14be6fa4051103f347cb0e56435f) - @dependabot[bot]
+- [Pyistaller fixes](https://github.com/Feramance/qBitrr/commit/f6a14c0b876b451653b85ddce204f3b5a355c60e) - @Feramance
+- [Fixed exit code for config generation](https://github.com/Feramance/qBitrr/commit/66bf6923a361c43f00b74b0e7ccbefc32037371f) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/c078e3d2252c49f6a028ae6a85cf0bc79b42654b) - @Feramance
+- [Bumpversion config update](https://github.com/Feramance/qBitrr/commit/e3a5ae3fd68101bd82f66f2b400694026025fc41) - @Feramance
+- [Merge pull request #35 from Feramance/dependabot/github_actions/actions/setup-python-5](https://github.com/Feramance/qBitrr/commit/cf5068a7a68f1921ec19e325e9f617ea16c98a8f) - @Feramance
+- [Bump actions/setup-python from 4 to 5](https://github.com/Feramance/qBitrr/commit/9905f7bc11c54b7dd51589dbd0dc76a330ea4f39) - @dependabot[bot]
+- [Monitored type update](https://github.com/Feramance/qBitrr/commit/2b3941aad0eb1500e178e757269ab76920d6eb54) - @Feramance
+- [Episode count overhaul](https://github.com/Feramance/qBitrr/commit/03f4f2f4a94e174f47c5d7d052492a0993d9e667) - @Feramance
+- [Log fixed](https://github.com/Feramance/qBitrr/commit/eb04b2a0de05a0cd979a79c5a10f5c4fc8be6b3f) - @Feramance
+- [Sonarr series search testing](https://github.com/Feramance/qBitrr/commit/92c7738fa998b228b2402544fff3f889c6c6ecbe) - @Feramance
+- [Series search fix test](https://github.com/Feramance/qBitrr/commit/f3555c2a6cea663c1b4b4e943bf0473d852877d5) - @Feramance
+
+---
+
 ## v3.8.8 (28/11/2023)
 - [[release] Critical torrent handling fix](https://github.com/Feramance/qBitrr/commit/17dd21ea564bddcb778e16199c36cf80a29daeb4) - @Feramance
 - [Error fix 2](https://github.com/Feramance/qBitrr/commit/a1a4292d6c9b41140640cc0492184861ca579980) - @Feramance
@@ -185,7 +222,3 @@
 ---
 
 ## v3.7.13-beta-9 (30/10/2023)
-
----
-
-## v3.7.13-beta-8 (30/10/2023)
