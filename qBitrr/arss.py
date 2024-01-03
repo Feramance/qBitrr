@@ -1624,7 +1624,7 @@ class Arr:
     ) -> bool:
         if metadata.Year > datetime.now().year or metadata.Year == 0:
             self.logger.trace(
-                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[AnyY] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1634,7 +1634,7 @@ class Arr:
             return False
         elif metadata.Year < datetime.now().year and metadata.Year != 0:
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[AnyY] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1649,7 +1649,7 @@ class Arr:
             and db_entry.MinimumAvailability == 3
         ):
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[3Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1669,7 +1669,7 @@ class Arr:
                 <= datetime.now()
             ):
                 self.logger.trace(
-                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "[3CNN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1679,7 +1679,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "[3CNN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1696,7 +1696,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[3CDN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1706,7 +1706,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[3CDN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1720,7 +1720,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[3CNP] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1730,7 +1730,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[3CNP] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1745,7 +1745,7 @@ class Arr:
             and db_entry.MinimumAvailability == 2
         ):
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[2Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1756,7 +1756,7 @@ class Arr:
         elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
             if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
                 self.logger.trace(
-                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "[2CNN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1766,7 +1766,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "[2CNN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1781,7 +1781,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[2NDN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1791,7 +1791,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[2NDN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1805,7 +1805,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[2NNP] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1815,7 +1815,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "[2NNP] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         metadata.Title,
                         db_entry.MinimumAvailability,
                         metadata.InCinemas,
@@ -1825,7 +1825,7 @@ class Arr:
                     return False
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "[2Any] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     metadata.Title,
                     db_entry.MinimumAvailability,
                     metadata.InCinemas,
@@ -1835,7 +1835,7 @@ class Arr:
                 return False
         elif db_entry.MinimumAvailability == 1:
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[1Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
@@ -1845,7 +1845,7 @@ class Arr:
             return True
         else:
             self.logger.trace(
-                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "[Else] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 metadata.Title,
                 db_entry.MinimumAvailability,
                 metadata.InCinemas,
