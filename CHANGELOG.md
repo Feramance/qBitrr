@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.8.11 (03/01/2024)
+- [[patch] Hotfix for missed execute](https://github.com/Feramance/qBitrr/commit/5118d7dc6f299e912a2ebeac044d0963322e5285) - @Feramance
+
+---
+
 ## v3.8.10 (03/01/2024)
 - [[patch] Fixed count query](https://github.com/Feramance/qBitrr/commit/2fd54c052084102ee609f1bb2ad678417931e426) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/d540460deea1eb8af72c61ebf689bb09489a9b69) - @Feramance
@@ -220,8 +225,3 @@
 ---
 
 ## v3.7.14-beta-0 (31/10/2023)
-
----
-
-## v3.7.13 (30/10/2023)
-- [[release] Fixed series search loop](https://github.com/Feramance/qBitrr/commit/3194c816ae7b91d860b7a969871ebbe8fcaaa92c) - @Feramance
