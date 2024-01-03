@@ -3849,6 +3849,25 @@ class Arr:
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
+    def all_searched(self) -> bool:
+        if self.type == "sonarr" and self.series_search == True:
+            search_completed = (
+                self.series_file_model.select()
+                .where(self.series_file_model.Searched == False)
+                .count()
+                .execute()
+            )
+        else:
+            search_completed = (
+                self.model_file.select().where(self.model_file.Searched == False).count().execute()
+            )
+        if search_completed > 0:
+            self.logger.debug("All searches completed")
+            return True
+        else:
+            self.logger.debug("Searches not completed")
+            return False
+
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
@@ -3884,11 +3903,11 @@ class Arr:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
-                            elif datetime.now() >= (timer + loop_timer):
+                            elif datetime.now() >= (timer + loop_timer) and self.all_searched():
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer):
+                        elif datetime.now() >= (timer + loop_timer) and self.all_searched():
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
