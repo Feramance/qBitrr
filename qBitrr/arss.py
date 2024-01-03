@@ -3855,7 +3855,6 @@ class Arr:
                 self.series_file_model.select()
                 .where(self.series_file_model.Searched == False)
                 .count()
-                .execute()
             )
         else:
             search_completed = (
