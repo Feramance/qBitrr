@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.8.12 (03/01/2024)
+- [[patch] Fixed search completion logic](https://github.com/Feramance/qBitrr/commit/a41e63b46471f0aa8a761f5e03e3c73a046b1396) - @Feramance
+
+---
+
 ## v3.8.11 (03/01/2024)
 - [[patch] Hotfix for missed execute](https://github.com/Feramance/qBitrr/commit/5118d7dc6f299e912a2ebeac044d0963322e5285) - @Feramance
 
@@ -221,7 +226,3 @@
 ---
 
 ## v3.7.14-beta-1 (01/11/2023)
-
----
-
-## v3.7.14-beta-0 (31/10/2023)
