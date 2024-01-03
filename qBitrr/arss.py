@@ -1692,7 +1692,7 @@ class Arr:
         ) and db_entry.MinimumAvailability == 3:
             if metadata.DigitalRelease is not None:
                 if (
-                    datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
@@ -1716,7 +1716,7 @@ class Arr:
                     return False
             else:
                 if (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
