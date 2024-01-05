@@ -486,7 +486,7 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.manager.qbit_manager.client.torrents_create_tags(
-            ["qBitrr-allowed_seeding", "qBitrr-allowed_download"]
+            ["qBitrr-allowed_seeding", "qBitrr-ignored"]
         )
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5 = None
@@ -3239,8 +3239,6 @@ class Arr:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
         elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
             torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
-        elif "qBitrr-allowed_download" not in torrent.tags:
-            return_value = True
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -3499,7 +3497,7 @@ class Arr:
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
-        elif torrent.state_enum.is_downloading:
+        elif torrent.state_enum.is_downloading and "qBitrr-ignored" not in torrent.tags:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
