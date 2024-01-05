@@ -3494,17 +3494,22 @@ class Arr:
             < time_now - self.ignore_torrents_younger_than
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
+            and "qBitrr-ignored" not in torrent.tags
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
-        elif torrent.state_enum.is_downloading and "qBitrr-ignored" not in torrent.tags:
+        elif torrent.state_enum.is_downloading:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
-                self.recently_queue.get(torrent.hash, torrent.added_on)
-                < time_now - self.ignore_torrents_younger_than
-                and torrent.availability < 1
-            ) and torrent.hash in self.cleaned_torrents:
+                (
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                    < time_now - self.ignore_torrents_younger_than
+                    and torrent.availability < 1
+                )
+                and torrent.hash in self.cleaned_torrents
+                and "qBitrr-ignored" not in torrent.tags
+            ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
                 if torrent.hash in self.cleaned_torrents:
