@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.0.1 (08/01/2024)
+- [[patch] First v4 hotfix](https://github.com/Feramance/qBitrr/commit/c241046e899772a59c6115b02c0ebe9f09b39fb2) - @Feramance
+
+---
+
 ## v4.0.0 (08/01/2024)
 - [[major] V4 Update overhaul to remove DB file requirements](https://github.com/Feramance/qBitrr/commit/0b0f638b900f78a7a2a03ac9e78e771dbc2e86a9) - @Feramance
 - [Merge branch 'master' into v4](https://github.com/Feramance/qBitrr/commit/6f45f4b95d8f7c28ae6722a8db45593c1a8841d6) - @Feramance
@@ -242,10 +247,3 @@
 ---
 
 ## v3.7.15-beta-0 (01/11/2023)
-
----
-
-## v3.7.14 (01/11/2023)
-- [[release] Removed redundant debugs](https://github.com/Feramance/qBitrr/commit/d31f906c5172a392656bcb3244801849a0f698c7) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/b6fde7c4adecbadcb3b2136d1b9995607a009f5a) - @Feramance
-- [[release] Actual fix for series search loop](https://github.com/Feramance/qBitrr/commit/dd6dc298c60728eca6d30a86b07d06fa5a30c892) - @Feramance
