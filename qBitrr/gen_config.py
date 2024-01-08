@@ -549,28 +549,6 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "SearchLimit",
             5,
         )
-    if "sonarr" in category.lower():
-        _gen_default_line(
-            search_table,
-            [
-                "Servarr Datapath file path",
-                "This is required for any of the search functionality to work",
-                'The only exception for this is the "ReSearch" setting as that is done via an API call.',
-            ],
-            "DatabaseFile",
-            "CHANGE_ME/sonarr.db",
-        )
-    elif "radarr" in category.lower():
-        _gen_default_line(
-            search_table,
-            [
-                "Servarr Datapath file path",
-                "This is required for any of the search functionality to work",
-                'The only exception for this is the "ReSearch" setting as that is done via an API call.',
-            ],
-            "DatabaseFile",
-            "CHANGE_ME/radarr.db",
-        )
     _gen_default_line(
         search_table,
         "It will order searches by the year the EPISODE was first aired",

@@ -26,15 +26,6 @@ from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
-from qBitrr.arr_tables import (
-    CommandsModel,
-    EpisodesModel,
-    MoviesMetadataModel,
-    MoviesModel,
-    MoviesModelv5,
-    SeriesModel,
-    SeriesModelv4,
-)
 from qBitrr.config import (
     APPDATA_FOLDER,
     COMPLETED_DOWNLOAD_FOLDER,
@@ -227,21 +218,8 @@ class Arr:
             self._delta = 1
         else:
             self._delta = -1
-        arr_db_file = CONFIG.get(f"{name}.EntrySearch.DatabaseFile", fallback=None)
-        self.arr_db_file = pathlib.Path("/.Invalid Place Holder")
-        if self.search_missing and arr_db_file is None:
-            self.logger.critical("Arr DB file not specified setting SearchMissing to False")
-            self.search_missing = False
-        if arr_db_file is not None:
-            self.arr_db_file = pathlib.Path(arr_db_file)
         self._app_data_folder = APPDATA_FOLDER
         self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
-        if self.search_missing and not self.arr_db_file.exists():
-            self.logger.critical(
-                "Arr DB file cannot be located setting SearchMissing to False: %s",
-                self.arr_db_file,
-            )
-            self.search_missing = False
 
         self.ombi_search_requests = CONFIG.get(
             f"{name}.EntrySearch.Ombi.SearchOmbiRequests", fallback=False
@@ -424,10 +402,6 @@ class Arr:
                 self.search_command_limit,
             )
             self.logger.debug(
-                "Script Config:  DatabaseFile=%s",
-                self.arr_db_file,
-            )
-            self.logger.debug(
                 "Script Config:  MaximumDeletablePercentage=%s",
                 self.maximum_deletable_percentage,
             )
@@ -489,11 +463,6 @@ class Arr:
             ["qBitrr-allowed_seeding", "qBitrr-ignored"]
         )
         self.search_setup_completed = False
-        self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5 = None
-        self.model_arr_series_file: SeriesModel | SeriesModelv4 = None
-        self.model_arr_movies_file: MoviesMetadataModel = None
-
-        self.model_arr_command: CommandsModel = None
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
@@ -560,26 +529,6 @@ class Arr:
             TorrentStates.DOWNLOADING,
             TorrentStates.PAUSED_DOWNLOAD,
         )
-
-    def _get_arr_modes(
-        self,
-    ) -> tuple[
-        type[EpisodesModel] | type[MoviesModel] | type[MoviesModelv5],
-        type[CommandsModel],
-        type[SeriesModel] | type[SeriesModelv4] | type[MoviesMetadataModel],
-    ]:  # sourcery skip: replace-interpolation-with-fstring, switch
-        if self.type == "sonarr":
-            if self.version.major == 3:
-                return EpisodesModel, CommandsModel, SeriesModel
-            elif self.version.major == 4:
-                return EpisodesModel, CommandsModel, SeriesModelv4
-        elif self.type == "radarr":
-            if self.version.major == 4:
-                return MoviesModel, CommandsModel, MoviesMetadataModel
-            elif self.version.major == 5:
-                return MoviesModelv5, CommandsModel, MoviesMetadataModel
-        else:
-            raise UnhandledError("Well you shouldn't have reached here, Arr.type=%s" % self.type)
 
     def _get_models(
         self,
@@ -1148,15 +1097,14 @@ class Arr:
         tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool]
     ]:
         if self.type == "sonarr" and self.series_search:
-            for i1, i2, i3 in self.db_get_files_series():
-                self.logger.trace("Yielding %s", i1.Title)
-                yield i1, i2, i3, i3 is not True
+            for series in self.db_get_files_series():
+                yield series[0], series[1], series[2], series[2] is not True
         elif self.type == "sonarr" and not self.series_search:
-            for i1, i2, i3 in self.db_get_files_episodes():
-                yield i1, i2, i3, False
+            for episodes in self.db_get_files_episodes():
+                yield series[0], series[1], series[2], False
         elif self.type == "radarr":
-            for i1, i2, i3 in self.db_get_files_movies():
-                yield i1, i2, i3, False
+            for movies in self.db_get_files_movies():
+                yield series[0], series[1], series[2], False
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -1168,10 +1116,6 @@ class Arr:
 
     def db_reset__series_searched_state(self):
         ids = []
-        if self.version.major == 3:
-            self.model_arr_series_file: SeriesModel
-        elif self.version.major == 4:
-            self.model_arr_series_file: SeriesModelv4
         self.series_file_model: SeriesFilesModel
         self.model_file: EpisodeFilesModel
         if (
@@ -1196,13 +1140,6 @@ class Arr:
             self.series_file_model.delete().where(
                 self.series_file_model.EntryId.not_in(ids)
             ).execute()
-            # try:
-            #     Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
-            #     self.series_file_model.delete().where(
-            #         self.series_file_model.EntryId.not_in(Ids)
-            #     ).execute()
-            # except peewee.DatabaseError:
-            #     self.logger.error("Database error")
 
     def db_reset__episode_searched_state(self):
         ids = []
@@ -1229,11 +1166,6 @@ class Arr:
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
-            # try:
-            #     Ids = [id.Id for id in self.model_arr_file.select().execute()]
-            #     self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
-            # except peewee.DatabaseError:
-            #     self.logger.error("Database error")
 
     def db_reset__movie_searched_state(self):
         ids = []
@@ -1258,19 +1190,15 @@ class Arr:
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
-            # try:
-            #     Ids = [id.Id for id in self.model_arr_file.select().execute()]
-            #     self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
-            # except peewee.DatabaseError:
-            #     self.logger.error("Database error")
 
     def db_get_files_series(
         self,
-    ) -> Iterable[tuple[SeriesFilesModel, bool, bool]]:
+    ) -> list[list[SeriesFilesModel, bool, bool]] | None:
+        entries = []
         if not self.search_missing:
-            yield None, False, False
+            return None
         elif not self.series_search:
-            yield None, False, False
+            return None
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
@@ -1288,8 +1216,7 @@ class Arr:
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
-                    self.logger.trace("Yielding %s", i1.Title)
-                    yield i1, i2, i3
+                    entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
             else:
@@ -1300,21 +1227,15 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
-                self.logger.debug("Yielding %s", entry_.Title)
-            for entry_ in (
-                self.series_file_model.select()
-                .where(condition)
-                .order_by(self.series_file_model.EntryId.asc())
-                .execute()
-            ):
-                self.logger.trace("Yielding %s", entry_.Title)
-                yield entry_, False, False
+                entries.append([entry_, False, False])
+            return entries
 
     def db_get_files_episodes(
         self,
-    ) -> Iterable[tuple[EpisodeFilesModel, bool, bool]]:
+    ) -> list[list[EpisodeFilesModel, bool, bool]] | None:
+        entries = []
         if not self.search_missing:
-            yield None, False, False
+            return None
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
@@ -1367,13 +1288,15 @@ class Arr:
                     has_been_queried = True
                 for i1, i2, i3 in self._search_todays(today_condition):
                     if i1 is not None:
-                        yield i1, i2, i3
+                        entries.append([i1, i2, i3])
+            return entries
 
     def db_get_files_movies(
         self,
-    ) -> Iterable[tuple[MoviesFilesModel, bool, bool]]:
+    ) -> list[list[MoviesFilesModel, bool, bool]] | None:
+        entries = []
         if not self.search_missing:
-            yield None, False, False
+            return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
             if self.search_by_year:
@@ -1401,7 +1324,8 @@ class Arr:
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
-                yield entry, False, False
+                entries.append([entry, False, False])
+            return entries
 
     def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
@@ -1461,15 +1385,10 @@ class Arr:
             self.db_ombi_update()
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
-        # with self.db.atomic():
         try:
             if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-                imdb_con = None
-                tvdb_con = None
-                if ImdbIds := request_ids.get("ImdbId"):
-                    imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
-                if tvDbIds := request_ids.get("TvdbId"):
-                    tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
+                TvdbIds = request_ids.get("TvdbId")
+                ImdbIds = request_ids.get("ImdbId")
                 completed = True
                 while completed:
                     try:
@@ -1493,66 +1412,27 @@ class Arr:
                                 continue
                             if not self.search_specials and e["seasonNumber"] == 0:
                                 continue
-                            if tvdb_con and imdb_con and "tvdbId" in e and "imdbId" in e:
+                            if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
                                 if (
-                                    series["tvdbId"] not in tvDbIds
+                                    series["tvdbId"] not in TvdbIds
                                     or series["imdbId"] not in ImdbIds
                                 ):
                                     continue
-                            if imdb_con and "imdbId" in e:
+                            if TvdbIds and "imdbId" in e:
                                 if series["imdbId"] not in ImdbIds:
                                     continue
-                            if tvdb_con and "tvdbId" in e:
-                                if series["tvdbId"] not in tvDbIds:
+                            if TvdbIds and "tvdbId" in e:
+                                if series["tvdbId"] not in TvdbIds:
                                     continue
                             if not e["monitored"]:
                                 continue
                             if e["episodeFileId"] != 0:
                                 continue
                             self.db_update_single_series(db_entry=e, request=True)
-                # self.model_arr_file: EpisodesModel
-                # if self.version.major == 3:
-                #     self.model_arr_series_file: SeriesModel
-                # elif self.version.major == 4:
-                #     self.model_arr_series_file: SeriesModelv4
-                # condition = self.model_arr_file.AirDateUtc.is_null(False)
-                # if not self.search_specials:
-                #     condition &= self.model_arr_file.SeasonNumber != 0
-                # condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
-                #     False
-                # ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                # condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
-                # imdb_con = None
-                # tvdb_con = None
-                # if ImdbIds := request_ids.get("ImdbId"):
-                #     imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
-                # if tvDbIds := request_ids.get("TvdbId"):
-                #     tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
-                # if imdb_con and tvdb_con:
-                #     condition &= imdb_con | tvdb_con
-                # elif imdb_con:
-                #     condition &= imdb_con
-                # elif tvdb_con:
-                #     condition &= tvdb_con
-                # for db_entry in (
-                #     self.model_arr_file.select()
-                #     .join(
-                #         self.model_arr_series_file,
-                #         on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
-                #         join_type=JOIN.LEFT_OUTER,
-                #     )
-                #     .switch(self.model_arr_file)
-                #     .where(condition)
-                #     .execute()
-                # ):
-                #    self.db_update_single_series(db_entry=db_entry, request=True)
+
             elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                tmdb_con = None
-                imdb_con = None
-                if ImdbIds := request_ids.get("ImdbId"):
-                    imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
-                if TmdbIds := request_ids.get("TmdbId"):
-                    tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
+                ImdbIds = request_ids.get("ImdbId")
+                TmdbIds = request_ids.get("TmdbId")
                 completed = True
                 while completed:
                     try:
@@ -1567,13 +1447,13 @@ class Arr:
                 for m in movies:
                     if m["year"] > datetime.now().year and m["year"] == 0:
                         continue
-                    if tmdb_con and imdb_con and "tmdbId" in m and "imdbId" in m:
+                    if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
                         if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
                             continue
-                    if imdb_con and "imdbId" in m:
+                    if ImdbIds and "imdbId" in m:
                         if m["imdbId"] not in ImdbIds:
                             continue
-                    if tmdb_con and "tmdbId" in m:
+                    if TmdbIds and "tmdbId" in m:
                         if m["tmdbId"] not in TmdbIds:
                             continue
                     if not m["monitored"]:
@@ -1582,40 +1462,6 @@ class Arr:
                         continue
                     self.db_update_single_series(db_entry=m, request=True)
 
-                # if self.version.major == 4:
-                #     self.model_arr_file: MoviesModel
-                # elif self.version.major == 5:
-                #     self.model_arr_file: MoviesModelv5
-                # self.model_arr_movies_file: MoviesMetadataModel
-                # condition = self.model_arr_movies_file.Year <= datetime.now().year
-                # tmdb_con = None
-                # imdb_con = None
-                # if ImdbIds := request_ids.get("ImdbId"):
-                #     imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
-                # if TmdbIds := request_ids.get("TmdbId"):
-                #     tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
-                # if tmdb_con and imdb_con:
-                #     condition &= tmdb_con | imdb_con
-                # elif tmdb_con:
-                #     condition &= tmdb_con
-                # elif imdb_con:
-                #     condition &= imdb_con
-                # for db_entry in (
-                #     self.model_arr_file.select()
-                #     .join(
-                #         self.model_arr_movies_file,
-                #         on=(
-                #             self.model_arr_file.MovieMetadataId
-                #             == self.model_arr_movies_file.Id
-                #         ),
-                #         join_type=JOIN.LEFT_OUTER,
-                #     )
-                #     .switch(self.model_arr_file)
-                #     .where(condition)
-                #     .order_by(self.model_arr_file.Added.desc())
-                #     .execute()
-                # ):
-                #     self.db_update_single_series(db_entry=db_entry, request=True)
         except requests.exceptions.ConnectionError:
             self.logger.error("Connection Error")
             raise DelayLoopException(length=300, type=self._name)
@@ -1647,19 +1493,8 @@ class Arr:
     def db_update_todays_releases(self):
         if not self.prioritize_todays_release:
             return
-        # with self.db.atomic():
         if self.type == "sonarr":
             try:
-                # for series in self.model_arr_file.select().where(
-                #     (self.model_arr_file.AirDateUtc.is_null(False))
-                #     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                #     & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
-                #     & (
-                #         self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                #         | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                #     ).execute()
-                # ):
-                #     self.db_update_single_series(db_entry=series)
                 completed = True
                 while completed:
                     try:
@@ -1703,153 +1538,13 @@ class Arr:
             return
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
-        with self.db.atomic():
-            # try:
-            if self.type == "sonarr":
-                if not self.series_search:
-                    self.model_arr_file: EpisodesModel
-                    completed = True
-                    while completed:
-                        try:
-                            completed = False
-                            series = self.client.get_series()
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                        ):
-                            completed = True
-                    if self.search_by_year:
-                        for s in series:
-                            episodes = self.client.get_episode(s["id"], True)
-                            for e in episodes:
-                                if "airDateUtc" in e and (
-                                    "absoluteEpisodeNumber" in e
-                                    or "sceneAbsoluteEpisodeNumber" in e
-                                ):
-                                    if datetime.strptime(
-                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                        continue
-                                    if (
-                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                        .replace(tzinfo=timezone.utc)
-                                        .date()
-                                        < datetime(
-                                            month=1, day=1, year=int(self.search_current_year)
-                                        ).date()
-                                    ):
-                                        continue
-                                    if (
-                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                        .replace(tzinfo=timezone.utc)
-                                        .date()
-                                        > datetime(
-                                            month=12, day=31, year=int(self.search_current_year)
-                                        ).date()
-                                    ):
-                                        continue
-                                    if not self.search_specials and e["seasonNumber"] == 0:
-                                        continue
-                                    if not e["monitored"]:
-                                        continue
-                                    self.db_update_single_series(db_entry=e)
-
-                    else:
-                        for s in series:
-                            episodes = self.client.get_episode(s["id"], True)
-                            for e in episodes:
-                                if "airDateUtc" in e and (
-                                    "absoluteEpisodeNumber" in e
-                                    or "sceneAbsoluteEpisodeNumber" in e
-                                ):
-                                    if datetime.strptime(
-                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                        continue
-                                    if not self.search_specials and e["seasonNumber"] == 0:
-                                        continue
-                                    if not e["monitored"]:
-                                        continue
-                                    self.db_update_single_series(db_entry=e)
-                        # if self.search_by_year:
-                        #     series_query = self.model_arr_file.select().where(
-                        #         (self.model_arr_file.AirDateUtc.is_null(False))
-                        #         & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                        #         & (
-                        #             self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                        #             | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                        #         )
-                        #         & (
-                        #             self.model_arr_file.AirDateUtc
-                        #             >= datetime(month=1, day=1, year=int(self.search_current_year))
-                        #         )
-                        #         & (
-                        #             self.model_arr_file.AirDateUtc
-                        #             <= datetime(
-                        #                 month=12, day=31, year=int(self.search_current_year)
-                        #             )
-                        #         )
-                        #     )
-                        # else:
-                        #     series_query = self.model_arr_file.select().where(
-                        #         (self.model_arr_file.AirDateUtc.is_null(False))
-                        #         & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                        #         & (
-                        #             self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                        #             | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                        #         )
-                        #     )
-                        # if series_query:
-                        #     for series in series_query:
-                        #         _series.add(series.SeriesId)
-                        #         self.db_update_single_series(db_entry=series)
-                        #     for series in self.model_arr_file.select().where(
-                        #         self.model_arr_file.SeriesId.in_(_series)
-                        #     ):
-                        #         self.db_update_single_series(db_entry=series)
-                else:
-                    completed = True
-                    while completed:
-                        try:
-                            completed = False
-                            series = self.client.get_series()
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                        ):
-                            completed = True
-                    if self.search_by_year:
-                        for s in series:
-                            if s["year"] < self.search_current_year:
-                                continue
-                            if s["year"] > self.search_current_year:
-                                continue
-                            if not s["monitored"]:
-                                continue
-                            self.db_update_single_series(db_entry=s, series=True)
-                    else:
-                        for s in series:
-                            if not s["monitored"]:
-                                continue
-                            self.db_update_single_series(db_entry=s, series=True)
-                        # if self.version.major == 3:
-                        #     self.model_arr_series_file: SeriesModel
-                        # elif self.version.major == 4:
-                        #     self.model_arr_series_file: SeriesModelv4
-                        # for series in (
-                        #     self.model_arr_series_file.select()
-                        #     .order_by(self.model_arr_series_file.Added.desc())
-                        #     .execute()
-                        # ):
-                        #     self.db_update_single_series(db_entry=series, series=True)
-            elif self.type == "radarr":
+        if self.type == "sonarr":
+            if not self.series_search:
                 completed = True
                 while completed:
                     try:
                         completed = False
-                        movies = self.client.get_movie()
+                        series = self.client.get_series()
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -1857,63 +1552,114 @@ class Arr:
                     ):
                         completed = True
                 if self.search_by_year:
-                    for m in movies:
-                        if m["year"] < self.search_current_year:
-                            continue
-                        if m["year"] > self.search_current_year:
-                            continue
-                        if not m["monitored"]:
-                            continue
-                        self.db_update_single_series(db_entry=min)
-                else:
-                    for m in series:
-                        if not m["monitored"]:
-                            continue
-                        self.db_update_single_series(db_entry=m)
-            #         if self.version.major == 4:
-            #             self.model_arr_file: MoviesModel
-            #         elif self.version.major == 5:
-            #             self.model_arr_file: MoviesModelv5
-            #         if self.search_by_year:
-            #             for movies in (
-            #                 self.model_arr_file.select(self.model_arr_file)
-            #                 .join(
-            #                     self.model_arr_movies_file,
-            #                     on=(
-            #                         self.model_arr_file.MovieMetadataId
-            #                         == self.model_arr_movies_file.Id
-            #                     ),
-            #                 )
-            #                 .switch(self.model_arr_file)
-            #                 .where(self.model_arr_movies_file.Year == self.search_current_year)
-            #                 .order_by(self.model_arr_file.Added.desc())
-            #                 .execute()
-            #             ):
-            #                 self.db_update_single_series(db_entry=movies)
+                    for s in series:
+                        episodes = self.client.get_episode(s["id"], True)
+                        for e in episodes:
+                            if "airDateUtc" in e and (
+                                "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
+                            ):
+                                if datetime.strptime(
+                                    e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                    continue
+                                if (
+                                    datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                    .replace(tzinfo=timezone.utc)
+                                    .date()
+                                    < datetime(
+                                        month=1, day=1, year=int(self.search_current_year)
+                                    ).date()
+                                ):
+                                    continue
+                                if (
+                                    datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                    .replace(tzinfo=timezone.utc)
+                                    .date()
+                                    > datetime(
+                                        month=12, day=31, year=int(self.search_current_year)
+                                    ).date()
+                                ):
+                                    continue
+                                if not self.search_specials and e["seasonNumber"] == 0:
+                                    continue
+                                if not e["monitored"]:
+                                    continue
+                                self.db_update_single_series(db_entry=e)
 
-            #         else:
-            #             for movies in (
-            #                 self.model_arr_file.select(self.model_arr_file)
-            #                 .join(
-            #                     self.model_arr_movies_file,
-            #                     on=(
-            #                         self.model_arr_file.MovieMetadataId
-            #                         == self.model_arr_movies_file.Id
-            #                     ),
-            #                 )
-            #                 .switch(self.model_arr_file)
-            #                 .order_by(self.model_arr_file.Added.desc())
-            #                 .execute()
-            #             ):
-            #                 self.db_update_single_series(db_entry=movies)
-            # except peewee.DatabaseError:
-            #     self.logger.error("Database error")
+                else:
+                    for s in series:
+                        episodes = self.client.get_episode(s["id"], True)
+                        for e in episodes:
+                            if "airDateUtc" in e and (
+                                "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
+                            ):
+                                if datetime.strptime(
+                                    e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                    continue
+                                if not self.search_specials and e["seasonNumber"] == 0:
+                                    continue
+                                if not e["monitored"]:
+                                    continue
+                                self.db_update_single_series(db_entry=e)
+
+            else:
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        series = self.client.get_series()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
+                if self.search_by_year:
+                    for s in series:
+                        if s["year"] < self.search_current_year:
+                            continue
+                        if s["year"] > self.search_current_year:
+                            continue
+                        if not s["monitored"]:
+                            continue
+                        self.db_update_single_series(db_entry=s, series=True)
+                else:
+                    for s in series:
+                        if not s["monitored"]:
+                            continue
+                        self.db_update_single_series(db_entry=s, series=True)
+        elif self.type == "radarr":
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    movies = self.client.get_movie()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ):
+                    completed = True
+            if self.search_by_year:
+                for m in movies:
+                    if m["year"] < self.search_current_year:
+                        continue
+                    if m["year"] > self.search_current_year:
+                        continue
+                    if not m["monitored"]:
+                        continue
+                    self.db_update_single_series(db_entry=min)
+            else:
+                for m in series:
+                    if not m["monitored"]:
+                        continue
+                    self.db_update_single_series(db_entry=m)
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
         self,
         db_entry: JsonObject,
-        # metadata: MoviesMetadataModel = None,
     ) -> bool:
         if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
             self.logger.trace(
@@ -2162,7 +1908,6 @@ class Arr:
             searched = False
             if self.type == "sonarr":
                 if not series:
-                    # db_entry: EpisodesModel
                     self.model_file: EpisodeFilesModel
 
                     completed = True
@@ -2278,10 +2023,6 @@ class Arr:
                     else:
                         return
                 else:
-                    # if self.version.major == 3:
-                    #     db_entry: SeriesModel
-                    # elif self.version.major == 4:
-                    #     db_entry: SeriesModelv4
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
                     if db_entry["monitored"] == True:
@@ -2371,10 +2112,6 @@ class Arr:
 
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
-                # if self.version.major == 4:
-                #     db_entry: MoviesModel
-                # elif self.version.major == 5:
-                #     db_entry: MoviesModelv5
                 searched = False
                 completed = True
                 while completed:
@@ -2394,11 +2131,6 @@ class Arr:
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry["id"]
                     ).execute()
-
-                # movieMetadata = self.model_arr_movies_file.get(
-                #     self.model_arr_movies_file.Id == db_entry.MovieMetadataId
-                # )
-                # movieMetadata: MoviesMetadataModel
 
                 if self.minimum_availability_check(db_entry) and db_entry["monitored"] == True:
                     title = db_entry["title"]
@@ -3956,13 +3688,6 @@ class Arr:
         if self.search_missing is False:
             self.search_setup_completed = True
             return
-        if not self.arr_db_file.exists():
-            self.search_missing = False
-            return
-        else:
-            self.arr_db = SqliteDatabase(None)
-            self.arr_db.init(f"file:{self.arr_db_file}?mode=ro", uri=True)
-            self.arr_db.connect()
 
         self.db = SqliteDatabase(None)
         self.db.init(
@@ -4005,42 +3730,6 @@ class Arr:
         self.model_file = Files
         self.model_queue = Queue
         self.persistent_queue = PersistingQueue
-
-        db1, db2, db3 = self._get_arr_modes()
-
-        class Files(db1):
-            class Meta:
-                database = self.arr_db
-                if self.type == "sonarr":
-                    table_name = "Episodes"
-                elif self.type == "radarr":
-                    table_name = "Movies"
-
-        class Commands(db2):
-            class Meta:
-                database = self.arr_db
-                table_name = "Commands"
-
-        if self.type == "sonarr":
-
-            class Series(db3):
-                class Meta:
-                    database = self.arr_db
-                    table_name = "Series"
-
-            self.model_arr_series_file = Series
-
-        elif self.type == "radarr":
-
-            class Movies(db3):
-                class Meta:
-                    database = self.arr_db
-                    table_name = "MovieMetadata"
-
-            self.model_arr_movies_file = Movies
-
-        self.model_arr_file = Files
-        self.model_arr_command = Commands
         self.search_setup_completed = True
 
     def run_request_search(self):
@@ -4101,98 +3790,62 @@ class Arr:
     def get_year_search(self) -> tuple[list[int], int]:
         years_list = set()
         years = []
-        with self.db.atomic():
-            if self.type == "radarr":
-                if self.search_in_reverse:
-                    years_query = (
-                        self.model_arr_movies_file.select(
-                            self.model_arr_movies_file.Year.distinct()
-                        )
-                        .where(
-                            self.model_arr_movies_file.Year
-                            <= datetime.now().year & self.model_arr_movies_file.Year
-                            != 0
-                        )
-                        .order_by(self.model_arr_movies_file.Year.asc())
-                        .execute()
-                    )
-                else:
-                    years_query = (
-                        self.model_arr_movies_file.select(
-                            self.model_arr_movies_file.Year.distinct()
-                        )
-                        .where(
-                            self.model_arr_movies_file.Year
-                            <= datetime.now().year & self.model_arr_movies_file.Year
-                            != 0
-                        )
-                        .order_by(self.model_arr_movies_file.Year.desc())
-                        .execute()
-                    )
-                years = [y.Year for y in years_query]
-                self.logger.trace("Years: %s", years)
-                years_count = len(years)
-            elif self.type == "sonarr":
-                completed = True
-                while completed:
-                    completed = False
-                    try:
-                        series = self.client.get_series()
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                    ) as e:
-                        completed = True
+        if self.type == "radarr":
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    movies = self.client.get_movie()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    completed = True
 
-                for s in series:
-                    episodes = self.client.get_episode(s["id"], True)
-                    for e in episodes:
-                        if "airDateUtc" in e:
-                            if not self.search_specials and e["seasonNumber"] == 0:
-                                continue
-                            if not e["monitored"]:
-                                continue
-                            years_list.add(
-                                datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                .replace(tzinfo=timezone.utc)
-                                .year
-                            )
+            for m in movies:
+                if not m["monitored"]:
+                    continue
+                if m["year"] != 0 and m["year"] <= datetime.now(timezone.utc).year:
+                    years_list.add(m["year"])
 
-                years_list = dict.fromkeys(years_list)
-                if self.search_in_reverse:
-                    for key, file_dir in sorted(
-                        list(years_list.items()), key=lambda x: x[0], reverse=True
-                    ):
-                        years.append(key)
+        elif self.type == "sonarr":
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    series = self.client.get_series()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    completed = True
 
-                else:
-                    for key, file_dir in sorted(
-                        list(years_list.items()), key=lambda x: x[0], reverse=False
-                    ):
-                        years.append(key)
-                # self.model_arr_file: EpisodesModel
-                # if self.search_in_reverse:
-                #     years_query = (
-                #         self.model_arr_file.select(
-                #             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
-                #         )
-                #         .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
-                #         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
-                #         .execute()
-                #     )
-                # else:
-                #     years_query = (
-                #         self.model_arr_file.select(
-                #             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
-                #         )
-                #         .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
-                #         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
-                #         .execute()
-                #     )
-                # years = [y.Year for y in years_query]
-                self.logger.trace("Years: %s", years)
-                years_count = len(years)
+            for s in series:
+                episodes = self.client.get_episode(s["id"], True)
+                for e in episodes:
+                    if "airDateUtc" in e:
+                        if not self.search_specials and e["seasonNumber"] == 0:
+                            continue
+                        if not e["monitored"]:
+                            continue
+                        years_list.add(
+                            datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                            .replace(tzinfo=timezone.utc)
+                            .year
+                        )
+
+        years_list = dict.fromkeys(years_list)
+        if self.search_in_reverse:
+            for key, null in sorted(list(years_list.items()), key=lambda x: x[0], reverse=True):
+                years.append(key)
+
+        else:
+            for key, null in sorted(list(years_list.items()), key=lambda x: x[0], reverse=False):
+                years.append(key)
+        self.logger.trace("Years: %s", years)
+        years_count = len(years)
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
@@ -4258,7 +3911,13 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.trace("Running search for %s", entry.Title)
+                            self.logger.trace(
+                                "Running search for %s [%s, %s, %s]",
+                                entry.Title,
+                                todays,
+                                limit_bypass,
+                                series_search,
+                            )
                             while (
                                 self.maybe_do_search(
                                     entry,
