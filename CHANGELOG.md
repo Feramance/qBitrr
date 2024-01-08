@@ -1,5 +1,32 @@
 # Changelog
 
+## v4.0.0 (08/01/2024)
+- [[major] V4 Update overhaul to remove DB file requirements](https://github.com/Feramance/qBitrr/commit/0b0f638b900f78a7a2a03ac9e78e771dbc2e86a9) - @Feramance
+- [Merge branch 'master' into v4](https://github.com/Feramance/qBitrr/commit/6f45f4b95d8f7c28ae6722a8db45593c1a8841d6) - @Feramance
+- [Update README and PyPi description](https://github.com/Feramance/qBitrr/commit/9e808f781ae1d4ef73c5dda754abcc2f4397bbeb) - @Feramance
+- [Removed logic related to the arr DB files as they are no longer required](https://github.com/Feramance/qBitrr/commit/2952f257e61b64a173ad3e328437dbed575bfd84) - @Feramance
+- [Years search fix](https://github.com/Feramance/qBitrr/commit/45f2e71f0f4980881ba2c3c596d62154f6baa3a7) - @Feramance
+- [Undo bad commits to master](https://github.com/Feramance/qBitrr/commit/99da6b484aad191d6f1692bf6b5f9d46be4bb148) - @Feramance
+- [Error fix 3](https://github.com/Feramance/qBitrr/commit/5db308291df4fb92681af765c9814d6cf2677ab4) - @Feramance
+- [Error fix 2](https://github.com/Feramance/qBitrr/commit/933621822f3766bbe77834da316d3b81208277aa) - @Feramance
+- [Error fix](https://github.com/Feramance/qBitrr/commit/e17c41b6d72faca47fc71e39b5e715deea363ee5) - @Feramance
+- [Yield rewrite](https://github.com/Feramance/qBitrr/commit/76cffc25d20294ce9e06920be24f552e5ed1f6b2) - @Feramance
+- [v4 Workflow fix](https://github.com/Feramance/qBitrr/commit/d916d5e37da2eef87fadbac1eb544c13a9248325) - @Feramance
+- [Series search fix test](https://github.com/Feramance/qBitrr/commit/09767614ea64f6f68ded9110a85f6a046e5de1ed) - @Feramance
+- [Added debugs](https://github.com/Feramance/qBitrr/commit/ae663340c912b73940f1ebadb9e258c64e371238) - @Feramance
+- [Merge pull request #49 from Feramance/master](https://github.com/Feramance/qBitrr/commit/fb4f899d5a33cc76f6668910e22be0fa08339c79) - @Feramance
+- [Merge branch 'v4' into master](https://github.com/Feramance/qBitrr/commit/2911b949218db8c51c88466d1354cee060fd146f) - @Feramance
+- [Series search testing](https://github.com/Feramance/qBitrr/commit/8a79afb916a2879417ace843ed9272cf5b9d0ccf) - @Feramance
+- [Minimum availability update](https://github.com/Feramance/qBitrr/commit/28d1f757983579c797b0dc44fa8f68ca61e131f6) - @Feramance
+- [Further API implementation, prepared for testing](https://github.com/Feramance/qBitrr/commit/dcddb3cf178bd6b075498a51c778844c859beae5) - @Feramance
+- [Fursther query to api substitutes](https://github.com/Feramance/qBitrr/commit/b9a9c59ef00acd2c465c2804b993047cd953c3c0) - @Feramance
+- [Ignored torrent update](https://github.com/Feramance/qBitrr/commit/2ca4f9934ff37b7214b084aa3de11e107e2c58bf) - @Feramance
+- [Changed ignore tag](https://github.com/Feramance/qBitrr/commit/a98b449cc1422144c9c929c9a7df6bac17608fbc) - @Feramance
+- [Updated description/README](https://github.com/Feramance/qBitrr/commit/4cb8010d00964c05a2a94e470f9fc4e19c72492f) - @Feramance
+- [Testing allowed download tag](https://github.com/Feramance/qBitrr/commit/98924085d4a817294c1de195425938d5363bc11a) - @Feramance
+
+---
+
 ## v3.8.12 (03/01/2024)
 - [[patch] Fixed search completion logic](https://github.com/Feramance/qBitrr/commit/a41e63b46471f0aa8a761f5e03e3c73a046b1396) - @Feramance
 
@@ -222,7 +249,3 @@
 - [[release] Removed redundant debugs](https://github.com/Feramance/qBitrr/commit/d31f906c5172a392656bcb3244801849a0f698c7) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/b6fde7c4adecbadcb3b2136d1b9995607a009f5a) - @Feramance
 - [[release] Actual fix for series search loop](https://github.com/Feramance/qBitrr/commit/dd6dc298c60728eca6d30a86b07d06fa5a30c892) - @Feramance
-
----
-
-## v3.7.14-beta-1 (01/11/2023)
