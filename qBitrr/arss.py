@@ -1926,9 +1926,9 @@ class Arr:
             )
             return True
         elif (
-            db_entry["inCinemas"] is None
-            and db_entry["digitalRelease"] is None
-            and db_entry["physicalRelease"] is None
+            "inCinemas" not in db_entry
+            and "digitalRelease" not in db_entry
+            and "physicalRelease" not in db_entry
             and db_entry["minimumAvailability"] == "released"
         ):
             self.logger.trace(
@@ -1941,8 +1941,8 @@ class Arr:
             )
             return True
         elif (
-            db_entry["digitalRelease"] is not None
-            and db_entry["physicalRelease"] is not None
+            "digitalRelease" in db_entry
+            and "physicalRelease" in db_entry
             and db_entry["minimumAvailability"] == "released"
         ):
             if (
@@ -1970,10 +1970,10 @@ class Arr:
                     db_entry["physicalRelease"],
                 )
                 return False
-        elif (
-            db_entry["digitalRelease"] is not None or db_entry["physicalRelease"] is not None
-        ) and db_entry["minimumAvailability"] == "released":
-            if db_entry["digitalRelease"] is not None:
+        elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
+            "minimumAvailability"
+        ] == "released":
+            if "digitalRelease" in db_entry:
                 if (
                     datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
@@ -1997,7 +1997,7 @@ class Arr:
                         db_entry["physicalRelease"],
                     )
                     return False
-            else:
+            elif "digitalRelease" in db_entry:
                 if (
                     datetime.strptime(db_entry["physicalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
@@ -2022,9 +2022,9 @@ class Arr:
                     )
                     return False
         elif (
-            db_entry["inCinemas"] is None
-            and db_entry["digitalRelease"] is None
-            and db_entry["physicalRelease"] is None
+            "inCinemas" not in db_entry
+            and "digitalRelease" not in db_entry
+            and "physicalRelease" not in db_entry
             and db_entry["minimumAvailability"] == "inCinemas"
         ):
             self.logger.trace(
@@ -2036,7 +2036,7 @@ class Arr:
                 db_entry["physicalRelease"],
             )
             return True
-        elif db_entry["inCinemas"] is not None and db_entry["minimumAvailability"] == "inCinemas":
+        elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
             if (
                 datetime.strptime(db_entry["inCinemas"][:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
@@ -2060,8 +2060,8 @@ class Arr:
                     db_entry["physicalRelease"],
                 )
                 return False
-        elif db_entry["inCinemas"] is None and db_entry["minimumAvailability"] == "inCinemas":
-            if db_entry["digitalRelease"] is not None:
+        elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
+            if "digitalRelease" in db_entry:
                 if (
                     datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
@@ -2085,7 +2085,7 @@ class Arr:
                         db_entry["physicalRelease"],
                     )
                     return False
-            elif db_entry["physicalRelease"] is not None:
+            elif "physicalRelease" in db_entry:
                 if (
                     datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
