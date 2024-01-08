@@ -2135,7 +2135,7 @@ class Arr:
                     tmdbId = db_entry["tmdbId"]
                     year = db_entry["year"]
                     entryId = db_entry["id"]
-                    movieFileId = db_entry["movieFileId"]
+                    movieFileId = 1 if "movieFileId" in db_entry else 0
                     qualityMet = QualityUnmet
 
                     to_update = {
