@@ -1668,7 +1668,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return False
         elif db_entry["year"] < datetime.now().year and db_entry["year"] != 0:
@@ -1678,7 +1678,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return True
         elif (
@@ -1693,7 +1693,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return True
         elif (
@@ -1713,7 +1713,7 @@ class Arr:
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                     db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                 )
                 return True
             else:
@@ -1723,7 +1723,7 @@ class Arr:
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                     db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                 )
                 return False
         elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
@@ -1740,7 +1740,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return True
                 else:
@@ -1750,7 +1750,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return False
             elif "digitalRelease" in db_entry:
@@ -1764,7 +1764,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return True
                 else:
@@ -1774,7 +1774,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return False
         elif (
@@ -1789,7 +1789,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return True
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -1800,7 +1800,7 @@ class Arr:
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                     db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                 )
                 return True
             else:
@@ -1810,7 +1810,7 @@ class Arr:
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                     db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                 )
                 return False
         elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -1825,7 +1825,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return True
                 else:
@@ -1835,7 +1835,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return False
             elif "physicalRelease" in db_entry:
@@ -1849,7 +1849,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return True
                 else:
@@ -1859,7 +1859,7 @@ class Arr:
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                         db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return False
             else:
@@ -1869,7 +1869,7 @@ class Arr:
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                     db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                 )
                 return False
         elif db_entry["minimumAvailability"] == "announced":
@@ -1879,7 +1879,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return True
         else:
@@ -1889,7 +1889,7 @@ class Arr:
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
                 db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["digitalRelease"] if "physicalRelease" in db_entry else None,
+                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return False
 
