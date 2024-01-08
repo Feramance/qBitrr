@@ -28,7 +28,6 @@ class EpisodeFilesModel(Model):
     SeasonNumber = IntegerField(null=False)
     AbsoluteEpisodeNumber = IntegerField(null=True)
     SceneAbsoluteEpisodeNumber = IntegerField(null=True)
-    LastSearchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     AirDateUtc = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     Monitored = BooleanField(null=True)
     Searched = BooleanField(default=False)

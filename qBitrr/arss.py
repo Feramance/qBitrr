@@ -16,13 +16,13 @@ from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import pathos
-import peewee
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
 from packaging import version as version_parser
-from peewee import JOIN, SqliteDatabase, fn
+from peewee import SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
+from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
@@ -1100,21 +1100,27 @@ class Arr:
             self.refresh_downloads_timer_last_checked = now
 
     def arr_db_query_commands_count(self) -> int:
+        search_commands = 0
         if not self.search_missing:
             return 0
-        try:
-            search_commands = (  # ilovemywife
-                self.model_arr_command.select()
-                .where(
-                    self.model_arr_command.EndedAt.is_null(True)
-                    & self.model_arr_command.Name.endswith("Search")
-                    & ~(self.model_arr_command.Name.contains("Missing"))
-                )
-                .count()
-            )
-        except peewee.DatabaseError:
-            self.logger.trace("No unended commands found")
-            search_commands = 0
+        completed = True
+        while completed:
+            try:
+                completed = False
+                commands = self.client.get_command()
+                for command in commands:
+                    if (
+                        command["name"].endswith("Search")
+                        and command["status"] != "completed"
+                        and "Missing" not in command["name"]
+                    ):
+                        search_commands = search_commands + 1
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+            ):
+                completed = True
 
         return search_commands
 
@@ -1161,6 +1167,7 @@ class Arr:
         self.loop_completed = False
 
     def db_reset__series_searched_state(self):
+        ids = []
         if self.version.major == 3:
             self.model_arr_series_file: SeriesModel
         elif self.version.major == 4:
@@ -1173,15 +1180,32 @@ class Arr:
             self.series_file_model.update(Searched=False, Upgrade=False).where(
                 self.series_file_model.Searched == True
             ).execute()
-            try:
-                Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
-                self.series_file_model.delete().where(
-                    self.series_file_model.EntryId.not_in(Ids)
-                ).execute()
-            except peewee.DatabaseError:
-                self.logger.error("Database error")
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    series = self.client.get_series()
+                    for s in series:
+                        ids.append(s["id"])
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    completed = True
+            self.series_file_model.delete().where(
+                self.series_file_model.EntryId.not_in(ids)
+            ).execute()
+            # try:
+            #     Ids = [id.Id for id in self.model_arr_series_file.select().execute()]
+            #     self.series_file_model.delete().where(
+            #         self.series_file_model.EntryId.not_in(Ids)
+            #     ).execute()
+            # except peewee.DatabaseError:
+            #     self.logger.error("Database error")
 
     def db_reset__episode_searched_state(self):
+        ids = []
         self.model_file: EpisodeFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
@@ -1189,13 +1213,30 @@ class Arr:
             self.model_file.update(Searched=False, Upgrade=False).where(
                 self.model_file.Searched == True
             ).execute()
-            try:
-                Ids = [id.Id for id in self.model_arr_file.select().execute()]
-                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
-            except peewee.DatabaseError:
-                self.logger.error("Database error")
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    series = self.client.get_series()
+                    for s in series:
+                        episodes = self.client.get_episode(s["id"], True)
+                        for e in episodes:
+                            ids.append(e["id"])
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    completed = True
+            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            # try:
+            #     Ids = [id.Id for id in self.model_arr_file.select().execute()]
+            #     self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
+            # except peewee.DatabaseError:
+            #     self.logger.error("Database error")
 
     def db_reset__movie_searched_state(self):
+        ids = []
         self.model_file: MoviesFilesModel
         if (
             self.loop_completed is True and self.reset_on_completion
@@ -1203,11 +1244,25 @@ class Arr:
             self.model_file.update(Searched=False, Upgrade=False).where(
                 self.model_file.Searched == True
             ).execute()
-            try:
-                Ids = [id.Id for id in self.model_arr_file.select().execute()]
-                self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
-            except peewee.DatabaseError:
-                self.logger.error("Database error")
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    movies = self.client.get_movie()
+                    for m in movies:
+                        ids.append(m["id"])
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                ) as e:
+                    completed = True
+            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            # try:
+            #     Ids = [id.Id for id in self.model_arr_file.select().execute()]
+            #     self.model_file.delete().where(self.model_file.EntryId.not_in(Ids)).execute()
+            # except peewee.DatabaseError:
+            #     self.logger.error("Database error")
 
     def db_get_files_series(
         self,
@@ -1239,6 +1294,13 @@ class Arr:
                 condition = self.series_file_model.Searched == False
             else:
                 condition = self.series_file_model.Upgrade == False
+            for entry_ in (
+                self.series_file_model.select()
+                .where(condition)
+                .order_by(self.series_file_model.EntryId.asc())
+                .execute()
+            ):
+                self.logger.debug("Yielding %s", entry_.Title)
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -1399,84 +1461,164 @@ class Arr:
             self.db_ombi_update()
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
-        with self.db.atomic():
-            try:
-                if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-                    self.model_arr_file: EpisodesModel
-                    if self.version.major == 3:
-                        self.model_arr_series_file: SeriesModel
-                    elif self.version.major == 4:
-                        self.model_arr_series_file: SeriesModelv4
-                    condition = self.model_arr_file.AirDateUtc.is_null(False)
-                    if not self.search_specials:
-                        condition &= self.model_arr_file.SeasonNumber != 0
-                    condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
-                        False
-                    ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                    condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
-                    imdb_con = None
-                    tvdb_con = None
-                    if ImdbIds := request_ids.get("ImdbId"):
-                        imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
-                    if tvDbIds := request_ids.get("TvdbId"):
-                        tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
-                    if imdb_con and tvdb_con:
-                        condition &= imdb_con | tvdb_con
-                    elif imdb_con:
-                        condition &= imdb_con
-                    elif tvdb_con:
-                        condition &= tvdb_con
-                    for db_entry in (
-                        self.model_arr_file.select()
-                        .join(
-                            self.model_arr_series_file,
-                            on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
-                            join_type=JOIN.LEFT_OUTER,
-                        )
-                        .switch(self.model_arr_file)
-                        .where(condition)
-                        .execute()
+        # with self.db.atomic():
+        try:
+            if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
+                imdb_con = None
+                tvdb_con = None
+                if ImdbIds := request_ids.get("ImdbId"):
+                    imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
+                if tvDbIds := request_ids.get("TvdbId"):
+                    tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        series = self.client.get_series()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
                     ):
-                        self.db_update_single_series(db_entry=db_entry, request=True)
-                elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                    if self.version.major == 4:
-                        self.model_arr_file: MoviesModel
-                    elif self.version.major == 5:
-                        self.model_arr_file: MoviesModelv5
-                    self.model_arr_movies_file: MoviesMetadataModel
-                    condition = self.model_arr_movies_file.Year <= datetime.now().year
+                        completed = True
+                for s in series:
+                    episodes = self.client.get_episode(series["id"], True)
+                    for e in episodes:
+                        if "airDateUtc" in e and (
+                            "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
+                        ):
+                            if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                                tzinfo=timezone.utc
+                            ) > datetime.now(timezone.utc):
+                                continue
+                            if not self.search_specials and e["seasonNumber"] == 0:
+                                continue
+                            if tvdb_con and imdb_con and "tvdbId" in e and "imdbId" in e:
+                                if (
+                                    series["tvdbId"] not in tvDbIds
+                                    or series["imdbId"] not in ImdbIds
+                                ):
+                                    continue
+                            if imdb_con and "imdbId" in e:
+                                if series["imdbId"] not in ImdbIds:
+                                    continue
+                            if tvdb_con and "tvdbId" in e:
+                                if series["tvdbId"] not in tvDbIds:
+                                    continue
+                            if not e["monitored"]:
+                                continue
+                            if e["episodeFileId"] != 0:
+                                continue
+                            self.db_update_single_series(db_entry=e, request=True)
+                # self.model_arr_file: EpisodesModel
+                # if self.version.major == 3:
+                #     self.model_arr_series_file: SeriesModel
+                # elif self.version.major == 4:
+                #     self.model_arr_series_file: SeriesModelv4
+                # condition = self.model_arr_file.AirDateUtc.is_null(False)
+                # if not self.search_specials:
+                #     condition &= self.model_arr_file.SeasonNumber != 0
+                # condition &= self.model_arr_file.AbsoluteEpisodeNumber.is_null(
+                #     False
+                # ) | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                # condition &= self.model_arr_file.AirDateUtc < datetime.now(timezone.utc)
+                # imdb_con = None
+                # tvdb_con = None
+                # if ImdbIds := request_ids.get("ImdbId"):
+                #     imdb_con = self.model_arr_series_file.ImdbId.in_(ImdbIds)
+                # if tvDbIds := request_ids.get("TvdbId"):
+                #     tvdb_con = self.model_arr_series_file.TvdbId.in_(tvDbIds)
+                # if imdb_con and tvdb_con:
+                #     condition &= imdb_con | tvdb_con
+                # elif imdb_con:
+                #     condition &= imdb_con
+                # elif tvdb_con:
+                #     condition &= tvdb_con
+                # for db_entry in (
+                #     self.model_arr_file.select()
+                #     .join(
+                #         self.model_arr_series_file,
+                #         on=(self.model_arr_file.SeriesId == self.model_arr_series_file.Id),
+                #         join_type=JOIN.LEFT_OUTER,
+                #     )
+                #     .switch(self.model_arr_file)
+                #     .where(condition)
+                #     .execute()
+                # ):
+                #    self.db_update_single_series(db_entry=db_entry, request=True)
+            elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
+                tmdb_con = None
+                imdb_con = None
+                if ImdbIds := request_ids.get("ImdbId"):
+                    imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
+                if TmdbIds := request_ids.get("TmdbId"):
+                    tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        movies = self.client.get_movies()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
+                for m in movies:
+                    if m["year"] > datetime.now().year and m["year"] == 0:
+                        continue
+                    if tmdb_con and imdb_con and "tmdbId" in m and "imdbId" in m:
+                        if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
+                            continue
+                    if imdb_con and "imdbId" in m:
+                        if m["imdbId"] not in ImdbIds:
+                            continue
+                    if tmdb_con and "tmdbId" in m:
+                        if m["tmdbId"] not in TmdbIds:
+                            continue
+                    if not m["monitored"]:
+                        continue
+                    if m["hasFile"]:
+                        continue
+                    self.db_update_single_series(db_entry=m, request=True)
 
-                    tmdb_con = None
-                    imdb_con = None
-                    if ImdbIds := request_ids.get("ImdbId"):
-                        imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
-                    if TmdbIds := request_ids.get("TmdbId"):
-                        tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
-                    if tmdb_con and imdb_con:
-                        condition &= tmdb_con | imdb_con
-                    elif tmdb_con:
-                        condition &= tmdb_con
-                    elif imdb_con:
-                        condition &= imdb_con
-                    for db_entry in (
-                        self.model_arr_file.select()
-                        .join(
-                            self.model_arr_movies_file,
-                            on=(
-                                self.model_arr_file.MovieMetadataId
-                                == self.model_arr_movies_file.Id
-                            ),
-                            join_type=JOIN.LEFT_OUTER,
-                        )
-                        .switch(self.model_arr_file)
-                        .where(condition)
-                        .order_by(self.model_arr_file.Added.desc())
-                        .execute()
-                    ):
-                        self.db_update_single_series(db_entry=db_entry, request=True)
-            except requests.exceptions.ConnectionError:
-                self.logger.error("Connection Error")
-                raise DelayLoopException(length=300, type=self._name)
+                # if self.version.major == 4:
+                #     self.model_arr_file: MoviesModel
+                # elif self.version.major == 5:
+                #     self.model_arr_file: MoviesModelv5
+                # self.model_arr_movies_file: MoviesMetadataModel
+                # condition = self.model_arr_movies_file.Year <= datetime.now().year
+                # tmdb_con = None
+                # imdb_con = None
+                # if ImdbIds := request_ids.get("ImdbId"):
+                #     imdb_con = self.model_arr_movies_file.ImdbId.in_(ImdbIds)
+                # if TmdbIds := request_ids.get("TmdbId"):
+                #     tmdb_con = self.model_arr_movies_file.TmdbId.in_(TmdbIds)
+                # if tmdb_con and imdb_con:
+                #     condition &= tmdb_con | imdb_con
+                # elif tmdb_con:
+                #     condition &= tmdb_con
+                # elif imdb_con:
+                #     condition &= imdb_con
+                # for db_entry in (
+                #     self.model_arr_file.select()
+                #     .join(
+                #         self.model_arr_movies_file,
+                #         on=(
+                #             self.model_arr_file.MovieMetadataId
+                #             == self.model_arr_movies_file.Id
+                #         ),
+                #         join_type=JOIN.LEFT_OUTER,
+                #     )
+                #     .switch(self.model_arr_file)
+                #     .where(condition)
+                #     .order_by(self.model_arr_file.Added.desc())
+                #     .execute()
+                # ):
+                #     self.db_update_single_series(db_entry=db_entry, request=True)
+        except requests.exceptions.ConnectionError:
+            self.logger.error("Connection Error")
+            raise DelayLoopException(length=300, type=self._name)
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
@@ -1505,21 +1647,56 @@ class Arr:
     def db_update_todays_releases(self):
         if not self.prioritize_todays_release:
             return
-        with self.db.atomic():
-            if self.type == "sonarr":
-                try:
-                    for series in self.model_arr_file.select().where(
-                        (self.model_arr_file.AirDateUtc.is_null(False))
-                        & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                        & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
-                        & (
-                            self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                            | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                        ).execute()
+        # with self.db.atomic():
+        if self.type == "sonarr":
+            try:
+                # for series in self.model_arr_file.select().where(
+                #     (self.model_arr_file.AirDateUtc.is_null(False))
+                #     & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                #     & (self.model_arr_file.AirDateUtc >= datetime.now(timezone.utc).date())
+                #     & (
+                #         self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                #         | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                #     ).execute()
+                # ):
+                #     self.db_update_single_series(db_entry=series)
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        series = self.client.get_series()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
                     ):
-                        self.db_update_single_series(db_entry=series)
-                except BaseException:
-                    self.logger.debug("No episode releases found for today")
+                        completed = True
+                for s in series:
+                    episodes = self.client.get_episode(s["id"], True)
+                    for e in episodes:
+                        if "airDateUtc" in e and (
+                            "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
+                        ):
+                            if (
+                                datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                .replace(tzinfo=timezone.utc)
+                                .date()
+                                > datetime.now(timezone.utc).date()
+                                or datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                .replace(tzinfo=timezone.utc)
+                                .date()
+                                < datetime.now(timezone.utc).date()
+                            ):
+                                continue
+                            if not self.search_specials and e["seasonNumber"] == 0:
+                                continue
+                            if not e["monitored"]:
+                                continue
+                            if e["episodeFileId"] != 0:
+                                continue
+                            self.db_update_single_series(db_entry=e)
+            except BaseException:
+                self.logger.debug("No episode releases found for today")
 
     def db_update(self):
         if not self.search_missing:
@@ -1527,339 +1704,455 @@ class Arr:
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         with self.db.atomic():
-            try:
-                if self.type == "sonarr":
-                    if not self.series_search:
-                        self.model_arr_file: EpisodesModel
-                        _series = set()
-                        if self.search_by_year:
-                            series_query = self.model_arr_file.select().where(
-                                (self.model_arr_file.AirDateUtc.is_null(False))
-                                & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                                & (
-                                    self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                                    | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                                )
-                                & (
-                                    self.model_arr_file.AirDateUtc
-                                    >= datetime(month=1, day=1, year=int(self.search_current_year))
-                                )
-                                & (
-                                    self.model_arr_file.AirDateUtc
-                                    <= datetime(
-                                        month=12, day=31, year=int(self.search_current_year)
-                                    )
-                                )
-                            )
-                        else:
-                            series_query = self.model_arr_file.select().where(
-                                (self.model_arr_file.AirDateUtc.is_null(False))
-                                & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
-                                & (
-                                    self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
-                                    | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
-                                )
-                            )
-                        if series_query:
-                            for series in series_query:
-                                _series.add(series.SeriesId)
-                                self.db_update_single_series(db_entry=series)
-                            for series in self.model_arr_file.select().where(
-                                self.model_arr_file.SeriesId.in_(_series)
-                            ):
-                                self.db_update_single_series(db_entry=series)
-                    else:
-                        if self.version.major == 3:
-                            self.model_arr_series_file: SeriesModel
-                        elif self.version.major == 4:
-                            self.model_arr_series_file: SeriesModelv4
-                        for series in (
-                            self.model_arr_series_file.select()
-                            .order_by(self.model_arr_series_file.Added.desc())
-                            .execute()
+            # try:
+            if self.type == "sonarr":
+                if not self.series_search:
+                    self.model_arr_file: EpisodesModel
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            series = self.client.get_series()
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
                         ):
-                            self.db_update_single_series(db_entry=series, series=True)
-                elif self.type == "radarr":
-                    if self.version.major == 4:
-                        self.model_arr_file: MoviesModel
-                    elif self.version.major == 5:
-                        self.model_arr_file: MoviesModelv5
+                            completed = True
                     if self.search_by_year:
-                        for movies in (
-                            self.model_arr_file.select(self.model_arr_file)
-                            .join(
-                                self.model_arr_movies_file,
-                                on=(
-                                    self.model_arr_file.MovieMetadataId
-                                    == self.model_arr_movies_file.Id
-                                ),
-                            )
-                            .switch(self.model_arr_file)
-                            .where(self.model_arr_movies_file.Year == self.search_current_year)
-                            .order_by(self.model_arr_file.Added.desc())
-                            .execute()
-                        ):
-                            self.db_update_single_series(db_entry=movies)
+                        for s in series:
+                            episodes = self.client.get_episode(s["id"], True)
+                            for e in episodes:
+                                if "airDateUtc" in e and (
+                                    "absoluteEpisodeNumber" in e
+                                    or "sceneAbsoluteEpisodeNumber" in e
+                                ):
+                                    if datetime.strptime(
+                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                        continue
+                                    if (
+                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                        .replace(tzinfo=timezone.utc)
+                                        .date()
+                                        < datetime(
+                                            month=1, day=1, year=int(self.search_current_year)
+                                        ).date()
+                                    ):
+                                        continue
+                                    if (
+                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                        .replace(tzinfo=timezone.utc)
+                                        .date()
+                                        > datetime(
+                                            month=12, day=31, year=int(self.search_current_year)
+                                        ).date()
+                                    ):
+                                        continue
+                                    if not self.search_specials and e["seasonNumber"] == 0:
+                                        continue
+                                    if not e["monitored"]:
+                                        continue
+                                    self.db_update_single_series(db_entry=e)
 
                     else:
-                        for movies in (
-                            self.model_arr_file.select(self.model_arr_file)
-                            .join(
-                                self.model_arr_movies_file,
-                                on=(
-                                    self.model_arr_file.MovieMetadataId
-                                    == self.model_arr_movies_file.Id
-                                ),
-                            )
-                            .switch(self.model_arr_file)
-                            .order_by(self.model_arr_file.Added.desc())
-                            .execute()
+                        for s in series:
+                            episodes = self.client.get_episode(s["id"], True)
+                            for e in episodes:
+                                if "airDateUtc" in e and (
+                                    "absoluteEpisodeNumber" in e
+                                    or "sceneAbsoluteEpisodeNumber" in e
+                                ):
+                                    if datetime.strptime(
+                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                        continue
+                                    if not self.search_specials and e["seasonNumber"] == 0:
+                                        continue
+                                    if not e["monitored"]:
+                                        continue
+                                    self.db_update_single_series(db_entry=e)
+                        # if self.search_by_year:
+                        #     series_query = self.model_arr_file.select().where(
+                        #         (self.model_arr_file.AirDateUtc.is_null(False))
+                        #         & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                        #         & (
+                        #             self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                        #             | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        #         )
+                        #         & (
+                        #             self.model_arr_file.AirDateUtc
+                        #             >= datetime(month=1, day=1, year=int(self.search_current_year))
+                        #         )
+                        #         & (
+                        #             self.model_arr_file.AirDateUtc
+                        #             <= datetime(
+                        #                 month=12, day=31, year=int(self.search_current_year)
+                        #             )
+                        #         )
+                        #     )
+                        # else:
+                        #     series_query = self.model_arr_file.select().where(
+                        #         (self.model_arr_file.AirDateUtc.is_null(False))
+                        #         & (self.model_arr_file.AirDateUtc < datetime.now(timezone.utc))
+                        #         & (
+                        #             self.model_arr_file.AbsoluteEpisodeNumber.is_null(False)
+                        #             | self.model_arr_file.SceneAbsoluteEpisodeNumber.is_null(False)
+                        #         )
+                        #     )
+                        # if series_query:
+                        #     for series in series_query:
+                        #         _series.add(series.SeriesId)
+                        #         self.db_update_single_series(db_entry=series)
+                        #     for series in self.model_arr_file.select().where(
+                        #         self.model_arr_file.SeriesId.in_(_series)
+                        #     ):
+                        #         self.db_update_single_series(db_entry=series)
+                else:
+                    completed = True
+                    while completed:
+                        try:
+                            completed = False
+                            series = self.client.get_series()
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
                         ):
-                            self.db_update_single_series(db_entry=movies)
-            except peewee.DatabaseError:
-                self.logger.error("Database error")
+                            completed = True
+                    if self.search_by_year:
+                        for s in series:
+                            if s["year"] < self.search_current_year:
+                                continue
+                            if s["year"] > self.search_current_year:
+                                continue
+                            if not s["monitored"]:
+                                continue
+                            self.db_update_single_series(db_entry=s, series=True)
+                    else:
+                        for s in series:
+                            if not s["monitored"]:
+                                continue
+                            self.db_update_single_series(db_entry=s, series=True)
+                        # if self.version.major == 3:
+                        #     self.model_arr_series_file: SeriesModel
+                        # elif self.version.major == 4:
+                        #     self.model_arr_series_file: SeriesModelv4
+                        # for series in (
+                        #     self.model_arr_series_file.select()
+                        #     .order_by(self.model_arr_series_file.Added.desc())
+                        #     .execute()
+                        # ):
+                        #     self.db_update_single_series(db_entry=series, series=True)
+            elif self.type == "radarr":
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        movies = self.client.get_movie()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ):
+                        completed = True
+                if self.search_by_year:
+                    for m in movies:
+                        if m["year"] < self.search_current_year:
+                            continue
+                        if m["year"] > self.search_current_year:
+                            continue
+                        if not m["monitored"]:
+                            continue
+                        self.db_update_single_series(db_entry=min)
+                else:
+                    for m in series:
+                        if not m["monitored"]:
+                            continue
+                        self.db_update_single_series(db_entry=m)
+            #         if self.version.major == 4:
+            #             self.model_arr_file: MoviesModel
+            #         elif self.version.major == 5:
+            #             self.model_arr_file: MoviesModelv5
+            #         if self.search_by_year:
+            #             for movies in (
+            #                 self.model_arr_file.select(self.model_arr_file)
+            #                 .join(
+            #                     self.model_arr_movies_file,
+            #                     on=(
+            #                         self.model_arr_file.MovieMetadataId
+            #                         == self.model_arr_movies_file.Id
+            #                     ),
+            #                 )
+            #                 .switch(self.model_arr_file)
+            #                 .where(self.model_arr_movies_file.Year == self.search_current_year)
+            #                 .order_by(self.model_arr_file.Added.desc())
+            #                 .execute()
+            #             ):
+            #                 self.db_update_single_series(db_entry=movies)
+
+            #         else:
+            #             for movies in (
+            #                 self.model_arr_file.select(self.model_arr_file)
+            #                 .join(
+            #                     self.model_arr_movies_file,
+            #                     on=(
+            #                         self.model_arr_file.MovieMetadataId
+            #                         == self.model_arr_movies_file.Id
+            #                     ),
+            #                 )
+            #                 .switch(self.model_arr_file)
+            #                 .order_by(self.model_arr_file.Added.desc())
+            #                 .execute()
+            #             ):
+            #                 self.db_update_single_series(db_entry=movies)
+            # except peewee.DatabaseError:
+            #     self.logger.error("Database error")
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
         self,
-        db_entry: MoviesModel | MoviesModelv5 = None,
-        metadata: MoviesMetadataModel = None,
+        db_entry: JsonObject,
+        # metadata: MoviesMetadataModel = None,
     ) -> bool:
-        if metadata.Year > datetime.now().year or metadata.Year == 0:
+        if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
             self.logger.trace(
-                "[AnyY] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return False
-        elif metadata.Year < datetime.now().year - 1 and metadata.Year != 0:
+        elif db_entry["year"] < datetime.now().year and db_entry["year"] != 0:
             self.logger.trace(
-                "[AnyY] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return True
         elif (
-            metadata.InCinemas is None
-            and metadata.DigitalRelease is None
-            and metadata.PhysicalRelease is None
-            and db_entry.MinimumAvailability == 3
+            "inCinemas" not in db_entry
+            and "digitalRelease" not in db_entry
+            and "physicalRelease" not in db_entry
+            and db_entry["minimumAvailability"] == "released"
         ):
             self.logger.trace(
-                "[3Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return True
         elif (
-            metadata.DigitalRelease is not None
-            and metadata.PhysicalRelease is not None
-            and db_entry.MinimumAvailability == 3
+            "digitalRelease" in db_entry
+            and "physicalRelease" in db_entry
+            and db_entry["minimumAvailability"] == "released"
         ):
             if (
-                datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
-                or datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                or datetime.strptime(db_entry["physicalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                 <= datetime.now()
             ):
                 self.logger.trace(
-                    "[3CNN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    metadata.Title,
-                    db_entry.MinimumAvailability,
-                    metadata.InCinemas,
-                    metadata.DigitalRelease,
-                    metadata.PhysicalRelease,
+                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry["title"],
+                    db_entry["minimumAvailability"],
+                    db_entry["inCinemas"],
+                    db_entry["digitalRelease"],
+                    db_entry["physicalRelease"],
                 )
                 return True
             else:
                 self.logger.trace(
-                    "[3CNN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    metadata.Title,
-                    db_entry.MinimumAvailability,
-                    metadata.InCinemas,
-                    metadata.DigitalRelease,
-                    metadata.PhysicalRelease,
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry["title"],
+                    db_entry["minimumAvailability"],
+                    db_entry["inCinemas"],
+                    db_entry["digitalRelease"],
+                    db_entry["physicalRelease"],
                 )
                 return False
-        elif (
-            metadata.DigitalRelease is not None or metadata.PhysicalRelease is not None
-        ) and db_entry.MinimumAvailability == 3:
-            if metadata.DigitalRelease is not None:
+        elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
+            "minimumAvailability"
+        ] == "released":
+            if "digitalRelease" in db_entry:
                 if (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "[3CDN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return True
                 else:
                     self.logger.trace(
-                        "[3CDN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return False
-            else:
+            elif "digitalRelease" in db_entry:
                 if (
-                    datetime.strptime(metadata.PhysicalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(db_entry["physicalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "[3CNP] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return True
                 else:
                     self.logger.trace(
-                        "[3CNP] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return False
         elif (
-            metadata.InCinemas is None
-            and metadata.DigitalRelease is None
-            and metadata.PhysicalRelease is None
-            and db_entry.MinimumAvailability == 2
+            "inCinemas" not in db_entry
+            and "digitalRelease" not in db_entry
+            and "physicalRelease" not in db_entry
+            and db_entry["minimumAvailability"] == "inCinemas"
         ):
             self.logger.trace(
-                "[2Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return True
-        elif metadata.InCinemas is not None and db_entry.MinimumAvailability == 2:
-            if datetime.strptime(metadata.InCinemas[:19], "%Y-%m-%d %H:%M:%S") <= datetime.now():
+        elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
+            if (
+                datetime.strptime(db_entry["inCinemas"][:19], "%Y-%m-%d %H:%M:%S")
+                <= datetime.now()
+            ):
                 self.logger.trace(
-                    "[2CNN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    metadata.Title,
-                    db_entry.MinimumAvailability,
-                    metadata.InCinemas,
-                    metadata.DigitalRelease,
-                    metadata.PhysicalRelease,
+                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry["title"],
+                    db_entry["minimumAvailability"],
+                    db_entry["inCinemas"],
+                    db_entry["digitalRelease"],
+                    db_entry["physicalRelease"],
                 )
                 return True
             else:
                 self.logger.trace(
-                    "[2CNN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    metadata.Title,
-                    db_entry.MinimumAvailability,
-                    metadata.InCinemas,
-                    metadata.DigitalRelease,
-                    metadata.PhysicalRelease,
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry["title"],
+                    db_entry["minimumAvailability"],
+                    db_entry["inCinemas"],
+                    db_entry["digitalRelease"],
+                    db_entry["physicalRelease"],
                 )
                 return False
-        elif metadata.InCinemas is None and db_entry.MinimumAvailability == 2:
-            if metadata.DigitalRelease is not None:
+        elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
+            if "digitalRelease" in db_entry:
                 if (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "[2NDN] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return True
                 else:
                     self.logger.trace(
-                        "[2NDN] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return False
-            elif metadata.PhysicalRelease is not None:
+            elif "physicalRelease" in db_entry:
                 if (
-                    datetime.strptime(metadata.DigitalRelease[:19], "%Y-%m-%d %H:%M:%S")
+                    datetime.strptime(db_entry["digitalRelease"][:19], "%Y-%m-%d %H:%M:%S")
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "[2NNP] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return True
                 else:
                     self.logger.trace(
-                        "[2NNP] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        metadata.Title,
-                        db_entry.MinimumAvailability,
-                        metadata.InCinemas,
-                        metadata.DigitalRelease,
-                        metadata.PhysicalRelease,
+                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        db_entry["title"],
+                        db_entry["minimumAvailability"],
+                        db_entry["inCinemas"],
+                        db_entry["digitalRelease"],
+                        db_entry["physicalRelease"],
                     )
                     return False
             else:
                 self.logger.trace(
-                    "[2Any] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    metadata.Title,
-                    db_entry.MinimumAvailability,
-                    metadata.InCinemas,
-                    metadata.DigitalRelease,
-                    metadata.PhysicalRelease,
+                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    db_entry["title"],
+                    db_entry["minimumAvailability"],
+                    db_entry["inCinemas"],
+                    db_entry["digitalRelease"],
+                    db_entry["physicalRelease"],
                 )
                 return False
-        elif db_entry.MinimumAvailability == 1:
+        elif db_entry["minimumAvailability"] == "announced":
             self.logger.trace(
-                "[1Any] Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return True
         else:
             self.logger.trace(
-                "[Else] Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                metadata.Title,
-                db_entry.MinimumAvailability,
-                metadata.InCinemas,
-                metadata.DigitalRelease,
-                metadata.PhysicalRelease,
+                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                db_entry["title"],
+                db_entry["minimumAvailability"],
+                db_entry["inCinemas"],
+                db_entry["digitalRelease"],
+                db_entry["physicalRelease"],
             )
             return False
 
     def db_update_single_series(
         self,
-        db_entry: EpisodesModel | SeriesModel | SeriesModelv4 | MoviesModel | MoviesModelv5 = None,
+        db_entry: JsonObject = None,
         request: bool = False,
         series: bool = False,
     ):
@@ -1869,14 +2162,14 @@ class Arr:
             searched = False
             if self.type == "sonarr":
                 if not series:
-                    db_entry: EpisodesModel
+                    # db_entry: EpisodesModel
                     self.model_file: EpisodeFilesModel
 
                     completed = True
                     while completed:
                         try:
                             completed = False
-                            EpisodeMetadata = self.client.get_episode_by_episode_id(db_entry.Id)
+                            EpisodeMetadata = self.client.get_episode_by_episode_id(db_entry["id"])
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -1885,26 +2178,33 @@ class Arr:
                             completed = True
 
                     QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet", False)
-                    if db_entry.EpisodeFileId != 0 and not self.quality_unmet_search:
+                    if db_entry["episodeFileId"] != 0 and not self.quality_unmet_search:
                         searched = True
                         self.model_queue.update(Completed=True).where(
-                            self.model_queue.EntryId == db_entry.Id
+                            self.model_queue.EntryId == db_entry["id"]
                         ).execute()
 
-                    if db_entry.Monitored == True:
-                        EntryId = db_entry.Id
+                    if db_entry["monitored"] == True:
+                        EntryId = db_entry["id"]
 
                         SeriesTitle = EpisodeMetadata.get("series", {}).get("title")
-                        SeasonNumber = db_entry.SeasonNumber
-                        Title = db_entry.Title
-                        SeriesId = db_entry.SeriesId
-                        EpisodeFileId = db_entry.EpisodeFileId
-                        EpisodeNumber = db_entry.EpisodeNumber
-                        AbsoluteEpisodeNumber = db_entry.AbsoluteEpisodeNumber
-                        SceneAbsoluteEpisodeNumber = db_entry.SceneAbsoluteEpisodeNumber
-                        LastSearchTime = db_entry.LastSearchTime
-                        AirDateUtc = db_entry.AirDateUtc
-                        Monitored = db_entry.Monitored
+                        SeasonNumber = db_entry["seasonNumber"]
+                        Title = db_entry["title"]
+                        SeriesId = db_entry["seriesId"]
+                        EpisodeFileId = db_entry["episodeFileId"]
+                        EpisodeNumber = db_entry["episodeNumber"]
+                        AbsoluteEpisodeNumber = (
+                            db_entry["absoluteEpisodeNumber"]
+                            if "absoluteEpisodeNumber" in db_entry
+                            else None
+                        )
+                        SceneAbsoluteEpisodeNumber = (
+                            db_entry["sceneAbsoluteEpisodeNumber"]
+                            if "sceneAbsoluteEpisodeNumber" in db_entry
+                            else None
+                        )
+                        AirDateUtc = db_entry["airDateUtc"]
+                        Monitored = db_entry["monitored"]
                         searched = searched
                         QualityMet = QualityUnmet
 
@@ -1920,7 +2220,6 @@ class Arr:
                             self.model_file.Monitored: Monitored,
                             self.model_file.Title: Title,
                             self.model_file.AirDateUtc: AirDateUtc,
-                            self.model_file.LastSearchTime: LastSearchTime,
                             self.model_file.SceneAbsoluteEpisodeNumber: SceneAbsoluteEpisodeNumber,
                             self.model_file.AbsoluteEpisodeNumber: AbsoluteEpisodeNumber,
                             self.model_file.EpisodeNumber: EpisodeNumber,
@@ -1963,7 +2262,6 @@ class Arr:
                             EpisodeNumber=EpisodeNumber,
                             AbsoluteEpisodeNumber=AbsoluteEpisodeNumber,
                             SceneAbsoluteEpisodeNumber=SceneAbsoluteEpisodeNumber,
-                            LastSearchTime=LastSearchTime,
                             AirDateUtc=AirDateUtc,
                             Monitored=Monitored,
                             SeriesTitle=SeriesTitle,
@@ -1980,13 +2278,13 @@ class Arr:
                     else:
                         return
                 else:
-                    if self.version.major == 3:
-                        db_entry: SeriesModel
-                    elif self.version.major == 4:
-                        db_entry: SeriesModelv4
+                    # if self.version.major == 3:
+                    #     db_entry: SeriesModel
+                    # elif self.version.major == 4:
+                    #     db_entry: SeriesModelv4
                     self.series_file_model: SeriesFilesModel
-                    EntryId = db_entry.Id
-                    if db_entry.Monitored == True:
+                    EntryId = db_entry["id"]
+                    if db_entry["monitored"] == True:
                         completed = True
                         while completed:
                             try:
@@ -2030,7 +2328,7 @@ class Arr:
                         else:
                             searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
                         Title = seriesMetadata.get("title")
-                        Monitored = db_entry.Monitored
+                        Monitored = db_entry["monitored"]
 
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
@@ -2073,16 +2371,16 @@ class Arr:
 
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
-                if self.version.major == 4:
-                    db_entry: MoviesModel
-                elif self.version.major == 5:
-                    db_entry: MoviesModelv5
+                # if self.version.major == 4:
+                #     db_entry: MoviesModel
+                # elif self.version.major == 5:
+                #     db_entry: MoviesModelv5
                 searched = False
                 completed = True
                 while completed:
                     try:
                         completed = False
-                        movieData = self.client.get_movie_by_movie_id(db_entry.Id)
+                        movieData = self.client.get_movie_by_movie_id(db_entry["id"])
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -2091,27 +2389,24 @@ class Arr:
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
-                if db_entry.MovieFileId != 0 and not self.quality_unmet_search:
+                if db_entry["movieFileId"] != 0 and not self.quality_unmet_search:
                     searched = True
                     self.model_queue.update(Completed=True).where(
-                        self.model_queue.EntryId == db_entry.Id
+                        self.model_queue.EntryId == db_entry["id"]
                     ).execute()
 
-                movieMetadata = self.model_arr_movies_file.get(
-                    self.model_arr_movies_file.Id == db_entry.MovieMetadataId
-                )
-                movieMetadata: MoviesMetadataModel
+                # movieMetadata = self.model_arr_movies_file.get(
+                #     self.model_arr_movies_file.Id == db_entry.MovieMetadataId
+                # )
+                # movieMetadata: MoviesMetadataModel
 
-                if (
-                    self.minimum_availability_check(db_entry, movieMetadata)
-                    and db_entry.Monitored == True
-                ):
-                    title = movieMetadata.Title
-                    monitored = db_entry.Monitored
-                    tmdbId = movieMetadata.TmdbId
-                    year = movieMetadata.Year
-                    entryId = db_entry.Id
-                    movieFileId = db_entry.MovieFileId
+                if self.minimum_availability_check(db_entry) and db_entry["monitored"] == True:
+                    title = db_entry["title"]
+                    monitored = db_entry["onitored"]
+                    tmdbId = db_entry["tmdbId"]
+                    year = db_entry["year"]
+                    entryId = db_entry["id"]
+                    movieFileId = db_entry["movieFileId"]
                     qualityMet = QualityUnmet
 
                     to_update = {
@@ -2162,17 +2457,21 @@ class Arr:
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
-                "Max retries exceeded for %s ID:%s", self._name, db_entry.Id, exc_info=e
+                "Max retries exceeded for %s [%s][%s]",
+                self._name,
+                db_entry["id"],
+                db_entry["title"],
+                exc_info=e,
             )
             raise DelayLoopException(length=300, type=self._name)
         except JSONDecodeError:
             if self.type == "sonarr":
                 self.logger.warning(
-                    "Error getting series info: [%s][%s]", db_entry.Id, db_entry.Title
+                    "Error getting series info: [%s][%s]", db_entry["id"], db_entry["title"]
                 )
             elif self.type == "radarr":
                 self.logger.warning(
-                    "Error getting movie info: [%s][%s]", db_entry.Id, db_entry.Path
+                    "Error getting movie info: [%s][%s]", db_entry["id"], db_entry["path"]
                 )
         except Exception as e:
             self.logger.error(e, exc_info=sys.exc_info())
@@ -3800,6 +4099,8 @@ class Arr:
                 time.sleep(e.length)
 
     def get_year_search(self) -> tuple[list[int], int]:
+        years_list = set()
+        years = []
         with self.db.atomic():
             if self.type == "radarr":
                 if self.search_in_reverse:
@@ -3832,26 +4133,64 @@ class Arr:
                 self.logger.trace("Years: %s", years)
                 years_count = len(years)
             elif self.type == "sonarr":
-                self.model_arr_file: EpisodesModel
+                completed = True
+                while completed:
+                    completed = False
+                    try:
+                        series = self.client.get_series()
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                    ) as e:
+                        completed = True
+
+                for s in series:
+                    episodes = self.client.get_episode(s["id"], True)
+                    for e in episodes:
+                        if "airDateUtc" in e:
+                            if not self.search_specials and e["seasonNumber"] == 0:
+                                continue
+                            if not e["monitored"]:
+                                continue
+                            years_list.add(
+                                datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                .replace(tzinfo=timezone.utc)
+                                .year
+                            )
+
+                years_list = dict.fromkeys(years_list)
                 if self.search_in_reverse:
-                    years_query = (
-                        self.model_arr_file.select(
-                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
-                        )
-                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
-                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
-                        .execute()
-                    )
+                    for key, file_dir in sorted(
+                        list(years_list.items()), key=lambda x: x[0], reverse=True
+                    ):
+                        years.append(key)
+
                 else:
-                    years_query = (
-                        self.model_arr_file.select(
-                            fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
-                        )
-                        .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
-                        .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
-                        .execute()
-                    )
-                years = [y.Year for y in years_query]
+                    for key, file_dir in sorted(
+                        list(years_list.items()), key=lambda x: x[0], reverse=False
+                    ):
+                        years.append(key)
+                # self.model_arr_file: EpisodesModel
+                # if self.search_in_reverse:
+                #     years_query = (
+                #         self.model_arr_file.select(
+                #             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                #         )
+                #         .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
+                #         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).asc())
+                #         .execute()
+                #     )
+                # else:
+                #     years_query = (
+                #         self.model_arr_file.select(
+                #             fn.Substr(self.model_arr_file.AirDate, 1, 4).distinct().alias("Year")
+                #         )
+                #         .where(fn.Substr(self.model_arr_file.AirDate, 1, 4) <= datetime.now())
+                #         .order_by(fn.Substr(self.model_arr_file.AirDate, 1, 4).desc())
+                #         .execute()
+                #     )
+                # years = [y.Year for y in years_query]
                 self.logger.trace("Years: %s", years)
                 years_count = len(years)
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
