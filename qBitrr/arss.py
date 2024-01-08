@@ -1149,7 +1149,7 @@ class Arr:
     ]:
         if self.type == "sonarr" and self.series_search:
             for series in self.db_get_files_series():
-                yield series[0], series[1], series[2], i3 is not True
+                yield series[0], series[1], series[2], series[2] is not True
         elif self.type == "sonarr" and not self.series_search:
             for episodes in self.db_get_files_episodes():
                 yield series[0], series[1], series[2], False

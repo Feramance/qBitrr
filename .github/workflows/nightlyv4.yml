@@ -1,4 +1,4 @@
-name: Nightly
+name: Nightly v4
 
 on:
   push:
