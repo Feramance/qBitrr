@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.0.2 (08/01/2024)
+- [[patch] v4 hotfix 2](https://github.com/Feramance/qBitrr/commit/3889efcb5eafa96d9fdf695fa2f080c49e70c613) - @Feramance
+
+---
+
 ## v4.0.1 (08/01/2024)
 - [[patch] First v4 hotfix](https://github.com/Feramance/qBitrr/commit/c241046e899772a59c6115b02c0ebe9f09b39fb2) - @Feramance
 
@@ -243,7 +248,3 @@
 ---
 
 ## v3.7.15-beta-1 (03/11/2023)
-
----
-
-## v3.7.15-beta-0 (01/11/2023)
