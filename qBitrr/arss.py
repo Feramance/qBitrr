@@ -1300,13 +1300,6 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
-                self.logger.debug("Should yielding %s", entry_.Title)
-            for entry_ in (
-                self.series_file_model.select()
-                .where(condition)
-                .order_by(self.series_file_model.EntryId.asc())
-                .execute()
-            ):
                 self.logger.trace("Yielding %s", entry_.Title)
                 yield entry_, False, False
 
@@ -4258,7 +4251,13 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.trace("Running search for %s", entry.Title)
+                            self.logger.trace(
+                                "Running search for %s [%s, %s, %s]",
+                                entry.Title,
+                                todays,
+                                limit_bypass,
+                                series_search,
+                            )
                             while (
                                 self.maybe_do_search(
                                     entry,
