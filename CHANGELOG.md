@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.0.9 (08/01/2024)
+- [[patch] Minimum availability fix](https://github.com/Feramance/qBitrr/commit/f4572573980ea23d0c201bbd336889e395be1858) - @Feramance
+
+---
+
 ## v4.0.8 (08/01/2024)
 - [[patch] v4 hotfix 8](https://github.com/Feramance/qBitrr/commit/7cd81a891e6d4efafd6bfdf4dbfc51b9ca588e18) - @Feramance
 
@@ -248,7 +253,3 @@
 ---
 
 ## v3.7.17-beta-2 (15/11/2023)
-
----
-
-## v3.7.17-beta-1 (15/11/2023)
