@@ -1918,21 +1918,21 @@ class Arr:
         if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
             self.logger.trace(
                 "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return False
-        elif db_entry["year"] < datetime.now().year and db_entry["year"] != 0:
+        elif metadata.Year < datetime.now().year and metadata.Year != 0:
             self.logger.trace(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return True
         elif (
@@ -1943,11 +1943,11 @@ class Arr:
         ):
             self.logger.trace(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return True
         elif (
@@ -1963,21 +1963,21 @@ class Arr:
             ):
                 self.logger.trace(
                     "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    db_entry["inCinemas"],
-                    db_entry["digitalRelease"],
-                    db_entry["physicalRelease"],
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
                 )
                 return True
             else:
                 self.logger.trace(
                     "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    db_entry["inCinemas"],
-                    db_entry["digitalRelease"],
-                    db_entry["physicalRelease"],
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
                 )
                 return False
         elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
@@ -1990,21 +1990,21 @@ class Arr:
                 ):
                     self.logger.trace(
                         "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return True
                 else:
                     self.logger.trace(
                         "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return False
             elif "digitalRelease" in db_entry:
@@ -2014,21 +2014,21 @@ class Arr:
                 ):
                     self.logger.trace(
                         "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return True
                 else:
                     self.logger.trace(
                         "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return False
         elif (
@@ -2039,11 +2039,11 @@ class Arr:
         ):
             self.logger.trace(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return True
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -2053,21 +2053,21 @@ class Arr:
             ):
                 self.logger.trace(
                     "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    db_entry["inCinemas"],
-                    db_entry["digitalRelease"],
-                    db_entry["physicalRelease"],
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
                 )
                 return True
             else:
                 self.logger.trace(
                     "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    db_entry["inCinemas"],
-                    db_entry["digitalRelease"],
-                    db_entry["physicalRelease"],
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
                 )
                 return False
         elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -2078,21 +2078,21 @@ class Arr:
                 ):
                     self.logger.trace(
                         "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return True
                 else:
                     self.logger.trace(
                         "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return False
             elif "physicalRelease" in db_entry:
@@ -2102,51 +2102,51 @@ class Arr:
                 ):
                     self.logger.trace(
                         "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return True
                 else:
                     self.logger.trace(
                         "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                        db_entry["title"],
-                        db_entry["minimumAvailability"],
-                        db_entry["inCinemas"],
-                        db_entry["digitalRelease"],
-                        db_entry["physicalRelease"],
+                        metadata.Title,
+                        db_entry.MinimumAvailability,
+                        metadata.InCinemas,
+                        metadata.DigitalRelease,
+                        metadata.PhysicalRelease,
                     )
                     return False
             else:
                 self.logger.trace(
                     "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                    db_entry["title"],
-                    db_entry["minimumAvailability"],
-                    db_entry["inCinemas"],
-                    db_entry["digitalRelease"],
-                    db_entry["physicalRelease"],
+                    metadata.Title,
+                    db_entry.MinimumAvailability,
+                    metadata.InCinemas,
+                    metadata.DigitalRelease,
+                    metadata.PhysicalRelease,
                 )
                 return False
         elif db_entry["minimumAvailability"] == "announced":
             self.logger.trace(
                 "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return True
         else:
             self.logger.trace(
                 "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
-                db_entry["title"],
-                db_entry["minimumAvailability"],
-                db_entry["inCinemas"],
-                db_entry["digitalRelease"],
-                db_entry["physicalRelease"],
+                metadata.Title,
+                db_entry.MinimumAvailability,
+                metadata.InCinemas,
+                metadata.DigitalRelease,
+                metadata.PhysicalRelease,
             )
             return False
 
