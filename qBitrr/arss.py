@@ -2126,7 +2126,7 @@ class Arr:
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
-                if db_entry["movieFileId"] != 0 and not self.quality_unmet_search:
+                if db_entry["hasFile"] and not self.quality_unmet_search:
                     searched = True
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry["id"]
