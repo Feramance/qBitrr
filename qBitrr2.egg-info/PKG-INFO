@@ -106,7 +106,7 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 - **Sonarr v4 support**
 - **Radarr v4 and v5 support**
 - Available if provided with a Sonarr/Radarr database file:
-  - Monitor Arr's databases to trigger missing episode searches.
+  - Monitor Arr's to trigger missing episode searches.
   - Searches Radarr missing movies based on Minimum Availability
   - Customizable searching by series or singular episodes
   - Optionally searches year by year is ascending or descending order (config option available)
@@ -169,8 +169,6 @@ docker run -d \
   -e RESTART_TIMER=0 \
   -v /etc/localtime:/etc/localtime:ro \
   -v /path/to/appdata/qbitrr:/config \
-  -v /path/to/sonarr/db:/databases/sonarr.db:ro \
-  -v /path/to/radarr/db:/databases/radarr.db:ro \
   -v /path/to/completed/downloads/folder:/completed_downloads:rw \
   --restart unless-stopped \
   feramance/qbitrr:latest
@@ -193,13 +191,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /path/to/appdata/qbitrr:/config  # Config folder for qBitrr
-      - /path/to/sonarr/db:/sonarr.db:ro # This is only needed if you want episode search handling :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
-      - /path/to/radarr/db:/radarr.db:ro # This is only needed if you want movie search handling, :ro means it is only ever mounted as a read-only folder, the script never needs more than read access
       - /path/to/completed/downloads/folder:/completed_downloads:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.
-      # Now just to make sure it is clean, when using this script in a docker you will need to ensure you config.toml values reflect the mounted folders.#
-      # For example, for your Sonarr.DatabaseFile value using the values above you'd add
-      # DatabaseFile = /sonarr.db/path/in/container/sonarr.db
-      # Because this is where you mounted it to
+      # Now just to make sure it is clean, when using this script in a docker you will need to ensure you config.toml values reflect the mounted folders.
       # The same would apply to Settings.CompletedDownloadFolder
       # e.g CompletedDownloadFolder = /completed_downloads/folder/in/container
 
