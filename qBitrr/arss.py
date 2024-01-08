@@ -1149,16 +1149,13 @@ class Arr:
     ]:
         if self.type == "sonarr" and self.series_search:
             for series in self.db_get_files_series():
-                for i1, i2, i3 in series:
-                    yield i1, i2, i3, i3 is not True
+                yield series[0], series[1], series[2], i3 is not True
         elif self.type == "sonarr" and not self.series_search:
             for episodes in self.db_get_files_episodes():
-                for i1, i2, i3 in episodes:
-                    yield i1, i2, i3, False
+                yield series[0], series[1], series[2], False
         elif self.type == "radarr":
             for movies in self.db_get_files_movies():
-                for i1, i2, i3 in movies:
-                    yield i1, i2, i3, False
+                yield series[0], series[1], series[2], False
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -1268,7 +1265,7 @@ class Arr:
 
     def db_get_files_series(
         self,
-    ) -> list[tuple[SeriesFilesModel, bool, bool]] | None:
+    ) -> list[list[SeriesFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
@@ -1291,7 +1288,7 @@ class Arr:
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
-                    entries.append(tuple[i1, i2, i3])
+                    entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
             else:
@@ -1302,12 +1299,12 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
-                entries.append(tuple[entry_, False, False])
+                entries.append([entry_, False, False])
             return entries
 
     def db_get_files_episodes(
         self,
-    ) -> list[tuple[EpisodeFilesModel, bool, bool]] | None:
+    ) -> list[list[EpisodeFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
@@ -1363,12 +1360,12 @@ class Arr:
                     has_been_queried = True
                 for i1, i2, i3 in self._search_todays(today_condition):
                     if i1 is not None:
-                        entries.append(tuple[i1, i2, i3])
+                        entries.append([i1, i2, i3])
             return entries
 
     def db_get_files_movies(
         self,
-    ) -> list[tuple[MoviesFilesModel, bool, bool]] | None:
+    ) -> list[list[MoviesFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
@@ -1399,7 +1396,7 @@ class Arr:
                 .order_by(self.model_file.Title.asc())
                 .execute()
             ):
-                entries.append(tuple[entry, False, False])
+                entries.append([entry, False, False])
             return entries
 
     def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
