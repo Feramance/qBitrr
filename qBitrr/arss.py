@@ -485,6 +485,9 @@ class Arr:
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
 
+        self.manager.qbit_manager.client.torrents_create_tags(
+            ["qBitrr-allowed_seeding", "qBitrr-ignored"]
+        )
         self.search_setup_completed = False
         self.model_arr_file: EpisodesModel | MoviesModel | MoviesModelv5 = None
         self.model_arr_series_file: SeriesModel | SeriesModelv4 = None
@@ -3505,7 +3508,7 @@ class Arr:
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-            return return_value, -1  # Do not touch super seeding torrents.
+            return return_value, -1, remove_torrent  # Do not touch super seeding torrents.
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
@@ -3790,6 +3793,7 @@ class Arr:
             < time_now - self.ignore_torrents_younger_than
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
+            and "qBitrr-ignored" not in torrent.tags
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
@@ -3797,10 +3801,14 @@ class Arr:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
-                self.recently_queue.get(torrent.hash, torrent.added_on)
-                < time_now - self.ignore_torrents_younger_than
-                and torrent.availability < 1
-            ) and torrent.hash in self.cleaned_torrents:
+                (
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                    < time_now - self.ignore_torrents_younger_than
+                    and torrent.availability < 1
+                )
+                and torrent.hash in self.cleaned_torrents
+                and "qBitrr-ignored" not in torrent.tags
+            ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
                 if torrent.hash in self.cleaned_torrents:
@@ -4188,6 +4196,24 @@ class Arr:
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
+    def all_searched(self) -> bool:
+        if self.type == "sonarr" and self.series_search == True:
+            search_completed = (
+                self.series_file_model.select()
+                .where(self.series_file_model.Searched == False)
+                .count()
+            )
+        else:
+            search_completed = (
+                self.model_file.select().where(self.model_file.Searched == False).count()
+            )
+        if search_completed > 0:
+            self.logger.debug("Searches not completed [%s]", search_completed)
+            return False
+        else:
+            self.logger.debug("All searches completed [%s]", search_completed)
+            return True
+
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
@@ -4223,11 +4249,11 @@ class Arr:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
                                 self.search_current_year = years[years_index]
-                            elif datetime.now() >= (timer + loop_timer):
+                            elif datetime.now() >= (timer + loop_timer) and self.all_searched():
                                 self.refresh_download_queue()
                                 self.force_grab()
                                 raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer):
+                        elif datetime.now() >= (timer + loop_timer) and self.all_searched():
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException

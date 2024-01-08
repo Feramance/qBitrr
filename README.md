@@ -12,7 +12,6 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
 [![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml)
 [![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
-[![Update dockerhub](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/dockerhub-description.yml)
 [![Nightly Build](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml)
 
 [![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
