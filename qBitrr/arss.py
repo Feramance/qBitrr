@@ -1297,6 +1297,13 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
+                self.logger.debug("Yielding %s", entry_.Title)
+            for entry_ in (
+                self.series_file_model.select()
+                .where(condition)
+                .order_by(self.series_file_model.EntryId.asc())
+                .execute()
+            ):
                 self.logger.trace("Yielding %s", entry_.Title)
                 yield entry_, False, False
 
