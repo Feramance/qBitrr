@@ -1753,7 +1753,7 @@ class Arr:
                         db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
                     )
                     return False
-            elif "digitalRelease" in db_entry:
+            elif "physicalRelease" in db_entry:
                 if (
                     datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
                     <= datetime.now()
@@ -1840,7 +1840,7 @@ class Arr:
                     return False
             elif "physicalRelease" in db_entry:
                 if (
-                    datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+                    datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
                     <= datetime.now()
                 ):
                     self.logger.trace(
