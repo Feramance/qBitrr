@@ -1101,10 +1101,10 @@ class Arr:
                 yield series[0], series[1], series[2], series[2] is not True
         elif self.type == "sonarr" and not self.series_search:
             for episodes in self.db_get_files_episodes():
-                yield series[0], series[1], series[2], False
+                yield episodes[0], episodes[1], episodes[2], False
         elif self.type == "radarr":
             for movies in self.db_get_files_movies():
-                yield series[0], series[1], series[2], False
+                yield movies[0], movies[1], movies[2], False
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
