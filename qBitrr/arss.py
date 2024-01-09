@@ -805,11 +805,11 @@ class Arr:
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
+        self.logger.debug("object_id:%s | object_ids:%s")
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = object_id
                 for object_id in object_ids:
-                    self.logger.debug("object_id:%s | object_ids:%s", object_id, object_ids)
                     completed = True
                     while completed:
                         try:
@@ -2366,6 +2366,7 @@ class Arr:
             if todays
             else ""
         )
+        self.refresh_download_queue()
         if request or todays:
             bypass_limit = True
         if (not self.search_missing) or (file_model is None):
