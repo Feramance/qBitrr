@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.0.11 (09/01/2024)
+- [[patch] Fixed JSONDecode Error](https://github.com/Feramance/qBitrr/commit/13fcabafb25f4abd1a4b5462155ffda18fd8262b) - @Feramance
+
+---
+
 ## v4.0.10 (09/01/2024)
 - [[patch] `qbitrr-ignored` tag added to manually set torrents to be ignored for stalled/availability check](https://github.com/Feramance/qBitrr/commit/a4100096496b73834857137bb829a7aeeec2d119) - @Feramance
 - [Series re-search fix](https://github.com/Feramance/qBitrr/commit/56380f629ada295e769d916c6cc91841aca8c671) - @Feramance
@@ -261,7 +266,3 @@
 ---
 
 ## v3.8.0-beta-0 (15/11/2023)
-
----
-
-## v3.7.17 (15/11/2023)
