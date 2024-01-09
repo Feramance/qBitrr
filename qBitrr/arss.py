@@ -3532,9 +3532,13 @@ class Arr:
 
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
-        elif torrent.state_enum in (
-            TorrentStates.METADATA_DOWNLOAD,
-            TorrentStates.STALLED_DOWNLOAD,
+        elif (
+            torrent.state_enum
+            in (
+                TorrentStates.METADATA_DOWNLOAD,
+                TorrentStates.STALLED_DOWNLOAD,
+            )
+            and "qBitrr-ignored" not in torrent.tags
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
