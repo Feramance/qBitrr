@@ -814,7 +814,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            episode = self.client.get_episode_by_episode_id(object_id[0])
+                            episode = self.client.get_episode_by_episode_id(object_ids[0])
                             data = self.client.get_series(episode["seriesId"])
                             name = data.get("title")
                             series_id = data.get("series", {}).get("id")
@@ -838,12 +838,12 @@ class Arr:
                                     absoluteEpisodeNumber,
                                     name,
                                     tvdbId,
-                                    episode["id"],
+                                    object_ids[0],
                                 )
                             else:
                                 self.logger.notice(
                                     "Re-Searching episode: %s",
-                                    episode["id"],
+                                    object_ids[0],
                                 )
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -852,9 +852,9 @@ class Arr:
                             AttributeError,
                         ):
                             completed = True
-
-                    if episode["id"] in self.queue_file_ids:
-                        self.queue_file_ids.remove(episode["id"])
+                    for object_id in object_ids:
+                        if object_id in self.queue_file_ids:
+                            self.queue_file_ids.remove(object_id)
                     completed = True
                     while completed:
                         try:
