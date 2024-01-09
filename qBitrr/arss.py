@@ -2639,9 +2639,18 @@ class Arr:
     def process_torrents(self):
         try:
             try:
-                torrents = self.manager.qbit_manager.client.torrents.info(
-                    status_filter="all", category=self.category, sort="added_on", reverse=False
-                )
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        torrents = self.manager.qbit_manager.client.torrents.info(
+                            status_filter="all",
+                            category=self.category,
+                            sort="added_on",
+                            reverse=False,
+                        )
+                    except JSONDecodeError:
+                        completed = True
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
