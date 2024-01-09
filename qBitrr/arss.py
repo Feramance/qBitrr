@@ -805,7 +805,7 @@ class Arr:
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
-        self.logger.debug("object_id:%s | object_ids:%s")
+        self.logger.debug("object_ids:%s", object_ids)
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = object_id
