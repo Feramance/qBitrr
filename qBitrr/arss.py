@@ -808,7 +808,7 @@ class Arr:
         self.logger.debug("object_ids:%s", object_id)
         if self.re_search and object_id:
             if self.type == "sonarr":
-                object_ids = object_id
+                object_ids = list(object_id)
                 if self.series_search:
                     completed = True
                     while completed:
