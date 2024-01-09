@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.0.13 (09/01/2024)
+- [[patch] Fixed search by year](https://github.com/Feramance/qBitrr/commit/91c8dfa2023abe5567bd5ac0684bfcb722e530f9) - @Feramance
+- [Fixed fatal variable name](https://github.com/Feramance/qBitrr/commit/0ac6ff3d000f5507fcffdef4fa41e6692ae1cef0) - @Feramance
+- [Error fix](https://github.com/Feramance/qBitrr/commit/e87394b088a66b73bc9e02d129d8818affb1997f) - @Feramance
+- [Get movie substitute](https://github.com/Feramance/qBitrr/commit/2a1e05f88fb6b65876e72554f123522d357747b3) - @Feramance
+- [Testing get_movie_by_movie_id](https://github.com/Feramance/qBitrr/commit/cba83fa260d7b6722858a656ca6068d0bec4d336) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/79c6b6240683e5ba496b373b6b01666b0352f465) - @Feramance
+- [Log changes](https://github.com/Feramance/qBitrr/commit/6f4c05ad7cf2abd6d4a0e56e95b85b9ab19e33f5) - @Feramance
+
+---
+
 ## v4.0.12 (09/01/2024)
 - [[patch] Error handling fix](https://github.com/Feramance/qBitrr/commit/67a04bb14d23752f7f12e1939dc0ad5bded36527) - @Feramance
 - [JSONDecodeError fix](https://github.com/Feramance/qBitrr/commit/391ccabc7f204c686b5e16f422c12b5131bbf493) - @Feramance
@@ -244,27 +255,3 @@
 ## v3.8.1 (16/11/2023)
 - [[release] Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/ec2ce270bd42b0ffbbf2fc8e71b93e25efc03794) - @Feramance
 - [[release] Hotifx, bad function call](https://github.com/Feramance/qBitrr/commit/2eaaf72c60723267be4dfde335fbcb681fd51179) - @Feramance
-
----
-
-## v3.8.0 (16/11/2023)
-- [[release] Upgrade and quality unmet overhaul](https://github.com/Feramance/qBitrr/commit/33bfeb0930b47b34a588f29ead71e39aceb9cf8a) - @Feramance
-- [Default value](https://github.com/Feramance/qBitrr/commit/0bad72a1b20b29df30e2190559488f63d3283a12) - @Feramance
-- [Quality unmet fix](https://github.com/Feramance/qBitrr/commit/e6cbd51550e70ce52bd6004527c0da51f2bb6cd0) - @Feramance
-- [Bad Variable](https://github.com/Feramance/qBitrr/commit/09c77e439ffebfc95b26b55976737d4c31a77ee7) - @Feramance
-- [Quality unmet searach fix](https://github.com/Feramance/qBitrr/commit/4314dff9ca1256960322b412e00852a83eb74773) - @Feramance
-- [Changed missed search changes](https://github.com/Feramance/qBitrr/commit/46735fccf9aba11a0f50133d93ad0bd6c67ae7d6) - @Feramance
-- [Searched update change](https://github.com/Feramance/qBitrr/commit/497ab2bc4279fc3b9b4d41ff8cf88630af5a6921) - @Feramance
-- [Fix save issue](https://github.com/Feramance/qBitrr/commit/40e257085bd26109d2138cc524ad09a6492ceecd) - @Feramance
-- [Search save not working](https://github.com/Feramance/qBitrr/commit/224ba9d03d30fc58f30492d15094549946275bd1) - @Feramance
-- [Added missing upgrade handling](https://github.com/Feramance/qBitrr/commit/6a45f433609244533e941d0456b6f322782a10d1) - @Feramance
-- [Variable name fix](https://github.com/Feramance/qBitrr/commit/cf49b986c3b2855dff9232ce658e6a566beb105e) - @Feramance
-- [Final Boolean fix](https://github.com/Feramance/qBitrr/commit/079fe1866656f2cf8b7535627f754a5c13564ddb) - @Feramance
-- [Boolean fix v3](https://github.com/Feramance/qBitrr/commit/7e6b330440c600f4b92090135d8a1fd4a7a8ef14) - @Feramance
-- [Boolean fix v2](https://github.com/Feramance/qBitrr/commit/4714624a0bc313ab77133f6d712eb7d542ed91fb) - @Feramance
-- [Boolean fix](https://github.com/Feramance/qBitrr/commit/df158fc0334514509e6179f1903e13d34a824ba3) - @Feramance
-- [Changed loop restart for testing](https://github.com/Feramance/qBitrr/commit/b5495aa7ff487cb910caa1ac92dea57ecbffddfd) - @Feramance
-- [Debugs added](https://github.com/Feramance/qBitrr/commit/4f24ebd5d56148c69d5e621faa4d1445ca594b1f) - @Feramance
-- [Variable name fix](https://github.com/Feramance/qBitrr/commit/505feeba1ba6f9585c9e4552d8be04708315dfab) - @Feramance
-- [Upgrade search loop fix](https://github.com/Feramance/qBitrr/commit/0a6be3fe7798166fc6511a81843ea9bd7ee86ff6) - @Feramance
-- [Fixed series search error](https://github.com/Feramance/qBitrr/commit/2b071467d8acd0013c35082233c590d23a052941) - @Feramance
