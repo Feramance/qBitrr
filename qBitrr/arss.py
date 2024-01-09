@@ -809,12 +809,13 @@ class Arr:
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = object_id
-                for object_id in object_ids:
+                if self.series_search:
                     completed = True
                     while completed:
                         try:
                             completed = False
-                            data = self.client.get_episode_by_episode_id(object_id)
+                            episode = self.client.get_episode_by_episode_id(object_id[0])
+                            data = self.client.get_series(episode["seriesId"])
                             name = data.get("title")
                             series_id = data.get("series", {}).get("id")
                             if name:
@@ -837,12 +838,12 @@ class Arr:
                                     absoluteEpisodeNumber,
                                     name,
                                     tvdbId,
-                                    object_id,
+                                    episode["id"],
                                 )
                             else:
                                 self.logger.notice(
                                     "Re-Searching episode: %s",
-                                    object_id,
+                                    episode["id"],
                                 )
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -852,13 +853,15 @@ class Arr:
                         ):
                             completed = True
 
-                    if object_id in self.queue_file_ids:
-                        self.queue_file_ids.remove(object_id)
+                    if episode["id"] in self.queue_file_ids:
+                        self.queue_file_ids.remove(episode["id"])
                     completed = True
                     while completed:
                         try:
                             completed = False
-                            self.client.post_command("EpisodeSearch", episodeIds=[object_id])
+                            self.client.post_command(
+                                self.search_api_command, seriesId=[data["id"]]
+                            )
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -867,6 +870,65 @@ class Arr:
                             completed = True
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
+                else:
+                    for object_id in object_ids:
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                data = self.client.get_episode_by_episode_id(object_id)
+                                name = data.get("title")
+                                series_id = data.get("series", {}).get("id")
+                                if name:
+                                    episodeNumber = data.get("episodeNumber", 0)
+                                    absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
+                                    seasonNumber = data.get("seasonNumber", 0)
+                                    seriesTitle = data.get("series", {}).get("title")
+                                    year = data.get("series", {}).get("year", 0)
+                                    tvdbId = data.get("series", {}).get("tvdbId", 0)
+                                    self.logger.notice(
+                                        "Re-Searching episode: %s (%s) | "
+                                        "S%02dE%03d "
+                                        "(E%04d) | "
+                                        "%s | "
+                                        "[tvdbId=%s|id=%s]",
+                                        seriesTitle,
+                                        year,
+                                        seasonNumber,
+                                        episodeNumber,
+                                        absoluteEpisodeNumber,
+                                        name,
+                                        tvdbId,
+                                        object_id,
+                                    )
+                                else:
+                                    self.logger.notice(
+                                        "Re-Searching episode: %s",
+                                        object_id,
+                                    )
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                AttributeError,
+                            ):
+                                completed = True
+
+                        if object_id in self.queue_file_ids:
+                            self.queue_file_ids.remove(object_id)
+                        completed = True
+                        while completed:
+                            try:
+                                completed = False
+                                self.client.post_command("EpisodeSearch", episodeIds=[object_id])
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                            ):
+                                completed = True
+                        if self.persistent_queue and series_id:
+                            self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
             elif self.type == "radarr":
                 completed = True
                 while completed:
@@ -3162,7 +3224,7 @@ class Arr:
     def _get_torrent_important_trackers(
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
-        current_trackers = {i.url for i in torrent.trackers}
+        current_trackers = {i.url for i in torrent.trackers if hasattr(i, "url")}
         monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
         need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
         monitored_trackers = monitored_trackers.union(need_to_be_added)
@@ -3430,8 +3492,7 @@ class Arr:
     def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        if hasattr(torrent, "Tracker"):
-            self._process_single_torrent_trackers(torrent)
+        self._process_single_torrent_trackers(torrent)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         try:
