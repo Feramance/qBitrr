@@ -3,10 +3,8 @@ from __future__ import annotations
 import atexit
 import itertools
 import logging
-import os
 import sys
 import time
-from datetime import datetime, timedelta
 from multiprocessing import freeze_support
 
 import pathos
@@ -34,7 +32,7 @@ run_logs(logger)
 class qBitManager:
     min_supported_version = VersionClass("4.3.9")
     soft_not_supported_supported_version = VersionClass("4.4.4")
-    max_supported_version = VersionClass("4.6.2")
+    # max_supported_version = VersionClass("4.6.2")
     _head_less_mode = False
 
     def __init__(self):
@@ -91,7 +89,9 @@ class qBitManager:
         run_logs(self.logger)
 
     def _version_validator(self):
-        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
+        if (
+            self.min_supported_version <= self.current_qbit_version
+        ):  # <= self.max_supported_version:
             if self._validated_version:
                 self.logger.info(
                     "Current qBitTorrent version is supported: %s",
@@ -109,7 +109,7 @@ class qBitManager:
                 "Supported version range is %s to < %s",
                 self.current_qbit_version,
                 self.min_supported_version,
-                self.max_supported_version,
+                # self.max_supported_version,
             )
             sys.exit(1)
 
@@ -168,11 +168,6 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
-    delay = os.getenv("RESTART_TIMER", 0)
-    if delay == 0:
-        logger.info("Restart timer is disabled")
-    else:
-        logger.info("Restart timer is set to %s hours", delay)
     manager = qBitManager()
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
@@ -213,14 +208,3 @@ if __name__ == "__main__":
     freeze_support()
     file_cleanup()
     run()
-    delay = os.getenv("RESTART_TIMER", 0)
-    if delay != 0:
-        loop_delay = datetime.now() + timedelta(hours=delay)
-        while True:
-            if datetime.now() == loop_delay:
-                logger.info("Restarting processes", delay)
-                cleanup()
-                file_cleanup()
-                time.sleep(60)
-                run()
-                loop_delay = datetime.now() + timedelta(hours=delay)

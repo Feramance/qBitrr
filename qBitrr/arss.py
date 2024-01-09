@@ -781,12 +781,13 @@ class Arr:
                             "DownloadedMoviesScan: %s",
                             path,
                         )
-                except:
+                except Exception as ex:
                     self.logger.error(
-                        "Downloaded scan error: [%s][%s][%s]",
+                        "Downloaded scan error: [%s][%s][%s][%s]",
                         path,
                         torrent.hash.upper(),
                         self.import_mode,
+                        ex,
                     )
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
@@ -808,6 +809,7 @@ class Arr:
             if self.type == "sonarr":
                 object_ids = object_id
                 for object_id in object_ids:
+                    self.logger.debug("object_id:%s", object_id)
                     completed = True
                     while completed:
                         try:
@@ -2119,7 +2121,6 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
-                        JSONDecodeError,
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
@@ -2195,9 +2196,14 @@ class Arr:
             raise DelayLoopException(length=300, type=self._name)
         except JSONDecodeError:
             if self.type == "sonarr":
-                self.logger.warning(
-                    "Error getting series info: [%s][%s]", db_entry["id"], db_entry["title"]
-                )
+                if self.series_search:
+                    self.logger.warning(
+                        "Error getting series info: [%s][%s]", db_entry["id"], db_entry["title"]
+                    )
+                else:
+                    self.logger.warning(
+                        "Error getting episode info: [%s][%s]", db_entry["id"], db_entry["title"]
+                    )
             elif self.type == "radarr":
                 self.logger.warning(
                     "Error getting movie info: [%s][%s]", db_entry["id"], db_entry["path"]
@@ -2602,7 +2608,7 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except qbittorrentapi.exceptions.APIError as e:
+            except (qbittorrentapi.exceptions.APIError, AttributeError, JSONDecodeError) as e:
                 exceptionstr = str(e)
                 if (
                     exceptionstr.find("JSONDecodeError") != 0
@@ -2613,8 +2619,6 @@ class Arr:
                     self.logger.error("The qBittorrent API returned an unexpected error")
                     self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                     raise DelayLoopException(length=300, type="qbit")
-            except (AttributeError, JSONDecodeError):
-                self.logger.info("Torrent still connecting to trackers")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
