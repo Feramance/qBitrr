@@ -853,7 +853,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            self.client.post_command(self.search_api_command, seriesId=[series_id])
+                            self.client.post_command(self.search_api_command, seriesId=series_id)
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
