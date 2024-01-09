@@ -116,7 +116,7 @@ class Arr:
                 )
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
-        self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Move")
+        self.import_mode = CONFIG.get(f"{name}.importMode", fallback=0)
         self.refresh_downloads_timer = CONFIG.get(f"{name}.RefreshDownloadsTimer", fallback=1)
         self.arr_error_codes_to_blocklist = CONFIG.get(
             f"{name}.ArrErrorCodesToBlocklist", fallback=[]
