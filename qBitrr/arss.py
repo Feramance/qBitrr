@@ -1704,7 +1704,7 @@ class Arr:
                         continue
                     if not m["monitored"]:
                         continue
-                    self.db_update_single_series(db_entry=min)
+                    self.db_update_single_series(db_entry=m)
             else:
                 for m in movies:
                     if not m["monitored"]:
