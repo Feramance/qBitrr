@@ -3988,7 +3988,7 @@ class Arr:
                                     series_search=series_search,
                                 )
                             ) is False:
-                                self.logger.debug("Waiting for active search commands")
+                                self.logger.info("Waiting for active search commands")
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
