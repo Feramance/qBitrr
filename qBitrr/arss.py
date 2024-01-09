@@ -805,7 +805,7 @@ class Arr:
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
-        self.logger.debug("object_ids:%s", object_ids)
+        self.logger.debug("object_ids:%s", object_id)
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = object_id
@@ -3430,7 +3430,8 @@ class Arr:
     def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        self._process_single_torrent_trackers(torrent)
+        if hasattr(torrent, "Tracker"):
+            self._process_single_torrent_trackers(torrent)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         try:
