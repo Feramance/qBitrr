@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.0.12 (09/01/2024)
+- [[patch] Error handling fix](https://github.com/Feramance/qBitrr/commit/67a04bb14d23752f7f12e1939dc0ad5bded36527) - @Feramance
+- [JSONDecodeError fix](https://github.com/Feramance/qBitrr/commit/391ccabc7f204c686b5e16f422c12b5131bbf493) - @Feramance
+
+---
+
 ## v4.0.11 (09/01/2024)
 - [[patch] Fixed JSONDecode Error](https://github.com/Feramance/qBitrr/commit/13fcabafb25f4abd1a4b5462155ffda18fd8262b) - @Feramance
 
@@ -262,7 +268,3 @@
 - [Variable name fix](https://github.com/Feramance/qBitrr/commit/505feeba1ba6f9585c9e4552d8be04708315dfab) - @Feramance
 - [Upgrade search loop fix](https://github.com/Feramance/qBitrr/commit/0a6be3fe7798166fc6511a81843ea9bd7ee86ff6) - @Feramance
 - [Fixed series search error](https://github.com/Feramance/qBitrr/commit/2b071467d8acd0013c35082233c590d23a052941) - @Feramance
-
----
-
-## v3.8.0-beta-0 (15/11/2023)
