@@ -2169,8 +2169,7 @@ class Arr:
                 while completed:
                     try:
                         completed = False
-                        id = db_entry["id"]
-                        movieData = self.client.get_movie_by_movie_id(id)
+                        movieData = self.client.get_movie(db_entry["tmdbId"])
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
