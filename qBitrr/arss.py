@@ -814,36 +814,30 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            episode = self.client.get_episode_by_episode_id(object_ids[0])
-                            data = self.client.get_series(episode["seriesId"])
-                            name = data.get("title")
+                            data = self.client.get_episode_by_episode_id(object_ids[0])
+                            name = data.get("series", {}).get("title")
                             series_id = data.get("series", {}).get("id")
                             if name:
-                                episodeNumber = data.get("episodeNumber", 0)
-                                absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
                                 seasonNumber = data.get("seasonNumber", 0)
                                 seriesTitle = data.get("series", {}).get("title")
                                 year = data.get("series", {}).get("year", 0)
                                 tvdbId = data.get("series", {}).get("tvdbId", 0)
                                 self.logger.notice(
                                     "Re-Searching episode: %s (%s) | "
-                                    "S%02dE%03d "
-                                    "(E%04d) | "
+                                    "S%02d "
                                     "%s | "
                                     "[tvdbId=%s|id=%s]",
                                     seriesTitle,
                                     year,
                                     seasonNumber,
-                                    episodeNumber,
-                                    absoluteEpisodeNumber,
                                     name,
                                     tvdbId,
                                     object_ids[0],
                                 )
                             else:
                                 self.logger.notice(
-                                    "Re-Searching episode: %s",
-                                    object_ids[0],
+                                    "Re-Searching series: %s",
+                                    series_id,
                                 )
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -859,9 +853,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            self.client.post_command(
-                                self.search_api_command, seriesId=[data["id"]]
-                            )
+                            self.client.post_command(self.search_api_command, seriesId=[series_id])
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -2671,17 +2663,10 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except (qbittorrentapi.exceptions.APIError, AttributeError, JSONDecodeError) as e:
-                exceptionstr = str(e)
-                if (
-                    exceptionstr.find("JSONDecodeError") != 0
-                    or exceptionstr.find("AttributeError") != 0
-                ):
-                    self.logger.info("Torrent still connecting to trackers")
-                else:
-                    self.logger.error("The qBittorrent API returned an unexpected error")
-                    self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-                    raise DelayLoopException(length=300, type="qbit")
+            except qbittorrentapi.exceptions.APIError as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
