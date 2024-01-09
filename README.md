@@ -96,7 +96,6 @@ Alternatively:
 docker run -d \
   --name=qbitrr \
   -e TZ=Europe/London \
-  -e RESTART_TIMER=0 \
   -v /etc/localtime:/etc/localtime:ro \
   -v /path/to/appdata/qbitrr:/config \
   -v /path/to/completed/downloads/folder:/completed_downloads:rw \
@@ -117,7 +116,6 @@ services:
     # networks: This container MUST share a network with your Sonarr/Radarr instances
     environment:
       - TZ=Europe/London
-      - RESTART_TIMER=0 #Number of hours after which to restart the child processes (default=0, set 0 to disable)
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /path/to/appdata/qbitrr:/config  # Config folder for qBitrr
