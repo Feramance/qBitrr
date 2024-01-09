@@ -809,7 +809,7 @@ class Arr:
             if self.type == "sonarr":
                 object_ids = object_id
                 for object_id in object_ids:
-                    self.logger.debug("object_id:%s", object_id)
+                    self.logger.debug("object_id:%s | object_ids:%s", object_id, object_ids)
                     completed = True
                     while completed:
                         try:
