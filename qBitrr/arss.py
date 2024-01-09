@@ -2649,8 +2649,9 @@ class Arr:
                             sort="added_on",
                             reverse=False,
                         )
-                    except JSONDecodeError:
-                        completed = True
+                    except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
+                        if "JSONDecodeError" in str(e):
+                            completed = True
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
