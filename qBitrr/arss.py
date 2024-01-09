@@ -2455,7 +2455,7 @@ class Arr:
                     ).execute()
                     return True
                 active_commands = self.arr_db_query_commands_count()
-                self.logger.debug(
+                self.logger.info(
                     "%s%s active search commands",
                     request_tag,
                     active_commands,
@@ -2512,7 +2512,7 @@ class Arr:
             else:
                 file_model: SeriesFilesModel
                 active_commands = self.arr_db_query_commands_count()
-                self.logger.debug(
+                self.logger.info(
                     "%s%s active search commands",
                     request_tag,
                     active_commands,
@@ -2576,7 +2576,7 @@ class Arr:
                 ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
-            self.logger.debug(
+            self.logger.info(
                 "%s%s active search commands",
                 request_tag,
                 active_commands,
@@ -3686,6 +3686,7 @@ class Arr:
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
+                JSONDecodeError,
             ) as e:
                 completed = True
         res = res.get("records", [])
@@ -3988,7 +3989,7 @@ class Arr:
                                     series_search=series_search,
                                 )
                             ) is False:
-                                self.logger.info("Waiting for active search commands")
+                                self.logger.debug("Waiting for active search commands")
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
