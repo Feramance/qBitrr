@@ -194,6 +194,9 @@ class Arr:
         self.quality_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.QualityUnmetSearch", fallback=False
         )
+        self.custom_format_unmet_Search = CONFIG.get(
+            f"{name}.EntrySearch.CustomFormatUnmetSearch", fallback=False
+        )
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -815,7 +818,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            data = self.client.get_episode_by_episode_id(object_ids[0])
+                            data = self.client.get_episode(object_ids[0])
                             name = data.get("series", {}).get("title")
                             series_id = data.get("series", {}).get("id")
                             if name:
@@ -869,7 +872,7 @@ class Arr:
                         while completed:
                             try:
                                 completed = False
-                                data = self.client.get_episode_by_episode_id(object_id)
+                                data = self.client.get_episode(object_id)
                                 name = data.get("title")
                                 series_id = data.get("series", {}).get("id")
                                 if name:
@@ -927,7 +930,7 @@ class Arr:
                 while completed:
                     try:
                         completed = False
-                        data = self.client.get_movie_by_movie_id(object_id)
+                        data = self.client.get_movie(object_id)
                         name = data.get("title")
                         if name:
                             year = data.get("year", 0)
@@ -1972,6 +1975,8 @@ class Arr:
         request: bool = False,
         series: bool = False,
     ):
+        minCustomFormat = 0
+        customFormat = 0
         if self.search_missing is False:
             return
         try:
@@ -1984,7 +1989,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            EpisodeMetadata = self.client.get_episode_by_episode_id(db_entry["id"])
+                            EpisodeMetadata = self.client.get_episode(db_entry["id"])
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -2187,7 +2192,14 @@ class Arr:
                 while completed:
                     try:
                         completed = False
-                        movieData = self.client.get_movie_by_movie_id(db_entry["id"])
+                        movieData = self.client.get_movie(db_entry["id"])
+                        if db_entry["hasFile"]:
+                            minCustomFormat = self.client.get_quality_profile(
+                                movieData["qualityProfileId"]
+                            )["minFormatScore"]
+                            customFormat = self.client.get_movie_file(
+                                movieData["movieFile"]["id"]
+                            )["customFormatScore"]
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -2195,7 +2207,11 @@ class Arr:
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
-                if db_entry["hasFile"] and not self.quality_unmet_search:
+                if (
+                    db_entry["hasFile"]
+                    and not self.quality_unmet_search
+                    and not (self.custom_format_unmet_Search and customFormat < minCustomFormat)
+                ):
                     searched = True
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry["id"]
@@ -2209,11 +2225,13 @@ class Arr:
                     entryId = db_entry["id"]
                     movieFileId = 1 if "movieFileId" in db_entry else 0
                     qualityMet = QualityUnmet
+                    customFormatMet = customFormat > minCustomFormat
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: qualityMet,
+                        self.model_file.CustomFormatMet: customFormatMet,
                     }
 
                     if searched:
@@ -2248,6 +2266,7 @@ class Arr:
                         IsRequest=request,
                         QualityMet=qualityMet,
                         Upgrade=upgrade,
+                        CustomFormatMet=customFormatMet,
                     ).on_conflict(
                         conflict_target=[self.model_file.EntryId],
                         update=to_update,

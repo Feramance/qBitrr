@@ -118,10 +118,13 @@ DoUpgradeSearch = false
 # Do a quality unmet search for existing entries.
 QualityUnmetSearch = false
 
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
+
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
 
-# Search by series instead of by episode (This ignored the QualityUnmetSearch setting)
+# Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
@@ -286,10 +289,13 @@ DoUpgradeSearch = false
 # Do a quality unmet search for existing entries.
 QualityUnmetSearch = false
 
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
+
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
 
-# Search by series instead of by episode (This ignored the QualityUnmetSearch setting)
+# Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
@@ -468,6 +474,9 @@ DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
 QualityUnmetSearch = false
+
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
@@ -658,6 +667,9 @@ DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
 QualityUnmetSearch = false
+
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true

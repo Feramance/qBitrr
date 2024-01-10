@@ -513,13 +513,6 @@ def _gen_default_line(table, comments, field, value):
 
 def _gen_default_search_table(category: str, cat_default: Table):
     search_table = table()
-    search_table.add(
-        comment(
-            "All these settings depends on SearchMissing being True and access to the Servarr "
-            "database file."
-        )
-    )
-    search_table.add(nl())
     _gen_default_line(search_table, "Should search for Missing files?", "SearchMissing", True)
     _gen_default_line(
         search_table,
@@ -579,6 +572,12 @@ def _gen_default_search_table(category: str, cat_default: Table):
     )
     _gen_default_line(
         search_table,
+        "Do a minimum custom format score unmet search for existing entries.",
+        "CustomFormatUnmetSearch",
+        False,
+    )
+    _gen_default_line(
+        search_table,
         "Once you have search all files on your specified year range restart the loop and "
         "search again.",
         "SearchAgainOnSearchCompletion",
@@ -587,7 +586,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
-            "Search by series instead of by episode (This ignored the QualityUnmetSearch setting)",
+            "Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)",
             "SearchBySeries",
             True,
         )
