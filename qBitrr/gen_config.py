@@ -184,9 +184,9 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     )
     _gen_default_line(
         cat_default,
-        "The Servarr's Import Mode(one of Move, Copy or Hardlink)",
+        "The Servarr's Import Mode(one of Move, Copy or Auto)",
         "importMode",
-        "Hardlink",
+        "Auto",
     )
     _gen_default_line(
         cat_default,

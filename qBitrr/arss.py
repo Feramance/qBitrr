@@ -117,6 +117,8 @@ class Arr:
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
+        if self.import_mode == "Hardlink":
+            self.import_mode = "Auto"
         self.refresh_downloads_timer = CONFIG.get(f"{name}.RefreshDownloadsTimer", fallback=1)
         self.arr_error_codes_to_blocklist = CONFIG.get(
             f"{name}.ArrErrorCodesToBlocklist", fallback=[]
@@ -1608,8 +1610,12 @@ class Arr:
                         completed = True
                 if self.search_by_year:
                     for s in series:
+                        if isinstance(s, str):
+                            continue
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
+                            if isinstance(e, str):
+                                continue
                             if "airDateUtc" in e and (
                                 "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
                             ):
@@ -1643,8 +1649,12 @@ class Arr:
 
                 else:
                     for s in series:
+                        if isinstance(s, str):
+                            continue
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
+                            if isinstance(e, str):
+                                continue
                             if "airDateUtc" in e and (
                                 "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
                             ):
@@ -1672,6 +1682,8 @@ class Arr:
                         completed = True
                 if self.search_by_year:
                     for s in series:
+                        if isinstance(s, str):
+                            continue
                         if s["year"] < self.search_current_year:
                             continue
                         if s["year"] > self.search_current_year:
@@ -1681,6 +1693,8 @@ class Arr:
                         self.db_update_single_series(db_entry=s, series=True)
                 else:
                     for s in series:
+                        if isinstance(s, str):
+                            continue
                         if not s["monitored"]:
                             continue
                         self.db_update_single_series(db_entry=s, series=True)
@@ -1698,6 +1712,8 @@ class Arr:
                     completed = True
             if self.search_by_year:
                 for m in movies:
+                    if isinstance(m, str):
+                        continue
                     if m["year"] < self.search_current_year:
                         continue
                     if m["year"] > self.search_current_year:
@@ -1707,6 +1723,8 @@ class Arr:
                     self.db_update_single_series(db_entry=m)
             else:
                 for m in movies:
+                    if isinstance(m, str):
+                        continue
                     if not m["monitored"]:
                         continue
                     self.db_update_single_series(db_entry=m)
@@ -3570,15 +3588,15 @@ class Arr:
         elif torrent.state_enum == TorrentStates.MISSING_FILES:
             self._process_single_torrent_missing_files(torrent)
         # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
-        elif (
-            self.is_uploading_state(torrent)
-            and torrent.seeding_time > 1
-            and torrent.amount_left == 0
-            and torrent.added_on > 0
-            and torrent.content_path
-            and self.seeding_mode_global_remove_torrent != -1
-        ) and torrent.hash in self.cleaned_torrents:
-            self._process_single_torrent_uploading(torrent, leave_alone)
+        # elif (
+        #     self.is_uploading_state(torrent)
+        #     and torrent.seeding_time > 1
+        #     and torrent.amount_left == 0
+        #     and torrent.added_on > 0
+        #     and torrent.content_path
+        #     and self.seeding_mode_global_remove_torrent != -1
+        # ) and torrent.hash in self.cleaned_torrents:
+        #     self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
         elif (
             torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD

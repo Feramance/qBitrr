@@ -75,8 +75,8 @@ Category = "sonarr-tv"
 # Toggle whether to send a query to Servarr to search any failed torrents
 ReSearch = true
 
-# The Servarr's Import Mode(one of Move, Copy or Hardlink)
-importMode = "Hardlink"
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
@@ -243,8 +243,8 @@ Category = "sonarr-anime"
 # Toggle whether to send a query to Servarr to search any failed torrents
 ReSearch = true
 
-# The Servarr's Import Mode(one of Move, Copy or Hardlink)
-importMode = "Hardlink"
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
@@ -424,8 +424,8 @@ Category = "radarr-1080"
 # Toggle whether to send a query to Servarr to search any failed torrents
 ReSearch = true
 
-# The Servarr's Import Mode(one of Move, Copy or Hardlink)
-importMode = "Hardlink"
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
@@ -614,8 +614,8 @@ Category = "radarr-4k"
 # Toggle whether to send a query to Servarr to search any failed torrents
 ReSearch = true
 
-# The Servarr's Import Mode(one of Move, Copy or Hardlink)
-importMode = "Hardlink"
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
 RssSyncTimer = 1
