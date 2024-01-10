@@ -2009,7 +2009,7 @@ class Arr:
                             completed = False
                             episode = self.client.get_episode_by_episode_id(db_entry["id"])
                             minCustomFormat = self.client.get_quality_profile(
-                                episode["qualityProfileId"]
+                                episode.get("qualityProfileId")
                             )["minFormatScore"]
                             if episode["hasFile"]:
                                 customFormat = self.client.get_episode_file(
