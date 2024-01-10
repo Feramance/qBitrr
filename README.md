@@ -35,11 +35,10 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 - Set per tracker values
 - **Sonarr v4 support**
 - **Radarr v4 and v5 support**
-- Available if provided with a Sonarr/Radarr database file:
-  - Monitor Arr's to trigger missing episode searches.
-  - Searches Radarr missing movies based on Minimum Availability
-  - Customizable searching by series or singular episodes
-  - Optionally searches year by year is ascending or descending order (config option available)
+- Monitor Arr's to trigger missing episode searches.
+- Searches Radarr missing movies based on Minimum Availability
+- Customizable searching by series or singular episodes
+- Optionally searches year by year is ascending or descending order (config option available)
 
 ## Tested with
 
