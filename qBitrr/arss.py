@@ -2128,7 +2128,7 @@ class Arr:
                             IsRequest=request,
                             QualityMet=QualityMet,
                             Upgrade=upgrade,
-                            customFormatMet=customFormatMet,
+                            CustomFormatMet=customFormatMet,
                         ).on_conflict(
                             conflict_target=[self.model_file.EntryId],
                             update=to_update,
