@@ -2017,6 +2017,8 @@ class Arr:
                                 customFormat = self.client.get_episode_file(
                                     episode["episodeFile"]["id"]
                                 )["customFormatScore"]
+                            else:
+                                customFormat = 0
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
