@@ -1995,8 +1995,6 @@ class Arr:
         request: bool = False,
         series: bool = False,
     ):
-        minCustomFormat = 0
-        customFormat = 0
         if self.search_missing is False:
             return
         try:
@@ -2215,13 +2213,15 @@ class Arr:
                     try:
                         completed = False
                         movieData = self.client.get_movie(db_entry["id"])
+                        minCustomFormat = self.client.get_quality_profile(
+                            movieData["qualityProfileId"]
+                        )["minFormatScore"]
                         if db_entry["hasFile"]:
-                            minCustomFormat = self.client.get_quality_profile(
-                                movieData["qualityProfileId"]
-                            )["minFormatScore"]
                             customFormat = self.client.get_movie_file(
                                 movieData["movieFile"]["id"]
                             )["customFormatScore"]
+                        else:
+                            customFormat = 0
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -2849,7 +2849,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        else:
+        elif "qBitrr-allowed_seeding" not in torrent.tags:
             self.pause.add(torrent.hash)
             self.logger.trace(
                 "Pausing torrent: Queued Upload | "
@@ -3034,7 +3034,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        else:
+        elif "qBitrr-allowed_seeding" not in torrent.tags:
             self.logger.info(
                 "Pausing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3104,7 +3104,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        else:
+        elif "qBitrr-allowed_seeding" not in torrent.tags:
             self.logger.info(
                 "Pausing uploading torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3394,8 +3394,8 @@ class Arr:
             return_value = True
         if return_value and "qBitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
-            torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+        # elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
+        #     torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -3638,15 +3638,15 @@ class Arr:
         elif torrent.state_enum == TorrentStates.MISSING_FILES:
             self._process_single_torrent_missing_files(torrent)
         # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
-        # elif (
-        #     self.is_uploading_state(torrent)
-        #     and torrent.seeding_time > 1
-        #     and torrent.amount_left == 0
-        #     and torrent.added_on > 0
-        #     and torrent.content_path
-        #     and self.seeding_mode_global_remove_torrent != -1
-        # ) and torrent.hash in self.cleaned_torrents:
-        #     self._process_single_torrent_uploading(torrent, leave_alone)
+        elif (
+            self.is_uploading_state(torrent)
+            and torrent.seeding_time > 1
+            and torrent.amount_left == 0
+            and torrent.added_on > 0
+            and torrent.content_path
+            and self.seeding_mode_global_remove_torrent != -1
+        ) and torrent.hash in self.cleaned_torrents:
+            self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
         elif (
             torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
