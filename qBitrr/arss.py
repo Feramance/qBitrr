@@ -2008,10 +2008,11 @@ class Arr:
                         try:
                             completed = False
                             episode = self.client.get_episode_by_episode_id(db_entry["id"])
-                            self.logger.debug("qualityProfileId:%s", episode["qualityProfileId"])
-                            minCustomFormat = self.client.get_quality_profile(
-                                episode["qualityProfileId"]
-                            )["minFormatScore"]
+                            self.logger.debug("episode:%s", episode)
+                            minCustomFormat = 0
+                            # self.client.get_quality_profile(
+                            #     episode["qualityProfileId"]
+                            # )["minFormatScore"]
                             if episode["hasFile"]:
                                 customFormat = self.client.get_episode_file(
                                     episode["episodeFile"]["id"]
