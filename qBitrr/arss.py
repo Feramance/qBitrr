@@ -2105,7 +2105,7 @@ class Arr:
                             EpisodeNumber,
                             searched,
                             upgrade,
-                            qualityMet,
+                            QualityMet,
                             customFormatMet,
                         )
 
