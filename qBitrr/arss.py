@@ -2007,7 +2007,13 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            EpisodeMetadata = self.client.get_episode(db_entry["id"])
+                            minCustomFormat = self.client.get_quality_profile(
+                                db_entry["qualityProfileId"]
+                            )["minFormatScore"]
+                            if db_entry["hasFile"]:
+                                customFormat = self.client.get_episode_file(
+                                    db_entry["movieFile"]["id"]
+                                )["customFormatScore"]
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -2016,8 +2022,14 @@ class Arr:
                         ):
                             completed = True
 
-                    QualityUnmet = EpisodeMetadata.get("qualityCutoffNotMet", False)
-                    if db_entry["episodeFileId"] != 0 and not self.quality_unmet_search:
+                    QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
+                    if (
+                        db_entry["episodeFileId"] != 0
+                        and not self.quality_unmet_search
+                        and not (
+                            self.custom_format_unmet_Search and customFormat < minCustomFormat
+                        )
+                    ):
                         searched = True
                         self.model_queue.update(Completed=True).where(
                             self.model_queue.EntryId == db_entry["id"]
@@ -2026,7 +2038,7 @@ class Arr:
                     if db_entry["monitored"] == True:
                         EntryId = db_entry["id"]
 
-                        SeriesTitle = EpisodeMetadata.get("series", {}).get("title")
+                        SeriesTitle = db_entry.get("series", {}).get("title")
                         SeasonNumber = db_entry["seasonNumber"]
                         Title = db_entry["title"]
                         SeriesId = db_entry["seriesId"]
@@ -2046,6 +2058,7 @@ class Arr:
                         Monitored = db_entry["monitored"]
                         searched = searched
                         QualityMet = QualityUnmet
+                        customFormatMet = customFormat > minCustomFormat
 
                         if self.quality_unmet_search and QualityMet:
                             self.logger.trace(
@@ -2067,6 +2080,7 @@ class Arr:
                             self.model_file.SeriesTitle: SeriesTitle,
                             self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
+                            self.model_file.CustomFormatMet: customFormatMet,
                         }
                         if searched:
                             to_update[self.model_file.Searched] = searched
@@ -2082,12 +2096,14 @@ class Arr:
                             pass
 
                         self.logger.trace(
-                            "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s]",
+                            "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                             SeriesTitle,
                             SeasonNumber,
                             EpisodeNumber,
                             searched,
                             upgrade,
+                            qualityMet,
+                            customFormatMet,
                         )
 
                         if request:
@@ -2109,6 +2125,7 @@ class Arr:
                             IsRequest=request,
                             QualityMet=QualityMet,
                             Upgrade=upgrade,
+                            customFormatMet=customFormatMet,
                         ).on_conflict(
                             conflict_target=[self.model_file.EntryId],
                             update=to_update,
@@ -2212,14 +2229,13 @@ class Arr:
                 while completed:
                     try:
                         completed = False
-                        movieData = self.client.get_movie(db_entry["id"])
                         minCustomFormat = self.client.get_quality_profile(
-                            movieData["qualityProfileId"]
+                            db_entry["qualityProfileId"]
                         )["minFormatScore"]
                         if db_entry["hasFile"]:
-                            customFormat = self.client.get_movie_file(
-                                movieData["movieFile"]["id"]
-                            )["customFormatScore"]
+                            customFormat = self.client.get_movie_file(db_entry["movieFile"]["id"])[
+                                "customFormatScore"
+                            ]
                         else:
                             customFormat = 0
                     except (
@@ -2229,7 +2245,7 @@ class Arr:
                         JSONDecodeError,
                     ):
                         completed = True
-                QualityUnmet = movieData.get("qualityCutoffNotMet", False)
+                QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
                 if (
                     db_entry["hasFile"]
                     and not self.quality_unmet_search
@@ -2849,7 +2865,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        elif "qBitrr-allowed_seeding" not in torrent.tags:
+        else:
             self.pause.add(torrent.hash)
             self.logger.trace(
                 "Pausing torrent: Queued Upload | "
@@ -3034,7 +3050,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        elif "qBitrr-allowed_seeding" not in torrent.tags:
+        else:
             self.logger.info(
                 "Pausing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3104,7 +3120,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        elif "qBitrr-allowed_seeding" not in torrent.tags:
+        else:
             self.logger.info(
                 "Pausing uploading torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3394,8 +3410,8 @@ class Arr:
             return_value = True
         if return_value and "qBitrr-allowed_seeding" not in torrent.tags:
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        # elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
-        #     torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+        elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
+            torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
