@@ -2007,7 +2007,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            episode = self.client.get_episode(db_entry["id"])
+                            episode = self.client.get_episode_by_episode_id(db_entry["id"])
                             minCustomFormat = self.client.get_quality_profile(
                                 episode["qualityProfileId"]
                             )["minFormatScore"]
