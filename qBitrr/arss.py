@@ -3139,6 +3139,8 @@ class Arr:
         elif special_case:
             self.special_casing_file_check.add(torrent.hash)
         for file in torrent.files:
+            if not hasattr(file, "name"):
+                continue
             file_path = pathlib.Path(file.name)
             # Acknowledge files that already been marked as "Don't download"
             if file.priority == 0:
