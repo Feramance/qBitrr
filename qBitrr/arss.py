@@ -759,6 +759,7 @@ class Arr:
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
+                                JSONDecodeError,
                             ):
                                 completed = True
                         self.logger.success(
@@ -780,6 +781,7 @@ class Arr:
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
+                                JSONDecodeError,
                             ):
                                 completed = True
                         self.logger.success(
@@ -847,6 +849,7 @@ class Arr:
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
+                            JSONDecodeError,
                             AttributeError,
                         ):
                             completed = True
@@ -862,6 +865,7 @@ class Arr:
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
+                            JSONDecodeError,
                         ):
                             completed = True
                     if self.persistent_queue and series_id:
@@ -906,6 +910,7 @@ class Arr:
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
+                                JSONDecodeError,
                                 AttributeError,
                             ):
                                 completed = True
@@ -921,6 +926,7 @@ class Arr:
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
+                                JSONDecodeError,
                             ):
                                 completed = True
                         if self.persistent_queue and series_id:
@@ -951,6 +957,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                         AttributeError,
                     ):
                         completed = True
@@ -965,6 +972,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 if self.persistent_queue:
@@ -1086,6 +1094,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ):
                     completed = True
             self.rss_sync_timer_last_checked = now
@@ -1104,6 +1113,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ):
                     completed = True
             self.refresh_downloads_timer_last_checked = now
@@ -1128,6 +1138,7 @@ class Arr:
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
+                JSONDecodeError,
             ):
                 completed = True
 
@@ -1195,6 +1206,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ) as e:
                     completed = True
             self.series_file_model.delete().where(
@@ -1223,6 +1235,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
@@ -1247,6 +1260,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
@@ -1458,6 +1472,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 for s in series:
@@ -1502,6 +1517,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 for m in movies:
@@ -1564,6 +1580,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 for s in series:
@@ -1609,6 +1626,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 if self.search_by_year:
@@ -1681,6 +1699,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 if self.search_by_year:
@@ -1711,6 +1730,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ):
                     completed = True
             if self.search_by_year:
@@ -1994,6 +2014,7 @@ class Arr:
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
+                            JSONDecodeError,
                         ):
                             completed = True
 
@@ -2110,6 +2131,7 @@ class Arr:
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
+                                JSONDecodeError,
                             ):
                                 completed = True
                         episodeCount = 0
@@ -2204,6 +2226,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 QualityUnmet = movieData.get("qualityCutoffNotMet", False)
@@ -2249,10 +2272,12 @@ class Arr:
                         to_update[self.model_file.IsRequest] = request
 
                     self.logger.trace(
-                        "Updating database entry | %s [Searched:%s][Upgrade:%s]",
+                        "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                         title,
                         searched,
                         upgrade,
+                        qualityMet,
+                        customFormatMet,
                     )
 
                     db_commands = self.model_file.insert(
@@ -2311,6 +2336,7 @@ class Arr:
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
+                JSONDecodeError,
             ):
                 completed = True
         return res
@@ -2530,6 +2556,7 @@ class Arr:
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
+                            JSONDecodeError,
                         ):
                             completed = True
                 file_model.update(Searched=True, Upgrade=True).where(
@@ -2580,6 +2607,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
                 file_model.update(Searched=True, Upgrade=True).where(
@@ -2642,6 +2670,7 @@ class Arr:
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
+                        JSONDecodeError,
                     ):
                         completed = True
             file_model.update(Searched=True, Upgrade=True).where(
@@ -3902,6 +3931,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ) as e:
                     completed = True
 
@@ -3921,6 +3951,7 @@ class Arr:
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
+                    JSONDecodeError,
                 ) as e:
                     completed = True
 
