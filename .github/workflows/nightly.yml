@@ -16,6 +16,7 @@ jobs:
   docker_image:
     name: Build Docker Image
     runs-on: ubuntu-latest
+    if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
