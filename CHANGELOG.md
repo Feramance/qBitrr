@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.0.14 (10/01/2024)
+- [[patch] Fixed Hardlink import mode and stopped torrent pausing on completion if not force uploaded](https://github.com/Feramance/qBitrr/commit/45665a9175c5f61261575a05ad3d51f8903f47ba) - @Feramance
+- [Import mode testing](https://github.com/Feramance/qBitrr/commit/351f036edef0325c1fd95c31612ef9036dfbacbe) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/39aae4ce6a4f32734ee35010a41a9a3630cc48a3) - @Feramance
+- [Import mode testing](https://github.com/Feramance/qBitrr/commit/457fb163bc10db4bcb3ac16f54dfa3b5c5dcfb8c) - @Feramance
+
+---
+
 ## v4.0.13 (09/01/2024)
 - [[patch] Fixed search by year](https://github.com/Feramance/qBitrr/commit/91c8dfa2023abe5567bd5ac0684bfcb722e530f9) - @Feramance
 - [Fixed fatal variable name](https://github.com/Feramance/qBitrr/commit/0ac6ff3d000f5507fcffdef4fa41e6692ae1cef0) - @Feramance
@@ -249,9 +257,3 @@
 ---
 
 ## v3.9.0-beta-0 (16/11/2023)
-
----
-
-## v3.8.1 (16/11/2023)
-- [[release] Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/ec2ce270bd42b0ffbbf2fc8e71b93e25efc03794) - @Feramance
-- [[release] Hotifx, bad function call](https://github.com/Feramance/qBitrr/commit/2eaaf72c60723267be4dfde335fbcb681fd51179) - @Feramance
