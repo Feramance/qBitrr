@@ -2007,12 +2007,13 @@ class Arr:
                     while completed:
                         try:
                             completed = False
+                            episode = self.client.get_episode(db_entry["id"])
                             minCustomFormat = self.client.get_quality_profile(
-                                db_entry["qualityProfileId"]
+                                episode["qualityProfileId"]
                             )["minFormatScore"]
-                            if db_entry["hasFile"]:
+                            if episode["hasFile"]:
                                 customFormat = self.client.get_episode_file(
-                                    db_entry["movieFile"]["id"]
+                                    episode["episodeFile"]["id"]
                                 )["customFormatScore"]
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -2022,9 +2023,9 @@ class Arr:
                         ):
                             completed = True
 
-                    QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
+                    QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
-                        db_entry["episodeFileId"] != 0
+                        episode["episodeFileId"] != 0
                         and not self.quality_unmet_search
                         and not (
                             self.custom_format_unmet_Search and customFormat < minCustomFormat
@@ -2032,30 +2033,30 @@ class Arr:
                     ):
                         searched = True
                         self.model_queue.update(Completed=True).where(
-                            self.model_queue.EntryId == db_entry["id"]
+                            self.model_queue.EntryId == episode["id"]
                         ).execute()
 
-                    if db_entry["monitored"] == True:
-                        EntryId = db_entry["id"]
+                    if episode["monitored"] == True:
+                        EntryId = episode["id"]
 
-                        SeriesTitle = db_entry.get("series", {}).get("title")
-                        SeasonNumber = db_entry["seasonNumber"]
-                        Title = db_entry["title"]
-                        SeriesId = db_entry["seriesId"]
-                        EpisodeFileId = db_entry["episodeFileId"]
-                        EpisodeNumber = db_entry["episodeNumber"]
+                        SeriesTitle = episode.get("series", {}).get("title")
+                        SeasonNumber = episode["seasonNumber"]
+                        Title = episode["title"]
+                        SeriesId = episode["seriesId"]
+                        EpisodeFileId = episode["episodeFileId"]
+                        EpisodeNumber = episode["episodeNumber"]
                         AbsoluteEpisodeNumber = (
-                            db_entry["absoluteEpisodeNumber"]
-                            if "absoluteEpisodeNumber" in db_entry
+                            episode["absoluteEpisodeNumber"]
+                            if "absoluteEpisodeNumber" in episode
                             else None
                         )
                         SceneAbsoluteEpisodeNumber = (
-                            db_entry["sceneAbsoluteEpisodeNumber"]
-                            if "sceneAbsoluteEpisodeNumber" in db_entry
+                            episode["sceneAbsoluteEpisodeNumber"]
+                            if "sceneAbsoluteEpisodeNumber" in episode
                             else None
                         )
-                        AirDateUtc = db_entry["airDateUtc"]
-                        Monitored = db_entry["monitored"]
+                        AirDateUtc = episode["airDateUtc"]
+                        Monitored = episode["monitored"]
                         searched = searched
                         QualityMet = QualityUnmet
                         customFormatMet = customFormat > minCustomFormat
