@@ -2007,15 +2007,10 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            episode = self.client.get_episode_by_episode_id(db_entry["id"])
-                            if "qualityProfileId" in episode:
-                                self.logger.debug("qualityProfileId found: %s", type(episode))
-                                minCustomFormat = self.client.get_quality_profile(
-                                    episode["qualityProfileId"]
-                                )["minFormatScore"]
-                            else:
-                                self.logger.debug("qualityProfileId not found: %s", type(episode))
-                                minCustomFormat = 0
+                            episode = self.client.get_episode(db_entry["id"])
+                            minCustomFormat = self.client.get_quality_profile(
+                                episode["series"]["qualityProfileId"]
+                            )["minFormatScore"]
                             if episode["hasFile"]:
                                 customFormat = self.client.get_episode_file(
                                     episode["episodeFile"]["id"]
@@ -2030,7 +2025,7 @@ class Arr:
                         ):
                             completed = True
 
-                    QualityUnmet = episode.get("qualityCutoffNotMet", False)
+                    QualityUnmet = episode["episodeFile"]["qualityCutoffNotMet"]
                     if (
                         episode["episodeFileId"] != 0
                         and not self.quality_unmet_search
