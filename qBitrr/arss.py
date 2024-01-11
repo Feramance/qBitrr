@@ -3807,40 +3807,69 @@ class Arr:
             self._process_single_torrent_unprocessed(torrent)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
-        queue = self.client.get_queue()
-        if self.type == "sonarr":
-            if not self.series_search:
-                entry = next(
-                    (
-                        record["episodeId"]
-                        for record in queue["records"]
-                        if record["downloadId"] == torrent.hash
-                    ),
-                    None,
-                )
-                if not entry:
-                    return False
-                customFormat = next(
-                    (
-                        record["customFormatScore"]
-                        for record in queue["records"]
-                        if record["downloadId"] == torrent.hash
-                    ),
-                    None,
-                )
-                episode = self.client.get_episode(entry)
-                minCustomFormat = self.client.get_quality_profile(
-                    episode["series"]["qualityProfileId"]
-                )["minFormatScore"]
-                cfunmet = customFormat < minCustomFormat
-                if cfunmet:
-                    return True
+        try:
+            queue = self.client.get_queue()
+            if self.type == "sonarr":
+                if not self.series_search:
+                    entry = next(
+                        (
+                            record["episodeId"]
+                            for record in queue["records"]
+                            if record["downloadId"] == torrent.hash
+                        ),
+                        None,
+                    )
+                    if not entry:
+                        return False
+                    customFormat = next(
+                        (
+                            record["customFormatScore"]
+                            for record in queue["records"]
+                            if record["downloadId"] == torrent.hash
+                        ),
+                        None,
+                    )
+                    episode = self.client.get_episode(entry)
+                    minCustomFormat = self.client.get_quality_profile(
+                        episode["series"]["qualityProfileId"]
+                    )["minFormatScore"]
+                    cfunmet = customFormat < minCustomFormat
+                    if cfunmet:
+                        return True
+                    else:
+                        return False
                 else:
-                    return False
-            else:
+                    entry = next(
+                        (
+                            record["seriesId"]
+                            for record in queue["records"]
+                            if record["downloadId"] == torrent.hash
+                        ),
+                        None,
+                    )
+                    if not entry:
+                        return False
+                    customFormat = next(
+                        (
+                            record["customFormatScore"]
+                            for record in queue["records"]
+                            if record["downloadId"] == torrent.hash
+                        ),
+                        None,
+                    )
+                    series = self.client.get_series(entry)
+                    minCustomFormat = self.client.get_quality_profile(series["qualityProfileId"])[
+                        "minFormatScore"
+                    ]
+                    cfunmet = customFormat < minCustomFormat
+                    if cfunmet:
+                        return True
+                    else:
+                        return False
+            elif self.type == "radarr":
                 entry = next(
                     (
-                        record["seriesId"]
+                        record["movieId"]
                         for record in queue["records"]
                         if record["downloadId"] == torrent.hash
                     ),
@@ -3848,6 +3877,7 @@ class Arr:
                 )
                 if not entry:
                     return False
+                self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
                 customFormat = next(
                     (
                         record["customFormatScore"]
@@ -3856,8 +3886,10 @@ class Arr:
                     ),
                     None,
                 )
-                series = self.client.get_series(entry)
-                minCustomFormat = self.client.get_quality_profile(series["qualityProfileId"])[
+                self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
+                movie = self.client.get_movie(entry)
+                self.logger.debug("custom_format_unmet_check: [movie:%s]", movie)
+                minCustomFormat = self.client.get_quality_profile(movie["qualityProfileId"])[
                     "minFormatScore"
                 ]
                 cfunmet = customFormat < minCustomFormat
@@ -3865,37 +3897,9 @@ class Arr:
                     return True
                 else:
                     return False
-        elif self.type == "radarr":
-            entry = next(
-                (
-                    record["movieId"]
-                    for record in queue["records"]
-                    if record["downloadId"] == torrent.hash
-                ),
-                None,
-            )
-            if not entry:
-                return False
-            self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
-            customFormat = next(
-                (
-                    record["customFormatScore"]
-                    for record in queue["records"]
-                    if record["downloadId"] == torrent.hash
-                ),
-                None,
-            )
-            self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
-            movie = self.client.get_movie(entry)
-            self.logger.debug("custom_format_unmet_check: [movie:%s]", movie)
-            minCustomFormat = self.client.get_quality_profile(movie["qualityProfileId"])[
-                "minFormatScore"
-            ]
-            cfunmet = customFormat < minCustomFormat
-            if cfunmet:
-                return True
-            else:
-                return False
+        except KeyError as e:
+            self.logger.warning("Key Error: %s", e.message)
+            raise DelayLoopException(length=300, type=self.type)
 
     def remove_torrent(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
