@@ -3771,6 +3771,7 @@ class Arr:
                     ),
                     None,
                 )
+                self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
                 customFormat = next(
                     (
                         record["customFormatScore"]
@@ -3779,7 +3780,9 @@ class Arr:
                     ),
                     None,
                 )
+                self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                 episode = self.client.get_episode(entry)
+                self.logger.debug("custom_format_unmet_check: [episode:%s]", episode)
                 minCustomFormat = self.client.get_quality_profile(
                     episode["series"]["qualityProfileId"]
                 )["minFormatScore"]
@@ -3823,6 +3826,7 @@ class Arr:
                 ),
                 None,
             )
+            self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
             customFormat = next(
                 (
                     record["customFormatScore"]
@@ -3831,7 +3835,9 @@ class Arr:
                 ),
                 None,
             )
+            self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
             movie = self.client.get_movie(entry)
+            self.logger.debug("custom_format_unmet_check: [movie:%s]", movie)
             minCustomFormat = self.client.get_quality_profile(movie["qualityProfileId"])[
                 "minFormatScore"
             ]
