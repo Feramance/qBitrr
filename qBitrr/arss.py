@@ -3285,6 +3285,43 @@ class Arr:
 
         self.cleaned_torrents.add(torrent.hash)
 
+    def _process_single_completed_paused_torrent(
+        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+    ):
+        if leave_alone:
+            self.resume.add(torrent.hash)
+            self.logger.trace(
+                "Resuming torrent: "
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
+                "[Last active: %s] "
+                "| [%s] | %s (%s)",
+                round(torrent.progress * 100, 2),
+                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
+                timedelta(seconds=torrent.eta),
+                datetime.fromtimestamp(torrent.last_activity),
+                torrent.state_enum,
+                torrent.name,
+                torrent.hash,
+            )
+        else:
+            self.logger.trace(
+                "Skipping torrent: "
+                "[Progress: %s%%][Added On: %s]"
+                "[Availability: %s%%][Time Left: %s]"
+                "[Last active: %s] "
+                "| [%s] | %s (%s)",
+                round(torrent.progress * 100, 2),
+                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                round(torrent.availability * 100, 2),
+                timedelta(seconds=torrent.eta),
+                datetime.fromtimestamp(torrent.last_activity),
+                torrent.state_enum,
+                torrent.name,
+                torrent.hash,
+            )
+
     def _process_single_torrent_unprocessed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.trace(
             "Skipping torrent: Unresolved state: "
@@ -3697,6 +3734,8 @@ class Arr:
                     return
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent)
+        elif self.is_complete_state(torrent) and leave_alone:
+            self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
             self._process_single_torrent_unprocessed(torrent)
 
