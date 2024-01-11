@@ -3760,12 +3760,13 @@ class Arr:
             self._process_single_torrent_unprocessed(torrent)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
+        queue = self.client.get_queue()
         if self.type == "sonarr":
             if not self.series_search:
                 entry = next(
                     (
                         record["episodeId"]
-                        for record in self.queue["records"]
+                        for record in queue["records"]
                         if record["downloadId"] == torrent.hash
                     ),
                     None,
@@ -3773,7 +3774,7 @@ class Arr:
                 customFormat = next(
                     (
                         record["customFormatScore"]
-                        for record in self.queue["records"]
+                        for record in queue["records"]
                         if record["downloadId"] == torrent.hash
                     ),
                     None,
@@ -3791,7 +3792,7 @@ class Arr:
                 entry = next(
                     (
                         record["seriesId"]
-                        for record in self.queue["records"]
+                        for record in queue["records"]
                         if record["downloadId"] == torrent.hash
                     ),
                     None,
@@ -3799,7 +3800,7 @@ class Arr:
                 customFormat = next(
                     (
                         record["customFormatScore"]
-                        for record in self.queue["records"]
+                        for record in queue["records"]
                         if record["downloadId"] == torrent.hash
                     ),
                     None,
@@ -3817,7 +3818,7 @@ class Arr:
             entry = next(
                 (
                     record["movieId"]
-                    for record in self.queue["records"]
+                    for record in queue["records"]
                     if record["downloadId"] == torrent.hash
                 ),
                 None,
@@ -3825,7 +3826,7 @@ class Arr:
             customFormat = next(
                 (
                     record["customFormatScore"]
-                    for record in self.queue["records"]
+                    for record in queue["records"]
                     if record["downloadId"] == torrent.hash
                 ),
                 None,
