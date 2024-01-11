@@ -196,7 +196,6 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-Trackers = []
 
 [Sonarr-TV.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -229,6 +228,21 @@ RemoveDeadTrackers = false
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
 # You can have multiple trackers set here or none just add more subsections.
+
+[[Sonarr-TV.Torrent.Trackers]]
+Name = "Nyaa"
+Priority = 10
+URI = "http://nyaa.tracker.wf:7777/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["qBitrr-anime"]
+
 
 [Sonarr-Anime]
 # Toggle whether to manage the Servarr instance torrents.
@@ -413,6 +427,7 @@ AddTrackerIfMissing = false
 RemoveIfExists = false
 SuperSeedMode = false
 AddTags = ["qBitrr-anime"]
+
 
 [Radarr-1080]
 # Toggle whether to manage the Servarr instance torrents.
@@ -606,6 +621,7 @@ MaxSeedingTime = -1
 AddTrackerIfMissing = false
 RemoveIfExists = false
 SuperSeedMode = false
+
 
 [Radarr-4K]
 # Toggle whether to manage the Servarr instance torrents.
