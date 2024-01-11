@@ -3409,13 +3409,17 @@ class Arr:
             if torrent.ratio >= ratio_limit:
                 return_value = False  # Seeding ratio met - Can be cleaned up.
                 self.logger.debug(
-                    "Pausing torrent: %s - [ratio_limit:%s]", str(not return_value), ratio_limit
+                    "Pausing torrent: %s - [torrent_ratio:%s][ratio_limit:%s]",
+                    str(not return_value),
+                    torrent.ratio,
+                    ratio_limit,
                 )
             if torrent.seeding_time >= seeding_time_limit:
                 return_value = False  # Seeding time met - Can be cleaned up.
                 self.logger.debug(
-                    "Pausing torrent: %s - [seeding_time_limit:%s]",
+                    "Pausing torrent: %s - [torrent_seeding_time:%s][seeding_time_limit:%s]",
                     str(not return_value),
+                    torrent.seeding_time,
                     seeding_time_limit,
                 )
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
