@@ -2025,9 +2025,9 @@ class Arr:
                         ):
                             completed = True
 
-                    QualityUnmet = episode["episodeFile"]["qualityCutoffNotMet"]
+                    QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
-                        episode["episodeFileId"] != 0
+                        episode["hasFile"]
                         and not self.quality_unmet_search
                         and not (
                             self.custom_format_unmet_Search and customFormat < minCustomFormat
@@ -3404,6 +3404,7 @@ class Arr:
         ):
             remove_torrent = True
             return_value = False
+            self.logger.debug("Removing torrent: %s", str(not return_value))
         else:
             if torrent.ratio >= ratio_limit:
                 return_value = False  # Seeding ratio met - Can be cleaned up.
