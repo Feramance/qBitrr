@@ -3178,6 +3178,24 @@ class Arr:
         )
         self.delete.add(torrent.hash)
 
+    def _process_single_torrent_delete_cfunmet(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.info(
+            "Removing completed torrent: "
+            "[Progress: %s%%][Added On: %s]"
+            "[Ratio: %s%%][Seeding time: %s]"
+            "[Last active: %s] "
+            "| [%s] | %s (%s)",
+            round(torrent.progress * 100, 2),
+            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            torrent.ratio,
+            timedelta(seconds=torrent.seeding_time),
+            datetime.fromtimestamp(torrent.last_activity),
+            torrent.state_enum,
+            torrent.name,
+            torrent.hash,
+        )
+        self.delete.add(torrent.hash)
+
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
             "Removing completed torrent: "
@@ -3625,7 +3643,9 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if remove_torrent and not leave_alone and torrent.amount_left == 0:
+        if self.custom_format_unmet_Search and self.custom_format_unmet_check(torrent):
+            self._process_single_torrent_delete_cfunmet(torrent)
+        elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
@@ -3739,9 +3759,90 @@ class Arr:
         else:
             self._process_single_torrent_unprocessed(torrent)
 
+    def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
+        if self.type == "sonarr":
+            if not self.series_search:
+                entry = next(
+                    (
+                        record["episodeId"]
+                        for record in self.queue["records"]
+                        if record["downloadId"] == torrent.hash
+                    ),
+                    None,
+                )
+                customFormat = next(
+                    (
+                        record["customFormatScore"]
+                        for record in self.queue["records"]
+                        if record["downloadId"] == torrent.hash
+                    ),
+                    None,
+                )
+                episode = self.client.get_episode(entry)
+                minCustomFormat = self.client.get_quality_profile(
+                    episode["series"]["qualityProfileId"]
+                )["minFormatScore"]
+                cfunmet = customFormat < minCustomFormat
+                if cfunmet:
+                    return True
+                else:
+                    return False
+            else:
+                entry = next(
+                    (
+                        record["seriesId"]
+                        for record in self.queue["records"]
+                        if record["downloadId"] == torrent.hash
+                    ),
+                    None,
+                )
+                customFormat = next(
+                    (
+                        record["customFormatScore"]
+                        for record in self.queue["records"]
+                        if record["downloadId"] == torrent.hash
+                    ),
+                    None,
+                )
+                series = self.client.get_series(entry)
+                minCustomFormat = self.client.get_quality_profile(series["qualityProfileId"])[
+                    "minFormatScore"
+                ]
+                cfunmet = customFormat < minCustomFormat
+                if cfunmet:
+                    return True
+                else:
+                    return False
+        elif self.type == "radarr":
+            entry = next(
+                (
+                    record["movieId"]
+                    for record in self.queue["records"]
+                    if record["downloadId"] == torrent.hash
+                ),
+                None,
+            )
+            customFormat = next(
+                (
+                    record["customFormatScore"]
+                    for record in self.queue["records"]
+                    if record["downloadId"] == torrent.hash
+                ),
+                None,
+            )
+            movie = self.client.get_movie(entry)
+            minCustomFormat = self.client.get_quality_profile(movie["qualityProfileId"])[
+                "minFormatScore"
+            ]
+            cfunmet = customFormat < minCustomFormat
+            if cfunmet:
+                return True
+            else:
+                return False
+
     def remove_torrent(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
-    ):
+    ) -> bool:
         if (
             self.seeding_mode_global_remove_torrent == 4
             and torrent.ratio >= ratio_limit
