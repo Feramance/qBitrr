@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.1.1 (11/01/2024)
+- [[patch] Fixed error in case qbittorrent is unreachable](https://github.com/Feramance/qBitrr/commit/0155ecd085e634f20110400366e9248593c58a9f) - @Feramance
+
+---
+
 ## v4.1.0 (11/01/2024)
 - [[minor] New feature: CustomFormatUnmetSearch. (Generate a new config file and migrate your values over)](https://github.com/Feramance/qBitrr/commit/6b767758dd710d1268c9c12ea39303cc0e3f41c2) - @Feramance
 - [Entry null handling](https://github.com/Feramance/qBitrr/commit/d5bd0146dd5f63f1d3cd7bb8b911bfcf5aaf9683) - @Feramance
@@ -280,10 +285,3 @@
 ## v3.8.3 (17/11/2023)
 - [[release] Release fix](https://github.com/Feramance/qBitrr/commit/8317b993cd2b1650327665b63152bb207163d01f) - @Feramance
 - [[release] Release fix and logging changes](https://github.com/Feramance/qBitrr/commit/ed3a58dae64f98d8d2add6182940688117331210) - @Feramance
-
----
-
-## v3.8.2 (17/11/2023)
-- [[release] Final loop hotfix](https://github.com/Feramance/qBitrr/commit/91404932645c03a8a06ee54201e1c75ccd11cf55) - @Feramance
-- [[release] Hotfix for search loop](https://github.com/Feramance/qBitrr/commit/4ababfb6ab7616fd53cf150342a3dde0db282c62) - @Feramance
-- [Error handling fix for radarr](https://github.com/Feramance/qBitrr/commit/9976a3c97ff26ea19dede9287bce3ccda9b6a1dd) - @Feramance
