@@ -2066,6 +2066,8 @@ class Arr:
                             reason = "CustomFormat"
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
+                        else:
+                            reason = None
 
                         if self.quality_unmet_search and QualityMet:
                             self.logger.trace(
@@ -2283,6 +2285,8 @@ class Arr:
                         reason = "CustomFormat"
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
+                    else:
+                        reason = None
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
@@ -2598,17 +2602,29 @@ class Arr:
                 file_model.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
-                self.logger.hnotice(
-                    "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
-                    request_tag,
-                    file_model.SeriesTitle,
-                    file_model.SeasonNumber,
-                    file_model.EpisodeNumber,
-                    file_model.Title,
-                    file_model.EntryId,
-                    file_model.AirDateUtc,
-                    file_model.Reason,
-                )
+                if file_model.Reason:
+                    self.logger.hnotice(
+                        "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
+                        request_tag,
+                        file_model.SeriesTitle,
+                        file_model.SeasonNumber,
+                        file_model.EpisodeNumber,
+                        file_model.Title,
+                        file_model.EntryId,
+                        file_model.AirDateUtc,
+                        file_model.Reason,
+                    )
+                else:
+                    self.logger.hnotice(
+                        "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
+                        request_tag,
+                        file_model.SeriesTitle,
+                        file_model.SeasonNumber,
+                        file_model.EpisodeNumber,
+                        file_model.Title,
+                        file_model.EntryId,
+                        file_model.AirDateUtc,
+                    )
                 return True
             else:
                 file_model: SeriesFilesModel
@@ -2713,15 +2729,25 @@ class Arr:
             file_model.update(Searched=True, Upgrade=True).where(
                 file_model.EntryId == file_model.EntryId
             ).execute()
-            self.logger.hnotice(
-                "%sSearching for: %s (%s) [tmdbId=%s|id=%s][%s]",
-                request_tag,
-                file_model.Title,
-                file_model.Year,
-                file_model.TmdbId,
-                file_model.EntryId,
-                file_model.Reason,
-            )
+            if file_model.Reason:
+                self.logger.hnotice(
+                    "%sSearching for: %s (%s) [tmdbId=%s|id=%s][%s]",
+                    request_tag,
+                    file_model.Title,
+                    file_model.Year,
+                    file_model.TmdbId,
+                    file_model.EntryId,
+                    file_model.Reason,
+                )
+            else:
+                self.logger.hnotice(
+                    "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
+                    request_tag,
+                    file_model.Title,
+                    file_model.Year,
+                    file_model.TmdbId,
+                    file_model.EntryId,
+                )
             return True
 
     def process(self):
