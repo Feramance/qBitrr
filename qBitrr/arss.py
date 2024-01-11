@@ -825,18 +825,13 @@ class Arr:
                             series_id = data.get("series", {}).get("id")
                             if name:
                                 seasonNumber = data.get("seasonNumber", 0)
-                                seriesTitle = data.get("series", {}).get("title")
                                 year = data.get("series", {}).get("year", 0)
                                 tvdbId = data.get("series", {}).get("tvdbId", 0)
                                 self.logger.notice(
-                                    "Re-Searching episode: %s (%s) | "
-                                    "S%02d "
-                                    "%s | "
-                                    "[tvdbId=%s|id=%s]",
-                                    seriesTitle,
+                                    "Re-Searching season: %s (%s) | " "S%02d " "[tvdbId=%s|id=%s]",
+                                    name,
                                     year,
                                     seasonNumber,
-                                    name,
                                     tvdbId,
                                     object_ids[0],
                                 )
@@ -2063,7 +2058,7 @@ class Arr:
                         QualityMet = QualityUnmet
                         customFormatMet = customFormat > minCustomFormat
 
-                        if episode["hasFile"]:
+                        if not episode["hasFile"]:
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
@@ -2280,7 +2275,7 @@ class Arr:
                     qualityMet = QualityUnmet
                     customFormatMet = customFormat > minCustomFormat
 
-                    if db_entry["hasFile"]:
+                    if not db_entry["hasFile"]:
                         reason = "Missing"
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
