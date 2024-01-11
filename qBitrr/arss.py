@@ -3055,7 +3055,7 @@ class Arr:
             )
         else:
             self.logger.info(
-                "Pausing Completed torrent: "
+                "Importing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
                 "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
@@ -3069,7 +3069,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.pause.add(torrent.hash)
+            # self.pause.add(torrent.hash)
             content_path = pathlib.Path(torrent.content_path)
             if content_path.is_dir() and content_path.name == torrent.name:
                 torrent_folder = content_path
@@ -3404,24 +3404,11 @@ class Arr:
         ):
             remove_torrent = True
             return_value = False
-            self.logger.debug("Removing torrent: %s", str(not return_value))
         else:
-            if torrent.ratio >= ratio_limit:
+            if torrent.ratio >= ratio_limit and ratio_limit != -5:
                 return_value = False  # Seeding ratio met - Can be cleaned up.
-                self.logger.debug(
-                    "Pausing torrent: %s - [torrent_ratio:%s][ratio_limit:%s]",
-                    str(not return_value),
-                    torrent.ratio,
-                    ratio_limit,
-                )
-            if torrent.seeding_time >= seeding_time_limit:
+            if torrent.seeding_time >= seeding_time_limit and seeding_time_limit != -5:
                 return_value = False  # Seeding time met - Can be cleaned up.
-                self.logger.debug(
-                    "Pausing torrent: %s - [torrent_seeding_time:%s][seeding_time_limit:%s]",
-                    str(not return_value),
-                    torrent.seeding_time,
-                    seeding_time_limit,
-                )
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if return_value and "qBitrr-allowed_seeding" not in torrent.tags:
