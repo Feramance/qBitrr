@@ -2063,6 +2063,15 @@ class Arr:
                         QualityMet = QualityUnmet
                         customFormatMet = customFormat > minCustomFormat
 
+                        if episode["hasFile"]:
+                            reason = "Missing"
+                        elif self.quality_unmet_search and QualityUnmet:
+                            reason = "Quality"
+                        elif self.custom_format_unmet_Search and not customFormatMet:
+                            reason = "CustomFormat"
+                        elif self.do_upgrade_search:
+                            reason = "Upgrade"
+
                         if self.quality_unmet_search and QualityMet:
                             self.logger.trace(
                                 "Quality Met | %s | S%02dE%03d",
@@ -2084,6 +2093,7 @@ class Arr:
                             self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
                             self.model_file.CustomFormatMet: customFormatMet,
+                            self.model_file.Reason: reason,
                         }
                         if searched:
                             to_update[self.model_file.Searched] = searched
@@ -2129,6 +2139,7 @@ class Arr:
                             QualityMet=QualityMet,
                             Upgrade=upgrade,
                             CustomFormatMet=customFormatMet,
+                            Reason=reason,
                         ).on_conflict(
                             conflict_target=[self.model_file.EntryId],
                             update=to_update,
@@ -2269,11 +2280,21 @@ class Arr:
                     qualityMet = QualityUnmet
                     customFormatMet = customFormat > minCustomFormat
 
+                    if db_entry["hasFile"]:
+                        reason = "Missing"
+                    elif self.quality_unmet_search and QualityUnmet:
+                        reason = "Quality"
+                    elif self.custom_format_unmet_Search and not customFormatMet:
+                        reason = "CustomFormat"
+                    elif self.do_upgrade_search:
+                        reason = "Upgrade"
+
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: qualityMet,
                         self.model_file.CustomFormatMet: customFormatMet,
+                        self.model_file.Reason: reason,
                     }
 
                     if searched:
@@ -2311,6 +2332,7 @@ class Arr:
                         QualityMet=qualityMet,
                         Upgrade=upgrade,
                         CustomFormatMet=customFormatMet,
+                        Reason=reason,
                     ).on_conflict(
                         conflict_target=[self.model_file.EntryId],
                         update=to_update,
@@ -2582,7 +2604,7 @@ class Arr:
                     file_model.EntryId == file_model.EntryId
                 ).execute()
                 self.logger.hnotice(
-                    "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s]",
+                    "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
                     request_tag,
                     file_model.SeriesTitle,
                     file_model.SeasonNumber,
@@ -2590,6 +2612,7 @@ class Arr:
                     file_model.Title,
                     file_model.EntryId,
                     file_model.AirDateUtc,
+                    file_model.Reason,
                 )
                 return True
             else:
@@ -2696,12 +2719,13 @@ class Arr:
                 file_model.EntryId == file_model.EntryId
             ).execute()
             self.logger.hnotice(
-                "%sSearching for: %s (%s) [tmdbId=%s|id=%s]",
+                "%sSearching for: %s (%s) [tmdbId=%s|id=%s][%s]",
                 request_tag,
                 file_model.Title,
                 file_model.Year,
                 file_model.TmdbId,
                 file_model.EntryId,
+                file_model.Reason,
             )
             return True
 

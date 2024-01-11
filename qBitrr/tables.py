@@ -17,6 +17,7 @@ class MoviesFilesModel(Model):
     QualityMet = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     CustomFormatMet = BooleanField(default=False)
+    Reason = TextField(null=True)
 
 
 class EpisodeFilesModel(Model):
@@ -36,6 +37,7 @@ class EpisodeFilesModel(Model):
     QualityMet = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     CustomFormatMet = BooleanField(default=False)
+    Reason = TextField(null=True)
 
 
 class SeriesFilesModel(Model):
