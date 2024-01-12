@@ -2014,7 +2014,7 @@ class Arr:
                                     minCustomFormat = episodeData.MinCustomFormatScore
                                 if (
                                     episode["episodeFile"]["id"] != episodeData.EpisodeFileId
-                                    and episode["episodeFile"]["id"] != 0
+                                    and episode["hasFile"]
                                 ):
                                     customFormat = self.client.get_episode_file(
                                         episode["episodeFile"]["id"]
@@ -2282,7 +2282,7 @@ class Arr:
                                 minCustomFormat = movieData.MinCustomFormatScore
                             if (
                                 db_entry["movieFile"]["id"] != movieData.MovieFileId
-                                and db_entry["movieFile"]["id"] != 0
+                                and db_entry["hasFile"]
                             ):
                                 customFormat = self.client.get_movie_file(
                                     db_entry["movieFile"]["id"]
