@@ -2012,13 +2012,13 @@ class Arr:
                                     )["minFormatScore"]
                                 else:
                                     minCustomFormat = episodeData.MinCustomFormatScore
-                                if (
-                                    episode["episodeFile"]["id"] != episodeData.EpisodeFileId
-                                    and episode["hasFile"]
-                                ):
-                                    customFormat = self.client.get_episode_file(
-                                        episode["episodeFile"]["id"]
-                                    )["customFormatScore"]
+                                if episode["hasFile"]:
+                                    if episode["episodeFile"]["id"] != episodeData.EpisodeFileId:
+                                        customFormat = self.client.get_episode_file(
+                                            episode["episodeFile"]["id"]
+                                        )["customFormatScore"]
+                                    else:
+                                        customFormat = 0
                                 else:
                                     customFormat = 0
                             else:
@@ -2280,13 +2280,13 @@ class Arr:
                                 )["minFormatScore"]
                             else:
                                 minCustomFormat = movieData.MinCustomFormatScore
-                            if (
-                                db_entry["movieFile"]["id"] != movieData.MovieFileId
-                                and db_entry["hasFile"]
-                            ):
-                                customFormat = self.client.get_movie_file(
-                                    db_entry["movieFile"]["id"]
-                                )["customFormatScore"]
+                            if db_entry["hasFile"]:
+                                if db_entry["movieFile"]["id"] != movieData.MovieFileId:
+                                    customFormat = self.client.get_movie_file(
+                                        db_entry["movieFile"]["id"]
+                                    )["customFormatScore"]
+                                else:
+                                    customFormat = 0
                             else:
                                 customFormat = 0
                         else:
