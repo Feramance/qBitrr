@@ -3885,7 +3885,10 @@ class Arr:
                     )
                     episode = self.model_file.get_or_none(self.model_file.EntryId == entry)
                     if episode.EpisodeFileId != 0:
-                        cfunmet = customFormat < episode.CustomFormatScore
+                        cfunmet = (
+                            customFormat < episode.CustomFormatScore
+                            and customFormat < episode.MinCustomFormatScore
+                        )
                     else:
                         cfunmet = customFormat < episode.MinCustomFormatScore
                     if cfunmet:
@@ -3942,7 +3945,10 @@ class Arr:
                 self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                 movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
                 if movie.MovieFileId != 0:
-                    cfunmet = customFormat < movie.CustomFormatScore
+                    cfunmet = (
+                        customFormat < movie.CustomFormatScore
+                        and customFormat < movie.MinCustomFormatScore
+                    )
                 else:
                     cfunmet = customFormat < movie.MinCustomFormatScore
                 if cfunmet:
