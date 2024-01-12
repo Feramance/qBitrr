@@ -3863,11 +3863,70 @@ class Arr:
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
             queue = self.client.get_queue()
-            if self.type == "sonarr":
-                if not self.series_search:
+            if len(queue["records"]) > 0:
+                if self.type == "sonarr":
+                    if not self.series_search:
+                        entry = next(
+                            (
+                                record["episodeId"]
+                                for record in queue["records"]
+                                if record["downloadId"] == torrent.hash
+                            ),
+                            None,
+                        )
+                        if not entry:
+                            return False
+                        customFormat = next(
+                            (
+                                record["customFormatScore"]
+                                for record in queue["records"]
+                                if record["downloadId"] == torrent.hash
+                            ),
+                            None,
+                        )
+                        episode = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                        if episode.EpisodeFileId != 0:
+                            cfunmet = (
+                                customFormat < episode.CustomFormatScore
+                                and customFormat < episode.MinCustomFormatScore
+                            )
+                        else:
+                            cfunmet = customFormat < episode.MinCustomFormatScore
+                        if cfunmet:
+                            return True
+                        else:
+                            return False
+                    else:
+                        entry = next(
+                            (
+                                record["seriesId"]
+                                for record in queue["records"]
+                                if record["downloadId"] == torrent.hash
+                            ),
+                            None,
+                        )
+                        if not entry:
+                            return False
+                        customFormat = next(
+                            (
+                                record["customFormatScore"]
+                                for record in queue["records"]
+                                if record["downloadId"] == torrent.hash
+                            ),
+                            None,
+                        )
+                        series = self.series_file_model.get_or_none(
+                            self.series_file_model.EntryId == entry
+                        )
+                        cfunmet = customFormat < series.MinCustomFormatScore
+                        if cfunmet:
+                            return True
+                        else:
+                            return False
+                elif self.type == "radarr":
                     entry = next(
                         (
-                            record["episodeId"]
+                            record["movieId"]
                             for record in queue["records"]
                             if record["downloadId"] == torrent.hash
                         ),
@@ -3875,6 +3934,7 @@ class Arr:
                     )
                     if not entry:
                         return False
+                    self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
                     customFormat = next(
                         (
                             record["customFormatScore"]
@@ -3883,78 +3943,19 @@ class Arr:
                         ),
                         None,
                     )
-                    episode = self.model_file.get_or_none(self.model_file.EntryId == entry)
-                    if episode.EpisodeFileId != 0:
+                    self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
+                    movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                    if movie.MovieFileId != 0:
                         cfunmet = (
-                            customFormat < episode.CustomFormatScore
-                            and customFormat < episode.MinCustomFormatScore
+                            customFormat < movie.CustomFormatScore
+                            and customFormat < movie.MinCustomFormatScore
                         )
                     else:
-                        cfunmet = customFormat < episode.MinCustomFormatScore
+                        cfunmet = customFormat < movie.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
                         return False
-                else:
-                    entry = next(
-                        (
-                            record["seriesId"]
-                            for record in queue["records"]
-                            if record["downloadId"] == torrent.hash
-                        ),
-                        None,
-                    )
-                    if not entry:
-                        return False
-                    customFormat = next(
-                        (
-                            record["customFormatScore"]
-                            for record in queue["records"]
-                            if record["downloadId"] == torrent.hash
-                        ),
-                        None,
-                    )
-                    series = self.series_file_model.get_or_none(
-                        self.series_file_model.EntryId == entry
-                    )
-                    cfunmet = customFormat < series.MinCustomFormatScore
-                    if cfunmet:
-                        return True
-                    else:
-                        return False
-            elif self.type == "radarr":
-                entry = next(
-                    (
-                        record["movieId"]
-                        for record in queue["records"]
-                        if record["downloadId"] == torrent.hash
-                    ),
-                    None,
-                )
-                if not entry:
-                    return False
-                self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
-                customFormat = next(
-                    (
-                        record["customFormatScore"]
-                        for record in queue["records"]
-                        if record["downloadId"] == torrent.hash
-                    ),
-                    None,
-                )
-                self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
-                movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
-                if movie.MovieFileId != 0:
-                    cfunmet = (
-                        customFormat < movie.CustomFormatScore
-                        and customFormat < movie.MinCustomFormatScore
-                    )
-                else:
-                    cfunmet = customFormat < movie.MinCustomFormatScore
-                if cfunmet:
-                    return True
-                else:
-                    return False
         except KeyError:
             self.logger.warning("Key Error [%s]", entry)
             raise DelayLoopException(length=300, type=self.type)
