@@ -16,6 +16,8 @@ class MoviesFilesModel(Model):
     IsRequest = BooleanField(default=False)
     QualityMet = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
+    CustomFormatScore = IntegerField(null=True)
+    MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
 
@@ -36,6 +38,8 @@ class EpisodeFilesModel(Model):
     IsRequest = BooleanField(default=False)
     QualityMet = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
+    CustomFormatScore = IntegerField(null=True)
+    MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
 
@@ -46,6 +50,7 @@ class SeriesFilesModel(Model):
     Monitored = BooleanField(null=True)
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
+    MinCustomFormatScore = IntegerField(null=True)
 
 
 class MovieQueueModel(Model):

@@ -1997,21 +1997,36 @@ class Arr:
             if self.type == "sonarr":
                 if not series:
                     self.model_file: EpisodeFilesModel
-
+                    episodeData = self.model_file.get_or_none(
+                        self.model_file.EntryId == db_entry["id"]
+                    )
                     completed = True
                     while completed:
                         try:
                             completed = False
                             episode = self.client.get_episode(db_entry["id"])
-                            minCustomFormat = self.client.get_quality_profile(
-                                episode["series"]["qualityProfileId"]
-                            )["minFormatScore"]
-                            if episode["hasFile"]:
-                                customFormat = self.client.get_episode_file(
-                                    episode["episodeFile"]["id"]
-                                )["customFormatScore"]
+                            if episodeData:
+                                if not episodeData.MinCustomFormat:
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        episode["series"]["qualityProfileId"]
+                                    )["minFormatScore"]
+                                if (
+                                    episode["episodeFile"]["id"] != episodeData.EpisodeFileId
+                                    and episode["episodeFile"]["id"] != 0
+                                ):
+                                    customFormat = self.client.get_episode_file(
+                                        episode["episodeFile"]["id"]
+                                    )["customFormatScore"]
                             else:
-                                customFormat = 0
+                                minCustomFormat = self.client.get_quality_profile(
+                                    episode["series"]["qualityProfileId"]
+                                )["minFormatScore"]
+                                if episode["hasFile"]:
+                                    customFormat = self.client.get_episode_file(
+                                        episode["episodeFile"]["id"]
+                                    )["customFormatScore"]
+                                else:
+                                    customFormat = 0
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
@@ -2089,6 +2104,8 @@ class Arr:
                             self.model_file.SeriesTitle: SeriesTitle,
                             self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
+                            self.model_file.MinCustomFormatScore: minCustomFormat,
+                            self.model_file.CustomFormatScore: customFormat,
                             self.model_file.CustomFormatMet: customFormatMet,
                             self.model_file.Reason: reason,
                         }
@@ -2135,6 +2152,8 @@ class Arr:
                             IsRequest=request,
                             QualityMet=QualityMet,
                             Upgrade=upgrade,
+                            MinCustomFormatScore=minCustomFormat,
+                            CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
                         ).on_conflict(
@@ -2147,12 +2166,17 @@ class Arr:
                 else:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
+                    seriesData = self.model_file.get_or_none(self.model_file.EntryId == EntryId)
                     if db_entry["monitored"] == True:
                         completed = True
                         while completed:
                             try:
                                 completed = False
                                 seriesMetadata = self.client.get_series(id_=EntryId)
+                                if not seriesData:
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        seriesMetadata["qualityProfileId"]
+                                    )["minFormatScore"]
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
@@ -2197,6 +2221,7 @@ class Arr:
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
+                            self.series_file_model.MinCustomFormatScore: minCustomFormat,
                         }
 
                         if searched:
@@ -2225,6 +2250,7 @@ class Arr:
                             Searched=searched,
                             Monitored=Monitored,
                             Upgrade=upgrade,
+                            MinCustomFormatScore=minCustomFormat,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId],
                             update=to_update,
@@ -2236,19 +2262,33 @@ class Arr:
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
                 searched = False
+                movieData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
                 completed = True
                 while completed:
                     try:
                         completed = False
-                        minCustomFormat = self.client.get_quality_profile(
-                            db_entry["qualityProfileId"]
-                        )["minFormatScore"]
-                        if db_entry["hasFile"]:
-                            customFormat = self.client.get_movie_file(db_entry["movieFile"]["id"])[
-                                "customFormatScore"
-                            ]
+                        if movieData:
+                            if not movieData.MinCustomFormat:
+                                minCustomFormat = self.client.get_quality_profile(
+                                    db_entry["qualityProfileId"]
+                                )["minFormatScore"]
+                            if (
+                                db_entry["movieFile"]["id"] != movieData.MovieFileId
+                                and db_entry["movieFile"]["id"] != 0
+                            ):
+                                customFormat = self.client.get_movie_file(
+                                    db_entry["movieFile"]["id"]
+                                )["customFormatScore"]
                         else:
-                            customFormat = 0
+                            minCustomFormat = self.client.get_quality_profile(
+                                db_entry["qualityProfileId"]
+                            )["minFormatScore"]
+                            if db_entry["hasFile"]:
+                                customFormat = self.client.get_movie_file(
+                                    db_entry["movieFile"]["id"]
+                                )["customFormatScore"]
+                            else:
+                                customFormat = 0
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -2292,6 +2332,8 @@ class Arr:
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: qualityMet,
+                        self.model_file.MinCustomFormatScore: minCustomFormat,
+                        self.model_file.CustomFormatScore: customFormat,
                         self.model_file.CustomFormatMet: customFormatMet,
                         self.model_file.Reason: reason,
                     }
@@ -2330,6 +2372,8 @@ class Arr:
                         IsRequest=request,
                         QualityMet=qualityMet,
                         Upgrade=upgrade,
+                        MinCustomFormatScore=minCustomFormat,
+                        CustomFormatScore=customFormat,
                         CustomFormatMet=customFormatMet,
                         Reason=reason,
                     ).on_conflict(
@@ -3829,11 +3873,11 @@ class Arr:
                         ),
                         None,
                     )
-                    episode = self.client.get_episode(entry)
-                    minCustomFormat = self.client.get_quality_profile(
-                        episode["series"]["qualityProfileId"]
-                    )["minFormatScore"]
-                    cfunmet = customFormat < minCustomFormat
+                    episode = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                    if episode.EpisodeFileId != 0:
+                        cfunmet = customFormat < episode.CustomFormatScore
+                    else:
+                        cfunmet = customFormat < episode.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
@@ -3857,11 +3901,10 @@ class Arr:
                         ),
                         None,
                     )
-                    series = self.client.get_series(entry)
-                    minCustomFormat = self.client.get_quality_profile(series["qualityProfileId"])[
-                        "minFormatScore"
-                    ]
-                    cfunmet = customFormat < minCustomFormat
+                    series = self.series_file_model.get_or_none(
+                        self.series_file_model.EntryId == entry
+                    )
+                    cfunmet = customFormat < series.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
@@ -3887,12 +3930,11 @@ class Arr:
                     None,
                 )
                 self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
-                movie = self.client.get_movie(entry)
-                self.logger.debug("custom_format_unmet_check: [movie:%s]", movie)
-                minCustomFormat = self.client.get_quality_profile(movie["qualityProfileId"])[
-                    "minFormatScore"
-                ]
-                cfunmet = customFormat < minCustomFormat
+                movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                if movie.MovieFileId != 0:
+                    cfunmet = customFormat < movie.CustomFormatScore
+                else:
+                    cfunmet = customFormat < movie.MinCustomFormatScore
                 if cfunmet:
                     return True
                 else:
