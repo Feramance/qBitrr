@@ -2006,7 +2006,7 @@ class Arr:
                             completed = False
                             episode = self.client.get_episode(db_entry["id"])
                             if episodeData:
-                                if not episodeData.MinCustomFormat:
+                                if not episodeData.MinCustomFormatScore:
                                     minCustomFormat = self.client.get_quality_profile(
                                         episode["series"]["qualityProfileId"]
                                     )["minFormatScore"]
@@ -2268,7 +2268,7 @@ class Arr:
                     try:
                         completed = False
                         if movieData:
-                            if not movieData.MinCustomFormat:
+                            if not movieData.MinCustomFormatScore:
                                 minCustomFormat = self.client.get_quality_profile(
                                     db_entry["qualityProfileId"]
                                 )["minFormatScore"]
