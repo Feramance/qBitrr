@@ -3949,8 +3949,8 @@ class Arr:
                     return True
                 else:
                     return False
-        except KeyError as e:
-            self.logger.warning("Key Error: %s", e.message)
+        except KeyError:
+            self.logger.warning("Key Error [%s]", entry)
             raise DelayLoopException(length=300, type=self.type)
 
     def remove_torrent(
