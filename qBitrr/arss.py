@@ -3281,7 +3281,7 @@ class Arr:
 
     def _process_single_torrent_delete_cfunmet(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
-            "Removing completed torrent: "
+            "Removing CF unmet torrent: "
             "[Progress: %s%%][Added On: %s]"
             "[Ratio: %s%%][Seeding time: %s]"
             "[Last active: %s] "
