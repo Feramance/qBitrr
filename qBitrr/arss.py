@@ -2010,6 +2010,8 @@ class Arr:
                                     minCustomFormat = self.client.get_quality_profile(
                                         episode["series"]["qualityProfileId"]
                                     )["minFormatScore"]
+                                else:
+                                    minCustomFormat = episodeData.MinCustomFormatScore
                                 if (
                                     episode["episodeFile"]["id"] != episodeData.EpisodeFileId
                                     and episode["episodeFile"]["id"] != 0
@@ -2017,6 +2019,8 @@ class Arr:
                                     customFormat = self.client.get_episode_file(
                                         episode["episodeFile"]["id"]
                                     )["customFormatScore"]
+                                else:
+                                    customFormat = 0
                             else:
                                 minCustomFormat = self.client.get_quality_profile(
                                     episode["series"]["qualityProfileId"]
@@ -2177,6 +2181,8 @@ class Arr:
                                     minCustomFormat = self.client.get_quality_profile(
                                         seriesMetadata["qualityProfileId"]
                                     )["minFormatScore"]
+                                else:
+                                    minCustomFormat = seriesMetadata.MinCustomFormatScore
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
@@ -2272,6 +2278,8 @@ class Arr:
                                 minCustomFormat = self.client.get_quality_profile(
                                     db_entry["qualityProfileId"]
                                 )["minFormatScore"]
+                            else:
+                                minCustomFormat = movieData.MinCustomFormatScore
                             if (
                                 db_entry["movieFile"]["id"] != movieData.MovieFileId
                                 and db_entry["movieFile"]["id"] != 0
@@ -2279,6 +2287,8 @@ class Arr:
                                 customFormat = self.client.get_movie_file(
                                     db_entry["movieFile"]["id"]
                                 )["customFormatScore"]
+                            else:
+                                customFormat = 0
                         else:
                             minCustomFormat = self.client.get_quality_profile(
                                 db_entry["qualityProfileId"]
