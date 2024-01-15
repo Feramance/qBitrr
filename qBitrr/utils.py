@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import pathlib
 import random
+import re
 import socket
 import time
 from typing import Iterator
@@ -15,6 +16,13 @@ ping3.EXCEPTIONS = True
 logger = logging.getLogger("qBitrr.Utils")
 
 CACHE = TTLCache(maxsize=50, ttl=60)
+
+UNITS = {
+    "k": 1e3,
+    "m": 1e6,
+    "g": 1e9,
+    "t": 1e12,
+}
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
@@ -125,6 +133,17 @@ def is_connected(hostname):
         Exception
     ):  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
         return _basic_ping(hostname)
+
+
+def parse_size(size):
+    m = re.match(r"^([0-9]+(?:\.[0-9]+)?)([kmgt]?)$", size, re.IGNORECASE)
+    if not m:
+        raise ValueError(f"Unsupported value for leave_free_space")
+    val = float(m.group(1))
+    unit = m.group(2)
+    if unit:
+        val *= UNITS[unit.lower()]
+    return val
 
 
 class ExpiringSet:

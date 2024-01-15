@@ -2,7 +2,7 @@
 
 PYTHON ?= python
 
-ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+ROOT_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 ifneq ($(wildcard $(ROOT_DIR)/.venv/.),)
 	VENV_PYTHON = $(ROOT_DIR)/.venv/bin/python
@@ -15,17 +15,16 @@ Usage:
   make <command>
 
 Commands:
-  reformat                   Reformat all .py files being tracked by git.
+  reformat                   Reformat all files being tracked by git.
   bumpdeps                   Run script bumping dependencies.
   newenv                     Create or replace this project's virtual environment.
-  syncenv                    Sync this project's virtual environment to Red's latest
-                             dependencies.
+  syncenv                    Sync this project's virtual environment to Red's latest dependencies.
 endef
 export HELP_BODY
 
 # Python Code Style
 reformat:
-	pre-commit
+	pre-commit run --all-files
 
 # Dependencies
 bumpdeps:

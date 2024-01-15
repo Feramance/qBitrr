@@ -4,7 +4,6 @@ pyproject.toml
 setup.cfg
 setup.py
 qBitrr/__init__.py
-qBitrr/arr_tables.py
 qBitrr/arss.py
 qBitrr/bundled_data.py
 qBitrr/config.py

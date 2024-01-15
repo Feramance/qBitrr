@@ -52,6 +52,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)",
+        "FreeSpace",
+        ENVIRO_CONFIG.settings.free_space or "-1",
+    )
+    _gen_default_line(
+        settings,
         "Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)",
         "NoInternetSleepTimer",
         ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15,
@@ -154,6 +160,7 @@ def _add_category_sections(config: TOMLDocument):
 
 def _gen_default_cat(category: str, config: TOMLDocument):
     cat_default = table()
+    cat_default.add(nl())
     _gen_default_line(
         cat_default, "Toggle whether to manage the Servarr instance torrents.", "Managed", True
     )
@@ -309,9 +316,6 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         "IgnoreTorrentsYoungerThan",
         180,
     )
-    torrent_table.add(
-        comment("Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)")
-    )
     _gen_default_line(
         torrent_table,
         [
@@ -319,7 +323,7 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
             "Note that if you set the MaximumETA on a tracker basis that value is favoured over this value",
         ],
         "MaximumETA",
-        604800,
+        -1,
     )
     _gen_default_line(
         torrent_table,

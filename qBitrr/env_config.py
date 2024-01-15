@@ -31,6 +31,7 @@ class AppConfig:
         console_level = environ.var(None)
         logging = environ.var(None, converter=Converter.bool)
         completed_download_folder = environ.var(None)
+        free_space = environ.var(None)
         no_internet_sleep_timer = environ.var(None, converter=Converter.int)
         loop_sleep_timer = environ.var(None, converter=Converter.int)
         failed_category = environ.var(None)

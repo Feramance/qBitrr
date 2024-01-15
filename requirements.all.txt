@@ -6,7 +6,7 @@
 #
 altgraph==0.17.4
     # via pyinstaller
-attrs==23.1.0
+attrs==23.2.0
     # via environ-config
 black==22.1.0
     # via qBitrr2 (setup.py)
@@ -57,7 +57,7 @@ identify==2.5.33
     # via pre-commit
 idna==3.6
     # via requests
-importlib-metadata==7.0.0
+importlib-metadata==7.0.1
     # via
     #   keyring
     #   twine
@@ -73,7 +73,7 @@ jaraco-functools==4.0.0
     # via jaraco-docker
 keyring==24.3.0
     # via twine
-more-itertools==10.1.0
+more-itertools==10.2.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -122,7 +122,7 @@ pygments==2.17.2
     # via readme-renderer
 pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
-pyinstaller-hooks-contrib==2023.10
+pyinstaller-hooks-contrib==2023.11
     # via pyinstaller
 pyparsing==3.1.1
     # via packaging
@@ -169,7 +169,7 @@ tqdm==4.66.1
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.10
+types-requests==2.31.0.20240106
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
