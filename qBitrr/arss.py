@@ -828,12 +828,11 @@ class Arr:
                                 year = data.get("series", {}).get("year", 0)
                                 tvdbId = data.get("series", {}).get("tvdbId", 0)
                                 self.logger.notice(
-                                    "Re-Searching season: %s (%s) | " "S%02d " "[tvdbId=%s|id=%s]",
+                                    "Re-Searching series: %s (%s) | [tvdbId=%s|id=%s]",
                                     name,
                                     year,
-                                    seasonNumber,
                                     tvdbId,
-                                    object_ids[0],
+                                    series_id,
                                 )
                             else:
                                 self.logger.notice(
@@ -3957,8 +3956,7 @@ class Arr:
                     else:
                         return False
         except KeyError:
-            self.logger.warning("Key Error %s", queue["records"])
-            raise DelayLoopException(length=300, type=self.type)
+            pass
 
     def remove_torrent(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
