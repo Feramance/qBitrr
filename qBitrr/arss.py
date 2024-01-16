@@ -117,7 +117,6 @@ class Arr:
                     self.completed_folder,
                 )
         self.min_free_space = FREE_SPACE
-        self.logger.debug("min_free_Space:%s", self.min_free_space)
         if self.min_free_space != "-1":
             disk_stats = shutil.disk_usage(self.completed_folder)
             self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
@@ -201,7 +200,7 @@ class Arr:
         self.quality_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.QualityUnmetSearch", fallback=False
         )
-        self.custom_format_unmet_Search = CONFIG.get(
+        self.custom_format_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.CustomFormatUnmetSearch", fallback=False
         )
 
@@ -420,6 +419,10 @@ class Arr:
             self.logger.debug(
                 "Script Config:  DoUpgradeSearch=%s",
                 self.do_upgrade_search,
+            )
+            self.logger.debug(
+                "Script Config:  CustomFormatUnmetSearch=%s",
+                self.custom_format_unmet_search,
             )
             self.logger.debug(
                 "Script Config:  PrioritizeTodaysReleases=%s",
@@ -1315,22 +1318,30 @@ class Arr:
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            condition &= self.model_file.AirDateUtc.is_null(False)
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
-                else:
-                    condition &= self.model_file.Searched == False
-                    condition &= self.model_file.EpisodeFileId == 0
-            else:
+            if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(hours=2)
-            )
+            else:
+                if self.quality_unmet_search:
+                    condition &= (
+                        self.model_file.QualityMet == False | self.model_file.EpisodeFileId == 0
+                    )
+                if self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.CustomFormatMet
+                        == False | self.model_file.EpisodeFileId
+                        == 0
+                    )
+                condition &= self.model_file.Searched == False
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             today_condition = copy(condition)
+            today_condition &= self.model_file.AirDateUtc > (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
+            condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
             for entry_ in (
                 self.model_file.select()
                 .where(condition)
@@ -1359,7 +1370,7 @@ class Arr:
                     )
                     .execute()
                 ):
-                    yield entry, False, has_been_queried
+                    entries.append([entry, False, has_been_queried])
                     has_been_queried = True
                 for i1, i2, i3 in self._search_todays(today_condition):
                     if i1 is not None:
@@ -2050,7 +2061,7 @@ class Arr:
                         episode["hasFile"]
                         and not self.quality_unmet_search
                         and not (
-                            self.custom_format_unmet_Search and customFormat < minCustomFormat
+                            self.custom_format_unmet_search and customFormat < minCustomFormat
                         )
                     ):
                         searched = True
@@ -2087,7 +2098,7 @@ class Arr:
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
-                        elif self.custom_format_unmet_Search and not customFormatMet:
+                        elif self.custom_format_unmet_search and not customFormatMet:
                             reason = "CustomFormat"
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
@@ -2316,7 +2327,7 @@ class Arr:
                 if (
                     db_entry["hasFile"]
                     and not self.quality_unmet_search
-                    and not (self.custom_format_unmet_Search and customFormat < minCustomFormat)
+                    and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
                 ):
                     searched = True
                     self.model_queue.update(Completed=True).where(
@@ -2337,7 +2348,7 @@ class Arr:
                         reason = "Missing"
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
-                    elif self.custom_format_unmet_Search and not customFormatMet:
+                    elif self.custom_format_unmet_search and not customFormatMet:
                         reason = "CustomFormat"
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
@@ -3790,7 +3801,7 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if self.custom_format_unmet_Search and self.custom_format_unmet_check(torrent):
+        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
