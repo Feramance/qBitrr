@@ -116,8 +116,10 @@ class Arr:
                     self.completed_folder,
                 )
         self.min_free_space = CONFIG.get(f"{name}.FreeSpace", fallback="-1")
-        disk_stats = shutil.disk_usage(self.completed_folder)
-        self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
+        self.logger.debug("min_free_Space:%s", self.min_free_Space)
+        if self.min_free_space != "-1":
+            disk_stats = shutil.disk_usage(self.completed_folder)
+            self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
@@ -2866,10 +2868,13 @@ class Arr:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
                 self.api_calls()
                 self.refresh_download_queue()
-                self.current_free_space = shutil.disk_usage(
-                    self.completed_folder
-                ).free - parse_size(self.min_free_space)
-                sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
+                if self.min_free_space != "-1":
+                    self.current_free_space = shutil.disk_usage(
+                        self.completed_folder
+                    ).free - parse_size(self.min_free_space)
+                    sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
+                else:
+                    sorted_torrents = torrents
                 for torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent)
@@ -3580,6 +3585,7 @@ class Arr:
         if (
             torrent.state_enum in self.is_downloading_state()
             or torrent.state_enum in self.is_complete_state()
+            and self.min_free_space != "-1"
         ):
             self.current_free_space -= torrent["amount_left"]
             if self.current_free_space <= parse_size(self.min_free_space):
