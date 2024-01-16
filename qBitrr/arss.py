@@ -1291,6 +1291,9 @@ class Arr:
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
+            todays_condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(hours=1)
+            )
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
@@ -1340,6 +1343,9 @@ class Arr:
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
+            )
+            today_condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(hours=1)
             )
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
