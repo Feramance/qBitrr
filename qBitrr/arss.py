@@ -2849,6 +2849,7 @@ class Arr:
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
         )
+        self.logger.debug("Free current: %s", self.current_free_space)
         sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
         for torrent in sorted_torrents:
             if torrent.state_enum in self.is_downloading_state(
@@ -2857,6 +2858,7 @@ class Arr:
                 self.current_free_space -= torrent["amount_left"]
                 if self.current_free_space <= parse_size(self.min_free_space):
                     torrent.add_tags(tags=["qBitrr-free_space_paused"])
+        self.logger.debug("Free space final: %s", self.current_free_space)
         return False
 
     def process_torrents(self):
