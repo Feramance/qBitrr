@@ -123,6 +123,7 @@ COMPLETED_DOWNLOAD_FOLDER = (
     ENVIRO_CONFIG.settings.completed_download_folder
     or CONFIG.get_or_raise("Settings.CompletedDownloadFolder")
 )
+FREE_SPACE = ENVIRO_CONFIG.settings.free_space or CONFIG.get("Settings.FreeSpace", fallback="-1")
 NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get(
     "Settings.NoInternetSleepTimer", fallback=60
 )

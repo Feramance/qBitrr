@@ -20,6 +20,7 @@ class MoviesFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    MinimumAvailabilityMet = BooleanField(default=False)
 
 
 class EpisodeFilesModel(Model):

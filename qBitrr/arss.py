@@ -32,6 +32,7 @@ from qBitrr.config import (
     CONFIG,
     ENABLE_LOGS,
     FAILED_CATEGORY,
+    FREE_SPACE,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
     PROCESS_ONLY,
@@ -115,7 +116,7 @@ class Arr:
                     self._name,
                     self.completed_folder,
                 )
-        self.min_free_space = CONFIG.get(f"{name}.FreeSpace", fallback="-1")
+        self.min_free_space = FREE_SPACE
         self.logger.debug("min_free_Space:%s", self.min_free_space)
         if self.min_free_space != "-1":
             disk_stats = shutil.disk_usage(self.completed_folder)
