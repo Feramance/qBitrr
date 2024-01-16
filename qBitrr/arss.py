@@ -3585,8 +3585,7 @@ class Arr:
         if (
             torrent.state_enum in self.is_downloading_state(torrent)
             or torrent.state_enum in self.is_complete_state(torrent)
-            and self.min_free_space != "-1"
-        ):
+        ) and self.min_free_space != "-1":
             self.current_free_space -= torrent["amount_left"]
             if self.current_free_space <= parse_size(self.min_free_space):
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
