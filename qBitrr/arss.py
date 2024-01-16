@@ -1150,11 +1150,9 @@ class Arr:
 
     def _search_todays(self, condition):
         if self.prioritize_todays_release:
-            condition_today = copy(condition)
-            condition_today &= self.model_file.AirDateUtc >= datetime.now(timezone.utc).date()
             for entry in (
                 self.model_file.select()
-                .where(condition_today)
+                .where(condition)
                 .order_by(
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
@@ -1286,12 +1284,16 @@ class Arr:
                 condition &= self.model_file.EpisodeFileId == 0
             else:
                 condition &= self.model_file.Upgrade == False
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(hours=2)
-            )
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            todays_condition = copy(condition)
+            todays_condition &= self.model_file.AirDateUtc > (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
+            condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
                     entries.append([i1, i2, i3])
