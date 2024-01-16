@@ -3811,9 +3811,7 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
-            self._process_single_torrent_delete_cfunmet(torrent)
-        elif remove_torrent and not leave_alone and torrent.amount_left == 0:
+        if remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
@@ -3926,6 +3924,8 @@ class Arr:
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
             self._process_single_torrent_unprocessed(torrent)
+        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
+            self._process_single_torrent_delete_cfunmet(torrent)
         if "qBitrr-free_space_paused" in torrent.tags and torrent.has not in self.delete:
             self.pause.add(torrent.hash)
 
