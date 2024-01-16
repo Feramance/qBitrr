@@ -116,7 +116,7 @@ class Arr:
                     self.completed_folder,
                 )
         self.min_free_space = CONFIG.get(f"{name}.FreeSpace", fallback="-1")
-        self.logger.debug("min_free_Space:%s", self.min_free_Space)
+        self.logger.debug("min_free_Space:%s", self.min_free_space)
         if self.min_free_space != "-1":
             disk_stats = shutil.disk_usage(self.completed_folder)
             self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
