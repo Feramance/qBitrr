@@ -338,6 +338,9 @@ class Arr:
         self.recently_queue = dict()
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.timed_ignore_cache_2 = ExpiringSet(
+            max_age_seconds=self.ignore_torrents_younger_than * 2
+        )
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
@@ -991,7 +994,9 @@ class Arr:
             updated_recheck = [r for r in self.recheck]
             self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
             for k in updated_recheck:
-                self.timed_ignore_cache.add(k)
+                if k not in self.timed_ignore_cache_2:
+                    self.timed_ignore_cache_2.add(k)
+                    self.timed_ignore_cache.add(k)
             self.recheck.clear()
 
     def _process_failed(self) -> None:
