@@ -118,7 +118,7 @@ class Arr:
                 )
         self.min_free_space = FREE_SPACE
         if self.min_free_space != "-1":
-            self.current_free_space = shutil.disk_usage(self.completed_folder) - parse_size(
+            self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
                 self.min_free_space
             )
             self.logger.trace("Current free space: %s", self.current_free_space)
