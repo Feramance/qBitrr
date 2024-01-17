@@ -2524,8 +2524,7 @@ class Arr:
                 "Torrent removed and blocklisted: File was marked as failed by Arr " "| %s",
                 file_or_folder,
             )
-
-        if file_or_folder.is_dir():
+        if file_or_folder.is_dir() and file_or_folder != self.completed_folder:
             try:
                 shutil.rmtree(file_or_folder, ignore_errors=True)
                 self.logger.debug(
