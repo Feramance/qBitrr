@@ -1618,10 +1618,10 @@ class Arr:
     def db_update(self):
         if not self.search_missing:
             return
-        self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
         if self.db_update_processed:
             return
+        self.logger.trace(f"Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
                 completed = True
