@@ -3227,9 +3227,7 @@ class Arr:
         # We do not want to blacklist these!!
         self.remove_from_qbit.add(torrent.hash)
 
-    def _process_single_torrent_pause_disk_space(
-        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
-    ):
+    def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
             "Pausing torrent for disk space: "
             "[Progress: %s%%][Added On: %s]"
