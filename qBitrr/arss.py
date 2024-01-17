@@ -3488,7 +3488,12 @@ class Arr:
     def _get_torrent_important_trackers(
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
-        current_trackers = {i.url for i in torrent.trackers if hasattr(i, "url")}
+        try:
+            current_trackers = {i.url for i in torrent.trackers if hasattr(i, "url")}
+        except qbittorrentapi.exceptions.APIError as e:
+            self.logger.error("The qBittorrent API returned an unexpected error")
+            self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+            raise DelayLoopException(length=300, type="qbit")
         monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
         need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
         monitored_trackers = monitored_trackers.union(need_to_be_added)
