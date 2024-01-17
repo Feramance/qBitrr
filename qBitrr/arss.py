@@ -4427,6 +4427,7 @@ class Arr:
                                 time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
+                        self.db_update_processed = False
                         self.logger.info("Loop timer elapsed, restarting it.")
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
