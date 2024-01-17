@@ -1378,25 +1378,18 @@ class Arr:
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
-            if self.search_by_year:
-                condition &= self.model_file.Year == self.search_current_year
-                if not self.do_upgrade_search:
-                    if self.quality_unmet_search:
-                        condition &= self.model_file.QualityMet == False
-                    else:
-                        condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
-                else:
-                    condition &= self.model_file.Upgrade == False
+            if self.do_upgrade_search:
+                condition &= self.model_file.Upgrade == False
             else:
-                if not self.do_upgrade_search:
-                    if self.quality_unmet_search:
-                        condition &= self.model_file.QualityMet == False
-                    else:
-                        condition &= self.model_file.MovieFileId == 0
-                        condition &= self.model_file.Searched == False
-                else:
-                    condition &= self.model_file.Upgrade == False
+                if self.quality_unmet_search:
+                    condition &= (
+                        self.model_file.QualityMet == False | self.model_file.MovieFileId == 0
+                    )
+                if self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.CustomFormatMet == False | self.model_file.MovieFileId == 0
+                    )
+                condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1619,7 +1612,7 @@ class Arr:
         if not self.search_missing:
             return
         self.db_update_todays_releases()
-        if self.db_update_processed:
+        if self.db_update_processed and not self.search_by_year:
             return
         self.logger.trace(f"Started updating database")
         if self.type == "sonarr":
