@@ -120,6 +120,7 @@ class Arr:
         if self.min_free_space != "-1":
             disk_stats = shutil.disk_usage(self.completed_folder)
             self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
+            self.logger.trace("Current free space: %s", self.current_free_space)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
@@ -2830,7 +2831,7 @@ class Arr:
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
         )
-        self.logger.debug("Free current: %s", self.current_free_space)
+        self.logger.trace("Current free space: %s", self.current_free_space)
         sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
         for torrent in sorted_torrents:
             if self.is_downloading_state(torrent):
