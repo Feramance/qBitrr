@@ -3232,6 +3232,26 @@ class Arr:
         # We do not want to blacklist these!!
         self.remove_from_qbit.add(torrent.hash)
 
+    def _process_single_torrent_pause_disk_space(
+        self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
+    ):
+        self.logger.info(
+            "Pausing torrent for disk space: "
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
+            "[Last active: %s] "
+            "| [%s] | %s (%s)",
+            round(torrent.progress * 100, 2),
+            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
+            timedelta(seconds=torrent.eta),
+            datetime.fromtimestamp(torrent.last_activity),
+            torrent.state_enum,
+            torrent.name,
+            torrent.hash,
+        )
+        self.pause.add(torrent.hash)
+
     def _process_single_torrent_uploading(
         self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
     ):
@@ -3792,7 +3812,9 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if remove_torrent and not leave_alone and torrent.amount_left == 0:
+        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
+            self._process_single_torrent_delete_cfunmet(torrent)
+        elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
@@ -3905,10 +3927,8 @@ class Arr:
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
             self._process_single_torrent_unprocessed(torrent)
-        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
-            self._process_single_torrent_delete_cfunmet(torrent)
         if "qBitrr-free_space_paused" in torrent.tags and torrent.has not in self.delete:
-            self.pause.add(torrent.hash)
+            self._process_single_torrent_pause_disk_space(torrent)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
