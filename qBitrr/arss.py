@@ -3819,7 +3819,10 @@ class Arr:
             _tracker_max_eta,
         )
         maximum_eta = _tracker_max_eta
-        if "qBitrr-free_space_paused" in torrent.tags:
+        if (
+            "qBitrr-free_space_paused" in torrent.tags
+            and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+        ):
             self._process_single_torrent_pause_disk_space(torrent)
         if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
             self._process_single_torrent_delete_cfunmet(torrent)
