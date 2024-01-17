@@ -476,7 +476,7 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.manager.qbit_manager.client.torrents_create_tags(
-            ["qBitrr-allowed_seeding", "qBitrr-ignored"]
+            ["qBitrr-allowed_seeding", "qBitrr-ignored", "qBitrr-free_space_paused"]
         )
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
@@ -3605,7 +3605,7 @@ class Arr:
         if self.is_downloading_state(torrent) and self.min_free_space != "-1":
             self.current_free_space -= torrent["amount_left"]
             self.logger.trace("Current free space: %s", self.current_free_space)
-            if self.current_free_space <= parse_size(self.min_free_space):
+            if self.current_free_space < torrent["amount_left"]:
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
             if (
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
