@@ -12,6 +12,9 @@ Logging = true
 # Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path
 CompletedDownloadFolder = "CHANGE_ME"
 
+#The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)
+FreeSpace = "-1"
+
 # Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)
 NoInternetSleepTimer = 15
 
