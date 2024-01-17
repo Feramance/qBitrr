@@ -4065,42 +4065,42 @@ class Arr:
 
     def refresh_download_queue(self):
         self.queue = self.get_queue()
-        self.cache = {
-            entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
-        }
-        if self.type == "sonarr":
-            self.requeue_cache = defaultdict(set)
-            for entry in self.queue:
-                if r := entry.get("episodeId"):
-                    self.requeue_cache[entry["id"]].add(r)
-            self.queue_file_ids = {
-                entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+        if self.queue:
+            self.cache = {
+                entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
             }
-            if self.model_queue:
-                self.model_queue.delete().where(
-                    self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                )
-        elif self.type == "radarr":
-            self.requeue_cache = {
-                entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
-            }
-            self.queue_file_ids = {
-                entry["movieId"] for entry in self.queue if entry.get("movieId")
-            }
-            if self.model_queue:
-                self.model_queue.delete().where(
-                    self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                )
+            if self.type == "sonarr":
+                self.requeue_cache = defaultdict(set)
+                for entry in self.queue:
+                    if r := entry.get("episodeId"):
+                        self.requeue_cache[entry["id"]].add(r)
+                self.queue_file_ids = {
+                    entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+                }
+                if self.model_queue:
+                    self.model_queue.delete().where(
+                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
+                    )
+            elif self.type == "radarr":
+                self.requeue_cache = {
+                    entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
+                }
+                self.queue_file_ids = {
+                    entry["movieId"] for entry in self.queue if entry.get("movieId")
+                }
+                if self.model_queue:
+                    self.model_queue.delete().where(
+                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
+                    )
 
         self._update_bad_queue_items()
 
     def get_queue(
         self,
         page=1,
-        page_size=10000,
+        page_size=1000,
         sort_direction="ascending",
         sort_key="timeLeft",
-        messages: bool = True,
     ):
         completed = True
         while completed:
@@ -4116,36 +4116,40 @@ class Arr:
                 JSONDecodeError,
             ) as e:
                 completed = True
-        res = res.get("records", [])
+        try:
+            res = res.get("records", [])
+        except AttributeError:
+            res = None
         return res
 
     def _update_bad_queue_items(self):
         if not self.arr_error_codes_to_blocklist:
             return
         _temp = self.get_queue()
-        _temp = filter(
-            lambda x: x.get("status") == "completed"
-            and x.get("trackedDownloadState") == "importPending"
-            and x.get("trackedDownloadStatus") == "warning",
-            _temp,
-        )
-        _path_filter = set()
-        _temp = list(_temp)
-        for entry in _temp:
-            messages = entry.get("statusMessages", [])
-            output_path = entry.get("outputPath")
-            for m in messages:
-                title = m.get("title")
-                if not title:
-                    continue
-                for _m in m.get("messages", []):
-                    if _m in self.arr_error_codes_to_blocklist:
-                        e = entry.get("downloadId")
-                        _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
-                        # self.downloads_with_bad_error_message_blocklist.add(e)
-        if len(_path_filter):
-            self.needs_cleanup = True
-        self.files_to_explicitly_delete = iter(_path_filter.copy())
+        if _temp:
+            _temp = filter(
+                lambda x: x.get("status") == "completed"
+                and x.get("trackedDownloadState") == "importPending"
+                and x.get("trackedDownloadStatus") == "warning",
+                _temp,
+            )
+            _path_filter = set()
+            _temp = list(_temp)
+            for entry in _temp:
+                messages = entry.get("statusMessages", [])
+                output_path = entry.get("outputPath")
+                for m in messages:
+                    title = m.get("title")
+                    if not title:
+                        continue
+                    for _m in m.get("messages", []):
+                        if _m in self.arr_error_codes_to_blocklist:
+                            e = entry.get("downloadId")
+                            _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
+                            # self.downloads_with_bad_error_message_blocklist.add(e)
+            if len(_path_filter):
+                self.needs_cleanup = True
+            self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def force_grab(self):
         return  # TODO: This may not be needed, pending more testing before it is enabled
