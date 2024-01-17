@@ -933,8 +933,8 @@ class Arr:
                                 JSONDecodeError,
                             ):
                                 completed = True
-                        if self.persistent_queue and series_id:
-                            self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
+                        if self.persistent_queue:
+                            self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "radarr":
                 completed = True
                 while completed:
@@ -1350,7 +1350,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
-            for entry_ in (
+            for entry in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
@@ -1361,28 +1361,10 @@ class Arr:
                 .group_by(self.model_file.SeriesId)
                 .execute()
             ):
-                condition_series = copy(condition)
-                condition_series &= self.model_file.SeriesId == entry_.SeriesId
-                has_been_queried = (
-                    self.persistent_queue.get_or_none(
-                        self.persistent_queue.EntryId == entry_.SeriesId
-                    )
-                    is not None
-                )
-                for entry in (
-                    self.model_file.select()
-                    .where(condition_series)
-                    .order_by(
-                        self.model_file.SeasonNumber.desc(),
-                        self.model_file.AirDateUtc.desc(),
-                    )
-                    .execute()
-                ):
-                    entries.append([entry, False, has_been_queried])
-                    has_been_queried = True
-                for i1, i2, i3 in self._search_todays(today_condition):
-                    if i1 is not None:
-                        entries.append([i1, i2, i3])
+                entries.append([entry, False, False])
+            for i1, i2, i3 in self._search_todays(today_condition):
+                if i1 is not None:
+                    entries.append([i1, i2, i3])
             return entries
 
     def db_get_files_movies(
@@ -2657,7 +2639,7 @@ class Arr:
                     )
                     return False
                 self.persistent_queue.insert(
-                    EntryId=file_model.SeriesId
+                    EntryId=file_model.EntryId
                 ).on_conflict_ignore().execute()
                 self.model_queue.insert(
                     Completed=False,
