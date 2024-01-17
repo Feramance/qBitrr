@@ -1779,7 +1779,7 @@ class Arr:
     ) -> bool:
         if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
             self.logger.trace(
-                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Skipping 1 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1789,7 +1789,7 @@ class Arr:
             return False
         elif db_entry["year"] < datetime.now().year and db_entry["year"] != 0:
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1804,7 +1804,7 @@ class Arr:
             and db_entry["minimumAvailability"] == "released"
         ):
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing 3 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1824,7 +1824,7 @@ class Arr:
                 <= datetime.now()
             ):
                 self.logger.trace(
-                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Grabbing 4 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1834,7 +1834,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Skipping 5 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1851,7 +1851,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Grabbing 6 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1861,7 +1861,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Skipping 7 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1875,7 +1875,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Grabbing 8 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1885,7 +1885,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Skipping 9 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1900,7 +1900,7 @@ class Arr:
             and db_entry["minimumAvailability"] == "inCinemas"
         ):
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing 10 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1911,7 +1911,7 @@ class Arr:
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
             if datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ") <= datetime.now():
                 self.logger.trace(
-                    "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Grabbing 11 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1921,7 +1921,7 @@ class Arr:
                 return True
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Skipping 12 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1936,7 +1936,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Grabbing 13 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1946,7 +1946,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Skipping 14 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1960,7 +1960,7 @@ class Arr:
                     <= datetime.now()
                 ):
                     self.logger.trace(
-                        "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Grabbing 15 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1970,7 +1970,7 @@ class Arr:
                     return True
                 else:
                     self.logger.trace(
-                        "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                        "Skipping 16 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
                         db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1980,7 +1980,7 @@ class Arr:
                     return False
             else:
                 self.logger.trace(
-                    "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                    "Skipping 17 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
                     db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -1990,7 +1990,7 @@ class Arr:
                 return False
         elif db_entry["minimumAvailability"] == "announced":
             self.logger.trace(
-                "Grabbing %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Grabbing 18 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
@@ -2000,7 +2000,7 @@ class Arr:
             return True
         else:
             self.logger.trace(
-                "Skipping %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
+                "Skipping 19 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
                 db_entry["inCinemas"] if "inCinemas" in db_entry else None,
