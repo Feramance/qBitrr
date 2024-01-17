@@ -3925,7 +3925,7 @@ class Arr:
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
             self._process_single_torrent_unprocessed(torrent)
-        if "qBitrr-free_space_paused" in torrent.tags and torrent.has not in self.delete:
+        if "qBitrr-free_space_paused" in torrent.tags and torrent.hash not in self.delete:
             self._process_single_torrent_pause_disk_space(torrent)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
