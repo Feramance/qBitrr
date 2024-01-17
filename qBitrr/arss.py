@@ -2852,9 +2852,7 @@ class Arr:
         self.logger.debug("Free current: %s", self.current_free_space)
         sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
         for torrent in sorted_torrents:
-            if torrent.state_enum in self.is_downloading_state(
-                torrent
-            ) or torrent.state_enum in self.is_complete_state(torrent):
+            if self.is_downloading_state(torrent):
                 self.current_free_space -= torrent["amount_left"]
                 if self.current_free_space <= parse_size(self.min_free_space):
                     torrent.add_tags(tags=["qBitrr-free_space_paused"])
@@ -3603,10 +3601,7 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if (
-            torrent.state_enum in self.is_downloading_state(torrent)
-            or torrent.state_enum in self.is_complete_state(torrent)
-        ) and self.min_free_space != "-1":
+        if self.is_downloading_state(torrent) and self.min_free_space != "-1":
             self.current_free_space -= torrent["amount_left"]
             if self.current_free_space <= parse_size(self.min_free_space):
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
