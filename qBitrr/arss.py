@@ -3633,7 +3633,9 @@ class Arr:
             and "qBitrr-free_space_paused" not in torrent.tags
         ):
             torrent.add_tags(tags=["qBitrr-allowed_seeding"])
-        elif not return_value and "qBitrr-allowed_seeding" in torrent.tags:
+        elif (
+            not return_value and "qBitrr-allowed_seeding" in torrent.tags
+        ) or "qBitrr-free_space_paused" in torrent.tags:
             torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
         return (
             return_value,
