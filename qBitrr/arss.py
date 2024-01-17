@@ -2525,32 +2525,34 @@ class Arr:
                 "Torrent removed and blocklisted: File was marked as failed by Arr " "| %s",
                 file_or_folder,
             )
-        if file_or_folder.is_dir() and file_or_folder != self.completed_folder:
-            try:
-                shutil.rmtree(file_or_folder, ignore_errors=True)
-                self.logger.debug(
-                    "Folder removed: Folder was marked as failed by Arr, "
-                    "manually removing it | %s",
-                    file_or_folder,
-                )
-            except PermissionError:
-                self.logger.debug(
-                    "Folder in use: Failed to remove Folder: Folder was marked as failed by Ar "
-                    "| %s",
-                    file_or_folder,
-                )
-        else:
-            try:
-                file_or_folder.unlink(missing_ok=True)
-                self.logger.debug(
-                    "File removed: File was marked as failed by Arr, " "manually removing it | %s",
-                    file_or_folder,
-                )
-            except PermissionError:
-                self.logger.debug(
-                    "File in use: Failed to remove file: File was marked as failed by Ar | %s",
-                    file_or_folder,
-                )
+        if file_or_folder != self.completed_folder:
+            if file_or_folder.is_dir():
+                try:
+                    shutil.rmtree(file_or_folder, ignore_errors=True)
+                    self.logger.debug(
+                        "Folder removed: Folder was marked as failed by Arr, "
+                        "manually removing it | %s",
+                        file_or_folder,
+                    )
+                except PermissionError:
+                    self.logger.debug(
+                        "Folder in use: Failed to remove Folder: Folder was marked as failed by Ar "
+                        "| %s",
+                        file_or_folder,
+                    )
+            else:
+                try:
+                    file_or_folder.unlink(missing_ok=True)
+                    self.logger.debug(
+                        "File removed: File was marked as failed by Arr, "
+                        "manually removing it | %s",
+                        file_or_folder,
+                    )
+                except PermissionError:
+                    self.logger.debug(
+                        "File in use: Failed to remove file: File was marked as failed by Ar | %s",
+                        file_or_folder,
+                    )
 
     def all_folder_cleanup(self) -> None:
         if self.auto_delete is False:
