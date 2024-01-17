@@ -118,8 +118,9 @@ class Arr:
                 )
         self.min_free_space = FREE_SPACE
         if self.min_free_space != "-1":
-            disk_stats = shutil.disk_usage(self.completed_folder)
-            self.current_free_space = disk_stats.free - parse_size(self.min_free_space)
+            self.current_free_space = shutil.disk_usage(self.completed_folder) - parse_size(
+                self.min_free_space
+            )
             self.logger.trace("Current free space: %s", self.current_free_space)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
@@ -1282,11 +1283,22 @@ class Arr:
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            if not self.do_upgrade_search:
-                condition &= self.model_file.Searched == False
-                condition &= self.model_file.EpisodeFileId == 0
-            else:
+            if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
+            else:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= self.model_file.CustomFormatMet == False
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.QualityMet
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
+                else:
+                    condition &= self.model_file.EpisodeFileId == 0
+                    condition &= self.model_file.Searched == False
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
@@ -1329,17 +1341,19 @@ class Arr:
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
-                if self.quality_unmet_search:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= self.model_file.CustomFormatMet == False
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.QualityMet == False | self.model_file.EpisodeFileId == 0
+                        self.model_file.QualityMet
+                        == False | self.model_file.CustomFormatMet
+                        == False
                     )
-                if self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.CustomFormatMet
-                        == False | self.model_file.EpisodeFileId
-                        == 0
-                    )
-                condition &= self.model_file.Searched == False
+                else:
+                    condition &= self.model_file.EpisodeFileId == 0
+                    condition &= self.model_file.Searched == False
             condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
                 False
             ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
@@ -1381,15 +1395,19 @@ class Arr:
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
-                if self.quality_unmet_search:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= self.model_file.QualityMet == False
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= self.model_file.CustomFormatMet == False
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.QualityMet == False | self.model_file.MovieFileId == 0
+                        self.model_file.QualityMet
+                        == False | self.model_file.CustomFormatMet
+                        == False
                     )
-                if self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.CustomFormatMet == False | self.model_file.MovieFileId == 0
-                    )
-                condition &= self.model_file.Searched == False
+                else:
+                    condition &= self.model_file.MovieFileId == 0
+                    condition &= self.model_file.Searched == False
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1612,8 +1630,8 @@ class Arr:
         if not self.search_missing:
             return
         self.db_update_todays_releases()
-        if self.db_update_processed and not self.search_by_year:
-            return
+        # if self.db_update_processed and not self.search_by_year:
+        #     return
         self.logger.trace(f"Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
