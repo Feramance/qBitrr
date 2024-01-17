@@ -1186,7 +1186,6 @@ class Arr:
             self.db_reset__episode_searched_state()
         elif self.type == "radarr":
             self.db_reset__movie_searched_state()
-        self.loop_completed = False
 
     def db_reset__series_searched_state(self):
         ids = []
@@ -1215,6 +1214,7 @@ class Arr:
             self.series_file_model.delete().where(
                 self.series_file_model.EntryId.not_in(ids)
             ).execute()
+            self.loop_completed = False
 
     def db_reset__episode_searched_state(self):
         ids = []
@@ -1242,6 +1242,7 @@ class Arr:
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.loop_completed = False
 
     def db_reset__movie_searched_state(self):
         ids = []
@@ -1267,6 +1268,7 @@ class Arr:
                 ) as e:
                     completed = True
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.loop_completed = False
 
     def db_get_files_series(
         self,
@@ -1618,6 +1620,8 @@ class Arr:
             return
         self.logger.trace(f"Started updating database")
         self.db_update_todays_releases()
+        if self.db_update_processed:
+            return
         if self.type == "sonarr":
             if not self.series_search:
                 completed = True
@@ -1691,7 +1695,7 @@ class Arr:
                                 if not e["monitored"]:
                                     continue
                                 self.db_update_single_series(db_entry=e)
-
+                self.db_update_processed = True
             else:
                 completed = True
                 while completed:
@@ -1723,6 +1727,7 @@ class Arr:
                         if not s["monitored"]:
                             continue
                         self.db_update_single_series(db_entry=s, series=True)
+                self.db_update_processed = True
         elif self.type == "radarr":
             completed = True
             while completed:
@@ -1754,6 +1759,7 @@ class Arr:
                     if not m["monitored"]:
                         continue
                     self.db_update_single_series(db_entry=m)
+            self.db_update_processed = True
         self.logger.trace(f"Finished updating database")
 
     def minimum_availability_check(
@@ -2828,20 +2834,6 @@ class Arr:
         ]
 
         return payload
-
-    def free_space_check(self, torrents: list[qbittorrentapi.TorrentDictionary]):
-        self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
-            self.min_free_space
-        )
-        self.logger.trace("Current free space: %s", self.current_free_space)
-        sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
-        for torrent in sorted_torrents:
-            if self.is_downloading_state(torrent):
-                self.current_free_space -= torrent["amount_left"]
-                if self.current_free_space <= parse_size(self.min_free_space):
-                    torrent.add_tags(tags=["qBitrr-free_space_paused"])
-        self.logger.debug("Free space final: %s", self.current_free_space)
-        return False
 
     def process_torrents(self):
         try:
@@ -4361,6 +4353,7 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
+            self.db_update_processed = False
             while True:
                 if self.loop_completed:
                     years_index = 0
