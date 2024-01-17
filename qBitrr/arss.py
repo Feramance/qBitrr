@@ -1787,7 +1787,7 @@ class Arr:
                 db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return False
-        elif db_entry["year"] < datetime.now().year and db_entry["year"] != 0:
+        elif db_entry["year"] < datetime.now().year - 1 and db_entry["year"] != 0:
             self.logger.trace(
                 "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
@@ -2478,7 +2478,7 @@ class Arr:
                 return False
             self.files_probed.add(file)
             return True
-        except ffmpeg.Error as e:
+        except (ffmpeg.Error, ffmpeg._run.Error) as e:
             error = e.stderr.decode()
             self.logger.trace(
                 "Not probeable: Probe returned an error: %s:\n%s",
