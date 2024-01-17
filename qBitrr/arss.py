@@ -3852,7 +3852,11 @@ class Arr:
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
-        elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and torrent.amount_left != 0:
+        elif (
+            torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
+            and torrent.amount_left != 0
+            and "qBitrr-free_space_paused" not in torrent.tags
+        ):
             self._process_single_torrent_paused(torrent)
         # Ignore torrents which have been submitted to their respective Arr
         # instance for import.
