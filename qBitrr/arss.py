@@ -1630,8 +1630,8 @@ class Arr:
         if not self.search_missing:
             return
         self.db_update_todays_releases()
-        # if self.db_update_processed and not self.search_by_year:
-        #     return
+        if self.db_update_processed and not self.search_by_year:
+            return
         self.logger.trace(f"Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
