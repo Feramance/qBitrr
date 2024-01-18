@@ -3957,7 +3957,18 @@ class Arr:
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
-            queue = self.client.get_queue()
+            completed = True
+            while completed:
+                completed = False
+                try:
+                    queue = self.client.get_queue()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                ) as e:
+                    completed = True
             if len(queue["records"]) > 0:
                 if self.type == "sonarr":
                     if not self.series_search:
