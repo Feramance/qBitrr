@@ -2763,8 +2763,12 @@ class Arr:
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
-            if not (request or todays) and file_model.EntryId in self.queue_file_ids:
-                queue = True
+            if not (request or todays):
+                queue = (
+                    self.model_queue.select()
+                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .execute()
+                )
             else:
                 queue = False
             if queue:
@@ -2798,7 +2802,7 @@ class Arr:
                 Completed=False,
                 EntryId=file_model.EntryId,
             ).on_conflict_replace().execute()
-            if file_model.EntryId not in self.queue_file_ids:
+            if file_model.EntryId:
                 completed = True
                 while completed:
                     try:
@@ -4356,16 +4360,28 @@ class Arr:
         return years, years_count
 
     def all_searched(self) -> bool:
-        if self.type == "sonarr" and self.series_search == True:
-            search_completed = (
-                self.series_file_model.select()
-                .where(self.series_file_model.Searched == False)
-                .count()
-            )
+        if self.do_upgrade_search:
+            if self.type == "sonarr" and self.series_search == True:
+                search_completed = (
+                    self.series_file_model.select()
+                    .where(self.series_file_model.Upgrade == False)
+                    .count()
+                )
+            else:
+                search_completed = (
+                    self.model_file.select().where(self.model_file.Upgrade == False).count()
+                )
         else:
-            search_completed = (
-                self.model_file.select().where(self.model_file.Searched == False).count()
-            )
+            if self.type == "sonarr" and self.series_search == True:
+                search_completed = (
+                    self.series_file_model.select()
+                    .where(self.series_file_model.Searched == False)
+                    .count()
+                )
+            else:
+                search_completed = (
+                    self.model_file.select().where(self.model_file.Searched == False).count()
+                )
         if search_completed > 0:
             self.logger.debug("Searches not completed [%s]", search_completed)
             return False
@@ -4418,13 +4434,6 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            self.logger.trace(
-                                "Running search for %s [%s, %s, %s]",
-                                entry.Title,
-                                todays,
-                                limit_bypass,
-                                series_search,
-                            )
                             while (
                                 self.maybe_do_search(
                                     entry,
