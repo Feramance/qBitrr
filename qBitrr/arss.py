@@ -4433,17 +4433,18 @@ class Arr:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
-                        for entry, todays, limit_bypass, series_search in self.db_get_files():
-                            while (
-                                self.maybe_do_search(
-                                    entry,
-                                    todays=todays,
-                                    bypass_limit=limit_bypass,
-                                    series_search=series_search,
-                                )
-                            ) is False:
-                                self.logger.debug("Waiting for active search commands")
-                                time.sleep(30)
+                        if not self.all_searched():
+                            for entry, todays, limit_bypass, series_search in self.db_get_files():
+                                while (
+                                    self.maybe_do_search(
+                                        entry,
+                                        todays=todays,
+                                        bypass_limit=limit_bypass,
+                                        series_search=series_search,
+                                    )
+                                ) is False:
+                                    self.logger.debug("Waiting for active search commands")
+                                    time.sleep(30)
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
