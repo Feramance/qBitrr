@@ -2471,7 +2471,7 @@ class Arr:
                 return False
             self.files_probed.add(file)
             return True
-        except (ffmpeg.Error, ffmpeg._run.Error) as e:
+        except BaseException as e:
             error = e.stderr.decode()
             self.logger.trace(
                 "Not probeable: Probe returned an error: %s:\n%s",
