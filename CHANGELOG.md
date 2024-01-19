@@ -1,5 +1,19 @@
 # Changelog
 
+## v4.2.1 (19/01/2024)
+- [[patch] Search loop fix and performance enhancements](https://github.com/Feramance/qBitrr/commit/b6e34e667c25f40657714f5104d7007c2733eec6) - @Feramance
+- [Delete test2.py](https://github.com/Feramance/qBitrr/commit/966fe4dc45cb538af20d943de984ea1e67065769) - @Feramance
+- [Grabbbing episodes even if both absolute episode numbers are null](https://github.com/Feramance/qBitrr/commit/36376523c4d4f6fc56ed0e670f1f64ab5a31a84d) - @Feramance
+- [Resource not found handling for queue deletion](https://github.com/Feramance/qBitrr/commit/bcf89376c64e03d403a5e688cee5e5d1b3591709) - @Feramance
+- [Queue completion update](https://github.com/Feramance/qBitrr/commit/c4971e880ee279335357c014f25faf1ed874f641) - @Feramance
+- [Get queue error handling](https://github.com/Feramance/qBitrr/commit/58830c727fcc34fce6bc7a9ab54c9c83eadf69b2) - @Feramance
+- [Run search only if not all searched](https://github.com/Feramance/qBitrr/commit/9a10ca3044e94ab937c6b64408ca9a791021bb45) - @Feramance
+- [All searched upgrade check](https://github.com/Feramance/qBitrr/commit/b4cc215df248270d92828ade9f48e02d3554d83c) - @Feramance
+- [Errored torrents fix testing](https://github.com/Feramance/qBitrr/commit/ed991d2686bb9183ac5d7458dbd09a8f8e2c2f16) - @Feramance
+- [Config example update](https://github.com/Feramance/qBitrr/commit/9150f07f07a9bd35beeb52fab9c49f0f4dafac5d) - @Feramance
+
+---
+
 ## v4.2.0 (17/01/2024)
 - [[minor] New config - Minimum free space check. Torrents are paused to ensure a set amount of minimum free space is left on the download directory drive](https://github.com/Feramance/qBitrr/commit/b5cbc4b30fd52e9f29a24485c4e09bc0cd152dfa) - @Feramance
 - [Free space pause logic update](https://github.com/Feramance/qBitrr/commit/1c6d5567cfa4bcbf4f6f97a0b405470b4a98985a) - @Feramance
@@ -311,29 +325,3 @@
 - [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/3d8b8a32663ec996e746f6aafeb2ee2eb60d3e71) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/cb477b3410e4edd52e5fecd7ff39faf80916f8e8) - @Feramance
 - [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/0506ec53b878e65a0d55b0ad1297b4bb29090101) - @Feramance
-
----
-
-## v3.8.5 (20/11/2023)
-- [[release] Release commit](https://github.com/Feramance/qBitrr/commit/6078ab5992f949e8d5fc473bb6ac5d65e6939ca5) - @Feramance
-- [Series search final fix](https://github.com/Feramance/qBitrr/commit/00ec3ccdf1f5c27ac45557d7b5df8f8f7164954b) - @Feramance
-- [Error fix](https://github.com/Feramance/qBitrr/commit/be03f498432518db2825b0859d2676f04fd40394) - @Feramance
-- [Series search fix test](https://github.com/Feramance/qBitrr/commit/b12c3d86f6f8748fae0a152f1388ca3559c823c8) - @Feramance
-- [Search fix](https://github.com/Feramance/qBitrr/commit/154e7dee0cd591b1899d55a6b2dbbe865e68751a) - @Feramance
-- [Series queue search fix](https://github.com/Feramance/qBitrr/commit/e53fddf8a7a351090a9a030606eb0742244c335e) - @Feramance
-- [queue file ids fix](https://github.com/Feramance/qBitrr/commit/dc3f085855ddace2f7b9b55442d2be3917eaf6e9) - @Feramance
-- [Loop restart condition added](https://github.com/Feramance/qBitrr/commit/31bbc14e0e16ad7a973c009359d1a3e6a001a9d5) - @Feramance
-- [Logs tests](https://github.com/Feramance/qBitrr/commit/3fdc0380421a957dd88f73873be26bdabcc0f133) - @Feramance
-- [Another log input](https://github.com/Feramance/qBitrr/commit/8683e8698f1d8118e822cc49dd985062180a2679) - @Feramance
-- [More debug logs](https://github.com/Feramance/qBitrr/commit/a5c7c8658147ffbe64a194e0fad2afbbc3bbf63e) - @Feramance
-- [Added trace logs](https://github.com/Feramance/qBitrr/commit/99047036dbf484c07acb1e09316a6975ac8d1082) - @Feramance
-- [Trackers not found handling](https://github.com/Feramance/qBitrr/commit/d1e4aab2d61abe8fd019876119e465e6dff94300) - @Feramance
-- [Fixed log error](https://github.com/Feramance/qBitrr/commit/33c1d31ed7e3c73be93146696b3e58e0bd4e7c28) - @Feramance
-- [Debugging sonarr series search](https://github.com/Feramance/qBitrr/commit/9a4b5b0d0aa0a4b98e99982fb3ae8afa4a297757) - @Feramance
-- [Error fix](https://github.com/Feramance/qBitrr/commit/d2d65fa7d732a11ed5d635ddf86354ac751a4330) - @Feramance
-- [episode count fix](https://github.com/Feramance/qBitrr/commit/564222ebaf1256fafb85cdc5b951242da71ffa73) - @Feramance
-- [Debug fix](https://github.com/Feramance/qBitrr/commit/2a322d37268b5060d294149b8297e64a7e306222) - @Feramance
-- [Testing episode counts](https://github.com/Feramance/qBitrr/commit/8bfe92379493ef5773ea9b0b3ada21e87eb82866) - @Feramance
-- [Database error handling](https://github.com/Feramance/qBitrr/commit/e9e7e1c0a8dc8296e178c1efa5c8b0a9cf8ce4a6) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/73620177bd8fbb4bfb1df177bb934bea02a3c345) - @Feramance
-- [Updated README](https://github.com/Feramance/qBitrr/commit/2ae9cf7bf967904b26c495a5a0f4f2e3f7fa5cbe) - @Feramance
