@@ -1305,9 +1305,6 @@ class Arr:
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
-            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-            #     False
-            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1360,9 +1357,6 @@ class Arr:
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
-            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-            #     False
-            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1439,9 +1433,6 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-            #     False
-            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             condition &= self.model_file.AirDateUtc.is_null(False)
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)

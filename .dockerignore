@@ -20,3 +20,4 @@ qBitrr.egg-info/
 venv/
 .venv/
 .sourcery.yaml
+test.py

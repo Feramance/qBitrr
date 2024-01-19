@@ -40,6 +40,7 @@ A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) an
 - Customizable searching by series or singular episodes
 - Optionally searches year by year is ascending or descending order (config option available)
 - Search for CF Score unmet and cancel torrents base on CF Score or Quality unmet search
+- Set minimum free space in download directory and pause torrent downloads accordingly
 
 ## Tested with
 
