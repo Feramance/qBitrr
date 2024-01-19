@@ -2619,7 +2619,7 @@ class Arr:
                 file_model: EpisodeFilesModel
                 if not (request or todays):
                     queue = (
-                        self.model_queue.select()
+                        self.model_queue.select(self.model_queue.Completed)
                         .where(self.model_queue.EntryId == file_model.EntryId)
                         .execute()
                     )
@@ -2765,7 +2765,7 @@ class Arr:
             file_model: MoviesFilesModel
             if not (request or todays):
                 queue = (
-                    self.model_queue.select()
+                    self.model_queue.select(self.model_queue.Completed)
                     .where(self.model_queue.EntryId == file_model.EntryId)
                     .execute()
                 )
@@ -4090,22 +4090,34 @@ class Arr:
 
     def refresh_download_queue(self):
         self.queue = self.get_queue()
+        self.requeue_cache = defaultdict(set)
         if self.queue:
             self.cache = {
                 entry["downloadId"]: entry["id"] for entry in self.queue if entry.get("downloadId")
             }
             if self.type == "sonarr":
-                self.requeue_cache = defaultdict(set)
-                for entry in self.queue:
-                    if r := entry.get("episodeId"):
-                        self.requeue_cache[entry["id"]].add(r)
-                self.queue_file_ids = {
-                    entry["episodeId"] for entry in self.queue if entry.get("episodeId")
-                }
-                if self.model_queue:
-                    self.model_queue.delete().where(
-                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    )
+                if not self.series_search:
+                    for entry in self.queue:
+                        if r := entry.get("episodeId"):
+                            self.requeue_cache[entry["id"]].add(r)
+                    self.queue_file_ids = {
+                        entry["episodeId"] for entry in self.queue if entry.get("episodeId")
+                    }
+                    if self.model_queue:
+                        self.model_queue.delete().where(
+                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
+                        ).execute()
+                else:
+                    for entry in self.queue:
+                        if r := entry.get("seriesId"):
+                            self.requeue_cache[entry["id"]].add(r)
+                    self.queue_file_ids = {
+                        entry["seriesId"] for entry in self.queue if entry.get("seriesId")
+                    }
+                    if self.model_queue:
+                        self.model_queue.delete().where(
+                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
+                        ).execute()
             elif self.type == "radarr":
                 self.requeue_cache = {
                     entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -4116,7 +4128,7 @@ class Arr:
                 if self.model_queue:
                     self.model_queue.delete().where(
                         self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    )
+                    ).execute()
 
         self._update_bad_queue_items()
 
