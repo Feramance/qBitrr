@@ -1305,9 +1305,9 @@ class Arr:
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
-            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-                False
-            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+            #     False
+            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1360,9 +1360,9 @@ class Arr:
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
-            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-                False
-            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+            #     False
+            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1439,9 +1439,9 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
-            condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
-                False
-            ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
+            # condition &= self.model_file.AbsoluteEpisodeNumber.is_null(
+            #     False
+            # ) | self.model_file.SceneAbsoluteEpisodeNumber.is_null(False)
             condition &= self.model_file.AirDateUtc.is_null(False)
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
@@ -1500,9 +1500,7 @@ class Arr:
                 for s in series:
                     episodes = self.client.get_episode(series["id"], True)
                     for e in episodes:
-                        if "airDateUtc" in e and (
-                            "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
-                        ):
+                        if "airDateUtc" in e:
                             if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
                                 tzinfo=timezone.utc
                             ) > datetime.now(timezone.utc):
@@ -1608,9 +1606,7 @@ class Arr:
                 for s in series:
                     episodes = self.client.get_episode(s["id"], True)
                     for e in episodes:
-                        if "airDateUtc" in e and (
-                            "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
-                        ):
+                        if "airDateUtc" in e:
                             if (
                                 datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
                                 .replace(tzinfo=timezone.utc)
@@ -1661,9 +1657,7 @@ class Arr:
                         for e in episodes:
                             if isinstance(e, str):
                                 continue
-                            if "airDateUtc" in e and (
-                                "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
-                            ):
+                            if "airDateUtc" in e:
                                 if datetime.strptime(
                                     e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
                                 ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
@@ -1700,9 +1694,7 @@ class Arr:
                         for e in episodes:
                             if isinstance(e, str):
                                 continue
-                            if "airDateUtc" in e and (
-                                "absoluteEpisodeNumber" in e or "sceneAbsoluteEpisodeNumber" in e
-                            ):
+                            if "airDateUtc" in e:
                                 if datetime.strptime(
                                     e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
                                 ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
