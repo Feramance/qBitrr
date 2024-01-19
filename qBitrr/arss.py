@@ -22,6 +22,7 @@ import requests
 from packaging import version as version_parser
 from peewee import SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
+from pyarr.exceptions import PyarrResourceNotFound
 from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
@@ -2451,18 +2452,22 @@ class Arr:
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
-        completed = True
-        while completed:
-            try:
-                completed = False
-                res = self.client.del_queue(id_, remove_from_client, blacklist)
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-                JSONDecodeError,
-            ):
-                completed = True
+        try:
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    res = self.client.del_queue(id_, remove_from_client, blacklist)
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                ):
+                    completed = True
+        except PyarrResourceNotFound:
+            self.logger.error("Connection Error")
+            raise DelayLoopException(length=300, type=self._name)
         return res
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
