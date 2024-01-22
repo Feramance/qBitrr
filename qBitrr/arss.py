@@ -2052,6 +2052,9 @@ class Arr:
                             JSONDecodeError,
                         ):
                             completed = True
+                        except KeyError:
+                            self.logger.warning("Key Error [%s]", db_entry["id"])
+                            completed = True
 
                     QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
@@ -2204,6 +2207,9 @@ class Arr:
                                 JSONDecodeError,
                             ):
                                 completed = True
+                            except KeyError:
+                                self.logger.warning("Key Error [%s]", db_entry["id"])
+                                completed = True
                         episodeCount = 0
                         episodeFileCount = 0
                         totalEpisodeCount = 0
@@ -2319,6 +2325,9 @@ class Arr:
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
+                        completed = True
+                    except KeyError:
+                        self.logger.warning("Key Error [%s]", db_entry["id"])
                         completed = True
                 QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
                 if (
@@ -2836,7 +2845,9 @@ class Arr:
         self._process_failed()
         self.all_folder_cleanup()
 
-    def process_entries(self, hashes: set[str]) -> tuple[list[tuple[int, str]], set[str]]:
+    def process_entries(
+        self, hashes: set[str]
+    ) -> tuple[list[tuple[int, str]]]:  # tuple[list[tuple[int, str]], set[str]]:
         payload = [
             (_id, h.upper()) for h in hashes if (_id := self.cache.get(h.upper())) is not None
         ]
@@ -3804,11 +3815,11 @@ class Arr:
         self._process_single_torrent_trackers(torrent)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
-        try:
-            leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
-        except BaseException as e:
-            self.logger.warning(e)
-            raise DelayLoopException(length=300, type="qbit")
+        # try:
+        leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
+        # except BaseException as e:
+        #     self.logger.warning(e)
+        #     raise DelayLoopException(length=300, type="qbit")
         self.logger.trace(
             "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s",
             torrent.name,
