@@ -2052,6 +2052,9 @@ class Arr:
                             JSONDecodeError,
                         ):
                             completed = True
+                        except KeyError:
+                            self.logger.warning("Key Error [%s]", db_entry["id"])
+                            completed = True
 
                     QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
@@ -2204,6 +2207,9 @@ class Arr:
                                 JSONDecodeError,
                             ):
                                 completed = True
+                            except KeyError:
+                                self.logger.warning("Key Error [%s]", db_entry["id"])
+                                completed = True
                         episodeCount = 0
                         episodeFileCount = 0
                         totalEpisodeCount = 0
@@ -2319,6 +2325,9 @@ class Arr:
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
+                        completed = True
+                    except KeyError:
+                        self.logger.warning("Key Error [%s]", db_entry["id"])
                         completed = True
                 QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
                 if (
