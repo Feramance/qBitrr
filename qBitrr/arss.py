@@ -4394,10 +4394,10 @@ class Arr:
                     self.model_file.select().where(self.model_file.Searched == False).count()
                 )
         if search_completed > 0:
-            self.logger.debug("Searches not completed [%s]", search_completed)
+            self.logger.info("Searches not completed,  %s remaining", search_completed)
             return False
         else:
-            self.logger.debug("All searches completed [%s]", search_completed)
+            self.logger.info("All searches completed")
             return True
 
     def run_search_loop(self) -> NoReturn:
