@@ -2836,7 +2836,9 @@ class Arr:
         self._process_failed()
         self.all_folder_cleanup()
 
-    def process_entries(self, hashes: set[str]) -> tuple[list[tuple[int, str]], set[str]]:
+    def process_entries(
+        self, hashes: set[str]
+    ) -> tuple[list[tuple[int, str]]]:  # tuple[list[tuple[int, str]], set[str]]:
         payload = [
             (_id, h.upper()) for h in hashes if (_id := self.cache.get(h.upper())) is not None
         ]
