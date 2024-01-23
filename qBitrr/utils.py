@@ -14,7 +14,6 @@ from cachetools import TTLCache
 ping3.EXCEPTIONS = True
 
 logger = logging.getLogger("qBitrr.Utils")
-file_counter: int = 0
 
 CACHE = TTLCache(maxsize=50, ttl=60)
 
@@ -27,6 +26,7 @@ UNITS = {
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
+    file_counter = 0
     error = True
     while error:
         try:
