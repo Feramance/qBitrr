@@ -2057,7 +2057,11 @@ class Arr:
                             self.logger.warning("Key Error [%s]", db_entry["id"])
                             completed = True
 
-                    QualityUnmet = episode["episodeFile"]["qualityCutoffNotMet"]
+                    QualityUnmet = (
+                        episode["episodeFile"]["qualityCutoffNotMet"]
+                        if "episodeFile" in episode
+                        else False
+                    )
                     if (
                         episode["hasFile"]
                         and (self.quality_unmet_search and not QualityUnmet)
@@ -2319,7 +2323,11 @@ class Arr:
                     except KeyError:
                         self.logger.warning("Key Error [%s]", db_entry["id"])
                         completed = True
-                QualityUnmet = db_entry["episodeFile"]["qualityCutoffNotMet"]
+                QualityUnmet = (
+                    db_entry["episodeFile"]["qualityCutoffNotMet"]
+                    if "episodeFile" in db_entry
+                    else False
+                )
                 if (
                     db_entry["hasFile"]
                     and (self.quality_unmet_search and not QualityUnmet)
