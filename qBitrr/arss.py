@@ -4411,7 +4411,7 @@ class Arr:
             self.logger.info("Searches not completed,  %s remaining", search_completed)
             return False
         else:
-            self.logger.info("All searches completed")
+            self.logger.trace("All searches completed")
             return True
 
     def run_search_loop(self) -> NoReturn:
