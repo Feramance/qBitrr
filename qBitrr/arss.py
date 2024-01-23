@@ -2057,10 +2057,10 @@ class Arr:
                             self.logger.warning("Key Error [%s]", db_entry["id"])
                             completed = True
 
-                    QualityUnmet = not episode.get("qualityCutoffNotMet", False)
+                    QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
                         episode["hasFile"]
-                        and not self.quality_unmet_search
+                        and not (self.quality_unmet_search and QualityUnmet)
                         and not (
                             self.custom_format_unmet_search and customFormat < minCustomFormat
                         )
@@ -2091,8 +2091,7 @@ class Arr:
                         )
                         AirDateUtc = episode["airDateUtc"]
                         Monitored = episode["monitored"]
-                        searched = searched
-                        QualityMet = QualityUnmet
+                        QualityMet = not QualityUnmet
                         customFormatMet = customFormat > minCustomFormat
 
                         if not episode["hasFile"]:
@@ -2330,10 +2329,10 @@ class Arr:
                     except KeyError:
                         self.logger.warning("Key Error [%s]", db_entry["id"])
                         completed = True
-                QualityUnmet = not db_entry.get("qualityCutoffNotMet", False)
+                QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
                 if (
                     db_entry["hasFile"]
-                    and not self.quality_unmet_search
+                    and not (self.quality_unmet_search and QualityUnmet)
                     and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
                 ):
                     searched = True
@@ -2348,7 +2347,7 @@ class Arr:
                     year = db_entry["year"]
                     entryId = db_entry["id"]
                     movieFileId = 1 if "movieFileId" in db_entry else 0
-                    qualityMet = QualityUnmet
+                    qualityMet = not QualityUnmet
                     customFormatMet = customFormat > minCustomFormat
 
                     if not db_entry["hasFile"]:
