@@ -1376,6 +1376,7 @@ class Arr:
                     self.model_file.AirDateUtc.desc(),
                 )
                 .group_by(self.model_file.SeriesId)
+                .order_by(self.model_file.EpisodeFileId.asc())
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -1411,7 +1412,7 @@ class Arr:
             for entry in (
                 self.model_file.select()
                 .where(condition)
-                .order_by(self.model_file.Title.asc())
+                .order_by(self.model_file.MovieFileId.asc())
                 .execute()
             ):
                 entries.append([entry, False, False])
