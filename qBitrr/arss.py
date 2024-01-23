@@ -2060,7 +2060,7 @@ class Arr:
                     QualityUnmet = episode.get("qualityCutoffNotMet", False)
                     if (
                         episode["hasFile"]
-                        and not (self.quality_unmet_search and QualityUnmet)
+                        and not (self.quality_unmet_search and not QualityUnmet)
                         and not (
                             self.custom_format_unmet_search and customFormat < minCustomFormat
                         )
@@ -2104,14 +2104,6 @@ class Arr:
                             reason = "Upgrade"
                         else:
                             reason = None
-
-                        if self.quality_unmet_search and QualityMet:
-                            self.logger.trace(
-                                "Quality Met | %s | S%02dE%03d",
-                                SeriesTitle,
-                                SeasonNumber,
-                                EpisodeNumber,
-                            )
 
                         to_update = {
                             self.model_file.Monitored: Monitored,
@@ -2332,7 +2324,7 @@ class Arr:
                 QualityUnmet = db_entry.get("qualityCutoffNotMet", False)
                 if (
                     db_entry["hasFile"]
-                    and not (self.quality_unmet_search and QualityUnmet)
+                    and not (self.quality_unmet_search and not QualityUnmet)
                     and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
                 ):
                     searched = True
