@@ -14,6 +14,7 @@ from cachetools import TTLCache
 ping3.EXCEPTIONS = True
 
 logger = logging.getLogger("qBitrr.Utils")
+file_counter: int = 0
 
 CACHE = TTLCache(maxsize=50, ttl=60)
 
@@ -29,10 +30,15 @@ def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]
     error = True
     while error:
         try:
+            if file_counter == 50:
+                error = False
             yield from pathlib.Path(directory).glob("**/*")
             error = False
+            file_counter = 0
         except FileNotFoundError as e:
-            logger.warning("%s - %s", e.strerror, e.filename)
+            file_counter += 1
+            if file_counter == 1:
+                logger.warning("%s - %s", e.strerror, e.filename)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:

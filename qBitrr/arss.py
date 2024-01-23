@@ -2646,6 +2646,7 @@ class Arr:
                     active_commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
+                    self.all_searched()
                     self.logger.trace(
                         "%sIdle: Too many commands in queue: %s | "
                         "S%02dE%03d | "
@@ -2717,6 +2718,7 @@ class Arr:
                     active_commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
+                    self.all_searched()
                     self.logger.trace(
                         "%sIdle: Too many commands in queue: %s | [id=%s]",
                         request_tag,
@@ -2786,6 +2788,7 @@ class Arr:
                 active_commands,
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
+                self.all_searched()
                 self.logger.trace(
                     "%sIdle: Too many commands in queue: %s | [id=%s]",
                     request_tag,
