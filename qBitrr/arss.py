@@ -863,6 +863,8 @@ class Arr:
                             AttributeError,
                         ):
                             completed = True
+                        except PyarrResourceNotFound:
+                            self.logger.error("PyarrResourceNotFound: %s", object_ids[0])
                     for object_id in object_ids:
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
