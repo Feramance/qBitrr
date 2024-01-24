@@ -836,13 +836,12 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            data = self.client.get_episode(object_ids[0])
-                            name = data.get("series", {}).get("title")
-                            series_id = data.get("series", {}).get("id")
+                            data = self.client.series(object_ids[0])
+                            name = data["title"]
+                            series_id = data["id"]
                             if name:
-                                seasonNumber = data.get("seasonNumber", 0)
-                                year = data.get("series", {}).get("year", 0)
-                                tvdbId = data.get("series", {}).get("tvdbId", 0)
+                                year = data.get("year", 0)
+                                tvdbId = data.get("tvdbId", 0)
                                 self.logger.notice(
                                     "Re-Searching series: %s (%s) | [tvdbId=%s|id=%s]",
                                     name,
