@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.2.3 (26/01/2024)
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/5fae086eaed3a0b9d67166aef0a7ae2d22ebc7ae) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/e9044e604fe00327dbfbd9bec0226dd333fe57d5) - @Feramance
+- [[patch] Hotfix for radarr errors](https://github.com/Feramance/qBitrr/commit/5a878fc0e4648781350a8834cf9c6e5a90954ea4) - @Feramance
+
+---
+
 ## v4.2.2 (26/01/2024)
 - [[patch] retrying patch release](https://github.com/Feramance/qBitrr/commit/323a10d296e34f721497deddbe08db464df65886) - @Feramance
 - [Merge pull request #54 from Feramance/dependabot/github_actions/peter-evans/dockerhub-description-4](https://github.com/Feramance/qBitrr/commit/e3ea6a95d15fc5caf016a7bb45ef0a3b5b712b28) - @Feramance
@@ -341,7 +348,3 @@
 - [[release] Update PyPi description](https://github.com/Feramance/qBitrr/commit/d2990eec4e02f6edb30c8215d48286720fe20af7) - @Feramance
 - [README update](https://github.com/Feramance/qBitrr/commit/f56a7cf4454e4a93e2a522d8d1611f80af6e5818) - @Feramance
 - [Update README and pre-commit all files](https://github.com/Feramance/qBitrr/commit/86555d0ce5cc872c3a9e005e691a429a3abee172) - @Feramance
-
----
-
-## v3.8.7-beta-1 (27/11/2023)
