@@ -1,5 +1,32 @@
 # Changelog
 
+## v4.2.2 (26/01/2024)
+- [[patch] retrying patch release](https://github.com/Feramance/qBitrr/commit/323a10d296e34f721497deddbe08db464df65886) - @Feramance
+- [Merge pull request #54 from Feramance/dependabot/github_actions/peter-evans/dockerhub-description-4](https://github.com/Feramance/qBitrr/commit/e3ea6a95d15fc5caf016a7bb45ef0a3b5b712b28) - @Feramance
+- [[patch] Fix for quality unmet and custom format unmet searches](https://github.com/Feramance/qBitrr/commit/27e0601b7448af39f8ca350dfa16efea86642f0a) - @Feramance
+- [Bump peter-evans/dockerhub-description from 3 to 4](https://github.com/Feramance/qBitrr/commit/533dab1dc35fdf65563b22e7b82a2136a118c2bb) - @dependabot[bot]
+- [Added debug logging](https://github.com/Feramance/qBitrr/commit/2e79b85edd855a72c75bfa929f43a721487d95b2) - @Feramance
+- [PyarrResourceNotFound fix](https://github.com/Feramance/qBitrr/commit/65f320b452d84524c9336f911df548a1b71add69) - @Feramance
+- [PyarrResourceNotFound debugs](https://github.com/Feramance/qBitrr/commit/760d1542154b88441329fdfcc9df0d31c68dcdbd) - @Feramance
+- [Handling for KeyError on episodeFile](https://github.com/Feramance/qBitrr/commit/65e40998876d4da35ae5938edf5a981be5b4c285) - @Feramance
+- [Quality unmet final fix](https://github.com/Feramance/qBitrr/commit/3dd702fa1d46c68e7c3d2fea7d6ff09e1c355969) - @Feramance
+- [Searched condition updates](https://github.com/Feramance/qBitrr/commit/c9f0f9807949243a2da405c88a32d6f79d698fef) - @Feramance
+- [Quality unmet search fix](https://github.com/Feramance/qBitrr/commit/63912d6f58e4fb3becc4f707298e3302e7cad96c) - @Feramance
+- [Quality unmet update](https://github.com/Feramance/qBitrr/commit/f6327a57de932ce3795054b5fd0ee31ccdc8a4c7) - @Feramance
+- [Quality unmet fixes](https://github.com/Feramance/qBitrr/commit/70cd580acf50405b5ead0b27fb9a12649da9f1c9) - @Feramance
+- [Ordered searches to priorotise missing first if enabled](https://github.com/Feramance/qBitrr/commit/7286589991e31079c7ceb7cf357afec18e64bf71) - @Feramance
+- [Updated all searched logs](https://github.com/Feramance/qBitrr/commit/b1684ea1de33c3f18b8216dea47ccb7edc031e99) - @Feramance
+- [file_counter fix](https://github.com/Feramance/qBitrr/commit/41d522edbe24646a111507f008c8773f272456f5) - @Feramance
+- [Logging updates and limited retries for removing files](https://github.com/Feramance/qBitrr/commit/727871722351bdae944a33a51c93ecab32e51468) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/19be25b9f9fa1f519697434d836e928cecc9af4b) - @Feramance
+- [Searches logs](https://github.com/Feramance/qBitrr/commit/4d4ad3623cde23879e5d0ceb38b9c502c1e7b114) - @Feramance
+- [Key error handling](https://github.com/Feramance/qBitrr/commit/b30b29706956a4182ba79686722be4bfb4ec1978) - @Feramance
+- [Entries process return variable](https://github.com/Feramance/qBitrr/commit/a76130cedae87c39ab42ee819e70e333eeef7cc7) - @Feramance
+- [Error checking](https://github.com/Feramance/qBitrr/commit/c1159a08762ed31880c290f806d3673ad6ae1018) - @Feramance
+- [Change ffprobe exception](https://github.com/Feramance/qBitrr/commit/4f158bfaa0b4d740c80025b7f5bd0163d7db4f7a) - @Feramance
+
+---
+
 ## v4.2.1 (19/01/2024)
 - [[patch] Search loop fix and performance enhancements](https://github.com/Feramance/qBitrr/commit/b6e34e667c25f40657714f5104d7007c2733eec6) - @Feramance
 - [Delete test2.py](https://github.com/Feramance/qBitrr/commit/966fe4dc45cb538af20d943de984ea1e67065769) - @Feramance
@@ -318,10 +345,3 @@
 ---
 
 ## v3.8.7-beta-1 (27/11/2023)
-
----
-
-## v3.8.6 (21/11/2023)
-- [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/3d8b8a32663ec996e746f6aafeb2ee2eb60d3e71) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/cb477b3410e4edd52e5fecd7ff39faf80916f8e8) - @Feramance
-- [[release] qBittorrent version bump](https://github.com/Feramance/qBitrr/commit/0506ec53b878e65a0d55b0ad1297b4bb29090101) - @Feramance
