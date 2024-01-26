@@ -2333,7 +2333,7 @@ class Arr:
                     else False
                 )
                 if (
-                    episode["hasFile"]
+                    db_entry["hasFile"]
                     and not (self.quality_unmet_search and QualityUnmet)
                     and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
                 ):
