@@ -91,7 +91,7 @@ class qBitManager:
     def _version_validator(self):
         if (
             self.min_supported_version <= self.current_qbit_version
-        ):  # <= self.max_supported_version:
+        ):  # <= self.max_supported_version):
             if self._validated_version:
                 self.logger.info(
                     "Current qBitTorrent version is supported: %s",

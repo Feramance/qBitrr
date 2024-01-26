@@ -2066,8 +2066,10 @@ class Arr:
                     )
                     if (
                         episode["hasFile"]
-                        and (self.quality_unmet_search and not QualityUnmet)
-                        and (self.custom_format_unmet_search and customFormat > minCustomFormat)
+                        and not (self.quality_unmet_search and QualityUnmet)
+                        and not (
+                            self.custom_format_unmet_search and customFormat < minCustomFormat
+                        )
                     ):
                         searched = True
                         self.model_queue.update(Completed=True).where(
@@ -2331,9 +2333,9 @@ class Arr:
                     else False
                 )
                 if (
-                    db_entry["hasFile"]
-                    and (self.quality_unmet_search and not QualityUnmet)
-                    and (self.custom_format_unmet_search and customFormat > minCustomFormat)
+                    episode["hasFile"]
+                    and not (self.quality_unmet_search and QualityUnmet)
+                    and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
                 ):
                     searched = True
                     self.model_queue.update(Completed=True).where(
