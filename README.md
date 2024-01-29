@@ -1,5 +1,5 @@
 
-# qBitrr
+# <img src="/logo.png" alt="qBitrr" width="32px"></img> qBitrr
 
 [![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/qBitrr2?label=PyPI)](https://pypi.org/project/qBitrr2/)
