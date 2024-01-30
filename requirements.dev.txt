@@ -35,7 +35,7 @@ colorama==0.4.4
     #   twine
 coloredlogs==15.0.1
     # via qBitrr2 (setup.py)
-dill==0.3.7
+dill==0.3.8
     # via
     #   multiprocess
     #   pathos
@@ -77,7 +77,7 @@ more-itertools==10.2.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-multiprocess==0.70.15
+multiprocess==0.70.16
     # via pathos
 mypy-extensions==1.0.0
     # via black
@@ -85,7 +85,7 @@ nh3==0.2.15
     # via readme-renderer
 nodeenv==1.8.0
     # via pre-commit
-overrides==7.4.0
+overrides==7.7.0
     # via pyarr
 packaging==21.3
     # via
@@ -110,9 +110,9 @@ platformdirs==4.1.0
     # via
     #   black
     #   virtualenv
-pox==0.3.3
+pox==0.3.4
     # via pathos
-ppft==1.7.6.7
+ppft==1.7.6.8
     # via pathos
 pre-commit==3.3.3
     # via qBitrr2 (setup.py)
@@ -169,7 +169,7 @@ tqdm==4.66.1
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240106
+types-requests==2.31.0.20240125
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)

@@ -16,7 +16,7 @@ colorama==0.4.4
     # via qBitrr2 (setup.py)
 coloredlogs==15.0.1
     # via qBitrr2 (setup.py)
-dill==0.3.7
+dill==0.3.8
     # via
     #   multiprocess
     #   pathos
@@ -38,9 +38,9 @@ jaraco-functools==4.0.0
     # via jaraco-docker
 more-itertools==10.2.0
     # via jaraco-functools
-multiprocess==0.70.15
+multiprocess==0.70.16
     # via pathos
-overrides==7.4.0
+overrides==7.7.0
     # via pyarr
 packaging==21.3
     # via
@@ -52,9 +52,9 @@ peewee==3.14.7
     # via qBitrr2 (setup.py)
 ping3==3.0.2
     # via qBitrr2 (setup.py)
-pox==0.3.3
+pox==0.3.4
     # via pathos
-ppft==1.7.6.7
+ppft==1.7.6.8
     # via pathos
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
@@ -73,7 +73,7 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240106
+types-requests==2.31.0.20240125
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
