@@ -3627,12 +3627,17 @@ class Arr:
         if self.is_downloading_state(torrent) and self.min_free_space != "-1":
             self.current_free_space -= torrent["amount_left"]
             self.logger.trace("Current free space: %s", self.current_free_space)
-            if self.current_free_space < torrent["amount_left"]:
+            if (
+                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+                and self.current_free_space < torrent["amount_left"]
+            ):
+                self.logger.trace("Pausing torrent: Free space %s", self.current_free_space)
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
             if (
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space > torrent["amount_left"]
             ):
+                self.logger.trace("Resuming torrent: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
 
         if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
