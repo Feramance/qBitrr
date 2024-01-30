@@ -16,6 +16,9 @@ jobs:
   docker_image:
     name: Build Docker Image
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
     steps:
     - name: Checkout
@@ -51,4 +54,4 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: feramance/qbitrr:nightly, ghcr.io/${{ github.repository }}:nightly
+        tags: nightly
