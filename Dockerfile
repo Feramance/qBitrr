@@ -3,8 +3,9 @@
 FROM python:3.10
 
 LABEL Name="qBitrr"
-LABEL Maintainer="Feramance"
+LABEL Maintainer="feramance"
 LABEL Version="4.2.3"
+LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
 # Env used by the script to determine if its inside a docker -
 # if this is set to 69420 it will change the working dir for docker specific values
