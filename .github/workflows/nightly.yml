@@ -48,6 +48,6 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: nightly
+        tags: feramance/qbitrr:nightly,ghcr.io/${{ github.repository }}:nightly
         cache-from: type=gha
         cache-to: type=gha,mode=max
