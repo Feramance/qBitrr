@@ -21,6 +21,10 @@ jobs:
       contents: read
     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
     steps:
+    - id: string
+      uses: ASzc/change-string-case-action@v1
+      with:
+        string: ${{ github.repository }}
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -46,7 +50,7 @@ jobs:
       with:
         images: |
           feramance/qbitrr
-          ghcr.io/${{ github.repository }}
+          ghcr.io/${{ steps.string.outputs.lowercase }}
         tags: |
           type=edge
     - name: Build and push Docker images
@@ -57,7 +61,7 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: feramance/qbitrr:nightly,ghcr.io/${{ github.repository }}:nightly
+        tags: feramance/qbitrr:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:nightly
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
