@@ -40,6 +40,15 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.REG_TOKEN }}
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          feramance/qbitrr
+          ghcr.io/${{ github.repository }}
+        tags: |
+          type=edge
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
@@ -49,5 +58,6 @@ jobs:
         platforms: linux/amd64
         push: true
         tags: feramance/qbitrr:nightly,ghcr.io/${{ github.repository }}:nightly
+        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
