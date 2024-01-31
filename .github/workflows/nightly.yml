@@ -35,23 +35,31 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
-    - name: Login to DockerHub
+    - name: Login to Container registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.PAT }}
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          feramance/qbitrr
-          ghcr.io/${{ github.repository }}
-    - name: Build and push
+    - name: Build and push DockerHub
+      env:
+        DOCKER_BUILDKIT: 1
       uses: docker/build-push-action@v5
       with:
         context: .
         platforms: linux/amd64
         push: true
-        tags: nightly
+        tags: feramance/qbitrr:nightly
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    - name: Build and push Container registry
+      env:
+        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ghcr.io/${{ github.repository }}:nightly
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
