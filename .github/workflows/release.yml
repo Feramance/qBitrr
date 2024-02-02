@@ -143,7 +143,7 @@ jobs:
       RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
   publish:
     name: Publish to PyPi
-    needs: [bump_version, release_hash]
+    needs: [bump_version, release_hash, docker_image]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -167,7 +167,7 @@ jobs:
         password: ${{ secrets.PYPI_API_TOKEN }}
   package:
     name: Build Binaries
-    needs: [bump_version, release_hash]
+    needs: [bump_version, release_hash, docker_image]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -254,6 +254,10 @@ jobs:
     needs: [bump_version, release_hash]
     runs-on: ubuntu-latest
     steps:
+    - id: string
+      uses: ASzc/change-string-case-action@v6
+      with:
+        string: ${{ github.repository }}
     - name: Checkout
       uses: actions/checkout@v4
       with:
@@ -268,6 +272,21 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.REG_TOKEN }}
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          feramance/qbitrr
+          ghcr.io/${{ steps.string.outputs.lowercase }}
+        tags: |
+          type=edge
     - name: Build and push
       env:
         DOCKER_BUILDKIT: 1
@@ -276,7 +295,7 @@ jobs:
         context: .
         platforms: linux/amd64
         push: true
-        tags: feramance/qbitrr:nightly,feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}}
+        tags: feramance/qbitrr:nightly,feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}},ghcr.io/${{ steps.string.outputs.lowercase }}:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:latest,ghcr.io/${{ steps.string.outputs.lowercase }}:v${{needs.bump_version.outputs.NEW_RELEASE}}
         cache-from: type=gha
         cache-to: type=gha,mode=max
   change_logs:
