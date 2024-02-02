@@ -296,6 +296,7 @@ jobs:
         platforms: linux/amd64
         push: true
         tags: feramance/qbitrr:nightly,feramance/qbitrr:latest,feramance/qbitrr:v${{needs.bump_version.outputs.NEW_RELEASE}},ghcr.io/${{ steps.string.outputs.lowercase }}:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:latest,ghcr.io/${{ steps.string.outputs.lowercase }}:v${{needs.bump_version.outputs.NEW_RELEASE}}
+        labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
   change_logs:
