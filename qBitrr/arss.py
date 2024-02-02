@@ -1627,11 +1627,13 @@ class Arr:
 
     def db_update(self):
         if not self.search_missing:
+            self.logger.trace("Search missing disabled")
             return
         self.db_update_todays_releases()
         if self.db_update_processed and not self.search_by_year:
+            self.logger.trace("Database update processed or not search by year")
             return
-        self.logger.trace(f"Started updating database")
+        self.logger.info("Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
                 completed = True
