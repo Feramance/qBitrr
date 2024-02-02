@@ -22,7 +22,7 @@ jobs:
     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
     steps:
     - id: string
-      uses: ASzc/change-string-case-action@v1
+      uses: ASzc/change-string-case-action@v6
       with:
         string: ${{ github.repository }}
     - name: Checkout
