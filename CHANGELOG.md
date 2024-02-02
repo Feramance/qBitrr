@@ -1,5 +1,47 @@
 # Changelog
 
+## v4.2.4 (02/02/2024)
+- [[patch] Loop update](https://github.com/Feramance/qBitrr/commit/3dd20ba46024e540549eeb02f77f7a9165be4d80) - @Feramance
+- [Loop timer adjusted](https://github.com/Feramance/qBitrr/commit/7187b3bb8cfe7c467826c4cd6e055cf5ce360412) - @Feramance
+- [Total commands defaulted to -1 for better comparability](https://github.com/Feramance/qBitrr/commit/7bb8212fcf6605a7b9f0311f1623b61576ca7df5) - @Feramance
+- [Loop searched](https://github.com/Feramance/qBitrr/commit/03f3cfad9981ee04cd092f1ea5f1c0d6b1f8ad15) - @Feramance
+- [Command count fix](https://github.com/Feramance/qBitrr/commit/64cfeb4dced7762901a05062089a389ab4bc512c) - @Feramance
+- [Readme update and fixed count type error](https://github.com/Feramance/qBitrr/commit/ca98e8ac08cef787662b0737a18e5baf2a5dac98) - @Feramance
+- [All searched fix](https://github.com/Feramance/qBitrr/commit/10dd3f47f0e023d9de5f45afa8f966c1b725a313) - @Feramance
+- [All searched update](https://github.com/Feramance/qBitrr/commit/a6ee041025fbda12b8a303120c7f1bd84e3a0f39) - @Feramance
+- [Workflow title update](https://github.com/Feramance/qBitrr/commit/eac50fd07cbc8a361d10b470396813cd418b66be) - @Feramance
+- [Merge pull request #57 from Feramance/dependabot/github_actions/ASzc/change-string-case-action-6](https://github.com/Feramance/qBitrr/commit/10c5eda2119252947d85792f77057144fb6293ea) - @Feramance
+- [Testing dependabot workflow](https://github.com/Feramance/qBitrr/commit/4d61f69fc0b29b30bbded74dace74a078db357e5) - @Feramance
+- [Bump ASzc/change-string-case-action from 1 to 6](https://github.com/Feramance/qBitrr/commit/48cb2435649ce48bb5513abdf307ee51a7f8832a) - @dependabot[bot]
+- [Nightly branch workflow fixes](https://github.com/Feramance/qBitrr/commit/699077ac4ab23fd6dd3086d249c536ef2c7c4b9b) - @Feramance
+- [Branch nightly flow blocking PRs](https://github.com/Feramance/qBitrr/commit/a4411185aefc1f259305105ccf66a359d17af102) - @Feramance
+- [Loop testing](https://github.com/Feramance/qBitrr/commit/8183606d9d27e44f1db1ccc5601145a3d776e628) - @Feramance
+- [Workflow updates](https://github.com/Feramance/qBitrr/commit/d418e229d5a7b3ee3bad740dbb959bd5b5125972) - @Feramance
+- [Workflow updates](https://github.com/Feramance/qBitrr/commit/d8a0aa4b22d9f42dc52810009a21973566eb64c2) - @Feramance
+- [Updated Dockerfile](https://github.com/Feramance/qBitrr/commit/c7a6e074a5e2689fe100f95bd10aae94a14bf91b) - @Feramance
+- [Nightly workflow fix](https://github.com/Feramance/qBitrr/commit/a8341694431b9bb1421e0f37eac141f9f5683ff7) - @Feramance
+- [New workflow to generate container for other branches](https://github.com/Feramance/qBitrr/commit/751cdf82bc846115986a6e81887c5e24975d33c1) - @Feramance
+- [Merge pull request #56 from feramance/nightly](https://github.com/Feramance/qBitrr/commit/4fea16a607be6274e5de99d1255707b406662e40) - @Feramance
+- [Workflow update](https://github.com/Feramance/qBitrr/commit/1558fdb0d9c1dfb78cafa6d8df51bf64e8201d29) - @Feramance
+- [Changed toekn used for Container Registry](https://github.com/Feramance/qBitrr/commit/beedf5bc13b580a452526a471a4cc34279d602f6) - @Feramance
+- [Testing another workflow change](https://github.com/Feramance/qBitrr/commit/57431220e370a76644ef0b27bc48161296a3a174) - @Feramance
+- [Another workflow update](https://github.com/Feramance/qBitrr/commit/3337264e680e634255836d44a2432ee1cb3c8bc3) - @Feramance
+- [Nightly workflow update](https://github.com/Feramance/qBitrr/commit/cb4d7a8e78145c01e7bf9e74f17a3f42593ddbb5) - @Feramance
+- [Nightly workflow update](https://github.com/Feramance/qBitrr/commit/a0642b9016a4d0fe526c37c27bcf3110a96f05c9) - @Feramance
+- [Nightly workflow update](https://github.com/Feramance/qBitrr/commit/7a234a2c1b1381ef0516633b8f841fd0ac88cd64) - @Feramance
+- [Update FUNDING.yml](https://github.com/Feramance/qBitrr/commit/49ab58cd06f5da0754d7d2b5edde1139c3e9f878) - @Feramance
+- [Nightly flow update](https://github.com/Feramance/qBitrr/commit/5ff438fc140235855f8a95781cbc317e716474a4) - @Feramance
+- [Testing Nightly docker action](https://github.com/Feramance/qBitrr/commit/0dadb2062e878a8d95db66f841af3db696fc6df8) - @Feramance
+- [Create FUNDING.yml](https://github.com/Feramance/qBitrr/commit/4219661ab118f7461590040fc6afd4a34e944067) - @Feramance
+- [Bump dependancies](https://github.com/Feramance/qBitrr/commit/ebc74beaef2857075c8bfd7d3dfc38bb57d84eeb) - @Feramance
+- [Free space logging for testing](https://github.com/Feramance/qBitrr/commit/f95f4834f3ee2c8c220d47d49b9ed23f03f5796a) - @Feramance
+- [Update PyPi Description](https://github.com/Feramance/qBitrr/commit/0159090af4e3d71e7fa1a7eaed2ceac46f0d8cb0) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/4e7244702a65f894688ad3d1cb13dfc691032ffb) - @Feramance
+- [Adding logo](https://github.com/Feramance/qBitrr/commit/b9f9142fe852ffbbb23ce9f1a9612d8fc78701ea) - @Feramance
+- [Skip already searched update](https://github.com/Feramance/qBitrr/commit/d80ec1e46889d5aab92f60e624ab9a992d062113) - @Feramance
+
+---
+
 ## v4.2.3 (26/01/2024)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/5fae086eaed3a0b9d67166aef0a7ae2d22ebc7ae) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/e9044e604fe00327dbfbd9bec0226dd333fe57d5) - @Feramance
@@ -341,10 +383,3 @@
 ---
 
 ## v3.8.8-beta-0 (27/11/2023)
-
----
-
-## v3.8.7 (27/11/2023)
-- [[release] Update PyPi description](https://github.com/Feramance/qBitrr/commit/d2990eec4e02f6edb30c8215d48286720fe20af7) - @Feramance
-- [README update](https://github.com/Feramance/qBitrr/commit/f56a7cf4454e4a93e2a522d8d1611f80af6e5818) - @Feramance
-- [Update README and pre-commit all files](https://github.com/Feramance/qBitrr/commit/86555d0ce5cc872c3a9e005e691a429a3abee172) - @Feramance
