@@ -4392,29 +4392,13 @@ class Arr:
         return years, years_count
 
     def all_searched(self) -> bool:
-        if self.do_upgrade_search:
-            if self.type == "sonarr" and self.series_search == True:
-                search_completed = (
-                    self.series_file_model.select()
-                    .where(self.series_file_model.Upgrade == False)
-                    .execute()
-                )
-            else:
-                search_completed = (
-                    self.model_file.select().where(self.model_file.Upgrade == False).execute()
-                )
-        else:
-            if self.type == "sonarr" and self.series_search == True:
-                search_completed = (
-                    self.series_file_model.select()
-                    .where(self.series_file_model.Searched == False)
-                    .execute()
-                )
-            else:
-                search_completed = (
-                    self.model_file.select().where(self.model_file.Searched == False).execute()
-                )
-        if search_completed:
+        if self.type == "sonarr" and self.series_search:
+            search_completed = self.db_get_files_series().count()
+        elif self.type == "sonarr" and not self.series_search:
+            search_completed = self.db_get_files_episodes().count()
+        elif self.type == "radarr":
+            search_completed = self.db_get_files_movies().count()
+        if search_completed > 0:
             self.logger.info("Searches not completed,  %s remaining", search_completed)
             return False
         else:
