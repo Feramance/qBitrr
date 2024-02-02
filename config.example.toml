@@ -267,10 +267,10 @@ ReSearch = true
 importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RssSyncTimer = 1
+RssSyncTimer = 5
 
 # Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RefreshDownloadsTimer = 1
+RefreshDownloadsTimer = 5
 
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
@@ -452,10 +452,10 @@ ReSearch = true
 importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RssSyncTimer = 1
+RssSyncTimer = 5
 
 # Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RefreshDownloadsTimer = 1
+RefreshDownloadsTimer = 5
 
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
@@ -646,10 +646,10 @@ ReSearch = true
 importMode = "Auto"
 
 # Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RssSyncTimer = 1
+RssSyncTimer = 5
 
 # Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
-RefreshDownloadsTimer = 1
+RefreshDownloadsTimer = 5
 
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.

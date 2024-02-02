@@ -1,4 +1,4 @@
-cachetools==4.2.4
+cachetools==5.3.2
 colorama==0.4.4
 coloredlogs==15.0.1
 environ-config==23.2.0

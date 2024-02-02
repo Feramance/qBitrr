@@ -14,9 +14,9 @@ build==1.0.3
     # via pip-tools
 bump2version==1.0.1
     # via qBitrr2 (setup.py)
-cachetools==4.2.4
+cachetools==5.3.2
     # via qBitrr2 (setup.py)
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 cfgv==3.4.0
     # via pre-commit
@@ -106,7 +106,7 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.9.6
     # via twine
-platformdirs==4.1.0
+platformdirs==4.2.0
     # via
     #   black
     #   virtualenv
@@ -175,7 +175,7 @@ ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.1.0
+urllib3==2.2.0
     # via
     #   qbittorrent-api
     #   requests

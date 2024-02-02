@@ -6,9 +6,9 @@
 #
 attrs==23.2.0
     # via environ-config
-cachetools==4.2.4
+cachetools==5.3.2
     # via qBitrr2 (setup.py)
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -75,7 +75,7 @@ tomlkit==0.7.2
     # via qBitrr2 (setup.py)
 types-requests==2.31.0.20240125
     # via pyarr
-urllib3==2.1.0
+urllib3==2.2.0
     # via
     #   qbittorrent-api
     #   requests
