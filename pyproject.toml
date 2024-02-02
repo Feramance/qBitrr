@@ -27,7 +27,7 @@ target-version = ['py38']
 
 [tool.poetry]
 name = "pypi-public"
-version = "4.2.3"
+version = "4.2.4"
 description = "A simple script to monitor qBit and communicate with Radarr and Sonarr"
 authors = ["Drapersniper", "Feramance"]
 readme = "README.md"
