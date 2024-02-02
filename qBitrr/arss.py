@@ -2650,7 +2650,7 @@ class Arr:
                     )
                 else:
                     queue = False
-                if queue or file_model.EntryId in self.queue_file_ids:
+                if file_model.EntryId in self.queue_file_ids:
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
                         "S%02dE%03d | "
@@ -2797,8 +2797,8 @@ class Arr:
                     .execute()
                 )
             else:
-                queue = False
-            if queue or file_model.EntryId in self.queue_file_ids:
+                pass
+            if file_model.EntryId in self.queue_file_ids:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s (%s)",
                     request_tag,
