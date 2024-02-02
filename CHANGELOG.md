@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.2.5 (02/02/2024)
+- [[patch] Config example updates and version fixes](https://github.com/Feramance/qBitrr/commit/2c89f0e25302d5f013b6e232852e123d1b040b85) - @Feramance
+- [[patch] Further loop fixes and search by year update](https://github.com/Feramance/qBitrr/commit/ad643854dda5cd805ad09fb8f03db61f9c5e57b7) - @Feramance
+- [Database update logging](https://github.com/Feramance/qBitrr/commit/a0b1466d021ca5a29877f6c39f6a9f67473caaef) - @Feramance
+- [Updated debug output](https://github.com/Feramance/qBitrr/commit/7534fa2ec1803ac9f3acce5512740dce01bb2ffb) - @Feramance
+- [Nonetype fix](https://github.com/Feramance/qBitrr/commit/55068d4c1fb600bcacf4e30911288ceffd7e7871) - @Feramance
+- [Queue monitoring debugging](https://github.com/Feramance/qBitrr/commit/ba04a8e291abfeb32e45e2174212a67f305260e7) - @Feramance
+
+---
+
 ## v4.2.4 (02/02/2024)
 - [[patch] Loop update](https://github.com/Feramance/qBitrr/commit/3dd20ba46024e540549eeb02f77f7a9165be4d80) - @Feramance
 - [Loop timer adjusted](https://github.com/Feramance/qBitrr/commit/7187b3bb8cfe7c467826c4cd6e055cf5ce360412) - @Feramance
@@ -379,7 +389,3 @@
 ---
 
 ## v3.8.8-beta-1 (27/11/2023)
-
----
-
-## v3.8.8-beta-0 (27/11/2023)
