@@ -20,7 +20,7 @@ jobs:
     permissions:
       packages: write
       contents: read
-    if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
+    if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]')  && github.event_name != 'pull_request'}}
     steps:
     - id: string
       uses: ASzc/change-string-case-action@v1
