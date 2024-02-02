@@ -1177,17 +1177,20 @@ class Arr:
     def db_get_files(
         self,
     ) -> Iterable[
-        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool]
+        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
     ]:
         if self.type == "sonarr" and self.series_search:
-            for series in self.db_get_files_series():
-                yield series[0], series[1], series[2], series[2] is not True
+            serieslist = self.db_get_files_series()
+            for series in serieslist:
+                yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
         elif self.type == "sonarr" and not self.series_search:
-            for episodes in self.db_get_files_episodes():
-                yield episodes[0], episodes[1], episodes[2], False
+            episodelist = self.db_get_files_episodes()
+            for episodes in episodelist:
+                yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
         elif self.type == "radarr":
-            for movies in self.db_get_files_movies():
-                yield movies[0], movies[1], movies[2], False
+            movielist = self.db_get_files_movies()
+            for movies in movielist:
+                yield movies[0], movies[1], movies[2], False, len(movielist)
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -2596,6 +2599,7 @@ class Arr:
         todays: bool = False,
         bypass_limit: bool = False,
         series_search: bool = False,
+        commands: int = 0,
     ):
         request_tag = (
             "[OVERSEERR REQUEST]: "
@@ -2643,12 +2647,12 @@ class Arr:
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.info(
-                    "%s%s active search commands",
+                    "%s%s active search commands, %s remaining",
                     request_tag,
                     active_commands,
+                    commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
-                    self.all_searched()
                     self.logger.trace(
                         "%sIdle: Too many commands in queue: %s | "
                         "S%02dE%03d | "
@@ -2715,12 +2719,12 @@ class Arr:
                 file_model: SeriesFilesModel
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.info(
-                    "%s%s active search commands",
+                    "%s%s active search commands, %s remaining",
                     request_tag,
                     active_commands,
+                    commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
-                    self.all_searched()
                     self.logger.trace(
                         "%sIdle: Too many commands in queue: %s | [id=%s]",
                         request_tag,
@@ -2785,12 +2789,9 @@ class Arr:
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.info(
-                "%s%s active search commands",
-                request_tag,
-                active_commands,
+                "%s%s active search commands, %s remaining", request_tag, active_commands, commands
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
-                self.all_searched()
                 self.logger.trace(
                     "%sIdle: Too many commands in queue: %s | [id=%s]",
                     request_tag,
@@ -4391,20 +4392,6 @@ class Arr:
         self.logger.trace("Years count: %s, Years: %s", years_count, years)
         return years, years_count
 
-    def all_searched(self) -> bool:
-        if self.type == "sonarr" and self.series_search:
-            search_completed = len(self.db_get_files_series())
-        elif self.type == "sonarr" and not self.series_search:
-            search_completed = len(self.db_get_files_episodes())
-        elif self.type == "radarr":
-            search_completed = len(self.db_get_files_movies())
-        if search_completed > 0:
-            self.logger.info("Searches not completed,  %s remaining", search_completed)
-            return False
-        else:
-            self.logger.trace("All searches completed")
-            return True
-
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
@@ -4414,10 +4401,12 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
+            totcommands = 0
             self.db_update_processed = False
             while True:
                 if self.loop_completed:
                     years_index = 0
+                    totcommands = 0
                     timer = datetime.now()
                 if self.search_by_year:
                     if years_index == 0:
@@ -4437,28 +4426,40 @@ class Arr:
                     self.run_request_search()
                     self.force_grab()
                     try:
-                        if (
-                            self.search_by_year
-                            and years.index(self.search_current_year) != years_count - 1
-                        ):
-                            years_index += 1
-                            self.search_current_year = years[years_index]
-                        if not self.all_searched():
-                            for entry, todays, limit_bypass, series_search in self.db_get_files():
-                                while (
-                                    self.maybe_do_search(
-                                        entry,
-                                        todays=todays,
-                                        bypass_limit=limit_bypass,
-                                        series_search=series_search,
-                                    )
-                                ) is False:
-                                    self.logger.debug("Waiting for active search commands")
-                                    time.sleep(30)
-                        elif datetime.now() >= (timer + loop_timer) and self.all_searched():
+                        if self.search_by_year:
+                            if years.index(self.search_current_year) != years_count - 1:
+                                years_index += 1
+                                self.search_current_year = years[years_index]
+                            elif datetime.now() >= (timer + loop_timer):
+                                self.refresh_download_queue()
+                                self.force_grab()
+                                raise RestartLoopException
+                        elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
+                        for (
+                            entry,
+                            todays,
+                            limit_bypass,
+                            series_search,
+                            commands,
+                        ) in self.db_get_files():
+                            if totcommands == 0:
+                                totcommands = commands
+                            self.logger.info("Starting search for %s items", totcommands)
+                            while (
+                                self.maybe_do_search(
+                                    entry,
+                                    todays=todays,
+                                    bypass_limit=limit_bypass,
+                                    series_search=series_search,
+                                    commands=totcommands,
+                                )
+                            ) is False:
+                                self.logger.debug("Waiting for active search commands")
+                                time.sleep(30)
+                            totcommands -= 1
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
