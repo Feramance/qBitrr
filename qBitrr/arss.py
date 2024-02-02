@@ -4402,13 +4402,17 @@ class Arr:
             timer = datetime.now()
             years_index = 0
             totcommands = 0
+            searched = False
             self.db_update_processed = False
             while True:
                 if self.loop_completed:
                     years_index = 0
                     totcommands = 0
+                    searched = False
                     timer = datetime.now()
                 if self.search_by_year:
+                    totcommands = 0
+                    searched = False
                     if years_index == 0:
                         years, years_count = self.get_year_search()
                         try:
@@ -4438,28 +4442,36 @@ class Arr:
                             self.refresh_download_queue()
                             self.force_grab()
                             raise RestartLoopException
-                        for (
-                            entry,
-                            todays,
-                            limit_bypass,
-                            series_search,
-                            commands,
-                        ) in self.db_get_files():
-                            if totcommands == 0:
-                                totcommands = commands
-                            self.logger.info("Starting search for %s items", totcommands)
-                            while (
-                                self.maybe_do_search(
-                                    entry,
-                                    todays=todays,
-                                    bypass_limit=limit_bypass,
-                                    series_search=series_search,
-                                    commands=totcommands,
-                                )
-                            ) is False:
-                                self.logger.debug("Waiting for active search commands")
-                                time.sleep(30)
-                            totcommands -= 1
+                        if not searched:
+                            for (
+                                entry,
+                                todays,
+                                limit_bypass,
+                                series_search,
+                                commands,
+                            ) in self.db_get_files():
+                                if totcommands == 0:
+                                    totcommands = commands
+                                    self.logger.info("Starting search for %s items", totcommands)
+                                while (
+                                    self.maybe_do_search(
+                                        entry,
+                                        todays=todays,
+                                        bypass_limit=limit_bypass,
+                                        series_search=series_search,
+                                        commands=totcommands,
+                                    )
+                                ) is False:
+                                    self.logger.debug("Waiting for active search commands")
+                                    time.sleep(30)
+                                totcommands -= 1
+                                if totcommands == 0:
+                                    self.logger.info("All searches completed")
+                                    searched = True
+                                else:
+                                    self.logger.info(
+                                        "Searches not completed, %s remaining", totcommands
+                                    )
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
