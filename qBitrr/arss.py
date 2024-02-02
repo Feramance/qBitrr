@@ -4393,11 +4393,11 @@ class Arr:
 
     def all_searched(self) -> bool:
         if self.type == "sonarr" and self.series_search:
-            search_completed = self.db_get_files_series().count()
+            search_completed = len(self.db_get_files_series())
         elif self.type == "sonarr" and not self.series_search:
-            search_completed = self.db_get_files_episodes().count()
+            search_completed = len(self.db_get_files_episodes())
         elif self.type == "radarr":
-            search_completed = self.db_get_files_movies().count()
+            search_completed = len(self.db_get_files_movies())
         if search_completed > 0:
             self.logger.info("Searches not completed,  %s remaining", search_completed)
             return False

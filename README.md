@@ -89,7 +89,7 @@ Alternatively:
 
 #### Docker Image
 
-- The docker image can be found [here](https://hub.docker.com/r/feramance/qbitrr)
+- The docker image can be found on [DockerHub](https://hub.docker.com/r/feramance/qbitrr) or [Github](https://github.com/Feramance/qBitrr/pkgs/container/qbitrr)
 
 #### Docker Run
 
