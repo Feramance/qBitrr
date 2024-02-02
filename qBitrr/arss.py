@@ -4401,17 +4401,17 @@ class Arr:
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
             years_index = 0
-            totcommands = 0
+            totcommands = -1
             searched = False
             self.db_update_processed = False
             while True:
                 if self.loop_completed:
                     years_index = 0
-                    totcommands = 0
+                    totcommands = -1
                     searched = False
                     timer = datetime.now()
                 if self.search_by_year:
-                    totcommands = 0
+                    totcommands = -1
                     searched = False
                     if years_index == 0:
                         years, years_count = self.get_year_search()
@@ -4450,7 +4450,7 @@ class Arr:
                                 series_search,
                                 commands,
                             ) in self.db_get_files():
-                                if totcommands == 0:
+                                if totcommands == -1:
                                     totcommands = commands
                                     self.logger.info("Starting search for %s items", totcommands)
                                 while (
