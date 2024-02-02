@@ -1320,6 +1320,15 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
+            if self.search_by_year:
+                condition &= (
+                    self.model_file.AirDateUtc
+                    >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
+                )
+                condition &= (
+                    self.model_file.AirDateUtc
+                    <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
+                )
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
                     entries.append([i1, i2, i3])
@@ -1372,6 +1381,15 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
+            if self.search_by_year:
+                condition &= (
+                    self.model_file.AirDateUtc
+                    >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
+                )
+                condition &= (
+                    self.model_file.AirDateUtc
+                    <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
+                )
             for entry in (
                 self.model_file.select()
                 .where(condition)
@@ -1414,6 +1432,8 @@ class Arr:
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.Searched == False
+            if self.search_by_year:
+                condition &= self.model_file.Year == self.search_current_year
             for entry in (
                 self.model_file.select()
                 .where(condition)
