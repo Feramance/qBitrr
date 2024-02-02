@@ -4453,18 +4453,12 @@ class Arr:
                     self.run_request_search()
                     self.force_grab()
                     try:
-                        if self.search_by_year:
-                            if years.index(self.search_current_year) != years_count - 1:
-                                years_index += 1
-                                self.search_current_year = years[years_index]
-                            elif datetime.now() >= (timer + loop_timer) and self.all_searched():
-                                self.refresh_download_queue()
-                                self.force_grab()
-                                raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer) and self.all_searched():
-                            self.refresh_download_queue()
-                            self.force_grab()
-                            raise RestartLoopException
+                        if (
+                            self.search_by_year
+                            and years.index(self.search_current_year) != years_count - 1
+                        ):
+                            years_index += 1
+                            self.search_current_year = years[years_index]
                         if not self.all_searched():
                             for entry, todays, limit_bypass, series_search in self.db_get_files():
                                 while (
@@ -4477,6 +4471,10 @@ class Arr:
                                 ) is False:
                                     self.logger.debug("Waiting for active search commands")
                                     time.sleep(30)
+                        elif datetime.now() >= (timer + loop_timer) and self.all_searched():
+                            self.refresh_download_queue()
+                            self.force_grab()
+                            raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
