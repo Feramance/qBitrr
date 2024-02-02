@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.2.6 (02/02/2024)
+- [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/01627219a20f75dd11668c455ae80fd32b872400) - @Feramance
+- [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/574956637efb5c0012a354c8a86176a291741870) - @Feramance
+
+---
+
 ## v4.2.5 (02/02/2024)
 - [[patch] Config example updates and version fixes](https://github.com/Feramance/qBitrr/commit/2c89f0e25302d5f013b6e232852e123d1b040b85) - @Feramance
 - [[patch] Further loop fixes and search by year update](https://github.com/Feramance/qBitrr/commit/ad643854dda5cd805ad09fb8f03db61f9c5e57b7) - @Feramance
@@ -385,7 +391,3 @@
 - [Debug updates](https://github.com/Feramance/qBitrr/commit/6503c634bd425c8661988b4b2189d754e6498de4) - @Feramance
 - [Update qbit version](https://github.com/Feramance/qBitrr/commit/b519c6b2c351a5cb3c2eaa2482c5f4036e37b486) - @Feramance
 - [Added debug logs](https://github.com/Feramance/qBitrr/commit/75536cac848af566c86f192d65d445e2d3159731) - @Feramance
-
----
-
-## v3.8.8-beta-1 (27/11/2023)
