@@ -1,5 +1,19 @@
 # Changelog
 
+## v4.2.7 (05/02/2024)
+- [[patch] Removed key error looping](https://github.com/Feramance/qBitrr/commit/a5365c075fa4d0b9ab3400f29da020db9f9a98af) - @Feramance
+- [Another readme update, bad formatting](https://github.com/Feramance/qBitrr/commit/0789a2e028e44b07ce3828efd78558eb2db1e895) - @Feramance
+- [Readme update](https://github.com/Feramance/qBitrr/commit/c0026e473e7e48e3506190c31d58daf881843480) - @Feramance
+- [Updated key error debug for series](https://github.com/Feramance/qBitrr/commit/3822c3d99e7e6a682d6f398696386684d7fa5e49) - @Feramance
+- [qBitrr+ notice](https://github.com/Feramance/qBitrr/commit/a8889fd971014bb672d1acc9c1030c02db33ab64) - @Feramance
+- [Fixed debugs](https://github.com/Feramance/qBitrr/commit/03621f9cbddbb8b3062635699fe0888a84036a78) - @Feramance
+- [Merge pull request #59 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-1.6.0](https://github.com/Feramance/qBitrr/commit/2cfb370ecbbebfad6f49c6d8987be96174fd5e4a) - @Feramance
+- [Dependabot workflow update](https://github.com/Feramance/qBitrr/commit/ca919bb987a1d61edbb18b6ef8341ec9e4a65ccf) - @Feramance
+- [Bump dependabot/fetch-metadata from 1.1.1 to 1.6.0](https://github.com/Feramance/qBitrr/commit/6b5423807ab93a2b6656de2885e7fb266303b857) - @dependabot[bot]
+- [Queue fix](https://github.com/Feramance/qBitrr/commit/ac59cafbe33e54b851e6f171924b0ad113b878cd) - @Feramance
+
+---
+
 ## v4.2.6 (02/02/2024)
 - [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/01627219a20f75dd11668c455ae80fd32b872400) - @Feramance
 - [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/574956637efb5c0012a354c8a86176a291741870) - @Feramance
@@ -377,17 +391,3 @@
 - [Log fixed](https://github.com/Feramance/qBitrr/commit/eb04b2a0de05a0cd979a79c5a10f5c4fc8be6b3f) - @Feramance
 - [Sonarr series search testing](https://github.com/Feramance/qBitrr/commit/92c7738fa998b228b2402544fff3f889c6c6ecbe) - @Feramance
 - [Series search fix test](https://github.com/Feramance/qBitrr/commit/f3555c2a6cea663c1b4b4e943bf0473d852877d5) - @Feramance
-
----
-
-## v3.8.8 (28/11/2023)
-- [[release] Critical torrent handling fix](https://github.com/Feramance/qBitrr/commit/17dd21ea564bddcb778e16199c36cf80a29daeb4) - @Feramance
-- [Error fix 2](https://github.com/Feramance/qBitrr/commit/a1a4292d6c9b41140640cc0492184861ca579980) - @Feramance
-- [Error fix 1](https://github.com/Feramance/qBitrr/commit/7049e2f600405b73f67eb4078dd4ce075ced1b4c) - @Feramance
-- [More debugging](https://github.com/Feramance/qBitrr/commit/6c12cc0e905b8c1f53789d8b4594c3ef160e2f76) - @Feramance
-- [The debugging continues](https://github.com/Feramance/qBitrr/commit/222a75acccd9069df652c8d0f9e251677b825849) - @Feramance
-- [Fixing queue delete issue](https://github.com/Feramance/qBitrr/commit/61937ca1e9699a3b75c542d0f204496a5eb7ef59) - @Feramance
-- [Debugging continues ...](https://github.com/Feramance/qBitrr/commit/437ee0ec7c258364ae132419c8fafb1d169080f3) - @Feramance
-- [Debug updates](https://github.com/Feramance/qBitrr/commit/6503c634bd425c8661988b4b2189d754e6498de4) - @Feramance
-- [Update qbit version](https://github.com/Feramance/qBitrr/commit/b519c6b2c351a5cb3c2eaa2482c5f4036e37b486) - @Feramance
-- [Added debug logs](https://github.com/Feramance/qBitrr/commit/75536cac848af566c86f192d65d445e2d3159731) - @Feramance
