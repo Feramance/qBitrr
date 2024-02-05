@@ -2231,7 +2231,9 @@ class Arr:
                             ):
                                 completed = True
                             except KeyError:
-                                self.logger.warning("Key Error [%s]", db_entry["id"])
+                                self.logger.warning(
+                                    "Key Error [%s][%s]", db_entry["id"], seriesMetadata
+                                )
                                 completed = True
                         episodeCount = 0
                         episodeFileCount = 0
