@@ -19,6 +19,10 @@
 
 A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
+## Notice
+
+I am starting development on qBitrr+ which will be C# based for better overall performance and will also include a WebUI for better refined control on setting and what to search/upgrade etc. Hoping this will be the be all and end all application to manage your Radarr/Sonarr, Overseerr/Ombi and qBittorrent instances in one UI. This is still in it's very early stages and will likely be a couple months before a concrete beta is rolled out (from start of February 2024). Once I have something solid I will remove this notice and  add a link to the new qBitrr+
+
 ## Features
 
 - Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
