@@ -3646,9 +3646,10 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
+        free_space_test = self.current_free_space
         if self.is_downloading_state(torrent) and self.min_free_space != "-1":
-            self.current_free_space -= torrent["amount_left"]
-            self.logger.trace("Current free space: %s", self.current_free_space)
+            free_space_test -= torrent["amount_left"]
+            self.logger.trace("Resulting free space: %s", free_space_test)
             if (
                 torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space < torrent["amount_left"]
@@ -3659,6 +3660,7 @@ class Arr:
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space > torrent["amount_left"]
             ):
+                self.current_free_space = free_space_test
                 self.logger.trace("Resuming torrent: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
 
@@ -3864,7 +3866,7 @@ class Arr:
             and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
         ):
             self._process_single_torrent_pause_disk_space(torrent)
-        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
+        elif self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
