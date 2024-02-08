@@ -3656,6 +3656,7 @@ class Arr:
             ):
                 self.logger.trace("Pausing torrent: Free space %s", self.current_free_space)
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
+                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
             if (
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space > torrent["amount_left"]
@@ -3849,11 +3850,7 @@ class Arr:
         self._process_single_torrent_trackers(torrent)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
-        # try:
         leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
-        # except BaseException as e:
-        #     self.logger.warning(e)
-        #     raise DelayLoopException(length=300, type="qbit")
         self.logger.trace(
             "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s",
             torrent.name,
