@@ -4485,6 +4485,7 @@ class Arr:
                             self.force_grab()
                             raise RestartLoopException
                         if not searched:
+                            self.logger.trace("Getting files for searching")
                             for (
                                 entry,
                                 todays,
