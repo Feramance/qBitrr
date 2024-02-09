@@ -1474,13 +1474,29 @@ class Arr:
             yield None
         elif self.type == "sonarr":
             condition = self.model_file.IsRequest == True
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
+            if self.do_upgrade_search:
+                condition &= self.model_file.Upgrade == False
+            else:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    )
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.QualityMet
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
-            else:
-                condition &= self.model_file.Upgrade == False
+                    condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
@@ -1500,14 +1516,29 @@ class Arr:
         elif self.type == "radarr":
             condition = self.model_file.Year <= datetime.now().year
             condition &= self.model_file.Year > 0
-            if not self.do_upgrade_search:
-                if self.quality_unmet_search:
-                    condition &= self.model_file.QualityMet == False
+            if self.do_upgrade_search:
+                condition &= self.model_file.Upgrade == False
+            else:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    )
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.QualityMet
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.IsRequest == True
-            else:
-                condition &= self.model_file.Upgrade == False
             yield from (
                 self.model_file.select()
                 .where(condition)
