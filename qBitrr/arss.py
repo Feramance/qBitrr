@@ -3665,6 +3665,12 @@ class Arr:
                 self.logger.trace("Resuming torrent: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
         elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
+            self.logger.trace(
+                "Removing tag[%s] for completed torrent[%s]: Free space %s",
+                "qBitrr-free_space_paused",
+                torrent,
+                self.current_free_space,
+            )
             torrent.remove_tags(tags=["qBitrr-free_space_paused"])
 
         if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
