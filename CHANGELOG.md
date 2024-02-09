@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.3.1 (09/02/2024)
+- [[patch] Missing search fix](https://github.com/Feramance/qBitrr/commit/7eacedd860e37eaf16f8aeba6325e2cedbee8ebd) - @Feramance
+- [Updated get files function and quality met](https://github.com/Feramance/qBitrr/commit/8f36066a10e848b421c68b4579e245ac7df86e2e) - @Feramance
+- [Added logs for debugging](https://github.com/Feramance/qBitrr/commit/71d95fecbfc98ee4a45af11f6c71ca02a9532ecf) - @Feramance
+
+---
+
 ## v4.3.0 (09/02/2024)
 - [[minor] Added option to force minimum custom formats on torrents](https://github.com/Feramance/qBitrr/commit/66eea0ef9a4dd2d97c142d3a64f7ef75d60e5785) - @Feramance
 
@@ -360,8 +367,3 @@
 - [Changed ignore tag](https://github.com/Feramance/qBitrr/commit/a98b449cc1422144c9c929c9a7df6bac17608fbc) - @Feramance
 - [Updated description/README](https://github.com/Feramance/qBitrr/commit/4cb8010d00964c05a2a94e470f9fc4e19c72492f) - @Feramance
 - [Testing allowed download tag](https://github.com/Feramance/qBitrr/commit/98924085d4a817294c1de195425938d5363bc11a) - @Feramance
-
----
-
-## v3.8.12 (03/01/2024)
-- [[patch] Fixed search completion logic](https://github.com/Feramance/qBitrr/commit/a41e63b46471f0aa8a761f5e03e3c73a046b1396) - @Feramance
