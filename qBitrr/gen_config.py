@@ -582,6 +582,12 @@ def _gen_default_search_table(category: str, cat_default: Table):
     )
     _gen_default_line(
         search_table,
+        "Automatically remove torrents that do not mee the minimum custom format score.",
+        "ForceMinimumCustomFormat",
+        False,
+    )
+    _gen_default_line(
+        search_table,
         "Once you have search all files on your specified year range restart the loop and "
         "search again.",
         "SearchAgainOnSearchCompletion",

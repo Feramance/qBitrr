@@ -206,6 +206,9 @@ class Arr:
         self.custom_format_unmet_search = CONFIG.get(
             f"{name}.EntrySearch.CustomFormatUnmetSearch", fallback=False
         )
+        self.force_minimum_custom_format = CONFIG.get(
+            f"{name}.EntrySearch.ForceMinimumCustomFormat", fallback=False
+        )
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -1647,11 +1650,9 @@ class Arr:
 
     def db_update(self):
         if not self.search_missing:
-            self.logger.trace("Search missing disabled")
             return
         self.db_update_todays_releases()
         if self.db_update_processed and not self.search_by_year:
-            self.logger.trace("Database update processed or not search by year")
             return
         self.logger.info("Started updating database")
         if self.type == "sonarr":
@@ -4034,8 +4035,10 @@ class Arr:
                                 customFormat < episode.CustomFormatScore
                                 and customFormat < episode.MinCustomFormatScore
                             )
-                        else:
+                        elif self.force_minimum_custom_format:
                             cfunmet = customFormat < episode.MinCustomFormatScore
+                        else:
+                            return True
                         if cfunmet:
                             return True
                         else:
@@ -4062,7 +4065,10 @@ class Arr:
                         series = self.series_file_model.get_or_none(
                             self.series_file_model.EntryId == entry
                         )
-                        cfunmet = customFormat < series.MinCustomFormatScore
+                        if self.force_minimum_custom_format:
+                            cfunmet = customFormat < episode.MinCustomFormatScore
+                        else:
+                            return True
                         if cfunmet:
                             return True
                         else:
@@ -4094,8 +4100,10 @@ class Arr:
                             customFormat < movie.CustomFormatScore
                             and customFormat < movie.MinCustomFormatScore
                         )
+                    elif self.force_minimum_custom_format:
+                        cfunmet = customFormat < episode.MinCustomFormatScore
                     else:
-                        cfunmet = customFormat < movie.MinCustomFormatScore
+                        return True
                     if cfunmet:
                         return True
                     else:

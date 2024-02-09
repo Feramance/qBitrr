@@ -124,6 +124,9 @@ QualityUnmetSearch = false
 # Do a minimum custom format score unmet search for existing entries.
 CustomFormatUnmetSearch = false
 
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
+
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
 
@@ -308,6 +311,9 @@ QualityUnmetSearch = false
 
 # Do a minimum custom format score unmet search for existing entries.
 CustomFormatUnmetSearch = false
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
@@ -495,6 +501,9 @@ QualityUnmetSearch = false
 
 # Do a minimum custom format score unmet search for existing entries.
 CustomFormatUnmetSearch = false
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
@@ -689,6 +698,9 @@ QualityUnmetSearch = false
 
 # Do a minimum custom format score unmet search for existing entries.
 CustomFormatUnmetSearch = false
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
