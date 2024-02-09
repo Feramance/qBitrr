@@ -1301,12 +1301,19 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= self.model_file.QualityMet == False
+                    condition &= (
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= self.model_file.CustomFormatMet == False
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.QualityMet
+                        self.model_file.Searched
+                        == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
                         == False
                     )
@@ -1362,12 +1369,19 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= self.model_file.QualityMet == False
+                    condition &= (
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= self.model_file.CustomFormatMet == False
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.QualityMet
+                        self.model_file.Searched
+                        == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
                         == False
                     )
@@ -1423,12 +1437,19 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= self.model_file.QualityMet == False
+                    condition &= (
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= self.model_file.CustomFormatMet == False
+                    condition &= (
+                        self.model_file.Searched
+                        == False | self.model_file.CustomFormatMet
+                        == False
+                    )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.QualityMet
+                        self.model_file.Searched
+                        == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
                         == False
                     )
@@ -2122,7 +2143,7 @@ class Arr:
                         )
                         AirDateUtc = episode["airDateUtc"]
                         Monitored = episode["monitored"]
-                        QualityMet = not QualityUnmet
+                        QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat > minCustomFormat
 
                         if not episode["hasFile"]:
@@ -2374,7 +2395,7 @@ class Arr:
                     year = db_entry["year"]
                     entryId = db_entry["id"]
                     movieFileId = 1 if "movieFileId" in db_entry else 0
-                    qualityMet = not QualityUnmet
+                    qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat > minCustomFormat
 
                     if not db_entry["hasFile"]:
