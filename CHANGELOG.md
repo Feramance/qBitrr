@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.3.0 (09/02/2024)
+- [[minor] Added option to force minimum custom formats on torrents](https://github.com/Feramance/qBitrr/commit/66eea0ef9a4dd2d97c142d3a64f7ef75d60e5785) - @Feramance
+
+---
+
 ## v4.2.9 (09/02/2024)
 - [[patch] Free space adjustements](https://github.com/Feramance/qBitrr/commit/8961ce511ef36377373c602bfcdc0e38b210c05a) - @Feramance
 - [Remove free space tag if torrent is completed](https://github.com/Feramance/qBitrr/commit/0004eec46079cd64c13787e3d3c800dce2c5fd0c) - @Feramance
@@ -360,8 +365,3 @@
 
 ## v3.8.12 (03/01/2024)
 - [[patch] Fixed search completion logic](https://github.com/Feramance/qBitrr/commit/a41e63b46471f0aa8a761f5e03e3c73a046b1396) - @Feramance
-
----
-
-## v3.8.11 (03/01/2024)
-- [[patch] Hotfix for missed execute](https://github.com/Feramance/qBitrr/commit/5118d7dc6f299e912a2ebeac044d0963322e5285) - @Feramance
