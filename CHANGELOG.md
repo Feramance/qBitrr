@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.2.9 (09/02/2024)
+- [[patch] Free space adjustements](https://github.com/Feramance/qBitrr/commit/8961ce511ef36377373c602bfcdc0e38b210c05a) - @Feramance
+- [Remove free space tag if torrent is completed](https://github.com/Feramance/qBitrr/commit/0004eec46079cd64c13787e3d3c800dce2c5fd0c) - @Feramance
+- [Fixed remove tags call](https://github.com/Feramance/qBitrr/commit/aa3cbf502530de24bd2bbc7c87cc4abbc60a9b2a) - @Feramance
+- [Remove free space tag if completed](https://github.com/Feramance/qBitrr/commit/eec18d20bf848997e4771f7a141f6feb497e50bf) - @Feramance
+- [Free space pause fix](https://github.com/Feramance/qBitrr/commit/0358a296e16bc92baf37f7cab7f260788d85db4d) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/61d6127cb960049be338362faf9cc27c58b2e77c) - @Feramance
+- [Free space fix test](https://github.com/Feramance/qBitrr/commit/6eb03308e30f4470f9b05ab9f423abe97787f788) - @Feramance
+- [Updated release workflow order](https://github.com/Feramance/qBitrr/commit/a09c21dbedfa649bad63026e3d84ff41f225a85f) - @Feramance
+- [Corrected version number for PyPi](https://github.com/Feramance/qBitrr/commit/bb61323b534b8a6b2beb7e9abfe3787e544c9c3c) - @Feramance
+
+---
+
 ## v4.2.8 (06/02/2024)
 - [[patch] Updated dependencies and formatted all files](https://github.com/Feramance/qBitrr/commit/3f747bcfd51bbfa8ba0420dc5adc517b193e933e) - @Feramance
 
@@ -352,10 +365,3 @@
 
 ## v3.8.11 (03/01/2024)
 - [[patch] Hotfix for missed execute](https://github.com/Feramance/qBitrr/commit/5118d7dc6f299e912a2ebeac044d0963322e5285) - @Feramance
-
----
-
-## v3.8.10 (03/01/2024)
-- [[patch] Fixed count query](https://github.com/Feramance/qBitrr/commit/2fd54c052084102ee609f1bb2ad678417931e426) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/d540460deea1eb8af72c61ebf689bb09489a9b69) - @Feramance
-- [Release flow fix](https://github.com/Feramance/qBitrr/commit/bfd365182d5c4d4d5530bbeccfdae98f89de5bfa) - @Feramance
