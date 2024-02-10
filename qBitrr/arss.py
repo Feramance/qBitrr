@@ -484,7 +484,12 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.manager.qbit_manager.client.torrents_create_tags(
-            ["qBitrr-allowed_seeding", "qBitrr-ignored", "qBitrr-free_space_paused"]
+            [
+                "qBitrr-allowed_seeding",
+                "qBitrr-ignored",
+                "qBitrr-free_space_paused",
+                "qbitrr-Imported",
+            ]
         )
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
@@ -815,6 +820,7 @@ class Arr:
                         self.import_mode,
                         ex,
                     )
+                torrent.add_tags(tags=["qBitrr-Imported"])
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
@@ -3275,7 +3281,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        else:
+        elif "qBitrr-Imported" not in torrent.tags:
             self.logger.info(
                 "Importing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
