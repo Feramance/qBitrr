@@ -1559,86 +1559,78 @@ class Arr:
             self.db_ombi_update()
 
     def _db_request_update(self, request_ids: dict[str, set[int | str]]):
-        try:
-            if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
-                TvdbIds = request_ids.get("TvdbId")
-                ImdbIds = request_ids.get("ImdbId")
-                completed = True
-                while completed:
-                    try:
-                        completed = False
-                        series = self.client.get_series()
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        completed = True
-                for s in series:
-                    episodes = self.client.get_episode(series["id"], True)
-                    for e in episodes:
-                        if "airDateUtc" in e:
-                            if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                                tzinfo=timezone.utc
-                            ) > datetime.now(timezone.utc):
+        if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
+            TvdbIds = request_ids.get("TvdbId")
+            ImdbIds = request_ids.get("ImdbId")
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    series = self.client.get_series()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                ):
+                    completed = True
+            for s in series:
+                episodes = self.client.get_episode(series["id"], True)
+                for e in episodes:
+                    if "airDateUtc" in e:
+                        if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                            tzinfo=timezone.utc
+                        ) > datetime.now(timezone.utc):
+                            continue
+                        if not self.search_specials and e["seasonNumber"] == 0:
+                            continue
+                        if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
+                            if series["tvdbId"] not in TvdbIds or series["imdbId"] not in ImdbIds:
                                 continue
-                            if not self.search_specials and e["seasonNumber"] == 0:
+                        if TvdbIds and "imdbId" in e:
+                            if series["imdbId"] not in ImdbIds:
                                 continue
-                            if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
-                                if (
-                                    series["tvdbId"] not in TvdbIds
-                                    or series["imdbId"] not in ImdbIds
-                                ):
-                                    continue
-                            if TvdbIds and "imdbId" in e:
-                                if series["imdbId"] not in ImdbIds:
-                                    continue
-                            if TvdbIds and "tvdbId" in e:
-                                if series["tvdbId"] not in TvdbIds:
-                                    continue
-                            if not e["monitored"]:
+                        if TvdbIds and "tvdbId" in e:
+                            if series["tvdbId"] not in TvdbIds:
                                 continue
-                            if e["episodeFileId"] != 0:
-                                continue
-                            self.db_update_single_series(db_entry=e, request=True)
+                        if not e["monitored"]:
+                            continue
+                        if e["episodeFileId"] != 0:
+                            continue
+                        self.db_update_single_series(db_entry=e, request=True)
 
-            elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
-                ImdbIds = request_ids.get("ImdbId")
-                TmdbIds = request_ids.get("TmdbId")
-                completed = True
-                while completed:
-                    try:
-                        completed = False
-                        movies = self.client.get_movie()
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        completed = True
-                for m in movies:
-                    if m["year"] > datetime.now().year and m["year"] == 0:
+        elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
+            ImdbIds = request_ids.get("ImdbId")
+            TmdbIds = request_ids.get("TmdbId")
+            completed = True
+            while completed:
+                try:
+                    completed = False
+                    movies = self.client.get_movie()
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                ):
+                    completed = True
+            for m in movies:
+                if m["year"] > datetime.now().year and m["year"] == 0:
+                    continue
+                if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
+                    if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
                         continue
-                    if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
-                        if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
-                            continue
-                    if ImdbIds and "imdbId" in m:
-                        if m["imdbId"] not in ImdbIds:
-                            continue
-                    if TmdbIds and "tmdbId" in m:
-                        if m["tmdbId"] not in TmdbIds:
-                            continue
-                    if not m["monitored"]:
+                if ImdbIds and "imdbId" in m:
+                    if m["imdbId"] not in ImdbIds:
                         continue
-                    if m["hasFile"]:
+                if TmdbIds and "tmdbId" in m:
+                    if m["tmdbId"] not in TmdbIds:
                         continue
-                    self.db_update_single_series(db_entry=m, request=True)
-
-        except requests.exceptions.ConnectionError:
-            self.logger.error("Connection Error")
-            raise DelayLoopException(length=300, type=self._name)
+                if not m["monitored"]:
+                    continue
+                if m["hasFile"]:
+                    continue
+                self.db_update_single_series(db_entry=m, request=True)
 
     def db_overseerr_update(self):
         if (not self.search_missing) or (not self.overseerr_requests):
