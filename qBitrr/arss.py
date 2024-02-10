@@ -1575,7 +1575,7 @@ class Arr:
                 ):
                     completed = True
             for s in series:
-                episodes = self.client.get_episode(series["id"], True)
+                episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
                     if "airDateUtc" in e:
                         if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
@@ -1585,20 +1585,19 @@ class Arr:
                         if not self.search_specials and e["seasonNumber"] == 0:
                             continue
                         if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
-                            if series["tvdbId"] not in TvdbIds or series["imdbId"] not in ImdbIds:
+                            if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
                                 continue
                         if TvdbIds and "imdbId" in e:
-                            if series["imdbId"] not in ImdbIds:
+                            if s["imdbId"] not in ImdbIds:
                                 continue
                         if TvdbIds and "tvdbId" in e:
-                            if series["tvdbId"] not in TvdbIds:
+                            if s["tvdbId"] not in TvdbIds:
                                 continue
                         if not e["monitored"]:
                             continue
                         if e["episodeFileId"] != 0:
                             continue
                         self.db_update_single_series(db_entry=e, request=True)
-
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
             TmdbIds = request_ids.get("TmdbId")
