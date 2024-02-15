@@ -488,7 +488,7 @@ class Arr:
                 "qBitrr-allowed_seeding",
                 "qBitrr-ignored",
                 "qBitrr-free_space_paused",
-                "qbitrr-Imported",
+                "qbitrr-imported",
             ]
         )
         self.search_setup_completed = False
@@ -820,7 +820,7 @@ class Arr:
                         self.import_mode,
                         ex,
                     )
-                torrent.add_tags(tags=["qBitrr-Imported"])
+                torrent.add_tags(tags=["qBitrr-imported"])
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
@@ -3274,7 +3274,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        elif "qBitrr-Imported" not in torrent.tags:
+        elif "qBitrr-imported" not in torrent.tags:
             self.logger.info(
                 "Importing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3698,8 +3698,8 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        free_space_test = self.current_free_space
         if self.is_downloading_state(torrent) and self.min_free_space != "-1":
+            free_space_test = self.current_free_space
             free_space_test -= torrent["amount_left"]
             self.logger.trace("Resulting free space: %s", free_space_test)
             if (
