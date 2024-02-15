@@ -837,6 +837,7 @@ class Arr:
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
+        self.logger.trace("Requeue cache entry: %s", object_id)
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = list(object_id)
@@ -877,6 +878,7 @@ class Arr:
                     for object_id in object_ids:
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
+                    self.logger.trace("Research series id: %s", series_id)
                     completed = True
                     while completed:
                         try:
