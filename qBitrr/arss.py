@@ -841,6 +841,7 @@ class Arr:
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = list(object_id)
+                self.logger.trace("Requeue cache entry list: %s", object_ids)
                 if self.series_search:
                     completed = True
                     while completed:
@@ -869,7 +870,6 @@ class Arr:
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
-                            AttributeError,
                         ):
                             completed = True
                         except PyarrResourceNotFound as e:
@@ -1022,7 +1022,7 @@ class Arr:
             self.logger.trace("Debug 2")
             delete_ = True
         else:
-            self.logger.trace("Debug 5")
+            self.logger.trace("Debug 3")
             delete_ = False
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
