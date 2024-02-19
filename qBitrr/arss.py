@@ -1017,42 +1017,32 @@ class Arr:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
-        self.logger.trace("Debug 1")
         if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            self.logger.trace("Debug 2")
             delete_ = True
         else:
-            self.logger.trace("Debug 3")
             delete_ = False
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
-        self.logger.trace("Debug 4")
         if to_delete_all:
-            self.logger.trace("Debug 5")
             self.needs_cleanup = True
             payload = self.process_entries(to_delete_all)
             if payload:
-                self.logger.trace("Debug 6")
                 for entry, hash_ in payload:
                     self._process_failed_individual(
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                     )
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            self.logger.trace("Debug 7")
             # Remove all bad torrents from the Client.
             temp_to_delete = set()
             if to_delete_all:
-                self.logger.trace("Debug 8")
                 self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
             if self.remove_from_qbit or self.skip_blacklist:
-                self.logger.trace("Debug 9")
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
                 self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
 
             to_delete_all = to_delete_all.union(temp_to_delete)
             for h in to_delete_all:
-                self.logger.trace("Debug 10")
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
                 if h in self.manager.qbit_manager.name_cache:
@@ -1060,7 +1050,6 @@ class Arr:
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
         if delete_:
-            self.logger.trace("Debug 11")
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()
