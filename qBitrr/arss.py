@@ -737,7 +737,7 @@ class Arr:
         # Bulks pause all torrents flagged for pausing.
         if self.pause:
             self.needs_cleanup = True
-            self.logger.debug("Pausing %s completed torrents", len(self.pause))
+            self.logger.debug("Pausing %s torrents", len(self.pause))
             for i in self.pause:
                 self.logger.debug(
                     "Pausing %s (%s)",
@@ -1017,32 +1017,42 @@ class Arr:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
+        self.logger.trace("Debug 1")
         if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
+            self.logger.trace("Debug 2")
             delete_ = True
         else:
+            self.logger.trace("Debug 5")
             delete_ = False
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
+        self.logger.trace("Debug 4")
         if to_delete_all:
+            self.logger.trace("Debug 5")
             self.needs_cleanup = True
             payload = self.process_entries(to_delete_all)
             if payload:
+                self.logger.trace("Debug 6")
                 for entry, hash_ in payload:
                     self._process_failed_individual(
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                     )
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
+            self.logger.trace("Debug 7")
             # Remove all bad torrents from the Client.
             temp_to_delete = set()
             if to_delete_all:
+                self.logger.trace("Debug 8")
                 self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
             if self.remove_from_qbit or self.skip_blacklist:
+                self.logger.trace("Debug 9")
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
                 self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
 
             to_delete_all = to_delete_all.union(temp_to_delete)
             for h in to_delete_all:
+                self.logger.trace("Debug 10")
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
                 if h in self.manager.qbit_manager.name_cache:
@@ -1050,6 +1060,7 @@ class Arr:
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
         if delete_:
+            self.logger.trace("Debug 11")
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()
@@ -3924,24 +3935,18 @@ class Arr:
             "qBitrr-free_space_paused" in torrent.tags
             and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
         ):
-            self.logger.trace("Debug 1")
             self._process_single_torrent_pause_disk_space(torrent)
         elif self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
-            self.logger.trace("Debug 2")
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
-            self.logger.trace("Debug 3")
             self._process_single_torrent_delete_ratio_seed(torrent)
         elif torrent.category == FAILED_CATEGORY:
-            self.logger.trace("Debug 4")
             # Bypass everything if manually marked as failed
             self._process_single_torrent_failed_cat(torrent)
         elif torrent.category == RECHECK_CATEGORY:
-            self.logger.trace("Debug 5")
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent)
         elif self.is_ignored_state(torrent):
-            self.logger.trace("Debug 6")
             self._process_single_torrent_ignored(torrent)
         elif (
             torrent.state_enum
@@ -3951,7 +3956,6 @@ class Arr:
             )
             and "qBitrr-ignored" not in torrent.tags
         ):
-            self.logger.trace("Debug 9")
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
             torrent.state_enum.is_downloading
@@ -3959,20 +3963,17 @@ class Arr:
             and torrent.hash not in self.special_casing_file_check
             and torrent.hash not in self.cleaned_torrents
         ):
-            self.logger.trace("Debug 7")
             self._process_single_torrent_process_files(torrent, True)
         elif torrent.hash in self.timed_ignore_cache:
             # Do not touch torrents recently resumed/reached (A torrent can temporarily
             # stall after being resumed from a paused state).
             self._process_single_torrent_added_to_ignore_cache(torrent)
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
-            self.logger.trace("Debug 8")
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
         ) and torrent.hash in self.cleaned_torrents:
-            self.logger.trace("Debug 10")
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
         elif (
@@ -3980,20 +3981,17 @@ class Arr:
             and torrent.amount_left != 0
             and "qBitrr-free_space_paused" not in torrent.tags
         ):
-            self.logger.trace("Debug 12")
             self._process_single_torrent_paused(torrent)
         # Ignore torrents which have been submitted to their respective Arr
         # instance for import.
         elif (
             torrent.hash in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
         ) and torrent.hash in self.cleaned_torrents:
-            self.logger.trace("Debug 13")
             self._process_single_torrent_already_sent_to_scan(torrent)
 
         # Sometimes torrents will error, this causes them to be rechecked so they
         # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
-            self.logger.trace("Debug 14")
             self._process_single_torrent_errored(torrent)
         # If a torrent was not just added,
         # and the amount left to download is 0 and the torrent
@@ -4007,10 +4005,8 @@ class Arr:
             and torrent.content_path
             and torrent.completion_on < time_now - 60
         ):
-            self.logger.trace("Debug 15")
             self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
         elif torrent.state_enum == TorrentStates.MISSING_FILES:
-            self.logger.trace("Debug 16")
             self._process_single_torrent_missing_files(torrent)
         # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
         elif (
@@ -4021,7 +4017,6 @@ class Arr:
             and torrent.content_path
             and self.seeding_mode_global_remove_torrent != -1
         ) and torrent.hash in self.cleaned_torrents:
-            self.logger.trace("Debug 17")
             self._process_single_torrent_uploading(torrent, leave_alone)
         # Mark a torrent for deletion
         elif (
@@ -4033,11 +4028,9 @@ class Arr:
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
         ):
-            self.logger.trace("Debug 18")
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
         elif torrent.state_enum.is_downloading:
-            self.logger.trace("Debug 19")
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
@@ -4049,20 +4042,16 @@ class Arr:
                 and torrent.hash in self.cleaned_torrents
                 and "qBitrr-ignored" not in torrent.tags
             ):
-                self.logger.trace("Debug 20")
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
-                self.logger.trace("Debug 21")
                 if torrent.hash in self.cleaned_torrents:
                     self._process_single_torrent_already_cleaned_up(torrent)
                     return
                 # A downloading torrent is not stalled, parse its contents.
                 self._process_single_torrent_process_files(torrent)
         elif self.is_complete_state(torrent) and leave_alone:
-            self.logger.trace("Debug 22")
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
-            self.logger.trace("Debug 23")
             self._process_single_torrent_unprocessed(torrent)
         if "qBitrr-free_space_paused" in torrent.tags:
             self._process_single_torrent_pause_disk_space(torrent)
