@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.3.3 (19/02/2024)
+- [[patch] General torrent handling fixes](https://github.com/Feramance/qBitrr/commit/af46ce673b0445fe27763926f089a13ba38ecf12) - @Feramance
+- [Fixed Error](https://github.com/Feramance/qBitrr/commit/5be7791766cfb2c85424ee65ce2d6974661c8080) - @Feramance
+- [More debugging](https://github.com/Feramance/qBitrr/commit/de2fcaa551f5b5eede7d4cac130ae02f24a0a087) - @Feramance
+- [Further debugging deting of stalled torrents](https://github.com/Feramance/qBitrr/commit/7e16633e09b393401d2c38f599e9a3e0c2f44d16) - @Feramance
+- [Altered torrent condition checks](https://github.com/Feramance/qBitrr/commit/b6fed3490233972b35206922ae5c6535c84fc61e) - @Feramance
+- [Added Debugs](https://github.com/Feramance/qBitrr/commit/2756039b680c7fc629e586914e11dd6a618ca3c8) - @Feramance
+- [Changed default valuies](https://github.com/Feramance/qBitrr/commit/9e2507c65295d0a46c0f76b607a4d309ecac2c5c) - @Feramance
+- [Added more debugs](https://github.com/Feramance/qBitrr/commit/0b33d5a5deb21fd11b64bcbd63714e42be64b87d) - @Feramance
+- [Changed some debugs](https://github.com/Feramance/qBitrr/commit/c1cd268633ad25df5a6759f5ddb8b5828730d07f) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/1f2c706d3d8def1666f0aa96ed348b69d1bbd859) - @Feramance
+- [Added logging for debugging](https://github.com/Feramance/qBitrr/commit/a75a49c59e87612f0a77f8f5b358ca4d5958eb2c) - @Feramance
+
+---
+
 ## v4.3.2 (12/02/2024)
 - [[patch] Current free space fix](https://github.com/Feramance/qBitrr/commit/d08a440f773e224b7d9f448c3e108a44b4ff1ae2) - @Feramance
 - [Request update fixes](https://github.com/Feramance/qBitrr/commit/8b6e85672e90fa4706facf167b0b38c1f60d59bd) - @Feramance
@@ -344,8 +359,3 @@
 
 ## v4.0.2 (08/01/2024)
 - [[patch] v4 hotfix 2](https://github.com/Feramance/qBitrr/commit/3889efcb5eafa96d9fdf695fa2f080c49e70c613) - @Feramance
-
----
-
-## v4.0.1 (08/01/2024)
-- [[patch] First v4 hotfix](https://github.com/Feramance/qBitrr/commit/c241046e899772a59c6115b02c0ebe9f09b39fb2) - @Feramance
