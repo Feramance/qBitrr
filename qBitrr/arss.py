@@ -2965,6 +2965,7 @@ class Arr:
                     self.current_free_space = shutil.disk_usage(
                         self.completed_folder
                     ).free - parse_size(self.min_free_space)
+                    self.logger.trace("Current free space: %s", self.current_free_space)
                     sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 else:
                     sorted_torrents = torrents
@@ -3706,15 +3707,15 @@ class Arr:
                 torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space < torrent["amount_left"]
             ):
-                self.logger.trace("Pausing torrent: Free space %s", self.current_free_space)
+                self.logger.trace("Pause download: Free space %s", self.current_free_space)
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
                 torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
-            if (
+            elif (
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space > torrent["amount_left"]
             ):
                 self.current_free_space = free_space_test
-                self.logger.trace("Resuming torrent: Free space %s", self.current_free_space)
+                self.logger.trace("Can download: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
         elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.trace(
@@ -3935,7 +3936,6 @@ class Arr:
             self._process_single_torrent_recheck_cat(torrent)
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
-
         elif (
             torrent.state_enum.is_downloading
             and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
@@ -3947,7 +3947,6 @@ class Arr:
             # Do not touch torrents recently resumed/reached (A torrent can temporarily
             # stall after being resumed from a paused state).
             self._process_single_torrent_added_to_ignore_cache(torrent)
-
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif (
