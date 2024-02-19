@@ -3913,10 +3913,11 @@ class Arr:
         time_now = time.time()
         leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
         self.logger.trace(
-            "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s",
+            "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s, State[%s]",
             torrent.name,
             leave_alone,
             _tracker_max_eta,
+            torrent.state_enum,
         )
         maximum_eta = _tracker_max_eta
         if (
