@@ -837,7 +837,6 @@ class Arr:
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
-        self.logger.trace("Requeue cache entry: %s", object_id)
         if self.re_search and object_id:
             if self.type == "sonarr":
                 object_ids = list(object_id)
@@ -847,7 +846,7 @@ class Arr:
                     while completed:
                         try:
                             completed = False
-                            data = self.client.series(object_ids[0])
+                            data = self.client.get_series(object_ids[0])
                             name = data["title"]
                             series_id = data["id"]
                             if name:
@@ -955,6 +954,7 @@ class Arr:
                         if self.persistent_queue:
                             self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "radarr":
+                self.logger.trace("Requeue cache entry: %s", object_id)
                 completed = True
                 while completed:
                     try:
