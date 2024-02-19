@@ -3944,6 +3944,16 @@ class Arr:
             self.logger.trace("Debug 6")
             self._process_single_torrent_ignored(torrent)
         elif (
+            torrent.state_enum
+            in (
+                TorrentStates.METADATA_DOWNLOAD,
+                TorrentStates.STALLED_DOWNLOAD,
+            )
+            and "qBitrr-ignored" not in torrent.tags
+        ):
+            self.logger.trace("Debug 9")
+            self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
+        elif (
             torrent.state_enum.is_downloading
             and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
             and torrent.hash not in self.special_casing_file_check
@@ -3958,16 +3968,6 @@ class Arr:
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self.logger.trace("Debug 8")
             self._process_single_torrent_queued_upload(torrent, leave_alone)
-        elif (
-            torrent.state_enum
-            in (
-                TorrentStates.METADATA_DOWNLOAD,
-                TorrentStates.STALLED_DOWNLOAD,
-            )
-            and "qBitrr-ignored" not in torrent.tags
-        ):
-            self.logger.trace("Debug 9")
-            self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
