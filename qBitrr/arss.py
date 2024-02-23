@@ -4564,7 +4564,7 @@ class Arr:
                                     time.sleep(loop_delay)
                                 if SEARCH_LOOP_DELAY != -1:
                                     self.logger.info(
-                                        "Delaying loop by %s seconds", SEARCH_LOOP_DELAY
+                                        "Delaying search loop by %s seconds", SEARCH_LOOP_DELAY
                                     )
                                     time.sleep(SEARCH_LOOP_DELAY)
                                 totcommands -= 1
