@@ -19,6 +19,7 @@ from qBitrr.config import (
     NO_INTERNET_SLEEP_TIMER,
     PING_URLS,
     RECHECK_CATEGORY,
+    SEARCH_LOOP_DELAY,
 )
 
 __all__ = ("run_logs",)
@@ -126,6 +127,7 @@ def log_Debugs(logger):
     logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
     logger.debug("Script Config:  FreeSpace=%s", FREE_SPACE)
     logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
+    logger.debug("Script Config:  LoopSleepTimer=%s", SEARCH_LOOP_DELAY)
     logger.debug(
         "Script Config:  NoInternetSleepTimer=%s",
         NO_INTERNET_SLEEP_TIMER,

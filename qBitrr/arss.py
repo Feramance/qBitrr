@@ -4563,6 +4563,9 @@ class Arr:
                                     self.logger.debug("Waiting for active search commands")
                                     time.sleep(loop_delay)
                                 if SEARCH_LOOP_DELAY != -1:
+                                    self.logger.info(
+                                        "Delaying loop by %s seconds", SEARCH_LOOP_DELAY
+                                    )
                                     time.sleep(SEARCH_LOOP_DELAY)
                                 totcommands -= 1
                                 if totcommands == 0:
