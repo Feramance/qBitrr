@@ -39,6 +39,7 @@ from qBitrr.config import (
     PROCESS_ONLY,
     QBIT_DISABLED,
     RECHECK_CATEGORY,
+    SEARCH_LOOP_DELAY,
     SEARCH_ONLY,
 )
 from qBitrr.errors import (
@@ -4546,6 +4547,10 @@ class Arr:
                                 if totcommands == -1:
                                     totcommands = commands
                                     self.logger.info("Starting search for %s items", totcommands)
+                                if SEARCH_LOOP_DELAY == -1:
+                                    loop_delay = 30
+                                else:
+                                    loop_delay = SEARCH_LOOP_DELAY
                                 while (
                                     self.maybe_do_search(
                                         entry,
@@ -4556,7 +4561,9 @@ class Arr:
                                     )
                                 ) is False:
                                     self.logger.debug("Waiting for active search commands")
-                                    time.sleep(30)
+                                    time.sleep(loop_delay)
+                                if SEARCH_LOOP_DELAY != -1:
+                                    time.sleep(SEARCH_LOOP_DELAY)
                                 totcommands -= 1
                                 if totcommands == 0:
                                     self.logger.info("All searches completed")

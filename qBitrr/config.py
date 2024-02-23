@@ -130,6 +130,9 @@ NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONF
 LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
     "Settings.LoopSleepTimer", fallback=5
 )
+SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get(
+    "Settings.SearchLoopDelay", fallback=-1
+)
 PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
     "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
 )

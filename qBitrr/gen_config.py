@@ -70,6 +70,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)",
+        "SearchLoopDelay",
+        ENVIRO_CONFIG.settings.search_loop_delay or -1,
+    )
+    _gen_default_line(
+        settings,
         "Add torrents to this category to mark them as failed",
         "FailedCategory",
         ENVIRO_CONFIG.settings.failed_category or "failed",

@@ -21,6 +21,9 @@ NoInternetSleepTimer = 15
 # Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)
 LoopSleepTimer = 5
 
+# Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)
+SearchLoopDelay = -1
+
 # Add torrents to this category to mark them as failed
 FailedCategory = "failed"
 
