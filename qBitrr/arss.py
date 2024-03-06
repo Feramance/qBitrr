@@ -4023,6 +4023,7 @@ class Arr:
         elif torrent.state_enum.is_downloading:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
+            self.logger.trace("Torrent availability: %s[%s]", torrent.name, torrent.availability)
             if (
                 (
                     self.recently_queue.get(torrent.hash, torrent.added_on)
