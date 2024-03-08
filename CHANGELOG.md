@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.4.1 (08/03/2024)
+- [[patch] Dependency bump](https://github.com/Feramance/qBitrr/commit/4caa0af9bdf0273302d0efdff7a883f3ef436d8b) - @Feramance
+- [Debugging torrent availability](https://github.com/Feramance/qBitrr/commit/54b80acba9a41a936078c8143b010658d13d50ac) - @Feramance
+- [Updated config example](https://github.com/Feramance/qBitrr/commit/26083a07f3072db7f1ada387b28ec680bffa1a01) - @Feramance
+
+---
+
 ## v4.4.0 (23/02/2024)
 - [[minor] Added config option to delay search commands and reduce activity on indexers](https://github.com/Feramance/qBitrr/commit/5ea5dfeaffe3071b9e12f3170f21a7fb8754ceb2) - @Feramance
 - [Added logging for better testing](https://github.com/Feramance/qBitrr/commit/adf04ac66ef6844544fac2fb4c850e58e42eb2bd) - @Feramance
@@ -356,8 +363,3 @@
 
 ## v4.0.4 (08/01/2024)
 - [[patch] v4 hotfix 4](https://github.com/Feramance/qBitrr/commit/7495c08dfce34b54d8db148f64a3367e8d0f1f90) - @Feramance
-
----
-
-## v4.0.3 (08/01/2024)
-- [[patch] v4 hotifx 3](https://github.com/Feramance/qBitrr/commit/0c9d4296c53caffe518534c541a90e69de7e5ab7) - @Feramance
