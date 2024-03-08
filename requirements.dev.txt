@@ -10,7 +10,7 @@ attrs==23.2.0
     # via environ-config
 black==22.1.0
     # via qBitrr2 (setup.py)
-build==1.0.3
+build==1.1.1
     # via pip-tools
 bump2version==1.0.1
     # via qBitrr2 (setup.py)
@@ -49,21 +49,21 @@ ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
 filelock==3.13.1
     # via virtualenv
-future==0.18.3
+future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.33
+identify==2.5.35
     # via pre-commit
 idna==3.6
     # via requests
-importlib-metadata==7.0.1
+importlib-metadata==7.0.2
     # via
     #   keyring
     #   twine
 isort==5.10.1
     # via qBitrr2 (setup.py)
-jaraco-classes==3.3.0
+jaraco-classes==3.3.1
     # via keyring
 jaraco-context==4.3.0
     # via jaraco-docker
@@ -71,7 +71,7 @@ jaraco-docker==2.0
     # via qBitrr2 (setup.py)
 jaraco-functools==4.0.0
     # via jaraco-docker
-keyring==24.3.0
+keyring==24.3.1
     # via twine
 more-itertools==10.2.0
     # via
@@ -104,7 +104,7 @@ ping3==3.0.2
     # via qBitrr2 (setup.py)
 pip-tools==7.3.0
     # via qBitrr2 (setup.py)
-pkginfo==1.9.6
+pkginfo==1.10.0
     # via twine
 platformdirs==4.2.0
     # via
@@ -124,7 +124,7 @@ pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
 pyinstaller-hooks-contrib==2023.11
     # via pyinstaller
-pyparsing==3.1.1
+pyparsing==3.1.2
     # via packaging
 pyproject-hooks==1.0.0
     # via build
@@ -140,7 +140,7 @@ pyyaml==6.0.1
     # via pre-commit
 qbittorrent-api==2023.7.52
     # via qBitrr2 (setup.py)
-readme-renderer==42.0
+readme-renderer==43.0
     # via twine
 requests==2.31.0
     # via
@@ -165,22 +165,22 @@ tomli==2.0.1
     #   pyproject-hooks
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-tqdm==4.66.1
+tqdm==4.66.2
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240125
+types-requests==2.31.0.20240218
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.2.0
+urllib3==2.2.1
     # via
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.25.0
+virtualenv==20.25.1
     # via pre-commit
 wheel==0.42.0
     # via pip-tools

@@ -24,7 +24,7 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-future==0.18.3
+future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
@@ -58,7 +58,7 @@ ppft==1.7.6.8
     # via pathos
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
-pyparsing==3.1.1
+pyparsing==3.1.2
     # via packaging
 pyreadline3==3.4.1
     # via humanfriendly
@@ -73,9 +73,9 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240125
+types-requests==2.31.0.20240218
     # via pyarr
-urllib3==2.2.0
+urllib3==2.2.1
     # via
     #   qbittorrent-api
     #   requests
