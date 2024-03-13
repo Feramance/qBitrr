@@ -3921,6 +3921,15 @@ class Arr:
             torrent.state_enum,
         )
         maximum_eta = _tracker_max_eta
+        if "qBitrr-ignored" in torrent.tags:
+            torrent.remove_tags(
+                [
+                    "qBitrr-allowed_seeding",
+                    "qBitrr-ignored",
+                    "qBitrr-free_space_paused",
+                    "qbitrr-imported",
+                ]
+            )
         if (
             "qBitrr-free_space_paused" in torrent.tags
             and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
