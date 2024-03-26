@@ -47,7 +47,7 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.13.1
+filelock==3.13.3
     # via virtualenv
 future==1.0.0
     # via ffmpeg-python
@@ -57,7 +57,7 @@ identify==2.5.35
     # via pre-commit
 idna==3.6
     # via requests
-importlib-metadata==7.0.2
+importlib-metadata==7.1.0
     # via
     #   keyring
     #   twine
@@ -66,12 +66,16 @@ isort==5.10.1
 jaraco-classes==3.3.1
     # via keyring
 jaraco-context==4.3.0
-    # via jaraco-docker
+    # via
+    #   jaraco-docker
+    #   keyring
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
 jaraco-functools==4.0.0
-    # via jaraco-docker
-keyring==24.3.1
+    # via
+    #   jaraco-docker
+    #   keyring
+keyring==25.0.0
     # via twine
 more-itertools==10.2.0
     # via
@@ -169,7 +173,7 @@ tqdm==4.66.2
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240218
+types-requests==2.31.0.20240311
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
@@ -182,9 +186,9 @@ urllib3==2.2.1
     #   types-requests
 virtualenv==20.25.1
     # via pre-commit
-wheel==0.42.0
+wheel==0.43.0
     # via pip-tools
-zipp==3.17.0
+zipp==3.18.1
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
