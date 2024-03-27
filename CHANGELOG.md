@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.4.2 (26/03/2024)
+- [[patch] ignored tag fixes](https://github.com/Feramance/qBitrr/commit/cb4fc1244e537f4642ba725435dc9556a50f1b24) - @Feramance
+- [Merge pull request #68 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.0.0](https://github.com/Feramance/qBitrr/commit/79b200b919cf11893b9c897fcd26b32140337b94) - @Feramance
+- [Bump dependabot/fetch-metadata from 1.6.0 to 2.0.0](https://github.com/Feramance/qBitrr/commit/05d97a26e14523506e855654f9c16e950ce21163) - @dependabot[bot]
+- [Testing improved ignored functionality](https://github.com/Feramance/qBitrr/commit/bdefa5c6c591ed9aa898cad73cd148c1d0840ad9) - @Feramance
+
+---
+
 ## v4.4.1 (08/03/2024)
 - [[patch] Dependency bump](https://github.com/Feramance/qBitrr/commit/4caa0af9bdf0273302d0efdff7a883f3ef436d8b) - @Feramance
 - [Debugging torrent availability](https://github.com/Feramance/qBitrr/commit/54b80acba9a41a936078c8143b010658d13d50ac) - @Feramance
@@ -358,8 +366,3 @@
 
 ## v4.0.5 (08/01/2024)
 - [[patch] v4 hotfix 5](https://github.com/Feramance/qBitrr/commit/020ea32ac9065516bd3791b32f0761a51ee49d6d) - @Feramance
-
----
-
-## v4.0.4 (08/01/2024)
-- [[patch] v4 hotfix 4](https://github.com/Feramance/qBitrr/commit/7495c08dfce34b54d8db148f64a3367e8d0f1f90) - @Feramance

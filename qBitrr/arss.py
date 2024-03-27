@@ -3925,9 +3925,7 @@ class Arr:
             torrent.remove_tags(
                 [
                     "qBitrr-allowed_seeding",
-                    "qBitrr-ignored",
                     "qBitrr-free_space_paused",
-                    "qbitrr-imported",
                 ]
             )
         if (

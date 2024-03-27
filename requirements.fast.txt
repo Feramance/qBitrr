@@ -73,7 +73,7 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240218
+types-requests==2.31.0.20240311
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
