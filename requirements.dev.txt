@@ -55,7 +55,7 @@ humanfriendly==10.0
     # via coloredlogs
 identify==2.5.35
     # via pre-commit
-idna==3.6
+idna==3.7
     # via requests
 importlib-metadata==7.1.0
     # via

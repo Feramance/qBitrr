@@ -28,7 +28,7 @@ future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-idna==3.6
+idna==3.7
     # via requests
 jaraco-context==4.3.0
     # via jaraco-docker
