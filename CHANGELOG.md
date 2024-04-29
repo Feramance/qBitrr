@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.1 (29/04/2024)
+- [[patch] Binaries update](https://github.com/Feramance/qBitrr/commit/6580cdaf04430c95e361c3307e59a222ad3d8d5e) - @Feramance
+
+---
+
 ## v4.5.0 (29/04/2024)
 - [[minor] Free space logic overhaul](https://github.com/Feramance/qBitrr/commit/3362eb815072ad64cbbacde91a8de7ff59380611) - @Feramance
 - [Added missing variable](https://github.com/Feramance/qBitrr/commit/cfd7fcac7b643493e3ddda92f18bd54402959522) - @Feramance
@@ -382,8 +387,3 @@
 
 ## v4.0.7 (08/01/2024)
 - [[patch] v4 hotifx 7](https://github.com/Feramance/qBitrr/commit/a53a817df1d2c1a0ad8a56b0d0960426fff5e686) - @Feramance
-
----
-
-## v4.0.6 (08/01/2024)
-- [[patch] v4 hotfix 6 (hopefully the last)](https://github.com/Feramance/qBitrr/commit/4e0565f45d8bea134060f2d6132dba6727378806) - @Feramance
