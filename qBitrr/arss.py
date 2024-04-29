@@ -118,12 +118,6 @@ class Arr:
                     self._name,
                     self.completed_folder,
                 )
-        self.min_free_space = FREE_SPACE
-        if self.min_free_space != "-1":
-            self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
-                self.min_free_space
-            )
-            self.logger.trace("Current free space: %s", self.current_free_space)
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
@@ -488,7 +482,6 @@ class Arr:
             [
                 "qBitrr-allowed_seeding",
                 "qBitrr-ignored",
-                "qBitrr-free_space_paused",
                 "qbitrr-imported",
             ]
         )
@@ -2962,15 +2955,7 @@ class Arr:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
                 self.api_calls()
                 self.refresh_download_queue()
-                if self.min_free_space != "-1":
-                    self.current_free_space = shutil.disk_usage(
-                        self.completed_folder
-                    ).free - parse_size(self.min_free_space)
-                    self.logger.trace("Current free space: %s", self.current_free_space)
-                    sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
-                else:
-                    sorted_torrents = torrents
-                for torrent in sorted_torrents:
+                for torrent in torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent)
                 self.process()
@@ -3327,24 +3312,6 @@ class Arr:
         # We do not want to blacklist these!!
         self.remove_from_qbit.add(torrent.hash)
 
-    def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
-        self.logger.info(
-            "Pausing torrent for disk space: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
-        )
-        self.pause.add(torrent.hash)
-
     def _process_single_torrent_uploading(
         self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
     ):
@@ -3700,33 +3667,6 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if self.is_downloading_state(torrent) and self.min_free_space != "-1":
-            free_space_test = self.current_free_space
-            free_space_test -= torrent["amount_left"]
-            self.logger.trace("Resulting free space: %s", free_space_test)
-            if (
-                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space < torrent["amount_left"]
-            ):
-                self.logger.trace("Pause download: Free space %s", self.current_free_space)
-                torrent.add_tags(tags=["qBitrr-free_space_paused"])
-                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
-            elif (
-                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space > torrent["amount_left"]
-            ):
-                self.current_free_space = free_space_test
-                self.logger.trace("Can download: Free space %s", self.current_free_space)
-                torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-        elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
-            self.logger.trace(
-                "Removing tag[%s] for completed torrent[%s]: Free space %s",
-                "qBitrr-free_space_paused",
-                torrent,
-                self.current_free_space,
-            )
-            torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-
         if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
             torrent, seeding_time_limit, ratio_limit
         ):
@@ -3928,12 +3868,7 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-        if (
-            "qBitrr-free_space_paused" in torrent.tags
-            and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-        ):
-            self._process_single_torrent_pause_disk_space(torrent)
-        elif self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
+        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
@@ -4051,8 +3986,6 @@ class Arr:
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
             self._process_single_torrent_unprocessed(torrent)
-        if "qBitrr-free_space_paused" in torrent.tags:
-            self._process_single_torrent_pause_disk_space(torrent)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
@@ -4758,7 +4691,19 @@ class PlaceHolderArr(Arr):
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        self.logger = logging.getLogger(f"qBitrr.{self._name}")
+        if ENABLE_LOGS:
+            LOGS_FOLDER = HOME_PATH.joinpath("logs")
+            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+            LOGS_FOLDER.chmod(mode=0o777)
+            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            if pathlib.Path(logfile).is_file():
+                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logfile.rename(logold)
+            fh = logging.FileHandler(logfile)
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
+            self.logger.addHandler(fh)
+        else:
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
@@ -4877,11 +4822,178 @@ class PlaceHolderArr(Arr):
         return
 
 
+class FreeSpaceManager(Arr):
+    def __init__(self, categories: set[str]):
+        self._name = "FreeSpaceManager"
+        self.categories = categories
+        self.pause = set()
+        self.resume = set()
+        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
+        if ENABLE_LOGS:
+            LOGS_FOLDER = HOME_PATH.joinpath("logs")
+            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+            LOGS_FOLDER.chmod(mode=0o777)
+            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            if pathlib.Path(logfile).is_file():
+                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logfile.rename(logold)
+            fh = logging.FileHandler(logfile)
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
+            self.logger.addHandler(fh)
+        else:
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
+        run_logs(self.logger)
+        self.min_free_space = FREE_SPACE
+        self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
+            self.min_free_space
+        )
+        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+        if self.min_free_space != "-1":
+            self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
+                self.min_free_space
+            )
+            self.logger.trace("Current free space: %s", self.current_free_space)
+        self.manager.qbit_manager.client.torrents_create_tags(
+            [
+                "qBitrr-free_space_paused",
+            ]
+        )
+
+    def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.info(
+            "Pausing torrent for disk space: "
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
+            "[Last active: %s] "
+            "| [%s] | %s (%s)",
+            round(torrent.progress * 100, 2),
+            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
+            timedelta(seconds=torrent.eta),
+            datetime.fromtimestamp(torrent.last_activity),
+            torrent.state_enum,
+            torrent.name,
+            torrent.hash,
+        )
+        self.pause.add(torrent.hash)
+
+    def _process_single_torrent_resume_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
+        self.logger.info(
+            "Resuming torrent for disk space: "
+            "[Progress: %s%%][Added On: %s]"
+            "[Availability: %s%%][Time Left: %s]"
+            "[Last active: %s] "
+            "| [%s] | %s (%s)",
+            round(torrent.progress * 100, 2),
+            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            round(torrent.availability * 100, 2),
+            timedelta(seconds=torrent.eta),
+            datetime.fromtimestamp(torrent.last_activity),
+            torrent.state_enum,
+            torrent.name,
+            torrent.hash,
+        )
+        self.resume.add(torrent.hash)
+
+    def _process_single_torrent(self, torrent):
+        if self.is_downloading_state(torrent):
+            free_space_test = self.current_free_space
+            free_space_test -= torrent["amount_left"]
+            self.logger.trace("Resulting free space: %s", free_space_test)
+            if (
+                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+                and self.current_free_space < torrent["amount_left"]
+            ):
+                self.logger.trace("Pause download: Free space %s", self.current_free_space)
+                torrent.add_tags(tags=["qBitrr-free_space_paused"])
+                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+                self._process_single_torrent_pause_disk_space(torrent.hash)
+            elif (
+                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
+                and self.current_free_space > torrent["amount_left"]
+            ):
+                self.current_free_space = free_space_test
+                self.logger.trace("Can download: Free space %s", self.current_free_space)
+                torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+                self._process_single_torrent_resume_disk_space(torrent.hash)
+        elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
+            self.logger.trace(
+                "Removing tag[%s] for completed torrent[%s]: Free space %s",
+                "qBitrr-free_space_paused",
+                torrent,
+                self.current_free_space,
+            )
+            torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+
+    def process(self):
+        self._process_paused()
+        self._process_resume()
+
+    def process_torrents(self):
+        try:
+            try:
+                completed = True
+                while completed:
+                    try:
+                        completed = False
+                        torrents = self.manager.qbit_manager.client.torrents.info(
+                            status_filter="all",
+                            category=self.category,
+                            sort="added_on",
+                            reverse=False,
+                        )
+                    except qbittorrentapi.exceptions.APIError:
+                        completed = True
+                torrents = [t for t in torrents if hasattr(t, "category")]
+                torrents = [t for t in torrents if t.category in self.categories]
+                if not len(torrents):
+                    raise DelayLoopException(length=5, type="no_downloads")
+                if has_internet() is False:
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                if self.manager.qbit_manager.should_delay_torrent_scan:
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                if self.min_free_space != "-1":
+                    self.current_free_space = shutil.disk_usage(
+                        self.completed_folder
+                    ).free - parse_size(self.min_free_space)
+                    self.logger.trace("Current free space: %s", self.current_free_space)
+                    sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
+                else:
+                    sorted_torrents = torrents
+                for torrent in sorted_torrents:
+                    with contextlib.suppress(qbittorrentapi.NotFound404Error):
+                        self._process_single_torrent(torrent)
+                self.process()
+            except NoConnectionrException as e:
+                self.logger.error(e.message)
+            except qbittorrentapi.exceptions.APIError as e:
+                self.logger.error("The qBittorrent API returned an unexpected error")
+                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                raise DelayLoopException(length=300, type="qbit")
+            except qbittorrentapi.exceptions.APIConnectionError as e:
+                self.logger.warning("Max retries exceeded")
+                raise DelayLoopException(length=300, type="qbit")
+            except DelayLoopException:
+                raise
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
+            except Exception as e:
+                self.logger.error(e, exc_info=sys.exc_info())
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
+        except DelayLoopException:
+            raise
+
+
 class ArrManager:
     def __init__(self, qbitmanager: qBitManager):
         self.groups: set[str] = set()
         self.uris: set[str] = set()
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
+        self.arr_categories: set[str] = set()
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
@@ -4916,6 +5028,7 @@ class ArrManager:
                     self.groups.add(name)
                     self.uris.add(managed_object.uri)
                     self.managed_objects[managed_object.category] = managed_object
+                    self.arr_categories.add(managed_object.category)
                 except KeyError as e:
                     self.logger.critical(e)
                 except ValueError as e:
@@ -4924,6 +5037,8 @@ class ArrManager:
                     continue
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
+        if FREE_SPACE != "-1":
+            managed_object = FreeSpaceManager(self, self.arr_categories)
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object

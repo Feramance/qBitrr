@@ -8,9 +8,11 @@ altgraph==0.17.4
     # via pyinstaller
 attrs==23.2.0
     # via environ-config
+backports-tarfile==1.1.1
+    # via jaraco-context
 black==24.3.0
     # via qBitrr2 (setup.py)
-build==1.1.1
+build==1.2.1
     # via pip-tools
 bump2version==1.0.1
     # via qBitrr2 (setup.py)
@@ -41,21 +43,21 @@ dill==0.3.8
     #   pathos
 distlib==0.3.8
     # via virtualenv
-docutils==0.20.1
+docutils==0.21.2
     # via readme-renderer
 environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.13.3
+filelock==3.13.4
     # via virtualenv
 future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.5.35
+identify==2.5.36
     # via pre-commit
-idna==3.6
+idna==3.7
     # via requests
 importlib-metadata==7.1.0
     # via
@@ -63,19 +65,19 @@ importlib-metadata==7.1.0
     #   twine
 isort==5.10.1
     # via qBitrr2 (setup.py)
-jaraco-classes==3.3.1
+jaraco-classes==3.4.0
     # via keyring
-jaraco-context==4.3.0
+jaraco-context==5.3.0
     # via
     #   jaraco-docker
     #   keyring
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
-jaraco-functools==4.0.0
+jaraco-functools==4.0.1
     # via
     #   jaraco-docker
     #   keyring
-keyring==25.0.0
+keyring==25.1.0
     # via twine
 more-itertools==10.2.0
     # via
@@ -85,15 +87,16 @@ multiprocess==0.70.16
     # via pathos
 mypy-extensions==1.0.0
     # via black
-nh3==0.2.15
+nh3==0.2.17
     # via readme-renderer
 nodeenv==1.8.0
     # via pre-commit
 overrides==7.7.0
     # via pyarr
-packaging==21.3
+packaging==22.0
     # via
     #   build
+    #   pyinstaller-hooks-contrib
     #   qBitrr2 (setup.py)
     #   qbittorrent-api
 pathos==0.2.8
@@ -110,7 +113,7 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.10.0
     # via twine
-platformdirs==4.2.0
+platformdirs==4.2.1
     # via
     #   black
     #   virtualenv
@@ -126,10 +129,8 @@ pygments==2.17.2
     # via readme-renderer
 pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
-pyinstaller-hooks-contrib==2023.11
+pyinstaller-hooks-contrib==2024.5
     # via pyinstaller
-pyparsing==3.1.2
-    # via packaging
 pyproject-hooks==1.0.0
     # via build
 pyreadline3==3.4.1
@@ -173,7 +174,7 @@ tqdm==4.66.2
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240311
+types-requests==2.31.0.20240406
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
@@ -184,7 +185,7 @@ urllib3==2.2.1
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.25.1
+virtualenv==20.26.0
     # via pre-commit
 wheel==0.43.0
     # via pip-tools

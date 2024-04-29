@@ -6,6 +6,8 @@
 #
 attrs==23.2.0
     # via environ-config
+backports-tarfile==1.1.1
+    # via jaraco-context
 cachetools==5.3.2
     # via qBitrr2 (setup.py)
 certifi==2024.2.2
@@ -28,13 +30,13 @@ future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-idna==3.6
+idna==3.7
     # via requests
-jaraco-context==4.3.0
+jaraco-context==5.3.0
     # via jaraco-docker
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
-jaraco-functools==4.0.0
+jaraco-functools==4.0.1
     # via jaraco-docker
 more-itertools==10.2.0
     # via jaraco-functools
@@ -42,7 +44,7 @@ multiprocess==0.70.16
     # via pathos
 overrides==7.7.0
     # via pyarr
-packaging==21.3
+packaging==22.0
     # via
     #   qBitrr2 (setup.py)
     #   qbittorrent-api
@@ -58,8 +60,6 @@ ppft==1.7.6.8
     # via pathos
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
-pyparsing==3.1.2
-    # via packaging
 pyreadline3==3.4.1
     # via humanfriendly
 qbittorrent-api==2023.7.52
@@ -73,7 +73,7 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.31.0.20240311
+types-requests==2.31.0.20240406
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
