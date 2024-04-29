@@ -4851,6 +4851,7 @@ class FreeSpaceManager(Arr):
             ]
         )
         self.search_missing = False
+        self.session = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
