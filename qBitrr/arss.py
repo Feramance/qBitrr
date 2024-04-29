@@ -4955,6 +4955,8 @@ class FreeSpaceManager(Arr):
                 for torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent)
+                if len(self.pause) == 0:
+                    self.logger.trace("No torrents to pause")
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
