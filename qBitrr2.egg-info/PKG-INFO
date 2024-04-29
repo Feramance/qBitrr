@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: qBitrr2
-Version: 4.4.1
+Version: 4.4.2
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -34,7 +34,7 @@ Requires-Dist: coloredlogs==15.0.1
 Requires-Dist: environ-config==23.2.0
 Requires-Dist: ffmpeg-python==0.2.0
 Requires-Dist: jaraco.docker==2.0
-Requires-Dist: packaging==21.3
+Requires-Dist: packaging==22.0
 Requires-Dist: pathos==0.2.8
 Requires-Dist: peewee==3.14.7
 Requires-Dist: ping3==3.0.2
