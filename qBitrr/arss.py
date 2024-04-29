@@ -4843,17 +4843,14 @@ class FreeSpaceManager(Arr):
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
         )
-        if self.min_free_space != "-1":
-            self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
-                self.min_free_space
-            )
-            self.logger.trace("Current free space: %s", self.current_free_space)
+        self.logger.trace("Current free space: %s", self.current_free_space)
         self.manager.qbit_manager.client.torrents_create_tags(
             [
                 "qBitrr-free_space_paused",
             ]
         )
         self.search_missing = False
+        self.logger.hnotice("Starting %s monitor", self._name)
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
@@ -4949,14 +4946,11 @@ class FreeSpaceManager(Arr):
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
-                if self.min_free_space != "-1":
-                    self.current_free_space = shutil.disk_usage(
-                        self.completed_folder
-                    ).free - parse_size(self.min_free_space)
-                    self.logger.trace("Current free space: %s", self.current_free_space)
-                    sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
-                else:
-                    sorted_torrents = torrents
+                self.current_free_space = shutil.disk_usage(
+                    self.completed_folder
+                ).free - parse_size(self.min_free_space)
+                self.logger.trace("Current free space: %s", self.current_free_space)
+                sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 for torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent)
@@ -4982,6 +4976,9 @@ class FreeSpaceManager(Arr):
             sys.exit(0)
         except DelayLoopException:
             raise
+
+    def run_search_loop(self):
+        return
 
 
 class ArrManager:
