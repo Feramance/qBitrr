@@ -10,7 +10,7 @@ attrs==23.2.0
     # via environ-config
 backports-tarfile==1.1.1
     # via jaraco-context
-black==22.1.0
+black==24.3.0
     # via qBitrr2 (setup.py)
 build==1.2.1
     # via pip-tools
