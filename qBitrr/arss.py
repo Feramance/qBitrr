@@ -5032,7 +5032,7 @@ class ArrManager:
                     self.logger.exception(e)
         if FREE_SPACE != "-1":
             managed_object = FreeSpaceManager(self.arr_categories, self)
-            self.managed_objects[cat] = managed_object
+            self.managed_objects["FreeSpaceManager"] = managed_object
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object
