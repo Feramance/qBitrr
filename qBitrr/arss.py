@@ -4823,6 +4823,7 @@ class FreeSpaceManager(Arr):
         self.manager = manager
         self.pause = set()
         self.resume = set()
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
@@ -4860,7 +4861,7 @@ class FreeSpaceManager(Arr):
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -4878,7 +4879,7 @@ class FreeSpaceManager(Arr):
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -4931,7 +4932,6 @@ class FreeSpaceManager(Arr):
                         completed = False
                         torrents = self.manager.qbit_manager.client.torrents.info(
                             status_filter="all",
-                            category=self.category,
                             sort="added_on",
                             reverse=False,
                         )
