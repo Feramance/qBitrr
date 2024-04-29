@@ -4823,7 +4823,7 @@ class PlaceHolderArr(Arr):
 
 
 class FreeSpaceManager(Arr):
-    def __init__(self, categories: set[str]):
+    def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
         self.categories = categories
         self.pause = set()
@@ -5038,7 +5038,7 @@ class ArrManager:
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
         if FREE_SPACE != "-1":
-            managed_object = FreeSpaceManager(self, self.arr_categories)
+            managed_object = FreeSpaceManager(self.arr_categories, self)
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object
