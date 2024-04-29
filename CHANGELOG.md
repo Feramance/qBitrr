@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.2 (29/04/2024)
+- [[patch] arch updates](https://github.com/Feramance/qBitrr/commit/3e3e6f2dc546b827f921778067aef6092ecce598) - @Feramance
+
+---
+
 ## v4.5.1 (29/04/2024)
 - [[patch] Binaries update](https://github.com/Feramance/qBitrr/commit/6580cdaf04430c95e361c3307e59a222ad3d8d5e) - @Feramance
 
@@ -382,8 +387,3 @@
 
 ## v4.0.8 (08/01/2024)
 - [[patch] v4 hotfix 8](https://github.com/Feramance/qBitrr/commit/7cd81a891e6d4efafd6bfdf4dbfc51b9ca588e18) - @Feramance
-
----
-
-## v4.0.7 (08/01/2024)
-- [[patch] v4 hotifx 7](https://github.com/Feramance/qBitrr/commit/a53a817df1d2c1a0ad8a56b0d0960426fff5e686) - @Feramance
