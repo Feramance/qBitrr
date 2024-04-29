@@ -4826,6 +4826,7 @@ class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
         self.categories = categories
+        self.manager = manager
         self.pause = set()
         self.resume = set()
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
