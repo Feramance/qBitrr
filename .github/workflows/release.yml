@@ -183,9 +183,11 @@ jobs:
         - x64
         exclude:
         - os: macOS-latest
-          arch: x86
+          arch: x64
         - os: ubuntu-latest
-          arch: x86
+          arch:
+          - x86
+          - x64
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
