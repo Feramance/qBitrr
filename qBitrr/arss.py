@@ -4859,6 +4859,7 @@ class FreeSpaceManager(Arr):
                 "qBitrr-free_space_paused",
             ]
         )
+        self.search_missing = False
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
