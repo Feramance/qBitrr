@@ -4165,15 +4165,9 @@ class Arr:
                     entry["movieId"] for entry in self.queue if entry.get("movieId")
                 }
                 if self.model_queue:
-                    queue_before = self.model_queue.select(self.model_queue.EntryId).execute()
-                    {entry for entry in queue_before if entry}
-                    self.logger.debug("Queue before: %s", queue_before)
                     self.model_queue.delete().where(
                         self.model_queue.EntryId.not_in(list(self.queue_file_ids))
                     ).execute()
-                    queue_after = self.model_queue.select(self.model_queue.EntryId).execute()
-                    {entry for entry in queue_before if entry}
-                    self.logger.debug("Queue after: %s", queue_after)
 
         self._update_bad_queue_items()
 
