@@ -4844,11 +4844,11 @@ class FreeSpaceManager(Arr):
         else:
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
+        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
         self.min_free_space = FREE_SPACE
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
         )
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
         if self.min_free_space != "-1":
             self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
                 self.min_free_space
