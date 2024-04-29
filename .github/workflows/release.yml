@@ -183,7 +183,9 @@ jobs:
         - x64
         exclude:
         - os: macOS-latest
-          arch: x64
+          arch:
+          - x64
+          - arm64
         - os: ubuntu-latest
           arch:
           - x86
