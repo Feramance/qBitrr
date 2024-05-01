@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.5.5 (01/05/2024)
+- [[patch] Another bug](https://github.com/Feramance/qBitrr/commit/5bdbc3f2e919fc5dcfa1ebd1bc74cb082170bedf) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/2f9fead49b4afda24c5dea498a9de5661fa8f7a3) - @Feramance
+- [[patch] workflow update](https://github.com/Feramance/qBitrr/commit/809cf240a5bfddf9e83e5c0823f554dbeb7d898c) - @Feramance
+
+---
+
 ## v4.5.4 (01/05/2024)
 - [[patch] Caught another bug](https://github.com/Feramance/qBitrr/commit/18a37d6fdab5d6536f00da256b12659bd1c5f4a5) - @Feramance
 
@@ -372,19 +379,3 @@
 
 ## v4.0.11 (09/01/2024)
 - [[patch] Fixed JSONDecode Error](https://github.com/Feramance/qBitrr/commit/13fcabafb25f4abd1a4b5462155ffda18fd8262b) - @Feramance
-
----
-
-## v4.0.10 (09/01/2024)
-- [[patch] `qbitrr-ignored` tag added to manually set torrents to be ignored for stalled/availability check](https://github.com/Feramance/qBitrr/commit/a4100096496b73834857137bb829a7aeeec2d119) - @Feramance
-- [Series re-search fix](https://github.com/Feramance/qBitrr/commit/56380f629ada295e769d916c6cc91841aca8c671) - @Feramance
-- [Series re-search update](https://github.com/Feramance/qBitrr/commit/5441fd4aa7d998fd25fc918a554a2168809dbbfb) - @Feramance
-- [Set error fix](https://github.com/Feramance/qBitrr/commit/1137be23d343e83439acb77bb9c73695ce6cc056) - @Feramance
-- [Ignored tag update](https://github.com/Feramance/qBitrr/commit/bdcb9254f7b94f4048755b2a74e9e37ada9fbb93) - @Feramance
-- [Series re-search update](https://github.com/Feramance/qBitrr/commit/38c9b1ebaf143e23ffd89f0dcf7d5b3e26438f7f) - @Feramance
-- [Testing of handling failed season torrent to trigger series search instead of episode search](https://github.com/Feramance/qBitrr/commit/112960e85550004a32fd4fb0d54f5464dad2e3a5) - @Feramance
-- [New tracker fix and adjusted debugs](https://github.com/Feramance/qBitrr/commit/d6ef3992aea1652376688b756fac777f9dc77c3e) - @Feramance
-- [Debug fix](https://github.com/Feramance/qBitrr/commit/cae463b1124c60b5657963bb565fe1cf7d1a22b6) - @Feramance
-- [Debugging change](https://github.com/Feramance/qBitrr/commit/d163a20be29438c6460a4f5159a26f25c1d90c91) - @Feramance
-- [Further debugging](https://github.com/Feramance/qBitrr/commit/1b6bf73211738f3f09589f83dec86e75a80765e0) - @Feramance
-- [Debugging torrent re-searching](https://github.com/Feramance/qBitrr/commit/2021190d3f8bcf3058ba2a1e0baaf31005d067bc) - @Feramance
