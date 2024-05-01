@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.4 (01/05/2024)
+- [[patch] Caught another bug](https://github.com/Feramance/qBitrr/commit/18a37d6fdab5d6536f00da256b12659bd1c5f4a5) - @Feramance
+
+---
+
 ## v4.5.3 (01/05/2024)
 - [[patch] Urgent bug fix](https://github.com/Feramance/qBitrr/commit/5bbf7f98e00b93eab60be51e6ac557dd855a59b9) - @Feramance
 - [Arch updates for future releases](https://github.com/Feramance/qBitrr/commit/7296a6406aa0c8112f41a8a19700781eda954379) - @Feramance
@@ -383,8 +388,3 @@
 - [Debugging change](https://github.com/Feramance/qBitrr/commit/d163a20be29438c6460a4f5159a26f25c1d90c91) - @Feramance
 - [Further debugging](https://github.com/Feramance/qBitrr/commit/1b6bf73211738f3f09589f83dec86e75a80765e0) - @Feramance
 - [Debugging torrent re-searching](https://github.com/Feramance/qBitrr/commit/2021190d3f8bcf3058ba2a1e0baaf31005d067bc) - @Feramance
-
----
-
-## v4.0.9 (08/01/2024)
-- [[patch] Minimum availability fix](https://github.com/Feramance/qBitrr/commit/f4572573980ea23d0c201bbd336889e395be1858) - @Feramance
