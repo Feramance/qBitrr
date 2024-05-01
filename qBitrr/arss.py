@@ -4902,7 +4902,7 @@ class FreeSpaceManager(Arr):
                 self.logger.trace("Pause download: Free space %s", self.current_free_space)
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
                 torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
-                self._process_single_torrent_pause_disk_space(torrent.hash)
+                self._process_single_torrent_pause_disk_space(torrent)
             elif (
                 torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space > torrent["amount_left"]
@@ -4910,7 +4910,7 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = free_space_test
                 self.logger.trace("Can download: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-                self._process_single_torrent_resume_disk_space(torrent.hash)
+                self._process_single_torrent_resume_disk_space(torrent)
         elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.trace(
                 "Removing tag[%s] for completed torrent[%s]: Free space %s",
