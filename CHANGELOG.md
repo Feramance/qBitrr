@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.7 (01/05/2024)
+- [[patch] Spelling mistake](https://github.com/Feramance/qBitrr/commit/f64e5143d71f822d7847350749c36a3502010e4c) - @Feramance
+
+---
+
 ## v4.5.6 (01/05/2024)
 - [[patch] Hopefully last binary build fix](https://github.com/Feramance/qBitrr/commit/25a7404732a4f095bb16535c1350ac7da22c8af8) - @Feramance
 
@@ -373,9 +378,3 @@
 - [Testing get_movie_by_movie_id](https://github.com/Feramance/qBitrr/commit/cba83fa260d7b6722858a656ca6068d0bec4d336) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/79c6b6240683e5ba496b373b6b01666b0352f465) - @Feramance
 - [Log changes](https://github.com/Feramance/qBitrr/commit/6f4c05ad7cf2abd6d4a0e56e95b85b9ab19e33f5) - @Feramance
-
----
-
-## v4.0.12 (09/01/2024)
-- [[patch] Error handling fix](https://github.com/Feramance/qBitrr/commit/67a04bb14d23752f7f12e1939dc0ad5bded36527) - @Feramance
-- [JSONDecodeError fix](https://github.com/Feramance/qBitrr/commit/391ccabc7f204c686b5e16f422c12b5131bbf493) - @Feramance
