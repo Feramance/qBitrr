@@ -4824,6 +4824,9 @@ class FreeSpaceManager(Arr):
         self.pause = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
+        self.ignore_torrents_younger_than = CONFIG.get(
+            "Settings.IgnoreTorrentsYoungerThan", fallback=600
+        )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
