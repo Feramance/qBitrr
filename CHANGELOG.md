@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.6 (01/05/2024)
+- [[patch] Hopefully last binary build fix](https://github.com/Feramance/qBitrr/commit/25a7404732a4f095bb16535c1350ac7da22c8af8) - @Feramance
+
+---
+
 ## v4.5.5 (01/05/2024)
 - [[patch] Another bug](https://github.com/Feramance/qBitrr/commit/5bdbc3f2e919fc5dcfa1ebd1bc74cb082170bedf) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/2f9fead49b4afda24c5dea498a9de5661fa8f7a3) - @Feramance
@@ -374,8 +379,3 @@
 ## v4.0.12 (09/01/2024)
 - [[patch] Error handling fix](https://github.com/Feramance/qBitrr/commit/67a04bb14d23752f7f12e1939dc0ad5bded36527) - @Feramance
 - [JSONDecodeError fix](https://github.com/Feramance/qBitrr/commit/391ccabc7f204c686b5e16f422c12b5131bbf493) - @Feramance
-
----
-
-## v4.0.11 (09/01/2024)
-- [[patch] Fixed JSONDecode Error](https://github.com/Feramance/qBitrr/commit/13fcabafb25f4abd1a4b5462155ffda18fd8262b) - @Feramance
