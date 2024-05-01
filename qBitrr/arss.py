@@ -4824,6 +4824,8 @@ class FreeSpaceManager(Arr):
         self.pause = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.needs_cleanup = False
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
