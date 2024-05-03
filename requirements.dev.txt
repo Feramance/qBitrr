@@ -170,7 +170,7 @@ tomli==2.0.1
     #   pyproject-hooks
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-tqdm==4.66.2
+tqdm==4.66.3
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
