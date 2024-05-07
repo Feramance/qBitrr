@@ -3887,6 +3887,7 @@ class Arr:
                 TorrentStates.STALLED_DOWNLOAD,
             )
             and "qBitrr-ignored" not in torrent.tags
+            and "qBitrr-free_space_paused" not in torrent.tags
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (

@@ -183,16 +183,10 @@ jobs:
         - x64
         - arm64
         exclude:
+        - os: macOS-latest
+          arch: x86
         - os: windows-latest
           arch: arm64
-        - os: macos-latest
-          arch:
-          - x86
-          - x64
-        - os: ubuntu-latest
-          arch:
-          - x86
-          - arm64
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
