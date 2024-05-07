@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.5.8 (07/05/2024)
+- [[patch] Free space adjustments](https://github.com/Feramance/qBitrr/commit/ae56b4075af71ed83c7a928c4a7930dabcc7a959) - @Feramance
+- [Merge pull request #74 from Feramance/dependabot/pip/tqdm-4.66.3](https://github.com/Feramance/qBitrr/commit/b4569aca3c2ba225605d62cc1da99316b8850ea8) - @Feramance
+- [Bump tqdm from 4.66.2 to 4.66.3](https://github.com/Feramance/qBitrr/commit/02793206af372b2d9e0715c94cd2ee3de2eacf3d) - @dependabot[bot]
+- [Nightly update](https://github.com/Feramance/qBitrr/commit/c6d98b5a5c26d4a6c3aba97ef89962c11d821146) - @Feramance
+
+---
+
 ## v4.5.7 (01/05/2024)
 - [[patch] Spelling mistake](https://github.com/Feramance/qBitrr/commit/f64e5143d71f822d7847350749c36a3502010e4c) - @Feramance
 
@@ -367,14 +375,3 @@
 - [Import mode testing](https://github.com/Feramance/qBitrr/commit/351f036edef0325c1fd95c31612ef9036dfbacbe) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/39aae4ce6a4f32734ee35010a41a9a3630cc48a3) - @Feramance
 - [Import mode testing](https://github.com/Feramance/qBitrr/commit/457fb163bc10db4bcb3ac16f54dfa3b5c5dcfb8c) - @Feramance
-
----
-
-## v4.0.13 (09/01/2024)
-- [[patch] Fixed search by year](https://github.com/Feramance/qBitrr/commit/91c8dfa2023abe5567bd5ac0684bfcb722e530f9) - @Feramance
-- [Fixed fatal variable name](https://github.com/Feramance/qBitrr/commit/0ac6ff3d000f5507fcffdef4fa41e6692ae1cef0) - @Feramance
-- [Error fix](https://github.com/Feramance/qBitrr/commit/e87394b088a66b73bc9e02d129d8818affb1997f) - @Feramance
-- [Get movie substitute](https://github.com/Feramance/qBitrr/commit/2a1e05f88fb6b65876e72554f123522d357747b3) - @Feramance
-- [Testing get_movie_by_movie_id](https://github.com/Feramance/qBitrr/commit/cba83fa260d7b6722858a656ca6068d0bec4d336) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/79c6b6240683e5ba496b373b6b01666b0352f465) - @Feramance
-- [Log changes](https://github.com/Feramance/qBitrr/commit/6f4c05ad7cf2abd6d4a0e56e95b85b9ab19e33f5) - @Feramance
