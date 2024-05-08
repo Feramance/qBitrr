@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.5.10 (08/05/2024)
+- [[patch] Added more logging to cover all possible logs](https://github.com/Feramance/qBitrr/commit/ca314b6eb900052ecac2aedd4e77300063a30a48) - @Feramance
+- [More logs test](https://github.com/Feramance/qBitrr/commit/fdf453868cc83f2c211df2bd4a656fa8abb91736) - @Feramance
+- [Release yml update](https://github.com/Feramance/qBitrr/commit/64bb88593d9f44d65ef5447481d549556fff1de4) - @Feramance
+
+---
+
 ## v4.5.9 (08/05/2024)
 - [[patch] Updated config example and generation with a better description for path mapping](https://github.com/Feramance/qBitrr/commit/90ed84d9a26b778b80e1a10e7f0eecf725332e29) - @Feramance
 
@@ -338,37 +345,3 @@
 
 ## v4.1.1 (11/01/2024)
 - [[patch] Fixed error in case qbittorrent is unreachable](https://github.com/Feramance/qBitrr/commit/0155ecd085e634f20110400366e9248593c58a9f) - @Feramance
-
----
-
-## v4.1.0 (11/01/2024)
-- [[minor] New feature: CustomFormatUnmetSearch. (Generate a new config file and migrate your values over)](https://github.com/Feramance/qBitrr/commit/6b767758dd710d1268c9c12ea39303cc0e3f41c2) - @Feramance
-- [Entry null handling](https://github.com/Feramance/qBitrr/commit/d5bd0146dd5f63f1d3cd7bb8b911bfcf5aaf9683) - @Feramance
-- [Debugging](https://github.com/Feramance/qBitrr/commit/f78d85bd6e9a617d78eab78cc361628e0f10b304) - @Feramance
-- [Queue variable fix](https://github.com/Feramance/qBitrr/commit/3fb039c5ea28721f4b2aa3602f7f85a23c522442) - @Feramance
-- [Testing feature: delete torrent of CF score is below mininum](https://github.com/Feramance/qBitrr/commit/5c2d76daeafb2459ed3ce5ef809fbe8aee2c6a9d) - @Feramance
-- [Testing auto resume completed torrents if seeding config allows seeding](https://github.com/Feramance/qBitrr/commit/4f095dcd29a57b945bc588d0c537705812a3c8d4) - @Feramance
-- [Pausing torrent fix](https://github.com/Feramance/qBitrr/commit/218898dead35c762d2f80af8e1374e58c8d0b930) - @Feramance
-- [Debugging update](https://github.com/Feramance/qBitrr/commit/e8be76c1ff58f0496421d10c003b5a787f5b929b) - @Feramance
-- [Debugging for pausing of torrents](https://github.com/Feramance/qBitrr/commit/58417a5f71a390e357e8ec02e22916e95aafdd1f) - @Feramance
-- [Episode cut off met fix](https://github.com/Feramance/qBitrr/commit/03caa18927c863b0acbc2d466365c431116d76ed) - @Feramance
-- [Episode custom format fix](https://github.com/Feramance/qBitrr/commit/49cebd4fb37c2d37f16cf269b2d70cc36fc1d2bc) - @Feramance
-- [Added more debugging](https://github.com/Feramance/qBitrr/commit/68259c2b90a898daa6c0647c9ff6060a8af0515a) - @Feramance
-- [Debugging quality profile for episodes](https://github.com/Feramance/qBitrr/commit/f6fb2b681eb6b754a9c75a0f1ee04439e06077c1) - @Feramance
-- [Reference before assignment fix](https://github.com/Feramance/qBitrr/commit/cd1d77e032ba269c702d4ca8d6cc99a09f94bf37) - @Feramance
-- [Bad variable fix](https://github.com/Feramance/qBitrr/commit/b6f0060d62d7d09796b6f9fc1e73ef6fa77d2b50) - @Feramance
-- [QualityMet fix](https://github.com/Feramance/qBitrr/commit/281adb821c304ddeb5f76f0ff129e16474f2d05c) - @Feramance
-- [More testing](https://github.com/Feramance/qBitrr/commit/4fdddb1dbf247fa2eed04787b90dadd54c5daf1d) - @Feramance
-- [Testing get quality profile for episodes](https://github.com/Feramance/qBitrr/commit/22c61d53d2f244689fddf44370000d3988f1fe81) - @Feramance
-- [Debug testing](https://github.com/Feramance/qBitrr/commit/d80cb860274435cf3316b1f96e57652ff6355cd0) - @Feramance
-- [Using get rather than attribute](https://github.com/Feramance/qBitrr/commit/b69d04f2915bb5477ad74b9df594c094f891982d) - @Feramance
-- [Wrong function used](https://github.com/Feramance/qBitrr/commit/180b0cbcb2335ae73027a2ad9f2618aaea5a76a5) - @Feramance
-- [FIxed episode get error](https://github.com/Feramance/qBitrr/commit/e067d9f2e923740924a74390682a518d7a2d1fe9) - @Feramance
-- [Custom format not met for episodes](https://github.com/Feramance/qBitrr/commit/aeeaeb020761c86a32168711d9222a65be7a655a) - @Feramance
-- [Torrent pausing functionality changed](https://github.com/Feramance/qBitrr/commit/f7ea7c427860cfc6152c49c09c1866e60d875f6d) - @Feramance
-- [Added more JSONDecodeError handling](https://github.com/Feramance/qBitrr/commit/d5249ddc108ac1005d14eed7b3c0a16a0059f913) - @Feramance
-- [Workflow update](https://github.com/Feramance/qBitrr/commit/4779df34c9780d49f0bc961cd247c3fc55f1ec3a) - @Feramance
-- [Custom format met testing](https://github.com/Feramance/qBitrr/commit/0477a8ff84c5f51f43030670fc5a56206e4adf6a) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/5917ee7395251abe4e99d80fc9c22d90275c98d9) - @Feramance
-- [Workflow changes for correct version number on the nightly docker tag](https://github.com/Feramance/qBitrr/commit/ae2287edac2ed3fc37da7369c2a797a2cd9519d4) - @Feramance
-- [Attribute error fix](https://github.com/Feramance/qBitrr/commit/30162f4a2b82b2f2bcb38eb6c191c90629a1b6f0) - @Feramance
