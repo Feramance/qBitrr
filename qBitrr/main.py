@@ -3,6 +3,7 @@ from __future__ import annotations
 import atexit
 import itertools
 import logging
+import pathlib
 import sys
 import time
 from multiprocessing import freeze_support
@@ -17,15 +18,35 @@ from qbittorrentapi.decorators import login_required  # , response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
-from qBitrr.config import APPDATA_FOLDER, CONFIG, QBIT_DISABLED, SEARCH_ONLY, process_flags
+from qBitrr.config import (
+    APPDATA_FOLDER,
+    CONFIG,
+    ENABLE_LOGS,
+    QBIT_DISABLED,
+    SEARCH_ONLY,
+    process_flags,
+)
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
+from qBitrr.home_path import HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
 
 CHILD_PROCESSES = []
 
-logger = logging.getLogger("qBitrr")
+if ENABLE_LOGS:
+    LOGS_FOLDER = HOME_PATH.joinpath("logs")
+    LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+    LOGS_FOLDER.chmod(mode=0o777)
+    logfile = LOGS_FOLDER.joinpath("qBitrr.log")
+    if pathlib.Path(logfile).is_file():
+        logold = LOGS_FOLDER.joinpath("qBitrr.log.old")
+        logfile.rename(logold)
+    fh = logging.FileHandler(logfile)
+    logger = logging.getLogger(f"qBitrr")
+    logger.addHandler(fh)
+else:
+    logger = logging.getLogger(f"qBitrr")
 run_logs(logger)
 
 
@@ -36,13 +57,24 @@ class qBitManager:
     _head_less_mode = False
 
     def __init__(self):
+        self._name = "Manager"
         self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
-        self.logger = logging.getLogger(
-            "qBitrr.Manager",
-        )
+        if ENABLE_LOGS:
+            LOGS_FOLDER = HOME_PATH.joinpath("logs")
+            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+            LOGS_FOLDER.chmod(mode=0o777)
+            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            if pathlib.Path(logfile).is_file():
+                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logfile.rename(logold)
+            fh = logging.FileHandler(logfile)
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
+            self.logger.addHandler(fh)
+        else:
+            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
