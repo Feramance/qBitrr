@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.11 (08/05/2024)
+- [[patch] Release update](https://github.com/Feramance/qBitrr/commit/36f924b42be2d544b0c36ca961b62cba74398bd5) - @Feramance
+
+---
+
 ## v4.5.10 (08/05/2024)
 - [[patch] Added more logging to cover all possible logs](https://github.com/Feramance/qBitrr/commit/ca314b6eb900052ecac2aedd4e77300063a30a48) - @Feramance
 - [More logs test](https://github.com/Feramance/qBitrr/commit/fdf453868cc83f2c211df2bd4a656fa8abb91736) - @Feramance
@@ -340,8 +345,3 @@
 - [Reason logs error fix](https://github.com/Feramance/qBitrr/commit/eb0973ab22f2a84a87e42113c715adafe5c33374) - @Feramance
 - [Reason and log updates](https://github.com/Feramance/qBitrr/commit/f462033f22839ea704d1dfa862755155224e9247) - @Feramance
 - [Search reason testing](https://github.com/Feramance/qBitrr/commit/c1d85ce786eb650bc01e47869c87dee43b9ead31) - @Feramance
-
----
-
-## v4.1.1 (11/01/2024)
-- [[patch] Fixed error in case qbittorrent is unreachable](https://github.com/Feramance/qBitrr/commit/0155ecd085e634f20110400366e9248593c58a9f) - @Feramance
