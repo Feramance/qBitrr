@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.9 (08/05/2024)
+- [[patch] Updated config example and generation with a better description for path mapping](https://github.com/Feramance/qBitrr/commit/90ed84d9a26b778b80e1a10e7f0eecf725332e29) - @Feramance
+
+---
+
 ## v4.5.8 (07/05/2024)
 - [[patch] Free space adjustments](https://github.com/Feramance/qBitrr/commit/ae56b4075af71ed83c7a928c4a7930dabcc7a959) - @Feramance
 - [Merge pull request #74 from Feramance/dependabot/pip/tqdm-4.66.3](https://github.com/Feramance/qBitrr/commit/b4569aca3c2ba225605d62cc1da99316b8850ea8) - @Feramance
@@ -367,11 +372,3 @@
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/5917ee7395251abe4e99d80fc9c22d90275c98d9) - @Feramance
 - [Workflow changes for correct version number on the nightly docker tag](https://github.com/Feramance/qBitrr/commit/ae2287edac2ed3fc37da7369c2a797a2cd9519d4) - @Feramance
 - [Attribute error fix](https://github.com/Feramance/qBitrr/commit/30162f4a2b82b2f2bcb38eb6c191c90629a1b6f0) - @Feramance
-
----
-
-## v4.0.14 (10/01/2024)
-- [[patch] Fixed Hardlink import mode and stopped torrent pausing on completion if not force uploaded](https://github.com/Feramance/qBitrr/commit/45665a9175c5f61261575a05ad3d51f8903f47ba) - @Feramance
-- [Import mode testing](https://github.com/Feramance/qBitrr/commit/351f036edef0325c1fd95c31612ef9036dfbacbe) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/39aae4ce6a4f32734ee35010a41a9a3630cc48a3) - @Feramance
-- [Import mode testing](https://github.com/Feramance/qBitrr/commit/457fb163bc10db4bcb3ac16f54dfa3b5c5dcfb8c) - @Feramance
