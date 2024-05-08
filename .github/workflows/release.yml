@@ -184,7 +184,9 @@ jobs:
         - arm64
         exclude:
         - os: ubuntu-latest
-          arch: x86
+          arch:
+          - x86
+          - arm64
         - os: macOS-latest
           arch: x86
         - os: windows-latest
@@ -205,6 +207,10 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install libsdl2-dev
+    - name: Install Homebrew dependencies
+      if: runner.os == 'MacOS'
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - name: Set archive name
       run: |
         ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
