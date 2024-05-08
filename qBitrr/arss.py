@@ -4878,24 +4878,6 @@ class FreeSpaceManager(Arr):
         )
         self.pause.add(torrent.hash)
 
-    def _process_single_torrent_resume_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
-        self.logger.info(
-            "Resuming torrent for disk space: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
-        )
-        self.resume.add(torrent.hash)
-
     def _process_single_torrent(self, torrent):
         if self.is_downloading_state(torrent):
             free_space_test = self.current_free_space
@@ -4916,7 +4898,6 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = free_space_test
                 self.logger.trace("Can download: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-                self._process_single_torrent_resume_disk_space(torrent)
         elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.trace(
                 "Removing tag[%s] for completed torrent[%s]: Free space %s",
@@ -4928,7 +4909,6 @@ class FreeSpaceManager(Arr):
 
     def process(self):
         self._process_paused()
-        self._process_resume()
 
     def process_torrents(self):
         try:
