@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.12 (08/05/2024)
+- [[patch] release update](https://github.com/Feramance/qBitrr/commit/7f895069deff14f561636eb745e595ed2acbd103) - @Feramance
+
+---
+
 ## v4.5.11 (08/05/2024)
 - [[patch] Release update](https://github.com/Feramance/qBitrr/commit/36f924b42be2d544b0c36ca961b62cba74398bd5) - @Feramance
 
@@ -325,23 +330,3 @@
 - [Update desciption to reflect recent feature update](https://github.com/Feramance/qBitrr/commit/cbb170c935d4220fe7909c69b877af91cead0600) - @Feramance
 - [Updated PyPi description](https://github.com/Feramance/qBitrr/commit/210f92263fe753888c9059519bc7889b37ccfe3b) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/6151822a9743ee5431e21b025061e486c8b98421) - @Feramance
-
----
-
-## v4.1.2 (15/01/2024)
-- [[patch] Fix for Custom format searching](https://github.com/Feramance/qBitrr/commit/51e722be51bcde81cfb51c63332f8084fc5acb7c) - @Feramance
-- [Key error logging fix](https://github.com/Feramance/qBitrr/commit/78ac3808cb833ed99ee4508e9d2fe5c2b16a7ca4) - @Feramance
-- [Fixed CF check on entry without file](https://github.com/Feramance/qBitrr/commit/b6e0bdb77badcd2f434d536ac70c68e3951c8f82) - @Feramance
-- [Changed file check method when updating entry](https://github.com/Feramance/qBitrr/commit/8873da69054be97360db07ce4da306ce579b6d09) - @Feramance
-- [Added check to validate queue records exists before processing custom format](https://github.com/Feramance/qBitrr/commit/3079a1bf13236b55f1443e53e5d4d94eb21250ad) - @Feramance
-- [Log message fix](https://github.com/Feramance/qBitrr/commit/c46037b8c8716d9b8056eb026c7ceb2153ad526d) - @Feramance
-- [CFUnmet condition update](https://github.com/Feramance/qBitrr/commit/10b5cfc3341540df642d9eef04731b598f08f0c4) - @Feramance
-- [Error handling fix](https://github.com/Feramance/qBitrr/commit/e3f737b1702502506ee150147d5a53824db1d188) - @Feramance
-- [Corrected Null values](https://github.com/Feramance/qBitrr/commit/3a6bc1bab0f95e344a70a51a1bc8dd529a909f75) - @Feramance
-- [Table field name fix](https://github.com/Feramance/qBitrr/commit/e7306bf6ad8f00a471ee50c0ff0354837f482f41) - @Feramance
-- [Testing reduced API calls](https://github.com/Feramance/qBitrr/commit/f7609086266100487b702d8fb4d0c5100570580f) - @Feramance
-- [Update config.example.toml](https://github.com/Feramance/qBitrr/commit/105f37353c69140c32e68c3d0c1b6f033125d4d0) - @Feramance
-- [Error handling](https://github.com/Feramance/qBitrr/commit/e4ca06e3de34f57a4a6504d8adbe0b8b2eaed2ec) - @Feramance
-- [Reason logs error fix](https://github.com/Feramance/qBitrr/commit/eb0973ab22f2a84a87e42113c715adafe5c33374) - @Feramance
-- [Reason and log updates](https://github.com/Feramance/qBitrr/commit/f462033f22839ea704d1dfa862755155224e9247) - @Feramance
-- [Search reason testing](https://github.com/Feramance/qBitrr/commit/c1d85ce786eb650bc01e47869c87dee43b9ead31) - @Feramance
