@@ -90,7 +90,7 @@ jobs:
         git_commit_gpgsign: true
         git_tag_gpgsign: true
       id: import_gpg
-    - uses: marvinpinto/action-automatic-releases@latest
+    - uses: ModeSevenIndustrialSolutions/action-automatic-releases@latest
       with:
         repo_token: ${{ secrets.PAT }}
         prerelease: false
@@ -184,9 +184,7 @@ jobs:
         - arm64
         exclude:
         - os: ubuntu-latest
-          arch:
-          - x86
-          - arm64
+          arch: x86, arm64
         - os: macOS-latest
           arch: x86
         - os: windows-latest
@@ -197,6 +195,10 @@ jobs:
       with:
         ref: master
         fetch-depth: 0
+    - name: Install Homebrew dependencies
+      if: runner.os == 'MacOS'
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v5
       with:
@@ -207,10 +209,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install libsdl2-dev
-    - name: Install Homebrew dependencies
-      if: runner.os == 'MacOS'
-      run: |
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - name: Set archive name
       run: |
         ARCHIVE_NAME=${{ env.project-name }}-${{ needs.release_hash.outputs.RELEASE_HASH }}-${{ matrix.os }}-${{ matrix.arch }}
