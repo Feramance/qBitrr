@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.5.13 (08/05/2024)
+- [[patch] Exclude testing](https://github.com/Feramance/qBitrr/commit/aad3382e5c9313aed7cddba0dfd99440a40d46bb) - @Feramance
+
+---
+
 ## v4.5.12 (08/05/2024)
 - [[patch] release update](https://github.com/Feramance/qBitrr/commit/7f895069deff14f561636eb745e595ed2acbd103) - @Feramance
 
@@ -287,46 +292,3 @@
 - [All searched upgrade check](https://github.com/Feramance/qBitrr/commit/b4cc215df248270d92828ade9f48e02d3554d83c) - @Feramance
 - [Errored torrents fix testing](https://github.com/Feramance/qBitrr/commit/ed991d2686bb9183ac5d7458dbd09a8f8e2c2f16) - @Feramance
 - [Config example update](https://github.com/Feramance/qBitrr/commit/9150f07f07a9bd35beeb52fab9c49f0f4dafac5d) - @Feramance
-
----
-
-## v4.2.0 (17/01/2024)
-- [[minor] New config - Minimum free space check. Torrents are paused to ensure a set amount of minimum free space is left on the download directory drive](https://github.com/Feramance/qBitrr/commit/b5cbc4b30fd52e9f29a24485c4e09bc0cd152dfa) - @Feramance
-- [Free space pause logic update](https://github.com/Feramance/qBitrr/commit/1c6d5567cfa4bcbf4f6f97a0b405470b4a98985a) - @Feramance
-- [Update minimum availability check](https://github.com/Feramance/qBitrr/commit/7a8e29ed96949f50ac94194ec4a268d62ff8ef00) - @Feramance
-- [Minimum availability logging update](https://github.com/Feramance/qBitrr/commit/5be423fc4db1cde524b5c253d3be0f4aaa1a3dae) - @Feramance
-- [DB update processed](https://github.com/Feramance/qBitrr/commit/26010a30b92da92765f474344fd39f5bd52d3107) - @Feramance
-- [AttributeError fix](https://github.com/Feramance/qBitrr/commit/ca5a31533e5432760ec57aaac473c8de1fdeba07) - @Feramance
-- [Update processed testing](https://github.com/Feramance/qBitrr/commit/f4ca073726cbecdbdacb37d5e9c68e28ccbd2da2) - @Feramance
-- [Error fix](https://github.com/Feramance/qBitrr/commit/1c06689efb9bf01544ea53f36338c430136c4b93) - @Feramance
-- [DB update allow multiple runs for testing](https://github.com/Feramance/qBitrr/commit/692d3e413e2cca38b462c642aa5630c105e52b9e) - @Feramance
-- [Get files update and dtop DB update only if search by year is disabled](https://github.com/Feramance/qBitrr/commit/89555d6e0a308fd7a6e7c8f975a7c80911dbf848) - @Feramance
-- [Remove unnecessary paramater](https://github.com/Feramance/qBitrr/commit/3b9def77c4903245d0d54a33cd47516975216803) - @Feramance
-- [Free space logic update](https://github.com/Feramance/qBitrr/commit/0208a5864d205ed48cebba1679d4024a51e077df) - @Feramance
-- [Invalid attribute call](https://github.com/Feramance/qBitrr/commit/b4c4442d9becd05cb696ca32bbd0bb9046123c6f) - @Feramance
-- [Free space logic update](https://github.com/Feramance/qBitrr/commit/4a332c2519d2e3013ed1edd5f33f2a2486ec9d13) - @Feramance
-- [Free space pause adjustment](https://github.com/Feramance/qBitrr/commit/ed372d456b0ce682a6f6f24e63a26d1df28838d6) - @Feramance
-- [Adjust DB update logging](https://github.com/Feramance/qBitrr/commit/8e9488557f46cfb6324f6cf49912d0d51e268afe) - @Feramance
-- [DB update run once every 15 minutes](https://github.com/Feramance/qBitrr/commit/09733c59c7d60e05129968c5623ed624d1673737) - @Feramance
-- [Adjusted file/folder deletion](https://github.com/Feramance/qBitrr/commit/50b655b2f47615d51bd277b9189c8374327ecf26) - @Feramance
-- [Free space logging fixed](https://github.com/Feramance/qBitrr/commit/bdcdf8d972c4d9eca06e6b2f828262d6ea1d70bb) - @Feramance
-- [Free space logging](https://github.com/Feramance/qBitrr/commit/42ca04fa39257a85eab8020d540be0f15a79ebd7) - @Feramance
-- [Adjusted torrent handling](https://github.com/Feramance/qBitrr/commit/2db861270f6d1397b6b0d84f40bd470b5155efc2) - @Feramance
-- [Error handling](https://github.com/Feramance/qBitrr/commit/523c41b5172b29bb15b06944ece636929edc5ce8) - @Feramance
-- [Completed folder check before removing directory](https://github.com/Feramance/qBitrr/commit/999c2a2361aeeefa9c6de78f88fd520119a74dda) - @Feramance
-- [Updated episode search to ignore series](https://github.com/Feramance/qBitrr/commit/4c156b1361100f9b2fb24b7c2d9314f949ca4e93) - @Feramance
-- [Bool not iterable fix](https://github.com/Feramance/qBitrr/commit/5562d75fdaf174ed2716983d38c5149d610fa660) - @Feramance
-- [Torrent logic changes](https://github.com/Feramance/qBitrr/commit/f97b7d2120d18992964fdecc2992f5707c778a45) - @Feramance
-- [Free space logging enabled](https://github.com/Feramance/qBitrr/commit/0fc858a5196169b561b4f7f93c1bf340015ead89) - @Feramance
-- [Todays condition update](https://github.com/Feramance/qBitrr/commit/3bd26ed5ac5945833420f0cb8a38156d6687d1cf) - @Feramance
-- [Series get files overhaul and updated search_today functionality](https://github.com/Feramance/qBitrr/commit/50ee8ee08d34d39dfe2d9545d8ae0a248f17dad5) - @Feramance
-- [Episode get files overhaul](https://github.com/Feramance/qBitrr/commit/14ba8d4fd3397863c730428c8ee8781509a25ad1) - @Feramance
-- [Quick condition fix](https://github.com/Feramance/qBitrr/commit/aa77d02b661c4fd787ba7b9728da0bd214e33f2e) - @Feramance
-- [Function call missing parameter](https://github.com/Feramance/qBitrr/commit/52bc9ef05386d10643f1ead0b85c9dc948bc0258) - @Feramance
-- [Free space config get fix](https://github.com/Feramance/qBitrr/commit/14f8123d12790805cdb1263625cc5716fcd8ba7e) - @Feramance
-- [Fixed variable name](https://github.com/Feramance/qBitrr/commit/aff57e130538812e38a4e5b3fc3081396f573bff) - @Feramance
-- [Debugging](https://github.com/Feramance/qBitrr/commit/88601e31d1990f60952428ebb8beb1a464d58140) - @Feramance
-- [Requirements bump, new feature testing and pre-commit run](https://github.com/Feramance/qBitrr/commit/db3fcdbd3622e6ed31ce595c80903e77356a475c) - @Feramance
-- [Update desciption to reflect recent feature update](https://github.com/Feramance/qBitrr/commit/cbb170c935d4220fe7909c69b877af91cead0600) - @Feramance
-- [Updated PyPi description](https://github.com/Feramance/qBitrr/commit/210f92263fe753888c9059519bc7889b37ccfe3b) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/6151822a9743ee5431e21b025061e486c8b98421) - @Feramance
