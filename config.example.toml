@@ -9,7 +9,7 @@ ConsoleLevel = "INFO"
 # Enable logging to files
 Logging = true
 
-# Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path
+# Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\' with '/')
 CompletedDownloadFolder = "CHANGE_ME"
 
 #The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)

@@ -46,7 +46,7 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
-        "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path",
+        "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\\' with '/')",
         "CompletedDownloadFolder",
         ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME",
     )
