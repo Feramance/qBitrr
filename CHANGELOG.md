@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.0 (08/05/2024)
+- [[minor] A bunch of release changes and logic update for FreeSpace](https://github.com/Feramance/qBitrr/commit/0db7f8578ba0feafda576b589ce322e1fcb4e2e5) - @Feramance
+
+---
+
 ## v4.5.13 (08/05/2024)
 - [[patch] Exclude testing](https://github.com/Feramance/qBitrr/commit/aad3382e5c9313aed7cddba0dfd99440a40d46bb) - @Feramance
 
@@ -278,17 +283,3 @@
 - [Entries process return variable](https://github.com/Feramance/qBitrr/commit/a76130cedae87c39ab42ee819e70e333eeef7cc7) - @Feramance
 - [Error checking](https://github.com/Feramance/qBitrr/commit/c1159a08762ed31880c290f806d3673ad6ae1018) - @Feramance
 - [Change ffprobe exception](https://github.com/Feramance/qBitrr/commit/4f158bfaa0b4d740c80025b7f5bd0163d7db4f7a) - @Feramance
-
----
-
-## v4.2.1 (19/01/2024)
-- [[patch] Search loop fix and performance enhancements](https://github.com/Feramance/qBitrr/commit/b6e34e667c25f40657714f5104d7007c2733eec6) - @Feramance
-- [Delete test2.py](https://github.com/Feramance/qBitrr/commit/966fe4dc45cb538af20d943de984ea1e67065769) - @Feramance
-- [Grabbbing episodes even if both absolute episode numbers are null](https://github.com/Feramance/qBitrr/commit/36376523c4d4f6fc56ed0e670f1f64ab5a31a84d) - @Feramance
-- [Resource not found handling for queue deletion](https://github.com/Feramance/qBitrr/commit/bcf89376c64e03d403a5e688cee5e5d1b3591709) - @Feramance
-- [Queue completion update](https://github.com/Feramance/qBitrr/commit/c4971e880ee279335357c014f25faf1ed874f641) - @Feramance
-- [Get queue error handling](https://github.com/Feramance/qBitrr/commit/58830c727fcc34fce6bc7a9ab54c9c83eadf69b2) - @Feramance
-- [Run search only if not all searched](https://github.com/Feramance/qBitrr/commit/9a10ca3044e94ab937c6b64408ca9a791021bb45) - @Feramance
-- [All searched upgrade check](https://github.com/Feramance/qBitrr/commit/b4cc215df248270d92828ade9f48e02d3554d83c) - @Feramance
-- [Errored torrents fix testing](https://github.com/Feramance/qBitrr/commit/ed991d2686bb9183ac5d7458dbd09a8f8e2c2f16) - @Feramance
-- [Config example update](https://github.com/Feramance/qBitrr/commit/9150f07f07a9bd35beeb52fab9c49f0f4dafac5d) - @Feramance
