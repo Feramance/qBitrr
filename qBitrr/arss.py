@@ -4940,6 +4940,10 @@ class FreeSpaceManager(Arr):
                     "Current free space (pre parse): %s",
                     shutil.disk_usage(self.completed_folder).free,
                 )
+                self.logger.trace(
+                    "Free space to hold: %s",
+                    parse_size(self.min_free_space),
+                )
                 self.logger.trace("Current free space: %s", self.current_free_space)
                 sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 for torrent in sorted_torrents:
