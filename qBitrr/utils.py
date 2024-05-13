@@ -18,10 +18,10 @@ logger = logging.getLogger("qBitrr.Utils")
 CACHE = TTLCache(maxsize=50, ttl=60)
 
 UNITS = {
-    "k": 1e3,
-    "m": 1e6,
-    "g": 1e9,
-    "t": 1e12,
+    "k": 1024,
+    "m": 1048576,
+    "g": 1073741824,
+    "t": 1099511627776,
 }
 
 
