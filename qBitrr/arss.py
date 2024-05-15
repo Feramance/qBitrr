@@ -4820,17 +4820,6 @@ class PlaceHolderArr(Arr):
 class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
-        self.categories = categories
-        self.logger.trace("Categories: %s", self.categories)
-        self.manager = manager
-        self.pause = set()
-        self.resume = set()
-        self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=600
-        )
-        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
-        self.needs_cleanup = False
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
@@ -4846,6 +4835,17 @@ class FreeSpaceManager(Arr):
         else:
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
+        self.categories = categories
+        self.logger.trace("Categories: %s", self.categories)
+        self.manager = manager
+        self.pause = set()
+        self.resume = set()
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
+        self.ignore_torrents_younger_than = CONFIG.get(
+            "Settings.IgnoreTorrentsYoungerThan", fallback=600
+        )
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.needs_cleanup = False
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
             list(self.categories)[0]
         )
