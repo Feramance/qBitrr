@@ -4821,6 +4821,7 @@ class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
         self.categories = categories
+        self.logger.trace("Categories: %s", self.categories)
         self.manager = manager
         self.pause = set()
         self.resume = set()
@@ -4845,7 +4846,9 @@ class FreeSpaceManager(Arr):
         else:
             self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER + list(self.categories)[0])
+        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+            list(self.categories)[0]
+        )
         self.min_free_space = FREE_SPACE
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
