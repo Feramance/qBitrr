@@ -4820,6 +4820,7 @@ class PlaceHolderArr(Arr):
 class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
+        self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
@@ -4835,7 +4836,6 @@ class FreeSpaceManager(Arr):
         run_logs(self.logger)
         self.categories = categories
         self.logger.trace("Categories: %s", self.categories)
-        self.manager = manager
         self.pause = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
