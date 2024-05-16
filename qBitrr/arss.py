@@ -4899,7 +4899,7 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = free_space_test
                 self.logger.trace("Can download: Free space %s", self.current_free_space)
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-        elif self.is_complete_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
+        elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.trace(
                 "Removing tag[%s] for completed torrent[%s]: Free space %s",
                 "qBitrr-free_space_paused",
@@ -4937,14 +4937,6 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = shutil.disk_usage(
                     self.completed_folder
                 ).free - parse_size(self.min_free_space)
-                self.logger.trace(
-                    "Current free space (pre parse): %s",
-                    shutil.disk_usage(self.completed_folder).free,
-                )
-                self.logger.trace(
-                    "Free space to hold: %s",
-                    parse_size(self.min_free_space),
-                )
                 self.logger.trace("Current free space: %s", self.current_free_space)
                 sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 for torrent in sorted_torrents:
