@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.6.1 (16/05/2024)
+- [[patch] Free Space logic adjustment](https://github.com/Feramance/qBitrr/commit/37f1465f1bd6e8853be3d7b44e54513f68d168c9) - @Feramance
+- [More fixes](https://github.com/Feramance/qBitrr/commit/a12bbd3fca05e75e3ba2f7f8d417a459fd742df3) - @Feramance
+- [Logging fixes](https://github.com/Feramance/qBitrr/commit/38115894e558fc128a99d704a823c42fe6fa45a8) - @Feramance
+- [Moved logger initialisation](https://github.com/Feramance/qBitrr/commit/c63d4b54968c29cc304b1c4e19a1ef851a5347f0) - @Feramance
+- [Free Space folder update](https://github.com/Feramance/qBitrr/commit/da0acd605ef1db9cceee0ed569d6f195092e5a32) - @Feramance
+- [Adjusting free space path check](https://github.com/Feramance/qBitrr/commit/ef89bc15e3d2a2d6d86af55bb19999006b0869f4) - @Feramance
+- [Free space Units update](https://github.com/Feramance/qBitrr/commit/3111d9b5f399538a4e6f1cd5cc2453d3846a092e) - @Feramance
+- [Added Free Space logging](https://github.com/Feramance/qBitrr/commit/0d0d6d14a3c2d896d943c88450860e85a6d4aa60) - @Feramance
+- [Test size parsing](https://github.com/Feramance/qBitrr/commit/7d12820dbf8b54dedc208513f2f3e58ecc30386f) - @Feramance
+
+---
+
 ## v4.6.0 (08/05/2024)
 - [[minor] A bunch of release changes and logic update for FreeSpace](https://github.com/Feramance/qBitrr/commit/0db7f8578ba0feafda576b589ce322e1fcb4e2e5) - @Feramance
 
@@ -256,30 +269,3 @@
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/5fae086eaed3a0b9d67166aef0a7ae2d22ebc7ae) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/e9044e604fe00327dbfbd9bec0226dd333fe57d5) - @Feramance
 - [[patch] Hotfix for radarr errors](https://github.com/Feramance/qBitrr/commit/5a878fc0e4648781350a8834cf9c6e5a90954ea4) - @Feramance
-
----
-
-## v4.2.2 (26/01/2024)
-- [[patch] retrying patch release](https://github.com/Feramance/qBitrr/commit/323a10d296e34f721497deddbe08db464df65886) - @Feramance
-- [Merge pull request #54 from Feramance/dependabot/github_actions/peter-evans/dockerhub-description-4](https://github.com/Feramance/qBitrr/commit/e3ea6a95d15fc5caf016a7bb45ef0a3b5b712b28) - @Feramance
-- [[patch] Fix for quality unmet and custom format unmet searches](https://github.com/Feramance/qBitrr/commit/27e0601b7448af39f8ca350dfa16efea86642f0a) - @Feramance
-- [Bump peter-evans/dockerhub-description from 3 to 4](https://github.com/Feramance/qBitrr/commit/533dab1dc35fdf65563b22e7b82a2136a118c2bb) - @dependabot[bot]
-- [Added debug logging](https://github.com/Feramance/qBitrr/commit/2e79b85edd855a72c75bfa929f43a721487d95b2) - @Feramance
-- [PyarrResourceNotFound fix](https://github.com/Feramance/qBitrr/commit/65f320b452d84524c9336f911df548a1b71add69) - @Feramance
-- [PyarrResourceNotFound debugs](https://github.com/Feramance/qBitrr/commit/760d1542154b88441329fdfcc9df0d31c68dcdbd) - @Feramance
-- [Handling for KeyError on episodeFile](https://github.com/Feramance/qBitrr/commit/65e40998876d4da35ae5938edf5a981be5b4c285) - @Feramance
-- [Quality unmet final fix](https://github.com/Feramance/qBitrr/commit/3dd702fa1d46c68e7c3d2fea7d6ff09e1c355969) - @Feramance
-- [Searched condition updates](https://github.com/Feramance/qBitrr/commit/c9f0f9807949243a2da405c88a32d6f79d698fef) - @Feramance
-- [Quality unmet search fix](https://github.com/Feramance/qBitrr/commit/63912d6f58e4fb3becc4f707298e3302e7cad96c) - @Feramance
-- [Quality unmet update](https://github.com/Feramance/qBitrr/commit/f6327a57de932ce3795054b5fd0ee31ccdc8a4c7) - @Feramance
-- [Quality unmet fixes](https://github.com/Feramance/qBitrr/commit/70cd580acf50405b5ead0b27fb9a12649da9f1c9) - @Feramance
-- [Ordered searches to priorotise missing first if enabled](https://github.com/Feramance/qBitrr/commit/7286589991e31079c7ceb7cf357afec18e64bf71) - @Feramance
-- [Updated all searched logs](https://github.com/Feramance/qBitrr/commit/b1684ea1de33c3f18b8216dea47ccb7edc031e99) - @Feramance
-- [file_counter fix](https://github.com/Feramance/qBitrr/commit/41d522edbe24646a111507f008c8773f272456f5) - @Feramance
-- [Logging updates and limited retries for removing files](https://github.com/Feramance/qBitrr/commit/727871722351bdae944a33a51c93ecab32e51468) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/19be25b9f9fa1f519697434d836e928cecc9af4b) - @Feramance
-- [Searches logs](https://github.com/Feramance/qBitrr/commit/4d4ad3623cde23879e5d0ceb38b9c502c1e7b114) - @Feramance
-- [Key error handling](https://github.com/Feramance/qBitrr/commit/b30b29706956a4182ba79686722be4bfb4ec1978) - @Feramance
-- [Entries process return variable](https://github.com/Feramance/qBitrr/commit/a76130cedae87c39ab42ee819e70e333eeef7cc7) - @Feramance
-- [Error checking](https://github.com/Feramance/qBitrr/commit/c1159a08762ed31880c290f806d3673ad6ae1018) - @Feramance
-- [Change ffprobe exception](https://github.com/Feramance/qBitrr/commit/4f158bfaa0b4d740c80025b7f5bd0163d7db4f7a) - @Feramance
