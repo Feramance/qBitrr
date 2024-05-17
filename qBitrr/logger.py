@@ -116,6 +116,7 @@ def run_logs(logger: Logger) -> None:
         reconfigure=True,
     )
     if HAS_RUN is False:
+        HAS_RUN = True
         log_Debugs(logger)
 
 
