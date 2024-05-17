@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.7 (17/05/2024)
+- [[patch] Exit change](https://github.com/Feramance/qBitrr/commit/642aaafaa6c4bde7b0f86e4ba874939dfbbfbebd) - @Feramance
+
+---
+
 ## v4.6.6 (17/05/2024)
 - [[patch] Another test fix](https://github.com/Feramance/qBitrr/commit/4fb1cda81b27596f4ed93f4e7c6a9f442d26a37e) - @Feramance
 
@@ -210,8 +215,3 @@
 - [Free space fix test](https://github.com/Feramance/qBitrr/commit/6eb03308e30f4470f9b05ab9f423abe97787f788) - @Feramance
 - [Updated release workflow order](https://github.com/Feramance/qBitrr/commit/a09c21dbedfa649bad63026e3d84ff41f225a85f) - @Feramance
 - [Corrected version number for PyPi](https://github.com/Feramance/qBitrr/commit/bb61323b534b8a6b2beb7e9abfe3787e544c9c3c) - @Feramance
-
----
-
-## v4.2.8 (06/02/2024)
-- [[patch] Updated dependencies and formatted all files](https://github.com/Feramance/qBitrr/commit/3f747bcfd51bbfa8ba0420dc5adc517b193e933e) - @Feramance
