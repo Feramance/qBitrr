@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import os
 import pathlib
 import shutil
 import sys
@@ -86,7 +87,7 @@ elif (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
     print(f"'{CONFIG_FILE.name}' has been generated")
     print('Rename it to "config.toml" then edit it and restart the container')
 
-    sys.exit
+    os._exit()
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)
