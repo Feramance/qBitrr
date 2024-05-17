@@ -87,7 +87,7 @@ elif (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
     print(f"'{CONFIG_FILE.name}' has been generated")
     print('Rename it to "config.toml" then edit it and restart the container')
 
-    os._exit(0)
+    os._exit(1)
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)
