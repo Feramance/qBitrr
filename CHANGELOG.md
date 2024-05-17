@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.6.11 (17/05/2024)
+- [[patch] Availability paused fix](https://github.com/Feramance/qBitrr/commit/331091c58184371e62ff47088729cc2f13f68bbd) - @Feramance
+- [Ignore for free space](https://github.com/Feramance/qBitrr/commit/e5d4047e058c94aa46695ca6243eb5bcc22bd4d2) - @Feramance
+- [Torrent availability fix](https://github.com/Feramance/qBitrr/commit/880e16fc0fd4742c315f2986bf49a4c79b899639) - @Feramance
+
+---
+
 ## v4.6.10 (17/05/2024)
 - [[patch] Logging changes and paused torrent handling fixes](https://github.com/Feramance/qBitrr/commit/d0dfa3f12f46ca844e02f645a56385d7d4a21b0f) - @Feramance
 - [Better torrent handling for paused torrents](https://github.com/Feramance/qBitrr/commit/96597676dfa810321d63c0fa025dd302d5598770) - @Feramance
@@ -198,12 +205,3 @@
 - [Changed some debugs](https://github.com/Feramance/qBitrr/commit/c1cd268633ad25df5a6759f5ddb8b5828730d07f) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/1f2c706d3d8def1666f0aa96ed348b69d1bbd859) - @Feramance
 - [Added logging for debugging](https://github.com/Feramance/qBitrr/commit/a75a49c59e87612f0a77f8f5b358ca4d5958eb2c) - @Feramance
-
----
-
-## v4.3.2 (12/02/2024)
-- [[patch] Current free space fix](https://github.com/Feramance/qBitrr/commit/d08a440f773e224b7d9f448c3e108a44b4ff1ae2) - @Feramance
-- [Request update fixes](https://github.com/Feramance/qBitrr/commit/8b6e85672e90fa4706facf167b0b38c1f60d59bd) - @Feramance
-- [Removed redundant connection error log](https://github.com/Feramance/qBitrr/commit/cef40ae401829f88ccfa2f59b217589311c38bc2) - @Feramance
-- [Added tag to show imported torrents](https://github.com/Feramance/qBitrr/commit/89b39f35a5cba1c1416997e7f629ddb6a61ee0f0) - @Feramance
-- [Updated request files query](https://github.com/Feramance/qBitrr/commit/a8a43b7cd0ce6f6d03392ea8e1c793ffd4662920) - @Feramance
