@@ -34,6 +34,7 @@ from qBitrr.utils import ExpiringSet, absolute_file_paths
 
 CHILD_PROCESSES = []
 
+logger = logging.getLogger(f"qBitrr")
 if ENABLE_LOGS:
     LOGS_FOLDER = HOME_PATH.joinpath("logs")
     LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -43,10 +44,7 @@ if ENABLE_LOGS:
         logold = LOGS_FOLDER.joinpath("qBitrr.log.old")
         logfile.rename(logold)
     fh = logging.FileHandler(logfile)
-    logger = logging.getLogger(f"qBitrr")
     logger.addHandler(fh)
-else:
-    logger = logging.getLogger(f"qBitrr")
 run_logs(logger)
 
 
@@ -62,6 +60,7 @@ class qBitManager:
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
             LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -71,10 +70,7 @@ class qBitManager:
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
             self.logger.addHandler(fh)
-        else:
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
