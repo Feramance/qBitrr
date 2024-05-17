@@ -4934,6 +4934,7 @@ class FreeSpaceManager(Arr):
                         completed = True
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 torrents = [t for t in torrents if t.category in self.categories]
+                torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
                 if not len(torrents):
                     raise DelayLoopException(length=5, type="no_downloads")
                 if has_internet() is False:
