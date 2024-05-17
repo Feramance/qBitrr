@@ -3981,7 +3981,9 @@ class Arr:
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
+                and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                 and "qBitrr-ignored" not in torrent.tags
+                and "qBitrr-free_space_paused" not in torrent.tags
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
