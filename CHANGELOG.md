@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.13 (17/05/2024)
+- [[patch] NameError handling](https://github.com/Feramance/qBitrr/commit/55bef953acecbf98f1571cc40fb497a3fd9c6afd) - @Feramance
+
+---
+
 ## v4.6.12 (17/05/2024)
 - [[patch] Config file dupe issue](https://github.com/Feramance/qBitrr/commit/9296c7c0e3be644102ad2b400d964f39adae3cd5) - @Feramance
 
@@ -188,10 +193,3 @@
 - [[patch] Dependency bump](https://github.com/Feramance/qBitrr/commit/4caa0af9bdf0273302d0efdff7a883f3ef436d8b) - @Feramance
 - [Debugging torrent availability](https://github.com/Feramance/qBitrr/commit/54b80acba9a41a936078c8143b010658d13d50ac) - @Feramance
 - [Updated config example](https://github.com/Feramance/qBitrr/commit/26083a07f3072db7f1ada387b28ec680bffa1a01) - @Feramance
-
----
-
-## v4.4.0 (23/02/2024)
-- [[minor] Added config option to delay search commands and reduce activity on indexers](https://github.com/Feramance/qBitrr/commit/5ea5dfeaffe3071b9e12f3170f21a7fb8754ceb2) - @Feramance
-- [Added logging for better testing](https://github.com/Feramance/qBitrr/commit/adf04ac66ef6844544fac2fb4c850e58e42eb2bd) - @Feramance
-- [Implementing search loop delay](https://github.com/Feramance/qBitrr/commit/72499f22af0772d7ab09696a58a2f7ceb39b6e9c) - @Feramance
