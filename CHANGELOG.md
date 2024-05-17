@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.5 (17/05/2024)
+- [[patch] Exit fix](https://github.com/Feramance/qBitrr/commit/ae6ba9ed3102c84e3bae52b856b0dec5f67fc04c) - @Feramance
+
+---
+
 ## v4.6.4 (17/05/2024)
 - [[patch] Exit status fix](https://github.com/Feramance/qBitrr/commit/681d1db6ad96c737dec8b4e9a14dbf3b6ed08a26) - @Feramance
 
@@ -219,9 +224,3 @@
 - [Dependabot workflow update](https://github.com/Feramance/qBitrr/commit/ca919bb987a1d61edbb18b6ef8341ec9e4a65ccf) - @Feramance
 - [Bump dependabot/fetch-metadata from 1.1.1 to 1.6.0](https://github.com/Feramance/qBitrr/commit/6b5423807ab93a2b6656de2885e7fb266303b857) - @dependabot[bot]
 - [Queue fix](https://github.com/Feramance/qBitrr/commit/ac59cafbe33e54b851e6f171924b0ad113b878cd) - @Feramance
-
----
-
-## v4.2.6 (02/02/2024)
-- [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/01627219a20f75dd11668c455ae80fd32b872400) - @Feramance
-- [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/574956637efb5c0012a354c8a86176a291741870) - @Feramance
