@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.12 (17/05/2024)
+- [[patch] Config file dupe issue](https://github.com/Feramance/qBitrr/commit/9296c7c0e3be644102ad2b400d964f39adae3cd5) - @Feramance
+
+---
+
 ## v4.6.11 (17/05/2024)
 - [[patch] Availability paused fix](https://github.com/Feramance/qBitrr/commit/331091c58184371e62ff47088729cc2f13f68bbd) - @Feramance
 - [Ignore for free space](https://github.com/Feramance/qBitrr/commit/e5d4047e058c94aa46695ca6243eb5bcc22bd4d2) - @Feramance
@@ -190,18 +195,3 @@
 - [[minor] Added config option to delay search commands and reduce activity on indexers](https://github.com/Feramance/qBitrr/commit/5ea5dfeaffe3071b9e12f3170f21a7fb8754ceb2) - @Feramance
 - [Added logging for better testing](https://github.com/Feramance/qBitrr/commit/adf04ac66ef6844544fac2fb4c850e58e42eb2bd) - @Feramance
 - [Implementing search loop delay](https://github.com/Feramance/qBitrr/commit/72499f22af0772d7ab09696a58a2f7ceb39b6e9c) - @Feramance
-
----
-
-## v4.3.3 (19/02/2024)
-- [[patch] General torrent handling fixes](https://github.com/Feramance/qBitrr/commit/af46ce673b0445fe27763926f089a13ba38ecf12) - @Feramance
-- [Fixed Error](https://github.com/Feramance/qBitrr/commit/5be7791766cfb2c85424ee65ce2d6974661c8080) - @Feramance
-- [More debugging](https://github.com/Feramance/qBitrr/commit/de2fcaa551f5b5eede7d4cac130ae02f24a0a087) - @Feramance
-- [Further debugging deting of stalled torrents](https://github.com/Feramance/qBitrr/commit/7e16633e09b393401d2c38f599e9a3e0c2f44d16) - @Feramance
-- [Altered torrent condition checks](https://github.com/Feramance/qBitrr/commit/b6fed3490233972b35206922ae5c6535c84fc61e) - @Feramance
-- [Added Debugs](https://github.com/Feramance/qBitrr/commit/2756039b680c7fc629e586914e11dd6a618ca3c8) - @Feramance
-- [Changed default valuies](https://github.com/Feramance/qBitrr/commit/9e2507c65295d0a46c0f76b607a4d309ecac2c5c) - @Feramance
-- [Added more debugs](https://github.com/Feramance/qBitrr/commit/0b33d5a5deb21fd11b64bcbd63714e42be64b87d) - @Feramance
-- [Changed some debugs](https://github.com/Feramance/qBitrr/commit/c1cd268633ad25df5a6759f5ddb8b5828730d07f) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/1f2c706d3d8def1666f0aa96ed348b69d1bbd859) - @Feramance
-- [Added logging for debugging](https://github.com/Feramance/qBitrr/commit/a75a49c59e87612f0a77f8f5b358ca4d5958eb2c) - @Feramance
