@@ -34,8 +34,8 @@ from qBitrr.utils import ExpiringSet, absolute_file_paths
 
 CHILD_PROCESSES = []
 
-# if (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
-#     raise SystemExit
+if (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
+    sys.exit(0)
 logger = logging.getLogger(f"qBitrr")
 if ENABLE_LOGS:
     LOGS_FOLDER = HOME_PATH.joinpath("logs")
