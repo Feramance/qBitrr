@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.8 (17/05/2024)
+- [[patch] Altered config handling](https://github.com/Feramance/qBitrr/commit/52cdd744f458df821a408650803ab2d63f1649d2) - @Feramance
+
+---
+
 ## v4.6.7 (17/05/2024)
 - [[patch] Exit change](https://github.com/Feramance/qBitrr/commit/642aaafaa6c4bde7b0f86e4ba874939dfbbfbebd) - @Feramance
 
@@ -202,16 +207,3 @@
 
 ## v4.3.0 (09/02/2024)
 - [[minor] Added option to force minimum custom formats on torrents](https://github.com/Feramance/qBitrr/commit/66eea0ef9a4dd2d97c142d3a64f7ef75d60e5785) - @Feramance
-
----
-
-## v4.2.9 (09/02/2024)
-- [[patch] Free space adjustements](https://github.com/Feramance/qBitrr/commit/8961ce511ef36377373c602bfcdc0e38b210c05a) - @Feramance
-- [Remove free space tag if torrent is completed](https://github.com/Feramance/qBitrr/commit/0004eec46079cd64c13787e3d3c800dce2c5fd0c) - @Feramance
-- [Fixed remove tags call](https://github.com/Feramance/qBitrr/commit/aa3cbf502530de24bd2bbc7c87cc4abbc60a9b2a) - @Feramance
-- [Remove free space tag if completed](https://github.com/Feramance/qBitrr/commit/eec18d20bf848997e4771f7a141f6feb497e50bf) - @Feramance
-- [Free space pause fix](https://github.com/Feramance/qBitrr/commit/0358a296e16bc92baf37f7cab7f260788d85db4d) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/61d6127cb960049be338362faf9cc27c58b2e77c) - @Feramance
-- [Free space fix test](https://github.com/Feramance/qBitrr/commit/6eb03308e30f4470f9b05ab9f423abe97787f788) - @Feramance
-- [Updated release workflow order](https://github.com/Feramance/qBitrr/commit/a09c21dbedfa649bad63026e3d84ff41f225a85f) - @Feramance
-- [Corrected version number for PyPi](https://github.com/Feramance/qBitrr/commit/bb61323b534b8a6b2beb7e9abfe3787e544c9c3c) - @Feramance
