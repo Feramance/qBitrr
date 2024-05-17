@@ -3973,7 +3973,6 @@ class Arr:
         elif torrent.state_enum.is_downloading:
             # If a torrent availability hasn't reached 100% or more within the configurable
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
-            self.logger.trace("Torrent availability: %s[%s]", torrent.name, torrent.availability)
             if (
                 (
                     self.recently_queue.get(torrent.hash, torrent.added_on)
@@ -3981,7 +3980,7 @@ class Arr:
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
-                and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+                and self.is_downloading_state(torrent)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
             ):
