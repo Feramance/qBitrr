@@ -202,7 +202,10 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
-    manager = qBitManager()
+    try:
+        manager = qBitManager()
+    except NameError:
+        sys.exit(0)
     run_logs(logger)
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
     try:
