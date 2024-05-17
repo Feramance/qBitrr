@@ -294,14 +294,15 @@ class Arr:
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
-            version_info = self.client.get_update()
-            self.version = version_parser.parse(version_info[0].get("version"))
-            self.logger.debug("%s version: %s", self._name, self.version.__str__())
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
+
+        try:
             version_info = self.client.get_update()
             self.version = version_parser.parse(version_info[0].get("version"))
             self.logger.debug("%s version: %s", self._name, self.version.__str__())
+        except Exception:
+            self.logger.debug("Failed to get version")
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
