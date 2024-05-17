@@ -80,7 +80,7 @@ if any(
 ):
     CONFIG = MyConfig(CONFIG_FILE, config=generate_doc())
     COPIED_TO_NEW_DIR = None
-elif (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
+elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     print(f"{file} has not been found")
 
     CONFIG_FILE = _write_config_file(docker=True)
