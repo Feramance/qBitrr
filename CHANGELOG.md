@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.2 (17/05/2024)
+- [[patch] Config file fix](https://github.com/Feramance/qBitrr/commit/ffb39771f6215332461518d77cb36fe5911f9e35) - @Feramance
+
+---
+
 ## v4.6.1 (16/05/2024)
 - [[patch] Free Space logic adjustment](https://github.com/Feramance/qBitrr/commit/37f1465f1bd6e8853be3d7b44e54513f68d168c9) - @Feramance
 - [More fixes](https://github.com/Feramance/qBitrr/commit/a12bbd3fca05e75e3ba2f7f8d417a459fd742df3) - @Feramance
@@ -262,10 +267,3 @@
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/4e7244702a65f894688ad3d1cb13dfc691032ffb) - @Feramance
 - [Adding logo](https://github.com/Feramance/qBitrr/commit/b9f9142fe852ffbbb23ce9f1a9612d8fc78701ea) - @Feramance
 - [Skip already searched update](https://github.com/Feramance/qBitrr/commit/d80ec1e46889d5aab92f60e624ab9a992d062113) - @Feramance
-
----
-
-## v4.2.3 (26/01/2024)
-- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/5fae086eaed3a0b9d67166aef0a7ae2d22ebc7ae) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/e9044e604fe00327dbfbd9bec0226dd333fe57d5) - @Feramance
-- [[patch] Hotfix for radarr errors](https://github.com/Feramance/qBitrr/commit/5a878fc0e4648781350a8834cf9c6e5a90954ea4) - @Feramance
