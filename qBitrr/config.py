@@ -60,6 +60,7 @@ def process_flags() -> argparse.Namespace | bool:
 
 COPIED_TO_NEW_DIR = False
 file = "config.toml"
+CONFIG_EXISTS = True
 CONFIG_FILE = HOME_PATH.joinpath(file)
 CONFIG_PATH = pathlib.Path(f"./{file}")
 if any(
@@ -86,7 +87,7 @@ elif (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
     print(f"'{CONFIG_FILE.name}' has been generated")
     print('Rename it to "config.toml" then edit it and restart the container')
 
-    sys.exit(0)
+    CONFIG_EXISTS = False
 
 elif CONFIG_FILE.exists():
     CONFIG = MyConfig(CONFIG_FILE)

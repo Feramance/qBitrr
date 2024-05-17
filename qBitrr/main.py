@@ -21,6 +21,7 @@ from qBitrr.bundled_data import patched_version
 from qBitrr.config import (
     APPDATA_FOLDER,
     CONFIG,
+    CONFIG_EXISTS,
     ENABLE_LOGS,
     QBIT_DISABLED,
     SEARCH_ONLY,
@@ -32,10 +33,13 @@ from qBitrr.home_path import HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
 
+if CONFIG_EXISTS:
+    from qBitrr.arss import ArrManager
+else:
+    sys.exit(0)
+
 CHILD_PROCESSES = []
 
-if (not CONFIG_FILE.exists()) or (not CONFIG_PATH.exists()):
-    sys.exit(0)
 logger = logging.getLogger(f"qBitrr")
 if ENABLE_LOGS:
     LOGS_FOLDER = HOME_PATH.joinpath("logs")
