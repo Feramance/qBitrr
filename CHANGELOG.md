@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.6.10 (17/05/2024)
+- [[patch] Logging changes and paused torrent handling fixes](https://github.com/Feramance/qBitrr/commit/d0dfa3f12f46ca844e02f645a56385d7d4a21b0f) - @Feramance
+- [Better torrent handling for paused torrents](https://github.com/Feramance/qBitrr/commit/96597676dfa810321d63c0fa025dd302d5598770) - @Feramance
+- [Removing duplicate logs](https://github.com/Feramance/qBitrr/commit/7c9364ad877b2a56d32af83775b367ebafa112ae) - @Feramance
+
+---
+
 ## v4.6.9 (17/05/2024)
 - [[patch] Version check handling](https://github.com/Feramance/qBitrr/commit/b1bf54f1de7d4806275a46d8ad665a293ee6b69d) - @Feramance
 
@@ -200,10 +207,3 @@
 - [Removed redundant connection error log](https://github.com/Feramance/qBitrr/commit/cef40ae401829f88ccfa2f59b217589311c38bc2) - @Feramance
 - [Added tag to show imported torrents](https://github.com/Feramance/qBitrr/commit/89b39f35a5cba1c1416997e7f629ddb6a61ee0f0) - @Feramance
 - [Updated request files query](https://github.com/Feramance/qBitrr/commit/a8a43b7cd0ce6f6d03392ea8e1c793ffd4662920) - @Feramance
-
----
-
-## v4.3.1 (09/02/2024)
-- [[patch] Missing search fix](https://github.com/Feramance/qBitrr/commit/7eacedd860e37eaf16f8aeba6325e2cedbee8ebd) - @Feramance
-- [Updated get files function and quality met](https://github.com/Feramance/qBitrr/commit/8f36066a10e848b421c68b4579e245ac7df86e2e) - @Feramance
-- [Added logs for debugging](https://github.com/Feramance/qBitrr/commit/71d95fecbfc98ee4a45af11f6c71ca02a9532ecf) - @Feramance
