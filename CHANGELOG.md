@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.6.4 (17/05/2024)
+- [[patch] Exit status fix](https://github.com/Feramance/qBitrr/commit/681d1db6ad96c737dec8b4e9a14dbf3b6ed08a26) - @Feramance
+
+---
+
 ## v4.6.3 (17/05/2024)
 - [[patch] Config gen error on windows first run fix](https://github.com/Feramance/qBitrr/commit/977d0a3a5e8964dda2a429e1fe47be8ca0dd2b75) - @Feramance
 
@@ -220,13 +225,3 @@
 ## v4.2.6 (02/02/2024)
 - [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/01627219a20f75dd11668c455ae80fd32b872400) - @Feramance
 - [[patch] Workflow update](https://github.com/Feramance/qBitrr/commit/574956637efb5c0012a354c8a86176a291741870) - @Feramance
-
----
-
-## v4.2.5 (02/02/2024)
-- [[patch] Config example updates and version fixes](https://github.com/Feramance/qBitrr/commit/2c89f0e25302d5f013b6e232852e123d1b040b85) - @Feramance
-- [[patch] Further loop fixes and search by year update](https://github.com/Feramance/qBitrr/commit/ad643854dda5cd805ad09fb8f03db61f9c5e57b7) - @Feramance
-- [Database update logging](https://github.com/Feramance/qBitrr/commit/a0b1466d021ca5a29877f6c39f6a9f67473caaef) - @Feramance
-- [Updated debug output](https://github.com/Feramance/qBitrr/commit/7534fa2ec1803ac9f3acce5512740dce01bb2ffb) - @Feramance
-- [Nonetype fix](https://github.com/Feramance/qBitrr/commit/55068d4c1fb600bcacf4e30911288ceffd7e7871) - @Feramance
-- [Queue monitoring debugging](https://github.com/Feramance/qBitrr/commit/ba04a8e291abfeb32e45e2174212a67f305260e7) - @Feramance
