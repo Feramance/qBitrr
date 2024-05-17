@@ -93,6 +93,7 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
             LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -102,10 +103,7 @@ class Arr:
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
             self.logger.addHandler(fh)
-        else:
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
@@ -4695,6 +4693,7 @@ class PlaceHolderArr(Arr):
         self.timed_skip = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
             LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -4704,10 +4703,7 @@ class PlaceHolderArr(Arr):
                 logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
             self.logger.addHandler(fh)
-        else:
-            self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
