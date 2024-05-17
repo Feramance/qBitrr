@@ -3869,7 +3869,12 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-        if self.custom_format_unmet_search and self.custom_format_unmet_check(torrent):
+        if (
+            self.custom_format_unmet_search
+            and self.custom_format_unmet_check(torrent)
+            and "qBitrr-ignored" not in torrent.tags
+            and "qBitrr-free_space_paused" not in torrent.tags
+        ):
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
             self._process_single_torrent_delete_ratio_seed(torrent)
@@ -3907,6 +3912,8 @@ class Arr:
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
+            and "qBitrr-ignored" not in torrent.tags
+            and "qBitrr-free_space_paused" not in torrent.tags
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
@@ -3961,6 +3968,7 @@ class Arr:
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
+            and "qBitrr-free_space_paused" not in torrent.tags
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
