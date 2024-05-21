@@ -147,7 +147,7 @@ qbittorrent-api==2023.7.52
     # via qBitrr2 (setup.py)
 readme-renderer==43.0
     # via twine
-requests==2.31.0
+requests==2.32.0
     # via
     #   pyarr
     #   qBitrr2 (setup.py)
