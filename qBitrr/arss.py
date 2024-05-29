@@ -1204,6 +1204,7 @@ class Arr:
         elif self.type == "radarr":
             movielist = self.db_get_files_movies()
             for movies in movielist:
+                self.logger.trace("Get files: %s", movies[0].Title)
                 yield movies[0], movies[1], movies[2], False, len(movielist)
 
     def db_maybe_reset_entry_searched_state(self):
@@ -1476,6 +1477,7 @@ class Arr:
                 .execute()
             ):
                 entries.append([entry, False, False])
+                self.logger.trace("Get files movies: %s", entry.Title)
             return entries
 
     def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
