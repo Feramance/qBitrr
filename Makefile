@@ -36,7 +36,9 @@ bumpdeps:
 # Development environment
 newenv:
 	$(PYTHON) -m venv --clear .venv
-	.venv/bin/pip install -U pip setuptools wheel
+	.venv/bin/pip install -U pip
+	.venv/bin/pip install -U setuptools==69.5.1
+	.venv/bin/pip install -U wheel
 	$(MAKE) syncenv
 syncenv:
 	pip install -Ur requirements.all.txt

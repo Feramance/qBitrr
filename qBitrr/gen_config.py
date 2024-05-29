@@ -601,6 +601,12 @@ def _gen_default_search_table(category: str, cat_default: Table):
     )
     _gen_default_line(
         search_table,
+        "Use Temp profile for missing",
+        "UseTempForMissing",
+        False,
+    )
+    _gen_default_line(
+        search_table,
         "Main quality profile",
         "MainQualityProfile",
         "CHANGE_ME",
@@ -610,12 +616,6 @@ def _gen_default_search_table(category: str, cat_default: Table):
         "Temp quality profile",
         "TempQualityProfile",
         "CHANGE_ME",
-    )
-    _gen_default_line(
-        search_table,
-        "Use Temp profile for missing",
-        "UseTempForMissing",
-        False,
     )
     if "sonarr" in category.lower():
         _gen_default_line(
