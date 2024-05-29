@@ -2162,7 +2162,7 @@ class Arr:
                         ):
                             data: JsonObject = {"qualityProfileId": self.main_quality_profile_id}
                             self.logger.debug(
-                                "Updating quality profile to %s", self.main_quality_profile_id
+                                "Updating quality profile to %s", self.main_quality_profile
                             )
                         elif (
                             not searched
@@ -2170,7 +2170,7 @@ class Arr:
                         ):
                             data: JsonObject = {"qualityProfileId": self.temp_quality_profile_id}
                             self.logger.debug(
-                                "Updating quality profile to %s", self.temp_quality_profile_id
+                                "Updating quality profile to %s", self.temp_quality_profile
                             )
                         self.client.upd_episode(episode["id"], data)
 
@@ -2345,7 +2345,7 @@ class Arr:
                             ):
                                 db_entry["qualityProfileId"] = self.main_quality_profile_id
                                 self.logger.debug(
-                                    "Updating quality profile to %s", self.main_quality_profile_id
+                                    "Updating quality profile to %s", self.main_quality_profile
                                 )
                             elif (
                                 not searched
@@ -2353,7 +2353,7 @@ class Arr:
                             ):
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_id
                                 self.logger.debug(
-                                    "Updating quality profile to %s", self.temp_quality_profile_id
+                                    "Updating quality profile to %s", self.temp_quality_profile
                                 )
                             self.client.upd_series(db_entry)
                         Title = seriesMetadata.get("title")
@@ -2463,7 +2463,7 @@ class Arr:
                     if searched and db_entry["qualityProfileId"] == self.temp_quality_profile_id:
                         db_entry["qualityProfileId"] = self.main_quality_profile_id
                         self.logger.debug(
-                            "Updating quality profile to %s", self.main_quality_profile_id
+                            "Updating quality profile to %s", self.main_quality_profile
                         )
                     elif (
                         not searched
@@ -2471,7 +2471,7 @@ class Arr:
                     ):
                         db_entry["qualityProfileId"] = self.temp_quality_profile_id
                         self.logger.debug(
-                            "Updating quality profile to %s", self.temp_quality_profile_id
+                            "Updating quality profile to %s", self.temp_quality_profile
                         )
                     self.client.upd_movie(db_entry)
 
@@ -4307,8 +4307,18 @@ class Arr:
         for p in profiles:
             if p["name"] == self.main_quality_profile:
                 main_quality_profile_id = p["id"]
+                self.logger.trace(
+                    "Quality profile %s:%s",
+                    self.main_quality_profile,
+                    self.main_quality_profile_id,
+                )
             if p["name"] == self.temp_quality_profile:
                 temp_quality_profile_id = p["id"]
+                self.logger.trace(
+                    "Quality profile %s:%s",
+                    self.temp_quality_profile,
+                    self.temp_quality_profile_id,
+                )
         return (main_quality_profile_id, temp_quality_profile_id)
 
     def register_search_mode(self):
