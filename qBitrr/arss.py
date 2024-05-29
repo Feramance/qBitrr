@@ -4310,14 +4310,14 @@ class Arr:
                 self.logger.trace(
                     "Quality profile %s:%s",
                     self.main_quality_profile,
-                    self.main_quality_profile_id,
+                    main_quality_profile_id,
                 )
             if p["name"] == self.temp_quality_profile:
                 temp_quality_profile_id = p["id"]
                 self.logger.trace(
                     "Quality profile %s:%s",
                     self.temp_quality_profile,
-                    self.temp_quality_profile_id,
+                    temp_quality_profile_id,
                 )
         return (main_quality_profile_id, temp_quality_profile_id)
 
