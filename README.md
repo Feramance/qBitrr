@@ -45,6 +45,7 @@ I am starting development on qBitrr+ which will be C# based for better overall p
 - Optionally searches year by year is ascending or descending order (config option available)
 - Search for CF Score unmet and cancel torrents base on CF Score or Quality unmet search
 - Set minimum free space in download directory and pause torrent downloads accordingly
+- Change quality profile temporarily for missing items until found
 
 ## Tested with
 
