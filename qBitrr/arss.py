@@ -201,14 +201,6 @@ class Arr:
         self.force_minimum_custom_format = CONFIG.get(
             f"{name}.EntrySearch.ForceMinimumCustomFormat", fallback=False
         )
-        self.use_temp_for_missing = CONFIG.get(
-            f"{name}.EntrySearch.UseTempForMissing", fallback=False
-        )
-        if self.use_temp_for_missing:
-            (
-                self.main_quality_profile_id,
-                self.temp_quality_profile_id,
-            ) = self.parse_quality_profiles()
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -308,6 +300,15 @@ class Arr:
             self.logger.debug("%s version: %s", self._name, self.version.__str__())
         except Exception:
             self.logger.debug("Failed to get version")
+
+        self.use_temp_for_missing = CONFIG.get(
+            f"{name}.EntrySearch.UseTempForMissing", fallback=False
+        )
+        if self.use_temp_for_missing:
+            (
+                self.main_quality_profile_id,
+                self.temp_quality_profile_id,
+            ) = self.parse_quality_profiles()
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
