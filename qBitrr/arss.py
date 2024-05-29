@@ -2172,7 +2172,18 @@ class Arr:
                             self.logger.debug(
                                 "Updating quality profile to %s", self.temp_quality_profile
                             )
-                        self.client.upd_episode(episode["id"], data)
+                        completed = True
+                        while completed:
+                            completed = False
+                            try:
+                                self.client.upd_episode(episode["id"], data)
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ) as e:
+                                completed = True
 
                     if episode["monitored"] == True:
                         EntryId = episode["id"]
@@ -2355,7 +2366,19 @@ class Arr:
                                 self.logger.debug(
                                     "Updating quality profile to %s", self.temp_quality_profile
                                 )
-                            self.client.upd_series(db_entry)
+                            completed = True
+                            while completed:
+                                completed = False
+                                try:
+                                    self.client.upd_series(db_entry)
+                                except (
+                                    requests.exceptions.ChunkedEncodingError,
+                                    requests.exceptions.ContentDecodingError,
+                                    requests.exceptions.ConnectionError,
+                                    JSONDecodeError,
+                                ) as e:
+                                    completed = True
+
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
 
@@ -2473,7 +2496,18 @@ class Arr:
                         self.logger.debug(
                             "Updating quality profile to %s", self.temp_quality_profile
                         )
-                    self.client.upd_movie(db_entry)
+                    completed = True
+                    while completed:
+                        completed = False
+                        try:
+                            self.client.upd_movie(db_entry)
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            completed = True
 
                 if self.minimum_availability_check(db_entry) and db_entry["monitored"] == True:
                     title = db_entry["title"]
@@ -4303,7 +4337,18 @@ class Arr:
     def parse_quality_profiles(self) -> tuple[int, int]:
         main_quality_profile_id = 0
         temp_quality_profile_id = 0
-        profiles = self.client.get_quality_profile()
+        completed = True
+        while completed:
+            completed = False
+            try:
+                profiles = self.client.get_quality_profile()
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ContentDecodingError,
+                requests.exceptions.ConnectionError,
+                JSONDecodeError,
+            ) as e:
+                completed = True
         for p in profiles:
             if p["name"] == self.main_quality_profile:
                 main_quality_profile_id = p["id"]
