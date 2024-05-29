@@ -41,16 +41,16 @@ else:
 CHILD_PROCESSES = []
 
 logger = logging.getLogger(f"qBitrr")
-if ENABLE_LOGS:
-    LOGS_FOLDER = HOME_PATH.joinpath("logs")
-    LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-    LOGS_FOLDER.chmod(mode=0o777)
-    logfile = LOGS_FOLDER.joinpath("qBitrr.log")
-    if pathlib.Path(logfile).is_file():
-        logold = LOGS_FOLDER.joinpath("qBitrr.log.old")
-        logfile.rename(logold)
-    fh = logging.FileHandler(logfile)
-    logger.addHandler(fh)
+# if ENABLE_LOGS:
+#     LOGS_FOLDER = HOME_PATH.joinpath("logs")
+#     LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
+#     LOGS_FOLDER.chmod(mode=0o777)
+#     logfile = LOGS_FOLDER.joinpath("qBitrr.log")
+#     if pathlib.Path(logfile).is_file():
+#         logold = LOGS_FOLDER.joinpath("qBitrr.log.old")
+#         logfile.rename(logold)
+#     fh = logging.FileHandler(logfile)
+#     logger.addHandler(fh)
 run_logs(logger)
 
 
