@@ -1475,12 +1475,12 @@ class Arr:
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
-            for entry in (
-                self.model_file.select()
-                .where(condition)
-                .order_by(self.model_file.MovieFileId.asc())
-                .execute()
-            ):
+            query = self.model_file.select().where(condition).execute()
+            if not query:
+                self.logger.trace("Files query is empty")
+            else:
+                self.logger.trace("Files query is not empty")
+            for entry in query:
                 entries.append([entry, False, False])
                 self.logger.trace("Get files movies: %s", entry.Title)
             return entries
@@ -4604,6 +4604,8 @@ class Arr:
                         if not searched:
                             self.logger.trace("Starting search loop")
                             entries = self.db_get_files()
+                            if not entries:
+                                self.logger.info("No pending search commands")
                             for e in entries:
                                 if totcommands == -1:
                                     totcommands = e[4]
