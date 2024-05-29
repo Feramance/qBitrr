@@ -2534,7 +2534,7 @@ class Arr:
                     tmdbId = db_entry["tmdbId"]
                     year = db_entry["year"]
                     entryId = db_entry["id"]
-                    movieFileId = 1 if "movieFileId" in db_entry else 0
+                    movieFileId = db_entry["movieFileId"]
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat > minCustomFormat
 
