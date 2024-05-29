@@ -1,5 +1,16 @@
 # Changelog
 
+## v4.7.1 (29/05/2024)
+- [[patch] Fixed Radarr search loop](https://github.com/Feramance/qBitrr/commit/051262800ccea1fa273f8c7d4ca767132cdd003d) - @Feramance
+- [Changed movie file id mapping](https://github.com/Feramance/qBitrr/commit/7ab426590d519a1b48f22e442ff86ec05f7d04c9) - @Feramance
+- [Further testing](https://github.com/Feramance/qBitrr/commit/4c7478aba25f0ce63c746ab33fad255e4bcf4162) - @Feramance
+- [Alter get files function](https://github.com/Feramance/qBitrr/commit/f58ea2d89a3e9cbd019aee239d6ee65a0db5db8f) - @Feramance
+- [Added logs for testing](https://github.com/Feramance/qBitrr/commit/7caaf510c68a1e7f17335f18e8bb96ef1c599bb7) - @Feramance
+- [Search testing](https://github.com/Feramance/qBitrr/commit/999da4f26501c3b6f8c5cd2a8880ff995851a72a) - @Feramance
+- [README update](https://github.com/Feramance/qBitrr/commit/30fccabf9825899ed32ee2577da3a4431da5d89d) - @Feramance
+
+---
+
 ## v4.7.0 (29/05/2024)
 - [[minor] New feature: Switch quality profile for missing items until found](https://github.com/Feramance/qBitrr/commit/14ce35cd5adacc58e6ea8d6af3d5e7abab2bce1d) - @Feramance
 - [Error handling](https://github.com/Feramance/qBitrr/commit/2543508b4124eca32513cbf3b133b4ff05ad5fb8) - @Feramance
@@ -192,11 +203,3 @@
 - [Bump stefanzweifel/git-auto-commit-action from 5.0.0 to 5.0.1](https://github.com/Feramance/qBitrr/commit/3619dabae38e60d784d0be1c6692b29af53c7bab) - @dependabot[bot]
 - [Bump idna from 3.6 to 3.7](https://github.com/Feramance/qBitrr/commit/5e6008e537c7bc4f9c5e2afaf7f3958e17d4d36c) - @dependabot[bot]
 - [Merge branch 'master' into dependabot/pip/black-24.3.0](https://github.com/Feramance/qBitrr/commit/dc12c2efdba1e7be71eb44a6aa18cc62fea8bf34) - @Feramance
-
----
-
-## v4.4.2 (26/03/2024)
-- [[patch] ignored tag fixes](https://github.com/Feramance/qBitrr/commit/cb4fc1244e537f4642ba725435dc9556a50f1b24) - @Feramance
-- [Merge pull request #68 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.0.0](https://github.com/Feramance/qBitrr/commit/79b200b919cf11893b9c897fcd26b32140337b94) - @Feramance
-- [Bump dependabot/fetch-metadata from 1.6.0 to 2.0.0](https://github.com/Feramance/qBitrr/commit/05d97a26e14523506e855654f9c16e950ce21163) - @dependabot[bot]
-- [Testing improved ignored functionality](https://github.com/Feramance/qBitrr/commit/bdefa5c6c591ed9aa898cad73cd148c1d0840ad9) - @Feramance
