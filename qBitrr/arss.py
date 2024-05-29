@@ -1190,22 +1190,27 @@ class Arr:
 
     def db_get_files(
         self,
-    ) -> Iterable[
-        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
-    ]:
+    ) -> (
+        list[list[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]]
+        | None
+    ):
+        entries = []
         if self.type == "sonarr" and self.series_search:
             serieslist = self.db_get_files_series()
             for series in serieslist:
-                yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
+                entries.append(
+                    [series[0], series[1], series[2], series[2] is not True, len(serieslist)]
+                )
         elif self.type == "sonarr" and not self.series_search:
             episodelist = self.db_get_files_episodes()
             for episodes in episodelist:
-                yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
+                entries.append([episodes[0], episodes[1], episodes[2], False, len(episodelist)])
         elif self.type == "radarr":
             movielist = self.db_get_files_movies()
             for movies in movielist:
                 self.logger.trace("Get files: %s", movies[0].Title)
-                yield movies[0], movies[1], movies[2], False, len(movielist)
+                entries.append([movies[0], movies[1], movies[2], False, len(movielist)])
+        return entries
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -4598,15 +4603,10 @@ class Arr:
                             raise RestartLoopException
                         if not searched:
                             self.logger.trace("Starting search loop")
-                            for (
-                                entry,
-                                todays,
-                                limit_bypass,
-                                series_search,
-                                commands,
-                            ) in self.db_get_files():
+                            entries = self.db_get_files()
+                            for e in entries:
                                 if totcommands == -1:
-                                    totcommands = commands
+                                    totcommands = e[4]
                                     self.logger.info("Starting search for %s items", totcommands)
                                 if SEARCH_LOOP_DELAY == -1:
                                     loop_delay = 30
@@ -4614,10 +4614,10 @@ class Arr:
                                     loop_delay = SEARCH_LOOP_DELAY
                                 while (
                                     self.maybe_do_search(
-                                        entry,
-                                        todays=todays,
-                                        bypass_limit=limit_bypass,
-                                        series_search=series_search,
+                                        e[0],
+                                        todays=e[1],
+                                        bypass_limit=e[2],
+                                        series_search=e[3],
                                         commands=totcommands,
                                     )
                                 ) is False:
