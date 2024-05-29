@@ -2162,7 +2162,9 @@ class Arr:
                         ):
                             data: JsonObject = {"qualityProfileId": self.main_quality_profile_id}
                             self.logger.debug(
-                                "Updating quality profile to %s", self.main_quality_profile
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                self.temp_quality_profile,
                             )
                         elif (
                             not searched
@@ -2170,7 +2172,9 @@ class Arr:
                         ):
                             data: JsonObject = {"qualityProfileId": self.temp_quality_profile_id}
                             self.logger.debug(
-                                "Updating quality profile to %s", self.temp_quality_profile
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                self.temp_quality_profile,
                             )
                         completed = True
                         while completed:
@@ -2356,7 +2360,9 @@ class Arr:
                             ):
                                 db_entry["qualityProfileId"] = self.main_quality_profile_id
                                 self.logger.debug(
-                                    "Updating quality profile to %s", self.main_quality_profile
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile,
                                 )
                             elif (
                                 not searched
@@ -2364,7 +2370,9 @@ class Arr:
                             ):
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_id
                                 self.logger.debug(
-                                    "Updating quality profile to %s", self.temp_quality_profile
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile,
                                 )
                             completed = True
                             while completed:
@@ -2486,7 +2494,9 @@ class Arr:
                     if searched and db_entry["qualityProfileId"] == self.temp_quality_profile_id:
                         db_entry["qualityProfileId"] = self.main_quality_profile_id
                         self.logger.debug(
-                            "Updating quality profile to %s", self.main_quality_profile
+                            "Updating quality profile for %s to %s",
+                            db_entry["title"],
+                            self.temp_quality_profile,
                         )
                     elif (
                         not searched
@@ -2494,7 +2504,9 @@ class Arr:
                     ):
                         db_entry["qualityProfileId"] = self.temp_quality_profile_id
                         self.logger.debug(
-                            "Updating quality profile to %s", self.temp_quality_profile
+                            "Updating quality profile for %s to %s",
+                            db_entry["title"],
+                            self.temp_quality_profile,
                         )
                     completed = True
                     while completed:
