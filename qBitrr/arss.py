@@ -304,6 +304,8 @@ class Arr:
         self.use_temp_for_missing = CONFIG.get(
             f"{name}.EntrySearch.UseTempForMissing", fallback=False
         )
+        self.main_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
+        self.temp_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
         if self.use_temp_for_missing:
             (
                 self.main_quality_profile_id,
@@ -2123,6 +2125,10 @@ class Arr:
                                             "qualityProfileId": self.main_quality_profile_id
                                         }
                                         self.client.upd_episode(episode["id"], data)
+                                        self.logger.debug(
+                                            "Updating quality profile to %s",
+                                            self.main_quality_profile_id,
+                                        )
                                 else:
                                     customFormat = 0
                                     if (
@@ -2134,6 +2140,10 @@ class Arr:
                                             "qualityProfileId": self.temp_quality_profile_id
                                         }
                                         self.client.upd_episode(episode["id"], data)
+                                        self.logger.debug(
+                                            "Updating quality profile to %s",
+                                            self.temp_quality_profile_id,
+                                        )
                             else:
                                 minCustomFormat = self.client.get_quality_profile(
                                     episode["series"]["qualityProfileId"]
@@ -2341,11 +2351,17 @@ class Arr:
                                 and db_entry["qualityProfileId"] == self.temp_quality_profile_id
                             ):
                                 db_entry["qualityProfileId"] = self.main_quality_profile_id
+                                self.logger.debug(
+                                    "Updating quality profile to %s", self.main_quality_profile_id
+                                )
                             elif (
                                 not searched
                                 and db_entry["qualityProfileId"] == self.main_quality_profile_id
                             ):
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                                self.logger.debug(
+                                    "Updating quality profile to %s", self.temp_quality_profile_id
+                                )
                             self.client.upd_series(db_entry)
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
@@ -2420,6 +2436,10 @@ class Arr:
                                 ):
                                     db_entry["qualityProfileId"] = self.main_quality_profile_id
                                     self.client.upd_movie(db_entry)
+                                    self.logger.debug(
+                                        "Updating quality profile to %s",
+                                        self.main_quality_profile_id,
+                                    )
                             else:
                                 customFormat = 0
                                 if (
@@ -2429,6 +2449,10 @@ class Arr:
                                 ):
                                     db_entry["qualityProfileId"] = self.temp_quality_profile_id
                                     self.client.upd_movie(db_entry)
+                                    self.logger.debug(
+                                        "Updating quality profile to %s",
+                                        self.temp_quality_profile_id,
+                                    )
 
                         else:
                             minCustomFormat = self.client.get_quality_profile(
@@ -4292,13 +4316,11 @@ class Arr:
     def parse_quality_profiles(self) -> tuple[int, int]:
         main_quality_profile_id = 0
         temp_quality_profile_id = 0
-        main_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
-        temp_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
         profiles = self.client.get_quality_profile()
         for p in profiles:
-            if p["name"] == main_quality_profile:
+            if p["name"] == self.main_quality_profile:
                 main_quality_profile_id = p["id"]
-            if p["name"] == temp_quality_profile:
+            if p["name"] == self.temp_quality_profile:
                 temp_quality_profile_id = p["id"]
         return (main_quality_profile_id, temp_quality_profile_id)
 
