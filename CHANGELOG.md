@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.7.2 (29/05/2024)
+- [[patch] Bump dependencies](https://github.com/Feramance/qBitrr/commit/512d80980a1ddad3ca9458bed6fc05782cc013c1) - @Feramance
+
+---
+
 ## v4.7.1 (29/05/2024)
 - [[patch] Fixed Radarr search loop](https://github.com/Feramance/qBitrr/commit/051262800ccea1fa273f8c7d4ca767132cdd003d) - @Feramance
 - [Changed movie file id mapping](https://github.com/Feramance/qBitrr/commit/7ab426590d519a1b48f22e442ff86ec05f7d04c9) - @Feramance
@@ -177,29 +182,3 @@
 
 ## v4.5.1 (29/04/2024)
 - [[patch] Binaries update](https://github.com/Feramance/qBitrr/commit/6580cdaf04430c95e361c3307e59a222ad3d8d5e) - @Feramance
-
----
-
-## v4.5.0 (29/04/2024)
-- [[minor] Free space logic overhaul](https://github.com/Feramance/qBitrr/commit/3362eb815072ad64cbbacde91a8de7ff59380611) - @Feramance
-- [Added missing variable](https://github.com/Feramance/qBitrr/commit/cfd7fcac7b643493e3ddda92f18bd54402959522) - @Feramance
-- [More fixes](https://github.com/Feramance/qBitrr/commit/a4349f64f72ed3159217d08e15cfcf83cbfd7f80) - @Feramance
-- [Fixed object in processes](https://github.com/Feramance/qBitrr/commit/eaa201719888e966f9880e621fc3e9c3e1b1ec3f) - @Feramance
-- [Added object to child processes](https://github.com/Feramance/qBitrr/commit/408b55b94e58d0a763b373475fb7886211b72f87) - @Feramance
-- [More changes](https://github.com/Feramance/qBitrr/commit/f44c512281ab0f85a5c70a930c0d983915c1ac59) - @Feramance
-- [Removed redundant loging](https://github.com/Feramance/qBitrr/commit/c4c0d3527a30bc33e37dad68160f550267d76e10) - @Feramance
-- [Added missing variable](https://github.com/Feramance/qBitrr/commit/cde57382c1dc235d41053ed353f30ca287614cb5) - @Feramance
-- [Moved variable call](https://github.com/Feramance/qBitrr/commit/b523ddae2e68988af5531db7b70e14e849a6ab65) - @Feramance
-- [Compilation fixes](https://github.com/Feramance/qBitrr/commit/c47f5fd5b287e1e59decc91d59999c45ebe329d9) - @Feramance
-- [Argument fix](https://github.com/Feramance/qBitrr/commit/a1878973fc01c348fb01b01c9dd2bfdc89e3de7a) - @Feramance
-- [Merge pull request #67 from Feramance/dependabot/pip/black-24.3.0](https://github.com/Feramance/qBitrr/commit/5e3671f4cf332b915be49f096ccd1155ade5d09c) - @Feramance
-- [Merge branch 'master' into dependabot/pip/black-24.3.0](https://github.com/Feramance/qBitrr/commit/a98e456579669717645639a41772e2019b35afa5) - @Feramance
-- [Moving free space functionality to be a separate child process](https://github.com/Feramance/qBitrr/commit/8835aed0b2158c23f59038217c88136ab75b0a7b) - @Feramance
-- [Merge pull request #73 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.1.0](https://github.com/Feramance/qBitrr/commit/fb2394068b7935835b5ee70238dfb1bbdb845c47) - @Feramance
-- [Bump dependabot/fetch-metadata from 2.0.0 to 2.1.0](https://github.com/Feramance/qBitrr/commit/6a5da262cb8e5706d2987d4972687b9006753d43) - @dependabot[bot]
-- [Merge pull request #70 from Feramance/dependabot/pip/idna-3.7](https://github.com/Feramance/qBitrr/commit/a598873b600ab918a12e0c64343dcdb2401b7f22) - @Feramance
-- [Merge branch 'master' into dependabot/pip/idna-3.7](https://github.com/Feramance/qBitrr/commit/e6af216a8daaf1f5dbb3e2bd6b75ab2207c39c8d) - @Feramance
-- [Merge pull request #71 from Feramance/dependabot/github_actions/stefanzweifel/git-auto-commit-action-5.0.1](https://github.com/Feramance/qBitrr/commit/0860b12f42b27804013cb3814dfde7f3dd3402cc) - @Feramance
-- [Bump stefanzweifel/git-auto-commit-action from 5.0.0 to 5.0.1](https://github.com/Feramance/qBitrr/commit/3619dabae38e60d784d0be1c6692b29af53c7bab) - @dependabot[bot]
-- [Bump idna from 3.6 to 3.7](https://github.com/Feramance/qBitrr/commit/5e6008e537c7bc4f9c5e2afaf7f3958e17d4d36c) - @dependabot[bot]
-- [Merge branch 'master' into dependabot/pip/black-24.3.0](https://github.com/Feramance/qBitrr/commit/dc12c2efdba1e7be71eb44a6aa18cc62fea8bf34) - @Feramance
