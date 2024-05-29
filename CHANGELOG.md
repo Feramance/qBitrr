@@ -1,5 +1,19 @@
 # Changelog
 
+## v4.7.0 (29/05/2024)
+- [[minor] New feature: Switch quality profile for missing items until found](https://github.com/Feramance/qBitrr/commit/14ce35cd5adacc58e6ea8d6af3d5e7abab2bce1d) - @Feramance
+- [Error handling](https://github.com/Feramance/qBitrr/commit/2543508b4124eca32513cbf3b133b4ff05ad5fb8) - @Feramance
+- [Fixed variable names](https://github.com/Feramance/qBitrr/commit/a831abd84104f51f5775bc6ef41d8c0754835e13) - @Feramance
+- [Moved Logic](https://github.com/Feramance/qBitrr/commit/2c8b4f1277150414631a44ea2caadeddfeedf97b) - @Feramance
+- [Moved Logic](https://github.com/Feramance/qBitrr/commit/7dd7eeaea6bb905b93cca36fd790ba3a9e1c8c7e) - @Feramance
+- [Added debugging](https://github.com/Feramance/qBitrr/commit/1ff88ec5ab312e88133cd37c1ec37f45b6db6ff4) - @Feramance
+- [Moved logic to fix error](https://github.com/Feramance/qBitrr/commit/41cb3f3162d7be3c0c2f01c13f068df45bab262b) - @Feramance
+- [Added new feature: Swap quality profile while movie is missing](https://github.com/Feramance/qBitrr/commit/acc9462d43bb0506335ec8041e74d32ad35257b6) - @Feramance
+- [Merge pull request #76 from Feramance/dependabot/pip/requests-2.32.0](https://github.com/Feramance/qBitrr/commit/21e143ccf5eea9b9633d12c468b77817a57b7f66) - @Feramance
+- [---](https://github.com/Feramance/qBitrr/commit/ff59fc0fedb6b4a4f4addc137db4bfbcdea6d4b6) - @dependabot[bot]
+
+---
+
 ## v4.6.13 (17/05/2024)
 - [[patch] NameError handling](https://github.com/Feramance/qBitrr/commit/55bef953acecbf98f1571cc40fb497a3fd9c6afd) - @Feramance
 
@@ -186,10 +200,3 @@
 - [Merge pull request #68 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.0.0](https://github.com/Feramance/qBitrr/commit/79b200b919cf11893b9c897fcd26b32140337b94) - @Feramance
 - [Bump dependabot/fetch-metadata from 1.6.0 to 2.0.0](https://github.com/Feramance/qBitrr/commit/05d97a26e14523506e855654f9c16e950ce21163) - @dependabot[bot]
 - [Testing improved ignored functionality](https://github.com/Feramance/qBitrr/commit/bdefa5c6c591ed9aa898cad73cd148c1d0840ad9) - @Feramance
-
----
-
-## v4.4.1 (08/03/2024)
-- [[patch] Dependency bump](https://github.com/Feramance/qBitrr/commit/4caa0af9bdf0273302d0efdff7a883f3ef436d8b) - @Feramance
-- [Debugging torrent availability](https://github.com/Feramance/qBitrr/commit/54b80acba9a41a936078c8143b010658d13d50ac) - @Feramance
-- [Updated config example](https://github.com/Feramance/qBitrr/commit/26083a07f3072db7f1ada387b28ec680bffa1a01) - @Feramance
