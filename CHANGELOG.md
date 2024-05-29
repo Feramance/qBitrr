@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.7.3 (29/05/2024)
+- [[patch] Another test](https://github.com/Feramance/qBitrr/commit/bc4f505876612409fbb844d279b25ebeee00517a) - @Feramance
+- [[patch] Changing setuptools for pyinstaller](https://github.com/Feramance/qBitrr/commit/b15fdeb5c733c78cb97580a9f465a709492389f5) - @Feramance
+
+---
+
 ## v4.7.2 (29/05/2024)
 - [[patch] Bump dependencies](https://github.com/Feramance/qBitrr/commit/512d80980a1ddad3ca9458bed6fc05782cc013c1) - @Feramance
 
@@ -177,8 +183,3 @@
 
 ## v4.5.2 (29/04/2024)
 - [[patch] arch updates](https://github.com/Feramance/qBitrr/commit/3e3e6f2dc546b827f921778067aef6092ecce598) - @Feramance
-
----
-
-## v4.5.1 (29/04/2024)
-- [[patch] Binaries update](https://github.com/Feramance/qBitrr/commit/6580cdaf04430c95e361c3307e59a222ad3d8d5e) - @Feramance
