@@ -4597,6 +4597,7 @@ class Arr:
                             self.refresh_download_queue()
                             raise RestartLoopException
                         if not searched:
+                            self.logger.trace("Starting search loop")
                             for (
                                 entry,
                                 todays,
