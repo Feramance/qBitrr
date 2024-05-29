@@ -9,7 +9,6 @@ import shutil
 import sys
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
@@ -202,6 +201,14 @@ class Arr:
         self.force_minimum_custom_format = CONFIG.get(
             f"{name}.EntrySearch.ForceMinimumCustomFormat", fallback=False
         )
+        self.use_temp_for_missing = CONFIG.get(
+            f"{name}.EntrySearch.UseTempForMissing", fallback=False
+        )
+        if self.use_temp_for_missing:
+            (
+                self.main_quality_profile_id,
+                self.temp_quality_profile_id,
+            ) = self.parse_quality_profiles()
 
         self.ignore_torrents_younger_than = CONFIG.get(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
@@ -2106,8 +2113,26 @@ class Arr:
                                         )["customFormatScore"]
                                     else:
                                         customFormat = 0
+                                    if (
+                                        self.use_temp_for_missing
+                                        and db_entry["qualityProfileId"]
+                                        == self.temp_quality_profile_id
+                                    ):
+                                        data: JsonObject = {
+                                            "qualityProfileId": self.main_quality_profile_id
+                                        }
+                                        self.client.upd_episode(episode["id"], data)
                                 else:
                                     customFormat = 0
+                                    if (
+                                        self.use_temp_for_missing
+                                        and db_entry["qualityProfileId"]
+                                        == self.main_quality_profile_id
+                                    ):
+                                        data: JsonObject = {
+                                            "qualityProfileId": self.temp_quality_profile_id
+                                        }
+                                        self.client.upd_episode(episode["id"], data)
                             else:
                                 minCustomFormat = self.client.get_quality_profile(
                                     episode["series"]["qualityProfileId"]
@@ -2309,6 +2334,18 @@ class Arr:
                             searched = totalEpisodeCount == episodeFileCount
                         else:
                             searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
+                        if self.use_temp_for_missing:
+                            if (
+                                searched
+                                and db_entry["qualityProfileId"] == self.temp_quality_profile_id
+                            ):
+                                db_entry["qualityProfileId"] = self.main_quality_profile_id
+                            elif (
+                                not searched
+                                and db_entry["qualityProfileId"] == self.main_quality_profile_id
+                            ):
+                                db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                            self.client.upd_series(db_entry)
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
 
@@ -2375,8 +2412,23 @@ class Arr:
                                     )["customFormatScore"]
                                 else:
                                     customFormat = 0
+                                if (
+                                    self.use_temp_for_missing
+                                    and db_entry["qualityProfileId"]
+                                    == self.temp_quality_profile_id
+                                ):
+                                    db_entry["qualityProfileId"] = self.main_quality_profile_id
+                                    self.client.upd_movie(db_entry)
                             else:
                                 customFormat = 0
+                                if (
+                                    self.use_temp_for_missing
+                                    and db_entry["qualityProfileId"]
+                                    == self.main_quality_profile_id
+                                ):
+                                    db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                                    self.client.upd_movie(db_entry)
+
                         else:
                             minCustomFormat = self.client.get_quality_profile(
                                 db_entry["qualityProfileId"]
@@ -4236,30 +4288,18 @@ class Arr:
                 self.needs_cleanup = True
             self.files_to_explicitly_delete = iter(_path_filter.copy())
 
-    def force_grab(self):
-        return  # TODO: This may not be needed, pending more testing before it is enabled
-        _temp = self.get_queue()
-        _temp = filter(
-            lambda x: x.get("status") == "delay",
-            _temp,
-        )
-        ids = set()
-        for entry in _temp:
-            if id_ := entry.get("id"):
-                ids.add(id_)
-                self.logger.notice("Attempting to force grab: %s =  %s", id_, entry.get("title"))
-        if ids:
-            with ThreadPoolExecutor(max_workers=16) as executor:
-                executor.map(self._force_grab, ids)
-
-    def _force_grab(self, id_):
-        try:
-            path = f"queue/grab/{id_}"
-            res = self.client._post(path, self.client.ver_uri)
-            self.logger.trace("Successful Grab: %s", id_)
-            return res
-        except Exception:
-            self.logger.error("Exception when trying to force grab - %s", id_)
+    def parse_quality_profiles(self) -> tuple[int, int]:
+        main_quality_profile_id = 0
+        temp_quality_profile_id = 0
+        main_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
+        temp_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
+        profiles = self.client.get_quality_profile()
+        for p in profiles:
+            if p["name"] == main_quality_profile:
+                main_quality_profile_id = p["id"]
+            if p["name"] == temp_quality_profile:
+                temp_quality_profile_id = p["id"]
+        return (main_quality_profile_id, temp_quality_profile_id)
 
     def register_search_mode(self):
         if self.search_setup_completed:
@@ -4466,7 +4506,6 @@ class Arr:
                     self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
-                    self.force_grab()
                     try:
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
@@ -4474,11 +4513,9 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif datetime.now() >= (timer + loop_timer):
                                 self.refresh_download_queue()
-                                self.force_grab()
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
-                            self.force_grab()
                             raise RestartLoopException
                         if not searched:
                             for (

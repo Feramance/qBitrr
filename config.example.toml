@@ -133,6 +133,15 @@ ForceMinimumCustomFormat = false
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
 
+# Main quality profile
+MainQualityProfile = "CHANGE_ME"
+
+# Temp quality profile
+TempQualityProfile = "CHANGE_ME"
+
+# Use Temp profile for missing
+UseTempForMissing = false
+
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
 
@@ -320,6 +329,15 @@ ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
+
+# Main quality profile
+MainQualityProfile = "CHANGE_ME"
+
+# Temp quality profile
+TempQualityProfile = "CHANGE_ME"
+
+# Use Temp profile for missing
+UseTempForMissing = false
 
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
@@ -510,6 +528,15 @@ ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
+
+# Main quality profile
+MainQualityProfile = "CHANGE_ME"
+
+# Temp quality profile
+TempQualityProfile = "CHANGE_ME"
+
+# Use Temp profile for missing
+UseTempForMissing = false
 
 
 [Radarr-1080.EntrySearch.Ombi]
@@ -707,6 +734,15 @@ ForceMinimumCustomFormat = false
 
 # Once you have search all files on your specified year range restart the loop and search again.
 SearchAgainOnSearchCompletion = true
+
+# Main quality profile
+MainQualityProfile = "CHANGE_ME"
+
+# Temp quality profile
+TempQualityProfile = "CHANGE_ME"
+
+# Use Temp profile for missing
+UseTempForMissing = false
 
 
 [Radarr-4K.EntrySearch.Ombi]
