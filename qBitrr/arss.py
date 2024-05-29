@@ -2116,34 +2116,8 @@ class Arr:
                                         )["customFormatScore"]
                                     else:
                                         customFormat = 0
-                                    if (
-                                        self.use_temp_for_missing
-                                        and db_entry["qualityProfileId"]
-                                        == self.temp_quality_profile_id
-                                    ):
-                                        data: JsonObject = {
-                                            "qualityProfileId": self.main_quality_profile_id
-                                        }
-                                        self.client.upd_episode(episode["id"], data)
-                                        self.logger.debug(
-                                            "Updating quality profile to %s",
-                                            self.main_quality_profile_id,
-                                        )
                                 else:
                                     customFormat = 0
-                                    if (
-                                        self.use_temp_for_missing
-                                        and db_entry["qualityProfileId"]
-                                        == self.main_quality_profile_id
-                                    ):
-                                        data: JsonObject = {
-                                            "qualityProfileId": self.temp_quality_profile_id
-                                        }
-                                        self.client.upd_episode(episode["id"], data)
-                                        self.logger.debug(
-                                            "Updating quality profile to %s",
-                                            self.temp_quality_profile_id,
-                                        )
                             else:
                                 minCustomFormat = self.client.get_quality_profile(
                                     episode["series"]["qualityProfileId"]
@@ -2180,6 +2154,25 @@ class Arr:
                         self.model_queue.update(Completed=True).where(
                             self.model_queue.EntryId == episode["id"]
                         ).execute()
+
+                    if self.use_temp_for_missing:
+                        if (
+                            searched
+                            and db_entry["qualityProfileId"] == self.temp_quality_profile_id
+                        ):
+                            data: JsonObject = {"qualityProfileId": self.main_quality_profile_id}
+                            self.logger.debug(
+                                "Updating quality profile to %s", self.main_quality_profile_id
+                            )
+                        elif (
+                            not searched
+                            and db_entry["qualityProfileId"] == self.main_quality_profile_id
+                        ):
+                            data: JsonObject = {"qualityProfileId": self.temp_quality_profile_id}
+                            self.logger.debug(
+                                "Updating quality profile to %s", self.temp_quality_profile_id
+                            )
+                        self.client.upd_episode(episode["id"], data)
 
                     if episode["monitored"] == True:
                         EntryId = episode["id"]
@@ -2429,30 +2422,8 @@ class Arr:
                                     )["customFormatScore"]
                                 else:
                                     customFormat = 0
-                                if (
-                                    self.use_temp_for_missing
-                                    and db_entry["qualityProfileId"]
-                                    == self.temp_quality_profile_id
-                                ):
-                                    db_entry["qualityProfileId"] = self.main_quality_profile_id
-                                    self.client.upd_movie(db_entry)
-                                    self.logger.debug(
-                                        "Updating quality profile to %s",
-                                        self.main_quality_profile_id,
-                                    )
                             else:
                                 customFormat = 0
-                                if (
-                                    self.use_temp_for_missing
-                                    and db_entry["qualityProfileId"]
-                                    == self.main_quality_profile_id
-                                ):
-                                    db_entry["qualityProfileId"] = self.temp_quality_profile_id
-                                    self.client.upd_movie(db_entry)
-                                    self.logger.debug(
-                                        "Updating quality profile to %s",
-                                        self.temp_quality_profile_id,
-                                    )
 
                         else:
                             minCustomFormat = self.client.get_quality_profile(
@@ -2487,6 +2458,22 @@ class Arr:
                     self.model_queue.update(Completed=True).where(
                         self.model_queue.EntryId == db_entry["id"]
                     ).execute()
+
+                if self.use_temp_for_missing:
+                    if searched and db_entry["qualityProfileId"] == self.temp_quality_profile_id:
+                        db_entry["qualityProfileId"] = self.main_quality_profile_id
+                        self.logger.debug(
+                            "Updating quality profile to %s", self.main_quality_profile_id
+                        )
+                    elif (
+                        not searched
+                        and db_entry["qualityProfileId"] == self.main_quality_profile_id
+                    ):
+                        db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                        self.logger.debug(
+                            "Updating quality profile to %s", self.temp_quality_profile_id
+                        )
+                    self.client.upd_movie(db_entry)
 
                 if self.minimum_availability_check(db_entry) and db_entry["monitored"] == True:
                     title = db_entry["title"]
