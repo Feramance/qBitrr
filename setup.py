@@ -1,3 +1,3 @@
-from setuptools import setup
+from pyinstaller import setup
 
 setup()
