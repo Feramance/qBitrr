@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.7.5 (29/05/2024)
+- [[patch] Disabled main log unfil further notice](https://github.com/Feramance/qBitrr/commit/cb12b31572907a43cfa41b15b48ebf14ba44188a) - @Feramance
+- [Version specification for setuptools due to errors as well as some other QoL changes](https://github.com/Feramance/qBitrr/commit/6e9ece269c65790544693f27550158879dd7b9fb) - @Feramance
+
+---
+
 ## v4.7.4 (29/05/2024)
 - [[patch] Potential fix](https://github.com/Feramance/qBitrr/commit/060de09a90984f678980dd24e1cbd97ad33faab5) - @Feramance
 
@@ -177,9 +183,3 @@
 
 ## v4.5.4 (01/05/2024)
 - [[patch] Caught another bug](https://github.com/Feramance/qBitrr/commit/18a37d6fdab5d6536f00da256b12659bd1c5f4a5) - @Feramance
-
----
-
-## v4.5.3 (01/05/2024)
-- [[patch] Urgent bug fix](https://github.com/Feramance/qBitrr/commit/5bbf7f98e00b93eab60be51e6ac557dd855a59b9) - @Feramance
-- [Arch updates for future releases](https://github.com/Feramance/qBitrr/commit/7296a6406aa0c8112f41a8a19700781eda954379) - @Feramance
