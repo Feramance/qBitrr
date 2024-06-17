@@ -75,7 +75,7 @@ tomlkit==0.7.2
     # via qBitrr2 (setup.py)
 types-requests==2.32.0.20240523
     # via pyarr
-urllib3==2.2.1
+urllib3==2.2.2
     # via
     #   qbittorrent-api
     #   requests
