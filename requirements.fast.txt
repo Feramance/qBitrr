@@ -77,7 +77,7 @@ types-requests==2.32.0.20240523
     # via pyarr
 ujson==5.4.0
     # via qBitrr2 (setup.py)
-urllib3==2.2.1
+urllib3==2.2.2
     # via
     #   qbittorrent-api
     #   requests
