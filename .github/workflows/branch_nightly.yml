@@ -61,7 +61,7 @@ jobs:
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v6
       with:
         context: .
         platforms: linux/amd64
