@@ -3974,8 +3974,10 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-        if "qBitrr-allow_stalled" in torrent.tags and torrent.added_on >= int(
-            time.time() + (self.stalled_delay * 60)
+        if (
+            "qBitrr-allow_stalled" in torrent.tags
+            and self.stalled_delay > 0
+            and torrent.added_on >= int(time.time() + (self.stalled_delay * 60))
         ):
             torrent.remove_tags(["qBitrr-allow_stalled"])
         if (

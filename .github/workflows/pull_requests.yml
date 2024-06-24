@@ -24,7 +24,9 @@ jobs:
         os:
         - windows-latest
         - ubuntu-latest
+        - macOS-latest
         arch:
+        - arm64
         - x64
     steps:
     - name: Checkout code
