@@ -510,15 +510,13 @@ class Arr:
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
 
-        if not QBIT_DISABLED:
-            self.manager.qbit_manager.client.torrents_create_tags(
-                [
-                    "qBitrr-allowed_seeding",
-                    "qBitrr-ignored",
-                    "qBitrr-imported",
-                    "qBitrr-allowed_stalled",
-                ]
-            )
+        self.manager.qbit_manager.client.torrents_create_tags(
+            [
+                "qBitrr-allowed_seeding",
+                "qBitrr-ignored",
+                "qbitrr-imported",
+            ]
+        )
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
         self.series_file_model: SeriesFilesModel = None
@@ -4114,7 +4112,6 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-
         if (
             self.custom_format_unmet_search
             and self.custom_format_unmet_check(torrent)
@@ -4140,7 +4137,6 @@ class Arr:
             )
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and not stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
@@ -4161,7 +4157,6 @@ class Arr:
             and self.is_complete_state(torrent) is False
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
@@ -4217,7 +4212,6 @@ class Arr:
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and not stalled_ignore
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
@@ -4234,7 +4228,6 @@ class Arr:
                 and self.is_downloading_state(torrent)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
-                and not stalled_ignore
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
@@ -4384,10 +4377,6 @@ class Arr:
         ):
             return True
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
-            return True
-        elif self.seeding_mode_global_remove_torrent == -1 and (
-            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
-        ):
             return True
         else:
             return False
