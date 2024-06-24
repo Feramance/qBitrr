@@ -25,6 +25,7 @@ jobs:
         - windows-latest
         - macOS-latest
         - ubuntu-latest
+        - macOS-latest
         arch:
         - x86
         - x64
