@@ -3,10 +3,6 @@ name: Branch Nightly
 on:
   push:
     branches:
-    - v*
-    - fix*
-    - dev*
-    - test*
     - '!master'
 
 defaults:
