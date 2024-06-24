@@ -134,7 +134,7 @@ jobs:
           feramance/qbitrr
           ghcr.io/${{ steps.string.outputs.lowercase }}
         tags: |
-          type=ref,event=pr
+          type=ref,event=branch
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
