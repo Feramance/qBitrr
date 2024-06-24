@@ -3,6 +3,7 @@ name: Branch Nightly
 on:
   push:
     branches:
+    - '*'
     - '!master'
 
 defaults:
