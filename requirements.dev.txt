@@ -18,8 +18,10 @@ bump2version==1.0.1
     # via qBitrr2 (setup.py)
 cachetools==5.3.2
     # via qBitrr2 (setup.py)
-certifi==2024.2.2
+certifi==2024.6.2
     # via requests
+cffi==1.16.0
+    # via cryptography
 cfgv==3.4.0
     # via pre-commit
 charset-normalizer==3.3.2
@@ -30,13 +32,12 @@ click==8.1.7
     #   pip-tools
 colorama==0.4.4
     # via
-    #   build
-    #   click
     #   qBitrr2 (setup.py)
-    #   tqdm
     #   twine
 coloredlogs==15.0.1
     # via qBitrr2 (setup.py)
+cryptography==42.0.8
+    # via secretstorage
 dill==0.3.8
     # via
     #   multiprocess
@@ -49,7 +50,7 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.14.0
+filelock==3.15.4
     # via virtualenv
 future==1.0.0
     # via ffmpeg-python
@@ -59,7 +60,7 @@ identify==2.5.36
     # via pre-commit
 idna==3.7
     # via requests
-importlib-metadata==7.1.0
+importlib-metadata==7.2.1
     # via
     #   keyring
     #   twine
@@ -77,9 +78,13 @@ jaraco-functools==4.0.1
     # via
     #   jaraco-docker
     #   keyring
+jeepney==0.8.0
+    # via
+    #   keyring
+    #   secretstorage
 keyring==25.2.1
     # via twine
-more-itertools==10.2.0
+more-itertools==10.3.0
     # via
     #   jaraco-classes
     #   jaraco-functools
@@ -89,7 +94,7 @@ mypy-extensions==1.0.0
     # via black
 nh3==0.2.17
     # via readme-renderer
-nodeenv==1.9.0
+nodeenv==1.9.1
     # via pre-commit
 overrides==7.7.0
     # via pyarr
@@ -106,13 +111,11 @@ pathspec==0.12.1
     # via black
 peewee==3.14.7
     # via qBitrr2 (setup.py)
-pefile==2023.2.7
-    # via pyinstaller
 ping3==3.0.2
     # via qBitrr2 (setup.py)
 pip-tools==7.3.0
     # via qBitrr2 (setup.py)
-pkginfo==1.10.0
+pkginfo==1.11.1
     # via twine
 platformdirs==4.2.2
     # via
@@ -126,22 +129,18 @@ pre-commit==3.3.3
     # via qBitrr2 (setup.py)
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
+pycparser==2.22
+    # via cffi
 pygments==2.18.0
     # via readme-renderer
 pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
-pyinstaller-hooks-contrib==2024.6
+pyinstaller-hooks-contrib==2024.7
     # via pyinstaller
 pyproject-hooks==1.1.0
     # via build
-pyreadline3==3.4.1
-    # via humanfriendly
 pyupgrade==2.31.0
     # via qBitrr2 (setup.py)
-pywin32-ctypes==0.2.2
-    # via
-    #   keyring
-    #   pyinstaller
 pyyaml==6.0.1
     # via pre-commit
 qbittorrent-api==2023.7.52
@@ -159,6 +158,8 @@ requests-toolbelt==1.0.0
     # via twine
 rfc3986==2.0.0
     # via twine
+secretstorage==3.3.3
+    # via keyring
 six==1.16.0
     # via qbittorrent-api
 tokenize-rt==5.2.0
@@ -174,9 +175,9 @@ tqdm==4.66.4
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.32.0.20240523
+types-requests==2.32.0.20240622
     # via pyarr
-typing-extensions==4.12.0
+typing-extensions==4.12.2
     # via black
 ujson==5.4.0
     # via qBitrr2 (setup.py)
@@ -187,11 +188,11 @@ urllib3==2.2.2
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.26.2
+virtualenv==20.26.3
     # via pre-commit
 wheel==0.43.0
     # via pip-tools
-zipp==3.19.0
+zipp==3.19.2
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
