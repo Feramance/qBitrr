@@ -101,7 +101,6 @@ jobs:
     permissions:
       packages: write
       contents: read
-    if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
     steps:
     - id: string
       uses: ASzc/change-string-case-action@v6
@@ -135,7 +134,7 @@ jobs:
           feramance/qbitrr
           ghcr.io/${{ steps.string.outputs.lowercase }}
         tags: |
-          type=ref,event=pull_request
+          type=ref,event=pr
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
