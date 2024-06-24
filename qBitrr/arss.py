@@ -490,12 +490,7 @@ class Arr:
                     self.search_api_command = "MissingEpisodeSearch"
 
         self.manager.qbit_manager.client.torrents_create_tags(
-            [
-                "qBitrr-allowed_seeding",
-                "qBitrr-ignored",
-                "qBitrr-imported",
-                "qBitrr-allow_stalled"
-            ]
+            ["qBitrr-allowed_seeding", "qBitrr-ignored", "qBitrr-imported", "qBitrr-allow_stalled"]
         )
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
@@ -3976,9 +3971,8 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-        if (
-            "qBitrr-allow_stalled" in torrent.tags
-            and torrent.added_on >= int(time.time()+(self.stalled_delay*60))
+        if "qBitrr-allow_stalled" in torrent.tags and torrent.added_on >= int(
+            time.time() + (self.stalled_delay * 60)
         ):
             torrent.remove_tags(["qBitrr-allow_stalled"])
         if (
@@ -4251,10 +4245,8 @@ class Arr:
             return True
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
             return True
-        elif (
-            self.seeding_mode_global_remove_torrent == -1
-            and (torrent.ratio >= ratio_limit
-            or torrent.seeding_time >= seeding_time_limit)
+        elif self.seeding_mode_global_remove_torrent == -1 and (
+            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
         ):
             return True
         else:
