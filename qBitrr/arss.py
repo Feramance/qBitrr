@@ -223,6 +223,8 @@ class Arr:
         )
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
+        self.allow_stalled = CONFIG.get(f"{name}.Torrent.AllowStalled", fallback=False)
+        self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
         self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
@@ -492,7 +494,8 @@ class Arr:
             [
                 "qBitrr-allowed_seeding",
                 "qBitrr-ignored",
-                "qbitrr-imported",
+                "qBitrr-imported",
+                "qBitrr-allow_stalled"
             ]
         )
         self.search_setup_completed = False
@@ -3780,16 +3783,11 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
-            torrent, seeding_time_limit, ratio_limit
-        ):
-            remove_torrent = True
-            return_value = False
+        if self.seeding_mode_global_remove_torrent != -1:
+            remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         else:
-            if torrent.ratio >= ratio_limit and ratio_limit != -5:
-                return_value = False  # Seeding ratio met - Can be cleaned up.
-            if torrent.seeding_time >= seeding_time_limit and seeding_time_limit != -5:
-                return_value = False  # Seeding time met - Can be cleaned up.
+            remove_torrent = False
+        return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if "qBitrr-free_space_paused" in torrent.tags:
@@ -3982,6 +3980,11 @@ class Arr:
                 ]
             )
         if (
+            "qBitrr-allow_stalled" in torrent.tags
+            and torrent.added_on >= int(time.time()+(self.stalled_delay*60))
+        ):
+            torrent.remove_tags(["qBitrr-allow_stalled"])
+        if (
             self.custom_format_unmet_search
             and self.custom_format_unmet_check(torrent)
             and "qBitrr-ignored" not in torrent.tags
@@ -4006,6 +4009,7 @@ class Arr:
             )
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and "qBitrr-allow_stalled" not in torrent.tags
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
@@ -4026,6 +4030,7 @@ class Arr:
             and self.is_complete_state(torrent) is False
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and "qBitrr-allow_stalled" not in torrent.tags
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
@@ -4081,6 +4086,7 @@ class Arr:
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and "qBitrr-allow_stalled" not in torrent.tags
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
@@ -4097,6 +4103,7 @@ class Arr:
                 and self.is_downloading_state(torrent)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
+                and "qBitrr-allow_stalled" not in torrent.tags
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
@@ -4227,7 +4234,7 @@ class Arr:
         except KeyError:
             pass
 
-    def remove_torrent(
+    def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
     ) -> bool:
         if (
@@ -4246,6 +4253,12 @@ class Arr:
         ):
             return True
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
+            return True
+        elif (
+            self.seeding_mode_global_remove_torrent == -1
+            and (torrent.ratio >= ratio_limit
+            or torrent.seeding_time >= seeding_time_limit)
+        ):
             return True
         else:
             return False
