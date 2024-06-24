@@ -23,11 +23,23 @@ jobs:
         - '3.10'
         os:
         - windows-latest
-        - ubuntu-latest
         - macOS-latest
+        - ubuntu-latest
         arch:
-        - arm64
+        - x86
         - x64
+        - arm64
+        exclude:
+        - os: ubuntu-latest
+          arch: x86
+        - os: ubuntu-latest
+          arch: arm64
+        - os: macOS-latest
+          arch: x64
+        - os: macOS-latest
+          arch: x86
+        - os: windows-latest
+          arch: arm64
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
