@@ -109,8 +109,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
-        ref: ${{ github.ref_name }}
+        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
@@ -134,7 +134,7 @@ jobs:
           feramance/qbitrr
           ghcr.io/${{ steps.string.outputs.lowercase }}
         tags: |
-          type=raw,value=${{ github.event.pull_request.head.ref }}
+          type=ref,event=pr
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
