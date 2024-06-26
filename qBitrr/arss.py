@@ -227,7 +227,7 @@ class Arr:
         self.allowed_stalled = CONFIG.get(f"{name}.Torrent.AllowStalled", fallback=False)
         self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
         if self.allowed_stalled and self.stalled_delay > 0:
-            self.stalled_time_out = ExpiringSet(max_age_seconds=self.stalled_delay*60)
+            self.stalled_time_out = ExpiringSet(max_age_seconds=self.stalled_delay * 60)
         self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
