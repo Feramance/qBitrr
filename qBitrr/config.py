@@ -116,9 +116,7 @@ FAILED_CATEGORY = ENVIRO_CONFIG.settings.failed_category or CONFIG.get(
 RECHECK_CATEGORY = ENVIRO_CONFIG.settings.recheck_category or CONFIG.get(
     "Settings.RecheckCategory", fallback="recheck"
 )
-TAGLESS = ENVIRO_CONFIG.settings.tagless or CONFIG.get(
-    "Settings.Tagless", fallback=False
-)
+TAGLESS = ENVIRO_CONFIG.settings.tagless or CONFIG.get("Settings.Tagless", fallback=False)
 CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get_or_raise(
     "Settings.ConsoleLevel"
 )
