@@ -218,7 +218,7 @@ DoNotRemoveSlow = true
 AllowStalled = false
 
 # Maximum allowed time for allowed stalled torrents
-StalledDelay = 0
+StalledDelay = -1
 
 
 [Sonarr-TV.Torrent.SeedingMode]
@@ -421,7 +421,7 @@ DoNotRemoveSlow = true
 AllowStalled = false
 
 # Maximum allowed time for allowed stalled torrents
-StalledDelay = 0
+StalledDelay = -1
 
 
 [Sonarr-Anime.Torrent.SeedingMode]
@@ -620,7 +620,7 @@ DoNotRemoveSlow = true
 AllowStalled = false
 
 # Maximum allowed time for allowed stalled torrents
-StalledDelay = 0
+StalledDelay = -1
 
 
 [Radarr-1080.Torrent.SeedingMode]
@@ -832,7 +832,7 @@ DoNotRemoveSlow = true
 AllowStalled = false
 
 # Maximum allowed time for allowed stalled torrents
-StalledDelay = 0
+StalledDelay = -1
 
 
 [Radarr-4K.Torrent.SeedingMode]
