@@ -57,6 +57,7 @@ from qBitrr.tables import (
     MovieQueueModel,
     MoviesFilesModel,
     SeriesFilesModel,
+    TorrentLibrary,
 )
 from qBitrr.utils import (
     ExpiringSet,
@@ -499,6 +500,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
+        self.torrent_library: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -568,6 +570,7 @@ class Arr:
         type[EpisodeFilesModel] | type[MoviesFilesModel],
         type[EpisodeQueueModel] | type[MovieQueueModel],
         type[SeriesFilesModel] | None,
+        type[TorrentLibrary] | None,
     ]:
         if self.type == "sonarr":
             if self.series_search:

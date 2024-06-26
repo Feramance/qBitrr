@@ -30,6 +30,9 @@ FailedCategory = "failed"
 # Add torrents to this category to trigger them to be rechecked properly
 RecheckCategory = "recheck"
 
+# Tagless operation
+Tagless = false
+
 # Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
 # Only applicable to Re-check and failed categories
 IgnoreTorrentsYoungerThan = 600

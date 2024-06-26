@@ -61,3 +61,11 @@ class MovieQueueModel(Model):
 class EpisodeQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
+
+class TorrentLibrary(Model):
+    Hash = TextField(null=False)
+    AllowedSeeding = BooleanField(default=False)
+    Ignored = BooleanField(default=False)
+    Imported = BooleanField(default=False)
+    AllowedStalled = BooleanField(default=False)
+    FreeSpacePaused = BooleanField(default=False)
