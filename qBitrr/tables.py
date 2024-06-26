@@ -62,7 +62,6 @@ class EpisodeQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
 
-
 class TorrentLibrary(Model):
     Hash = TextField(null=False)
     AllowedSeeding = BooleanField(default=False)

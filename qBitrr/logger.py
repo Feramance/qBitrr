@@ -21,6 +21,7 @@ from qBitrr.config import (
     NO_INTERNET_SLEEP_TIMER,
     PING_URLS,
     RECHECK_CATEGORY,
+    TAGLESS,
     SEARCH_LOOP_DELAY,
     TAGLESS,
 )

@@ -523,7 +523,6 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
-        self.torrents: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
