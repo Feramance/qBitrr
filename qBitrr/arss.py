@@ -38,9 +38,9 @@ from qBitrr.config import (
     PROCESS_ONLY,
     QBIT_DISABLED,
     RECHECK_CATEGORY,
-    TAGLESS,
     SEARCH_LOOP_DELAY,
     SEARCH_ONLY,
+    TAGLESS,
 )
 from qBitrr.errors import (
     DelayLoopException,
@@ -578,7 +578,12 @@ class Arr:
     ]:
         if self.type == "sonarr":
             if self.series_search:
-                return EpisodeFilesModel, EpisodeQueueModel, SeriesFilesModel, TorrentLibrary if TAGLESS else None
+                return (
+                    EpisodeFilesModel,
+                    EpisodeQueueModel,
+                    SeriesFilesModel,
+                    TorrentLibrary if TAGLESS else None,
+                )
             return EpisodeFilesModel, EpisodeQueueModel, None, TorrentLibrary if TAGLESS else None
         elif self.type == "radarr":
             return MoviesFilesModel, MovieQueueModel, None, TorrentLibrary if TAGLESS else None
@@ -4441,7 +4446,6 @@ class Arr:
             self.db.create_tables([Files, Queue, PersistingQueue])
 
         if db4:
-
             self.torrent_db = SqliteDatabase(None)
             self.torrent_db.init(
                 str(self._app_data_folder.joinpath("torrents.db")),
