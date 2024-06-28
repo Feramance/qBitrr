@@ -4001,7 +4001,7 @@ class Arr:
                     stalled_ignore = True
                 elif "qBitrr-allowed_stalled" in torrent.tags:
                     stalled_ignore = True
-        else:
+        elif "qBitrr-allowed_stalled" in torrent.tags:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
 
         if "qBitrr-ignored" in torrent.tags:
