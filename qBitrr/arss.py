@@ -3971,14 +3971,10 @@ class Arr:
         maximum_eta = _tracker_max_eta
 
         stalled_ignore = False
-        if (
-            torrent.state_enum
-            in (
-                TorrentStates.METADATA_DOWNLOAD,
-                TorrentStates.STALLED_DOWNLOAD,
-            )
-            or torrent.availability < 1
-        ):
+        if torrent.state_enum in (
+            TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.STALLED_DOWNLOAD,
+        ) or (torrent.availability < 1 and not self.is_uploading_state(torrent)):
             if self.allowed_stalled:
                 self.logger.trace(
                     "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
