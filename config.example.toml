@@ -217,7 +217,7 @@ DoNotRemoveSlow = true
 # Allow stalled torrents
 AllowStalled = false
 
-# Maximum allowed time for allowed stalled torrents
+# Maximum allowed time for allowed stalled torrents in minutes
 StalledDelay = -1
 
 
@@ -420,7 +420,7 @@ DoNotRemoveSlow = true
 # Allow stalled torrents
 AllowStalled = false
 
-# Maximum allowed time for allowed stalled torrents
+# Maximum allowed time for allowed stalled torrents in minutes
 StalledDelay = -1
 
 
@@ -619,7 +619,7 @@ DoNotRemoveSlow = true
 # Allow stalled torrents
 AllowStalled = false
 
-# Maximum allowed time for allowed stalled torrents
+# Maximum allowed time for allowed stalled torrents in minutes
 StalledDelay = -1
 
 
@@ -831,7 +831,7 @@ DoNotRemoveSlow = true
 # Allow stalled torrents
 AllowStalled = false
 
-# Maximum allowed time for allowed stalled torrents
+# Maximum allowed time for allowed stalled torrents in minutes
 StalledDelay = -1
 
 

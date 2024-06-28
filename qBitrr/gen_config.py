@@ -340,7 +340,10 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
     _gen_default_line(torrent_table, "Ignore slow torrents.", "DoNotRemoveSlow", True)
     _gen_default_line(torrent_table, "Allow stalled torrents", "AllowStalled", False)
     _gen_default_line(
-        torrent_table, "Maximum allowed time for allowed stalled torrents", "StalledDelay", -1
+        torrent_table,
+        "Maximum allowed time for allowed stalled torrents in minutes",
+        "StalledDelay",
+        -1,
     )
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
