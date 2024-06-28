@@ -3994,12 +3994,12 @@ class Arr:
                     torrent.name,
                     time.time(),
                     torrent.added_on,
-                    time.time() + timedelta(minutes=self.stalled_delay).seconds,
+                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds,
                 )
                 if (
                     self.stalled_delay > 0
-                    and torrent.added_on
-                    >= time.time() + timedelta(minutes=self.stalled_delay).seconds
+                    and time.time()
+                    >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
                 ):
                     stalled_ignore = False
                 elif "qBitrr-allowed_stalled" not in torrent.tags:
