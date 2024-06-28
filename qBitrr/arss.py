@@ -224,8 +224,6 @@ class Arr:
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
         self.allowed_stalled = CONFIG.get(f"{name}.Torrent.AllowStalled", fallback=False)
         self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
-        if self.allowed_stalled and self.stalled_delay > 0:
-            self.stalled_time_out = ExpiringSet(max_age_seconds=self.stalled_delay * 60)
         self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
@@ -3977,14 +3975,23 @@ class Arr:
             TorrentStates.METADATA_DOWNLOAD,
             TorrentStates.STALLED_DOWNLOAD,
         ):
-            if self.allowed_stalled and "qBitrr-allowed_stalled" not in torrent.tags:
-                self.stalled_time_out.add(torrent.hash)
-                torrent.add_tags(["qBitrr-allowed_stalled"])
-                stalled_ignore = True
-            elif (
-                "qBitrr-allowed_stalled" in torrent.tags and torrent.hash in self.stalled_time_out
-            ):
-                stalled_ignore = True
+            if self.allowed_stalled:
+                self.logger.trace(
+                    "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+                    torrent.name,
+                    time.time(),
+                    torrent.added_on,
+                    time.time() + timedelta(minutes=self.stalled_delay),
+                )
+                if self.stalled_delay > 0 and torrent.added_on >= time.time() + timedelta(
+                    minutes=self.stalled_delay
+                ):
+                    stalled_ignore = False
+                elif "qBitrr-allowed_stalled" not in torrent.tags:
+                    torrent.add_tags(["qBitrr-allowed_stalled"])
+                    stalled_ignore = True
+                elif "qBitrr-allowed_stalled" in torrent.tags:
+                    stalled_ignore = True
         else:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
 
