@@ -3994,7 +3994,7 @@ class Arr:
                     torrent.name,
                     time.time(),
                     torrent.added_on,
-                    time.time() + timedelta(minutes=self.stalled_delay),
+                    time.time() + timedelta(minutes=self.stalled_delay).seconds,
                 )
                 if (
                     self.stalled_delay > 0
