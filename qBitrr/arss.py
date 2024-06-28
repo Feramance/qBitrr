@@ -3982,12 +3982,20 @@ class Arr:
         maximum_eta = _tracker_max_eta
 
         stalled_ignore = False
-        if self.allowed_stalled and "qBitrr-allowed_stalled" not in torrent.tags:
-            self.stalled_time_out.add(torrent.hash)
-            torrent.add_tags(["qBitrr-allowed_stalled"])
-            stalled_ignore = True
-        elif "qBitrr-allowed_stalled" in torrent.tags and torrent.hash in self.stalled_time_out:
-            stalled_ignore = True
+        if torrent.state_enum in (
+            TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.STALLED_DOWNLOAD,
+        ):
+            if self.allowed_stalled and "qBitrr-allowed_stalled" not in torrent.tags:
+                self.stalled_time_out.add(torrent.hash)
+                torrent.add_tags(["qBitrr-allowed_stalled"])
+                stalled_ignore = True
+            elif (
+                "qBitrr-allowed_stalled" in torrent.tags and torrent.hash in self.stalled_time_out
+            ):
+                stalled_ignore = True
+        else:
+            torrent.remove_tags(["qBitrr-allowed_stalled"])
 
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
