@@ -3992,9 +3992,11 @@ class Arr:
                 self.logger.trace(
                     "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
                     torrent.name,
-                    time.time(),
-                    torrent.added_on,
-                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds,
+                    datetime.fromtimestamp(time.time()),
+                    datetime.fromtimestamp(torrent.added_on),
+                    datetime.fromtimestamp(
+                        torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                    ),
                 )
                 if (
                     self.stalled_delay > 0
