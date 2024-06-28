@@ -3971,9 +3971,13 @@ class Arr:
         maximum_eta = _tracker_max_eta
 
         stalled_ignore = False
-        if torrent.state_enum in (
-            TorrentStates.METADATA_DOWNLOAD,
-            TorrentStates.STALLED_DOWNLOAD,
+        if (
+            torrent.state_enum
+            in (
+                TorrentStates.METADATA_DOWNLOAD,
+                TorrentStates.STALLED_DOWNLOAD,
+            )
+            or torrent.availability < 1
         ):
             if self.allowed_stalled:
                 self.logger.trace(
@@ -3983,8 +3987,10 @@ class Arr:
                     torrent.added_on,
                     time.time() + timedelta(minutes=self.stalled_delay),
                 )
-                if self.stalled_delay > 0 and torrent.added_on >= time.time() + timedelta(
-                    minutes=self.stalled_delay
+                if (
+                    self.stalled_delay > 0
+                    and torrent.added_on
+                    >= time.time() + timedelta(minutes=self.stalled_delay).seconds
                 ):
                     stalled_ignore = False
                 elif "qBitrr-allowed_stalled" not in torrent.tags:
