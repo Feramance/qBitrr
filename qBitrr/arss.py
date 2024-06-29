@@ -4017,7 +4017,7 @@ class Arr:
         elif "qBitrr-allowed_stalled" in torrent.tags:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
             self.logger.trace(
-                "Not stalled: %s",
+                "Not stalled, removing tag: %s",
                 torrent.name,
             )
         else:
