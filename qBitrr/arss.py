@@ -3980,33 +3980,60 @@ class Arr:
         maximum_eta = _tracker_max_eta
 
         stalled_ignore = False
-        if torrent.state_enum in (
-            TorrentStates.METADATA_DOWNLOAD,
-            TorrentStates.STALLED_DOWNLOAD,
-        ) or (torrent.availability < 1 and not self.is_uploading_state(torrent)):
-            if self.allowed_stalled:
+        self.logger.trace(
+            "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+            torrent.name,
+            datetime.fromtimestamp(time.time()),
+            datetime.fromtimestamp(torrent.added_on),
+            datetime.fromtimestamp(
+                torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+            ),
+        )
+        if (
+            torrent.state_enum
+            in (
+                TorrentStates.METADATA_DOWNLOAD,
+                TorrentStates.STALLED_DOWNLOAD,
+            )
+            or (
+                torrent.availability < 1
+                and not self.is_uploading_state(torrent)
+                and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+            )
+        ) and self.allowed_stalled:
+            if (
+                self.stalled_delay > 0
+                and time.time() >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+            ):
+                stalled_ignore = False
                 self.logger.trace(
-                    "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+                    "Process stalled, delay expired: %s",
                     torrent.name,
-                    datetime.fromtimestamp(time.time()),
-                    datetime.fromtimestamp(torrent.added_on),
-                    datetime.fromtimestamp(
-                        torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
-                    ),
                 )
-                if (
-                    self.stalled_delay > 0
-                    and time.time()
-                    >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
-                ):
-                    stalled_ignore = False
-                elif "qBitrr-allowed_stalled" not in torrent.tags:
-                    torrent.add_tags(["qBitrr-allowed_stalled"])
-                    stalled_ignore = True
-                elif "qBitrr-allowed_stalled" in torrent.tags:
-                    stalled_ignore = True
+            elif "qBitrr-allowed_stalled" not in torrent.tags:
+                torrent.add_tags(["qBitrr-allowed_stalled"])
+                stalled_ignore = True
+                self.logger.trace(
+                    "Stalled, adding tag: %s",
+                    torrent.name,
+                )
+            elif "qBitrr-allowed_stalled" in torrent.tags:
+                stalled_ignore = True
+                self.logger.trace(
+                    "Stalled: %s",
+                    torrent.name,
+                )
         elif "qBitrr-allowed_stalled" in torrent.tags:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
+            self.logger.trace(
+                "Not stalled: %s",
+                torrent.name,
+            )
+        else:
+            self.logger.trace(
+                "Not stalled: %s",
+                torrent.name,
+            )
 
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
