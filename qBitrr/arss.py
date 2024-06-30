@@ -3979,7 +3979,7 @@ class Arr:
         )
         maximum_eta = _tracker_max_eta
 
-        stalled_ignore = False
+        stalled_ignore = True
         self.logger.trace(
             "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
             torrent.name,
@@ -3990,15 +3990,25 @@ class Arr:
             ),
         )
         if (
-            torrent.state_enum
-            in (
-                TorrentStates.METADATA_DOWNLOAD,
-                TorrentStates.STALLED_DOWNLOAD,
+            (
+                torrent.state_enum
+                in (
+                    TorrentStates.METADATA_DOWNLOAD,
+                    TorrentStates.STALLED_DOWNLOAD,
+                )
+                and "qBitrr-ignored" not in torrent.tags
+                and "qBitrr-free_space_paused" not in torrent.tags
             )
             or (
-                torrent.availability < 1
-                and not self.is_uploading_state(torrent)
-                and torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+                (
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                    < time_now - self.ignore_torrents_younger_than
+                    and torrent.availability < 1
+                )
+                and torrent.hash in self.cleaned_torrents
+                and self.is_downloading_state(torrent)
+                and "qBitrr-ignored" not in torrent.tags
+                and "qBitrr-free_space_paused" not in torrent.tags
             )
         ) and self.allowed_stalled:
             if (
@@ -4012,24 +4022,24 @@ class Arr:
                 )
             elif "qBitrr-allowed_stalled" not in torrent.tags:
                 torrent.add_tags(["qBitrr-allowed_stalled"])
-                stalled_ignore = True
                 self.logger.trace(
                     "Stalled, adding tag: %s",
                     torrent.name,
                 )
             elif "qBitrr-allowed_stalled" in torrent.tags:
-                stalled_ignore = True
                 self.logger.trace(
                     "Stalled: %s",
                     torrent.name,
                 )
         elif "qBitrr-allowed_stalled" in torrent.tags:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
+            stalled_ignore = False
             self.logger.trace(
                 "Not stalled, removing tag: %s",
                 torrent.name,
             )
         else:
+            stalled_ignore = False
             self.logger.trace(
                 "Not stalled: %s",
                 torrent.name,
