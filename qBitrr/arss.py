@@ -2725,7 +2725,7 @@ class Arr:
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
                     probeable += 1
-            if not self.file_extension_allowlist:
+            elif not self.file_extension_allowlist:
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
