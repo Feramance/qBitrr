@@ -1223,7 +1223,6 @@ class Arr:
         elif self.type == "radarr":
             movielist = self.db_get_files_movies()
             for movies in movielist:
-                self.logger.trace("Movielist")
                 yield movies[0], movies[1], movies[2], False, len(movielist)
 
     def db_maybe_reset_entry_searched_state(self):
