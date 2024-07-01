@@ -5108,8 +5108,9 @@ class FreeSpaceManager(Arr):
                 self.current_free_space,
                 free_space_test,
             )
-            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and (
-                self.current_free_space < torrent["amount_left"] or free_space_test < 0
+            if (
+                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
+                and self.current_free_space < torrent["amount_left"]
             ):
                 self.logger.info(
                     "Pause download [%s]: Free space %s -> %s",
@@ -5120,21 +5121,30 @@ class FreeSpaceManager(Arr):
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
                 torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
                 self._process_single_torrent_pause_disk_space(torrent)
-            elif (
-                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space > torrent["amount_left"]
-            ):
+            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
-                    "Unpause download [%s]: Free space %s -> %s",
+                    "Leave paused [%s]: Free space %s -> %s",
+                    torrent.name,
+                    self.current_free_space,
+                    free_space_test,
+                )
+                torrent.add_tags(tags=["qBitrr-free_space_paused"])
+                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+            elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
+                self.logger.info(
+                    "Continue downloading [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
                     free_space_test,
                 )
                 self.current_free_space = free_space_test
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-            elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
+            elif (
+                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
+                and self.current_free_space > torrent["amount_left"]
+            ):
                 self.logger.info(
-                    "Continue downloading [%s]: Free space %s -> %s",
+                    "Unpause download [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
                     free_space_test,
