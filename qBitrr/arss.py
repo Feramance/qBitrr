@@ -5143,7 +5143,7 @@ class FreeSpaceManager(Arr):
                 and self.current_free_space < torrent["amount_left"]
             ):
                 self.logger.trace(
-                    "Pause download[%s]: Free space %s -> %s",
+                    "Pause download [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
                     free_space_test,
@@ -5157,7 +5157,7 @@ class FreeSpaceManager(Arr):
             ):
                 self.current_free_space = free_space_test
                 self.logger.trace(
-                    "Unpause download[%s]: Free space %s -> %s",
+                    "Unpause download [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
                     free_space_test,
@@ -5166,7 +5166,7 @@ class FreeSpaceManager(Arr):
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.current_free_space = free_space_test
                 self.logger.trace(
-                    "Continue downloading[%s]: Free space %s -> %s",
+                    "Continue downloading [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
                     free_space_test,
@@ -5174,7 +5174,7 @@ class FreeSpaceManager(Arr):
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
         elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.trace(
-                "Removing tag[%s] for completed torrent[%s]: Free space %s",
+                "Removing tag [%s] for completed torrent[%s]: Free space %s",
                 "qBitrr-free_space_paused",
                 torrent.name,
                 self.current_free_space,
