@@ -88,6 +88,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "Tagless operation",
+        "Tagless",
+        ENVIRO_CONFIG.settings.tagless or False,
+    )
+    _gen_default_line(
+        settings,
         [
             "Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)",
             "Only applicable to Re-check and failed categories",
@@ -338,6 +344,13 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         0.99,
     )
     _gen_default_line(torrent_table, "Ignore slow torrents.", "DoNotRemoveSlow", True)
+    _gen_default_line(torrent_table, "Allow stalled torrents", "AllowStalled", False)
+    _gen_default_line(
+        torrent_table,
+        "Maximum allowed time for allowed stalled torrents in minutes",
+        "StalledDelay",
+        -1,
+    )
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
 

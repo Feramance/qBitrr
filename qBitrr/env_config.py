@@ -37,6 +37,7 @@ class AppConfig:
         search_loop_delay = environ.var(None, converter=Converter.int)
         failed_category = environ.var(None)
         recheck_category = environ.var(None)
+        tagless = environ.var(None, converter=Converter.bool)
         ignore_torrents_younger_than = environ.var(None, converter=Converter.int)
         ping_urls = environ.var(None, converter=Converter.list)
         ffprobe_auto_update = environ.var(None, converter=Converter.bool)
