@@ -5133,7 +5133,7 @@ class FreeSpaceManager(Arr):
             free_space_test = self.current_free_space
             free_space_test -= torrent["amount_left"]
             self.logger.trace(
-                "Result[%s]: Free space %s -> %s",
+                "Result [%s]: Free space %s -> %s",
                 torrent.name,
                 self.current_free_space,
                 free_space_test,
@@ -5142,7 +5142,7 @@ class FreeSpaceManager(Arr):
                 torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
                 and self.current_free_space < torrent["amount_left"]
             ):
-                self.logger.trace(
+                self.logger.info(
                     "Pause download [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
@@ -5156,7 +5156,7 @@ class FreeSpaceManager(Arr):
                 and self.current_free_space > torrent["amount_left"]
             ):
                 self.current_free_space = free_space_test
-                self.logger.trace(
+                self.logger.info(
                     "Unpause download [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
@@ -5165,7 +5165,7 @@ class FreeSpaceManager(Arr):
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.current_free_space = free_space_test
-                self.logger.trace(
+                self.logger.info(
                     "Continue downloading [%s]: Free space %s -> %s",
                     torrent.name,
                     self.current_free_space,
@@ -5173,7 +5173,7 @@ class FreeSpaceManager(Arr):
                 )
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
         elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
-            self.logger.trace(
+            self.logger.info(
                 "Removing tag [%s] for completed torrent[%s]: Free space %s",
                 "qBitrr-free_space_paused",
                 torrent.name,
