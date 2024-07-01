@@ -223,8 +223,10 @@ class Arr:
         )
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
-        self.allowed_stalled = CONFIG.get(f"{name}.Torrent.AllowStalled", fallback=False)
+        self.re_search_stalled = CONFIG.get(f"{name}.Torrent.ReSearchStalled", fallback=False)
         self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
+        self.allowed_stalled = True if self.stalled_delay != -1 else False
+
         self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
@@ -846,16 +848,19 @@ class Arr:
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
-    def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
-        if hash_ not in skip_blacklist:
-            self.logger.debug(
-                "Blocklisting: %s (%s)",
-                hash_,
-                self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
-            )
-            self.delete_from_queue(id_=entry, blacklist=True)
-        else:
-            self.delete_from_queue(id_=entry, blacklist=False)
+    def _process_failed_individual(
+        self, hash_: str, entry: int, skip_blacklist: set[str], stalled: bool = False
+    ) -> None:
+        if not stalled:
+            if hash_ not in skip_blacklist:
+                self.logger.debug(
+                    "Blocklisting: %s (%s)",
+                    hash_,
+                    self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
+                )
+                self.delete_from_queue(id_=entry, blacklist=True)
+            else:
+                self.delete_from_queue(id_=entry, blacklist=False)
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
@@ -4067,6 +4072,14 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
+
+        if "qBitrr-allowed_stalled" in torrent.tags and self.re_search_stalled:
+            payload = self.process_entries([torrent.hash])
+            if payload:
+                for entry, hash_ in payload:
+                    self._process_failed_individual(
+                        hash_=hash_, entry=entry, skip_blacklist=set(), stalled=True
+                    )
 
         if (
             self.custom_format_unmet_search

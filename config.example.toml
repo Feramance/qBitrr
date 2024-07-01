@@ -214,10 +214,10 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Allow stalled torrents
-AllowStalled = false
+# Re-search stalled torrents
+ReSearchStalled = false
 
-# Maximum allowed time for allowed stalled torrents in minutes
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
 
 
@@ -417,10 +417,10 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Allow stalled torrents
-AllowStalled = false
+# Re-search stalled torrents
+ReSearchStalled = false
 
-# Maximum allowed time for allowed stalled torrents in minutes
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
 
 
@@ -616,10 +616,10 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Allow stalled torrents
-AllowStalled = false
+# Re-search stalled torrents
+ReSearchStalled = false
 
-# Maximum allowed time for allowed stalled torrents in minutes
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
 
 
@@ -828,10 +828,10 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Allow stalled torrents
-AllowStalled = false
+# Re-search stalled torrents
+ReSearchStalled = false
 
-# Maximum allowed time for allowed stalled torrents in minutes
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
 
 
