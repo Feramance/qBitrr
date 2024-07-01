@@ -2709,14 +2709,14 @@ class Arr:
             if file.is_dir():
                 self.logger.trace("Folder Cleanup: File is a folder: %s", file)
                 continue
-            if self.file_extension_allowlist_re and (
+            if self.file_extension_allowlist and (
                 (match := self.file_extension_allowlist_re.search(file.suffix)) and match.group()
             ):
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
                     probeable += 1
-            if not self.file_extension_allowlist_re:
+            if not self.file_extension_allowlist:
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
@@ -3602,7 +3602,7 @@ class Arr:
                 )
                 _remove_files.add(file.id)
                 total -= 1
-            elif self.file_extension_allowlist_re and not (
+            elif self.file_extension_allowlist and not (
                 (match := self.file_extension_allowlist_re.search(file_path.suffix))
                 and match.group()
             ):
