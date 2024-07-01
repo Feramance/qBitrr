@@ -5138,9 +5138,8 @@ class FreeSpaceManager(Arr):
                 self.current_free_space,
                 free_space_test,
             )
-            if (
-                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space < torrent["amount_left"]
+            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and (
+                self.current_free_space < torrent["amount_left"] or free_space_test < 0
             ):
                 self.logger.info(
                     "Pause download [%s]: Free space %s -> %s",
