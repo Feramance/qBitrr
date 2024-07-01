@@ -127,20 +127,21 @@ class Arr:
         self.rss_sync_timer = CONFIG.get(f"{name}.RssSyncTimer", fallback=15)
 
         self.case_sensitive_matches = CONFIG.get(
-            f"{name}.Torrent.CaseSensitiveMatches", fallback=[]
+            f"{name}.Torrent.CaseSensitiveMatches", fallback=False
         )
         self.folder_exclusion_regex = CONFIG.get(
-            f"{name}.Torrent.FolderExclusionRegex", fallback=[]
+            f"{name}.Torrent.FolderExclusionRegex", fallback=None
         )
         self.file_name_exclusion_regex = CONFIG.get(
-            f"{name}.Torrent.FileNameExclusionRegex", fallback=[]
+            f"{name}.Torrent.FileNameExclusionRegex", fallback=None
         )
         self.file_extension_allowlist = CONFIG.get(
-            f"{name}.Torrent.FileExtensionAllowlist", fallback=[]
+            f"{name}.Torrent.FileExtensionAllowlist", fallback=None
         )
-        self.file_extension_allowlist = [
-            rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
-        ]
+        if self.file_extension_allowlist:
+            self.file_extension_allowlist = [
+                rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
+            ]
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
@@ -274,22 +275,37 @@ class Arr:
             self.request_search_timer = None
 
         if self.case_sensitive_matches:
-            self.folder_exclusion_regex_re = re.compile(
-                "|".join(self.folder_exclusion_regex), re.DOTALL
+            self.folder_exclusion_regex_re = (
+                re.compile("|".join(self.folder_exclusion_regex), re.DOTALL)
+                if self.folder_exclusion_regex_re
+                else None
             )
-            self.file_name_exclusion_regex_re = re.compile(
-                "|".join(self.file_name_exclusion_regex), re.DOTALL
+            self.file_name_exclusion_regex_re = (
+                re.compile("|".join(self.file_name_exclusion_regex), re.DOTALL)
+                if self.file_name_exclusion_regex_re
+                else None
+            )
+            self.file_extension_allowlist = (
+                re.compile("|".join(self.file_extension_allowlist), re.DOTALL)
+                if self.file_extension_allowlist
+                else None
             )
         else:
-            self.folder_exclusion_regex_re = re.compile(
-                "|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL
+            self.folder_exclusion_regex_re = (
+                re.compile("|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL)
+                if self.folder_exclusion_regex_re
+                else None
             )
-            self.file_name_exclusion_regex_re = re.compile(
-                "|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL
+            self.file_name_exclusion_regex_re = (
+                re.compile("|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL)
+                if self.file_name_exclusion_regex_re
+                else None
             )
-        self.file_extension_allowlist = re.compile(
-            "|".join(self.file_extension_allowlist), re.DOTALL
-        )
+            self.file_extension_allowlist = (
+                re.compile("|".join(self.file_extension_allowlist), re.IGNORECASE | re.DOTALL)
+                if self.file_extension_allowlist
+                else None
+            )
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
@@ -2701,7 +2717,11 @@ class Arr:
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
                     probeable += 1
-
+            if not self.file_extension_allowlist:
+                self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
+                if self.file_is_probeable(file):
+                    self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
+                    probeable += 1
             else:
                 invalid_files.add(file)
 
@@ -4416,7 +4436,7 @@ class Arr:
                         if _m in self.arr_error_codes_to_blocklist:
                             e = entry.get("downloadId")
                             _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
-                            # self.downloads_with_bad_error_message_blocklist.add(e)
+                            self.downloads_with_bad_error_message_blocklist.add(e)
             if len(_path_filter):
                 self.needs_cleanup = True
             self.files_to_explicitly_delete = iter(_path_filter.copy())
