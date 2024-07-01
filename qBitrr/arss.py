@@ -3984,27 +3984,12 @@ class Arr:
             if add_tags:
                 torrent.add_tags(add_tags)
 
-    def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
-        if torrent.category != RECHECK_CATEGORY:
-            self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        self._process_single_torrent_trackers(torrent)
-        self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
-        time_now = time.time()
-        leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
-        self.logger.trace(
-            "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s, State[%s]",
-            torrent.name,
-            leave_alone,
-            _tracker_max_eta,
-            torrent.state_enum,
-        )
-        maximum_eta = _tracker_max_eta
-
+    def stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
         self.logger.trace(
             "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
             torrent.name,
-            datetime.fromtimestamp(time.time()),
+            datetime.fromtimestamp(time_now),
             datetime.fromtimestamp(torrent.added_on),
             datetime.fromtimestamp(
                 torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
@@ -4034,7 +4019,7 @@ class Arr:
         ) and self.allowed_stalled:
             if (
                 self.stalled_delay > 0
-                and time.time() >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                and time_now >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
             ):
                 stalled_ignore = False
                 self.logger.trace(
@@ -4065,6 +4050,25 @@ class Arr:
                 "Not stalled: %s",
                 torrent.name,
             )
+        return stalled_ignore
+
+    def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
+        if torrent.category != RECHECK_CATEGORY:
+            self.manager.qbit_manager.cache[torrent.hash] = torrent.category
+        self._process_single_torrent_trackers(torrent)
+        self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
+        time_now = time.time()
+        leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(torrent)
+        self.logger.trace(
+            "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s, State[%s]",
+            torrent.name,
+            leave_alone,
+            _tracker_max_eta,
+            torrent.state_enum,
+        )
+        maximum_eta = _tracker_max_eta
+
+        stalled_ignore = self.stalled_check(torrent, time_now)
 
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
