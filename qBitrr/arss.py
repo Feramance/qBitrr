@@ -3974,7 +3974,7 @@ class Arr:
             if add_tags:
                 torrent.add_tags(add_tags)
 
-    def stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
+    def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
         self.logger.trace(
             "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
@@ -4058,7 +4058,7 @@ class Arr:
         )
         maximum_eta = _tracker_max_eta
 
-        stalled_ignore = self.stalled_check(torrent, time_now)
+        stalled_ignore = self._stalled_check(torrent, time_now)
 
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
