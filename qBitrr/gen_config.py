@@ -52,7 +52,7 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
-        "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)",
+        "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)",
         "FreeSpace",
         ENVIRO_CONFIG.settings.free_space or "-1",
     )
@@ -73,6 +73,12 @@ def _add_settings_section(config: TOMLDocument):
         "Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)",
         "SearchLoopDelay",
         ENVIRO_CONFIG.settings.search_loop_delay or -1,
+    )
+    _gen_default_line(
+        settings,
+        "Enable automation of pausing and resuming torrents as needed",
+        "AutoPauseResume",
+        ENVIRO_CONFIG.settings.auto_pause_resume or True,
     )
     _gen_default_line(
         settings,
