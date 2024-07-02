@@ -116,12 +116,10 @@ FAILED_CATEGORY = ENVIRO_CONFIG.settings.failed_category or CONFIG.get(
 RECHECK_CATEGORY = ENVIRO_CONFIG.settings.recheck_category or CONFIG.get(
     "Settings.RecheckCategory", fallback="recheck"
 )
-CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get_or_raise(
+CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get(
     "Settings.ConsoleLevel", fallback="INFO"
 )
-ENABLE_LOGS = ENVIRO_CONFIG.settings.logging or CONFIG.get_or_raise(
-    "Settings.Logging", fallback=True
-)
+ENABLE_LOGS = ENVIRO_CONFIG.settings.logging or CONFIG.get("Settings.Logging", fallback=True)
 COMPLETED_DOWNLOAD_FOLDER = (
     ENVIRO_CONFIG.settings.completed_download_folder
     or CONFIG.get_or_raise("Settings.CompletedDownloadFolder")
@@ -136,7 +134,7 @@ LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
 SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get(
     "Settings.SearchLoopDelay", fallback=-1
 )
-AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get_or_raise(
+AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
     "Settings.AutoPauseResume", fallback=True
 )
 PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
