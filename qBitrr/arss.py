@@ -4033,15 +4033,28 @@ class Arr:
                 )
             elif "qBitrr-allowed_stalled" not in torrent.tags:
                 torrent.add_tags(["qBitrr-allowed_stalled"])
-                self.logger.trace(
-                    "Stalled, adding tag: %s",
-                    torrent.name,
-                )
+                if self.re_search_stalled:
+                    payload = self.process_entries([torrent.hash])
+                    if payload:
+                        for entry, hash_ in payload:
+                            self._process_failed_individual(
+                                hash_=hash_, entry=entry, skip_blacklist=set(), stalled=True
+                            )
+                    self.logger.trace(
+                        "Stalled, adding tag, blocklosting and re-searching: %s",
+                        torrent.name,
+                    )
+                else:
+                    self.logger.trace(
+                        "Stalled, adding tag: %s",
+                        torrent.name,
+                    )
             elif "qBitrr-allowed_stalled" in torrent.tags:
                 self.logger.trace(
                     "Stalled: %s",
                     torrent.name,
                 )
+
         elif "qBitrr-allowed_stalled" in torrent.tags:
             torrent.remove_tags(["qBitrr-allowed_stalled"])
             stalled_ignore = False
@@ -4082,14 +4095,6 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-
-        if "qBitrr-allowed_stalled" in torrent.tags and self.re_search_stalled:
-            payload = self.process_entries([torrent.hash])
-            if payload:
-                for entry, hash_ in payload:
-                    self._process_failed_individual(
-                        hash_=hash_, entry=entry, skip_blacklist=set(), stalled=True
-                    )
 
         if (
             self.custom_format_unmet_search
