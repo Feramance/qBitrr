@@ -28,6 +28,7 @@ from ujson import JSONDecodeError
 
 from qBitrr.config import (
     APPDATA_FOLDER,
+    AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     ENABLE_LOGS,
@@ -768,7 +769,7 @@ class Arr:
 
     def _process_paused(self) -> None:
         # Bulks pause all torrents flagged for pausing.
-        if self.pause:
+        if self.pause and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
             self.logger.debug("Pausing %s torrents", len(self.pause))
             for i in self.pause:
@@ -870,6 +871,16 @@ class Arr:
                 self.delete_from_queue(id_=entry, blacklist=True)
             else:
                 self.delete_from_queue(id_=entry, blacklist=False)
+        else:
+            if hash_ not in skip_blacklist:
+                self.logger.debug(
+                    "Blocklisting: %s (%s)",
+                    hash_,
+                    self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
+                )
+                self.delete_from_queue(id_=entry, remove_from_client=False, blacklist=True)
+            else:
+                self.delete_from_queue(id_=entry, remove_from_client=False, blacklist=False)
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
@@ -1111,7 +1122,7 @@ class Arr:
             del self.change_priority[hash_]
 
     def _process_resume(self) -> None:
-        if self.resume:
+        if self.resume and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
             self.manager.qbit.torrents_resume(torrent_hashes=self.resume)
             for k in self.resume:
@@ -3423,7 +3434,6 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            # self.pause.add(torrent.hash)
             content_path = pathlib.Path(torrent.content_path)
             if content_path.is_dir() and content_path.name == torrent.name:
                 torrent_folder = content_path

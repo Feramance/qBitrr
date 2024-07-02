@@ -7,10 +7,12 @@ from logging import Logger
 import coloredlogs
 
 from qBitrr.config import (
+    AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     CONSOLE_LOGGING_LEVEL_STRING,
     COPIED_TO_NEW_DIR,
+    ENABLE_LOGS,
     FAILED_CATEGORY,
     FREE_SPACE,
     HOME_PATH,
@@ -124,13 +126,15 @@ def run_logs(logger: Logger) -> None:
 def log_Debugs(logger):
     logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
     logger.debug("Ping URLs:  %s", PING_URLS)
+    logger.debug("Script Config:  Logging=%s", ENABLE_LOGS)
     logger.debug("Script Config:  FailedCategory=%s", FAILED_CATEGORY)
     logger.debug("Script Config:  RecheckCategory=%s", RECHECK_CATEGORY)
     logger.debug("Script Config:  Tagless=%s", TAGLESS)
     logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
     logger.debug("Script Config:  FreeSpace=%s", FREE_SPACE)
     logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
-    logger.debug("Script Config:  LoopSleepTimer=%s", SEARCH_LOOP_DELAY)
+    logger.debug("Script Config:  SearchLoopDelay=%s", SEARCH_LOOP_DELAY)
+    logger.debug("Script Config:  AutoPauseResume=%s", AUTO_PAUSE_RESUME)
     logger.debug(
         "Script Config:  NoInternetSleepTimer=%s",
         NO_INTERNET_SLEEP_TIMER,
