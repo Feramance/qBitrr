@@ -5166,10 +5166,7 @@ class FreeSpaceManager(Arr):
                 self.current_free_space,
                 free_space_test,
             )
-            if (
-                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space < torrent["amount_left"]
-            ):
+            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
                     "Pause download [%s]: Free space %s -> %s",
                     torrent.name,
@@ -5197,10 +5194,7 @@ class FreeSpaceManager(Arr):
                 )
                 self.current_free_space = free_space_test
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
-            elif (
-                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space > torrent["amount_left"]
-            ):
+            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
                     "Unpause download [%s]: Free space %s -> %s",
                     torrent.name,
@@ -5331,7 +5325,7 @@ class ArrManager:
                     continue
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
-        if FREE_SPACE != "-1":
+        if FREE_SPACE != "-1" and AUTO_PAUSE_RESUME:
             managed_object = FreeSpaceManager(self.arr_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
         for cat in self.special_categories:
