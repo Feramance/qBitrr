@@ -82,12 +82,6 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
-        "Enable automation of pausing and resuming torrents as needed",
-        "AutoPauseResume",
-        ENVIRO_CONFIG.settings.auto_pause_resume or True,
-    )
-    _gen_default_line(
-        settings,
         "Add torrents to this category to mark them as failed",
         "FailedCategory",
         ENVIRO_CONFIG.settings.failed_category or "failed",
