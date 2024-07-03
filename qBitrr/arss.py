@@ -4034,16 +4034,16 @@ class Arr:
             elif "qBitrr-allowed_stalled" not in torrent.tags:
                 torrent.add_tags(["qBitrr-allowed_stalled"])
                 if self.re_search_stalled:
+                    self.logger.trace(
+                        "Stalled, adding tag, blocklosting and re-searching: %s",
+                        torrent.name,
+                    )
                     payload = self.process_entries([torrent.hash])
                     if payload:
                         for entry, hash_ in payload:
                             self._process_failed_individual(
                                 hash_=hash_, entry=entry, skip_blacklist=set(), stalled=True
                             )
-                    self.logger.trace(
-                        "Stalled, adding tag, blocklosting and re-searching: %s",
-                        torrent.name,
-                    )
                 else:
                     self.logger.trace(
                         "Stalled, adding tag: %s",
