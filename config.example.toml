@@ -15,6 +15,9 @@ CompletedDownloadFolder = "CHANGE_ME"
 #The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)
 FreeSpace = "-1"
 
+# Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)
+AutoPauseResume = true
+
 # Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)
 NoInternetSleepTimer = 15
 
@@ -23,9 +26,6 @@ LoopSleepTimer = 5
 
 # Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)
 SearchLoopDelay = -1
-
-# Enable automation of pausing and resuming torrents as needed
-AutoPauseResume = true
 
 # Add torrents to this category to mark them as failed
 FailedCategory = "failed"
