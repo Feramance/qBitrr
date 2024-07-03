@@ -58,6 +58,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)",
+        "AutoPauseResume",
+        ENVIRO_CONFIG.settings.auto_pause_resume or True,
+    )
+    _gen_default_line(
+        settings,
         "Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)",
         "NoInternetSleepTimer",
         ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15,
@@ -73,12 +79,6 @@ def _add_settings_section(config: TOMLDocument):
         "Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)",
         "SearchLoopDelay",
         ENVIRO_CONFIG.settings.search_loop_delay or -1,
-    )
-    _gen_default_line(
-        settings,
-        "Enable automation of pausing and resuming torrents as needed",
-        "AutoPauseResume",
-        ENVIRO_CONFIG.settings.auto_pause_resume or True,
     )
     _gen_default_line(
         settings,
