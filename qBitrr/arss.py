@@ -850,28 +850,21 @@ class Arr:
             self.import_torrents.clear()
 
     def _process_failed_individual(
-        self, hash_: str, entry: int, skip_blacklist: set[str], stalled: bool = False
+        self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = True
     ) -> None:
-        if not stalled:
-            if hash_ not in skip_blacklist:
-                self.logger.debug(
-                    "Blocklisting: %s (%s)",
-                    hash_,
-                    self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
-                )
-                self.delete_from_queue(id_=entry, blacklist=True)
-            else:
-                self.delete_from_queue(id_=entry, blacklist=False)
+        if hash_ not in skip_blacklist:
+            self.logger.debug(
+                "Blocklisting: %s (%s)",
+                hash_,
+                self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
+            )
+            self.delete_from_queue(
+                id_=entry, remove_from_client=remove_from_client, blacklist=True
+            )
         else:
-            if hash_ not in skip_blacklist:
-                self.logger.debug(
-                    "Blocklisting: %s (%s)",
-                    hash_,
-                    self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
-                )
-                self.delete_from_queue(id_=entry, remove_from_client=False, blacklist=True)
-            else:
-                self.delete_from_queue(id_=entry, remove_from_client=False, blacklist=False)
+            self.delete_from_queue(
+                id_=entry, remove_from_client=remove_from_client, blacklist=False
+            )
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
@@ -4042,7 +4035,10 @@ class Arr:
                     if payload:
                         for entry, hash_ in payload:
                             self._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=set(), stalled=True
+                                hash_=hash_,
+                                entry=entry,
+                                skip_blacklist=set[str],
+                                remove_from_client=False,
                             )
                 else:
                     self.logger.trace(
