@@ -23,9 +23,23 @@ jobs:
         - '3.10'
         os:
         - windows-latest
+        - macOS-latest
         - ubuntu-latest
         arch:
+        - x86
         - x64
+        - arm64
+        exclude:
+        - os: ubuntu-latest
+          arch: x86
+        - os: ubuntu-latest
+          arch: arm64
+        - os: macOS-latest
+          arch: x64
+        - os: macOS-latest
+          arch: x86
+        - os: windows-latest
+          arch: arm64
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -95,3 +109,55 @@ jobs:
         name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
         if-no-files-found: error
+  docker_image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+    - id: string
+      uses: ASzc/change-string-case-action@v6
+      with:
+        string: ${{ github.repository }}
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Login to Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.REG_TOKEN }}
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          feramance/qbitrr
+          ghcr.io/${{ steps.string.outputs.lowercase }}
+        tags: |
+          type=ref,event=pr
+    - name: Build and push Docker images
+      env:
+        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

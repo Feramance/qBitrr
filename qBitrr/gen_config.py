@@ -52,9 +52,15 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
-        "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable)",
+        "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)",
         "FreeSpace",
         ENVIRO_CONFIG.settings.free_space or "-1",
+    )
+    _gen_default_line(
+        settings,
+        "Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)",
+        "AutoPauseResume",
+        ENVIRO_CONFIG.settings.auto_pause_resume or True,
     )
     _gen_default_line(
         settings,
@@ -338,6 +344,13 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         0.99,
     )
     _gen_default_line(torrent_table, "Ignore slow torrents.", "DoNotRemoveSlow", True)
+    _gen_default_line(torrent_table, "Re-search stalled torrents", "ReSearchStalled", False)
+    _gen_default_line(
+        torrent_table,
+        "Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)",
+        "StalledDelay",
+        -1,
+    )
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
 

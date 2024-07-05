@@ -28,6 +28,7 @@ from ujson import JSONDecodeError
 
 from qBitrr.config import (
     APPDATA_FOLDER,
+    AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     ENABLE_LOGS,
@@ -127,20 +128,21 @@ class Arr:
         self.rss_sync_timer = CONFIG.get(f"{name}.RssSyncTimer", fallback=15)
 
         self.case_sensitive_matches = CONFIG.get(
-            f"{name}.Torrent.CaseSensitiveMatches", fallback=[]
+            f"{name}.Torrent.CaseSensitiveMatches", fallback=False
         )
         self.folder_exclusion_regex = CONFIG.get(
-            f"{name}.Torrent.FolderExclusionRegex", fallback=[]
+            f"{name}.Torrent.FolderExclusionRegex", fallback=None
         )
         self.file_name_exclusion_regex = CONFIG.get(
-            f"{name}.Torrent.FileNameExclusionRegex", fallback=[]
+            f"{name}.Torrent.FileNameExclusionRegex", fallback=None
         )
         self.file_extension_allowlist = CONFIG.get(
-            f"{name}.Torrent.FileExtensionAllowlist", fallback=[]
+            f"{name}.Torrent.FileExtensionAllowlist", fallback=None
         )
-        self.file_extension_allowlist = [
-            rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
-        ]
+        if self.file_extension_allowlist:
+            self.file_extension_allowlist = [
+                rf"\{ext}" if ext[:1] != "\\" else ext for ext in self.file_extension_allowlist
+            ]
         self.auto_delete = CONFIG.get(f"{name}.Torrent.AutoDelete", fallback=False)
 
         self.remove_dead_trackers = CONFIG.get(
@@ -222,6 +224,10 @@ class Arr:
         )
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
+        self.re_search_stalled = CONFIG.get(f"{name}.Torrent.ReSearchStalled", fallback=False)
+        self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
+        self.allowed_stalled = True if self.stalled_delay != -1 else False
+
         self.search_current_year = None
         if self.search_in_reverse:
             self._delta = 1
@@ -272,22 +278,37 @@ class Arr:
             self.request_search_timer = None
 
         if self.case_sensitive_matches:
-            self.folder_exclusion_regex_re = re.compile(
-                "|".join(self.folder_exclusion_regex), re.DOTALL
+            self.folder_exclusion_regex_re = (
+                re.compile("|".join(self.folder_exclusion_regex), re.DOTALL)
+                if self.folder_exclusion_regex
+                else None
             )
-            self.file_name_exclusion_regex_re = re.compile(
-                "|".join(self.file_name_exclusion_regex), re.DOTALL
+            self.file_name_exclusion_regex_re = (
+                re.compile("|".join(self.file_name_exclusion_regex), re.DOTALL)
+                if self.file_name_exclusion_regex
+                else None
+            )
+            self.file_extension_allowlist_re = (
+                re.compile("|".join(self.file_extension_allowlist), re.DOTALL)
+                if self.file_extension_allowlist
+                else None
             )
         else:
-            self.folder_exclusion_regex_re = re.compile(
-                "|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL
+            self.folder_exclusion_regex_re = (
+                re.compile("|".join(self.folder_exclusion_regex), re.IGNORECASE | re.DOTALL)
+                if self.folder_exclusion_regex
+                else None
             )
-            self.file_name_exclusion_regex_re = re.compile(
-                "|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL
+            self.file_name_exclusion_regex_re = (
+                re.compile("|".join(self.file_name_exclusion_regex), re.IGNORECASE | re.DOTALL)
+                if self.file_name_exclusion_regex
+                else None
             )
-        self.file_extension_allowlist = re.compile(
-            "|".join(self.file_extension_allowlist), re.DOTALL
-        )
+            self.file_extension_allowlist_re = (
+                re.compile("|".join(self.file_extension_allowlist), re.IGNORECASE | re.DOTALL)
+                if self.file_extension_allowlist
+                else None
+            )
         self.client = client_cls(host_url=self.uri, api_key=self.apikey)
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
@@ -491,7 +512,8 @@ class Arr:
             [
                 "qBitrr-allowed_seeding",
                 "qBitrr-ignored",
-                "qbitrr-imported",
+                "qBitrr-imported",
+                "qBitrr-allowed_stalled",
             ]
         )
         self.search_setup_completed = False
@@ -738,7 +760,7 @@ class Arr:
 
     def _process_paused(self) -> None:
         # Bulks pause all torrents flagged for pausing.
-        if self.pause:
+        if self.pause and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
             self.logger.debug("Pausing %s torrents", len(self.pause))
             for i in self.pause:
@@ -827,16 +849,22 @@ class Arr:
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
-    def _process_failed_individual(self, hash_: str, entry: int, skip_blacklist: set[str]) -> None:
+    def _process_failed_individual(
+        self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = True
+    ) -> None:
         if hash_ not in skip_blacklist:
             self.logger.debug(
                 "Blocklisting: %s (%s)",
                 hash_,
-                self.manager.qbit_manager.name_cache.get(hash_, "Deleted"),
+                self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
             )
-            self.delete_from_queue(id_=entry, blacklist=True)
+            self.delete_from_queue(
+                id_=entry, remove_from_client=remove_from_client, blacklist=True
+            )
         else:
-            self.delete_from_queue(id_=entry, blacklist=False)
+            self.delete_from_queue(
+                id_=entry, remove_from_client=remove_from_client, blacklist=False
+            )
         if hash_ in self.recently_queue:
             del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
@@ -1078,7 +1106,7 @@ class Arr:
             del self.change_priority[hash_]
 
     def _process_resume(self) -> None:
-        if self.resume:
+        if self.resume and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
             self.manager.qbit.torrents_resume(torrent_hashes=self.resume)
             for k in self.resume:
@@ -1204,7 +1232,6 @@ class Arr:
         elif self.type == "radarr":
             movielist = self.db_get_files_movies()
             for movies in movielist:
-                self.logger.trace("Movielist")
                 yield movies[0], movies[1], movies[2], False, len(movielist)
 
     def db_maybe_reset_entry_searched_state(self):
@@ -1590,10 +1617,10 @@ class Arr:
                             continue
                         if not self.search_specials and e["seasonNumber"] == 0:
                             continue
-                        if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
+                        if TvdbIds and ImdbIds and "tvdbId" in e and "imdbId" in e:
                             if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
                                 continue
-                        if TvdbIds and "imdbId" in e:
+                        if ImdbIds and "imdbId" in e:
                             if s["imdbId"] not in ImdbIds:
                                 continue
                         if TvdbIds and "tvdbId" in e:
@@ -1603,6 +1630,7 @@ class Arr:
                             continue
                         if e["episodeFileId"] != 0:
                             continue
+                        self.logger.trace("Updating requests")
                         self.db_update_single_series(db_entry=e, request=True)
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
@@ -1635,6 +1663,7 @@ class Arr:
                     continue
                 if m["hasFile"]:
                     continue
+                self.logger.trace("Updating requests")
                 self.db_update_single_series(db_entry=m, request=True)
 
     def db_overseerr_update(self):
@@ -1699,6 +1728,7 @@ class Arr:
                                 continue
                             if e["episodeFileId"] != 0:
                                 continue
+                            self.logger.trace("Updating todays releases")
                             self.db_update_single_series(db_entry=e)
             except BaseException:
                 self.logger.debug("No episode releases found for today")
@@ -2692,13 +2722,17 @@ class Arr:
                 self.logger.trace("Folder Cleanup: File is a folder: %s", file)
                 continue
             if self.file_extension_allowlist and (
-                (match := self.file_extension_allowlist.search(file.suffix)) and match.group()
+                (match := self.file_extension_allowlist_re.search(file.suffix)) and match.group()
             ):
                 self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
                 if self.file_is_probeable(file):
                     self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
                     probeable += 1
-
+            elif not self.file_extension_allowlist:
+                self.logger.trace("Folder Cleanup: File has an allowed extension: %s", file)
+                if self.file_is_probeable(file):
+                    self.logger.trace("Folder Cleanup: File is a valid media type: %s", file)
+                    probeable += 1
             else:
                 invalid_files.add(file)
 
@@ -3387,7 +3421,6 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            # self.pause.add(torrent.hash)
             content_path = pathlib.Path(torrent.content_path)
             if content_path.is_dir() and content_path.name == torrent.name:
                 torrent_folder = content_path
@@ -3581,7 +3614,8 @@ class Arr:
                 _remove_files.add(file.id)
                 total -= 1
             elif self.file_extension_allowlist and not (
-                (match := self.file_extension_allowlist.search(file_path.suffix)) and match.group()
+                (match := self.file_extension_allowlist_re.search(file_path.suffix))
+                and match.group()
             ):
                 self.logger.debug(
                     "Removing File: Not allowed | Extension: %s  | %s (%s) | %s ",
@@ -3777,16 +3811,11 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if self.seeding_mode_global_remove_torrent != -1 and self.remove_torrent(
-            torrent, seeding_time_limit, ratio_limit
-        ):
-            remove_torrent = True
-            return_value = False
+        if self.seeding_mode_global_remove_torrent != -1:
+            remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         else:
-            if torrent.ratio >= ratio_limit and ratio_limit != -5:
-                return_value = False  # Seeding ratio met - Can be cleaned up.
-            if torrent.seeding_time >= seeding_time_limit and seeding_time_limit != -5:
-                return_value = False  # Seeding time met - Can be cleaned up.
+            remove_torrent = False
+        return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if "qBitrr-free_space_paused" in torrent.tags:
@@ -3956,6 +3985,90 @@ class Arr:
             if add_tags:
                 torrent.add_tags(add_tags)
 
+    def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
+        stalled_ignore = True
+        self.logger.trace(
+            "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+            torrent.name,
+            datetime.fromtimestamp(time_now),
+            datetime.fromtimestamp(torrent.added_on),
+            datetime.fromtimestamp(
+                torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+            ),
+        )
+        if (
+            (
+                torrent.state_enum
+                in (
+                    TorrentStates.METADATA_DOWNLOAD,
+                    TorrentStates.STALLED_DOWNLOAD,
+                )
+                and "qBitrr-ignored" not in torrent.tags
+                and "qBitrr-free_space_paused" not in torrent.tags
+            )
+            or (
+                (
+                    self.recently_queue.get(torrent.hash, torrent.added_on)
+                    < time_now - self.ignore_torrents_younger_than
+                    and torrent.availability < 1
+                )
+                and torrent.hash in self.cleaned_torrents
+                and self.is_downloading_state(torrent)
+                and "qBitrr-ignored" not in torrent.tags
+                and "qBitrr-free_space_paused" not in torrent.tags
+            )
+        ) and self.allowed_stalled:
+            if (
+                self.stalled_delay > 0
+                and time_now >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+            ):
+                stalled_ignore = False
+                self.logger.trace(
+                    "Process stalled, delay expired: %s",
+                    torrent.name,
+                )
+            elif "qBitrr-allowed_stalled" not in torrent.tags:
+                torrent.add_tags(["qBitrr-allowed_stalled"])
+                if self.re_search_stalled:
+                    self.logger.trace(
+                        "Stalled, adding tag, blocklosting and re-searching: %s",
+                        torrent.name,
+                    )
+                    payload = self.process_entries([torrent.hash])
+                    if payload:
+                        for entry, hash_ in payload:
+                            self._process_failed_individual(
+                                hash_=hash_,
+                                entry=entry,
+                                skip_blacklist=set[str],
+                                remove_from_client=False,
+                            )
+                else:
+                    self.logger.trace(
+                        "Stalled, adding tag: %s",
+                        torrent.name,
+                    )
+            elif "qBitrr-allowed_stalled" in torrent.tags:
+                self.logger.trace(
+                    "Stalled: %s",
+                    torrent.name,
+                )
+
+        elif "qBitrr-allowed_stalled" in torrent.tags:
+            torrent.remove_tags(["qBitrr-allowed_stalled"])
+            stalled_ignore = False
+            self.logger.trace(
+                "Not stalled, removing tag: %s",
+                torrent.name,
+            )
+        else:
+            stalled_ignore = False
+            self.logger.trace(
+                "Not stalled: %s",
+                torrent.name,
+            )
+        return stalled_ignore
+
     def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
@@ -3971,6 +4084,9 @@ class Arr:
             torrent.state_enum,
         )
         maximum_eta = _tracker_max_eta
+
+        stalled_ignore = self._stalled_check(torrent, time_now)
+
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
                 [
@@ -3978,6 +4094,7 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
+
         if (
             self.custom_format_unmet_search
             and self.custom_format_unmet_check(torrent)
@@ -4003,6 +4120,7 @@ class Arr:
             )
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and not stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
@@ -4023,6 +4141,7 @@ class Arr:
             and self.is_complete_state(torrent) is False
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
@@ -4078,6 +4197,7 @@ class Arr:
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
+            and not stalled_ignore
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
@@ -4094,6 +4214,7 @@ class Arr:
                 and self.is_downloading_state(torrent)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
+                and not stalled_ignore
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
@@ -4224,7 +4345,7 @@ class Arr:
         except KeyError:
             pass
 
-    def remove_torrent(
+    def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
     ) -> bool:
         if (
@@ -4243,6 +4364,10 @@ class Arr:
         ):
             return True
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
+            return True
+        elif self.seeding_mode_global_remove_torrent == -1 and (
+            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+        ):
             return True
         else:
             return False
@@ -4342,7 +4467,7 @@ class Arr:
                         if _m in self.arr_error_codes_to_blocklist:
                             e = entry.get("downloadId")
                             _path_filter.add((e, pathlib.Path(output_path).joinpath(title)))
-                            # self.downloads_with_bad_error_message_blocklist.add(e)
+                            self.downloads_with_bad_error_message_blocklist.add(e)
             if len(_path_filter):
                 self.needs_cleanup = True
             self.files_to_explicitly_delete = iter(_path_filter.copy())
@@ -5004,27 +5129,54 @@ class FreeSpaceManager(Arr):
         if self.is_downloading_state(torrent):
             free_space_test = self.current_free_space
             free_space_test -= torrent["amount_left"]
-            self.logger.trace("Resulting free space: %s", free_space_test)
-            if (
-                torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space < torrent["amount_left"]
-            ):
-                self.logger.trace("Pause download: Free space %s", self.current_free_space)
+            self.logger.trace(
+                "Result [%s]: Free space %s -> %s",
+                torrent.name,
+                self.current_free_space,
+                free_space_test,
+            )
+            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
+                self.logger.info(
+                    "Pause download [%s]: Free space %s -> %s",
+                    torrent.name,
+                    self.current_free_space,
+                    free_space_test,
+                )
                 torrent.add_tags(tags=["qBitrr-free_space_paused"])
                 torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
                 self._process_single_torrent_pause_disk_space(torrent)
-            elif (
-                torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
-                and self.current_free_space > torrent["amount_left"]
-            ):
+            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
+                self.logger.info(
+                    "Leave paused [%s]: Free space %s -> %s",
+                    torrent.name,
+                    self.current_free_space,
+                    free_space_test,
+                )
+                torrent.add_tags(tags=["qBitrr-free_space_paused"])
+                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+            elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
+                self.logger.info(
+                    "Continue downloading [%s]: Free space %s -> %s",
+                    torrent.name,
+                    self.current_free_space,
+                    free_space_test,
+                )
                 self.current_free_space = free_space_test
-                self.logger.trace("Can download: Free space %s", self.current_free_space)
+                torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
+                self.logger.info(
+                    "Unpause download [%s]: Free space %s -> %s",
+                    torrent.name,
+                    self.current_free_space,
+                    free_space_test,
+                )
+                self.current_free_space = free_space_test
                 torrent.remove_tags(tags=["qBitrr-free_space_paused"])
         elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
-            self.logger.trace(
-                "Removing tag[%s] for completed torrent[%s]: Free space %s",
+            self.logger.info(
+                "Removing tag [%s] for completed torrent[%s]: Free space %s",
                 "qBitrr-free_space_paused",
-                torrent,
+                torrent.name,
                 self.current_free_space,
             )
             torrent.remove_tags(tags=["qBitrr-free_space_paused"])
@@ -5142,7 +5294,7 @@ class ArrManager:
                     continue
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
-        if FREE_SPACE != "-1":
+        if FREE_SPACE != "-1" and AUTO_PAUSE_RESUME:
             managed_object = FreeSpaceManager(self.arr_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
         for cat in self.special_categories:

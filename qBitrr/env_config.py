@@ -35,6 +35,7 @@ class AppConfig:
         no_internet_sleep_timer = environ.var(None, converter=Converter.int)
         loop_sleep_timer = environ.var(None, converter=Converter.int)
         search_loop_delay = environ.var(None, converter=Converter.int)
+        auto_pause_resume = environ.var(None, converter=Converter.bool)
         failed_category = environ.var(None)
         recheck_category = environ.var(None)
         ignore_torrents_younger_than = environ.var(None, converter=Converter.int)
