@@ -1,5 +1,69 @@
 # Changelog
 
+## v4.8.0 (05/07/2024)
+- [[minor] Added new functionality to allow stalled torrents with or without a delay](https://github.com/Feramance/qBitrr/commit/be248e5d3ada20694ad45710a60d0d0288bc7e44) - @Feramance
+- [Small fixes and logging improvements](https://github.com/Feramance/qBitrr/commit/cf4497fae39ef5ff185ec2e875a3eefb5f956b54) - @Feramance
+- [Adjustmenets for re-searching stalled torrents](https://github.com/Feramance/qBitrr/commit/6f3824fa8ec60e5e75f9d1518790f62ef42d8c4c) - @Feramance
+- [Changed logic/logging order](https://github.com/Feramance/qBitrr/commit/2b921a9119d195a5238648971be7ece01f769c56) - @Feramance
+- [Added auto pause resume check for free space subprocess](https://github.com/Feramance/qBitrr/commit/3b77664b2763ce9bcc0369c737779f5c6ae6cc14) - @Feramance
+- [Updated config order and description](https://github.com/Feramance/qBitrr/commit/998ed1ee87a0afc3facaebd960df5f2e543e7d18) - @Feramance
+- [Re-search and blocklist stalled update](https://github.com/Feramance/qBitrr/commit/079c1f15c7a2c90856c6b5864c21ad456c0ab2b9) - @Feramance
+- [Hot fix](https://github.com/Feramance/qBitrr/commit/d97c8706fcdaec2d124ba282297e9372b6c61a54) - @Feramance
+- [Updated blocklisting for stalled torrents, and added config for auto pause resume](https://github.com/Feramance/qBitrr/commit/cce9304104843bbf0cfa442a0ad5ecb4ab9004f6) - @Feramance
+- [Changed up config attributes and added initial changes for re-searching functionality](https://github.com/Feramance/qBitrr/commit/7d9f817f03b7232e441100bddcc1b307bd30a7ac) - @Feramance
+- [Quick fix file handling](https://github.com/Feramance/qBitrr/commit/0e7d3af474f550ba4b1ce2b90c3fb1eb909ef76f) - @Feramance
+- [File handling fixes](https://github.com/Feramance/qBitrr/commit/4026ef8d64e7ce5cec640a5f771cc03fc8f950c2) - @Feramance
+- [Further free space adjustments](https://github.com/Feramance/qBitrr/commit/a92082e5c88dd33103d36c925865e53d481f4d22) - @Feramance
+- [Condition update](https://github.com/Feramance/qBitrr/commit/92e0910f7d0716b11640fbf2f745917a974a94ce) - @Feramance
+- [Moved logs](https://github.com/Feramance/qBitrr/commit/dcf014aeb52a1c5f78e95bcfec9ad040b1fdba53) - @Feramance
+- [Missed a log change and updated log levels](https://github.com/Feramance/qBitrr/commit/04fda8317b9ddd8989c88149b8ad98251601d00a) - @Feramance
+- [Changed function name](https://github.com/Feramance/qBitrr/commit/42bacb102314bf71c314d941e5afc66c18702fd7) - @Feramance
+- [Logging adjustments](https://github.com/Feramance/qBitrr/commit/487e2316981f95a6ffcc4c581db0066f7f1c34cd) - @Feramance
+- [Hotfix 2](https://github.com/Feramance/qBitrr/commit/da9c14a48c413579bb1a9586fe4103bba5795a2e) - @Feramance
+- [Hotfix](https://github.com/Feramance/qBitrr/commit/615e710272c49d774d1abc415fea8aa711d3994a) - @Feramance
+- [Free space adjustment](https://github.com/Feramance/qBitrr/commit/a94d07716f7468fb607be87f3ad411179fd28a95) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/601e10b81f12c1d8f0d974c594efa9c714afdea5) - @Feramance
+- [Removed redundant log](https://github.com/Feramance/qBitrr/commit/ac98bdfbbbf1ddded92236f37a0a5f7ae4aa6f99) - @Feramance
+- [Move new stalled logic to function](https://github.com/Feramance/qBitrr/commit/2423946392373275af902da4485fa683f09ba785) - @Feramance
+- [Quick fix](https://github.com/Feramance/qBitrr/commit/0ed057a3e25e2e9abd40f4b6c4037a52bb8b0e9b) - @Feramance
+- [Allow list changes](https://github.com/Feramance/qBitrr/commit/4bb3d0321cd30adcdcf011b89f4aa6f497fce74f) - @Feramance
+- [Stalled updates](https://github.com/Feramance/qBitrr/commit/520619c77d53142b6e12d3af6c1257d75d0fe207) - @Feramance
+- [Free space logs adjustement](https://github.com/Feramance/qBitrr/commit/2ade7cb2a0cbe283dc68cb7420421250f79c13b6) - @Feramance
+- [Log updates](https://github.com/Feramance/qBitrr/commit/110fe383625dbf3e8b37763fb574f908b1057dfb) - @Feramance
+- [Stalled changes](https://github.com/Feramance/qBitrr/commit/87798fa57c65ef4d88d71a51e0df3765b386a822) - @Feramance
+- [Upload check](https://github.com/Feramance/qBitrr/commit/5a5fedfe3b754ba78bf2091db0e8192e651ed741) - @Feramance
+- [Updated logging](https://github.com/Feramance/qBitrr/commit/0bd082febe83309a1115661bf4ea7214d24ed205) - @Feramance
+- [Fixed delay condition](https://github.com/Feramance/qBitrr/commit/f2a721b0b28d8eceda7ed11c4e7260f42c42da38) - @Feramance
+- [Error fix](https://github.com/Feramance/qBitrr/commit/b963012e04772c892d5ad1b23244a9b0e110c616) - @Feramance
+- [Variable type fix](https://github.com/Feramance/qBitrr/commit/4718546c44b7e96db30fbaf2f4066c3849ef264b) - @Feramance
+- [Updated conditions](https://github.com/Feramance/qBitrr/commit/2b632374ee5a73d746e41ebd3c092ae01566c9dc) - @Feramance
+- [Adjusted torrent delay behaviour](https://github.com/Feramance/qBitrr/commit/c157aca9368d7fc9f1611f83e944cfc7f8758bec) - @Feramance
+- [added stalled check](https://github.com/Feramance/qBitrr/commit/565b15e34aa5b9aa1c907f3ca6646cdf1edd5648) - @Feramance
+- [Config changes](https://github.com/Feramance/qBitrr/commit/2baf034c1b554108f39ac1a37f97e3b8e6f790c1) - @Feramance
+- [Tagging fix](https://github.com/Feramance/qBitrr/commit/dee194812eb16b77fe0b269124b68b762a00608f) - @Feramance
+- [Update config defaults](https://github.com/Feramance/qBitrr/commit/1c20f6bd45235b5b063c7a6ae581e867cda1888e) - @Feramance
+- [Update .pre-commit-config.yaml](https://github.com/Feramance/qBitrr/commit/25577ed9cc8b25e1c1a5e01e17ce0d35fd88e30a) - @Feramance
+- [Updated tag name](https://github.com/Feramance/qBitrr/commit/41d530b9b4eecdbe05c70d99a9e940eb74cc3b0a) - @Feramance
+- [Workflow fixes](https://github.com/Feramance/qBitrr/commit/15142c5458ee6895ccf1e9d53a53050d49c58704) - @Feramance
+- [Set stalled delay to be actionable if config is set to a value above 0](https://github.com/Feramance/qBitrr/commit/b63291637523f8b62f0f32cbb5d8762f740568ec) - @Feramance
+- [Testing changes](https://github.com/Feramance/qBitrr/commit/e6d8242bcbecd71b9677933f197ca7061206a81e) - @Feramance
+- [More fixes](https://github.com/Feramance/qBitrr/commit/b9a3b2c21284a76ef64a42e7be5c24169b8259a3) - @Feramance
+- [More fixes](https://github.com/Feramance/qBitrr/commit/dc695697ffe92cd5cd4f70fd5637d6a285a2cb74) - @Feramance
+- [PR workflow fixes](https://github.com/Feramance/qBitrr/commit/5669eca47a938bbe22a763dd6da10b2fce4d5c7a) - @Feramance
+- [Pull request checks updates](https://github.com/Feramance/qBitrr/commit/8afa7e08ba34780e38d880e805af75d3762e8782) - @Feramance
+- [Updated branch workflow](https://github.com/Feramance/qBitrr/commit/d3ec9d2a23ef7b667e844f3043df35c80472be2f) - @Feramance
+- [pre-commit fixes](https://github.com/Feramance/qBitrr/commit/afa91221e3a81155365da8688d6795b90e6bc600) - @Feramance
+- [Added new fields `AllowStalled` and `StalledDelay`](https://github.com/Feramance/qBitrr/commit/b73ab06e25e394ea5109b87a737f48388ae7363e) - @Feramance
+- [Dependency updates](https://github.com/Feramance/qBitrr/commit/5b9d61b399436c3389ef3dcf9cfbaf1194105a83) - @Feramance
+- [Update FUNDING.yml](https://github.com/Feramance/qBitrr/commit/feefb1367f4e441e4e283fbabee0484854e3db4d) - @Feramance
+- [Update FUNDING.yml](https://github.com/Feramance/qBitrr/commit/24cfe429d31ced9aff6a239744fb8653805d0d52) - @Feramance
+- [Merge pull request #81 from Feramance/dependabot/github_actions/docker/build-push-action-6](https://github.com/Feramance/qBitrr/commit/22cf2d4af1eca663d9805d8d00d2f6bd65e38f5c) - @Feramance
+- [Bump docker/build-push-action from 5 to 6](https://github.com/Feramance/qBitrr/commit/c72eded66a49c6df65ed9d5a0cc66647a758e835) - @dependabot[bot]
+- [Merge pull request #80 from Feramance/dependabot/pip/urllib3-2.2.2](https://github.com/Feramance/qBitrr/commit/30370572963d9672011072fd8479d9e59a16ae64) - @Feramance
+- [Bump urllib3 from 2.2.1 to 2.2.2](https://github.com/Feramance/qBitrr/commit/061d73e2c5556a4d9ca0425dd7a102ef398e707e) - @dependabot[bot]
+
+---
+
 ## v4.7.5 (29/05/2024)
 - [[patch] Disabled main log unfil further notice](https://github.com/Feramance/qBitrr/commit/cb12b31572907a43cfa41b15b48ebf14ba44188a) - @Feramance
 - [Version specification for setuptools due to errors as well as some other QoL changes](https://github.com/Feramance/qBitrr/commit/6e9ece269c65790544693f27550158879dd7b9fb) - @Feramance
@@ -178,8 +242,3 @@
 - [[patch] Another bug](https://github.com/Feramance/qBitrr/commit/5bdbc3f2e919fc5dcfa1ebd1bc74cb082170bedf) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/2f9fead49b4afda24c5dea498a9de5661fa8f7a3) - @Feramance
 - [[patch] workflow update](https://github.com/Feramance/qBitrr/commit/809cf240a5bfddf9e83e5c0823f554dbeb7d898c) - @Feramance
-
----
-
-## v4.5.4 (01/05/2024)
-- [[patch] Caught another bug](https://github.com/Feramance/qBitrr/commit/18a37d6fdab5d6536f00da256b12659bd1c5f4a5) - @Feramance
