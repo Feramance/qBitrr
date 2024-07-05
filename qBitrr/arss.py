@@ -1617,10 +1617,10 @@ class Arr:
                             continue
                         if not self.search_specials and e["seasonNumber"] == 0:
                             continue
-                        if TvdbIds and TvdbIds and "tvdbId" in e and "imdbId" in e:
+                        if TvdbIds and ImdbIds and "tvdbId" in e and "imdbId" in e:
                             if s["tvdbId"] not in TvdbIds or s["imdbId"] not in ImdbIds:
                                 continue
-                        if TvdbIds and "imdbId" in e:
+                        if ImdbIds and "imdbId" in e:
                             if s["imdbId"] not in ImdbIds:
                                 continue
                         if TvdbIds and "tvdbId" in e:
@@ -1630,6 +1630,7 @@ class Arr:
                             continue
                         if e["episodeFileId"] != 0:
                             continue
+                        self.logger.trace("Updating requests")
                         self.db_update_single_series(db_entry=e, request=True)
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
@@ -1662,6 +1663,7 @@ class Arr:
                     continue
                 if m["hasFile"]:
                     continue
+                self.logger.trace("Updating requests")
                 self.db_update_single_series(db_entry=m, request=True)
 
     def db_overseerr_update(self):
@@ -1726,6 +1728,7 @@ class Arr:
                                 continue
                             if e["episodeFileId"] != 0:
                                 continue
+                            self.logger.trace("Updating todays releases")
                             self.db_update_single_series(db_entry=e)
             except BaseException:
                 self.logger.debug("No episode releases found for today")
