@@ -10,7 +10,7 @@ backports-tarfile==1.2.0
     # via jaraco-context
 cachetools==5.3.2
     # via qBitrr2 (setup.py)
-certifi==2024.6.2
+certifi==2024.7.4
     # via requests
 charset-normalizer==3.3.2
     # via requests
