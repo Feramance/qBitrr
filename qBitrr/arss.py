@@ -3987,6 +3987,8 @@ class Arr:
 
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
+        if not self.allowed_stalled:
+            return stalled_ignore
         self.logger.trace(
             "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
             torrent.name,
