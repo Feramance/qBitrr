@@ -148,7 +148,16 @@ jobs:
           feramance/qbitrr
           ghcr.io/${{ steps.string.outputs.lowercase }}
         tags: |
-          type=ref,event=pr
+          type=ref,event=pr,suffix=-arm
+    - name: Extract metadata (tags, labels) for ARM Docker
+      id: meta-arm
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          feramance/qbitrr
+          ghcr.io/${{ steps.string.outputs.lowercase }}
+        tags: |
+          type=ref,event=pr,suffix=-arm
     - name: Build and push Docker images
       env:
         DOCKER_BUILDKIT: 1
@@ -159,5 +168,17 @@ jobs:
         push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    - name: Build and push ARM Docker images
+      env:
+        DOCKER_BUILDKIT: 1
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        platforms: linux/arm64
+        push: true
+        tags: ${{ steps.meta-arm.outputs.tags }}
+        labels: ${{ steps.meta-arm.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
