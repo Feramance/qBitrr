@@ -162,7 +162,7 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
   docker_image_arm:
-    name: Build Docker Image
+    name: Build ARM Docker Image
     runs-on: ubuntu-latest
     permissions:
       packages: write
