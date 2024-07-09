@@ -3995,15 +3995,25 @@ class Arr:
 
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
-        self.logger.trace(
-            "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
-            torrent.name,
-            datetime.fromtimestamp(time_now),
-            datetime.fromtimestamp(torrent.added_on),
-            datetime.fromtimestamp(
-                torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
-            ),
-        )
+        if not self.allowed_stalled:
+            return stalled_ignore
+        if self.stalled_delay == 0:
+            self.logger.trace(
+                "Stalled check: %s [Current:%s][Added:%s][Limit:No Limit]",
+                torrent.name,
+                datetime.fromtimestamp(time_now),
+                datetime.fromtimestamp(torrent.added_on),
+            )
+        else:
+            self.logger.trace(
+                "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+                torrent.name,
+                datetime.fromtimestamp(time_now),
+                datetime.fromtimestamp(torrent.added_on),
+                datetime.fromtimestamp(
+                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                ),
+            )
         if (
             (
                 torrent.state_enum
@@ -4048,7 +4058,7 @@ class Arr:
                             self._process_failed_individual(
                                 hash_=hash_,
                                 entry=entry,
-                                skip_blacklist=set[str],
+                                skip_blacklist=set(),
                                 remove_from_client=False,
                             )
                 else:
