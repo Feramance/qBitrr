@@ -516,7 +516,7 @@ class Arr:
                     "qBitrr-allowed_seeding",
                     "qBitrr-ignored",
                     "qBitrr-imported",
-                    "qBitrr-allowed_stalled",
+                    "qBitrr-allowed_stalled"
                 ]
             )
         self.search_setup_completed = False
