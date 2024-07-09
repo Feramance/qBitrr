@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.8.2 (09/07/2024)
+- [[patch] Merge pull request #94 from Feramance/92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/284a33c3ab1565d65956f7ae0886b5009812b619) - @Feramance
+- [Update arss.py](https://github.com/Feramance/qBitrr/commit/af01f5b1edc0f3a042a1f9f686fc859b386dd199) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/Qbitrr into 92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/59e52f79587c19bfc98d7a0388b3376562c4bd98) - @Feramance
+
+---
+
 ## v4.8.1 (09/07/2024)
 - [[patch] pull request #91 from Feramance/90-native-apple-silicon-support-docker](https://github.com/Feramance/qBitrr/commit/04e6f8261308729a69bd30359b6f67fadcbe0745) - @Feramance
 - [Fixed stalled re-search type error](https://github.com/Feramance/qBitrr/commit/7c0dbfbcb0788ad9f9984ffa8ef88c8cf6dfb092) - @Feramance
@@ -244,8 +251,3 @@
 
 ## v4.5.7 (01/05/2024)
 - [[patch] Spelling mistake](https://github.com/Feramance/qBitrr/commit/f64e5143d71f822d7847350749c36a3502010e4c) - @Feramance
-
----
-
-## v4.5.6 (01/05/2024)
-- [[patch] Hopefully last binary build fix](https://github.com/Feramance/qBitrr/commit/25a7404732a4f095bb16535c1350ac7da22c8af8) - @Feramance
