@@ -4023,7 +4023,7 @@ class Arr:
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
-                and self.is_downloading_state(torrent)
+                and torrent.state_enum in (TorrentStates.DOWNLOADING)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
             )
