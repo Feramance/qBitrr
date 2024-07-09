@@ -1,5 +1,19 @@
 # Changelog
 
+## v4.8.1 (09/07/2024)
+- [[patch] pull request #91 from Feramance/90-native-apple-silicon-support-docker](https://github.com/Feramance/qBitrr/commit/04e6f8261308729a69bd30359b6f67fadcbe0745) - @Feramance
+- [Fixed stalled re-search type error](https://github.com/Feramance/qBitrr/commit/7c0dbfbcb0788ad9f9984ffa8ef88c8cf6dfb092) - @Feramance
+- [Updated loggiong for stalled delay -1](https://github.com/Feramance/qBitrr/commit/2f8af3ceeadbbdf3e04d44c9a3896b05ed5db9a2) - @Feramance
+- [Fixed workflow name](https://github.com/Feramance/qBitrr/commit/fd9c2a7a0776218a7ff9c931161cbc937d11ce9f) - @Feramance
+- [ARM workflow updates](https://github.com/Feramance/qBitrr/commit/7f1a666864bc817fd9bb4c78393762b8a5b1828b) - @Feramance
+- [Update PR workflow](https://github.com/Feramance/qBitrr/commit/17e583a6a534f1e7622547492df885e1e5989525) - @Feramance
+- [Merge pull request #89 from Feramance/dependabot/pip/certifi-2024.7.4](https://github.com/Feramance/qBitrr/commit/8ed25ff3593e20f0c4ac2644173522a121ced646) - @Feramance
+- [Bump certifi from 2024.6.2 to 2024.7.4](https://github.com/Feramance/qBitrr/commit/890f301127ffda660fc860ae0b73964260d03eb1) - @dependabot[bot]
+- [Merge pull request #88 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.2.0](https://github.com/Feramance/qBitrr/commit/39076cd80be5d0ec36562a2959cbc730b4a304e9) - @Feramance
+- [Bump dependabot/fetch-metadata from 2.1.0 to 2.2.0](https://github.com/Feramance/qBitrr/commit/60fbe642c7134abc8f65e393defe409262fbd48c) - @dependabot[bot]
+
+---
+
 ## v4.8.0 (05/07/2024)
 - [[minor] Added new functionality to allow stalled torrents with or without a delay](https://github.com/Feramance/qBitrr/commit/be248e5d3ada20694ad45710a60d0d0288bc7e44) - @Feramance
 - [Small fixes and logging improvements](https://github.com/Feramance/qBitrr/commit/cf4497fae39ef5ff185ec2e875a3eefb5f956b54) - @Feramance
@@ -235,10 +249,3 @@
 
 ## v4.5.6 (01/05/2024)
 - [[patch] Hopefully last binary build fix](https://github.com/Feramance/qBitrr/commit/25a7404732a4f095bb16535c1350ac7da22c8af8) - @Feramance
-
----
-
-## v4.5.5 (01/05/2024)
-- [[patch] Another bug](https://github.com/Feramance/qBitrr/commit/5bdbc3f2e919fc5dcfa1ebd1bc74cb082170bedf) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr](https://github.com/Feramance/qBitrr/commit/2f9fead49b4afda24c5dea498a9de5661fa8f7a3) - @Feramance
-- [[patch] workflow update](https://github.com/Feramance/qBitrr/commit/809cf240a5bfddf9e83e5c0823f554dbeb7d898c) - @Feramance
