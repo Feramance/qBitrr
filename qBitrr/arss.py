@@ -510,14 +510,15 @@ class Arr:
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
 
-        self.manager.qbit_manager.client.torrents_create_tags(
-            [
-                "qBitrr-allowed_seeding",
-                "qBitrr-ignored",
-                "qBitrr-imported",
-                "qBitrr-allowed_stalled",
-            ]
-        )
+        if not QBIT_DISABLED:
+            self.manager.qbit_manager.client.torrents_create_tags(
+                [
+                    "qBitrr-allowed_seeding",
+                    "qBitrr-ignored",
+                    "qBitrr-imported",
+                    "qBitrr-allowed_stalled",
+                ]
+            )
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
         self.series_file_model: SeriesFilesModel = None
