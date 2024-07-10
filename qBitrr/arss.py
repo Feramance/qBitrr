@@ -4104,6 +4104,9 @@ class Arr:
             torrent.state_enum,
         )
         maximum_eta = _tracker_max_eta
+
+        stalled_ignore = self._stalled_check(torrent, time_now)
+
         if "qBitrr-ignored" in torrent.tags:
             torrent.remove_tags(
                 [
@@ -4111,12 +4114,7 @@ class Arr:
                     "qBitrr-free_space_paused",
                 ]
             )
-        if (
-            "qBitrr-allowed_stalled" in torrent.tags
-            and self.stalled_delay > 0
-            and torrent.added_on >= int(time.time() + (self.stalled_delay * 60))
-        ):
-            torrent.remove_tags(["qBitrr-allowed_stalled"])
+
         if (
             self.custom_format_unmet_search
             and self.custom_format_unmet_check(torrent)
@@ -4142,7 +4140,7 @@ class Arr:
             )
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and "qBitrr-allowed_stalled" not in torrent.tags
+            and not stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
@@ -4163,7 +4161,7 @@ class Arr:
             and self.is_complete_state(torrent) is False
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and "qBitrr-allowed_stalled" not in torrent.tags
+            and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Resume monitored downloads which have been paused.
@@ -4219,7 +4217,7 @@ class Arr:
             and not self.do_not_remove_slow
             and "qBitrr-ignored" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
-            and "qBitrr-allowed_stalled" not in torrent.tags
+            and not stalled_ignore
         ):
             self._process_single_torrent_delete_slow(torrent)
         # Process uncompleted torrents
@@ -4236,7 +4234,7 @@ class Arr:
                 and self.is_downloading_state(torrent)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
-                and "qBitrr-allowed_stalled" not in torrent.tags
+                and not stalled_ignore
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
             else:
