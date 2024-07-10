@@ -4386,10 +4386,8 @@ class Arr:
             return True
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
             return True
-        elif (
-            self.seeding_mode_global_remove_torrent == -1
-            and (torrent.ratio >= ratio_limit
-            or torrent.seeding_time >= seeding_time_limit)
+        elif self.seeding_mode_global_remove_torrent == -1 and (
+            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
         ):
             return True
         else:
