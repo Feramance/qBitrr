@@ -5152,7 +5152,7 @@ class FreeSpaceManager(Arr):
     def register_torrent_database(self):
         self.torrent_db = SqliteDatabase(None)
         self.torrent_db.init(
-            str(self._app_data_folder.joinpath("Torrents.db")),
+            str(APPDATA_FOLDER.joinpath("Torrents.db")),
             pragmas={
                 "journal_mode": "wal",
                 "cache_size": -1 * 64000,  # 64MB
