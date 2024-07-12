@@ -2662,7 +2662,10 @@ class Arr:
             while completed:
                 try:
                     completed = False
-                    res = self.client.del_queue(id_, remove_from_client, blacklist)
+                    res = self.client._delete(
+                        f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
+                        self.client.ver_uri,
+                    )
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
@@ -4045,13 +4048,14 @@ class Arr:
                         "Stalled, adding tag, blocklosting and re-searching: %s",
                         torrent.name,
                     )
+                    skip_blacklist = {i.upper() for i in self.skip_blacklist}
                     payload = self.process_entries([torrent.hash])
                     if payload:
                         for entry, hash_ in payload:
                             self._process_failed_individual(
                                 hash_=hash_,
                                 entry=entry,
-                                skip_blacklist=set(),
+                                skip_blacklist=skip_blacklist,
                                 remove_from_client=False,
                             )
                 else:
