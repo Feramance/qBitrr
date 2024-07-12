@@ -65,6 +65,7 @@ class EpisodeQueueModel(Model):
 
 class TorrentLibrary(Model):
     Hash = TextField(null=False)
+    Category = TextField(null=False)
     AllowedSeeding = BooleanField(default=False)
     Ignored = BooleanField(default=False)
     Imported = BooleanField(default=False)

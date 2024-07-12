@@ -4572,7 +4572,7 @@ class Arr:
         if db4:
             self.torrent_db = SqliteDatabase(None)
             self.torrent_db.init(
-                str(self._app_data_folder.joinpath("torrents.db")),
+                str(self._app_data_folder.joinpath("Torrents.db")),
                 pragmas={
                     "journal_mode": "wal",
                     "cache_size": -1 * 64000,  # 64MB
@@ -5146,7 +5146,29 @@ class FreeSpaceManager(Arr):
         )
         self.search_missing = False
         self.session = None
+        self.register_torrent_database()
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def register_torrent_database(self):
+        self.torrent_db = SqliteDatabase(None)
+        self.torrent_db.init(
+            str(self._app_data_folder.joinpath("Torrents.db")),
+            pragmas={
+                "journal_mode": "wal",
+                "cache_size": -1 * 64000,  # 64MB
+                "foreign_keys": 1,
+                "ignore_check_constraints": 0,
+                "synchronous": 0,
+            },
+        )
+
+        class Torrents(TorrentLibrary):
+            class Meta:
+                database = self.torrent_db
+
+        self.torrent_db.connect()
+        self.torrent_db.create_tables([Torrents])
+        self.torrents = Torrents
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
