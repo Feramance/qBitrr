@@ -1,4 +1,4 @@
-name: Build x64 Binaries
+name: PR Build Checks
 
 on:
   pull_request:
