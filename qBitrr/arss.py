@@ -418,12 +418,18 @@ class Arr:
             self.file_extension_allowlist,
         )
         self.logger.debug("Script Config:  AutoDelete=%s", self.auto_delete)
-
         self.logger.debug(
             "Script Config:  IgnoreTorrentsYoungerThan=%s",
             self.ignore_torrents_younger_than,
         )
         self.logger.debug("Script Config:  MaximumETA=%s", self.maximum_eta)
+        self.logger.debug(
+            "Script Config:  MaximumDeletablePercentage=%s", self.maximum_deletable_percentage
+        )
+        self.logger.debug("Script Config:  StalledDelay=%s", self.stalled_delay)
+        self.logger.debug("Script Config:  AllowedStalled=%s", self.allowed_stalled)
+        self.logger.debug("Script Config:  ReSearchStalled=%s", self.re_search_stalled)
+        self.logger.debug("Script Config:  StalledDelay=%s", self.stalled_delay)
 
         if self.search_missing:
             self.logger.debug(
