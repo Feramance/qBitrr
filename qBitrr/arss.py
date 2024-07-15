@@ -859,12 +859,14 @@ class Arr:
     def _process_failed_individual(
         self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = True
     ) -> None:
+        self.logger.debug(
+            "Deleting from queue: %s, [%s][Blocklisting:%s][Remove from client:%s]",
+            hash_,
+            self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
+            True if hash_ not in skip_blacklist else False,
+            remove_from_client,
+        )
         if hash_ not in skip_blacklist:
-            self.logger.debug(
-                "Blocklisting: %s (%s)",
-                hash_,
-                self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
-            )
             self.delete_from_queue(
                 id_=entry, remove_from_client=remove_from_client, blacklist=True
             )
@@ -4054,7 +4056,7 @@ class Arr:
                         "Stalled, adding tag, blocklosting and re-searching: %s",
                         torrent.name,
                     )
-                    skip_blacklist = {i.upper() for i in self.skip_blacklist}
+                    skip_blacklist = set()
                     payload = self.process_entries([torrent.hash])
                     if payload:
                         for entry, hash_ in payload:
