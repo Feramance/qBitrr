@@ -41,6 +41,7 @@ from qBitrr.config import (
     RECHECK_CATEGORY,
     SEARCH_LOOP_DELAY,
     SEARCH_ONLY,
+    TAGLESS,
 )
 from qBitrr.errors import (
     DelayLoopException,
@@ -58,6 +59,7 @@ from qBitrr.tables import (
     MovieQueueModel,
     MoviesFilesModel,
     SeriesFilesModel,
+    TorrentLibrary,
 )
 from qBitrr.utils import (
     ExpiringSet,
@@ -528,6 +530,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
+        self.torrent_library: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -597,13 +600,19 @@ class Arr:
         type[EpisodeFilesModel] | type[MoviesFilesModel],
         type[EpisodeQueueModel] | type[MovieQueueModel],
         type[SeriesFilesModel] | None,
+        type[TorrentLibrary] | None,
     ]:
         if self.type == "sonarr":
             if self.series_search:
-                return EpisodeFilesModel, EpisodeQueueModel, SeriesFilesModel
-            return EpisodeFilesModel, EpisodeQueueModel, None
+                return (
+                    EpisodeFilesModel,
+                    EpisodeQueueModel,
+                    SeriesFilesModel,
+                    TorrentLibrary if TAGLESS else None,
+                )
+            return EpisodeFilesModel, EpisodeQueueModel, None, TorrentLibrary if TAGLESS else None
         elif self.type == "radarr":
-            return MoviesFilesModel, MovieQueueModel, None
+            return MoviesFilesModel, MovieQueueModel, None, TorrentLibrary if TAGLESS else None
         else:
             raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
 
@@ -4546,7 +4555,7 @@ class Arr:
             },
         )
 
-        db1, db2, db3 = self._get_models()
+        db1, db2, db3, db4 = self._get_models()
 
         class Files(db1):
             class Meta:
@@ -4571,6 +4580,27 @@ class Arr:
             self.series_file_model = Series
         else:
             self.db.create_tables([Files, Queue, PersistingQueue])
+
+        if db4:
+            self.torrent_db = SqliteDatabase(None)
+            self.torrent_db.init(
+                str(self._app_data_folder.joinpath("Torrents.db")),
+                pragmas={
+                    "journal_mode": "wal",
+                    "cache_size": -1 * 64000,  # 64MB
+                    "foreign_keys": 1,
+                    "ignore_check_constraints": 0,
+                    "synchronous": 0,
+                },
+            )
+
+            class Torrents(db4):
+                class Meta:
+                    database = self.torrent_db
+
+            self.torrent_db.connect()
+            self.torrent_db.create_tables([Torrents])
+            self.torrents = Torrents
 
         self.model_file = Files
         self.model_queue = Queue
@@ -5128,7 +5158,29 @@ class FreeSpaceManager(Arr):
         )
         self.search_missing = False
         self.session = None
+        self.register_torrent_database()
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def register_torrent_database(self):
+        self.torrent_db = SqliteDatabase(None)
+        self.torrent_db.init(
+            str(APPDATA_FOLDER.joinpath("Torrents.db")),
+            pragmas={
+                "journal_mode": "wal",
+                "cache_size": -1 * 64000,  # 64MB
+                "foreign_keys": 1,
+                "ignore_check_constraints": 0,
+                "synchronous": 0,
+            },
+        )
+
+        class Torrents(TorrentLibrary):
+            class Meta:
+                database = self.torrent_db
+
+        self.torrent_db.connect()
+        self.torrent_db.create_tables([Torrents])
+        self.torrents = Torrents
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(

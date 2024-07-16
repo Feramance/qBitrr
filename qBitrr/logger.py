@@ -22,6 +22,7 @@ from qBitrr.config import (
     PING_URLS,
     RECHECK_CATEGORY,
     SEARCH_LOOP_DELAY,
+    TAGLESS,
 )
 
 __all__ = ("run_logs",)
@@ -128,6 +129,7 @@ def log_Debugs(logger):
     logger.debug("Script Config:  Logging=%s", ENABLE_LOGS)
     logger.debug("Script Config:  FailedCategory=%s", FAILED_CATEGORY)
     logger.debug("Script Config:  RecheckCategory=%s", RECHECK_CATEGORY)
+    logger.debug("Script Config:  Tagless=%s", TAGLESS)
     logger.debug("Script Config:  CompletedDownloadFolder=%s", COMPLETED_DOWNLOAD_FOLDER)
     logger.debug("Script Config:  FreeSpace=%s", FREE_SPACE)
     logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)

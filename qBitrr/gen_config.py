@@ -94,6 +94,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "Tagless operation",
+        "Tagless",
+        ENVIRO_CONFIG.settings.tagless or False,
+    )
+    _gen_default_line(
+        settings,
         [
             "Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)",
             "Only applicable to Re-check and failed categories",
