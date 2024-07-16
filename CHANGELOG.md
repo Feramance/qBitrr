@@ -1,5 +1,18 @@
 # Changelog
 
+## v4.8.3 (16/07/2024)
+- [[patch] Merge pull request #95 from Feramance/84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/81ef59f69be61b774fdb847975d5a265ca927fa6) - @Feramance
+- [Final changes before merge](https://github.com/Feramance/qBitrr/commit/24201c9d36028a0734eb68fc97dd27ba063e77ae) - @Feramance
+- [Added more debugs and changed parameter value](https://github.com/Feramance/qBitrr/commit/32e9d39156815015906aa50074dbbb1e9a42ab16) - @Feramance
+- [Added debug logging for configs](https://github.com/Feramance/qBitrr/commit/34e793fb230e8b0619c583204e90da2ecc04e8a2) - @Feramance
+- [Workflow updates](https://github.com/Feramance/qBitrr/commit/45eddcc493699569c16cf0a2f36fc633856ecb6a) - @Feramance
+- [Re search stalled adjustements](https://github.com/Feramance/qBitrr/commit/42cf635362fe09aab3932f8ce4bafd80762c402c) - @Feramance
+- [Merge branch 'master' into 84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/013d97d6039a39a360e422edafbe531d6e24a869) - @Feramance
+- [Update arss.py](https://github.com/Feramance/qBitrr/commit/aea08ccd329338bca5a55ce6a3bd10cf29d2e96f) - @Feramance
+- [check for qbit disabled](https://github.com/Feramance/qBitrr/commit/fce2625c691b36fc65fa5657dd252df2b1b8d349) - @Feramance
+
+---
+
 ## v4.8.2 (09/07/2024)
 - [[patch] Merge pull request #94 from Feramance/92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/284a33c3ab1565d65956f7ae0886b5009812b619) - @Feramance
 - [Update arss.py](https://github.com/Feramance/qBitrr/commit/af01f5b1edc0f3a042a1f9f686fc859b386dd199) - @Feramance
@@ -246,8 +259,3 @@
 - [Merge pull request #74 from Feramance/dependabot/pip/tqdm-4.66.3](https://github.com/Feramance/qBitrr/commit/b4569aca3c2ba225605d62cc1da99316b8850ea8) - @Feramance
 - [Bump tqdm from 4.66.2 to 4.66.3](https://github.com/Feramance/qBitrr/commit/02793206af372b2d9e0715c94cd2ee3de2eacf3d) - @dependabot[bot]
 - [Nightly update](https://github.com/Feramance/qBitrr/commit/c6d98b5a5c26d4a6c3aba97ef89962c11d821146) - @Feramance
-
----
-
-## v4.5.7 (01/05/2024)
-- [[patch] Spelling mistake](https://github.com/Feramance/qBitrr/commit/f64e5143d71f822d7847350749c36a3502010e4c) - @Feramance
