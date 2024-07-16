@@ -4693,7 +4693,7 @@ class Arr:
                 years.append(key)
         self.logger.trace("Years: %s", years)
         years_count = len(years)
-        self.logger.trace("Years count: %s, Years: %s", years_count, years)
+        self.logger.trace("Years count: %s", years_count)
         return years, years_count
 
     def run_search_loop(self) -> NoReturn:
