@@ -420,12 +420,18 @@ class Arr:
             self.file_extension_allowlist,
         )
         self.logger.debug("Script Config:  AutoDelete=%s", self.auto_delete)
-
         self.logger.debug(
             "Script Config:  IgnoreTorrentsYoungerThan=%s",
             self.ignore_torrents_younger_than,
         )
         self.logger.debug("Script Config:  MaximumETA=%s", self.maximum_eta)
+        self.logger.debug(
+            "Script Config:  MaximumDeletablePercentage=%s", self.maximum_deletable_percentage
+        )
+        self.logger.debug("Script Config:  StalledDelay=%s", self.stalled_delay)
+        self.logger.debug("Script Config:  AllowedStalled=%s", self.allowed_stalled)
+        self.logger.debug("Script Config:  ReSearchStalled=%s", self.re_search_stalled)
+        self.logger.debug("Script Config:  StalledDelay=%s", self.stalled_delay)
 
         if self.search_missing:
             self.logger.debug(
@@ -862,12 +868,14 @@ class Arr:
     def _process_failed_individual(
         self, hash_: str, entry: int, skip_blacklist: set[str], remove_from_client: bool = True
     ) -> None:
+        self.logger.debug(
+            "Deleting from queue: %s, [%s][Blocklisting:%s][Remove from client:%s]",
+            hash_,
+            self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
+            True if hash_ not in skip_blacklist else False,
+            remove_from_client,
+        )
         if hash_ not in skip_blacklist:
-            self.logger.debug(
-                "Blocklisting: %s (%s)",
-                hash_,
-                self.manager.qbit_manager.name_cache.get(hash_, "Blocklisted"),
-            )
             self.delete_from_queue(
                 id_=entry, remove_from_client=remove_from_client, blacklist=True
             )
@@ -2671,7 +2679,10 @@ class Arr:
             while completed:
                 try:
                     completed = False
-                    res = self.client.del_queue(id_, remove_from_client, blacklist)
+                    res = self.client._delete(
+                        f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
+                        self.client.ver_uri,
+                    )
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
@@ -4033,7 +4044,7 @@ class Arr:
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
-                and self.is_downloading_state(torrent)
+                and torrent.state_enum in (TorrentStates.DOWNLOADING)
                 and "qBitrr-ignored" not in torrent.tags
                 and "qBitrr-free_space_paused" not in torrent.tags
             )
@@ -4054,13 +4065,14 @@ class Arr:
                         "Stalled, adding tag, blocklosting and re-searching: %s",
                         torrent.name,
                     )
+                    skip_blacklist = set()
                     payload = self.process_entries([torrent.hash])
                     if payload:
                         for entry, hash_ in payload:
                             self._process_failed_individual(
                                 hash_=hash_,
                                 entry=entry,
-                                skip_blacklist=set(),
+                                skip_blacklist=skip_blacklist,
                                 remove_from_client=False,
                             )
                 else:
@@ -4711,7 +4723,7 @@ class Arr:
                 years.append(key)
         self.logger.trace("Years: %s", years)
         years_count = len(years)
-        self.logger.trace("Years count: %s, Years: %s", years_count, years)
+        self.logger.trace("Years count: %s", years_count)
         return years, years_count
 
     def run_search_loop(self) -> NoReturn:
