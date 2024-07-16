@@ -423,6 +423,12 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
+# Re-search stalled torrents
+ReSearchStalled = false
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = -1
+
 
 [Sonarr-Anime.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -615,6 +621,12 @@ MaximumDeletablePercentage = 0.99
 
 # Ignore slow torrents.
 DoNotRemoveSlow = true
+
+# Re-search stalled torrents
+ReSearchStalled = false
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = -1
 
 
 [Radarr-1080.Torrent.SeedingMode]
@@ -821,6 +833,12 @@ MaximumDeletablePercentage = 0.99
 
 # Ignore slow torrents.
 DoNotRemoveSlow = true
+
+# Re-search stalled torrents
+ReSearchStalled = false
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = -1
 
 
 [Radarr-4K.Torrent.SeedingMode]
