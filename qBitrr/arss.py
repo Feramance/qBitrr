@@ -611,13 +611,13 @@ class Arr:
                         self.torrents.update(FreeSpacePaused=False).where(Hash=torrent.hash)
                 else:
                     if tag == "qBitrr-allowed_seeding":
-                        torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+                        torrent.remove_tags(["qBitrr-allowed_seeding"])
                     elif tag == "qBitrr-imported":
-                        torrent.remove_tags(tags=["qBitrr-imported"])
+                        torrent.remove_tags(["qBitrr-imported"])
                     elif tag == "qBitrr-allowed_stalled":
-                        torrent.remove_tags(tags=["qBitrr-allowed_stalled"])
+                        torrent.remove_tags(["qBitrr-allowed_stalled"])
                     elif tag == "qBitrr-free_space_paused":
-                        torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+                        torrent.remove_tags(["qBitrr-free_space_paused"])
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
         query = self.torrents.select().where(Hash=torrent.hash).execute()
@@ -636,13 +636,13 @@ class Arr:
                         self.torrents.update(FreeSpacePaused=True).where(Hash=torrent.hash)
                 else:
                     if tag == "qBitrr-allowed_seeding":
-                        torrent.add_tags(tags=["qBitrr-allowed_seeding"])
+                        torrent.add_tags(["qBitrr-allowed_seeding"])
                     elif tag == "qBitrr-imported":
-                        torrent.add_tags(tags=["qBitrr-imported"])
+                        torrent.add_tags(["qBitrr-imported"])
                     elif tag == "qBitrr-allowed_stalled":
-                        torrent.add_tags(tags=["qBitrr-allowed_stalled"])
+                        torrent.add_tags(["qBitrr-allowed_stalled"])
                     elif tag == "qBitrr-free_space_paused":
-                        torrent.add_tags(tags=["qBitrr-free_space_paused"])
+                        torrent.add_tags(["qBitrr-free_space_paused"])
 
     def _get_models(
         self,
@@ -911,7 +911,7 @@ class Arr:
                         self.import_mode,
                         ex,
                     )
-                self.add_tags(torrent, tags=["qBitrr-imported"])
+                self.add_tags(torrent, ["qBitrr-imported"])
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
@@ -3896,11 +3896,11 @@ class Arr:
             and "qBitrr-allowed_seeding" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
         ):
-            self.add_tags(torrent, tags=["qBitrr-allowed_seeding"])
+            self.add_tags(torrent, ["qBitrr-allowed_seeding"])
         elif (
             not return_value and "qBitrr-allowed_seeding" in torrent.tags
         ) or "qBitrr-free_space_paused" in torrent.tags:
-            self.remove_tags(torrent, tags=["qBitrr-allowed_seeding"])
+            self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -5268,8 +5268,8 @@ class FreeSpaceManager(Arr):
                     self.current_free_space,
                     free_space_test,
                 )
-                self.add_tags(torrent, tags=["qBitrr-free_space_paused"])
-                self.remove_tags(torrent, tags=["qBitrr-allowed_seeding"])
+                self.add_tags(torrent, ["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
                 self._process_single_torrent_pause_disk_space(torrent)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
@@ -5278,8 +5278,8 @@ class FreeSpaceManager(Arr):
                     self.current_free_space,
                     free_space_test,
                 )
-                self.add_tags(torrent, tags=["qBitrr-free_space_paused"])
-                self.remove_tags(torrent, tags=["qBitrr-allowed_seeding"])
+                self.add_tags(torrent, ["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
                     "Continue downloading [%s]: Free space %s -> %s",
@@ -5288,7 +5288,7 @@ class FreeSpaceManager(Arr):
                     free_space_test,
                 )
                 self.current_free_space = free_space_test
-                self.remove_tags(torrent, tags=["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-free_space_paused"])
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
                     "Unpause download [%s]: Free space %s -> %s",
@@ -5297,7 +5297,7 @@ class FreeSpaceManager(Arr):
                     free_space_test,
                 )
                 self.current_free_space = free_space_test
-                self.remove_tags(torrent, tags=["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-free_space_paused"])
         elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.info(
                 "Removing tag [%s] for completed torrent[%s]: Free space %s",
@@ -5305,7 +5305,7 @@ class FreeSpaceManager(Arr):
                 torrent.name,
                 self.current_free_space,
             )
-            self.remove_tags(torrent, tags=["qBitrr-free_space_paused"])
+            self.remove_tags(torrent, ["qBitrr-free_space_paused"])
 
     def process(self):
         self._process_paused()
