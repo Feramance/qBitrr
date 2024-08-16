@@ -595,98 +595,104 @@ class Arr:
         )
 
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        query = (
-            self.torrents.select()
-            .where(self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category)
-            .execute()
-        )
-        if not query:
-            self.torrents.insert(
-                Hash=torrent.hash, Category=torrent.category
-            ).on_conflict_ignore().execute()
-        else:
-            for tag in tags:
-                if TAGLESS:
-                    if tag == "qBitrr-allowed_seeding":
-                        self.torrents.update(AllowedSeeding=False).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-imported":
-                        self.torrents.update(Imported=False).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-allowed_stalled":
-                        self.torrents.update(AllowedStalled=False).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-free_space_paused":
-                        self.torrents.update(FreeSpacePaused=False).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                else:
-                    if tag == "qBitrr-allowed_seeding":
-                        torrent.remove_tags(["qBitrr-allowed_seeding"])
-                    elif tag == "qBitrr-imported":
-                        torrent.remove_tags(["qBitrr-imported"])
-                    elif tag == "qBitrr-allowed_stalled":
-                        torrent.remove_tags(["qBitrr-allowed_stalled"])
-                    elif tag == "qBitrr-free_space_paused":
-                        torrent.remove_tags(["qBitrr-free_space_paused"])
+        for tag in tags:
+            if TAGLESS:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
+                if tag == "qBitrr-allowed_seeding":
+                    self.torrents.update(AllowedSeeding=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-imported":
+                    self.torrents.update(Imported=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-allowed_stalled":
+                    self.torrents.update(AllowedStalled=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-free_space_paused":
+                    self.torrents.update(FreeSpacePaused=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+            else:
+                if tag == "qBitrr-allowed_seeding":
+                    torrent.remove_tags(["qBitrr-allowed_seeding"])
+                elif tag == "qBitrr-imported":
+                    torrent.remove_tags(["qBitrr-imported"])
+                elif tag == "qBitrr-allowed_stalled":
+                    torrent.remove_tags(["qBitrr-allowed_stalled"])
+                elif tag == "qBitrr-free_space_paused":
+                    torrent.remove_tags(["qBitrr-free_space_paused"])
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        query = (
-            self.torrents.select()
-            .where(self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category)
-            .execute()
-        )
-        if not query:
-            self.torrents.insert(
-                Hash=torrent.hash, Category=torrent.category
-            ).on_conflict_ignore().execute()
-        else:
-            for tag in tags:
-                if TAGLESS:
-                    if tag == "qBitrr-allowed_seeding":
-                        self.torrents.update(AllowedSeeding=True).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-imported":
-                        self.torrents.update(Imported=True).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-allowed_stalled":
-                        self.torrents.update(AllowedStalled=True).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                    elif tag == "qBitrr-free_space_paused":
-                        self.torrents.update(FreeSpacePaused=True).where(
-                            self.torrents.Hash
-                            == torrent.hash & self.torrents.Category
-                            == torrent.category
-                        )
-                else:
-                    if tag == "qBitrr-allowed_seeding":
-                        torrent.add_tags(["qBitrr-allowed_seeding"])
-                    elif tag == "qBitrr-imported":
-                        torrent.add_tags(["qBitrr-imported"])
-                    elif tag == "qBitrr-allowed_stalled":
-                        torrent.add_tags(["qBitrr-allowed_stalled"])
-                    elif tag == "qBitrr-free_space_paused":
-                        torrent.add_tags(["qBitrr-free_space_paused"])
+        for tag in tags:
+            if TAGLESS:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
+                if tag == "qBitrr-allowed_seeding":
+                    self.torrents.update(AllowedSeeding=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-imported":
+                    self.torrents.update(Imported=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-allowed_stalled":
+                    self.torrents.update(AllowedStalled=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-free_space_paused":
+                    self.torrents.update(FreeSpacePaused=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+            else:
+                if tag == "qBitrr-allowed_seeding":
+                    torrent.add_tags(["qBitrr-allowed_seeding"])
+                elif tag == "qBitrr-imported":
+                    torrent.add_tags(["qBitrr-imported"])
+                elif tag == "qBitrr-allowed_stalled":
+                    torrent.add_tags(["qBitrr-allowed_stalled"])
+                elif tag == "qBitrr-free_space_paused":
+                    torrent.add_tags(["qBitrr-free_space_paused"])
 
     def _get_models(
         self,
