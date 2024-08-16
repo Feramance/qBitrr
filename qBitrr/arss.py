@@ -4942,6 +4942,7 @@ class Arr:
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.register_search_mode()
         self.logger.hnotice("Starting torrent monitoring for %s", self._name)
         while True:
             try:
