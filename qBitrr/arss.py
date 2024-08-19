@@ -1998,7 +1998,11 @@ class Arr:
         self,
         db_entry: JsonObject,
     ) -> bool:
-        if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
+        inCinemas = datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
+        digitalRelease = datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+        physicalRelease = datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.now()
+        if db_entry["year"] > now.year or db_entry["year"] == 0:
             self.logger.trace(
                 "Skipping 1 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
@@ -2008,7 +2012,7 @@ class Arr:
                 db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return False
-        elif db_entry["year"] < datetime.now().year - 1 and db_entry["year"] != 0:
+        elif db_entry["year"] < now.year - 1 and db_entry["year"] != 0:
             self.logger.trace(
                 "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
@@ -2038,12 +2042,7 @@ class Arr:
             and "physicalRelease" in db_entry
             and db_entry["minimumAvailability"] == "released"
         ):
-            if (
-                datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                <= datetime.now()
-                or datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                <= datetime.now()
-            ):
+            if digitalRelease <= now or physicalRelease <= now:
                 self.logger.trace(
                     "Grabbing 4 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
@@ -2067,10 +2066,7 @@ class Arr:
             "minimumAvailability"
         ] == "released":
             if "digitalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if digitalRelease <= now:
                     self.logger.trace(
                         "Grabbing 6 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -2091,10 +2087,7 @@ class Arr:
                     )
                     return False
             elif "physicalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if physicalRelease <= now:
                     self.logger.trace(
                         "Grabbing 8 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -2130,7 +2123,7 @@ class Arr:
             )
             return True
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
-            if datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ") <= datetime.now():
+            if inCinemas <= now:
                 self.logger.trace(
                     "Grabbing 11 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
@@ -2152,10 +2145,7 @@ class Arr:
                 return False
         elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
             if "digitalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if digitalRelease <= now:
                     self.logger.trace(
                         "Grabbing 13 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -2176,10 +2166,7 @@ class Arr:
                     )
                     return False
             elif "physicalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if physicalRelease <= now:
                     self.logger.trace(
                         "Grabbing 15 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
