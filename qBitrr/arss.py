@@ -516,13 +516,19 @@ class Arr:
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
 
-        if not QBIT_DISABLED:
+        if not QBIT_DISABLED or TAGLESS:
             self.manager.qbit_manager.client.torrents_create_tags(
                 [
                     "qBitrr-allowed_seeding",
                     "qBitrr-ignored",
                     "qBitrr-imported",
                     "qBitrr-allowed_stalled",
+                ]
+            )
+        elif not QBIT_DISABLED and TAGLESS:
+            self.manager.qbit_manager.client.torrents_create_tags(
+                [
+                    "qBitrr-ignored",
                 ]
             )
         self.search_setup_completed = False
