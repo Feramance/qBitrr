@@ -3247,7 +3247,7 @@ class Arr:
                             raise qbittorrentapi.exceptions.APIError
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
-                    raise DelayLoopException(length=5, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if has_internet() is False:
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
@@ -5210,7 +5210,7 @@ class PlaceHolderArr(Arr):
                         completed = True
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
-                    raise DelayLoopException(length=5, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if has_internet() is False:
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
@@ -5416,7 +5416,7 @@ class FreeSpaceManager(Arr):
                 torrents = [t for t in torrents if t.category in self.categories]
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
                 if not len(torrents):
-                    raise DelayLoopException(length=5, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if has_internet() is False:
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
