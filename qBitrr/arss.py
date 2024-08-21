@@ -2034,18 +2034,30 @@ class Arr:
         self,
         db_entry: JsonObject,
     ) -> bool:
-        inCinemas = datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
-        digitalRelease = datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-        physicalRelease = datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+        inCinemas = (
+            datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
+            if db_entry["inCinemas"]
+            else None
+        )
+        digitalRelease = (
+            datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+            if db_entry["digitalRelease"]
+            else None
+        )
+        physicalRelease = (
+            datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+            if db_entry["physicalRelease"]
+            else None
+        )
         now = datetime.now()
         if db_entry["year"] > now.year or db_entry["year"] == 0:
             self.logger.trace(
                 "Skipping 1 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return False
         elif db_entry["year"] < now.year - 1 and db_entry["year"] != 0:
@@ -2053,9 +2065,9 @@ class Arr:
                 "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return True
         elif (
@@ -2068,9 +2080,9 @@ class Arr:
                 "Grabbing 3 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return True
         elif (
@@ -2083,9 +2095,9 @@ class Arr:
                     "Grabbing 4 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
-                    db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                    db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                    inCinemas,
+                    digitalRelease,
+                    physicalRelease,
                 )
                 return True
             else:
@@ -2093,9 +2105,9 @@ class Arr:
                     "Skipping 5 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
-                    db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                    db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                    inCinemas,
+                    digitalRelease,
+                    physicalRelease,
                 )
                 return False
         elif ("digitalRelease" in db_entry or "physicalRelease" in db_entry) and db_entry[
@@ -2107,9 +2119,9 @@ class Arr:
                         "Grabbing 6 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return True
                 else:
@@ -2117,9 +2129,9 @@ class Arr:
                         "Skipping 7 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return False
             elif "physicalRelease" in db_entry:
@@ -2128,9 +2140,9 @@ class Arr:
                         "Grabbing 8 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return True
                 else:
@@ -2138,9 +2150,9 @@ class Arr:
                         "Skipping 9 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return False
         elif (
@@ -2153,9 +2165,9 @@ class Arr:
                 "Grabbing 10 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return True
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -2164,9 +2176,9 @@ class Arr:
                     "Grabbing 11 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
-                    db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                    db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                    inCinemas,
+                    digitalRelease,
+                    physicalRelease,
                 )
                 return True
             else:
@@ -2174,9 +2186,9 @@ class Arr:
                     "Skipping 12 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
-                    db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                    db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                    inCinemas,
+                    digitalRelease,
+                    physicalRelease,
                 )
                 return False
         elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
@@ -2186,9 +2198,9 @@ class Arr:
                         "Grabbing 13 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return True
                 else:
@@ -2196,9 +2208,9 @@ class Arr:
                         "Skipping 14 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return False
             elif "physicalRelease" in db_entry:
@@ -2207,9 +2219,9 @@ class Arr:
                         "Grabbing 15 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return True
                 else:
@@ -2217,9 +2229,9 @@ class Arr:
                         "Skipping 16 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
                         db_entry["minimumAvailability"],
-                        db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                        db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                        db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                        inCinemas,
+                        digitalRelease,
+                        physicalRelease,
                     )
                     return False
             else:
@@ -2227,9 +2239,9 @@ class Arr:
                     "Skipping 17 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
                     db_entry["minimumAvailability"],
-                    db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                    db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                    db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                    inCinemas,
+                    digitalRelease,
+                    physicalRelease,
                 )
                 return False
         elif db_entry["minimumAvailability"] == "announced":
@@ -2237,9 +2249,9 @@ class Arr:
                 "Grabbing 18 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return True
         else:
@@ -2247,9 +2259,9 @@ class Arr:
                 "Skipping 19 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
                 db_entry["minimumAvailability"],
-                db_entry["inCinemas"] if "inCinemas" in db_entry else None,
-                db_entry["digitalRelease"] if "digitalRelease" in db_entry else None,
-                db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
+                inCinemas,
+                digitalRelease,
+                physicalRelease,
             )
             return False
 
