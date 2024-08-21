@@ -536,7 +536,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
-        self.torrent_library: TorrentLibrary = None
+        self.torrents: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -599,6 +599,106 @@ class Arr:
             TorrentStates.DOWNLOADING,
             TorrentStates.PAUSED_DOWNLOAD,
         )
+
+    def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+        for tag in tags:
+            if TAGLESS:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
+                if tag == "qBitrr-allowed_seeding":
+                    self.torrents.update(AllowedSeeding=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-imported":
+                    self.torrents.update(Imported=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-allowed_stalled":
+                    self.torrents.update(AllowedStalled=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-free_space_paused":
+                    self.torrents.update(FreeSpacePaused=False).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+            else:
+                if tag == "qBitrr-allowed_seeding":
+                    torrent.remove_tags(["qBitrr-allowed_seeding"])
+                elif tag == "qBitrr-imported":
+                    torrent.remove_tags(["qBitrr-imported"])
+                elif tag == "qBitrr-allowed_stalled":
+                    torrent.remove_tags(["qBitrr-allowed_stalled"])
+                elif tag == "qBitrr-free_space_paused":
+                    torrent.remove_tags(["qBitrr-free_space_paused"])
+
+    def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+        for tag in tags:
+            if TAGLESS:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
+                if tag == "qBitrr-allowed_seeding":
+                    self.torrents.update(AllowedSeeding=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-imported":
+                    self.torrents.update(Imported=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-allowed_stalled":
+                    self.torrents.update(AllowedStalled=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                elif tag == "qBitrr-free_space_paused":
+                    self.torrents.update(FreeSpacePaused=True).where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+            else:
+                if tag == "qBitrr-allowed_seeding":
+                    torrent.add_tags(["qBitrr-allowed_seeding"])
+                elif tag == "qBitrr-imported":
+                    torrent.add_tags(["qBitrr-imported"])
+                elif tag == "qBitrr-allowed_stalled":
+                    torrent.add_tags(["qBitrr-allowed_stalled"])
+                elif tag == "qBitrr-free_space_paused":
+                    torrent.add_tags(["qBitrr-free_space_paused"])
 
     def _get_models(
         self,
@@ -867,7 +967,7 @@ class Arr:
                         self.import_mode,
                         ex,
                     )
-                torrent.add_tags(tags=["qBitrr-imported"])
+                self.add_tags(torrent, ["qBitrr-imported"])
                 self.sent_to_scan.add(path)
             self.import_torrents.clear()
 
@@ -1904,7 +2004,11 @@ class Arr:
         self,
         db_entry: JsonObject,
     ) -> bool:
-        if db_entry["year"] > datetime.now().year or db_entry["year"] == 0:
+        inCinemas = datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
+        digitalRelease = datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+        physicalRelease = datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.now()
+        if db_entry["year"] > now.year or db_entry["year"] == 0:
             self.logger.trace(
                 "Skipping 1 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
@@ -1914,7 +2018,7 @@ class Arr:
                 db_entry["physicalRelease"] if "physicalRelease" in db_entry else None,
             )
             return False
-        elif db_entry["year"] < datetime.now().year - 1 and db_entry["year"] != 0:
+        elif db_entry["year"] < now.year - 1 and db_entry["year"] != 0:
             self.logger.trace(
                 "Grabbing 2 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                 db_entry["title"],
@@ -1944,12 +2048,7 @@ class Arr:
             and "physicalRelease" in db_entry
             and db_entry["minimumAvailability"] == "released"
         ):
-            if (
-                datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                <= datetime.now()
-                or datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                <= datetime.now()
-            ):
+            if digitalRelease <= now or physicalRelease <= now:
                 self.logger.trace(
                     "Grabbing 4 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
@@ -1973,10 +2072,7 @@ class Arr:
             "minimumAvailability"
         ] == "released":
             if "digitalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if digitalRelease <= now:
                     self.logger.trace(
                         "Grabbing 6 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -1997,10 +2093,7 @@ class Arr:
                     )
                     return False
             elif "physicalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if physicalRelease <= now:
                     self.logger.trace(
                         "Grabbing 8 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -2036,7 +2129,7 @@ class Arr:
             )
             return True
         elif "inCinemas" in db_entry and db_entry["minimumAvailability"] == "inCinemas":
-            if datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ") <= datetime.now():
+            if inCinemas <= now:
                 self.logger.trace(
                     "Grabbing 11 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                     db_entry["title"],
@@ -2058,10 +2151,7 @@ class Arr:
                 return False
         elif "inCinemas" not in db_entry and db_entry["minimumAvailability"] == "inCinemas":
             if "digitalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if digitalRelease <= now:
                     self.logger.trace(
                         "Grabbing 13 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -2082,10 +2172,7 @@ class Arr:
                     )
                     return False
             elif "physicalRelease" in db_entry:
-                if (
-                    datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                    <= datetime.now()
-                ):
+                if physicalRelease <= now:
                     self.logger.trace(
                         "Grabbing 15 %s - Minimum Availability: %s, Dates Cinema:%s, Digital:%s, Physical:%s",
                         db_entry["title"],
@@ -3852,11 +3939,11 @@ class Arr:
             and "qBitrr-allowed_seeding" not in torrent.tags
             and "qBitrr-free_space_paused" not in torrent.tags
         ):
-            torrent.add_tags(tags=["qBitrr-allowed_seeding"])
+            self.add_tags(torrent, ["qBitrr-allowed_seeding"])
         elif (
             not return_value and "qBitrr-allowed_seeding" in torrent.tags
         ) or "qBitrr-free_space_paused" in torrent.tags:
-            torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+            self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -4010,7 +4097,7 @@ class Arr:
             current_tags = set(torrent.tags.split(", "))
             add_tags = unique_tags.difference(current_tags)
             if add_tags:
-                torrent.add_tags(add_tags)
+                self.add_tags(torrent, add_tags)
 
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
@@ -4065,7 +4152,7 @@ class Arr:
                     torrent.name,
                 )
             elif "qBitrr-allowed_stalled" not in torrent.tags:
-                torrent.add_tags(["qBitrr-allowed_stalled"])
+                self.add_tags(torrent, ["qBitrr-allowed_stalled"])
                 if self.re_search_stalled:
                     self.logger.trace(
                         "Stalled, adding tag, blocklosting and re-searching: %s",
@@ -4093,7 +4180,7 @@ class Arr:
                 )
 
         elif "qBitrr-allowed_stalled" in torrent.tags:
-            torrent.remove_tags(["qBitrr-allowed_stalled"])
+            self.remove_tags(torrent, ["qBitrr-allowed_stalled"])
             stalled_ignore = False
             self.logger.trace(
                 "Not stalled, removing tag: %s",
@@ -4126,11 +4213,12 @@ class Arr:
         stalled_ignore = self._stalled_check(torrent, time_now)
 
         if "qBitrr-ignored" in torrent.tags:
-            torrent.remove_tags(
+            self.remove_tags(
+                torrent,
                 [
                     "qBitrr-allowed_seeding",
                     "qBitrr-free_space_paused",
-                ]
+                ],
             )
 
         if (
@@ -4873,6 +4961,7 @@ class Arr:
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.register_search_mode()
         self.logger.hnotice("Starting torrent monitoring for %s", self._name)
         while True:
             try:
@@ -5223,8 +5312,8 @@ class FreeSpaceManager(Arr):
                     self.current_free_space,
                     free_space_test,
                 )
-                torrent.add_tags(tags=["qBitrr-free_space_paused"])
-                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+                self.add_tags(torrent, ["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
                 self._process_single_torrent_pause_disk_space(torrent)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
@@ -5233,8 +5322,8 @@ class FreeSpaceManager(Arr):
                     self.current_free_space,
                     free_space_test,
                 )
-                torrent.add_tags(tags=["qBitrr-free_space_paused"])
-                torrent.remove_tags(tags=["qBitrr-allowed_seeding"])
+                self.add_tags(torrent, ["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
                     "Continue downloading [%s]: Free space %s -> %s",
@@ -5243,7 +5332,7 @@ class FreeSpaceManager(Arr):
                     free_space_test,
                 )
                 self.current_free_space = free_space_test
-                torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-free_space_paused"])
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
                     "Unpause download [%s]: Free space %s -> %s",
@@ -5252,7 +5341,7 @@ class FreeSpaceManager(Arr):
                     free_space_test,
                 )
                 self.current_free_space = free_space_test
-                torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+                self.remove_tags(torrent, ["qBitrr-free_space_paused"])
         elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
             self.logger.info(
                 "Removing tag [%s] for completed torrent[%s]: Free space %s",
@@ -5260,7 +5349,7 @@ class FreeSpaceManager(Arr):
                 torrent.name,
                 self.current_free_space,
             )
-            torrent.remove_tags(tags=["qBitrr-free_space_paused"])
+            self.remove_tags(torrent, ["qBitrr-free_space_paused"])
 
     def process(self):
         self._process_paused()

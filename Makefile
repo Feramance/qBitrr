@@ -41,6 +41,7 @@ newenv:
 	.venv/bin/pip install -U wheel
 	$(MAKE) syncenv
 syncenv:
+	python.exe -m pip install --upgrade pip
 	pip install -Ur requirements.all.txt
 help:
 	@echo "$$HELP_BODY"
