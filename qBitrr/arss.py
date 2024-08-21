@@ -600,6 +600,36 @@ class Arr:
             TorrentStates.PAUSED_DOWNLOAD,
         )
 
+    def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
+        if TAGLESS:
+            condition = (
+                self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
+            )
+            if tag == "qBitrr-allowed_seeding":
+                condition &= self.torrents.AllowedSeeding == True
+            elif tag == "qBitrr-imported":
+                condition &= self.torrents.Imported == True
+            elif tag == "qBitrr-allowed_stalled":
+                condition &= self.torrents.AllowedStalled == True
+            elif tag == "qBitrr-free_space_paused":
+                condition &= self.torrents.FreeSpacePaused == True
+            query = self.torrents.select().where(condition).execute()
+            if query:
+                return True
+            else:
+                return False
+        else:
+            if "qBitrr-allowed_seeding" in torrent.tags:
+                return True
+            elif "qBitrr-imported" in torrent.tags:
+                return True
+            elif "qBitrr-allowed_stalled" in torrent.tags:
+                return True
+            elif "qBitrr-free_space_paused" in torrent.tags:
+                return True
+            else:
+                return False
+
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
         for tag in tags:
             if TAGLESS:
@@ -3519,7 +3549,7 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-        elif "qBitrr-imported" not in torrent.tags:
+        elif not self.in_tags(torrent, "qBitrr-imported"):
             self.logger.info(
                 "Importing Completed torrent: "
                 "[Progress: %s%%][Added On: %s]"
@@ -3932,17 +3962,17 @@ class Arr:
         return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
-        if "qBitrr-free_space_paused" in torrent.tags:
+        if self.in_tags(torrent, "qBitrr-free_space_paused"):
             return_value = True
         if (
             return_value
-            and "qBitrr-allowed_seeding" not in torrent.tags
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-allowed_seeding")
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
         ):
             self.add_tags(torrent, ["qBitrr-allowed_seeding"])
         elif (
-            not return_value and "qBitrr-allowed_seeding" in torrent.tags
-        ) or "qBitrr-free_space_paused" in torrent.tags:
+            not return_value and self.in_tags(torrent, "qBitrr-allowed_seeding")
+        ) or self.in_tags(torrent, "qBitrr-free_space_paused"):
             self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
         return (
             return_value,
@@ -4127,8 +4157,8 @@ class Arr:
                     TorrentStates.METADATA_DOWNLOAD,
                     TorrentStates.STALLED_DOWNLOAD,
                 )
-                and "qBitrr-ignored" not in torrent.tags
-                and "qBitrr-free_space_paused" not in torrent.tags
+                and not self.in_tags(torrent, "qBitrr-ignored")
+                and not self.in_tags(torrent, "qBitrr-free_space_paused")
             )
             or (
                 (
@@ -4138,8 +4168,8 @@ class Arr:
                 )
                 and torrent.hash in self.cleaned_torrents
                 and torrent.state_enum in (TorrentStates.DOWNLOADING)
-                and "qBitrr-ignored" not in torrent.tags
-                and "qBitrr-free_space_paused" not in torrent.tags
+                and not self.in_tags(torrent, "qBitrr-ignored")
+                and not self.in_tags(torrent, "qBitrr-free_space_paused")
             )
         ) and self.allowed_stalled:
             if (
@@ -4151,7 +4181,7 @@ class Arr:
                     "Process stalled, delay expired: %s",
                     torrent.name,
                 )
-            elif "qBitrr-allowed_stalled" not in torrent.tags:
+            elif not self.in_tags(torrent, "qBitrr-allowed_stalled"):
                 self.add_tags(torrent, ["qBitrr-allowed_stalled"])
                 if self.re_search_stalled:
                     self.logger.trace(
@@ -4173,13 +4203,13 @@ class Arr:
                         "Stalled, adding tag: %s",
                         torrent.name,
                     )
-            elif "qBitrr-allowed_stalled" in torrent.tags:
+            elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
                 self.logger.trace(
                     "Stalled: %s",
                     torrent.name,
                 )
 
-        elif "qBitrr-allowed_stalled" in torrent.tags:
+        elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
             self.remove_tags(torrent, ["qBitrr-allowed_stalled"])
             stalled_ignore = False
             self.logger.trace(
@@ -4212,7 +4242,7 @@ class Arr:
 
         stalled_ignore = self._stalled_check(torrent, time_now)
 
-        if "qBitrr-ignored" in torrent.tags:
+        if self.in_tags(torrent, "qBitrr-ignored"):
             self.remove_tags(
                 torrent,
                 [
@@ -4224,8 +4254,8 @@ class Arr:
         if (
             self.custom_format_unmet_search
             and self.custom_format_unmet_check(torrent)
-            and "qBitrr-ignored" not in torrent.tags
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-ignored")
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
         ):
             self._process_single_torrent_delete_cfunmet(torrent)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
@@ -4244,8 +4274,8 @@ class Arr:
                 TorrentStates.METADATA_DOWNLOAD,
                 TorrentStates.STALLED_DOWNLOAD,
             )
-            and "qBitrr-ignored" not in torrent.tags
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-ignored")
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
             and not stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
@@ -4265,8 +4295,8 @@ class Arr:
         elif (
             torrent.progress >= self.maximum_deletable_percentage
             and self.is_complete_state(torrent) is False
-            and "qBitrr-ignored" not in torrent.tags
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-ignored")
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
             and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
@@ -4274,7 +4304,7 @@ class Arr:
         elif (
             torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
             and torrent.amount_left != 0
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
         ):
             self._process_single_torrent_paused(torrent)
         # Ignore torrents which have been submitted to their respective Arr
@@ -4321,8 +4351,8 @@ class Arr:
             < time_now - self.ignore_torrents_younger_than
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
-            and "qBitrr-ignored" not in torrent.tags
-            and "qBitrr-free_space_paused" not in torrent.tags
+            and not self.in_tags(torrent, "qBitrr-ignored")
+            and not self.in_tags(torrent, "qBitrr-free_space_paused")
             and not stalled_ignore
         ):
             self._process_single_torrent_delete_slow(torrent)
@@ -4338,8 +4368,8 @@ class Arr:
                 )
                 and torrent.hash in self.cleaned_torrents
                 and self.is_downloading_state(torrent)
-                and "qBitrr-ignored" not in torrent.tags
-                and "qBitrr-free_space_paused" not in torrent.tags
+                and not self.in_tags(torrent, "qBitrr-ignored")
+                and not self.in_tags(torrent, "qBitrr-free_space_paused")
                 and not stalled_ignore
             ):
                 self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
@@ -5342,7 +5372,9 @@ class FreeSpaceManager(Arr):
                 )
                 self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"])
-        elif not self.is_downloading_state(torrent) and "qBitrr-free_space_paused" in torrent.tags:
+        elif not self.is_downloading_state(torrent) and self.in_tags(
+            torrent, "qBitrr-free_space_paused"
+        ):
             self.logger.info(
                 "Removing tag [%s] for completed torrent[%s]: Free space %s",
                 "qBitrr-free_space_paused",
