@@ -2036,20 +2036,17 @@ class Arr:
     ) -> bool:
         inCinemas = (
             datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
-            if db_entry["inCinemas"]
+            if "inCinemas" in db_entry
             else None
         )
-        try:
-            digitalRelease = (
-                datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-                if db_entry["digitalRelease"]
-                else None
-            )
-        except:
-            digitalRelease = None
+        digitalRelease = (
+            datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+            if "digitalRelease" in db_entry
+            else None
+        )
         physicalRelease = (
             datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-            if db_entry["physicalRelease"]
+            if "physicalRelease" in db_entry
             else None
         )
         now = datetime.now()
