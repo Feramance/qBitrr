@@ -516,7 +516,7 @@ class Arr:
                 else:
                     self.search_api_command = "MissingEpisodeSearch"
 
-        if not QBIT_DISABLED or TAGLESS:
+        if not QBIT_DISABLED and not TAGLESS:
             self.manager.qbit_manager.client.torrents_create_tags(
                 [
                     "qBitrr-allowed_seeding",
@@ -2039,11 +2039,14 @@ class Arr:
             if db_entry["inCinemas"]
             else None
         )
-        digitalRelease = (
-            datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
-            if db_entry["digitalRelease"]
-            else None
-        )
+        try:
+            digitalRelease = (
+                datetime.strptime(db_entry["digitalRelease"], "%Y-%m-%dT%H:%M:%SZ")
+                if db_entry["digitalRelease"]
+                else None
+            )
+        except:
+            digitalRelease = None
         physicalRelease = (
             datetime.strptime(db_entry["physicalRelease"], "%Y-%m-%dT%H:%M:%SZ")
             if db_entry["physicalRelease"]
