@@ -601,6 +601,7 @@ class Arr:
         )
 
     def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
+        retrun_value = False
         if TAGLESS:
             condition = (
                 self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
@@ -615,22 +616,28 @@ class Arr:
                 condition &= self.torrents.FreeSpacePaused == True
             query = self.torrents.select().where(condition).execute()
             if query:
-                return True
+                retrun_value = True
             else:
-                return False
+                retrun_value = False
         else:
             if "qBitrr-allowed_seeding" in torrent.tags:
-                return True
+                retrun_value = True
             elif "qBitrr-imported" in torrent.tags:
-                return True
+                retrun_value = True
             elif "qBitrr-allowed_stalled" in torrent.tags:
-                return True
+                retrun_value = True
             elif "qBitrr-free_space_paused" in torrent.tags:
-                return True
-            else:
-                return False
+                retrun_value = True
+
+        if retrun_value:
+            self.logger.trace("Tag %s in %s", tag, torrent.name)
+            return True
+        else:
+            self.logger.trace("Tag %s not in %s", tag, torrent.name)
+            return False
 
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+        self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         for tag in tags:
             if TAGLESS:
                 query = (
@@ -681,6 +688,7 @@ class Arr:
                     torrent.remove_tags(["qBitrr-free_space_paused"])
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+        self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         for tag in tags:
             if TAGLESS:
                 query = (
