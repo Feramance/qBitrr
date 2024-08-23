@@ -59,7 +59,7 @@ identify==2.6.0
     # via pre-commit
 idna==3.7
     # via requests
-importlib-metadata==8.2.0
+importlib-metadata==8.4.0
     # via
     #   keyring
     #   twine
@@ -67,7 +67,7 @@ isort==5.10.1
     # via qBitrr2 (setup.py)
 jaraco-classes==3.4.0
     # via keyring
-jaraco-context==5.3.0
+jaraco-context==6.0.1
     # via
     #   jaraco-docker
     #   keyring
