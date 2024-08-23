@@ -4152,7 +4152,7 @@ class Arr:
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
         if not self.allowed_stalled:
-            return stalled_ignore
+            return False
         if self.stalled_delay == 0:
             self.logger.trace(
                 "Stalled check: %s [Current:%s][Added:%s][Limit:No Limit]",
@@ -4296,7 +4296,7 @@ class Arr:
             )
             and not self.in_tags(torrent, "qBitrr-ignored")
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
-            and stalled_ignore
+            and not stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
