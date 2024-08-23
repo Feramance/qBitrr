@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.9.1 (23/08/2024)
+- [[patch] Season statistics error fix](https://github.com/Feramance/qBitrr/commit/3640ccf3f58a52e47c33d88d2a5b82209b2f7bcb) - @Feramance
+
+---
+
 ## v4.9.0 (23/08/2024)
 - [[minor] Merge pull request #87 from Feramance/85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/020f507ff4d240528800928c203a333105bb1bc1) - @Feramance
 - [Final changes](https://github.com/Feramance/qBitrr/commit/c072f9d2c9e6146ab8c318826df0e1d6c3997620) - @Feramance
@@ -275,8 +280,3 @@
 - [[patch] Added more logging to cover all possible logs](https://github.com/Feramance/qBitrr/commit/ca314b6eb900052ecac2aedd4e77300063a30a48) - @Feramance
 - [More logs test](https://github.com/Feramance/qBitrr/commit/fdf453868cc83f2c211df2bd4a656fa8abb91736) - @Feramance
 - [Release yml update](https://github.com/Feramance/qBitrr/commit/64bb88593d9f44d65ef5447481d549556fff1de4) - @Feramance
-
----
-
-## v4.5.9 (08/05/2024)
-- [[patch] Updated config example and generation with a better description for path mapping](https://github.com/Feramance/qBitrr/commit/90ed84d9a26b778b80e1a10e7f0eecf725332e29) - @Feramance
