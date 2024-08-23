@@ -2524,13 +2524,13 @@ class Arr:
                             if sdict.get("seasonNumber") == 0:
                                 statistics = sdict.get("statistics")
                                 monitoredEpisodeCount = monitoredEpisodeCount + statistics.get(
-                                    "episodeCount"
+                                    "episodeCount", 0
                                 )
                                 totalEpisodeCount = totalEpisodeCount + statistics.get(
-                                    "totalEpisodeCount"
+                                    "totalEpisodeCount", 0
                                 )
                                 episodeFileCount = episodeFileCount + statistics.get(
-                                    "episodeFileCount"
+                                    "episodeFileCount", 0
                                 )
                             else:
                                 statistics = sdict.get("statistics")
