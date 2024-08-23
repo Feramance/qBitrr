@@ -38,6 +38,7 @@ class AppConfig:
         auto_pause_resume = environ.var(None, converter=Converter.bool)
         failed_category = environ.var(None)
         recheck_category = environ.var(None)
+        tagless = environ.var(None, converter=Converter.bool)
         ignore_torrents_younger_than = environ.var(None, converter=Converter.int)
         ping_urls = environ.var(None, converter=Converter.list)
         ffprobe_auto_update = environ.var(None, converter=Converter.bool)

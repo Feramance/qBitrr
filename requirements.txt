@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements.txt
 #
-attrs==23.2.0
+attrs==24.2.0
     # via environ-config
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -32,13 +32,13 @@ humanfriendly==10.0
     # via coloredlogs
 idna==3.7
     # via requests
-jaraco-context==5.3.0
+jaraco-context==6.0.1
     # via jaraco-docker
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
-jaraco-functools==4.0.1
+jaraco-functools==4.0.2
     # via jaraco-docker
-more-itertools==10.3.0
+more-itertools==10.4.0
     # via jaraco-functools
 multiprocess==0.70.16
     # via pathos
@@ -60,6 +60,8 @@ ppft==1.7.6.8
     # via pathos
 pyarr==5.2.0
     # via qBitrr2 (setup.py)
+pyreadline3==3.4.1
+    # via humanfriendly
 qbittorrent-api==2023.7.52
     # via qBitrr2 (setup.py)
 requests==2.32.0
@@ -71,7 +73,7 @@ six==1.16.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.32.0.20240622
+types-requests==2.32.0.20240712
     # via pyarr
 urllib3==2.2.2
     # via
