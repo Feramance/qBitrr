@@ -4296,7 +4296,7 @@ class Arr:
             )
             and not self.in_tags(torrent, "qBitrr-ignored")
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
-            and not stalled_ignore
+            and stalled_ignore
         ):
             self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
         elif (
