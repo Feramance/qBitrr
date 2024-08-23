@@ -637,8 +637,8 @@ class Arr:
             return False
 
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         for tag in tags:
+            self.logger.trace("Removing tag %s from %s", tag, torrent.name)
             if TAGLESS:
                 query = (
                     self.torrents.select()
@@ -688,8 +688,8 @@ class Arr:
                     torrent.remove_tags(["qBitrr-free_space_paused"])
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         for tag in tags:
+            self.logger.trace("Adding tag %s from %s", tag, torrent.name)
             if TAGLESS:
                 query = (
                     self.torrents.select()
