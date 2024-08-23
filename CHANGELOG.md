@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.9.0 (23/08/2024)
+- [[minor] Merge pull request #87 from Feramance/85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/020f507ff4d240528800928c203a333105bb1bc1) - @Feramance
+- [Final changes](https://github.com/Feramance/qBitrr/commit/c072f9d2c9e6146ab8c318826df0e1d6c3997620) - @Feramance
+- [STalled adjustment 2](https://github.com/Feramance/qBitrr/commit/ca001e865f009ee615994697d1a3b328e76cb3e3) - @Feramance
+- [Stalled adjustment](https://github.com/Feramance/qBitrr/commit/4e37ce595101d6421cfd0d8db017c149e1a8696b) - @Feramance
+- [Hotfix](https://github.com/Feramance/qBitrr/commit/060c9538920048d23a303e227e6fc3f08a4e26da) - @Feramance
+- [Added tag loging to monitor changes when tagless](https://github.com/Feramance/qBitrr/commit/e56232cfa6b934b7ce3bb563ef90c63b9e6dceeb) - @Feramance
+- [Key error fixes](https://github.com/Feramance/qBitrr/commit/8ca91c3a5203a2eddc02bb51b9479c99daeb7555) - @Feramance
+- [digital release fixes and tag updates](https://github.com/Feramance/qBitrr/commit/25baaf4f2425ba2fbb06c40699894992676745f0) - @Feramance
+- [LoopSleepTimer adjustments](https://github.com/Feramance/qBitrr/commit/78d4853a52e811a22a6cc1fa445ed256a37f1a6e) - @Feramance
+- [Minimum availability date fixes](https://github.com/Feramance/qBitrr/commit/e532057659f4f38ab5e186ee59e58df8cc615e61) - @Feramance
+- [Additional condition changes](https://github.com/Feramance/qBitrr/commit/0489feafff7e7e15031f6c9fa206b70d9376256c) - @Feramance
+- [Merge branch '85-request-disable-tag-usage' of https://github.com/Feramance/Qbitrr into 85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/8087985a79b676f3b6bf6069efa7e3fa3761795e) - @Feramance
+- [Don't create tags (except ignore tag) if TAGLESS](https://github.com/Feramance/qBitrr/commit/fd4ce7f8c598d4cf1555ef14f1374e07a3d82694) - @Feramance
+- [General Adjustments](https://github.com/Feramance/qBitrr/commit/1a74d25c0fac0847e9c491fb823de235f8678c6d) - @Feramance
+- [Reduced datetime formatting](https://github.com/Feramance/qBitrr/commit/14a7d2c80f9e37600406dbfc08ce969eff9af59b) - @Feramance
+- [Adjusted query to run when not in tagless mode only](https://github.com/Feramance/qBitrr/commit/ea5731753ac1e9a9323591054b98b71689362ea4) - @Feramance
+- [Updated conditions formatting](https://github.com/Feramance/qBitrr/commit/c064f45f2e854ad95d17681dfab34dc72466f85f) - @Feramance
+- [Added logic to grab db before prcessing torrents](https://github.com/Feramance/qBitrr/commit/0952b3ae1b995a10998b30d393061be47debd087) - @Feramance
+- [Update variable name](https://github.com/Feramance/qBitrr/commit/f5ade0726c15863a704c008ef94d83d684cdd6f0) - @Feramance
+- [Category fix for torrents table](https://github.com/Feramance/qBitrr/commit/df99c95d726ec72c3ca7d3342e9b197627741415) - @Feramance
+- [Removed paramater calls](https://github.com/Feramance/qBitrr/commit/e9cc05ab39f44965994405a62b9ab788ee943d8a) - @Feramance
+- [Update tagless logic](https://github.com/Feramance/qBitrr/commit/1eb29a93fa81b80fdad32f0ab7c02fd8a3d47dcc) - @Feramance
+- [Merge branch 'master' into 85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/5819744a7842de37ac57a87affe746d4ace035a0) - @Feramance
+- [Update config.example.toml](https://github.com/Feramance/qBitrr/commit/c60e2b4888cb5650136825934bafbf0bd6e489d6) - @Feramance
+- [Merge branch 'master' into 85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/bc8f7668d04e73bdf1176472d746f3d9674df14c) - @Feramance
+
+---
+
 ## v4.8.3 (16/07/2024)
 - [[patch] Merge pull request #95 from Feramance/84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/81ef59f69be61b774fdb847975d5a265ca927fa6) - @Feramance
 - [Final changes before merge](https://github.com/Feramance/qBitrr/commit/24201c9d36028a0734eb68fc97dd27ba063e77ae) - @Feramance
@@ -251,11 +280,3 @@
 
 ## v4.5.9 (08/05/2024)
 - [[patch] Updated config example and generation with a better description for path mapping](https://github.com/Feramance/qBitrr/commit/90ed84d9a26b778b80e1a10e7f0eecf725332e29) - @Feramance
-
----
-
-## v4.5.8 (07/05/2024)
-- [[patch] Free space adjustments](https://github.com/Feramance/qBitrr/commit/ae56b4075af71ed83c7a928c4a7930dabcc7a959) - @Feramance
-- [Merge pull request #74 from Feramance/dependabot/pip/tqdm-4.66.3](https://github.com/Feramance/qBitrr/commit/b4569aca3c2ba225605d62cc1da99316b8850ea8) - @Feramance
-- [Bump tqdm from 4.66.2 to 4.66.3](https://github.com/Feramance/qBitrr/commit/02793206af372b2d9e0715c94cd2ee3de2eacf3d) - @dependabot[bot]
-- [Nightly update](https://github.com/Feramance/qBitrr/commit/c6d98b5a5c26d4a6c3aba97ef89962c11d821146) - @Feramance
