@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.9.2 (23/08/2024)
+- [[patch] Added arm docker builds to release](https://github.com/Feramance/qBitrr/commit/0a37ea09a9d32c4d03cc3c862049f3964a725568) - @Feramance
+
+---
+
 ## v4.9.1 (23/08/2024)
 - [[patch] Season statistics error fix](https://github.com/Feramance/qBitrr/commit/3640ccf3f58a52e47c33d88d2a5b82209b2f7bcb) - @Feramance
 
@@ -273,10 +278,3 @@
 
 ## v4.5.11 (08/05/2024)
 - [[patch] Release update](https://github.com/Feramance/qBitrr/commit/36f924b42be2d544b0c36ca961b62cba74398bd5) - @Feramance
-
----
-
-## v4.5.10 (08/05/2024)
-- [[patch] Added more logging to cover all possible logs](https://github.com/Feramance/qBitrr/commit/ca314b6eb900052ecac2aedd4e77300063a30a48) - @Feramance
-- [More logs test](https://github.com/Feramance/qBitrr/commit/fdf453868cc83f2c211df2bd4a656fa8abb91736) - @Feramance
-- [Release yml update](https://github.com/Feramance/qBitrr/commit/64bb88593d9f44d65ef5447481d549556fff1de4) - @Feramance
