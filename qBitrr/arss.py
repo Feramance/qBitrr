@@ -4481,7 +4481,6 @@ class Arr:
                         else:
                             return False
                 elif self.type == "radarr":
-                    self.logger.debug("custom_format_unmet_check: [hash:%s]", torrent.hash)
                     entry = next(
                         (
                             record["movieId"]
@@ -4490,7 +4489,6 @@ class Arr:
                         ),
                         None,
                     )
-                    self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
                     if not entry:
                         return False
                     customFormat = next(
@@ -4503,6 +4501,10 @@ class Arr:
                     )
                     self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                     movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                    self.logger.debug("custom_format_unmet_check: [movieId:%s]", entry)
+                    self.logger.debug(
+                        "custom_format_unmet_check: [MovieFileId:%s]", movie.MovieFileId
+                    )
                     if movie.MovieFileId != 0:
                         cfunmet = (
                             customFormat < movie.CustomFormatScore
