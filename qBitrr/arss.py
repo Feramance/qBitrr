@@ -95,8 +95,6 @@ class Arr:
         self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        categories = self.manager.qbit_manager.client.torrent_categories.categories
-        self.logger.trace("Categories: %s", categories)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
             LOGS_FOLDER = HOME_PATH.joinpath("logs")
@@ -109,6 +107,8 @@ class Arr:
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
         run_logs(self.logger)
+        categories = self.manager.qbit_manager.client.torrent_categories.categories
+        self.logger.trace("Categories: %s", categories)
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
