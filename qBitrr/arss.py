@@ -4481,7 +4481,9 @@ class Arr:
                         else:
                             return False
                 elif self.type == "radarr":
-                    entry = filter(lambda x: x["downloadId"] == torrent.hash, queue["records"])
+                    entry = list(
+                        filter(lambda x: x["downloadId"] == torrent.hash, queue["records"])
+                    )[0]
                     # entry = next(
                     #     (
                     #         record["movieId"]
@@ -4495,9 +4497,9 @@ class Arr:
                     else:
                         entry = entry["movieId"]
                     self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
-                    customFormat = filter(
-                        lambda x: x["downloadId"] == torrent.hash, queue["records"]
-                    )["customFormatScore"]
+                    customFormat = list(
+                        filter(lambda x: x["downloadId"] == torrent.hash, queue["records"])
+                    )[0]["customFormatScore"]
                     # customFormat = next(
                     #     (
                     #         record["customFormatScore"]
