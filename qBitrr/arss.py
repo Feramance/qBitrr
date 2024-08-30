@@ -4506,7 +4506,7 @@ class Arr:
                     self.logger.debug(
                         "custom_format_unmet_check: [movieId:%s][movie:%s]",
                         entry,
-                        dict(movie) if movie else {},
+                        movie.Title,
                     )
                     self.logger.debug(
                         "custom_format_unmet_check: [MovieFileId:%s]", movie.MovieFileId
