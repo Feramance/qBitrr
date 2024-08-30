@@ -4492,7 +4492,7 @@ class Arr:
                     #     ),
                     #     None,
                     # )
-                    if not entry:
+                    if not len(entry) > 0:
                         return False
                     else:
                         entry = entry["movieId"]
