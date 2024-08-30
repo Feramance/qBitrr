@@ -4501,10 +4501,7 @@ class Arr:
                     )
                     self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                     movie = (
-                        self.model_file.select()
-                        .where(self.model_file.EntryId == entry)
-                        .first()
-                        .execute()
+                        self.model_file.select().where(self.model_file.EntryId == entry).first()
                     )
                     self.logger.debug(
                         "custom_format_unmet_check: [movieId:%s][movie:%s]",
