@@ -4482,14 +4482,9 @@ class Arr:
                             return False
                 elif self.type == "radarr":
                     self.logger.debug("custom_format_unmet_check: [hash:%s]", torrent.hash)
-                    # entry = dict(
-                    #     filter(
-                    #         lambda x: x.get("downloadId", None) == torrent.hash.upper(), queue["records"]
-                    #     )
-                    # )
                     entry = next(
                         (
-                            record
+                            record["movieId"]
                             for record in queue["records"]
                             if record["downloadId"] == torrent.hash.upper()
                         ),
@@ -4498,11 +4493,6 @@ class Arr:
                     self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
                     if not entry:
                         return False
-                    # else:
-                    #     entry = entry["movieId"]
-                    # customFormat = list(
-                    #     filter(lambda x: x["downloadId"] == torrent.hash.upper(), queue["records"])
-                    # )[0]["customFormatScore"]
                     customFormat = next(
                         (
                             record["customFormatScore"]
