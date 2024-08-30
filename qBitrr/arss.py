@@ -4472,9 +4472,6 @@ class Arr:
                             ),
                             None,
                         )
-                        series = self.series_file_model.get_or_none(
-                            self.series_file_model.EntryId == entry
-                        )
                         if self.force_minimum_custom_format:
                             cfunmet = customFormat < episode.MinCustomFormatScore
                         else:
@@ -4484,25 +4481,31 @@ class Arr:
                         else:
                             return False
                 elif self.type == "radarr":
-                    entry = next(
-                        (
-                            record["movieId"]
-                            for record in queue["records"]
-                            if record["downloadId"] == torrent.hash
-                        ),
-                        None,
-                    )
+                    entry = filter(lambda x: x["downloadId"] == torrent.hash, queue["records"])
+                    # entry = next(
+                    #     (
+                    #         record["movieId"]
+                    #         for record in queue["records"]
+                    #         if record["downloadId"] == torrent.hash
+                    #     ),
+                    #     None,
+                    # )
                     if not entry:
                         return False
+                    else:
+                        entry = entry["movieId"]
                     self.logger.debug("custom_format_unmet_check: [entry:%s]", entry)
-                    customFormat = next(
-                        (
-                            record["customFormatScore"]
-                            for record in queue["records"]
-                            if record["downloadId"] == torrent.hash
-                        ),
-                        None,
-                    )
+                    customFormat = filter(
+                        lambda x: x["downloadId"] == torrent.hash, queue["records"]
+                    )["customFormatScore"]
+                    # customFormat = next(
+                    #     (
+                    #         record["customFormatScore"]
+                    #         for record in queue["records"]
+                    #         if record["downloadId"] == torrent.hash
+                    #     ),
+                    #     None,
+                    # )
                     self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                     movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
                     if movie.MovieFileId != 0:
