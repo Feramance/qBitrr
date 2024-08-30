@@ -4439,11 +4439,15 @@ class Arr:
                             ),
                             None,
                         )
-                        episode = self.model_file.get_or_none(self.model_file.EntryId == entry)
+                        episode = (
+                            self.model_file.select()
+                            .where(self.model_file.EntryId == entry)
+                            .first()
+                        )
                         if episode.EpisodeFileId != 0:
                             cfunmet = (
                                 customFormat < episode.CustomFormatScore
-                                and customFormat < episode.MinCustomFormatScore
+                                or customFormat < episode.MinCustomFormatScore
                             )
                         elif self.force_minimum_custom_format:
                             cfunmet = customFormat < episode.MinCustomFormatScore
@@ -4472,8 +4476,13 @@ class Arr:
                             ),
                             None,
                         )
+                        series = (
+                            self.model_file.select()
+                            .where(self.model_file.EntryId == entry)
+                            .first()
+                        )
                         if self.force_minimum_custom_format:
-                            cfunmet = customFormat < episode.MinCustomFormatScore
+                            cfunmet = customFormat < series.MinCustomFormatScore
                         else:
                             return True
                         if cfunmet:
@@ -4499,22 +4508,13 @@ class Arr:
                         ),
                         None,
                     )
-                    self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
                     movie = (
                         self.model_file.select().where(self.model_file.EntryId == entry).first()
-                    )
-                    self.logger.debug(
-                        "custom_format_unmet_check: [movieId:%s][movie:%s]",
-                        entry,
-                        movie.Title,
-                    )
-                    self.logger.debug(
-                        "custom_format_unmet_check: [MovieFileId:%s]", movie.MovieFileId
                     )
                     if movie.MovieFileId != 0:
                         cfunmet = (
                             customFormat < movie.CustomFormatScore
-                            and customFormat < movie.MinCustomFormatScore
+                            or customFormat < movie.MinCustomFormatScore
                         )
                     elif self.force_minimum_custom_format:
                         cfunmet = customFormat < episode.MinCustomFormatScore
