@@ -4459,14 +4459,9 @@ class Arr:
                             .first()
                         )
                         if episode.EpisodeFileId != 0:
-                            cfunmet = (
-                                customFormat < episode.CustomFormatScore
-                                or customFormat < episode.MinCustomFormatScore
-                            )
-                        elif self.force_minimum_custom_format:
-                            cfunmet = customFormat < episode.MinCustomFormatScore
-                        else:
-                            return True
+                            cfunmet = customFormat < episode.CustomFormatScore
+                        if self.force_minimum_custom_format:
+                            cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
                         if cfunmet:
                             return True
                         else:
@@ -4526,14 +4521,9 @@ class Arr:
                         self.model_file.select().where(self.model_file.EntryId == entry).first()
                     )
                     if movie.MovieFileId != 0:
-                        cfunmet = (
-                            customFormat < movie.CustomFormatScore
-                            or customFormat < movie.MinCustomFormatScore
-                        )
-                    elif self.force_minimum_custom_format:
-                        cfunmet = customFormat < episode.MinCustomFormatScore
-                    else:
-                        return True
+                        cfunmet = customFormat < movie.CustomFormatScore
+                    if self.force_minimum_custom_format:
+                        cfunmet = cfunmet & customFormat < movie.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
