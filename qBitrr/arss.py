@@ -108,8 +108,20 @@ class Arr:
             self.logger.addHandler(fh)
         run_logs(self.logger)
         categories = self.manager.qbit_manager.client.torrent_categories.categories
-        self.logger.trace("Categories: %s", categories)
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+        categ = categories[self.category]
+        if categ:
+            path = categ["savePath"]
+            if path:
+                self.logger.trace("Category exists with save path [%s]", path)
+                self.completed_folder = pathlib.Path(path)
+            else:
+                self.logger.trace("Category exists without save path")
+                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                    self.category
+                )
+        else:
+            self.manager.qbit_manager.client.torrent_categories.createCategory(self.category)
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
