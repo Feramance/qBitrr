@@ -4481,7 +4481,11 @@ class Arr:
                         else:
                             return False
                 elif self.type == "radarr":
-                    self.logger.debug("custom_format_unmet_check: [queue:%s]", queue["records"])
+                    self.logger.debug(
+                        "custom_format_unmet_check: [hash:%s][queue:%s]",
+                        torrent.hash,
+                        queue["records"],
+                    )
                     entry = dict(
                         filter(
                             lambda x: x.get("downloadId", None) == torrent.hash, queue["records"]
