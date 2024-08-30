@@ -4500,8 +4500,14 @@ class Arr:
                         None,
                     )
                     self.logger.debug("custom_format_unmet_check: [customFormat:%s]", customFormat)
-                    movie = self.model_file.get_or_none(self.model_file.EntryId == entry)
-                    self.logger.debug("custom_format_unmet_check: [movieId:%s]", entry)
+                    movie = (
+                        self.model_file.select().where(self.model_file.EntryId == entry).execute()
+                    )
+                    self.logger.debug(
+                        "custom_format_unmet_check: [movieId:%s][movie:%s]",
+                        entry,
+                        dict(movie) if movie else {},
+                    )
                     self.logger.debug(
                         "custom_format_unmet_check: [MovieFileId:%s]", movie.MovieFileId
                     )
