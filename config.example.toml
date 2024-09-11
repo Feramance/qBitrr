@@ -75,7 +75,7 @@ Password = "CHANGE_ME"
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -159,7 +159,7 @@ PrioritizeTodaysReleases = true
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
 
-# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+# Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
 OmbiURI = "CHANGE_ME"
 
 # Ombi's API Key
@@ -174,7 +174,7 @@ ApprovedOnly = true
 # If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
 
-# Overseerr's URI
+# Overseerr's URI eg. http://ip:port
 OverseerrURI = "CHANGE_ME"
 
 # Overseerr's API Key
@@ -278,7 +278,7 @@ AddTags = ["qBitrr-anime"]
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -362,7 +362,7 @@ PrioritizeTodaysReleases = true
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
 
-# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+# Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
 OmbiURI = "CHANGE_ME"
 
 # Ombi's API Key
@@ -377,7 +377,7 @@ ApprovedOnly = true
 # If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
 
-# Overseerr's URI
+# Overseerr's URI eg. http://ip:port
 OverseerrURI = "CHANGE_ME"
 
 # Overseerr's API Key
@@ -481,7 +481,7 @@ AddTags = ["qBitrr-anime"]
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -561,7 +561,7 @@ TempQualityProfile = "CHANGE_ME"
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
 
-# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+# Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
 OmbiURI = "CHANGE_ME"
 
 # Ombi's API Key
@@ -576,7 +576,7 @@ ApprovedOnly = true
 # If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
 
-# Overseerr's URI
+# Overseerr's URI eg. http://ip:port
 OverseerrURI = "CHANGE_ME"
 
 # Overseerr's API Key
@@ -693,7 +693,7 @@ SuperSeedMode = false
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -773,7 +773,7 @@ TempQualityProfile = "CHANGE_ME"
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
 
-# Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
+# Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
 OmbiURI = "CHANGE_ME"
 
 # Ombi's API Key
@@ -788,7 +788,7 @@ ApprovedOnly = true
 # If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
 
-# Overseerr's URI
+# Overseerr's URI eg. http://ip:port
 OverseerrURI = "CHANGE_ME"
 
 # Overseerr's API Key

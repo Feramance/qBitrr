@@ -2677,10 +2677,11 @@ class Arr:
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
+                        KeyError,
                     ):
                         completed = True
-                    except KeyError:
-                        self.logger.warning("Key Error [%s]", db_entry["id"])
+                    # except KeyError:
+                    #     self.logger.warning("Key Error [%s]", db_entry["id"])
                 QualityUnmet = (
                     db_entry["episodeFile"]["qualityCutoffNotMet"]
                     if "episodeFile" in db_entry

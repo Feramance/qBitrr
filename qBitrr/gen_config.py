@@ -184,7 +184,7 @@ def _gen_default_cat(category: str, config: TOMLDocument):
     )
     _gen_default_line(
         cat_default,
-        "The URL used to access Servarr interface "
+        "The URL used to access Servarr interface eg. http://ip:port"
         "(if you use a domain enter the domain without a port)",
         "URI",
         "CHANGE_ME",
@@ -665,7 +665,7 @@ def _gen_default_ombi_table(category: str, search_table: Table):
     )
     _gen_default_line(
         ombi_table,
-        "Ombi URI (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)",
+        "Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)",
         "OmbiURI",
         "CHANGE_ME",
     )
@@ -685,7 +685,9 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
         "SearchOverseerrRequests",
         False,
     )
-    _gen_default_line(overseerr_table, "Overseerr's URI", "OverseerrURI", "CHANGE_ME")
+    _gen_default_line(
+        overseerr_table, "Overseerr's URI eg. http://ip:port", "OverseerrURI", "CHANGE_ME"
+    )
     _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
     _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
     overseerr_table.add(comment("Only for 4K Instances"))
