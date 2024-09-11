@@ -2462,7 +2462,7 @@ class Arr:
 
                         self.logger.trace(
                             "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
-                            SeriesTitle.ljust(60),
+                            SeriesTitle.ljust(60, "."),
                             SeasonNumber,
                             EpisodeNumber,
                             searched,
@@ -2617,7 +2617,7 @@ class Arr:
 
                         self.logger.trace(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
-                            Title.ljust(60),
+                            Title.ljust(60, "."),
                             searched,
                             upgrade,
                         )
@@ -2774,7 +2774,7 @@ class Arr:
 
                     self.logger.trace(
                         "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
-                        title.ljust(60),
+                        title.ljust(60, "."),
                         searched,
                         upgrade,
                         qualityMet,
