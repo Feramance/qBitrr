@@ -2465,10 +2465,10 @@ class Arr:
                             SeriesTitle.ljust(60, "."),
                             SeasonNumber,
                             EpisodeNumber,
-                            searched.ljust(5),
-                            upgrade.ljust(5),
-                            QualityMet.ljust(5),
-                            customFormatMet.ljust(5),
+                            str(searched).ljust(5),
+                            str(upgrade).ljust(5),
+                            str(QualityMet).ljust(5),
+                            str(customFormatMet).ljust(5),
                         )
 
                         if request:
@@ -2618,8 +2618,8 @@ class Arr:
                         self.logger.debug(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
                             Title.ljust(60, "."),
-                            searched.ljust(5),
-                            upgrade.ljust(5),
+                            str(searched).ljust(5),
+                            str(upgrade).ljust(5),
                         )
 
                         db_commands = self.series_file_model.insert(
@@ -2775,10 +2775,10 @@ class Arr:
                     self.logger.debug(
                         "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                         title.ljust(60, "."),
-                        searched.ljust(5),
-                        upgrade.ljust(5),
-                        qualityMet.ljust(5),
-                        customFormatMet.ljust(5),
+                        str(searched).ljust(5),
+                        str(upgrade).ljust(5),
+                        str(qualityMet).ljust(5),
+                        str(customFormatMet).ljust(5),
                     )
 
                     db_commands = self.model_file.insert(
