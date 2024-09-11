@@ -2460,15 +2460,15 @@ class Arr:
                         except AttributeError:
                             pass
 
-                        self.logger.trace(
+                        self.logger.debug(
                             "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                             SeriesTitle.ljust(60, "."),
                             SeasonNumber,
                             EpisodeNumber,
-                            searched,
-                            upgrade,
-                            QualityMet,
-                            customFormatMet,
+                            searched.ljust(5),
+                            upgrade.ljust(5),
+                            QualityMet.ljust(5),
+                            customFormatMet.ljust(5),
                         )
 
                         if request:
@@ -2615,11 +2615,11 @@ class Arr:
                         except AttributeError:
                             pass
 
-                        self.logger.trace(
+                        self.logger.debug(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
                             Title.ljust(60, "."),
-                            searched,
-                            upgrade,
+                            searched.ljust(5),
+                            upgrade.ljust(5),
                         )
 
                         db_commands = self.series_file_model.insert(
@@ -2772,13 +2772,13 @@ class Arr:
                     if request:
                         to_update[self.model_file.IsRequest] = request
 
-                    self.logger.trace(
+                    self.logger.debug(
                         "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                         title.ljust(60, "."),
-                        searched,
-                        upgrade,
-                        qualityMet,
-                        customFormatMet,
+                        searched.ljust(5),
+                        upgrade.ljust(5),
+                        qualityMet.ljust(5),
+                        customFormatMet.ljust(5),
                     )
 
                     db_commands = self.model_file.insert(
