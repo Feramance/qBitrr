@@ -2461,7 +2461,8 @@ class Arr:
                             pass
 
                         self.logger.trace(
-                            "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                            "%s| %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                            "Updating database entry".ljust(100),
                             SeriesTitle,
                             SeasonNumber,
                             EpisodeNumber,
@@ -2616,7 +2617,8 @@ class Arr:
                             pass
 
                         self.logger.trace(
-                            "Updating database entry | %s [Searched:%s][Upgrade:%s]",
+                            "%s| %s [Searched:%s][Upgrade:%s]",
+                            "Updating database entry".ljust(100),
                             Title,
                             searched,
                             upgrade,
@@ -2773,7 +2775,8 @@ class Arr:
                         to_update[self.model_file.IsRequest] = request
 
                     self.logger.trace(
-                        "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                        "%s| %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                        "Updating database entry".ljust(100),
                         title,
                         searched,
                         upgrade,
