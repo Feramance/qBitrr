@@ -3289,7 +3289,7 @@ class Arr:
                 return self._temp_overseer_request_cache
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
