@@ -108,8 +108,20 @@ class Arr:
             self.logger.addHandler(fh)
         run_logs(self.logger)
         categories = self.manager.qbit_manager.client.torrent_categories.categories
-        self.logger.trace("Categories: %s", categories)
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+        categ = categories[self.category]
+        if categ:
+            path = categ["savePath"]
+            if path:
+                self.logger.trace("Category exists with save path [%s]", path)
+                self.completed_folder = pathlib.Path(path)
+            else:
+                self.logger.trace("Category exists without save path")
+                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                    self.category
+                )
+        else:
+            self.manager.qbit_manager.client.torrent_categories.createCategory(self.category)
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
@@ -2448,15 +2460,15 @@ class Arr:
                         except AttributeError:
                             pass
 
-                        self.logger.trace(
+                        self.logger.debug(
                             "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
-                            SeriesTitle,
+                            SeriesTitle.ljust(60, "."),
                             SeasonNumber,
                             EpisodeNumber,
-                            searched,
-                            upgrade,
-                            QualityMet,
-                            customFormatMet,
+                            str(searched).ljust(5),
+                            str(upgrade).ljust(5),
+                            str(QualityMet).ljust(5),
+                            str(customFormatMet).ljust(5),
                         )
 
                         if request:
@@ -2603,11 +2615,11 @@ class Arr:
                         except AttributeError:
                             pass
 
-                        self.logger.trace(
+                        self.logger.debug(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
-                            Title,
-                            searched,
-                            upgrade,
+                            Title.ljust(60, "."),
+                            str(searched).ljust(5),
+                            str(upgrade).ljust(5),
                         )
 
                         db_commands = self.series_file_model.insert(
@@ -2665,10 +2677,11 @@ class Arr:
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
+                        KeyError,
                     ):
                         completed = True
-                    except KeyError:
-                        self.logger.warning("Key Error [%s]", db_entry["id"])
+                    # except KeyError:
+                    #     self.logger.warning("Key Error [%s]", db_entry["id"])
                 QualityUnmet = (
                     db_entry["episodeFile"]["qualityCutoffNotMet"]
                     if "episodeFile" in db_entry
@@ -2760,13 +2773,13 @@ class Arr:
                     if request:
                         to_update[self.model_file.IsRequest] = request
 
-                    self.logger.trace(
+                    self.logger.debug(
                         "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
-                        title,
-                        searched,
-                        upgrade,
-                        qualityMet,
-                        customFormatMet,
+                        title.ljust(60, "."),
+                        str(searched).ljust(5),
+                        str(upgrade).ljust(5),
+                        str(qualityMet).ljust(5),
+                        str(customFormatMet).ljust(5),
                     )
 
                     db_commands = self.model_file.insert(
@@ -3277,7 +3290,7 @@ class Arr:
                 return self._temp_overseer_request_cache
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
+                self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
                 raise
@@ -4447,14 +4460,9 @@ class Arr:
                             .first()
                         )
                         if episode.EpisodeFileId != 0:
-                            cfunmet = (
-                                customFormat < episode.CustomFormatScore
-                                or customFormat < episode.MinCustomFormatScore
-                            )
-                        elif self.force_minimum_custom_format:
-                            cfunmet = customFormat < episode.MinCustomFormatScore
-                        else:
-                            return True
+                            cfunmet = customFormat < episode.CustomFormatScore
+                        if self.force_minimum_custom_format:
+                            cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
                         if cfunmet:
                             return True
                         else:
@@ -4514,14 +4522,9 @@ class Arr:
                         self.model_file.select().where(self.model_file.EntryId == entry).first()
                     )
                     if movie.MovieFileId != 0:
-                        cfunmet = (
-                            customFormat < movie.CustomFormatScore
-                            or customFormat < movie.MinCustomFormatScore
-                        )
-                    elif self.force_minimum_custom_format:
-                        cfunmet = customFormat < episode.MinCustomFormatScore
-                    else:
-                        return True
+                        cfunmet = customFormat < movie.CustomFormatScore
+                    if self.force_minimum_custom_format:
+                        cfunmet = cfunmet & customFormat < movie.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
