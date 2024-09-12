@@ -1,5 +1,36 @@
 # Changelog
 
+## v4.9.3 (12/09/2024)
+- [[patch] Merge pull request #105 from Feramance/104-issue-qbitrr-creating-folder-named-from-qbittorrent-category](https://github.com/Feramance/qBitrr/commit/f22506922bfcec040dcb6ec08cf87ab848ae1b72) - @Feramance
+- [Key error decode fix test](https://github.com/Feramance/qBitrr/commit/c038481bf3dd060a5006a267a47f622a0bc81727) - @Feramance
+- [ljust fixes](https://github.com/Feramance/qBitrr/commit/650e1392ac457dabed9e0885085784400b4add31) - @Feramance
+- [Additional log adjustments](https://github.com/Feramance/qBitrr/commit/4d298b2267ccd670fc56ad1d1c01e6e0ccdfd250) - @Feramance
+- [Further logging adjustments](https://github.com/Feramance/qBitrr/commit/9c5dd853aa4beeceb27fd75c4fdf686de05fcd5d) - @Feramance
+- [Log adjustments](https://github.com/Feramance/qBitrr/commit/805036696a04c53150fcbeaf12564bc65ca0d5d4) - @Feramance
+- [Logs adjustments](https://github.com/Feramance/qBitrr/commit/e18f0431ac9cc7688c54adc50b7ae98107dd1f83) - @Feramance
+- [Remove logging for known occasional qbittorrent api error](https://github.com/Feramance/qBitrr/commit/42a18a2cc6cfa14ee4c582814497f3df23f7b90d) - @Feramance
+- [CF adjustments](https://github.com/Feramance/qBitrr/commit/ccb44f94c9eec3264812e5da01090c6506b71643) - @Feramance
+- [Category path checking](https://github.com/Feramance/qBitrr/commit/7bc3976f98e43e7269c21c542e556ec8a3c0a1d8) - @Feramance
+- [Moved some logic](https://github.com/Feramance/qBitrr/commit/c620f8428d13e04bd4b61ce8f11bb939f367f011) - @Feramance
+- [checking categories](https://github.com/Feramance/qBitrr/commit/d27917e171b314c208743354ec62d6e345b9542e) - @Feramance
+- [CF updates](https://github.com/Feramance/qBitrr/commit/681d962194ad8348c3a9ca41132b9425afc06463) - @Feramance
+- [Adjusted query error](https://github.com/Feramance/qBitrr/commit/f6492344979f9dc1649dff6209ebd63b5ee9a693) - @Feramance
+- [Adjusted query](https://github.com/Feramance/qBitrr/commit/78677e81c4e6b0656696ec0abc595e1134840695) - @Feramance
+- [Debug updates](https://github.com/Feramance/qBitrr/commit/5e1fc2a0469cd5dba31b72dc0acf69fab10057db) - @Feramance
+- [more debugs](https://github.com/Feramance/qBitrr/commit/ed9fee44c622925b217d02c9b986e66a504cdb5d) - @Feramance
+- [Additional logging](https://github.com/Feramance/qBitrr/commit/978f67ffc9ad4103742fe1938b9aa959c5cb0050) - @Feramance
+- [Value fix](https://github.com/Feramance/qBitrr/commit/0ddf99a13215c15d1fed8ebab5c680a285026295) - @Feramance
+- [Set hash compare to upper](https://github.com/Feramance/qBitrr/commit/343a4a60112c5e18a750fffb8e338fe8b6c7206f) - @Feramance
+- [More logs](https://github.com/Feramance/qBitrr/commit/edd6b1bff820a7a5b6dde14d01cee9575c77cbbc) - @Feramance
+- [Testing changes](https://github.com/Feramance/qBitrr/commit/bdf464af1d7747586094eb84137bb644a84ab4d4) - @Feramance
+- [Added logging](https://github.com/Feramance/qBitrr/commit/1a42639e4c09e74a32f5a500f8d563dafef34d80) - @Feramance
+- [More changes](https://github.com/Feramance/qBitrr/commit/19ee712716b81b952923f30afb444e5b8a950f43) - @Feramance
+- [condition fixes](https://github.com/Feramance/qBitrr/commit/0d3e868f7889508897e4d2f9e7ae235cecfaf8a0) - @Feramance
+- [fix filter issues](https://github.com/Feramance/qBitrr/commit/25e1ab35ba27674280e63ce1e01dd51d0170430b) - @Feramance
+- [custom_format_unmet_check adjustment](https://github.com/Feramance/qBitrr/commit/4f3fbb58db240eb8f7bbc329f36c64f56ce60f6e) - @Feramance
+
+---
+
 ## v4.9.2 (23/08/2024)
 - [[patch] Added arm docker builds to release](https://github.com/Feramance/qBitrr/commit/0a37ea09a9d32c4d03cc3c862049f3964a725568) - @Feramance
 
@@ -273,8 +304,3 @@
 
 ## v4.5.12 (08/05/2024)
 - [[patch] release update](https://github.com/Feramance/qBitrr/commit/7f895069deff14f561636eb745e595ed2acbd103) - @Feramance
-
----
-
-## v4.5.11 (08/05/2024)
-- [[patch] Release update](https://github.com/Feramance/qBitrr/commit/36f924b42be2d544b0c36ca961b62cba74398bd5) - @Feramance
