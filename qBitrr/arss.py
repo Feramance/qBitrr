@@ -4435,6 +4435,9 @@ class Arr:
                     completed = True
             if len(queue["records"]) > 0:
                 if self.type == "sonarr":
+                    # assuming by default it's not unmet to prevent early reseraching and deleeting
+                    cfunmet = False
+
                     if not self.series_search:
                         entry = next(
                             (
@@ -4444,8 +4447,10 @@ class Arr:
                             ),
                             None,
                         )
+
                         if not entry:
                             return False
+
                         customFormat = next(
                             (
                                 record["customFormatScore"]
@@ -4454,20 +4459,19 @@ class Arr:
                             ),
                             None,
                         )
+
                         episode = (
                             self.model_file.select()
                             .where(self.model_file.EntryId == entry)
                             .first()
                         )
+
                         if episode.EpisodeFileId != 0:
                             cfunmet = customFormat < episode.CustomFormatScore
                             if self.force_minimum_custom_format:
                                 cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
 
-                        if cfunmet:
-                            return True
-                        else:
-                            return False
+                        return cfunmet
                     else:
                         entry = next(
                             (
@@ -4477,8 +4481,10 @@ class Arr:
                             ),
                             None,
                         )
+
                         if not entry:
                             return False
+
                         customFormat = next(
                             (
                                 record["customFormatScore"]
@@ -4487,19 +4493,17 @@ class Arr:
                             ),
                             None,
                         )
+
                         series = (
                             self.model_file.select()
                             .where(self.model_file.EntryId == entry)
                             .first()
                         )
+
                         if self.force_minimum_custom_format:
                             cfunmet = customFormat < series.MinCustomFormatScore
-                        else:
-                            return True
-                        if cfunmet:
-                            return True
-                        else:
-                            return False
+
+                        return cfunmet
                 elif self.type == "radarr":
                     entry = next(
                         (
@@ -4509,8 +4513,10 @@ class Arr:
                         ),
                         None,
                     )
+
                     if not entry:
                         return False
+
                     customFormat = next(
                         (
                             record["customFormatScore"]
@@ -4522,14 +4528,16 @@ class Arr:
                     movie = (
                         self.model_file.select().where(self.model_file.EntryId == entry).first()
                     )
+
+                    # assuming by default it's not unmet to prevent early reseraching and deleeting
+                    cfunmet = False
+
                     if movie.MovieFileId != 0:
                         cfunmet = customFormat < movie.CustomFormatScore
                         if self.force_minimum_custom_format:
                             cfunmet = cfunmet & customFormat < movie.MinCustomFormatScore
-                    if cfunmet:
-                        return True
-                    else:
-                        return False
+
+                    return cfunmet
         except KeyError:
             pass
 
