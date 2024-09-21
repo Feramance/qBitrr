@@ -4460,10 +4460,10 @@ class Arr:
                             .first()
                         )
                         if episode.EpisodeFileId != 0:
-                            cfunmet = customFormat < episode.CustomFormatScore                            
+                            cfunmet = customFormat < episode.CustomFormatScore
                             if self.force_minimum_custom_format:
                                 cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
-                                
+
                         if cfunmet:
                             return True
                         else:
