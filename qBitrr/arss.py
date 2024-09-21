@@ -4460,9 +4460,10 @@ class Arr:
                             .first()
                         )
                         if episode.EpisodeFileId != 0:
-                            cfunmet = customFormat < episode.CustomFormatScore
-                        if self.force_minimum_custom_format:
-                            cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
+                            cfunmet = customFormat < episode.CustomFormatScore                            
+                            if self.force_minimum_custom_format:
+                                cfunmet = cfunmet & customFormat < episode.MinCustomFormatScore
+                                
                         if cfunmet:
                             return True
                         else:
@@ -4523,8 +4524,8 @@ class Arr:
                     )
                     if movie.MovieFileId != 0:
                         cfunmet = customFormat < movie.CustomFormatScore
-                    if self.force_minimum_custom_format:
-                        cfunmet = cfunmet & customFormat < movie.MinCustomFormatScore
+                        if self.force_minimum_custom_format:
+                            cfunmet = cfunmet & customFormat < movie.MinCustomFormatScore
                     if cfunmet:
                         return True
                     else:
