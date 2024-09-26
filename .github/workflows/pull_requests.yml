@@ -88,11 +88,11 @@ jobs:
         PYTHONUNBUFFERED: 1
       run: |
         pyinstaller build.spec
-       # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
+        # This step exists for debugging.  Such as checking if data files were included correctly by PyInstaller.
     - name: List distribution files
       run: |
         find dist
-       # Archive the PyInstaller build using the appropriate tool for the platform.
+        # Archive the PyInstaller build using the appropriate tool for the platform.
     - name: Tar files
       if: runner.os != 'Windows'
       run: |
@@ -102,7 +102,7 @@ jobs:
       shell: pwsh
       run: |
         Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
-       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
+      # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
