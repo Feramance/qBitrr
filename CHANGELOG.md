@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.9.6 (27/09/2024)
+- [[patch] Adjust search loop when using search by year](https://github.com/Feramance/qBitrr/commit/076901c2749609dc4710fadbd56a95bd71999f9f) - @Feramance
+
+---
+
 ## v4.9.5 (27/09/2024)
 - [[patch] Fix for Attribute error in PlaceHolderArr Class](https://github.com/Feramance/qBitrr/commit/1fa6453163d555e1f98669e40cf36a4b1e24b9a8) - @Feramance
 - [Formatting changes](https://github.com/Feramance/qBitrr/commit/e14bc3440f89a63030c303c20fdd5f9213e91bc8) - @Feramance
@@ -303,8 +308,3 @@
 - [Free space Units update](https://github.com/Feramance/qBitrr/commit/3111d9b5f399538a4e6f1cd5cc2453d3846a092e) - @Feramance
 - [Added Free Space logging](https://github.com/Feramance/qBitrr/commit/0d0d6d14a3c2d896d943c88450860e85a6d4aa60) - @Feramance
 - [Test size parsing](https://github.com/Feramance/qBitrr/commit/7d12820dbf8b54dedc208513f2f3e58ecc30386f) - @Feramance
-
----
-
-## v4.6.0 (08/05/2024)
-- [[minor] A bunch of release changes and logic update for FreeSpace](https://github.com/Feramance/qBitrr/commit/0db7f8578ba0feafda576b589ce322e1fcb4e2e5) - @Feramance
