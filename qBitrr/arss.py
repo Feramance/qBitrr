@@ -5116,6 +5116,7 @@ class PlaceHolderArr(Arr):
         run_logs(self.logger)
         self.search_missing = False
         self.session = None
+        self.search_setup_completed = False
         self.logger.hnotice("Starting %s monitor", self._name)
 
     def _process_errored(self):
