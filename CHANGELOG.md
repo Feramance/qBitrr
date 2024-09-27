@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.9.5 (27/09/2024)
+- [[patch] Fix for Attribute error in PlaceHolderArr Class](https://github.com/Feramance/qBitrr/commit/1fa6453163d555e1f98669e40cf36a4b1e24b9a8) - @Feramance
+- [Formatting changes](https://github.com/Feramance/qBitrr/commit/e14bc3440f89a63030c303c20fdd5f9213e91bc8) - @Feramance
+
+---
+
 ## v4.9.4 (26/09/2024)
 - [[patch] Merge pull request #109 from hunmar/patch-2](https://github.com/Feramance/qBitrr/commit/2d3af0c7eaa5db3aec26e35d5f0e5cef4146d026) - @Feramance
 - [better](https://github.com/Feramance/qBitrr/commit/23362a88b4e79fb500574b85956434c14ecef0fa) - @hunmar
@@ -302,8 +308,3 @@
 
 ## v4.6.0 (08/05/2024)
 - [[minor] A bunch of release changes and logic update for FreeSpace](https://github.com/Feramance/qBitrr/commit/0db7f8578ba0feafda576b589ce322e1fcb4e2e5) - @Feramance
-
----
-
-## v4.5.13 (08/05/2024)
-- [[patch] Exclude testing](https://github.com/Feramance/qBitrr/commit/aad3382e5c9313aed7cddba0dfd99440a40d46bb) - @Feramance
