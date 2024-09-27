@@ -4883,6 +4883,7 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif datetime.now() >= (timer + loop_timer):
                                 self.refresh_download_queue()
+                                time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
