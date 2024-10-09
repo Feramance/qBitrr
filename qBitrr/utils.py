@@ -17,12 +17,7 @@ logger = logging.getLogger("qBitrr.Utils")
 
 CACHE = TTLCache(maxsize=50, ttl=60)
 
-UNITS = {
-    "k": 1024,
-    "m": 1048576,
-    "g": 1073741824,
-    "t": 1099511627776,
-}
+UNITS = {"k": 1024, "m": 1048576, "g": 1073741824, "t": 1099511627776}
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
@@ -110,12 +105,7 @@ def _basic_ping(hostname):
         CACHE[hostname] = True
         return True
     except Exception as e:
-        logger.debug(
-            "Error when connecting to host: %s %s %s",
-            hostname,
-            host,
-            e,
-        )
+        logger.debug("Error when connecting to host: %s %s %s", hostname, host, e)
         return False
 
 
@@ -130,11 +120,7 @@ def is_connected(hostname):
         CACHE[hostname] = True
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
-        logger.debug(
-            "Error when connecting to host: %s %s",
-            hostname,
-            e,
-        )
+        logger.debug("Error when connecting to host: %s %s", hostname, e)
     except (
         Exception
     ):  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
@@ -144,7 +130,7 @@ def is_connected(hostname):
 def parse_size(size):
     m = re.match(r"^([0-9]+(?:\.[0-9]+)?)([kmgt]?)$", size, re.IGNORECASE)
     if not m:
-        raise ValueError(f"Unsupported value for leave_free_space")
+        raise ValueError("Unsupported value for leave_free_space")
     val = float(m.group(1))
     unit = m.group(2)
     if unit:

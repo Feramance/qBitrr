@@ -39,10 +39,7 @@ def _add_settings_section(config: TOMLDocument):
         ENVIRO_CONFIG.settings.console_level or "INFO",
     )
     _gen_default_line(
-        settings,
-        "Enable logging to files",
-        "Logging",
-        ENVIRO_CONFIG.settings.logging or True,
+        settings, "Enable logging to files", "Logging", ENVIRO_CONFIG.settings.logging or True
     )
     _gen_default_line(
         settings,
@@ -93,10 +90,7 @@ def _add_settings_section(config: TOMLDocument):
         ENVIRO_CONFIG.settings.recheck_category or "recheck",
     )
     _gen_default_line(
-        settings,
-        "Tagless operation",
-        "Tagless",
-        ENVIRO_CONFIG.settings.tagless or False,
+        settings, "Tagless operation", "Tagless", ENVIRO_CONFIG.settings.tagless or False
     )
     _gen_default_line(
         settings,
@@ -208,10 +202,7 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         True,
     )
     _gen_default_line(
-        cat_default,
-        "The Servarr's Import Mode(one of Move, Copy or Auto)",
-        "importMode",
-        "Auto",
+        cat_default, "The Servarr's Import Mode(one of Move, Copy or Auto)", "importMode", "Auto"
     )
     _gen_default_line(
         cat_default,
@@ -472,31 +463,19 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
         )
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
         _gen_default_line(
-            tracker_table,
-            "Set this value to -1 to disabled it",
-            "DownloadRateLimit",
-            -1,
+            tracker_table, "Set this value to -1 to disabled it", "DownloadRateLimit", -1
         )
         tracker_table.add(comment("Set the maximum allowed upload rate for torrents"))
         _gen_default_line(
-            tracker_table,
-            "Set this value to -1 to disabled it",
-            "UploadRateLimit",
-            -1,
+            tracker_table, "Set this value to -1 to disabled it", "UploadRateLimit", -1
         )
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
         _gen_default_line(
-            tracker_table,
-            "Set this value to -1 to disabled it",
-            "MaxUploadRatio",
-            -1,
+            tracker_table, "Set this value to -1 to disabled it", "MaxUploadRatio", -1
         )
         tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
         _gen_default_line(
-            tracker_table,
-            "Set this value to -1 to disabled it",
-            "MaxSeedingTime",
-            -1,
+            tracker_table, "Set this value to -1 to disabled it", "MaxSeedingTime", -1
         )
         _gen_default_line(
             tracker_table,
@@ -618,24 +597,9 @@ def _gen_default_search_table(category: str, cat_default: Table):
         "SearchAgainOnSearchCompletion",
         True,
     )
-    _gen_default_line(
-        search_table,
-        "Use Temp profile for missing",
-        "UseTempForMissing",
-        False,
-    )
-    _gen_default_line(
-        search_table,
-        "Main quality profile",
-        "MainQualityProfile",
-        "CHANGE_ME",
-    )
-    _gen_default_line(
-        search_table,
-        "Temp quality profile",
-        "TempQualityProfile",
-        "CHANGE_ME",
-    )
+    _gen_default_line(search_table, "Use Temp profile for missing", "UseTempForMissing", False)
+    _gen_default_line(search_table, "Main quality profile", "MainQualityProfile", "CHANGE_ME")
+    _gen_default_line(search_table, "Temp quality profile", "TempQualityProfile", "CHANGE_ME")
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
@@ -740,8 +704,7 @@ class MyConfig:
                     return self
             except OSError as err:
                 self._value_error(
-                    err,
-                    "Possible permissions while attempting to read the config file.\n",
+                    err, "Possible permissions while attempting to read the config file.\n"
                 )
             except TypeError as err:
                 self._value_error(err, "While attempting to read the config file.\n")
@@ -776,11 +739,11 @@ class MyConfig:
 def _write_config_file(docker=False) -> pathlib.Path:
     doc = generate_doc()
     file_name = "config.rename_me.toml" if docker else "config.toml"
-    CONFIG_FILE = HOME_PATH.joinpath(file_name)
-    if CONFIG_FILE.exists() and not docker:
-        print(f"{CONFIG_FILE} already exists, File is not being replaced.")
-        CONFIG_FILE = pathlib.Path.cwd().joinpath("config_new.toml")
-    config = MyConfig(CONFIG_FILE, config=doc)
+    config_file = HOME_PATH.joinpath(file_name)
+    if config_file.exists() and not docker:
+        print(f"{config_file} already exists, File is not being replaced.")
+        config_file = pathlib.Path.cwd().joinpath("config_new.toml")
+    config = MyConfig(config_file, config=doc)
     config.save()
-    print(f'New config file has been saved to "{CONFIG_FILE}"')
-    return CONFIG_FILE
+    print(f'New config file has been saved to "{config_file}"')
+    return config_file

@@ -40,7 +40,7 @@ else:
 
 CHILD_PROCESSES = []
 
-logger = logging.getLogger(f"qBitrr")
+logger = logging.getLogger("qBitrr")
 # if ENABLE_LOGS:
 #     LOGS_FOLDER = HOME_PATH.joinpath("logs")
 #     LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
@@ -68,12 +68,12 @@ class qBitManager:
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
-            LOGS_FOLDER = HOME_PATH.joinpath("logs")
-            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-            LOGS_FOLDER.chmod(mode=0o777)
-            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logold = logs_folder.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
@@ -128,8 +128,7 @@ class qBitManager:
         ):  # <= self.max_supported_version):
             if self._validated_version:
                 self.logger.info(
-                    "Current qBitTorrent version is supported: %s",
-                    self.current_qbit_version,
+                    "Current qBitTorrent version is supported: %s", self.current_qbit_version
                 )
             else:
                 self.logger.warning(

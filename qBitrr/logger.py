@@ -97,33 +97,33 @@ def run_logs(logger: Logger) -> None:
         level=logging._nameToLevel.get(CONSOLE_LOGGING_LEVEL_STRING),
         fmt="[%(asctime)-15s] [pid:%(process)8d][tid:%(thread)8d] "
         f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
-        level_styles=dict(
-            trace=dict(color="black", bold=True),
-            debug=dict(color="magenta", bold=True),
-            verbose=dict(color="blue", bold=True),
-            info=dict(color="white"),
-            notice=dict(color="cyan"),
-            hnotice=dict(color="cyan", bold=True),
-            warning=dict(color="yellow", bold=True),
-            success=dict(color="green", bold=True),
-            error=dict(color="red"),
-            critical=dict(color="red", bold=True),
-        ),
-        field_styles=dict(
-            asctime=dict(color="green"),
-            process=dict(color="magenta"),
-            levelname=dict(color="red", bold=True),
-            name=dict(color="blue", bold=True),
-            thread=dict(color="cyan"),
-        ),
+        level_styles={
+            "trace": {"color": "black", "bold": True},
+            "debug": {"color": "magenta", "bold": True},
+            "verbose": {"color": "blue", "bold": True},
+            "info": {"color": "white"},
+            "notice": {"color": "cyan"},
+            "hnotice": {"color": "cyan", "bold": True},
+            "warning": {"color": "yellow", "bold": True},
+            "success": {"color": "green", "bold": True},
+            "error": {"color": "red"},
+            "critical": {"color": "red", "bold": True},
+        },
+        field_styles={
+            "asctime": {"color": "green"},
+            "process": {"color": "magenta"},
+            "levelname": {"color": "red", "bold": True},
+            "name": {"color": "blue", "bold": True},
+            "thread": {"color": "cyan"},
+        },
         reconfigure=True,
     )
     if HAS_RUN is False:
         HAS_RUN = True
-        log_Debugs(logger)
+        log_debugs(logger)
 
 
-def log_Debugs(logger):
+def log_debugs(logger):
     logger.debug("Log Level: %s", CONSOLE_LOGGING_LEVEL_STRING)
     logger.debug("Ping URLs:  %s", PING_URLS)
     logger.debug("Script Config:  Logging=%s", ENABLE_LOGS)
@@ -135,14 +135,8 @@ def log_Debugs(logger):
     logger.debug("Script Config:  LoopSleepTimer=%s", LOOP_SLEEP_TIMER)
     logger.debug("Script Config:  SearchLoopDelay=%s", SEARCH_LOOP_DELAY)
     logger.debug("Script Config:  AutoPauseResume=%s", AUTO_PAUSE_RESUME)
-    logger.debug(
-        "Script Config:  NoInternetSleepTimer=%s",
-        NO_INTERNET_SLEEP_TIMER,
-    )
-    logger.debug(
-        "Script Config:  IgnoreTorrentsYoungerThan=%s",
-        IGNORE_TORRENTS_YOUNGER_THAN,
-    )
+    logger.debug("Script Config:  NoInternetSleepTimer=%s", NO_INTERNET_SLEEP_TIMER)
+    logger.debug("Script Config:  IgnoreTorrentsYoungerThan=%s", IGNORE_TORRENTS_YOUNGER_THAN)
 
 
 if COPIED_TO_NEW_DIR is False and not HOME_PATH.joinpath("config.toml").exists():
