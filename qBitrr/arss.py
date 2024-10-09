@@ -553,7 +553,7 @@ class Arr:
         return torrent.state_enum in (TorrentStates.DOWNLOADING, TorrentStates.PAUSED_DOWNLOAD)
 
     def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
-        retrun_value = False
+        return_value = False
         if TAGLESS:
             condition = (
                 self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
@@ -566,22 +566,20 @@ class Arr:
                 condition &= self.torrents.AllowedStalled is True
             elif tag == "qBitrr-free_space_paused":
                 condition &= self.torrents.FreeSpacePaused is True
+            elif tag == "qBitrr-ignored":
+                return_value = "qBitrr-ignored" in torrent.tags
             query = self.torrents.select().where(condition).execute()
             if query:
-                retrun_value = True
+                return_value = True
             else:
-                retrun_value = False
+                return_value = False
         else:
-            if "qBitrr-allowed_seeding" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-imported" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-allowed_stalled" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-free_space_paused" in torrent.tags:
-                retrun_value = True
+            if tag in torrent.tags:
+                return_value = True
+            else:
+                return_value = True
 
-        if retrun_value:
+        if return_value:
             self.logger.trace("Tag %s in %s", tag, torrent.name)
             return True
         else:
