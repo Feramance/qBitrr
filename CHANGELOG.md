@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.9.7 (09/10/2024)
+- [[patch] Potential log fix](https://github.com/Feramance/qBitrr/commit/8021d8f72f325b87ff774b63fd39b88bd84638c4) - @Feramance
+
+---
+
 ## v4.9.6 (27/09/2024)
 - [[patch] Adjust search loop when using search by year](https://github.com/Feramance/qBitrr/commit/076901c2749609dc4710fadbd56a95bd71999f9f) - @Feramance
 
@@ -295,16 +300,3 @@
 
 ## v4.6.2 (17/05/2024)
 - [[patch] Config file fix](https://github.com/Feramance/qBitrr/commit/ffb39771f6215332461518d77cb36fe5911f9e35) - @Feramance
-
----
-
-## v4.6.1 (16/05/2024)
-- [[patch] Free Space logic adjustment](https://github.com/Feramance/qBitrr/commit/37f1465f1bd6e8853be3d7b44e54513f68d168c9) - @Feramance
-- [More fixes](https://github.com/Feramance/qBitrr/commit/a12bbd3fca05e75e3ba2f7f8d417a459fd742df3) - @Feramance
-- [Logging fixes](https://github.com/Feramance/qBitrr/commit/38115894e558fc128a99d704a823c42fe6fa45a8) - @Feramance
-- [Moved logger initialisation](https://github.com/Feramance/qBitrr/commit/c63d4b54968c29cc304b1c4e19a1ef851a5347f0) - @Feramance
-- [Free Space folder update](https://github.com/Feramance/qBitrr/commit/da0acd605ef1db9cceee0ed569d6f195092e5a32) - @Feramance
-- [Adjusting free space path check](https://github.com/Feramance/qBitrr/commit/ef89bc15e3d2a2d6d86af55bb19999006b0869f4) - @Feramance
-- [Free space Units update](https://github.com/Feramance/qBitrr/commit/3111d9b5f399538a4e6f1cd5cc2453d3846a092e) - @Feramance
-- [Added Free Space logging](https://github.com/Feramance/qBitrr/commit/0d0d6d14a3c2d896d943c88450860e85a6d4aa60) - @Feramance
-- [Test size parsing](https://github.com/Feramance/qBitrr/commit/7d12820dbf8b54dedc208513f2f3e58ecc30386f) - @Feramance
