@@ -1,5 +1,5 @@
 site_name: qBitrr
-site_description: This is a simple vector python package.
+site_description: A simple script to monitor qBittorrent and communicate with Radarr and Sonarr
 
 repo_url: https://github.com/franneck94/Python-Project-Template
 repo_name: franneck94/Python-Project-Template
