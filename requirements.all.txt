@@ -12,17 +12,17 @@ backports-tarfile==1.2.0
     # via jaraco-context
 black==24.3.0
     # via qBitrr2 (setup.py)
-build==1.2.1
+build==1.2.2.post1
     # via pip-tools
 bump2version==1.0.1
     # via qBitrr2 (setup.py)
 cachetools==5.3.2
     # via qBitrr2 (setup.py)
-certifi==2024.7.4
+certifi==2024.8.30
     # via requests
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.2
+charset-normalizer==3.4.0
     # via requests
 click==8.1.7
     # via
@@ -37,11 +37,11 @@ colorama==0.4.4
     #   twine
 coloredlogs==15.0.1
     # via qBitrr2 (setup.py)
-dill==0.3.8
+dill==0.3.9
     # via
     #   multiprocess
     #   pathos
-distlib==0.3.8
+distlib==0.3.9
     # via virtualenv
 docutils==0.21.2
     # via readme-renderer
@@ -49,17 +49,17 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.15.4
+filelock==3.16.1
     # via virtualenv
 future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.6.0
+identify==2.6.1
     # via pre-commit
-idna==3.7
+idna==3.10
     # via requests
-importlib-metadata==8.4.0
+importlib-metadata==8.5.0
     # via
     #   keyring
     #   twine
@@ -73,17 +73,17 @@ jaraco-context==6.0.1
     #   keyring
 jaraco-docker==2.0
     # via qBitrr2 (setup.py)
-jaraco-functools==4.0.2
+jaraco-functools==4.1.0
     # via
     #   jaraco-docker
     #   keyring
-keyring==25.3.0
+keyring==25.4.1
     # via twine
-more-itertools==10.4.0
+more-itertools==10.5.0
     # via
     #   jaraco-classes
     #   jaraco-functools
-multiprocess==0.70.16
+multiprocess==0.70.17
     # via pathos
 mypy-extensions==1.0.0
     # via black
@@ -106,7 +106,7 @@ pathspec==0.12.1
     # via black
 peewee==3.14.7
     # via qBitrr2 (setup.py)
-pefile==2023.2.7
+pefile==2024.8.26
     # via pyinstaller
 ping3==3.0.2
     # via qBitrr2 (setup.py)
@@ -114,13 +114,13 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.11.1
     # via twine
-platformdirs==4.2.2
+platformdirs==4.3.6
     # via
     #   black
     #   virtualenv
-pox==0.3.4
+pox==0.3.5
     # via pathos
-ppft==1.7.6.8
+ppft==1.7.6.9
     # via pathos
 pre-commit==3.3.3
     # via qBitrr2 (setup.py)
@@ -132,9 +132,9 @@ pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
 pyinstaller-hooks-contrib==2024.8
     # via pyinstaller
-pyproject-hooks==1.1.0
+pyproject-hooks==1.2.0
     # via build
-pyreadline3==3.4.1
+pyreadline3==3.5.4
     # via humanfriendly
 pyupgrade==2.31.0
     # via qBitrr2 (setup.py)
@@ -163,7 +163,7 @@ six==1.16.0
     # via qbittorrent-api
 tokenize-rt==6.0.0
     # via pyupgrade
-tomli==2.0.1
+tomli==2.0.2
     # via
     #   black
     #   build
@@ -174,7 +174,7 @@ tqdm==4.66.5
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.32.0.20240712
+types-requests==2.32.0.20240914
     # via pyarr
 typing-extensions==4.12.2
     # via black
@@ -182,16 +182,16 @@ ujson==5.4.0
     # via qBitrr2 (setup.py)
 upgrade-pip==0.1.4
     # via qBitrr2 (setup.py)
-urllib3==2.2.2
+urllib3==2.2.3
     # via
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.26.3
+virtualenv==20.26.6
     # via pre-commit
 wheel==0.44.0
     # via pip-tools
-zipp==3.20.0
+zipp==3.20.2
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
