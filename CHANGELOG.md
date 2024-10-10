@@ -1,5 +1,22 @@
 # Changelog
 
+## v4.9.9 (10/10/2024)
+- [[patch] Windows log files fixes](https://github.com/Feramance/qBitrr/commit/504fe066aa9c16a07d6d2c3512516f3ae5a1a91e) - @Feramance
+- [Workflow update](https://github.com/Feramance/qBitrr/commit/4b8fa67af7bbc18470e4310db61707cbe53e5902) - @Feramance
+- [Added mkdocs](https://github.com/Feramance/qBitrr/commit/babc2a0e260cf20a80c02d27b9a65b56cce1c723) - @Feramance
+- [Requirements bump](https://github.com/Feramance/qBitrr/commit/c15564e81e5e0b38a265abca3961a1a89fdf8d6c) - @Feramance
+- [Merge pull request #116 from Feramance/workflow-tests](https://github.com/Feramance/qBitrr/commit/65893f0980f97cab0bbaa9e69a25fb54d16fd3cf) - @Feramance
+- [pr workflow tests](https://github.com/Feramance/qBitrr/commit/a0f8a9583084efead10c87b328ba0c86e8074a9c) - @Feramance
+- [Merge pull request #113 from Feramance/dependabot/github_actions/actions/checkout-4](https://github.com/Feramance/qBitrr/commit/76fc18ac77915869b2995a8d1afe3f9897066f0b) - @Feramance
+- [Merge branch 'master' into dependabot/github_actions/actions/checkout-4](https://github.com/Feramance/qBitrr/commit/04bb4b4c29bcc2f1b3736666c2b4ed086e4991bc) - @Feramance
+- [Merge pull request #114 from Feramance/dependabot/github_actions/pre-commit/action-3.0.1](https://github.com/Feramance/qBitrr/commit/98636e46997947554e954c891419332e2368197e) - @Feramance
+- [Merge pull request #115 from Feramance/dependabot/github_actions/actions/setup-python-5](https://github.com/Feramance/qBitrr/commit/60a42cdb55961f5980fb79aebd7a93aeb2dd4f04) - @Feramance
+- [Bump actions/setup-python from 2 to 5](https://github.com/Feramance/qBitrr/commit/ad7f5834c35adc1a5c86c62bd25a367d5712beb8) - @dependabot[bot]
+- [Bump pre-commit/action from 2.0.0 to 3.0.1](https://github.com/Feramance/qBitrr/commit/b83c201852ad9795f829e9d636900c1b8ed5798d) - @dependabot[bot]
+- [Bump actions/checkout from 2 to 4](https://github.com/Feramance/qBitrr/commit/afc7731ecaf23e25a42b1e27847e59d80b7bbd8c) - @dependabot[bot]
+
+---
+
 ## v4.9.8 (10/10/2024)
 - [[patch] Merge pull request #112 from Feramance/code-refactoring](https://github.com/Feramance/qBitrr/commit/9fd5276285a3ba7bf0de4082c778f6dbc1d7130f) - @Feramance
 - [[patch] Critical fix in torrent handling](https://github.com/Feramance/qBitrr/commit/5e72617dd38a24a4f6ce8ec27b195a4787218efd) - @Feramance
@@ -302,8 +319,3 @@
 
 ## v4.6.4 (17/05/2024)
 - [[patch] Exit status fix](https://github.com/Feramance/qBitrr/commit/681d1db6ad96c737dec8b4e9a14dbf3b6ed08a26) - @Feramance
-
----
-
-## v4.6.3 (17/05/2024)
-- [[patch] Config gen error on windows first run fix](https://github.com/Feramance/qBitrr/commit/977d0a3a5e8964dda2a429e1fe47be8ca0dd2b75) - @Feramance
