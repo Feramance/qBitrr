@@ -100,7 +100,7 @@ class Arr:
             logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = logs_folder.joinpath(self._name + ".log.old")
-                if pathlib.Path(logold).is_file():
+                if pathlib.Path(logold).exists():
                     logold.unlink()
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)

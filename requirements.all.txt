@@ -79,7 +79,6 @@ jaraco-functools==4.1.0
     #   keyring
 keyring==25.4.1
     # via twine
-mkdocs==1.6.1
 more-itertools==10.5.0
     # via
     #   jaraco-classes
