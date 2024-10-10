@@ -42,12 +42,14 @@ CHILD_PROCESSES = []
 
 logger = logging.getLogger("qBitrr")
 # if ENABLE_LOGS:
-#     LOGS_FOLDER = HOME_PATH.joinpath("logs")
-#     LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-#     LOGS_FOLDER.chmod(mode=0o777)
-#     logfile = LOGS_FOLDER.joinpath("qBitrr.log")
+#     logs_folder = HOME_PATH.joinpath("logs")
+#     logs_folder.mkdir(parents=True, exist_ok=True)
+#     logs_folder.chmod(mode=0o777)
+#     logfile = logs_folder.joinpath("qBitrr.log")
 #     if pathlib.Path(logfile).is_file():
-#         logold = LOGS_FOLDER.joinpath("qBitrr.log.old")
+#         logold = logs_folder.joinpath( "qBitrr.log.old")
+#         if pathlib.Path(logold).exists():
+#             logold.unlink()
 #         logfile.rename(logold)
 #     fh = logging.FileHandler(logfile)
 #     logger.addHandler(fh)
@@ -74,6 +76,8 @@ class qBitManager:
             logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = logs_folder.joinpath(self._name + ".log.old")
+                if pathlib.Path(logold).exists():
+                    logold.unlink()
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
