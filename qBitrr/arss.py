@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import logging
+import os
 import pathlib
 import re
 import shutil
@@ -101,7 +102,7 @@ class Arr:
             if pathlib.Path(logfile).is_file():
                 logold = logs_folder.joinpath(self._name + ".log.old")
                 try:
-                    logold.unlink()
+                    os.remove(logold)
                 except FileNotFoundError:
                     pass
                 logfile.rename(logold)
