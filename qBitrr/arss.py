@@ -75,13 +75,10 @@ if TYPE_CHECKING:
 
 class Arr:
     def __init__(
-        self,
-        name: str,
-        manager: ArrManager,
-        client_cls: type[Callable | RadarrAPI | SonarrAPI],
+        self, name: str, manager: ArrManager, client_cls: type[Callable | RadarrAPI | SonarrAPI]
     ):
         if name in manager.groups:
-            raise OSError("Group '{name}' has already been registered.")
+            raise OSError(f"Group '{name}' has already been registered.")
         self._name = name
         self.managed = CONFIG.get(f"{name}.Managed", fallback=False)
         if not self.managed:
@@ -97,12 +94,12 @@ class Arr:
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
-            LOGS_FOLDER = HOME_PATH.joinpath("logs")
-            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-            LOGS_FOLDER.chmod(mode=0o777)
-            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logold = logs_folder.joinpath(self._name + ".log.old")
                 if pathlib.Path(logold).is_file():
                     logold.unlink()
                 logfile.rename(logold)
@@ -204,8 +201,7 @@ class Arr:
         ):
             self.auto_delete = False
             self.logger.critical(
-                "AutoDelete disabled due to missing folder: '%s'",
-                self.completed_folder.parent,
+                "AutoDelete disabled due to missing folder: '%s'", self.completed_folder.parent
             )
 
         self.reset_on_completion = CONFIG.get(
@@ -369,20 +365,20 @@ class Arr:
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
         self.import_torrents = []
-        self.change_priority = dict()
+        self.change_priority = {}
         self.recheck = set()
         self.pause = set()
         self.skip_blacklist = set()
         self.delete = set()
         self.resume = set()
         self.remove_from_qbit = set()
-        self.overseerr_requests_release_cache = dict()
+        self.overseerr_requests_release_cache = {}
         self.files_to_explicitly_delete: Iterator = iter([])
         self.files_to_cleanup = set()
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
-        self.recently_queue = dict()
+        self.recently_queue = {}
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
@@ -419,26 +415,17 @@ class Arr:
             self.refresh_downloads_timer,
             self.rss_sync_timer,
         )
+        self.logger.debug("Script Config:  CaseSensitiveMatches=%s", self.case_sensitive_matches)
+        self.logger.debug("Script Config:  FolderExclusionRegex=%s", self.folder_exclusion_regex)
         self.logger.debug(
-            "Script Config:  CaseSensitiveMatches=%s",
-            self.case_sensitive_matches,
+            "Script Config:  FileNameExclusionRegex=%s", self.file_name_exclusion_regex
         )
         self.logger.debug(
-            "Script Config:  FolderExclusionRegex=%s",
-            self.folder_exclusion_regex,
-        )
-        self.logger.debug(
-            "Script Config:  FileNameExclusionRegex=%s",
-            self.file_name_exclusion_regex,
-        )
-        self.logger.debug(
-            "Script Config:  FileExtensionAllowlist=%s",
-            self.file_extension_allowlist,
+            "Script Config:  FileExtensionAllowlist=%s", self.file_extension_allowlist
         )
         self.logger.debug("Script Config:  AutoDelete=%s", self.auto_delete)
         self.logger.debug(
-            "Script Config:  IgnoreTorrentsYoungerThan=%s",
-            self.ignore_torrents_younger_than,
+            "Script Config:  IgnoreTorrentsYoungerThan=%s", self.ignore_torrents_younger_than
         )
         self.logger.debug("Script Config:  MaximumETA=%s", self.maximum_eta)
         self.logger.debug(
@@ -450,80 +437,36 @@ class Arr:
         self.logger.debug("Script Config:  StalledDelay=%s", self.stalled_delay)
 
         if self.search_missing:
+            self.logger.debug("Script Config:  SearchMissing=%s", self.search_missing)
+            self.logger.debug("Script Config:  AlsoSearchSpecials=%s", self.search_specials)
+            self.logger.debug("Script Config:  SearchByYear=%s", self.search_by_year)
+            self.logger.debug("Script Config:  SearchInReverse=%s", self.search_in_reverse)
+            self.logger.debug("Script Config:  CommandLimit=%s", self.search_command_limit)
             self.logger.debug(
-                "Script Config:  SearchMissing=%s",
-                self.search_missing,
+                "Script Config:  MaximumDeletablePercentage=%s", self.maximum_deletable_percentage
+            )
+            self.logger.debug("Script Config:  DoUpgradeSearch=%s", self.do_upgrade_search)
+            self.logger.debug(
+                "Script Config:  CustomFormatUnmetSearch=%s", self.custom_format_unmet_search
             )
             self.logger.debug(
-                "Script Config:  AlsoSearchSpecials=%s",
-                self.search_specials,
+                "Script Config:  PrioritizeTodaysReleases=%s", self.prioritize_todays_release
             )
-            self.logger.debug(
-                "Script Config:  SearchByYear=%s",
-                self.search_by_year,
-            )
-            self.logger.debug(
-                "Script Config:  SearchInReverse=%s",
-                self.search_in_reverse,
-            )
-            self.logger.debug(
-                "Script Config:  CommandLimit=%s",
-                self.search_command_limit,
-            )
-            self.logger.debug(
-                "Script Config:  MaximumDeletablePercentage=%s",
-                self.maximum_deletable_percentage,
-            )
-            self.logger.debug(
-                "Script Config:  DoUpgradeSearch=%s",
-                self.do_upgrade_search,
-            )
-            self.logger.debug(
-                "Script Config:  CustomFormatUnmetSearch=%s",
-                self.custom_format_unmet_search,
-            )
-            self.logger.debug(
-                "Script Config:  PrioritizeTodaysReleases=%s",
-                self.prioritize_todays_release,
-            )
-            self.logger.debug(
-                "Script Config:  SearchBySeries=%s",
-                self.series_search,
-            )
-            self.logger.debug(
-                "Script Config:  SearchOmbiRequests=%s",
-                self.ombi_search_requests,
-            )
+            self.logger.debug("Script Config:  SearchBySeries=%s", self.series_search)
+            self.logger.debug("Script Config:  SearchOmbiRequests=%s", self.ombi_search_requests)
             if self.ombi_search_requests:
-                self.logger.debug(
-                    "Script Config:  OmbiURI=%s",
-                    self.ombi_uri,
-                )
-                self.logger.debug(
-                    "Script Config:  OmbiAPIKey=%s",
-                    self.ombi_api_key,
-                )
-                self.logger.debug(
-                    "Script Config:  ApprovedOnly=%s",
-                    self.ombi_approved_only,
-                )
+                self.logger.debug("Script Config:  OmbiURI=%s", self.ombi_uri)
+                self.logger.debug("Script Config:  OmbiAPIKey=%s", self.ombi_api_key)
+                self.logger.debug("Script Config:  ApprovedOnly=%s", self.ombi_approved_only)
             self.logger.debug(
-                "Script Config:  SearchOverseerrRequests=%s",
-                self.overseerr_requests,
+                "Script Config:  SearchOverseerrRequests=%s", self.overseerr_requests
             )
             if self.overseerr_requests:
-                self.logger.debug(
-                    "Script Config:  OverseerrURI=%s",
-                    self.overseerr_uri,
-                )
-                self.logger.debug(
-                    "Script Config:  OverseerrAPIKey=%s",
-                    self.overseerr_api_key,
-                )
+                self.logger.debug("Script Config:  OverseerrURI=%s", self.overseerr_uri)
+                self.logger.debug("Script Config:  OverseerrAPIKey=%s", self.overseerr_api_key)
             if self.ombi_search_requests or self.overseerr_requests:
                 self.logger.debug(
-                    "Script Config:  SearchRequestsEvery=%s",
-                    self.search_requests_every_x_seconds,
+                    "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds
                 )
 
             if self.type == "sonarr":
@@ -542,11 +485,7 @@ class Arr:
                 ]
             )
         elif not QBIT_DISABLED and TAGLESS:
-            self.manager.qbit_manager.client.torrents_create_tags(
-                [
-                    "qBitrr-ignored",
-                ]
-            )
+            self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-ignored"])
         self.search_setup_completed = False
         self.model_file: EpisodeFilesModel | MoviesFilesModel = None
         self.series_file_model: SeriesFilesModel = None
@@ -611,41 +550,36 @@ class Arr:
     @staticmethod
     def is_downloading_state(torrent: TorrentDictionary) -> bool:
         """Returns True if the State is categorized as Downloading."""
-        return torrent.state_enum in (
-            TorrentStates.DOWNLOADING,
-            TorrentStates.PAUSED_DOWNLOAD,
-        )
+        return torrent.state_enum in (TorrentStates.DOWNLOADING, TorrentStates.PAUSED_DOWNLOAD)
 
     def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
-        retrun_value = False
+        return_value = False
         if TAGLESS:
             condition = (
                 self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
             )
             if tag == "qBitrr-allowed_seeding":
-                condition &= self.torrents.AllowedSeeding == True
+                condition &= self.torrents.AllowedSeeding is True
             elif tag == "qBitrr-imported":
-                condition &= self.torrents.Imported == True
+                condition &= self.torrents.Imported is True
             elif tag == "qBitrr-allowed_stalled":
-                condition &= self.torrents.AllowedStalled == True
+                condition &= self.torrents.AllowedStalled is True
             elif tag == "qBitrr-free_space_paused":
-                condition &= self.torrents.FreeSpacePaused == True
+                condition &= self.torrents.FreeSpacePaused is True
+            elif tag == "qBitrr-ignored":
+                return_value = "qBitrr-ignored" in torrent.tags
             query = self.torrents.select().where(condition).execute()
             if query:
-                retrun_value = True
+                return_value = True
             else:
-                retrun_value = False
+                return_value = False
         else:
-            if "qBitrr-allowed_seeding" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-imported" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-allowed_stalled" in torrent.tags:
-                retrun_value = True
-            elif "qBitrr-free_space_paused" in torrent.tags:
-                retrun_value = True
+            if tag in torrent.tags:
+                return_value = True
+            else:
+                return_value = True
 
-        if retrun_value:
+        if return_value:
             self.logger.trace("Tag %s in %s", tag, torrent.name)
             return True
         else:
@@ -941,9 +875,7 @@ class Arr:
             self.logger.debug("Pausing %s torrents", len(self.pause))
             for i in self.pause:
                 self.logger.debug(
-                    "Pausing %s (%s)",
-                    i,
-                    self.manager.qbit_manager.name_cache.get(i),
+                    "Pausing %s (%s)", i, self.manager.qbit_manager.name_cache.get(i)
                 )
             self.manager.qbit.torrents_pause(torrent_hashes=self.pause)
             self.pause.clear()
@@ -970,49 +902,41 @@ class Arr:
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
                     if self.type == "sonarr":
-                        completed = True
-                        while completed:
+                        while True:
                             try:
-                                completed = False
                                 self.client.post_command(
                                     "DownloadedEpisodesScan",
                                     path=str(path),
                                     downloadClientId=torrent.hash.upper(),
                                     importMode=self.import_mode,
                                 )
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                completed = True
-                        self.logger.success(
-                            "DownloadedEpisodesScan: %s",
-                            path,
-                        )
+                                continue
+                        self.logger.success("DownloadedEpisodesScan: %s", path)
                     elif self.type == "radarr":
-                        completed = True
-                        while completed:
+                        while True:
                             try:
-                                completed = False
                                 self.client.post_command(
                                     "DownloadedMoviesScan",
                                     path=str(path),
                                     downloadClientId=torrent.hash.upper(),
                                     importMode=self.import_mode,
                                 )
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                completed = True
-                        self.logger.success(
-                            "DownloadedMoviesScan: %s",
-                            path,
-                        )
+                                continue
+                        self.logger.success("DownloadedMoviesScan: %s", path)
                 except Exception as ex:
                     self.logger.error(
                         "Downloaded scan error: [%s][%s][%s][%s]",
@@ -1051,10 +975,8 @@ class Arr:
                 object_ids = list(object_id)
                 self.logger.trace("Requeue cache entry list: %s", object_ids)
                 if self.series_search:
-                    completed = True
-                    while completed:
+                    while True:
                         try:
-                            completed = False
                             data = self.client.get_series(object_ids[0])
                             name = data["title"]
                             series_id = data["id"]
@@ -1069,17 +991,15 @@ class Arr:
                                     series_id,
                                 )
                             else:
-                                self.logger.notice(
-                                    "Re-Searching series: %s",
-                                    series_id,
-                                )
+                                self.logger.notice("Re-Searching series: %s", series_id)
+                            break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
                         ):
-                            completed = True
+                            continue
                         except PyarrResourceNotFound as e:
                             self.logger.debug(e)
                             self.logger.error("PyarrResourceNotFound: %s", object_ids[0])
@@ -1087,26 +1007,23 @@ class Arr:
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
                     self.logger.trace("Research series id: %s", series_id)
-                    completed = True
-                    while completed:
+                    while True:
                         try:
-                            completed = False
                             self.client.post_command(self.search_api_command, seriesId=series_id)
+                            break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
                         ):
-                            completed = True
+                            continue
                     if self.persistent_queue and series_id:
                         self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
                 else:
                     for object_id in object_ids:
-                        completed = True
-                        while completed:
+                        while True:
                             try:
-                                completed = False
                                 data = self.client.get_episode(object_id)
                                 name = data.get("title")
                                 series_id = data.get("series", {}).get("id")
@@ -1133,10 +1050,8 @@ class Arr:
                                         object_id,
                                     )
                                 else:
-                                    self.logger.notice(
-                                        "Re-Searching episode: %s",
-                                        object_id,
-                                    )
+                                    self.logger.notice("Re-Searching episode: %s", object_id)
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
@@ -1144,30 +1059,27 @@ class Arr:
                                 JSONDecodeError,
                                 AttributeError,
                             ):
-                                completed = True
+                                continue
 
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
-                        completed = True
-                        while completed:
+                        while True:
                             try:
-                                completed = False
                                 self.client.post_command("EpisodeSearch", episodeIds=[object_id])
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                completed = True
+                                continue
                         if self.persistent_queue:
                             self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "radarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         data = self.client.get_movie(object_id)
                         name = data.get("title")
                         if name:
@@ -1181,10 +1093,8 @@ class Arr:
                                 object_id,
                             )
                         else:
-                            self.logger.notice(
-                                "Re-Searching movie: %s",
-                                object_id,
-                            )
+                            self.logger.notice("Re-Searching movie: %s", object_id)
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -1192,21 +1102,20 @@ class Arr:
                         JSONDecodeError,
                         AttributeError,
                     ):
-                        completed = True
+                        continue
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         self.client.post_command("MoviesSearch", movieIds=[object_id])
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
                 if self.persistent_queue:
                     self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
@@ -1214,7 +1123,7 @@ class Arr:
         # Recheck all torrents marked for rechecking.
         if self.recheck:
             self.needs_cleanup = True
-            updated_recheck = [r for r in self.recheck]
+            updated_recheck = list(self.recheck)
             self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
             for k in updated_recheck:
                 if k not in self.timed_ignore_cache_2:
@@ -1271,11 +1180,7 @@ class Arr:
             self.needs_cleanup = True
             name = self.manager.qbit_manager.name_cache.get(hash_)
             if name:
-                self.logger.debug(
-                    "Updating file priority on torrent: %s (%s)",
-                    name,
-                    hash_,
-                )
+                self.logger.debug("Updating file priority on torrent: %s (%s)", name, hash_)
                 self.manager.qbit.torrents_file_priority(
                     torrent_hash=hash_, file_ids=files, priority=0
                 )
@@ -1319,18 +1224,17 @@ class Arr:
             self.rss_sync_timer_last_checked is not None
             and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
         ):
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     self.client.post_command("RssSync")
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
             self.rss_sync_timer_last_checked = now
 
         if (
@@ -1338,28 +1242,25 @@ class Arr:
             and self.refresh_downloads_timer_last_checked
             < now - timedelta(minutes=self.refresh_downloads_timer)
         ):
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     self.client.post_command("RefreshMonitoredDownloads")
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
             self.refresh_downloads_timer_last_checked = now
 
     def arr_db_query_commands_count(self) -> int:
         search_commands = 0
         if not self.search_missing:
             return 0
-        completed = True
-        while completed:
+        while True:
             try:
-                completed = False
                 commands = self.client.get_command()
                 for command in commands:
                     if (
@@ -1368,13 +1269,14 @@ class Arr:
                         and "Missing" not in command["name"]
                     ):
                         search_commands = search_commands + 1
+                break
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
             ):
-                completed = True
+                continue
 
         return search_commands
 
@@ -1427,22 +1329,21 @@ class Arr:
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
             self.series_file_model.update(Searched=False, Upgrade=False).where(
-                self.series_file_model.Searched == True
+                self.series_file_model.Searched is True
             ).execute()
-            completed = True
-            while completed:
-                completed = False
+            while True:
                 try:
                     series = self.client.get_series()
                     for s in series:
                         ids.append(s["id"])
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ) as e:
-                    completed = True
+                ):
+                    continue
             self.series_file_model.delete().where(
                 self.series_file_model.EntryId.not_in(ids)
             ).execute()
@@ -1455,24 +1356,23 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched == True
+                self.model_file.Searched is True
             ).execute()
-            completed = True
-            while completed:
-                completed = False
+            while True:
                 try:
                     series = self.client.get_series()
                     for s in series:
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             ids.append(e["id"])
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ) as e:
-                    completed = True
+                    continue
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
             self.loop_completed = False
 
@@ -1483,28 +1383,25 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched == True
+                self.model_file.Searched is True
             ).execute()
-            completed = True
-            while completed:
-                completed = False
+            while True:
                 try:
                     movies = self.client.get_movie()
                     for m in movies:
                         ids.append(m["id"])
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ) as e:
-                    completed = True
+                ):
+                    continue
             self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
             self.loop_completed = False
 
-    def db_get_files_series(
-        self,
-    ) -> list[list[SeriesFilesModel, bool, bool]] | None:
+    def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
@@ -1515,28 +1412,28 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.Upgrade is False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                        self.model_file.Searched == False | self.model_file.QualityMet is False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.Searched is False
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1560,9 +1457,9 @@ class Arr:
                 if i1 is not None:
                     entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
-                condition = self.series_file_model.Searched == False
+                condition = self.series_file_model.Searched is False
             else:
-                condition = self.series_file_model.Upgrade == False
+                condition = self.series_file_model.Upgrade is False
             for entry_ in (
                 self.series_file_model.select()
                 .where(condition)
@@ -1572,9 +1469,7 @@ class Arr:
                 entries.append([entry_, False, False])
             return entries
 
-    def db_get_files_episodes(
-        self,
-    ) -> list[list[EpisodeFilesModel, bool, bool]] | None:
+    def db_get_files_episodes(self) -> list[list[EpisodeFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
@@ -1583,28 +1478,28 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.Upgrade is False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                        self.model_file.Searched == False | self.model_file.QualityMet is False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.Searched is False
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1642,37 +1537,35 @@ class Arr:
                     entries.append([i1, i2, i3])
             return entries
 
-    def db_get_files_movies(
-        self,
-    ) -> list[list[MoviesFilesModel, bool, bool]] | None:
+    def db_get_files_movies(self) -> list[list[MoviesFilesModel, bool, bool]] | None:
         entries = []
         if not self.search_missing:
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.Upgrade is False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                        self.model_file.Searched == False | self.model_file.QualityMet is False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.Searched is False
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
             for entry in (
@@ -1690,30 +1583,30 @@ class Arr:
         if not self.search_missing:
             yield None
         elif self.type == "sonarr":
-            condition = self.model_file.IsRequest == True
+            condition = self.model_file.IsRequest is True
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.Upgrade is False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                        self.model_file.Searched == False | self.model_file.QualityMet is False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+                    condition &= self.model_file.Searched is False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
@@ -1734,28 +1627,28 @@ class Arr:
             condition = self.model_file.Year <= datetime.now().year
             condition &= self.model_file.Year > 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
+                condition &= self.model_file.Upgrade is False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                        self.model_file.Searched == False | self.model_file.QualityMet is False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        == False
+                        is False
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.IsRequest == True
+                    condition &= self.model_file.IsRequest is True
             yield from (
                 self.model_file.select()
                 .where(condition)
@@ -1773,18 +1666,17 @@ class Arr:
         if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
             TvdbIds = request_ids.get("TvdbId")
             ImdbIds = request_ids.get("ImdbId")
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     series = self.client.get_series()
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
             for s in series:
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
@@ -1813,18 +1705,17 @@ class Arr:
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
             TmdbIds = request_ids.get("TmdbId")
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     movies = self.client.get_movie()
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
             for m in movies:
                 if m["year"] > datetime.now().year and m["year"] == 0:
                     continue
@@ -1873,18 +1764,17 @@ class Arr:
             return
         if self.type == "sonarr":
             try:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         series = self.client.get_series()
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
                 for s in series:
                     episodes = self.client.get_episode(s["id"], True)
                     for e in episodes:
@@ -1920,18 +1810,17 @@ class Arr:
         self.logger.info("Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         series = self.client.get_series()
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
                 if self.search_by_year:
                     for s in series:
                         if isinstance(s, str):
@@ -1989,18 +1878,17 @@ class Arr:
                                 self.db_update_single_series(db_entry=e)
                 self.db_update_processed = True
             else:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         series = self.client.get_series()
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
                 if self.search_by_year:
                     for s in series:
                         if isinstance(s, str):
@@ -2021,18 +1909,17 @@ class Arr:
                         self.db_update_single_series(db_entry=s, series=True)
                 self.db_update_processed = True
         elif self.type == "radarr":
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     movies = self.client.get_movie()
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
             if self.search_by_year:
                 for m in movies:
                     if isinstance(m, str):
@@ -2052,12 +1939,9 @@ class Arr:
                         continue
                     self.db_update_single_series(db_entry=m)
             self.db_update_processed = True
-        self.logger.trace(f"Finished updating database")
+        self.logger.trace("Finished updating database")
 
-    def minimum_availability_check(
-        self,
-        db_entry: JsonObject,
-    ) -> bool:
+    def minimum_availability_check(self, db_entry: JsonObject) -> bool:
         inCinemas = (
             datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
             if "inCinemas" in db_entry
@@ -2290,10 +2174,7 @@ class Arr:
             return False
 
     def db_update_single_series(
-        self,
-        db_entry: JsonObject = None,
-        request: bool = False,
-        series: bool = False,
+        self, db_entry: JsonObject = None, request: bool = False, series: bool = False
     ):
         if self.search_missing is False:
             return
@@ -2305,10 +2186,8 @@ class Arr:
                     episodeData = self.model_file.get_or_none(
                         self.model_file.EntryId == db_entry["id"]
                     )
-                    completed = True
-                    while completed:
+                    while True:
                         try:
-                            completed = False
                             episode = self.client.get_episode(db_entry["id"])
                             if episodeData:
                                 if not episodeData.MinCustomFormatScore:
@@ -2336,15 +2215,17 @@ class Arr:
                                     )["customFormatScore"]
                                 else:
                                     customFormat = 0
+                            break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
                         ):
-                            completed = True
+                            continue
                         except KeyError:
                             self.logger.warning("Key Error [%s]", db_entry["id"])
+                            continue
 
                     QualityUnmet = (
                         episode["episodeFile"]["qualityCutoffNotMet"]
@@ -2384,20 +2265,19 @@ class Arr:
                                 db_entry["title"],
                                 self.temp_quality_profile,
                             )
-                        completed = True
-                        while completed:
-                            completed = False
+                        while True:
                             try:
                                 self.client.upd_episode(episode["id"], data)
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
-                            ) as e:
-                                completed = True
+                            ):
+                                continue
 
-                    if episode["monitored"] == True:
+                    if episode["monitored"] is True:
                         EntryId = episode["id"]
 
                         SeriesTitle = episode.get("series", {}).get("title")
@@ -2496,10 +2376,7 @@ class Arr:
                             CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
-                        ).on_conflict(
-                            conflict_target=[self.model_file.EntryId],
-                            update=to_update,
-                        )
+                        ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
                     else:
                         return
@@ -2507,11 +2384,9 @@ class Arr:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
                     seriesData = self.model_file.get_or_none(self.model_file.EntryId == EntryId)
-                    if db_entry["monitored"] == True:
-                        completed = True
-                        while completed:
+                    if db_entry["monitored"] is True:
+                        while True:
                             try:
-                                completed = False
                                 seriesMetadata = self.client.get_series(id_=EntryId)
                                 if not seriesData:
                                     minCustomFormat = self.client.get_quality_profile(
@@ -2519,17 +2394,19 @@ class Arr:
                                     )["minFormatScore"]
                                 else:
                                     minCustomFormat = seriesMetadata.MinCustomFormatScore
+                                break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                completed = True
+                                continue
                             except KeyError:
                                 self.logger.warning(
                                     "Key Error [%s][%s]", db_entry["id"], seriesMetadata
                                 )
+                                continue
                         episodeCount = 0
                         episodeFileCount = 0
                         totalEpisodeCount = 0
@@ -2582,18 +2459,17 @@ class Arr:
                                     db_entry["title"],
                                     self.temp_quality_profile,
                                 )
-                            completed = True
-                            while completed:
-                                completed = False
+                            while True:
                                 try:
                                     self.client.upd_series(db_entry)
+                                    break
                                 except (
                                     requests.exceptions.ChunkedEncodingError,
                                     requests.exceptions.ContentDecodingError,
                                     requests.exceptions.ConnectionError,
                                     JSONDecodeError,
-                                ) as e:
-                                    completed = True
+                                ):
+                                    continue
 
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
@@ -2632,8 +2508,7 @@ class Arr:
                             Upgrade=upgrade,
                             MinCustomFormatScore=minCustomFormat,
                         ).on_conflict(
-                            conflict_target=[self.series_file_model.EntryId],
-                            update=to_update,
+                            conflict_target=[self.series_file_model.EntryId], update=to_update
                         )
                         db_commands.execute()
                     else:
@@ -2643,10 +2518,8 @@ class Arr:
                 self.model_file: MoviesFilesModel
                 searched = False
                 movieData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         if movieData:
                             if not movieData.MinCustomFormatScore:
                                 minCustomFormat = self.client.get_quality_profile(
@@ -2674,6 +2547,7 @@ class Arr:
                                 )["customFormatScore"]
                             else:
                                 customFormat = 0
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
@@ -2681,7 +2555,7 @@ class Arr:
                         JSONDecodeError,
                         KeyError,
                     ):
-                        completed = True
+                        continue
                     # except KeyError:
                     #     self.logger.warning("Key Error [%s]", db_entry["id"])
                 QualityUnmet = (
@@ -2717,20 +2591,19 @@ class Arr:
                             db_entry["title"],
                             self.temp_quality_profile,
                         )
-                    completed = True
-                    while completed:
-                        completed = False
+                    while True:
                         try:
                             self.client.upd_movie(db_entry)
+                            break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
-                        ) as e:
-                            completed = True
+                        ):
+                            continue
 
-                if self.minimum_availability_check(db_entry) and db_entry["monitored"] == True:
+                if self.minimum_availability_check(db_entry) and db_entry["monitored"] is True:
                     title = db_entry["title"]
                     monitored = db_entry["monitored"]
                     tmdbId = db_entry["tmdbId"]
@@ -2799,10 +2672,7 @@ class Arr:
                         CustomFormatScore=customFormat,
                         CustomFormatMet=customFormatMet,
                         Reason=reason,
-                    ).on_conflict(
-                        conflict_target=[self.model_file.EntryId],
-                        update=to_update,
-                    )
+                    ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
                 else:
                     return
@@ -2835,21 +2705,20 @@ class Arr:
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
         try:
-            completed = True
-            while completed:
+            while True:
                 try:
-                    completed = False
                     res = self.client._delete(
                         f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
                         self.client.ver_uri,
                     )
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
                 ):
-                    completed = True
+                    continue
         except PyarrResourceNotFound:
             self.logger.error("Connection Error")
             raise DelayLoopException(length=300, type=self._name)
@@ -3013,13 +2882,13 @@ class Arr:
             if not series_search:
                 file_model: EpisodeFilesModel
                 if not (request or todays):
-                    queue = (
+                    (
                         self.model_queue.select(self.model_queue.Completed)
                         .where(self.model_queue.EntryId == file_model.EntryId)
                         .execute()
                     )
                 else:
-                    queue = False
+                    pass
                 if file_model.EntryId in self.queue_file_ids:
                     self.logger.debug(
                         "%sSkipping: Already Searched: %s | "
@@ -3062,24 +2931,22 @@ class Arr:
                     EntryId=file_model.EntryId
                 ).on_conflict_ignore().execute()
                 self.model_queue.insert(
-                    Completed=False,
-                    EntryId=file_model.EntryId,
+                    Completed=False, EntryId=file_model.EntryId
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
-                    completed = True
-                    while completed:
+                    while True:
                         try:
-                            completed = False
                             self.client.post_command(
                                 "EpisodeSearch", episodeIds=[file_model.EntryId]
                             )
+                            break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
                         ):
-                            completed = True
+                            continue
                 file_model.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
@@ -3128,23 +2995,21 @@ class Arr:
                     EntryId=file_model.EntryId
                 ).on_conflict_ignore().execute()
                 self.model_queue.insert(
-                    Completed=False,
-                    EntryId=file_model.EntryId,
+                    Completed=False, EntryId=file_model.EntryId
                 ).on_conflict_replace().execute()
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         self.client.post_command(
                             self.search_api_command, seriesId=file_model.EntryId
                         )
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
                 file_model.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
@@ -3161,7 +3026,7 @@ class Arr:
         elif self.type == "radarr":
             file_model: MoviesFilesModel
             if not (request or todays):
-                queue = (
+                (
                     self.model_queue.select(self.model_queue.Completed)
                     .where(self.model_queue.EntryId == file_model.EntryId)
                     .execute()
@@ -3194,22 +3059,20 @@ class Arr:
             self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
 
             self.model_queue.insert(
-                Completed=False,
-                EntryId=file_model.EntryId,
+                Completed=False, EntryId=file_model.EntryId
             ).on_conflict_replace().execute()
             if file_model.EntryId:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
+                        break
                     except (
                         requests.exceptions.ChunkedEncodingError,
                         requests.exceptions.ContentDecodingError,
                         requests.exceptions.ConnectionError,
                         JSONDecodeError,
                     ):
-                        completed = True
+                        continue
             file_model.update(Searched=True, Upgrade=True).where(
                 file_model.EntryId == file_model.EntryId
             ).execute()
@@ -3255,19 +3118,18 @@ class Arr:
     def process_torrents(self):
         try:
             try:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         torrents = self.manager.qbit_manager.client.torrents.info(
                             status_filter="all",
                             category=self.category,
                             sort="added_on",
                             reverse=False,
                         )
+                        break
                     except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
                         if "JSONDecodeError" in str(e):
-                            completed = True
+                            continue
                         else:
                             raise qbittorrentapi.exceptions.APIError
                 torrents = [t for t in torrents if hasattr(t, "category")]
@@ -3290,7 +3152,7 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except qbittorrentapi.exceptions.APIError as e:
+            except qbittorrentapi.exceptions.APIError:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
@@ -3922,7 +3784,7 @@ class Arr:
 
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
-        most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
+        most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, {}
         )
 
@@ -4190,10 +4052,7 @@ class Arr:
         if (
             (
                 torrent.state_enum
-                in (
-                    TorrentStates.METADATA_DOWNLOAD,
-                    TorrentStates.STALLED_DOWNLOAD,
-                )
+                in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD)
                 and not self.in_tags(torrent, "qBitrr-ignored")
                 and not self.in_tags(torrent, "qBitrr-free_space_paused")
             )
@@ -4214,16 +4073,12 @@ class Arr:
                 and time_now >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
             ):
                 stalled_ignore = False
-                self.logger.trace(
-                    "Process stalled, delay expired: %s",
-                    torrent.name,
-                )
+                self.logger.trace("Process stalled, delay expired: %s", torrent.name)
             elif not self.in_tags(torrent, "qBitrr-allowed_stalled"):
                 self.add_tags(torrent, ["qBitrr-allowed_stalled"])
                 if self.re_search_stalled:
                     self.logger.trace(
-                        "Stalled, adding tag, blocklosting and re-searching: %s",
-                        torrent.name,
+                        "Stalled, adding tag, blocklosting and re-searching: %s", torrent.name
                     )
                     skip_blacklist = set()
                     payload = self.process_entries([torrent.hash])
@@ -4236,29 +4091,17 @@ class Arr:
                                 remove_from_client=False,
                             )
                 else:
-                    self.logger.trace(
-                        "Stalled, adding tag: %s",
-                        torrent.name,
-                    )
+                    self.logger.trace("Stalled, adding tag: %s", torrent.name)
             elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
-                self.logger.trace(
-                    "Stalled: %s",
-                    torrent.name,
-                )
+                self.logger.trace("Stalled: %s", torrent.name)
 
         elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
             self.remove_tags(torrent, ["qBitrr-allowed_stalled"])
             stalled_ignore = False
-            self.logger.trace(
-                "Not stalled, removing tag: %s",
-                torrent.name,
-            )
+            self.logger.trace("Not stalled, removing tag: %s", torrent.name)
         else:
             stalled_ignore = False
-            self.logger.trace(
-                "Not stalled: %s",
-                torrent.name,
-            )
+            self.logger.trace("Not stalled: %s", torrent.name)
         return stalled_ignore
 
     def _process_single_torrent(self, torrent: qbittorrentapi.TorrentDictionary):
@@ -4280,13 +4123,7 @@ class Arr:
         stalled_ignore = self._stalled_check(torrent, time_now)
 
         if self.in_tags(torrent, "qBitrr-ignored"):
-            self.remove_tags(
-                torrent,
-                [
-                    "qBitrr-allowed_seeding",
-                    "qBitrr-free_space_paused",
-                ],
-            )
+            self.remove_tags(torrent, ["qBitrr-allowed_seeding", "qBitrr-free_space_paused"])
 
         if (
             self.custom_format_unmet_search
@@ -4306,11 +4143,7 @@ class Arr:
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
         elif (
-            torrent.state_enum
-            in (
-                TorrentStates.METADATA_DOWNLOAD,
-                TorrentStates.STALLED_DOWNLOAD,
-            )
+            torrent.state_enum in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD)
             and not self.in_tags(torrent, "qBitrr-ignored")
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
             and not stalled_ignore
@@ -4441,8 +4274,7 @@ class Arr:
 
             download_id = torrent.hash.upper()
             record = next(
-                (r for r in queue["records"] if r.get("downloadId") == download_id),
-                None,
+                (r for r in queue["records"] if r.get("downloadId") == download_id), None
             )
 
             if not record:
@@ -4564,27 +4396,20 @@ class Arr:
 
         self._update_bad_queue_items()
 
-    def get_queue(
-        self,
-        page=1,
-        page_size=1000,
-        sort_direction="ascending",
-        sort_key="timeLeft",
-    ):
-        completed = True
-        while completed:
-            completed = False
+    def get_queue(self, page=1, page_size=1000, sort_direction="ascending", sort_key="timeLeft"):
+        while True:
             try:
                 res = self.client.get_queue(
                     page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
                 )
+                break
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ) as e:
-                completed = True
+            ):
+                continue
         try:
             res = res.get("records", [])
         except AttributeError:
@@ -4623,32 +4448,27 @@ class Arr:
     def parse_quality_profiles(self) -> tuple[int, int]:
         main_quality_profile_id = 0
         temp_quality_profile_id = 0
-        completed = True
-        while completed:
-            completed = False
+        while True:
             try:
                 profiles = self.client.get_quality_profile()
+                break
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ) as e:
-                completed = True
+            ):
+                continue
         for p in profiles:
             if p["name"] == self.main_quality_profile:
                 main_quality_profile_id = p["id"]
                 self.logger.trace(
-                    "Quality profile %s:%s",
-                    self.main_quality_profile,
-                    main_quality_profile_id,
+                    "Quality profile %s:%s", self.main_quality_profile, main_quality_profile_id
                 )
             if p["name"] == self.temp_quality_profile:
                 temp_quality_profile_id = p["id"]
                 self.logger.trace(
-                    "Quality profile %s:%s",
-                    self.temp_quality_profile,
-                    temp_quality_profile_id,
+                    "Quality profile %s:%s", self.temp_quality_profile, temp_quality_profile_id
                 )
         return (main_quality_profile_id, temp_quality_profile_id)
 
@@ -4773,8 +4593,7 @@ class Arr:
                     )
                 elif e.type == "no_downloads":
                     self.logger.debug(
-                        "No downloads in category, sleeping for %s",
-                        timedelta(seconds=e.length),
+                        "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
                     )
                 time.sleep(e.length)
 
@@ -4782,18 +4601,17 @@ class Arr:
         years_list = set()
         years = []
         if self.type == "radarr":
-            completed = True
-            while completed:
-                completed = False
+            while True:
                 try:
                     movies = self.client.get_movie()
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ) as e:
-                    completed = True
+                ):
+                    continue
 
             for m in movies:
                 if not m["monitored"]:
@@ -4802,18 +4620,17 @@ class Arr:
                     years_list.add(m["year"])
 
         elif self.type == "sonarr":
-            completed = True
-            while completed:
-                completed = False
+            while True:
                 try:
                     series = self.client.get_series()
+                    break
                 except (
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ) as e:
-                    completed = True
+                ):
+                    continue
 
             for s in series:
                 episodes = self.client.get_episode(s["id"], True)
@@ -4831,11 +4648,11 @@ class Arr:
 
         years_list = dict.fromkeys(years_list)
         if self.search_in_reverse:
-            for key, null in sorted(list(years_list.items()), key=lambda x: x[0], reverse=True):
+            for key, _null in sorted(years_list.items(), key=lambda x: x[0], reverse=True):
                 years.append(key)
 
         else:
-            for key, null in sorted(list(years_list.items()), key=lambda x: x[0], reverse=False):
+            for key, _null in sorted(years_list.items(), key=lambda x: x[0], reverse=False):
                 years.append(key)
         self.logger.trace("Years: %s", years)
         years_count = len(years)
@@ -4869,10 +4686,7 @@ class Arr:
                             self.search_current_year = years[years_index]
                         except BaseException:
                             self.search_current_year = years[: years_index + 1]
-                    self.logger.debug(
-                        "Current year %s",
-                        self.search_current_year,
-                    )
+                    self.logger.debug("Current year %s", self.search_current_year)
                 try:
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
@@ -5072,13 +4886,9 @@ class Arr:
 
 
 class PlaceHolderArr(Arr):
-    def __init__(
-        self,
-        name: str,
-        manager: ArrManager,
-    ):
+    def __init__(self, name: str, manager: ArrManager):
         if name in manager.groups:
-            raise OSError("Group '{name}' has already been registered.")
+            raise OSError(f"Group '{name}' has already been registered.")
         self._name = name.title()
         self.category = name
         self.manager = manager
@@ -5107,12 +4917,12 @@ class PlaceHolderArr(Arr):
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
-            LOGS_FOLDER = HOME_PATH.joinpath("logs")
-            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-            LOGS_FOLDER.chmod(mode=0o777)
-            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logold = logs_folder.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
@@ -5178,18 +4988,17 @@ class PlaceHolderArr(Arr):
     def process_torrents(self):
         try:
             try:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         torrents = self.manager.qbit_manager.client.torrents.info(
                             status_filter="all",
                             category=self.category,
                             sort="added_on",
                             reverse=False,
                         )
+                        break
                     except qbittorrentapi.exceptions.APIError:
-                        completed = True
+                        continue
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
@@ -5215,7 +5024,7 @@ class PlaceHolderArr(Arr):
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.exceptions.APIConnectionError as e:
+            except qbittorrentapi.exceptions.APIConnectionError:
                 self.logger.warning("Max retries exceeded")
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
@@ -5242,12 +5051,12 @@ class FreeSpaceManager(Arr):
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         if ENABLE_LOGS:
-            LOGS_FOLDER = HOME_PATH.joinpath("logs")
-            LOGS_FOLDER.mkdir(parents=True, exist_ok=True)
-            LOGS_FOLDER.chmod(mode=0o777)
-            logfile = LOGS_FOLDER.joinpath(self._name + ".log")
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            logfile = logs_folder.joinpath(self._name + ".log")
             if pathlib.Path(logfile).is_file():
-                logold = LOGS_FOLDER.joinpath(self._name + ".log.old")
+                logold = logs_folder.joinpath(self._name + ".log.old")
                 logfile.rename(logold)
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
@@ -5263,18 +5072,14 @@ class FreeSpaceManager(Arr):
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-            list(self.categories)[0]
+            next(iter(self.categories))
         )
         self.min_free_space = FREE_SPACE
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space
         )
         self.logger.trace("Current free space: %s", self.current_free_space)
-        self.manager.qbit_manager.client.torrents_create_tags(
-            [
-                "qBitrr-free_space_paused",
-            ]
-        )
+        self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
         self.session = None
         self.register_torrent_database()
@@ -5383,17 +5188,14 @@ class FreeSpaceManager(Arr):
     def process_torrents(self):
         try:
             try:
-                completed = True
-                while completed:
+                while True:
                     try:
-                        completed = False
                         torrents = self.manager.qbit_manager.client.torrents.info(
-                            status_filter="all",
-                            sort="added_on",
-                            reverse=False,
+                            status_filter="all", sort="added_on", reverse=False
                         )
+                        break
                     except qbittorrentapi.exceptions.APIError:
-                        completed = True
+                        continue
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 torrents = [t for t in torrents if t.category in self.categories]
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
@@ -5421,7 +5223,7 @@ class FreeSpaceManager(Arr):
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
-            except qbittorrentapi.exceptions.APIConnectionError as e:
+            except qbittorrentapi.exceptions.APIConnectionError:
                 self.logger.warning("Max retries exceeded")
                 raise DelayLoopException(length=300, type="qbit")
             except DelayLoopException:
@@ -5453,9 +5255,7 @@ class ArrManager:
         self.qbit: qbittorrentapi.Client = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
-        self.logger = logging.getLogger(
-            "qBitrr.ArrManager",
-        )
+        self.logger = logging.getLogger("qBitrr.ArrManager")
         run_logs(self.logger)
         if not self.ffprobe_available and not any([QBIT_DISABLED, SEARCH_ONLY]):
             self.logger.error(
