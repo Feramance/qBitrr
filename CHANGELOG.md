@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.9.10 (10/10/2024)
+- [[patch] Merge pull request #117 from Feramance/108-unable-to-start-qbitrr-log-files](https://github.com/Feramance/qBitrr/commit/fefe317c7c37fa2ea1cff59c797076809618b2b6) - @Feramance
+- [Log fixes](https://github.com/Feramance/qBitrr/commit/9a26c2aa64d41827c11c793bf11b48e955c644ac) - @Feramance
+- [Change from pathlib to os call](https://github.com/Feramance/qBitrr/commit/3915556a093c013807e4d29e6cd94156f48e35aa) - @Feramance
+- [Removed check and forced unlink](https://github.com/Feramance/qBitrr/commit/35b6d8b33b78f8c82b9c7cac62c60320cce2d23d) - @Feramance
+
+---
+
 ## v4.9.9 (10/10/2024)
 - [[patch] Windows log files fixes](https://github.com/Feramance/qBitrr/commit/504fe066aa9c16a07d6d2c3512516f3ae5a1a91e) - @Feramance
 - [Workflow update](https://github.com/Feramance/qBitrr/commit/4b8fa67af7bbc18470e4310db61707cbe53e5902) - @Feramance
@@ -314,8 +322,3 @@
 
 ## v4.6.5 (17/05/2024)
 - [[patch] Exit fix](https://github.com/Feramance/qBitrr/commit/ae6ba9ed3102c84e3bae52b856b0dec5f67fc04c) - @Feramance
-
----
-
-## v4.6.4 (17/05/2024)
-- [[patch] Exit status fix](https://github.com/Feramance/qBitrr/commit/681d1db6ad96c737dec8b4e9a14dbf3b6ed08a26) - @Feramance
