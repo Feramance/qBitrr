@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.9.8 (10/10/2024)
+- [[patch] Merge pull request #112 from Feramance/code-refactoring](https://github.com/Feramance/qBitrr/commit/9fd5276285a3ba7bf0de4082c778f6dbc1d7130f) - @Feramance
+- [[patch] Critical fix in torrent handling](https://github.com/Feramance/qBitrr/commit/5e72617dd38a24a4f6ce8ec27b195a4787218efd) - @Feramance
+- [Remove test workflow](https://github.com/Feramance/qBitrr/commit/0c7acfdc54041f8613aa12a30ed6e3dd2fe0d4e3) - @Feramance
+- [Requirements file fix](https://github.com/Feramance/qBitrr/commit/336cc42a3dd14a453ff9e38353b15ed11724dce0) - @Feramance
+- [Workflow python version updates](https://github.com/Feramance/qBitrr/commit/722eb397e93fb8dab3bcbb9d0cee536785f9604b) - @Feramance
+- [Docs update](https://github.com/Feramance/qBitrr/commit/7c80ef1a51acdbf7c335b51fbdb761a6c6e0f845) - @Feramance
+- [Docs update](https://github.com/Feramance/qBitrr/commit/2e83c196e85fff3b6b72021f87a66e7ae4017a33) - @Feramance
+- [General code refactoring and reformatting](https://github.com/Feramance/qBitrr/commit/3c547ed4a8cbd47e60ef362fa92d5c6926633d9c) - @Feramance
+
+---
+
 ## v4.9.7 (09/10/2024)
 - [[patch] Potential log fix](https://github.com/Feramance/qBitrr/commit/8021d8f72f325b87ff774b63fd39b88bd84638c4) - @Feramance
 
@@ -295,8 +307,3 @@
 
 ## v4.6.3 (17/05/2024)
 - [[patch] Config gen error on windows first run fix](https://github.com/Feramance/qBitrr/commit/977d0a3a5e8964dda2a429e1fe47be8ca0dd2b75) - @Feramance
-
----
-
-## v4.6.2 (17/05/2024)
-- [[patch] Config file fix](https://github.com/Feramance/qBitrr/commit/ffb39771f6215332461518d77cb36fe5911f9e35) - @Feramance
