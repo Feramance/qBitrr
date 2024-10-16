@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.9.11 (16/10/2024)
+- [[patch] Added exception handling](https://github.com/Feramance/qBitrr/commit/3a3f4f151eb0a1cc70906a6feeff9d2c9583635f) - @Feramance
+- [Removed mkdocs](https://github.com/Feramance/qBitrr/commit/b132e74095e706ff632ff41535399bc54f1ef538) - @Feramance
+
+---
+
 ## v4.9.10 (10/10/2024)
 - [[patch] Merge pull request #117 from Feramance/108-unable-to-start-qbitrr-log-files](https://github.com/Feramance/qBitrr/commit/fefe317c7c37fa2ea1cff59c797076809618b2b6) - @Feramance
 - [Log fixes](https://github.com/Feramance/qBitrr/commit/9a26c2aa64d41827c11c793bf11b48e955c644ac) - @Feramance
@@ -317,8 +323,3 @@
 
 ## v4.6.6 (17/05/2024)
 - [[patch] Another test fix](https://github.com/Feramance/qBitrr/commit/4fb1cda81b27596f4ed93f4e7c6a9f442d26a37e) - @Feramance
-
----
-
-## v4.6.5 (17/05/2024)
-- [[patch] Exit fix](https://github.com/Feramance/qBitrr/commit/ae6ba9ed3102c84e3bae52b856b0dec5f67fc04c) - @Feramance
