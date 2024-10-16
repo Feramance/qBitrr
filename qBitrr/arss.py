@@ -107,8 +107,8 @@ class Arr:
             self.logger.addHandler(fh)
         run_logs(self.logger)
         categories = self.manager.qbit_manager.client.torrent_categories.categories
-        categ = categories[self.category]
-        if categ:
+        try:
+            categ = categories[self.category]
             path = categ["savePath"]
             if path:
                 self.logger.trace("Category exists with save path [%s]", path)
@@ -118,9 +118,11 @@ class Arr:
                 self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                     self.category
                 )
-        else:
-            self.manager.qbit_manager.client.torrent_categories.createCategory(self.category)
+        except KeyError:
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+            self.manager.qbit_manager.client.torrent_categories.create_category(
+                self.category, save_path=self.completed_folder
+            )
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
@@ -5304,20 +5306,20 @@ class ArrManager:
                     call_cls = RadarrAPI
                 else:
                     call_cls = None
-                # try:
-                managed_object = Arr(name, self, client_cls=call_cls)
-                self.groups.add(name)
-                self.uris.add(managed_object.uri)
-                self.managed_objects[managed_object.category] = managed_object
-                self.arr_categories.add(managed_object.category)
-                # except KeyError as e:
-                #     self.logger.critical(e)
-                # except ValueError as e:
-                #     self.logger.exception(e)
-                # except SkipException:
-                #     continue
-                # except (OSError, TypeError) as e:
-                #     self.logger.exception(e)
+                try:
+                    managed_object = Arr(name, self, client_cls=call_cls)
+                    self.groups.add(name)
+                    self.uris.add(managed_object.uri)
+                    self.managed_objects[managed_object.category] = managed_object
+                    self.arr_categories.add(managed_object.category)
+                except KeyError as e:
+                    self.logger.critical("Key Error: %s", e)
+                except ValueError as e:
+                    self.logger.exception("Value Error: %s", e)
+                except SkipException:
+                    continue
+                except (OSError, TypeError) as e:
+                    self.logger.exception(e)
         if FREE_SPACE != "-1" and AUTO_PAUSE_RESUME:
             managed_object = FreeSpaceManager(self.arr_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
