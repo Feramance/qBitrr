@@ -5306,20 +5306,20 @@ class ArrManager:
                     call_cls = RadarrAPI
                 else:
                     call_cls = None
-                try:
-                    managed_object = Arr(name, self, client_cls=call_cls)
-                    self.groups.add(name)
-                    self.uris.add(managed_object.uri)
-                    self.managed_objects[managed_object.category] = managed_object
-                    self.arr_categories.add(managed_object.category)
-                except KeyError as e:
-                    self.logger.critical("Key Error: %s", e)
-                except ValueError as e:
-                    self.logger.exception("Value Error: %s", e)
-                except SkipException:
-                    continue
-                except (OSError, TypeError) as e:
-                    self.logger.exception(e)
+                # try:
+                managed_object = Arr(name, self, client_cls=call_cls)
+                self.groups.add(name)
+                self.uris.add(managed_object.uri)
+                self.managed_objects[managed_object.category] = managed_object
+                self.arr_categories.add(managed_object.category)
+                # except KeyError as e:
+                #     self.logger.critical("Key Error: %s", e)
+                # except ValueError as e:
+                #     self.logger.exception("Value Error: %s", e)
+                # except SkipException:
+                #     continue
+                # except (OSError, TypeError) as e:
+                #     self.logger.exception(e)
         if FREE_SPACE != "-1" and AUTO_PAUSE_RESUME:
             managed_object = FreeSpaceManager(self.arr_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
