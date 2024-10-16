@@ -2245,25 +2245,34 @@ class Arr:
                         ).execute()
 
                     if self.use_temp_for_missing:
-                        if (
-                            searched
-                            and db_entry["qualityProfileId"] == self.temp_quality_profile_id
-                        ):
-                            data: JsonObject = {"qualityProfileId": self.main_quality_profile_id}
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                self.temp_quality_profile,
-                            )
-                        elif (
-                            not searched
-                            and db_entry["qualityProfileId"] == self.main_quality_profile_id
-                        ):
-                            data: JsonObject = {"qualityProfileId": self.temp_quality_profile_id}
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                self.temp_quality_profile,
+                        try:
+                            if (
+                                searched
+                                and db_entry["qualityProfileId"] == self.temp_quality_profile_id
+                            ):
+                                data: JsonObject = {
+                                    "qualityProfileId": self.main_quality_profile_id
+                                }
+                                self.logger.debug(
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile,
+                                )
+                            elif (
+                                not searched
+                                and db_entry["qualityProfileId"] == self.main_quality_profile_id
+                            ):
+                                data: JsonObject = {
+                                    "qualityProfileId": self.temp_quality_profile_id
+                                }
+                                self.logger.debug(
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile,
+                                )
+                        except KeyError:
+                            self.logger.warning(
+                                "Check quality profile settings for %s", db_entry["title"]
                             )
                         while True:
                             try:
@@ -2439,25 +2448,32 @@ class Arr:
                         else:
                             searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
                         if self.use_temp_for_missing:
-                            if (
-                                searched
-                                and db_entry["qualityProfileId"] == self.temp_quality_profile_id
-                            ):
-                                db_entry["qualityProfileId"] = self.main_quality_profile_id
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile,
-                                )
-                            elif (
-                                not searched
-                                and db_entry["qualityProfileId"] == self.main_quality_profile_id
-                            ):
-                                db_entry["qualityProfileId"] = self.temp_quality_profile_id
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile,
+                            try:
+                                if (
+                                    searched
+                                    and db_entry["qualityProfileId"]
+                                    == self.temp_quality_profile_id
+                                ):
+                                    db_entry["qualityProfileId"] = self.main_quality_profile_id
+                                    self.logger.debug(
+                                        "Updating quality profile for %s to %s",
+                                        db_entry["title"],
+                                        self.temp_quality_profile,
+                                    )
+                                elif (
+                                    not searched
+                                    and db_entry["qualityProfileId"]
+                                    == self.main_quality_profile_id
+                                ):
+                                    db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                                    self.logger.debug(
+                                        "Updating quality profile for %s to %s",
+                                        db_entry["title"],
+                                        self.temp_quality_profile,
+                                    )
+                            except KeyError:
+                                self.logger.warning(
+                                    "Check quality profile settings for %s", db_entry["title"]
                                 )
                             while True:
                                 try:
@@ -2574,22 +2590,30 @@ class Arr:
                     ).execute()
 
                 if self.use_temp_for_missing:
-                    if searched and db_entry["qualityProfileId"] == self.temp_quality_profile_id:
-                        db_entry["qualityProfileId"] = self.main_quality_profile_id
-                        self.logger.debug(
-                            "Updating quality profile for %s to %s",
-                            db_entry["title"],
-                            self.temp_quality_profile,
-                        )
-                    elif (
-                        not searched
-                        and db_entry["qualityProfileId"] == self.main_quality_profile_id
-                    ):
-                        db_entry["qualityProfileId"] = self.temp_quality_profile_id
-                        self.logger.debug(
-                            "Updating quality profile for %s to %s",
-                            db_entry["title"],
-                            self.temp_quality_profile,
+                    try:
+                        if (
+                            searched
+                            and db_entry["qualityProfileId"] == self.temp_quality_profile_id
+                        ):
+                            db_entry["qualityProfileId"] = self.main_quality_profile_id
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                self.temp_quality_profile,
+                            )
+                        elif (
+                            not searched
+                            and db_entry["qualityProfileId"] == self.main_quality_profile_id
+                        ):
+                            db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                self.temp_quality_profile,
+                            )
+                    except KeyError:
+                        self.logger.warning(
+                            "Check quality profile settings for %s", db_entry["title"]
                         )
                     while True:
                         try:
