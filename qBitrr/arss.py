@@ -1457,6 +1457,7 @@ class Arr:
                 )
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
+                    self.logger.trace("Adding %s to search list", i1.Title)
                     entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched is False
@@ -1468,6 +1469,7 @@ class Arr:
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
             ):
+                self.logger.trace("Adding %s to search list", entry_.Title)
                 entries.append([entry_, False, False])
             return entries
 
@@ -1533,9 +1535,11 @@ class Arr:
                 .order_by(self.model_file.EpisodeFileId.asc())
                 .execute()
             ):
+                self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             for i1, i2, i3 in self._search_todays(today_condition):
                 if i1 is not None:
+                    self.logger.trace("Adding %s to search list", i1.Title)
                     entries.append([i1, i2, i3])
             return entries
 
@@ -1576,6 +1580,7 @@ class Arr:
                 .order_by(self.model_file.MovieFileId.asc())
                 .execute()
             ):
+                self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             return entries
 
