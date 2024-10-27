@@ -1318,6 +1318,7 @@ class Arr:
             for movies in movielist:
                 entries.append([movies[0], movies[1], movies[2], False, len(movielist)])
                 # yield movies[0], movies[1], movies[2], False, len(movielist)
+        self.logger.trace("Returning %s entries", len(entries) if entries else 0)
         return entries
 
     def db_maybe_reset_entry_searched_state(self):
