@@ -1589,10 +1589,12 @@ class Arr:
             if self.search_by_year:
                 self.logger.trace("Condition 6")
                 condition &= self.model_file.Year == self.search_current_year
-            query = (self.model_file.select()
+            query = (
+                self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.MovieFileId.asc())
-                .execute())
+                .execute()
+            )
             for entry in query:
                 self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
