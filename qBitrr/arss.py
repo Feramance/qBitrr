@@ -1434,6 +1434,7 @@ class Arr:
                         == False
                     )
                 else:
+                    condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
@@ -1456,7 +1457,6 @@ class Arr:
                 )
             for i1, i2, i3 in self._search_todays(condition):
                 if i1 is not None:
-                    self.logger.trace("Adding %s to search list", i1.Title)
                     entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
                 condition = self.series_file_model.Searched == False
@@ -1469,7 +1469,6 @@ class Arr:
                 .execute()
             )
             for entry_ in query:
-                self.logger.trace("Adding %s to search list", entry_.Title)
                 entries.append([entry_, False, False])
             return entries
 
@@ -1502,6 +1501,7 @@ class Arr:
                         == False
                     )
                 else:
+                    condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
@@ -1535,11 +1535,9 @@ class Arr:
                 .execute()
             )
             for entry in query:
-                self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             for i1, i2, i3 in self._search_todays(today_condition):
                 if i1 is not None:
-                    self.logger.trace("Adding %s to search list", i1.Title)
                     entries.append([i1, i2, i3])
             return entries
 
@@ -1575,6 +1573,7 @@ class Arr:
                     )
                 else:
                     self.logger.trace("Condition 5")
+                    condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
                 self.logger.trace("Condition 6")
@@ -1586,7 +1585,6 @@ class Arr:
                 .execute()
             )
             for entry in query:
-                self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             return entries
 
