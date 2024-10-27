@@ -4754,14 +4754,12 @@ class Arr:
                                     loop_delay = 30
                                 else:
                                     loop_delay = SEARCH_LOOP_DELAY
-                                while (
-                                    self.maybe_do_search(
-                                        entry,
-                                        todays=todays,
-                                        bypass_limit=limit_bypass,
-                                        series_search=series_search,
-                                        commands=totcommands,
-                                    )
+                                while self.maybe_do_search(
+                                    entry,
+                                    todays=todays,
+                                    bypass_limit=limit_bypass,
+                                    series_search=series_search,
+                                    commands=totcommands,
                                 ):
                                     self.logger.debug("Waiting for active search commands")
                                     time.sleep(loop_delay)
