@@ -1424,27 +1424,27 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade is False
+                condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet is False
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 else:
-                    condition &= self.model_file.Searched is False
+                    condition &= self.model_file.Searched == False
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1469,9 +1469,9 @@ class Arr:
                     self.logger.trace("Adding %s to search list", i1.Title)
                     entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
-                condition = self.series_file_model.Searched is False
+                condition = self.series_file_model.Searched == False
             else:
-                condition = self.series_file_model.Upgrade is False
+                condition = self.series_file_model.Upgrade == False
             query = (
                 self.series_file_model.select()
                 .where(condition)
@@ -1492,27 +1492,27 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade is False
+                condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet is False
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 else:
-                    condition &= self.model_file.Searched is False
+                    condition &= self.model_file.Searched == False
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
                 datetime.now(timezone.utc) - timedelta(days=1)
@@ -1561,19 +1561,19 @@ class Arr:
             condition = self.model_file.Year.is_null(False)
             if self.do_upgrade_search:
                 self.logger.trace("Condition 1")
-                condition &= self.model_file.Upgrade is False
+                condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     self.logger.trace("Condition 2")
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet is False
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     self.logger.trace("Condition 3")
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     self.logger.trace("Condition 4")
@@ -1581,11 +1581,11 @@ class Arr:
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 else:
                     self.logger.trace("Condition 5")
-                    condition &= self.model_file.Searched is False
+                    condition &= self.model_file.Searched == False
             if self.search_by_year:
                 self.logger.trace("Condition 6")
                 condition &= self.model_file.Year == self.search_current_year
@@ -1608,28 +1608,28 @@ class Arr:
         elif self.type == "sonarr":
             condition = self.model_file.IsRequest is True
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade is False
+                condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet is False
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched is False
+                    condition &= self.model_file.Searched == False
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
@@ -1650,24 +1650,24 @@ class Arr:
             condition = self.model_file.Year <= datetime.now().year
             condition &= self.model_file.Year > 0
             if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade is False
+                condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet is False
+                        self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
                         == False | self.model_file.CustomFormatMet
-                        is False
+                        == False
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
@@ -2199,7 +2199,7 @@ class Arr:
     def db_update_single_series(
         self, db_entry: JsonObject = None, request: bool = False, series: bool = False
     ):
-        if self.search_missing is False:
+        if not self.search_missing:
             return
         try:
             searched = False
@@ -2802,7 +2802,7 @@ class Arr:
             return False
 
     def folder_cleanup(self, downloads_id: str | None, folder: pathlib.Path):
-        if self.auto_delete is False:
+        if not self.auto_delete:
             return
         self.logger.debug("Folder Cleanup: %s", folder)
         all_files_in_folder = list(absolute_file_paths(folder))
@@ -2887,11 +2887,11 @@ class Arr:
                     )
 
     def all_folder_cleanup(self) -> None:
-        if self.auto_delete is False:
+        if not self.auto_delete:
             return
         self._update_bad_queue_items()
         self.post_file_cleanup()
-        if self.needs_cleanup is False:
+        if not self.needs_cleanup:
             return
         folder = self.completed_folder
         self.folder_cleanup(None, folder)
@@ -3182,7 +3182,7 @@ class Arr:
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if has_internet() is False:
+                if not has_internet():
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -4211,7 +4211,7 @@ class Arr:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif (
             torrent.progress >= self.maximum_deletable_percentage
-            and self.is_complete_state(torrent) is False
+            and not self.is_complete_state(torrent)
             and not self.in_tags(torrent, "qBitrr-ignored")
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
             and not stalled_ignore
@@ -4522,7 +4522,7 @@ class Arr:
     def register_search_mode(self):
         if self.search_setup_completed:
             return
-        if self.search_missing is False:
+        if not self.search_missing:
             self.search_setup_completed = True
             return
 
@@ -4605,7 +4605,7 @@ class Arr:
                 self.db_request_update()
                 try:
                     for entry in self.db_get_request_files():
-                        while self.maybe_do_search(entry, request=True) is False:
+                        while not self.maybe_do_search(entry, request=True):
                             time.sleep(30)
                     self.request_search_timer = time.time()
                     return
@@ -4766,7 +4766,7 @@ class Arr:
                                     loop_delay = 30
                                 else:
                                     loop_delay = SEARCH_LOOP_DELAY
-                                while (
+                                while not (
                                     self.maybe_do_search(
                                         entry[0],
                                         todays=entry[1],
@@ -4774,7 +4774,7 @@ class Arr:
                                         series_search=entry[3],
                                         commands=totcommands,
                                     )
-                                ) is False:
+                                ):
                                     self.logger.debug("Waiting for active search commands")
                                     time.sleep(loop_delay)
                                 if SEARCH_LOOP_DELAY != -1:
@@ -5051,7 +5051,7 @@ class PlaceHolderArr(Arr):
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if has_internet() is False:
+                if not has_internet():
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -5252,7 +5252,7 @@ class FreeSpaceManager(Arr):
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if has_internet() is False:
+                if not has_internet():
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
