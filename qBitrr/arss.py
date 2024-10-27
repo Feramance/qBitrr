@@ -1300,13 +1300,18 @@ class Arr:
 
     def db_get_files(
         self,
-    ) -> list[list[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]] | None:
+    ) -> (
+        list[list[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]]
+        | None
+    ):
         entries = []
         self.logger.trace("Getting files to search")
         if self.type == "sonarr" and self.series_search:
             serieslist = self.db_get_files_series()
             for series in serieslist:
-                entries.append([series[0], series[1], series[2], series[2] is not True, len(serieslist)])
+                entries.append(
+                    [series[0], series[1], series[2], series[2] is not True, len(serieslist)]
+                )
                 # yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
         elif self.type == "sonarr" and not self.series_search:
             episodelist = self.db_get_files_episodes()
