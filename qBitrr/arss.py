@@ -1472,12 +1472,13 @@ class Arr:
                 condition = self.series_file_model.Searched is False
             else:
                 condition = self.series_file_model.Upgrade is False
-            for entry_ in (
+            query = (
                 self.series_file_model.select()
                 .where(condition)
                 .order_by(self.series_file_model.EntryId.asc())
                 .execute()
-            ):
+            )
+            for entry_ in query:
                 self.logger.trace("Adding %s to search list", entry_.Title)
                 entries.append([entry_, False, False])
             return entries
@@ -1531,7 +1532,7 @@ class Arr:
                     self.model_file.AirDateUtc
                     <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
                 )
-            for entry in (
+            query = (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
@@ -1542,7 +1543,8 @@ class Arr:
                 .group_by(self.model_file.SeriesId)
                 .order_by(self.model_file.EpisodeFileId.asc())
                 .execute()
-            ):
+            )
+            for entry in query:
                 self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             for i1, i2, i3 in self._search_todays(today_condition):
@@ -1587,12 +1589,11 @@ class Arr:
             if self.search_by_year:
                 self.logger.trace("Condition 6")
                 condition &= self.model_file.Year == self.search_current_year
-            for entry in (
-                self.model_file.select()
+            query = (self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.MovieFileId.asc())
-                .execute()
-            ):
+                .execute())
+            for entry in query:
                 self.logger.trace("Adding %s to search list", entry.Title)
                 entries.append([entry, False, False])
             return entries
