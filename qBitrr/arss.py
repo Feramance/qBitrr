@@ -1300,31 +1300,21 @@ class Arr:
 
     def db_get_files(
         self,
-    ) -> (
-        list[list[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]]
-        | None
-    ):
-        entries = []
-        self.logger.trace("Getting files to search")
+    ) -> Iterable[
+        tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
+    ]:
         if self.type == "sonarr" and self.series_search:
             serieslist = self.db_get_files_series()
             for series in serieslist:
-                entries.append(
-                    [series[0], series[1], series[2], series[2] is not True, len(serieslist)]
-                )
-                # yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
+                yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
         elif self.type == "sonarr" and not self.series_search:
             episodelist = self.db_get_files_episodes()
             for episodes in episodelist:
-                entries.append([episodes[0], episodes[1], episodes[2], False, len(episodelist)])
-                # yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
+                yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
         elif self.type == "radarr":
             movielist = self.db_get_files_movies()
             for movies in movielist:
-                entries.append([movies[0], movies[1], movies[2], False, len(movielist)])
-                # yield movies[0], movies[1], movies[2], False, len(movielist)
-        self.logger.trace("Returning %s entries", len(entries) if entries else 0)
-        return entries
+                yield movies[0], movies[1], movies[2], False, len(movielist)
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -4760,18 +4750,18 @@ class Arr:
                                 commands,
                             ) in self.db_get_files():
                                 if totcommands == -1:
-                                    totcommands = entry[4]
+                                    totcommands = commands
                                     self.logger.info("Starting search for %s items", totcommands)
                                 if SEARCH_LOOP_DELAY == -1:
                                     loop_delay = 30
                                 else:
                                     loop_delay = SEARCH_LOOP_DELAY
-                                while not (
+                                while (
                                     self.maybe_do_search(
-                                        entry[0],
-                                        todays=entry[1],
-                                        bypass_limit=entry[2],
-                                        series_search=entry[3],
+                                        entry,
+                                        todays=todays,
+                                        bypass_limit=limit_bypass,
+                                        series_search=series_search,
                                         commands=totcommands,
                                     )
                                 ):
