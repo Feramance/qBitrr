@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.9.13 (27/10/2024)
+- [[patch] Merge pull request #123 from Feramance/search-adjustments](https://github.com/Feramance/qBitrr/commit/305cccff537dbf23aa2abe896e937ff6e10f2f61) - @Feramance
+- [Logging](https://github.com/Feramance/qBitrr/commit/9e2fe51052373c6c945fb5f50f67471340989173) - @Feramance
+- [fixed condition](https://github.com/Feramance/qBitrr/commit/577d4b4681f23150fe258cdf9680627790ecc4b9) - @Feramance
+
+---
+
 ## v4.9.12 (27/10/2024)
 - [[patch] Merge pull request #119 from Feramance/103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/76f0379a2228077481159e9087c963f26187deae) - @Feramance
 - [Merge branch '103-report-an-errorwhich-has-already-been-registered' of https://github.com/Feramance/qBitrr into 103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/7802207d62a427feb49fd0e8fa07929b0c1adb37) - @Feramance
@@ -333,8 +340,3 @@
 
 ## v4.6.8 (17/05/2024)
 - [[patch] Altered config handling](https://github.com/Feramance/qBitrr/commit/52cdd744f458df821a408650803ab2d63f1649d2) - @Feramance
-
----
-
-## v4.6.7 (17/05/2024)
-- [[patch] Exit change](https://github.com/Feramance/qBitrr/commit/642aaafaa6c4bde7b0f86e4ba874939dfbbfbebd) - @Feramance
