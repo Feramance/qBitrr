@@ -1,5 +1,25 @@
 # Changelog
 
+## v4.9.12 (27/10/2024)
+- [[patch] Merge pull request #119 from Feramance/103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/76f0379a2228077481159e9087c963f26187deae) - @Feramance
+- [Merge branch '103-report-an-errorwhich-has-already-been-registered' of https://github.com/Feramance/qBitrr into 103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/7802207d62a427feb49fd0e8fa07929b0c1adb37) - @Feramance
+- [Reverted condition changes](https://github.com/Feramance/qBitrr/commit/0e0e55b30c8cefc9c5d7778d1fdf3f69e0d45bd8) - @Feramance
+- [Search testing](https://github.com/Feramance/qBitrr/commit/1679bee1ed7802d757726e32f14184a35b2be34a) - @Feramance
+- [Adjusted boolean checks](https://github.com/Feramance/qBitrr/commit/ca6fc4295d284eb86b30ba513cb74063d7ef91d6) - @Feramance
+- [Query logic update](https://github.com/Feramance/qBitrr/commit/6a2ef445fa279bd0028f35b37065abdda1514fdb) - @Feramance
+- [Remove file id check](https://github.com/Feramance/qBitrr/commit/b8055ae7e1985117ccb679b2f7245e8bc96eeab3) - @Feramance
+- [More logging](https://github.com/Feramance/qBitrr/commit/8680a61e34c8b06d1fab148c22aa12e7305e221c) - @Feramance
+- [Merge branch '103-report-an-errorwhich-has-already-been-registered' of https://github.com/Feramance/qBitrr into 103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/7c4a58c30223c1b18e75eb40c4cdea8a4b972550) - @Feramance
+- [More logging](https://github.com/Feramance/qBitrr/commit/0e1db8cb294823dd1e1f93061dd72b4077eec4f0) - @Feramance
+- [Removing yield test](https://github.com/Feramance/qBitrr/commit/00709f1f2b3ac30534f6e894bf44b8935cb57ecb) - @Feramance
+- [Search logs](https://github.com/Feramance/qBitrr/commit/dcb860624f96a7355c085c0781d4eb7f2cd09cae) - @Feramance
+- [Re-add exception handling](https://github.com/Feramance/qBitrr/commit/d724b19d5d77117418c763a426bc604f50e64f60) - @Feramance
+- [Adjust code](https://github.com/Feramance/qBitrr/commit/c0085f6ae431a276c51e074cfadefb453a517fa3) - @Feramance
+- [Updated category check logic](https://github.com/Feramance/qBitrr/commit/385cb7f6de88e4f09698cf350e768abb55d69897) - @Feramance
+- [Temporarily removed catch statement for testing](https://github.com/Feramance/qBitrr/commit/d5c6810ada03b8b48f6671aa5e115e3188d4536d) - @Feramance
+
+---
+
 ## v4.9.11 (16/10/2024)
 - [[patch] Added exception handling](https://github.com/Feramance/qBitrr/commit/3a3f4f151eb0a1cc70906a6feeff9d2c9583635f) - @Feramance
 - [Removed mkdocs](https://github.com/Feramance/qBitrr/commit/b132e74095e706ff632ff41535399bc54f1ef538) - @Feramance
@@ -318,8 +338,3 @@
 
 ## v4.6.7 (17/05/2024)
 - [[patch] Exit change](https://github.com/Feramance/qBitrr/commit/642aaafaa6c4bde7b0f86e4ba874939dfbbfbebd) - @Feramance
-
----
-
-## v4.6.6 (17/05/2024)
-- [[patch] Another test fix](https://github.com/Feramance/qBitrr/commit/4fb1cda81b27596f4ed93f4e7c6a9f442d26a37e) - @Feramance
