@@ -1444,7 +1444,6 @@ class Arr:
                         is False
                     )
                 else:
-                    condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched is False
             todays_condition = copy(condition)
             todays_condition &= self.model_file.AirDateUtc > (
@@ -1512,7 +1511,6 @@ class Arr:
                         is False
                     )
                 else:
-                    condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched is False
             today_condition = copy(condition)
             today_condition &= self.model_file.AirDateUtc > (
@@ -1585,7 +1583,6 @@ class Arr:
                     )
                 else:
                     self.logger.trace("Condition 5")
-                    condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.Searched is False
             if self.search_by_year:
                 self.logger.trace("Condition 6")
