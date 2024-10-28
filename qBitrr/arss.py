@@ -580,7 +580,7 @@ class Arr:
             if tag in torrent.tags:
                 return_value = True
             else:
-                return_value = True
+                return_value = False
 
         if return_value:
             self.logger.trace("Tag %s in %s", tag, torrent.name)
