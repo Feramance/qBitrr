@@ -557,24 +557,25 @@ class Arr:
     def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
         return_value = False
         if TAGLESS:
-            condition = (
-                self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
-            )
-            if tag == "qBitrr-allowed_seeding":
-                condition &= self.torrents.AllowedSeeding is True
-            elif tag == "qBitrr-imported":
-                condition &= self.torrents.Imported is True
-            elif tag == "qBitrr-allowed_stalled":
-                condition &= self.torrents.AllowedStalled is True
-            elif tag == "qBitrr-free_space_paused":
-                condition &= self.torrents.FreeSpacePaused is True
-            elif tag == "qBitrr-ignored":
+            if tag == "qBitrr-ignored":
                 return_value = "qBitrr-ignored" in torrent.tags
-            query = self.torrents.select().where(condition).execute()
-            if query:
-                return_value = True
             else:
-                return_value = False
+                condition = (
+                    self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
+                )
+                if tag == "qBitrr-allowed_seeding":
+                    condition &= self.torrents.AllowedSeeding is True
+                elif tag == "qBitrr-imported":
+                    condition &= self.torrents.Imported is True
+                elif tag == "qBitrr-allowed_stalled":
+                    condition &= self.torrents.AllowedStalled is True
+                elif tag == "qBitrr-free_space_paused":
+                    condition &= self.torrents.FreeSpacePaused is True
+                query = self.torrents.select().where(condition).execute()
+                if query:
+                    return_value = True
+                else:
+                    return_value = False
         else:
             if tag in torrent.tags:
                 return_value = True
