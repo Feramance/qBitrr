@@ -1307,7 +1307,6 @@ class Arr:
         if self.type == "sonarr" and self.series_search:
             serieslist = self.db_get_files_series()
             for series in serieslist:
-                self.logger.trace("Yielding %s ", series[0].Title)
                 yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
         elif self.type == "sonarr" and not self.series_search:
             episodelist = self.db_get_files_episodes()
@@ -1549,23 +1548,19 @@ class Arr:
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
             if self.do_upgrade_search:
-                self.logger.trace("Condition 1")
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    self.logger.trace("Condition 2")
                     condition &= (
                         self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    self.logger.trace("Condition 3")
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
                         == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    self.logger.trace("Condition 4")
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
@@ -1573,11 +1568,9 @@ class Arr:
                         == False
                     )
                 else:
-                    self.logger.trace("Condition 5")
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
-                self.logger.trace("Condition 6")
                 condition &= self.model_file.Year == self.search_current_year
             for entry in (
                 self.model_file.select()
