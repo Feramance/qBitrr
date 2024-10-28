@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.9.14 (28/10/2024)
+- [[patch] Removed redundant logs](https://github.com/Feramance/qBitrr/commit/4be37677f61204e811307b271b5a0b67b4b53a52) - @Feramance
+- [Fixed in tags check](https://github.com/Feramance/qBitrr/commit/62b29a91d5a74810dc2b14e7f0a1c4d02250d415) - @Feramance
+- [Tag check changes](https://github.com/Feramance/qBitrr/commit/9a43ab8af16f5f8bfb289eab44677992088b16d5) - @Feramance
+
+---
+
 ## v4.9.13 (27/10/2024)
 - [[patch] Merge pull request #123 from Feramance/search-adjustments](https://github.com/Feramance/qBitrr/commit/305cccff537dbf23aa2abe896e937ff6e10f2f61) - @Feramance
 - [Logging](https://github.com/Feramance/qBitrr/commit/9e2fe51052373c6c945fb5f50f67471340989173) - @Feramance
@@ -335,8 +342,3 @@
 
 ## v4.6.9 (17/05/2024)
 - [[patch] Version check handling](https://github.com/Feramance/qBitrr/commit/b1bf54f1de7d4806275a46d8ad665a293ee6b69d) - @Feramance
-
----
-
-## v4.6.8 (17/05/2024)
-- [[patch] Altered config handling](https://github.com/Feramance/qBitrr/commit/52cdd744f458df821a408650803ab2d63f1649d2) - @Feramance
