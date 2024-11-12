@@ -28,10 +28,10 @@ reformat:
 
 # Dependencies
 bumpdeps:
-	pip-compile -o requirements.txt --upgrade
-	pip-compile -o requirements.dev.txt --extra dev --upgrade
-	pip-compile -o requirements.fast.txt --extra fast --upgrade
-	pip-compile -o requirements.all.txt --extra all --upgrade
+	pip-compile -o requirements.txt --upgrade --strip-extras
+	pip-compile -o requirements.dev.txt --extra dev --upgrade --strip-extras
+	pip-compile -o requirements.fast.txt --extra fast --upgrade --strip-extras
+	pip-compile -o requirements.all.txt --extra all --upgrade --strip-extras
 
 # Development environment
 newenv:
