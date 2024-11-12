@@ -22,7 +22,7 @@ pre-commit==3.3.3
 pyinstaller==5.13.1
 pyupgrade==2.31.0
 twine==3.7.1
-ujson==5.4.0
+ujson==5.10.0
 upgrade-pip==0.1.4
 
 [dev]
@@ -34,8 +34,8 @@ pre-commit==3.3.3
 pyinstaller==5.13.1
 pyupgrade==2.31.0
 twine==3.7.1
-ujson==5.4.0
+ujson==5.10.0
 upgrade-pip==0.1.4
 
 [fast]
-ujson==5.4.0
+ujson==5.10.0

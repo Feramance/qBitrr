@@ -51,10 +51,10 @@ Requires-Dist: pre-commit==3.3.3; extra == "dev"
 Requires-Dist: pyinstaller==5.13.1; extra == "dev"
 Requires-Dist: pyupgrade==2.31.0; extra == "dev"
 Requires-Dist: twine==3.7.1; extra == "dev"
-Requires-Dist: ujson==5.4.0; extra == "dev"
+Requires-Dist: ujson==5.10.0; extra == "dev"
 Requires-Dist: upgrade-pip==0.1.4; extra == "dev"
 Provides-Extra: fast
-Requires-Dist: ujson==5.4.0; extra == "fast"
+Requires-Dist: ujson==5.10.0; extra == "fast"
 Provides-Extra: all
 Requires-Dist: black==24.3.0; extra == "all"
 Requires-Dist: bump2version==1.0.1; extra == "all"
@@ -64,9 +64,9 @@ Requires-Dist: pre-commit==3.3.3; extra == "all"
 Requires-Dist: pyinstaller==5.13.1; extra == "all"
 Requires-Dist: pyupgrade==2.31.0; extra == "all"
 Requires-Dist: twine==3.7.1; extra == "all"
-Requires-Dist: ujson==5.4.0; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
 Requires-Dist: upgrade-pip==0.1.4; extra == "all"
-Requires-Dist: ujson==5.4.0; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
 
 # <img src="logo.png" width="32px"/> qBitrr
 
