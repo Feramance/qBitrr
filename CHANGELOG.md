@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.9.16 (12/11/2024)
+- [[patch] Dependency updates and newenv changes](https://github.com/Feramance/qBitrr/commit/693bde3c28ca429888acf179ae41d6910e6ce65f) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/08568267a777a78e76253f23e02421b8b9ccab93) - @Feramance
+- [[patch] Dependency update](https://github.com/Feramance/qBitrr/commit/2c4d169800f93c825a2a73d083b759b75472d77f) - @Feramance
+
+---
+
 ## v4.9.15 (12/11/2024)
 - [[patch] Update ujson version](https://github.com/Feramance/qBitrr/commit/18b96cf12de8415f5b8774205e0632fd56e05098) - @Feramance
 - [Merge pull request #124 from Feramance/dependabot/github_actions/crazy-max/ghaction-import-gpg-6.2.0](https://github.com/Feramance/qBitrr/commit/1f95077994afc3158e43d7413379950289ecd51d) - @Feramance
@@ -336,10 +343,3 @@
 - [[patch] Availability paused fix](https://github.com/Feramance/qBitrr/commit/331091c58184371e62ff47088729cc2f13f68bbd) - @Feramance
 - [Ignore for free space](https://github.com/Feramance/qBitrr/commit/e5d4047e058c94aa46695ca6243eb5bcc22bd4d2) - @Feramance
 - [Torrent availability fix](https://github.com/Feramance/qBitrr/commit/880e16fc0fd4742c315f2986bf49a4c79b899639) - @Feramance
-
----
-
-## v4.6.10 (17/05/2024)
-- [[patch] Logging changes and paused torrent handling fixes](https://github.com/Feramance/qBitrr/commit/d0dfa3f12f46ca844e02f645a56385d7d4a21b0f) - @Feramance
-- [Better torrent handling for paused torrents](https://github.com/Feramance/qBitrr/commit/96597676dfa810321d63c0fa025dd302d5598770) - @Feramance
-- [Removing duplicate logs](https://github.com/Feramance/qBitrr/commit/7c9364ad877b2a56d32af83775b367ebafa112ae) - @Feramance
