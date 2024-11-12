@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.9.15 (12/11/2024)
+- [[patch] Update ujson version](https://github.com/Feramance/qBitrr/commit/18b96cf12de8415f5b8774205e0632fd56e05098) - @Feramance
+- [Merge pull request #124 from Feramance/dependabot/github_actions/crazy-max/ghaction-import-gpg-6.2.0](https://github.com/Feramance/qBitrr/commit/1f95077994afc3158e43d7413379950289ecd51d) - @Feramance
+
+---
+
 ## v4.9.14 (28/10/2024)
 - [[patch] Removed redundant logs](https://github.com/Feramance/qBitrr/commit/4be37677f61204e811307b271b5a0b67b4b53a52) - @Feramance
 - [Fixed in tags check](https://github.com/Feramance/qBitrr/commit/62b29a91d5a74810dc2b14e7f0a1c4d02250d415) - @Feramance
@@ -337,8 +343,3 @@
 - [[patch] Logging changes and paused torrent handling fixes](https://github.com/Feramance/qBitrr/commit/d0dfa3f12f46ca844e02f645a56385d7d4a21b0f) - @Feramance
 - [Better torrent handling for paused torrents](https://github.com/Feramance/qBitrr/commit/96597676dfa810321d63c0fa025dd302d5598770) - @Feramance
 - [Removing duplicate logs](https://github.com/Feramance/qBitrr/commit/7c9364ad877b2a56d32af83775b367ebafa112ae) - @Feramance
-
----
-
-## v4.6.9 (17/05/2024)
-- [[patch] Version check handling](https://github.com/Feramance/qBitrr/commit/b1bf54f1de7d4806275a46d8ad665a293ee6b69d) - @Feramance
