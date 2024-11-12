@@ -39,7 +39,9 @@ newenv:
 	.venv/bin/pip install -U pip
 	.venv/bin/pip install -U setuptools==69.5.1
 	.venv/bin/pip install -U wheel
+	.venv/bin/pip install -U pre-commit
 	$(MAKE) syncenv
+	pre-commit install
 syncenv:
 	python.exe -m pip install --upgrade pip
 	pip install -Ur requirements.all.txt
