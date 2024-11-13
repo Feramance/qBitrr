@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.9.17 (13/11/2024)
+- [[patch] Improved search by year logging](https://github.com/Feramance/qBitrr/commit/d3d6178c9bb1013e47f2ab1a95a4192abcc8e1ef) - @Feramance
+- [Pre-commit changes](https://github.com/Feramance/qBitrr/commit/691f6c3d6a3084cd4f793c1e35d6ff1423a18f6c) - @Feramance
+- [Dependabot adjustmenets](https://github.com/Feramance/qBitrr/commit/45a7cd022f1de0c2df0efc37341cb404d641c23d) - @Feramance
+- [Dependabot config update](https://github.com/Feramance/qBitrr/commit/e6f14d0c70158dd93b4cdbad0cc5e2824bba6c09) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/f16088b2f2c6d8bd2c44ef8ec2f4a99c125786e1) - @Feramance
+- [Dependabot yml config updates](https://github.com/Feramance/qBitrr/commit/099c2e5edb66260498875317a2724dca55da6a08) - @Feramance
+
+---
+
 ## v4.9.16 (12/11/2024)
 - [[patch] Dependency updates and newenv changes](https://github.com/Feramance/qBitrr/commit/693bde3c28ca429888acf179ae41d6910e6ce65f) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/08568267a777a78e76253f23e02421b8b9ccab93) - @Feramance
@@ -336,10 +346,3 @@
 
 ## v4.6.12 (17/05/2024)
 - [[patch] Config file dupe issue](https://github.com/Feramance/qBitrr/commit/9296c7c0e3be644102ad2b400d964f39adae3cd5) - @Feramance
-
----
-
-## v4.6.11 (17/05/2024)
-- [[patch] Availability paused fix](https://github.com/Feramance/qBitrr/commit/331091c58184371e62ff47088729cc2f13f68bbd) - @Feramance
-- [Ignore for free space](https://github.com/Feramance/qBitrr/commit/e5d4047e058c94aa46695ca6243eb5bcc22bd4d2) - @Feramance
-- [Torrent availability fix](https://github.com/Feramance/qBitrr/commit/880e16fc0fd4742c315f2986bf49a4c79b899639) - @Feramance
