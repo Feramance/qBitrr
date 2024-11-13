@@ -1811,7 +1811,10 @@ class Arr:
         self.db_update_todays_releases()
         if self.db_update_processed and not self.search_by_year:
             return
-        self.logger.info("Started updating database")
+        if self.search_by_year:
+            self.logger.info("Started updating database for %s", self.search_current_year)
+        else:
+            self.logger.info("Started updating database")
         if self.type == "sonarr":
             if not self.series_search:
                 while True:
