@@ -347,7 +347,12 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         "StalledDelay",
         -1,
     )
-    _gen_default_line(torrent_table, "Re-search stalled torrents when StalledDelay is enabled", "ReSearchStalled", False)
+    _gen_default_line(
+        torrent_table,
+        "Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent",
+        "ReSearchStalled",
+        False,
+    )
     _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
 

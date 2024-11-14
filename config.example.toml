@@ -223,7 +223,7 @@ DoNotRemoveSlow = true
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
 
-# Re-search stalled torrents when StalledDelay is enabled
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent
 ReSearchStalled = false
 
 
