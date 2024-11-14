@@ -106,23 +106,26 @@ class Arr:
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
         run_logs(self.logger)
-        categories = self.manager.qbit_manager.client.torrent_categories.categories
-        try:
-            categ = categories[self.category]
-            path = categ["savePath"]
-            if path:
-                self.logger.trace("Category exists with save path [%s]", path)
-                self.completed_folder = pathlib.Path(path)
-            else:
-                self.logger.trace("Category exists without save path")
-                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-                    self.category
+        
+        if not QBIT_DISABLED:
+            categories = self.manager.qbit_manager.client.torrent_categories.categories
+            try:
+                categ = categories[self.category]
+                path = categ["savePath"]
+                if path:
+                    self.logger.trace("Category exists with save path [%s]", path)
+                    self.completed_folder = pathlib.Path(path)
+                else:
+                    self.logger.trace("Category exists without save path")
+                    self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                        self.category
+                    )
+            except KeyError:
+                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+                self.manager.qbit_manager.client.torrent_categories.create_category(
+                    self.category, save_path=self.completed_folder
                 )
-        except KeyError:
-            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
-            self.manager.qbit_manager.client.torrent_categories.create_category(
-                self.category, save_path=self.completed_folder
-            )
+                
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
