@@ -220,11 +220,11 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Re-search stalled torrents
-ReSearchStalled = false
-
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
 StalledDelay = -1
+
+# Re-search stalled torrents when StalledDelay is enabled
+ReSearchStalled = false
 
 
 [Sonarr-TV.Torrent.SeedingMode]
