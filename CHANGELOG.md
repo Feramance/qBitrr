@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.9.18 (14/11/2024)
+- [[patch] Merge pull request #131 from Feramance/127-attributeerror-in-headless-mode](https://github.com/Feramance/qBitrr/commit/4506eb9c6dc8c9ef9cf9e882e26c1498ae03d4a1) - @Feramance
+- [Fix headless mode category path checks](https://github.com/Feramance/qBitrr/commit/52e6cb9130ae03a6d308a6c0976d12710cd6707f) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/fd06a192608a440301ef87a7132cb2958b42edce) - @Feramance
+- [Config updates](https://github.com/Feramance/qBitrr/commit/4bbd2d679919ad2b2e10f7e363c4753137da247e) - @Feramance
+
+---
+
 ## v4.9.17 (13/11/2024)
 - [[patch] Improved search by year logging](https://github.com/Feramance/qBitrr/commit/d3d6178c9bb1013e47f2ab1a95a4192abcc8e1ef) - @Feramance
 - [Pre-commit changes](https://github.com/Feramance/qBitrr/commit/691f6c3d6a3084cd4f793c1e35d6ff1423a18f6c) - @Feramance
@@ -341,8 +349,3 @@
 
 ## v4.6.13 (17/05/2024)
 - [[patch] NameError handling](https://github.com/Feramance/qBitrr/commit/55bef953acecbf98f1571cc40fb497a3fd9c6afd) - @Feramance
-
----
-
-## v4.6.12 (17/05/2024)
-- [[patch] Config file dupe issue](https://github.com/Feramance/qBitrr/commit/9296c7c0e3be644102ad2b400d964f39adae3cd5) - @Feramance
