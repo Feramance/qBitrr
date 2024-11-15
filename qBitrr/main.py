@@ -59,7 +59,7 @@ run_logs(logger)
 class qBitManager:
     min_supported_version = VersionClass("4.3.9")
     soft_not_supported_supported_version = VersionClass("4.4.4")
-    # max_supported_version = VersionClass("4.6.2")
+    max_supported_version = VersionClass("4.6.7")
     _head_less_mode = False
 
     def __init__(self):
@@ -127,9 +127,7 @@ class qBitManager:
         run_logs(self.logger)
 
     def _version_validator(self):
-        if (
-            self.min_supported_version <= self.current_qbit_version
-        ):  # <= self.max_supported_version):
+        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
             if self._validated_version:
                 self.logger.info(
                     "Current qBitTorrent version is supported: %s", self.current_qbit_version
@@ -146,7 +144,7 @@ class qBitManager:
                 "Supported version range is %s to < %s",
                 self.current_qbit_version,
                 self.min_supported_version,
-                # self.max_supported_version,
+                self.max_supported_version,
             )
             sys.exit(1)
 

@@ -106,7 +106,7 @@ class Arr:
             fh = logging.FileHandler(logfile)
             self.logger.addHandler(fh)
         run_logs(self.logger)
-        
+
         if not QBIT_DISABLED:
             categories = self.manager.qbit_manager.client.torrent_categories.categories
             try:
@@ -121,11 +121,15 @@ class Arr:
                         self.category
                     )
             except KeyError:
-                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                    self.category
+                )
                 self.manager.qbit_manager.client.torrent_categories.create_category(
                     self.category, save_path=self.completed_folder
                 )
-                
+        else:
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
+
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
