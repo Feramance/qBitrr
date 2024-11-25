@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.9.19 (25/11/2024)
+- [[patch] added api logging and set allow stalled behaviour to ignore the `IgnoreTorrentsYoungerThan` config](https://github.com/Feramance/qBitrr/commit/d371e3aa68f2038a59194faae9348ba1f5a0d4fe) - @Feramance
+- [Headless mode fix and limited qbittorrent version](https://github.com/Feramance/qBitrr/commit/431e5513b89475e5493e042378471c196af5ad77) - @Feramance
+- [Config notes update](https://github.com/Feramance/qBitrr/commit/358f1fe0b98467f77e066c952af6b27af7373177) - @Feramance
+
+---
+
 ## v4.9.18 (14/11/2024)
 - [[patch] Merge pull request #131 from Feramance/127-attributeerror-in-headless-mode](https://github.com/Feramance/qBitrr/commit/4506eb9c6dc8c9ef9cf9e882e26c1498ae03d4a1) - @Feramance
 - [Fix headless mode category path checks](https://github.com/Feramance/qBitrr/commit/52e6cb9130ae03a6d308a6c0976d12710cd6707f) - @Feramance
@@ -344,8 +351,3 @@
 - [Added new feature: Swap quality profile while movie is missing](https://github.com/Feramance/qBitrr/commit/acc9462d43bb0506335ec8041e74d32ad35257b6) - @Feramance
 - [Merge pull request #76 from Feramance/dependabot/pip/requests-2.32.0](https://github.com/Feramance/qBitrr/commit/21e143ccf5eea9b9633d12c468b77817a57b7f66) - @Feramance
 - [---](https://github.com/Feramance/qBitrr/commit/ff59fc0fedb6b4a4f4addc137db4bfbcdea6d4b6) - @dependabot[bot]
-
----
-
-## v4.6.13 (17/05/2024)
-- [[patch] NameError handling](https://github.com/Feramance/qBitrr/commit/55bef953acecbf98f1571cc40fb497a3fd9c6afd) - @Feramance
