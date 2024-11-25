@@ -338,7 +338,11 @@ class Arr:
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
 
+        self.api_call_count = 0
+        self.api_call_timer = datetime.now()
+
         try:
+            self.api_call_count += 1
             version_info = self.client.get_update()
             self.version = version_parser.parse(version_info[0].get("version"))
             self.logger.debug("%s version: %s", self._name, self.version.__str__())
@@ -914,6 +918,7 @@ class Arr:
                     if self.type == "sonarr":
                         while True:
                             try:
+                                self.api_call_count += 1
                                 self.client.post_command(
                                     "DownloadedEpisodesScan",
                                     path=str(path),
@@ -932,6 +937,7 @@ class Arr:
                     elif self.type == "radarr":
                         while True:
                             try:
+                                self.api_call_count += 1
                                 self.client.post_command(
                                     "DownloadedMoviesScan",
                                     path=str(path),
@@ -987,6 +993,7 @@ class Arr:
                 if self.series_search:
                     while True:
                         try:
+                            self.api_call_count += 1
                             data = self.client.get_series(object_ids[0])
                             name = data["title"]
                             series_id = data["id"]
@@ -1019,6 +1026,7 @@ class Arr:
                     self.logger.trace("Research series id: %s", series_id)
                     while True:
                         try:
+                            self.api_call_count += 1
                             self.client.post_command(self.search_api_command, seriesId=series_id)
                             break
                         except (
@@ -1034,6 +1042,7 @@ class Arr:
                     for object_id in object_ids:
                         while True:
                             try:
+                                self.api_call_count += 1
                                 data = self.client.get_episode(object_id)
                                 name = data.get("title")
                                 series_id = data.get("series", {}).get("id")
@@ -1075,6 +1084,7 @@ class Arr:
                             self.queue_file_ids.remove(object_id)
                         while True:
                             try:
+                                self.api_call_count += 1
                                 self.client.post_command("EpisodeSearch", episodeIds=[object_id])
                                 break
                             except (
@@ -1090,6 +1100,7 @@ class Arr:
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 while True:
                     try:
+                        self.api_call_count += 1
                         data = self.client.get_movie(object_id)
                         name = data.get("title")
                         if name:
@@ -1117,6 +1128,7 @@ class Arr:
                     self.queue_file_ids.remove(object_id)
                 while True:
                     try:
+                        self.api_call_count += 1
                         self.client.post_command("MoviesSearch", movieIds=[object_id])
                         break
                     except (
@@ -1236,6 +1248,7 @@ class Arr:
         ):
             while True:
                 try:
+                    self.api_call_count += 1
                     self.client.post_command("RssSync")
                     break
                 except (
@@ -1254,6 +1267,7 @@ class Arr:
         ):
             while True:
                 try:
+                    self.api_call_count += 1
                     self.client.post_command("RefreshMonitoredDownloads")
                     break
                 except (
@@ -1271,6 +1285,7 @@ class Arr:
             return 0
         while True:
             try:
+                self.api_call_count += 1
                 commands = self.client.get_command()
                 for command in commands:
                     if (
@@ -1343,6 +1358,7 @@ class Arr:
             ).execute()
             while True:
                 try:
+                    self.api_call_count += 1
                     series = self.client.get_series()
                     for s in series:
                         ids.append(s["id"])
@@ -1370,8 +1386,10 @@ class Arr:
             ).execute()
             while True:
                 try:
+                    self.api_call_count += 1
                     series = self.client.get_series()
                     for s in series:
+                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             ids.append(e["id"])
@@ -1397,6 +1415,7 @@ class Arr:
             ).execute()
             while True:
                 try:
+                    self.api_call_count += 1
                     movies = self.client.get_movie()
                     for m in movies:
                         ids.append(m["id"])
@@ -1679,6 +1698,7 @@ class Arr:
             ImdbIds = request_ids.get("ImdbId")
             while True:
                 try:
+                    self.api_call_count += 1
                     series = self.client.get_series()
                     break
                 except (
@@ -1689,6 +1709,7 @@ class Arr:
                 ):
                     continue
             for s in series:
+                self.api_call_count += 1
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
                     if "airDateUtc" in e:
@@ -1718,6 +1739,7 @@ class Arr:
             TmdbIds = request_ids.get("TmdbId")
             while True:
                 try:
+                    self.api_call_count += 1
                     movies = self.client.get_movie()
                     break
                 except (
@@ -1777,6 +1799,7 @@ class Arr:
             try:
                 while True:
                     try:
+                        self.api_call_count += 1
                         series = self.client.get_series()
                         break
                     except (
@@ -1787,6 +1810,7 @@ class Arr:
                     ):
                         continue
                 for s in series:
+                    self.api_call_count += 1
                     episodes = self.client.get_episode(s["id"], True)
                     for e in episodes:
                         if "airDateUtc" in e:
@@ -1826,6 +1850,7 @@ class Arr:
             if not self.series_search:
                 while True:
                     try:
+                        self.api_call_count += 1
                         series = self.client.get_series()
                         break
                     except (
@@ -1839,6 +1864,7 @@ class Arr:
                     for s in series:
                         if isinstance(s, str):
                             continue
+                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             if isinstance(e, str):
@@ -1876,6 +1902,7 @@ class Arr:
                     for s in series:
                         if isinstance(s, str):
                             continue
+                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             if isinstance(e, str):
@@ -1894,6 +1921,7 @@ class Arr:
             else:
                 while True:
                     try:
+                        self.api_call_count += 1
                         series = self.client.get_series()
                         break
                     except (
@@ -1925,6 +1953,7 @@ class Arr:
         elif self.type == "radarr":
             while True:
                 try:
+                    self.api_call_count += 1
                     movies = self.client.get_movie()
                     break
                 except (
@@ -2202,9 +2231,11 @@ class Arr:
                     )
                     while True:
                         try:
+                            self.api_call_count += 1
                             episode = self.client.get_episode(db_entry["id"])
                             if episodeData:
                                 if not episodeData.MinCustomFormatScore:
+                                    self.api_call_count += 1
                                     minCustomFormat = self.client.get_quality_profile(
                                         episode["series"]["qualityProfileId"]
                                     )["minFormatScore"]
@@ -2212,6 +2243,7 @@ class Arr:
                                     minCustomFormat = episodeData.MinCustomFormatScore
                                 if episode["hasFile"]:
                                     if episode["episodeFile"]["id"] != episodeData.EpisodeFileId:
+                                        self.api_call_count += 1
                                         customFormat = self.client.get_episode_file(
                                             episode["episodeFile"]["id"]
                                         )["customFormatScore"]
@@ -2220,10 +2252,12 @@ class Arr:
                                 else:
                                     customFormat = 0
                             else:
+                                self.api_call_count += 1
                                 minCustomFormat = self.client.get_quality_profile(
                                     episode["series"]["qualityProfileId"]
                                 )["minFormatScore"]
                                 if episode["hasFile"]:
+                                    self.api_call_count += 1
                                     customFormat = self.client.get_episode_file(
                                         episode["episodeFile"]["id"]
                                     )["customFormatScore"]
@@ -2290,6 +2324,7 @@ class Arr:
                             )
                         while True:
                             try:
+                                self.api_call_count += 1
                                 self.client.upd_episode(episode["id"], data)
                                 break
                             except (
@@ -2410,8 +2445,10 @@ class Arr:
                     if db_entry["monitored"] is True:
                         while True:
                             try:
+                                self.api_call_count += 1
                                 seriesMetadata = self.client.get_series(id_=EntryId)
                                 if not seriesData:
+                                    self.api_call_count += 1
                                     minCustomFormat = self.client.get_quality_profile(
                                         seriesMetadata["qualityProfileId"]
                                     )["minFormatScore"]
@@ -2491,6 +2528,7 @@ class Arr:
                                 )
                             while True:
                                 try:
+                                    self.api_call_count += 1
                                     self.client.upd_series(db_entry)
                                     break
                                 except (
@@ -2552,6 +2590,7 @@ class Arr:
                     try:
                         if movieData:
                             if not movieData.MinCustomFormatScore:
+                                self.api_call_count += 1
                                 minCustomFormat = self.client.get_quality_profile(
                                     db_entry["qualityProfileId"]
                                 )["minFormatScore"]
@@ -2559,6 +2598,7 @@ class Arr:
                                 minCustomFormat = movieData.MinCustomFormatScore
                             if db_entry["hasFile"]:
                                 if db_entry["movieFile"]["id"] != movieData.MovieFileId:
+                                    self.api_call_count += 1
                                     customFormat = self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
                                     )["customFormatScore"]
@@ -2568,10 +2608,12 @@ class Arr:
                                 customFormat = 0
 
                         else:
+                            self.api_call_count += 1
                             minCustomFormat = self.client.get_quality_profile(
                                 db_entry["qualityProfileId"]
                             )["minFormatScore"]
                             if db_entry["hasFile"]:
+                                self.api_call_count += 1
                                 customFormat = self.client.get_movie_file(
                                     db_entry["movieFile"]["id"]
                                 )["customFormatScore"]
@@ -2631,6 +2673,7 @@ class Arr:
                         )
                     while True:
                         try:
+                            self.api_call_count += 1
                             self.client.upd_movie(db_entry)
                             break
                         except (
@@ -2745,6 +2788,7 @@ class Arr:
         try:
             while True:
                 try:
+                    self.api_call_count += 1
                     res = self.client._delete(
                         f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
                         self.client.ver_uri,
@@ -2974,6 +3018,7 @@ class Arr:
                 if file_model.EntryId not in self.queue_file_ids:
                     while True:
                         try:
+                            self.api_call_count += 1
                             self.client.post_command(
                                 "EpisodeSearch", episodeIds=[file_model.EntryId]
                             )
@@ -3037,6 +3082,7 @@ class Arr:
                 ).on_conflict_replace().execute()
                 while True:
                     try:
+                        self.api_call_count += 1
                         self.client.post_command(
                             self.search_api_command, seriesId=file_model.EntryId
                         )
@@ -3102,6 +3148,7 @@ class Arr:
             if file_model.EntryId:
                 while True:
                     try:
+                        self.api_call_count += 1
                         self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
                         break
                     except (
@@ -4070,6 +4117,11 @@ class Arr:
         stalled_ignore = True
         if not self.allowed_stalled:
             return False
+        if (
+            self.recently_queue.get(torrent.hash, torrent.added_on)
+            < time_now - self.ignore_torrents_younger_than
+        ):
+            return False
         if self.stalled_delay == 0:
             self.logger.trace(
                 "Stalled check: %s [Current:%s][Added:%s][Limit:No Limit]",
@@ -4297,6 +4349,7 @@ class Arr:
             # Retry getting the queue until it succeeds
             while True:
                 try:
+                    self.api_call_count += 1
                     queue = self.client.get_queue()
                     break
                 except (
@@ -4437,6 +4490,7 @@ class Arr:
     def get_queue(self, page=1, page_size=1000, sort_direction="ascending", sort_key="timeLeft"):
         while True:
             try:
+                self.api_call_count += 1
                 res = self.client.get_queue(
                     page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
                 )
@@ -4488,6 +4542,7 @@ class Arr:
         temp_quality_profile_id = 0
         while True:
             try:
+                self.api_call_count += 1
                 profiles = self.client.get_quality_profile()
                 break
             except (
@@ -4641,6 +4696,7 @@ class Arr:
         if self.type == "radarr":
             while True:
                 try:
+                    self.api_call_count += 1
                     movies = self.client.get_movie()
                     break
                 except (
@@ -4660,6 +4716,7 @@ class Arr:
         elif self.type == "sonarr":
             while True:
                 try:
+                    self.api_call_count += 1
                     series = self.client.get_series()
                     break
                 except (
@@ -4671,6 +4728,7 @@ class Arr:
                     continue
 
             for s in series:
+                self.api_call_count += 1
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
                     if "airDateUtc" in e:
@@ -4730,6 +4788,11 @@ class Arr:
                     self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
+                    self.logger.debug(
+                        "%s api calls in %s seconds",
+                        self.api_call_count,
+                        (datetime.now() - self.api_call_timer).seconds,
+                    )
                     try:
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
@@ -4780,6 +4843,11 @@ class Arr:
                                     self.logger.info(
                                         "Searches not completed, %s remaining", totcommands
                                     )
+                                self.logger.debug(
+                                    "%s api calls in %s seconds",
+                                    self.api_call_count,
+                                    (datetime.now() - self.api_call_timer).seconds,
+                                )
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
