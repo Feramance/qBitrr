@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.9.20 (27/11/2024)
+- [[patch] Added config option to allow qbittorrent v5](https://github.com/Feramance/qBitrr/commit/7262b39754025c7c40a969e4300638b88402c438) - @Feramance
+
+---
+
 ## v4.9.19 (25/11/2024)
 - [[patch] added api logging and set allow stalled behaviour to ignore the `IgnoreTorrentsYoungerThan` config](https://github.com/Feramance/qBitrr/commit/d371e3aa68f2038a59194faae9348ba1f5a0d4fe) - @Feramance
 - [Headless mode fix and limited qbittorrent version](https://github.com/Feramance/qBitrr/commit/431e5513b89475e5493e042378471c196af5ad77) - @Feramance
@@ -337,17 +342,3 @@
 - [Added logs for testing](https://github.com/Feramance/qBitrr/commit/7caaf510c68a1e7f17335f18e8bb96ef1c599bb7) - @Feramance
 - [Search testing](https://github.com/Feramance/qBitrr/commit/999da4f26501c3b6f8c5cd2a8880ff995851a72a) - @Feramance
 - [README update](https://github.com/Feramance/qBitrr/commit/30fccabf9825899ed32ee2577da3a4431da5d89d) - @Feramance
-
----
-
-## v4.7.0 (29/05/2024)
-- [[minor] New feature: Switch quality profile for missing items until found](https://github.com/Feramance/qBitrr/commit/14ce35cd5adacc58e6ea8d6af3d5e7abab2bce1d) - @Feramance
-- [Error handling](https://github.com/Feramance/qBitrr/commit/2543508b4124eca32513cbf3b133b4ff05ad5fb8) - @Feramance
-- [Fixed variable names](https://github.com/Feramance/qBitrr/commit/a831abd84104f51f5775bc6ef41d8c0754835e13) - @Feramance
-- [Moved Logic](https://github.com/Feramance/qBitrr/commit/2c8b4f1277150414631a44ea2caadeddfeedf97b) - @Feramance
-- [Moved Logic](https://github.com/Feramance/qBitrr/commit/7dd7eeaea6bb905b93cca36fd790ba3a9e1c8c7e) - @Feramance
-- [Added debugging](https://github.com/Feramance/qBitrr/commit/1ff88ec5ab312e88133cd37c1ec37f45b6db6ff4) - @Feramance
-- [Moved logic to fix error](https://github.com/Feramance/qBitrr/commit/41cb3f3162d7be3c0c2f01c13f068df45bab262b) - @Feramance
-- [Added new feature: Swap quality profile while movie is missing](https://github.com/Feramance/qBitrr/commit/acc9462d43bb0506335ec8041e74d32ad35257b6) - @Feramance
-- [Merge pull request #76 from Feramance/dependabot/pip/requests-2.32.0](https://github.com/Feramance/qBitrr/commit/21e143ccf5eea9b9633d12c468b77817a57b7f66) - @Feramance
-- [---](https://github.com/Feramance/qBitrr/commit/ff59fc0fedb6b4a4f4addc137db4bfbcdea6d4b6) - @dependabot[bot]
