@@ -68,6 +68,7 @@ class qBitManager:
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
+        self.qBit_v5 = CONFIG.get("qBit.v5", fallback=False)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         if ENABLE_LOGS:
             logs_folder = HOME_PATH.joinpath("logs")
@@ -127,17 +128,28 @@ class qBitManager:
         run_logs(self.logger)
 
     def _version_validator(self):
-        if self.min_supported_version <= self.current_qbit_version <= self.max_supported_version:
-            if self._validated_version:
-                self.logger.info(
-                    "Current qBitTorrent version is supported: %s", self.current_qbit_version
-                )
-            else:
-                self.logger.warning(
-                    "Could not validate current qBitTorrent version, assuming: %s",
-                    self.current_qbit_version,
-                )
-                time.sleep(10)
+        validated = False
+        if self.qBit_v5:
+            if self.min_supported_version <= self.current_qbit_version:
+                validated = True
+        else:
+            if (
+                self.min_supported_version
+                <= self.current_qbit_version
+                <= self.max_supported_version
+            ):
+                validated = True
+
+        if self._validated_version and validated:
+            self.logger.info(
+                "Current qBitTorrent version is supported: %s", self.current_qbit_version
+            )
+        elif not self._validated_version and validated:
+            self.logger.warning(
+                "Could not validate current qBitTorrent version, assuming: %s",
+                self.current_qbit_version,
+            )
+            time.sleep(10)
         else:
             self.logger.critical(
                 "You are currently running qBitTorrent version %s, "

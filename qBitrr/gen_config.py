@@ -162,6 +162,12 @@ def _add_qbit_section(config: TOMLDocument):
         "Password",
         ENVIRO_CONFIG.qbit.password or "CHANGE_ME",
     )
+    _gen_default_line(
+        qbit,
+        "Set to true to allow abittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)",
+        "v5",
+        ENVIRO_CONFIG.qbit.v5 or False,
+    )
     config.add("qBit", qbit)
 
 

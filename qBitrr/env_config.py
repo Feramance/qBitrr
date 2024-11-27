@@ -50,6 +50,7 @@ class AppConfig:
         port = environ.var(None, converter=Converter.int)
         username = environ.var(None)
         password = environ.var(None)
+        v5 = environ.var(False)
 
     overrides: Overrides = environ.group(Overrides)
     settings: Settings = environ.group(Settings)
