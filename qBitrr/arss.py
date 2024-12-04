@@ -356,11 +356,9 @@ class Arr:
         self.main_quality_profiles = CONFIG.get(
             f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
         )
-        self.logger.trace("Main profiles: %s", self.main_quality_profiles)
         self.temp_quality_profiles = CONFIG.get(
             f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
         )
-        self.logger.trace("Temp profiles: %s", self.temp_quality_profiles)
         if self.use_temp_for_missing:
             (
                 self.main_quality_profile_ids,
@@ -2225,7 +2223,7 @@ class Arr:
                     episodeData = self.model_file.get_or_none(
                         self.model_file.EntryId == db_entry["id"]
                     )
-                    if episode["monitored"] is True or self.search_unmonitored:
+                    if episode["monitored"] or self.search_unmonitored:
                         while True:
                             try:
                                 self.api_call_count += 1
@@ -2457,7 +2455,7 @@ class Arr:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
                     seriesData = self.model_file.get_or_none(self.model_file.EntryId == EntryId)
-                    if db_entry["monitored"] is True or self.search_unmonitored:
+                    if db_entry["monitored"] or self.search_unmonitored:
                         while True:
                             try:
                                 self.api_call_count += 1
@@ -2621,7 +2619,7 @@ class Arr:
                 searched = False
                 movieData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
                 if self.minimum_availability_check(db_entry) and (
-                    db_entry["monitored"] is True or self.search_unmonitored
+                    db_entry["monitored"] or self.search_unmonitored
                 ):
                     while True:
                         try:
@@ -3279,7 +3277,7 @@ class Arr:
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet(self.manager.qbit_manager):
+                if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
