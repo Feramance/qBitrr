@@ -2312,7 +2312,9 @@ class Arr:
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
                                     )
                                 elif (
                                     not searched
@@ -2327,7 +2329,9 @@ class Arr:
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
                                     )
                             except KeyError:
                                 self.logger.warning(
@@ -2523,7 +2527,9 @@ class Arr:
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
                                     )
                                 elif (
                                     not searched
@@ -2536,7 +2542,9 @@ class Arr:
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
                                     )
                             except KeyError:
                                 self.logger.warning(
@@ -2682,7 +2690,7 @@ class Arr:
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
                                     db_entry["title"],
-                                    self.temp_quality_profile,
+                                    self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
                                 )
                             elif (
                                 not searched
@@ -2695,7 +2703,7 @@ class Arr:
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
                                     db_entry["title"],
-                                    self.temp_quality_profile,
+                                    self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
                                 )
                         except KeyError:
                             self.logger.warning(
