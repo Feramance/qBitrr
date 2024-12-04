@@ -2223,11 +2223,21 @@ class Arr:
                     episodeData = self.model_file.get_or_none(
                         self.model_file.EntryId == db_entry["id"]
                     )
+                    while True:
+                        try:
+                            self.api_call_count += 1
+                            episode = self.client.get_episode(db_entry["id"])
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
                     if episode["monitored"] or self.search_unmonitored:
                         while True:
                             try:
-                                self.api_call_count += 1
-                                episode = self.client.get_episode(db_entry["id"])
                                 if episodeData:
                                     if not episodeData.MinCustomFormatScore:
                                         self.api_call_count += 1
