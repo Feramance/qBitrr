@@ -360,10 +360,7 @@ class Arr:
             f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
         )
         if self.use_temp_for_missing:
-            (
-                self.main_quality_profile_ids,
-                self.temp_quality_profile_ids,
-            ) = self.parse_quality_profiles()
+            self.temp_quality_profile_ids = self.parse_quality_profiles()
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
@@ -2307,14 +2304,10 @@ class Arr:
                                     and db_entry["qualityProfileId"]
                                     in self.temp_quality_profile_ids.values()
                                 ):
-                                    profile = {
-                                        i
-                                        for i in self.temp_quality_profile_ids
-                                        if self.temp_quality_profile_ids[i]
-                                        == db_entry["qualityProfileId"]
-                                    }
                                     data: JsonObject = {
-                                        "qualityProfileId": self.main_quality_profile_ids[profile]
+                                        "qualityProfileId": self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ]
                                     }
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
@@ -2324,16 +2317,12 @@ class Arr:
                                 elif (
                                     not searched
                                     and db_entry["qualityProfileId"]
-                                    in self.main_quality_profile_ids.values()
+                                    in self.temp_quality_profile_ids.values()
                                 ):
-                                    profile = {
-                                        i
-                                        for i in self.main_quality_profile_ids
-                                        if self.main_quality_profile_ids[i]
-                                        == db_entry["qualityProfileId"]
-                                    }
                                     data: JsonObject = {
-                                        "qualityProfileId": self.temp_quality_profile_ids[profile]
+                                        "qualityProfileId": self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ]
                                     }
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
@@ -2528,14 +2517,8 @@ class Arr:
                                     and db_entry["qualityProfileId"]
                                     in self.temp_quality_profile_ids.values()
                                 ):
-                                    profile = {
-                                        i
-                                        for i in self.temp_quality_profile_ids
-                                        if self.temp_quality_profile_ids[i]
-                                        == db_entry["qualityProfileId"]
-                                    }
-                                    db_entry["qualityProfileId"] = self.main_quality_profile_ids[
-                                        profile
+                                    db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                        db_entry["qualityProfileId"]
                                     ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
@@ -2545,16 +2528,10 @@ class Arr:
                                 elif (
                                     not searched
                                     and db_entry["qualityProfileId"]
-                                    in self.main_quality_profile_ids.values()
+                                    in self.temp_quality_profile_ids.values()
                                 ):
-                                    profile = {
-                                        i
-                                        for i in self.main_quality_profile_ids
-                                        if self.main_quality_profile_ids[i]
-                                        == db_entry["qualityProfileId"]
-                                    }
                                     db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                        profile
+                                        db_entry["qualityProfileId"]
                                     ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
@@ -2699,14 +2676,8 @@ class Arr:
                                 and db_entry["qualityProfileId"]
                                 in self.temp_quality_profile_ids.values()
                             ):
-                                profile = {
-                                    i
-                                    for i in self.temp_quality_profile_ids
-                                    if self.temp_quality_profile_ids[i]
-                                    == db_entry["qualityProfileId"]
-                                }
-                                db_entry["qualityProfileId"] = self.main_quality_profile_ids[
-                                    profile
+                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                    db_entry["qualityProfileId"]
                                 ]
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
@@ -2716,16 +2687,10 @@ class Arr:
                             elif (
                                 not searched
                                 and db_entry["qualityProfileId"]
-                                in self.main_quality_profile_ids.values()
+                                in self.temp_quality_profile_ids.values()
                             ):
-                                profile = {
-                                    i
-                                    for i in self.main_quality_profile_ids
-                                    if self.main_quality_profile_ids[i]
-                                    == db_entry["qualityProfileId"]
-                                }
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                    profile
+                                    db_entry["qualityProfileId"]
                                 ]
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
@@ -4604,9 +4569,9 @@ class Arr:
                 self.needs_cleanup = True
             self.files_to_explicitly_delete = iter(_path_filter.copy())
 
-    def parse_quality_profiles(self) -> tuple[dict[str, int], dict[str, int]]:
-        main_quality_profiles = {}
-        temp_quality_profiles = {}
+    def parse_quality_profiles(self) -> dict[int, int]:
+        temp_quality_profile_ids = {}
+
         while True:
             try:
                 self.api_call_count += 1
@@ -4619,16 +4584,21 @@ class Arr:
                 JSONDecodeError,
             ):
                 continue
-        for p in profiles:
-            if p["name"] in self.main_quality_profiles:
-                profile = self.temp_quality_profiles[self.main_quality_profiles.index(p["name"])]
-                main_quality_profiles[profile] = p["id"]
-                self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-            if p["name"] in self.temp_quality_profiles:
-                profile = self.main_quality_profiles[self.temp_quality_profiles.index(p["name"])]
-                temp_quality_profiles[profile] = p["id"]
-                self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-        return (main_quality_profiles, temp_quality_profiles)
+
+        for n in self.main_quality_profiles:
+            pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
+
+            for p in profiles:
+                if p["name"] == pair[0]:
+                    pair[0] = p["id"]
+                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
+                if p["name"] == pair[1]:
+                    pair[1] = p["id"]
+                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
+            temp_quality_profile_ids[pair[0]] = pair[1]
+            temp_quality_profile_ids[pair[1]] = pair[0]
+
+        return temp_quality_profile_ids
 
     def register_search_mode(self):
         if self.search_setup_completed:
