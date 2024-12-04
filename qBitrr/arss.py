@@ -356,9 +356,13 @@ class Arr:
         self.main_quality_profiles = CONFIG.get(
             f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
         )
+        if isinstance(self.main_quality_profile, str):
+            self.main_quality_profile = [self.main_quality_profile]
         self.temp_quality_profiles = CONFIG.get(
             f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
         )
+        if isinstance(self.temp_quality_profile, str):
+            self.temp_quality_profile = [self.temp_quality_profile]
         if self.use_temp_for_missing:
             self.temp_quality_profile_ids = self.parse_quality_profiles()
 
