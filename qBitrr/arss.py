@@ -238,6 +238,7 @@ class Arr:
         if PROCESS_ONLY:
             self.search_missing = False
         self.search_specials = CONFIG.get(f"{name}.EntrySearch.AlsoSearchSpecials", fallback=False)
+        self.search_unmonitored = CONFIG.get(f"{name}.EntrySearch.Unmonitored", fallback=False)
         self.search_by_year = CONFIG.get(f"{name}.EntrySearch.SearchByYear", fallback=True)
         self.search_in_reverse = CONFIG.get(f"{name}.EntrySearch.SearchInReverse", fallback=False)
 
@@ -1440,6 +1441,8 @@ class Arr:
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
+            if not self.search_unmonitored:
+                condition &= self.model_file.Monitored == True
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -1507,6 +1510,8 @@ class Arr:
             condition = self.model_file.AirDateUtc.is_null(False)
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
+            if not self.search_unmonitored:
+                condition &= self.model_file.Monitored == True
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -1573,6 +1578,8 @@ class Arr:
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
+            if not self.search_unmonitored:
+                condition &= self.model_file.Monitored == True
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:

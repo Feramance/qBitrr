@@ -533,13 +533,19 @@ def _gen_default_line(table, comments, field, value):
 def _gen_default_search_table(category: str, cat_default: Table):
     search_table = table()
     _gen_default_line(search_table, "Should search for Missing files?", "SearchMissing", True)
-    _gen_default_line(
-        search_table,
-        "Should search for specials episodes? (Season 00)",
-        "AlsoSearchSpecials",
-        False,
-    )
     if "sonarr" in category.lower():
+        _gen_default_line(
+            search_table,
+            "Should search for specials episodes? (Season 00)",
+            "AlsoSearchSpecials",
+            False,
+        )
+        _gen_default_line(
+            search_table,
+            "Should search for unmonitored episodes/series?",
+            "Unmonitored",
+            False,
+        )
         _gen_default_line(
             search_table,
             [
@@ -550,6 +556,12 @@ def _gen_default_search_table(category: str, cat_default: Table):
             5,
         )
     elif "radarr" in category.lower():
+        _gen_default_line(
+            search_table,
+            "Should search for unmonitored movies?",
+            "Unmonitored",
+            False,
+        )
         _gen_default_line(
             search_table,
             [

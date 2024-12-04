@@ -114,6 +114,9 @@ SearchMissing = true
 # Should search for specials episodes? (Season 00)
 AlsoSearchSpecials = false
 
+# Should search for unmonitored episodes/series?
+Unmonitored = false
+
 # Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
@@ -317,6 +320,9 @@ SearchMissing = true
 # Should search for specials episodes? (Season 00)
 AlsoSearchSpecials = false
 
+# Should search for unmonitored episodes/series?
+Unmonitored = false
+
 # Maximum allowed Searches at any one points (I wouldn't recommend settings this too high)
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
@@ -517,8 +523,8 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 # Should search for Missing files?
 SearchMissing = true
 
-# Should search for specials episodes? (Season 00)
-AlsoSearchSpecials = false
+# Should search for unmonitored movies?
+Unmonitored = false
 
 # Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
 # If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10
@@ -729,8 +735,8 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 # Should search for Missing files?
 SearchMissing = true
 
-# Should search for specials episodes? (Season 00)
-AlsoSearchSpecials = false
+# Should search for unmonitored movies?
+Unmonitored = false
 
 # Radarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
 # If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10
