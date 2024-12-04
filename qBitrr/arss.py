@@ -2537,11 +2537,7 @@ class Arr:
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        list(self.temp_quality_profile_ids.keys())[
-                                            list(self.temp_quality_profile_ids.values()).index(
-                                                db_entry["qualityProfileId"]
-                                            )
-                                        ],
+                                        db_entry["qualityProfileId"],
                                     )
                                 elif (
                                     not searched
@@ -2706,11 +2702,7 @@ class Arr:
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
                                     db_entry["title"],
-                                    list(self.temp_quality_profile_ids.keys())[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            db_entry["qualityProfileId"]
-                                        )
-                                    ],
+                                    db_entry["qualityProfileId"],
                                 )
                             elif (
                                 not searched
