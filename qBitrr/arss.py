@@ -2448,7 +2448,7 @@ class Arr:
                         db_commands.execute()
                     else:
                         db_commands = self.model_file.delete().where(
-                            self.model_file.EntryId == EntryId
+                            self.model_file.EntryId == episode["id"]
                         )
                         db_commands.execute()
                 else:
@@ -2811,7 +2811,7 @@ class Arr:
                     db_commands.execute()
                 else:
                     db_commands = self.model_file.delete().where(
-                        self.model_file.EntryId == EntryId
+                        self.model_file.EntryId == db_entry["id"]
                     )
                     db_commands.execute()
 
