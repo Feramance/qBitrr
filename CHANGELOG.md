@@ -1,5 +1,23 @@
 # Changelog
 
+## v4.10.0 (04/12/2024)
+- [[minor] Merge pull request #140 from Feramance:128-multiple-fixes-and-temp-profile-changes](https://github.com/Feramance/qBitrr/commit/5792f12c8bfbf31748b3a6aee6a7db9f5469f6a5) - @Feramance
+- [Config description updates](https://github.com/Feramance/qBitrr/commit/41b7b306e2db0e01254b6c701f1aa6f0b92df73d) - @Feramance
+- [Logging fixes](https://github.com/Feramance/qBitrr/commit/e362672313d6eb7a6615efd0b6a007328fa5f35f) - @Feramance
+- [Multiple temp profiles changes](https://github.com/Feramance/qBitrr/commit/ec9338c527aeee9bbfb81a106b717c2746664d6a) - @Feramance
+- [Hotfix](https://github.com/Feramance/qBitrr/commit/0b88fcfa4029eb144926728cc4a7e69087d585ce) - @Feramance
+- [Multiple temporary profiles rework](https://github.com/Feramance/qBitrr/commit/6a9eb81b8c68294357be01038501a22b933dc9db) - @Feramance
+- [Further unmonitord feature change](https://github.com/Feramance/qBitrr/commit/bdaf792527fc0bfee95fa86d21fda1d47334d8d8) - @Feramance
+- [EntryId fix](https://github.com/Feramance/qBitrr/commit/97af33713120b199e07572b1c7f88c5631624240) - @Feramance
+- [Fix qbittorrent client parameter](https://github.com/Feramance/qBitrr/commit/6602c35514c0194534f792cffea42446f0a7f2c2) - @Feramance
+- [Added profiles fallback](https://github.com/Feramance/qBitrr/commit/0a558d4244993f79271805ed35ccffb77202d831) - @Feramance
+- [Logging profiles](https://github.com/Feramance/qBitrr/commit/17ba6e1f2dea931084458144f920adc735d0b101) - @Feramance
+- [Unmonitored search updates and initial test of mutliple temp profiles](https://github.com/Feramance/qBitrr/commit/feb54476d0f7f8d7ea74b884aeacff99c3a75686) - @Feramance
+- [Unmonitored config option implementation](https://github.com/Feramance/qBitrr/commit/ce52dc6c9e401c940f8bcb8eb06df83a33b9a116) - @Feramance
+- [has internet changes](https://github.com/Feramance/qBitrr/commit/8665d44c63cb165227ff0535f60f1f601143be12) - @Feramance
+
+---
+
 ## v4.9.20 (27/11/2024)
 - [[patch] Added config option to allow qbittorrent v5](https://github.com/Feramance/qBitrr/commit/7262b39754025c7c40a969e4300638b88402c438) - @Feramance
 
@@ -331,14 +349,3 @@
 
 ## v4.7.2 (29/05/2024)
 - [[patch] Bump dependencies](https://github.com/Feramance/qBitrr/commit/512d80980a1ddad3ca9458bed6fc05782cc013c1) - @Feramance
-
----
-
-## v4.7.1 (29/05/2024)
-- [[patch] Fixed Radarr search loop](https://github.com/Feramance/qBitrr/commit/051262800ccea1fa273f8c7d4ca767132cdd003d) - @Feramance
-- [Changed movie file id mapping](https://github.com/Feramance/qBitrr/commit/7ab426590d519a1b48f22e442ff86ec05f7d04c9) - @Feramance
-- [Further testing](https://github.com/Feramance/qBitrr/commit/4c7478aba25f0ce63c746ab33fad255e4bcf4162) - @Feramance
-- [Alter get files function](https://github.com/Feramance/qBitrr/commit/f58ea2d89a3e9cbd019aee239d6ee65a0db5db8f) - @Feramance
-- [Added logs for testing](https://github.com/Feramance/qBitrr/commit/7caaf510c68a1e7f17335f18e8bb96ef1c599bb7) - @Feramance
-- [Search testing](https://github.com/Feramance/qBitrr/commit/999da4f26501c3b6f8c5cd2a8880ff995851a72a) - @Feramance
-- [README update](https://github.com/Feramance/qBitrr/commit/30fccabf9825899ed32ee2577da3a4431da5d89d) - @Feramance
