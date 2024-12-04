@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.1 (04/12/2024)
+- [[patch] Hotfix backwards compatibility for temp profile configs](https://github.com/Feramance/qBitrr/commit/4ac7c016e7470b168005d0f468535ab4a0abb67e) - @Feramance
+
+---
+
 ## v4.10.0 (04/12/2024)
 - [[minor] Merge pull request #140 from Feramance:128-multiple-fixes-and-temp-profile-changes](https://github.com/Feramance/qBitrr/commit/5792f12c8bfbf31748b3a6aee6a7db9f5469f6a5) - @Feramance
 - [Config description updates](https://github.com/Feramance/qBitrr/commit/41b7b306e2db0e01254b6c701f1aa6f0b92df73d) - @Feramance
@@ -344,8 +349,3 @@
 ## v4.7.3 (29/05/2024)
 - [[patch] Another test](https://github.com/Feramance/qBitrr/commit/bc4f505876612409fbb844d279b25ebeee00517a) - @Feramance
 - [[patch] Changing setuptools for pyinstaller](https://github.com/Feramance/qBitrr/commit/b15fdeb5c733c78cb97580a9f465a709492389f5) - @Feramance
-
----
-
-## v4.7.2 (29/05/2024)
-- [[patch] Bump dependencies](https://github.com/Feramance/qBitrr/commit/512d80980a1ddad3ca9458bed6fc05782cc013c1) - @Feramance
