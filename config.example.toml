@@ -148,10 +148,10 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
-# Main quality profile
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
-# Temp quality profile
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
@@ -354,10 +354,10 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
-# Main quality profile
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
-# Temp quality profile
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
@@ -559,10 +559,10 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
-# Main quality profile
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
-# Temp quality profile
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
 
@@ -771,10 +771,10 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
-# Main quality profile
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
-# Temp quality profile
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
 

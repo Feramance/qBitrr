@@ -621,8 +621,18 @@ def _gen_default_search_table(category: str, cat_default: Table):
         True,
     )
     _gen_default_line(search_table, "Use Temp profile for missing", "UseTempForMissing", False)
-    _gen_default_line(search_table, "Main quality profile", "MainQualityProfile", [])
-    _gen_default_line(search_table, "Temp quality profile", "TempQualityProfile", [])
+    _gen_default_line(
+        search_table,
+        "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",
+        "MainQualityProfile",
+        [],
+    )
+    _gen_default_line(
+        search_table,
+        "Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)",
+        "TempQualityProfile",
+        [],
+    )
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
