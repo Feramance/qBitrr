@@ -354,7 +354,9 @@ class Arr:
             f"{name}.EntrySearch.UseTempForMissing", fallback=False
         )
         self.main_quality_profiles = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
+        self.logger.trace("Main profiles: %s", self.main_quality_profiles)
         self.temp_quality_profiles = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
+        self.logger.trace("Temp profiles: %s", self.temp_quality_profiles)
         if self.use_temp_for_missing:
             (
                 self.main_quality_profile_ids,
@@ -453,6 +455,7 @@ class Arr:
         if self.search_missing:
             self.logger.debug("Script Config:  SearchMissing=%s", self.search_missing)
             self.logger.debug("Script Config:  AlsoSearchSpecials=%s", self.search_specials)
+            self.logger.debug("Script Config:  SearchUnmoniored=%s", self.search_unmonitored)
             self.logger.debug("Script Config:  SearchByYear=%s", self.search_by_year)
             self.logger.debug("Script Config:  SearchInReverse=%s", self.search_in_reverse)
             self.logger.debug("Script Config:  CommandLimit=%s", self.search_command_limit)
