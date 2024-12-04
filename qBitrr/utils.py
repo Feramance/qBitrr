@@ -9,6 +9,7 @@ import time
 from typing import Iterator
 
 import ping3
+import qbittorrentapi
 from cachetools import TTLCache
 
 ping3.EXCEPTIONS = True
@@ -77,12 +78,15 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     return path
 
 
-def has_internet():
+def has_internet(client: qbittorrentapi.Client):
     from qBitrr.config import PING_URLS
 
     url = random.choice(PING_URLS)
-    if not is_connected(url):
-        return False
+    try:
+        if not is_connected(url) or not client.transfer_info()["connection_status"] == "connected":
+            return False
+    except:
+        logger.error("Error getting qbittorrent transfer info %s", client.transfer_info())
     logger.debug("Successfully connected to %s", url)
     return True
 
