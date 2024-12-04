@@ -353,9 +353,13 @@ class Arr:
         self.use_temp_for_missing = CONFIG.get(
             f"{name}.EntrySearch.UseTempForMissing", fallback=False
         )
-        self.main_quality_profiles = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
+        self.main_quality_profiles = CONFIG.get(
+            f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+        )
         self.logger.trace("Main profiles: %s", self.main_quality_profiles)
-        self.temp_quality_profiles = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
+        self.temp_quality_profiles = CONFIG.get(
+            f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
+        )
         self.logger.trace("Temp profiles: %s", self.temp_quality_profiles)
         if self.use_temp_for_missing:
             (
