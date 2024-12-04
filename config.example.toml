@@ -149,10 +149,10 @@ SearchAgainOnSearchCompletion = true
 UseTempForMissing = false
 
 # Main quality profile
-MainQualityProfile = "CHANGE_ME"
+MainQualityProfile = []
 
 # Temp quality profile
-TempQualityProfile = "CHANGE_ME"
+TempQualityProfile = []
 
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
@@ -355,10 +355,10 @@ SearchAgainOnSearchCompletion = true
 UseTempForMissing = false
 
 # Main quality profile
-MainQualityProfile = "CHANGE_ME"
+MainQualityProfile = []
 
 # Temp quality profile
-TempQualityProfile = "CHANGE_ME"
+TempQualityProfile = []
 
 # Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
 SearchBySeries = true
@@ -560,10 +560,10 @@ SearchAgainOnSearchCompletion = true
 UseTempForMissing = false
 
 # Main quality profile
-MainQualityProfile = "CHANGE_ME"
+MainQualityProfile = []
 
 # Temp quality profile
-TempQualityProfile = "CHANGE_ME"
+TempQualityProfile = []
 
 
 [Radarr-1080.EntrySearch.Ombi]
@@ -772,10 +772,10 @@ SearchAgainOnSearchCompletion = true
 UseTempForMissing = false
 
 # Main quality profile
-MainQualityProfile = "CHANGE_ME"
+MainQualityProfile = []
 
 # Temp quality profile
-TempQualityProfile = "CHANGE_ME"
+TempQualityProfile = []
 
 
 [Radarr-4K.EntrySearch.Ombi]
