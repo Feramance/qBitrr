@@ -238,6 +238,7 @@ class Arr:
         if PROCESS_ONLY:
             self.search_missing = False
         self.search_specials = CONFIG.get(f"{name}.EntrySearch.AlsoSearchSpecials", fallback=False)
+        self.search_unmonitored = CONFIG.get(f"{name}.EntrySearch.Unmonitored", fallback=False)
         self.search_by_year = CONFIG.get(f"{name}.EntrySearch.SearchByYear", fallback=True)
         self.search_in_reverse = CONFIG.get(f"{name}.EntrySearch.SearchInReverse", fallback=False)
 
@@ -352,13 +353,14 @@ class Arr:
         self.use_temp_for_missing = CONFIG.get(
             f"{name}.EntrySearch.UseTempForMissing", fallback=False
         )
-        self.main_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.MainQualityProfile")
-        self.temp_quality_profile = CONFIG.get(f"{self._name}.EntrySearch.TempQualityProfile")
+        self.main_quality_profiles = CONFIG.get(
+            f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+        )
+        self.temp_quality_profiles = CONFIG.get(
+            f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
+        )
         if self.use_temp_for_missing:
-            (
-                self.main_quality_profile_id,
-                self.temp_quality_profile_id,
-            ) = self.parse_quality_profiles()
+            self.temp_quality_profile_ids = self.parse_quality_profiles()
 
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
@@ -452,6 +454,7 @@ class Arr:
         if self.search_missing:
             self.logger.debug("Script Config:  SearchMissing=%s", self.search_missing)
             self.logger.debug("Script Config:  AlsoSearchSpecials=%s", self.search_specials)
+            self.logger.debug("Script Config:  SearchUnmoniored=%s", self.search_unmonitored)
             self.logger.debug("Script Config:  SearchByYear=%s", self.search_by_year)
             self.logger.debug("Script Config:  SearchInReverse=%s", self.search_in_reverse)
             self.logger.debug("Script Config:  CommandLimit=%s", self.search_command_limit)
@@ -1894,8 +1897,6 @@ class Arr:
                                     continue
                                 if not self.search_specials and e["seasonNumber"] == 0:
                                     continue
-                                if not e["monitored"]:
-                                    continue
                                 self.db_update_single_series(db_entry=e)
 
                 else:
@@ -1913,8 +1914,6 @@ class Arr:
                                 ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
                                     continue
                                 if not self.search_specials and e["seasonNumber"] == 0:
-                                    continue
-                                if not e["monitored"]:
                                     continue
                                 self.db_update_single_series(db_entry=e)
                 self.db_update_processed = True
@@ -1939,14 +1938,10 @@ class Arr:
                             continue
                         if s["year"] > self.search_current_year:
                             continue
-                        if not s["monitored"]:
-                            continue
                         self.db_update_single_series(db_entry=s, series=True)
                 else:
                     for s in series:
                         if isinstance(s, str):
-                            continue
-                        if not s["monitored"]:
                             continue
                         self.db_update_single_series(db_entry=s, series=True)
                 self.db_update_processed = True
@@ -1971,14 +1966,10 @@ class Arr:
                         continue
                     if m["year"] > self.search_current_year:
                         continue
-                    if not m["monitored"]:
-                        continue
                     self.db_update_single_series(db_entry=m)
             else:
                 for m in movies:
                     if isinstance(m, str):
-                        continue
-                    if not m["monitored"]:
                         continue
                     self.db_update_single_series(db_entry=m)
             self.db_update_processed = True
@@ -2233,36 +2224,6 @@ class Arr:
                         try:
                             self.api_call_count += 1
                             episode = self.client.get_episode(db_entry["id"])
-                            if episodeData:
-                                if not episodeData.MinCustomFormatScore:
-                                    self.api_call_count += 1
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        episode["series"]["qualityProfileId"]
-                                    )["minFormatScore"]
-                                else:
-                                    minCustomFormat = episodeData.MinCustomFormatScore
-                                if episode["hasFile"]:
-                                    if episode["episodeFile"]["id"] != episodeData.EpisodeFileId:
-                                        self.api_call_count += 1
-                                        customFormat = self.client.get_episode_file(
-                                            episode["episodeFile"]["id"]
-                                        )["customFormatScore"]
-                                    else:
-                                        customFormat = 0
-                                else:
-                                    customFormat = 0
-                            else:
-                                self.api_call_count += 1
-                                minCustomFormat = self.client.get_quality_profile(
-                                    episode["series"]["qualityProfileId"]
-                                )["minFormatScore"]
-                                if episode["hasFile"]:
-                                    self.api_call_count += 1
-                                    customFormat = self.client.get_episode_file(
-                                        episode["episodeFile"]["id"]
-                                    )["customFormatScore"]
-                                else:
-                                    customFormat = 0
                             break
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -2271,61 +2232,42 @@ class Arr:
                             JSONDecodeError,
                         ):
                             continue
-                        except KeyError:
-                            self.logger.warning("Key Error [%s]", db_entry["id"])
-                            continue
-
-                    QualityUnmet = (
-                        episode["episodeFile"]["qualityCutoffNotMet"]
-                        if "episodeFile" in episode
-                        else False
-                    )
-                    if (
-                        episode["hasFile"]
-                        and not (self.quality_unmet_search and QualityUnmet)
-                        and not (
-                            self.custom_format_unmet_search and customFormat < minCustomFormat
-                        )
-                    ):
-                        searched = True
-                        self.model_queue.update(Completed=True).where(
-                            self.model_queue.EntryId == episode["id"]
-                        ).execute()
-
-                    if self.use_temp_for_missing:
-                        try:
-                            if (
-                                searched
-                                and db_entry["qualityProfileId"] == self.temp_quality_profile_id
-                            ):
-                                data: JsonObject = {
-                                    "qualityProfileId": self.main_quality_profile_id
-                                }
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile,
-                                )
-                            elif (
-                                not searched
-                                and db_entry["qualityProfileId"] == self.main_quality_profile_id
-                            ):
-                                data: JsonObject = {
-                                    "qualityProfileId": self.temp_quality_profile_id
-                                }
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile,
-                                )
-                        except KeyError:
-                            self.logger.warning(
-                                "Check quality profile settings for %s", db_entry["title"]
-                            )
+                    if episode["monitored"] or self.search_unmonitored:
                         while True:
                             try:
-                                self.api_call_count += 1
-                                self.client.upd_episode(episode["id"], data)
+                                if episodeData:
+                                    if not episodeData.MinCustomFormatScore:
+                                        self.api_call_count += 1
+                                        minCustomFormat = self.client.get_quality_profile(
+                                            episode["series"]["qualityProfileId"]
+                                        )["minFormatScore"]
+                                    else:
+                                        minCustomFormat = episodeData.MinCustomFormatScore
+                                    if episode["hasFile"]:
+                                        if (
+                                            episode["episodeFile"]["id"]
+                                            != episodeData.EpisodeFileId
+                                        ):
+                                            self.api_call_count += 1
+                                            customFormat = self.client.get_episode_file(
+                                                episode["episodeFile"]["id"]
+                                            )["customFormatScore"]
+                                        else:
+                                            customFormat = 0
+                                    else:
+                                        customFormat = 0
+                                else:
+                                    self.api_call_count += 1
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        episode["series"]["qualityProfileId"]
+                                    )["minFormatScore"]
+                                    if episode["hasFile"]:
+                                        self.api_call_count += 1
+                                        customFormat = self.client.get_episode_file(
+                                            episode["episodeFile"]["id"]
+                                        )["customFormatScore"]
+                                    else:
+                                        customFormat = 0
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -2334,10 +2276,87 @@ class Arr:
                                 JSONDecodeError,
                             ):
                                 continue
+                            except KeyError:
+                                self.logger.warning("Key Error [%s]", db_entry["id"])
+                                continue
 
-                    if episode["monitored"] is True:
+                        QualityUnmet = (
+                            episode["episodeFile"]["qualityCutoffNotMet"]
+                            if "episodeFile" in episode
+                            else False
+                        )
+                        if (
+                            episode["hasFile"]
+                            and not (self.quality_unmet_search and QualityUnmet)
+                            and not (
+                                self.custom_format_unmet_search and customFormat < minCustomFormat
+                            )
+                        ):
+                            searched = True
+                            self.model_queue.update(Completed=True).where(
+                                self.model_queue.EntryId == episode["id"]
+                            ).execute()
+
+                        if self.use_temp_for_missing:
+                            try:
+                                if (
+                                    searched
+                                    and db_entry["qualityProfileId"]
+                                    in self.temp_quality_profile_ids.values()
+                                ):
+                                    data: JsonObject = {
+                                        "qualityProfileId": list(
+                                            self.temp_quality_profile_ids.keys()
+                                        )[
+                                            list(self.temp_quality_profile_ids.values()).index(
+                                                db_entry["qualityProfileId"]
+                                            )
+                                        ]
+                                    }
+                                    self.logger.debug(
+                                        "Updating quality profile for %s to %s",
+                                        db_entry["title"],
+                                        list(self.temp_quality_profile_ids.keys())[
+                                            list(self.temp_quality_profile_ids.values()).index(
+                                                db_entry["qualityProfileId"]
+                                            )
+                                        ],
+                                    )
+                                elif (
+                                    not searched
+                                    and db_entry["qualityProfileId"]
+                                    in self.temp_quality_profile_ids.keys()
+                                ):
+                                    data: JsonObject = {
+                                        "qualityProfileId": self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ]
+                                    }
+                                    self.logger.debug(
+                                        "Updating quality profile for %s to %s",
+                                        db_entry["title"],
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
+                                    )
+                            except KeyError:
+                                self.logger.warning(
+                                    "Check quality profile settings for %s", db_entry["title"]
+                                )
+                            while True:
+                                try:
+                                    self.api_call_count += 1
+                                    self.client.upd_episode(episode["id"], data)
+                                    break
+                                except (
+                                    requests.exceptions.ChunkedEncodingError,
+                                    requests.exceptions.ContentDecodingError,
+                                    requests.exceptions.ConnectionError,
+                                    JSONDecodeError,
+                                ):
+                                    continue
+
                         EntryId = episode["id"]
-
                         SeriesTitle = episode.get("series", {}).get("title")
                         SeasonNumber = episode["seasonNumber"]
                         Title = episode["title"]
@@ -2437,12 +2456,15 @@ class Arr:
                         ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
                     else:
-                        return
+                        db_commands = self.model_file.delete().where(
+                            self.model_file.EntryId == episode["id"]
+                        )
+                        db_commands.execute()
                 else:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
                     seriesData = self.model_file.get_or_none(self.model_file.EntryId == EntryId)
-                    if db_entry["monitored"] is True:
+                    if db_entry["monitored"] or self.search_unmonitored:
                         while True:
                             try:
                                 self.api_call_count += 1
@@ -2503,24 +2525,34 @@ class Arr:
                                 if (
                                     searched
                                     and db_entry["qualityProfileId"]
-                                    == self.temp_quality_profile_id
+                                    in self.temp_quality_profile_ids.values()
                                 ):
-                                    db_entry["qualityProfileId"] = self.main_quality_profile_id
+                                    db_entry["qualityProfileId"] = list(
+                                        self.temp_quality_profile_ids.keys()
+                                    )[
+                                        list(self.temp_quality_profile_ids.values()).index(
+                                            db_entry["qualityProfileId"]
+                                        )
+                                    ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        db_entry["qualityProfileId"],
                                     )
                                 elif (
                                     not searched
                                     and db_entry["qualityProfileId"]
-                                    == self.main_quality_profile_id
+                                    in self.temp_quality_profile_ids.keys()
                                 ):
-                                    db_entry["qualityProfileId"] = self.temp_quality_profile_id
+                                    db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                        db_entry["qualityProfileId"]
+                                    ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile,
+                                        self.temp_quality_profile_ids[
+                                            db_entry["qualityProfileId"]
+                                        ],
                                     )
                             except KeyError:
                                 self.logger.warning(
@@ -2580,111 +2612,128 @@ class Arr:
                         )
                         db_commands.execute()
                     else:
-                        return
+                        db_commands = self.series_file_model.delete().where(
+                            self.series_file_model.EntryId == EntryId
+                        )
+                        db_commands.execute()
 
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
                 searched = False
                 movieData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
-                while True:
-                    try:
-                        if movieData:
-                            if not movieData.MinCustomFormatScore:
+                if self.minimum_availability_check(db_entry) and (
+                    db_entry["monitored"] or self.search_unmonitored
+                ):
+                    while True:
+                        try:
+                            if movieData:
+                                if not movieData.MinCustomFormatScore:
+                                    self.api_call_count += 1
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        db_entry["qualityProfileId"]
+                                    )["minFormatScore"]
+                                else:
+                                    minCustomFormat = movieData.MinCustomFormatScore
+                                if db_entry["hasFile"]:
+                                    if db_entry["movieFile"]["id"] != movieData.MovieFileId:
+                                        self.api_call_count += 1
+                                        customFormat = self.client.get_movie_file(
+                                            db_entry["movieFile"]["id"]
+                                        )["customFormatScore"]
+                                    else:
+                                        customFormat = 0
+                                else:
+                                    customFormat = 0
+
+                            else:
                                 self.api_call_count += 1
                                 minCustomFormat = self.client.get_quality_profile(
                                     db_entry["qualityProfileId"]
                                 )["minFormatScore"]
-                            else:
-                                minCustomFormat = movieData.MinCustomFormatScore
-                            if db_entry["hasFile"]:
-                                if db_entry["movieFile"]["id"] != movieData.MovieFileId:
+                                if db_entry["hasFile"]:
                                     self.api_call_count += 1
                                     customFormat = self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
                                     )["customFormatScore"]
                                 else:
                                     customFormat = 0
-                            else:
-                                customFormat = 0
-
-                        else:
-                            self.api_call_count += 1
-                            minCustomFormat = self.client.get_quality_profile(
-                                db_entry["qualityProfileId"]
-                            )["minFormatScore"]
-                            if db_entry["hasFile"]:
-                                self.api_call_count += 1
-                                customFormat = self.client.get_movie_file(
-                                    db_entry["movieFile"]["id"]
-                                )["customFormatScore"]
-                            else:
-                                customFormat = 0
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                        KeyError,
-                    ):
-                        continue
-                    # except KeyError:
-                    #     self.logger.warning("Key Error [%s]", db_entry["id"])
-                QualityUnmet = (
-                    db_entry["episodeFile"]["qualityCutoffNotMet"]
-                    if "episodeFile" in db_entry
-                    else False
-                )
-                if (
-                    db_entry["hasFile"]
-                    and not (self.quality_unmet_search and QualityUnmet)
-                    and not (self.custom_format_unmet_search and customFormat < minCustomFormat)
-                ):
-                    searched = True
-                    self.model_queue.update(Completed=True).where(
-                        self.model_queue.EntryId == db_entry["id"]
-                    ).execute()
-
-                if self.use_temp_for_missing:
-                    try:
-                        if (
-                            searched
-                            and db_entry["qualityProfileId"] == self.temp_quality_profile_id
-                        ):
-                            db_entry["qualityProfileId"] = self.main_quality_profile_id
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                self.temp_quality_profile,
-                            )
-                        elif (
-                            not searched
-                            and db_entry["qualityProfileId"] == self.main_quality_profile_id
-                        ):
-                            db_entry["qualityProfileId"] = self.temp_quality_profile_id
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                self.temp_quality_profile,
-                            )
-                    except KeyError:
-                        self.logger.warning(
-                            "Check quality profile settings for %s", db_entry["title"]
-                        )
-                    while True:
-                        try:
-                            self.api_call_count += 1
-                            self.client.upd_movie(db_entry)
                             break
                         except (
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
+                            KeyError,
                         ):
                             continue
+                        # except KeyError:
+                        #     self.logger.warning("Key Error [%s]", db_entry["id"])
+                    QualityUnmet = (
+                        db_entry["episodeFile"]["qualityCutoffNotMet"]
+                        if "episodeFile" in db_entry
+                        else False
+                    )
+                    if (
+                        db_entry["hasFile"]
+                        and not (self.quality_unmet_search and QualityUnmet)
+                        and not (
+                            self.custom_format_unmet_search and customFormat < minCustomFormat
+                        )
+                    ):
+                        searched = True
+                        self.model_queue.update(Completed=True).where(
+                            self.model_queue.EntryId == db_entry["id"]
+                        ).execute()
 
-                if self.minimum_availability_check(db_entry) and db_entry["monitored"] is True:
+                    if self.use_temp_for_missing:
+                        try:
+                            if (
+                                searched
+                                and db_entry["qualityProfileId"]
+                                in self.temp_quality_profile_ids.values()
+                            ):
+                                db_entry["qualityProfileId"] = list(
+                                    self.temp_quality_profile_ids.keys()
+                                )[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        db_entry["qualityProfileId"]
+                                    )
+                                ]
+                                self.logger.debug(
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    db_entry["qualityProfileId"],
+                                )
+                            elif (
+                                not searched
+                                and db_entry["qualityProfileId"]
+                                in self.temp_quality_profile_ids.keys()
+                            ):
+                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                    db_entry["qualityProfileId"]
+                                ]
+                                self.logger.debug(
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
+                                )
+                        except KeyError:
+                            self.logger.warning(
+                                "Check quality profile settings for %s", db_entry["title"]
+                            )
+                        while True:
+                            try:
+                                self.api_call_count += 1
+                                self.client.upd_movie(db_entry)
+                                break
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ):
+                                continue
+
                     title = db_entry["title"]
                     monitored = db_entry["monitored"]
                     tmdbId = db_entry["tmdbId"]
@@ -2756,7 +2805,10 @@ class Arr:
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
                 else:
-                    return
+                    db_commands = self.model_file.delete().where(
+                        self.model_file.EntryId == db_entry["id"]
+                    )
+                    db_commands.execute()
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
@@ -3220,7 +3272,7 @@ class Arr:
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet():
+                if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -4537,9 +4589,9 @@ class Arr:
                 self.needs_cleanup = True
             self.files_to_explicitly_delete = iter(_path_filter.copy())
 
-    def parse_quality_profiles(self) -> tuple[int, int]:
-        main_quality_profile_id = 0
-        temp_quality_profile_id = 0
+    def parse_quality_profiles(self) -> dict[int, int]:
+        temp_quality_profile_ids = {}
+
         while True:
             try:
                 self.api_call_count += 1
@@ -4552,18 +4604,20 @@ class Arr:
                 JSONDecodeError,
             ):
                 continue
-        for p in profiles:
-            if p["name"] == self.main_quality_profile:
-                main_quality_profile_id = p["id"]
-                self.logger.trace(
-                    "Quality profile %s:%s", self.main_quality_profile, main_quality_profile_id
-                )
-            if p["name"] == self.temp_quality_profile:
-                temp_quality_profile_id = p["id"]
-                self.logger.trace(
-                    "Quality profile %s:%s", self.temp_quality_profile, temp_quality_profile_id
-                )
-        return (main_quality_profile_id, temp_quality_profile_id)
+
+        for n in self.main_quality_profiles:
+            pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
+
+            for p in profiles:
+                if p["name"] == pair[0]:
+                    pair[0] = p["id"]
+                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
+                if p["name"] == pair[1]:
+                    pair[1] = p["id"]
+                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
+            temp_quality_profile_ids[pair[0]] = pair[1]
+
+        return temp_quality_profile_ids
 
     def register_search_mode(self):
         if self.search_setup_completed:
@@ -5108,7 +5162,7 @@ class PlaceHolderArr(Arr):
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet():
+                if not has_internet(self.manager.qbit_manager):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -5309,7 +5363,7 @@ class FreeSpaceManager(Arr):
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet():
+                if not has_internet(self.manager.qbit_manager):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
