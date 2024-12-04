@@ -2305,21 +2305,27 @@ class Arr:
                                     in self.temp_quality_profile_ids.values()
                                 ):
                                     data: JsonObject = {
-                                        "qualityProfileId": self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
+                                        "qualityProfileId": list(
+                                            self.temp_quality_profile_ids.keys()
+                                        )[
+                                            list(self.temp_quality_profile_ids.values()).index(
+                                                db_entry["qualityProfileId"]
+                                            )
                                         ]
                                     }
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
+                                        list(self.temp_quality_profile_ids.keys())[
+                                            list(self.temp_quality_profile_ids.values()).index(
+                                                db_entry["qualityProfileId"]
+                                            )
                                         ],
                                     )
                                 elif (
                                     not searched
                                     and db_entry["qualityProfileId"]
-                                    in self.temp_quality_profile_ids.values()
+                                    in self.temp_quality_profile_ids.keys()
                                 ):
                                     data: JsonObject = {
                                         "qualityProfileId": self.temp_quality_profile_ids[
@@ -2521,20 +2527,26 @@ class Arr:
                                     and db_entry["qualityProfileId"]
                                     in self.temp_quality_profile_ids.values()
                                 ):
-                                    db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                        db_entry["qualityProfileId"]
+                                    db_entry["qualityProfileId"] = list(
+                                        self.temp_quality_profile_ids.keys()
+                                    )[
+                                        list(self.temp_quality_profile_ids.values()).index(
+                                            db_entry["qualityProfileId"]
+                                        )
                                     ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
+                                        list(self.temp_quality_profile_ids.keys())[
+                                            list(self.temp_quality_profile_ids.values()).index(
+                                                db_entry["qualityProfileId"]
+                                            )
                                         ],
                                     )
                                 elif (
                                     not searched
                                     and db_entry["qualityProfileId"]
-                                    in self.temp_quality_profile_ids.values()
+                                    in self.temp_quality_profile_ids.keys()
                                 ):
                                     db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
                                         db_entry["qualityProfileId"]
@@ -2684,18 +2696,26 @@ class Arr:
                                 and db_entry["qualityProfileId"]
                                 in self.temp_quality_profile_ids.values()
                             ):
-                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                    db_entry["qualityProfileId"]
+                                db_entry["qualityProfileId"] = list(
+                                    self.temp_quality_profile_ids.keys()
+                                )[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        db_entry["qualityProfileId"]
+                                    )
                                 ]
                                 self.logger.debug(
                                     "Updating quality profile for %s to %s",
                                     db_entry["title"],
-                                    self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
+                                    list(self.temp_quality_profile_ids.keys())[
+                                        list(self.temp_quality_profile_ids.values()).index(
+                                            db_entry["qualityProfileId"]
+                                        )
+                                    ],
                                 )
                             elif (
                                 not searched
                                 and db_entry["qualityProfileId"]
-                                in self.temp_quality_profile_ids.values()
+                                in self.temp_quality_profile_ids.keys()
                             ):
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
                                     db_entry["qualityProfileId"]
@@ -4604,7 +4624,6 @@ class Arr:
                     pair[1] = p["id"]
                     self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
             temp_quality_profile_ids[pair[0]] = pair[1]
-            temp_quality_profile_ids[pair[1]] = pair[0]
 
         return temp_quality_profile_ids
 
