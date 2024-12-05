@@ -4699,7 +4699,9 @@ class Arr:
         self.search_setup_completed = True
 
     def run_request_search(self):
-        if not self.ombi_search_requests or not self.overseerr_requests or not self.search_missing:
+        if (
+            not self.ombi_search_requests and not self.overseerr_requests
+        ) or not self.search_missing:
             return None
         self.register_search_mode()
         self.logger.notice("Starting Request search")
