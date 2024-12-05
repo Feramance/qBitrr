@@ -292,14 +292,10 @@ class Arr:
         self.overseerr_approved_only = CONFIG.get(
             f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
         )
-        self.search_requests_every_x_seconds = CONFIG.get(
-            f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800
+        self.search_requests_every_x_seconds = timedelta(
+            seconds=CONFIG.get(f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800)
         )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
-        if self.ombi_search_requests or self.overseerr_requests:
-            self.request_search_timer = 0
-        else:
-            self.request_search_timer = None
 
         if self.case_sensitive_matches:
             self.folder_exclusion_regex_re = (
@@ -4703,27 +4699,24 @@ class Arr:
         self.search_setup_completed = True
 
     def run_request_search(self):
-        if self.request_search_timer is None or (
-            self.request_search_timer > time.time() - self.search_requests_every_x_seconds
-        ):
+        if not self.ombi_search_requests or not self.overseerr_requests or not self.search_missing:
             return None
         self.register_search_mode()
-        if not self.search_missing:
-            return None
         self.logger.notice("Starting Request search")
 
         totcommands = -1
         searched = False
+        loop_timer = timedelta(seconds=self.search_requests_every_x_seconds)
+        timer = datetime.now()
         while True:
             if self.loop_completed:
                 totcommands = -1
                 searched = False
+                timer = datetime.now()
             try:
                 self.db_request_update()
                 try:
-                    if datetime.now() >= (
-                        self.request_search_timer + self.search_requests_every_x_seconds
-                    ):
+                    if datetime.now() >= (timer + loop_timer):
                         self.refresh_download_queue()
                         raise RestartLoopException
                     if not searched:
@@ -4751,10 +4744,8 @@ class Arr:
                             if totcommands == 0:
                                 self.logger.info("All searches completed")
                                 searched = True
-                            elif datetime.now() >= (
-                                self.request_search_timer + self.search_requests_every_x_seconds
-                            ):
-                                self.request_search_timer = time.time()
+                            elif datetime.now() >= (timer + loop_timer):
+                                timer = datetime.time()
                                 self.logger.info(
                                     "Searches not completed, %s remaining", totcommands
                                 )
