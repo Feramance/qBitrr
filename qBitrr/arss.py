@@ -4700,6 +4700,7 @@ class Arr:
         self.search_setup_completed = True
 
     def run_request_search(self):
+        self.logger.trace("Starting request search function")
         if (
             (
                 (not self.ombi_search_requests and not self.overseerr_requests)
@@ -4708,8 +4709,11 @@ class Arr:
             or self.request_search_timer is None
             or (self.request_search_timer > time.time() - self.search_requests_every_x_seconds)
         ):
+            self.logger.trace("Skipping request search function")
             return None
+        self.logger.trace("registering search mode")
         self.register_search_mode()
+        self.logger.trace("Search mode registered")
         totcommands = -1
         if SEARCH_LOOP_DELAY == -1:
             loop_delay = 30
