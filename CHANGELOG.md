@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.10.3 (05/12/2024)
+- [[patch] Minor changes to better handle temp profile config edge cases](https://github.com/Feramance/qBitrr/commit/b4f58311406d797956c3fa8aecc88b7ac18bdd09) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/6a8c6224cd0b68a4c82ec87e773477bd071b601a) - @Feramance
+- [[patch] Hotfix 3](https://github.com/Feramance/qBitrr/commit/fefb8dab5335af88992f0d50c8d7a9ba8b1bb2ea) - @Feramance
+
+---
+
 ## v4.10.2 (04/12/2024)
 - [[patch] Hotfix bad variable](https://github.com/Feramance/qBitrr/commit/e880563a91ca6a5f681bb66a49a6f247f42d3124) - @Feramance
 
@@ -343,8 +350,3 @@
 ## v4.7.5 (29/05/2024)
 - [[patch] Disabled main log unfil further notice](https://github.com/Feramance/qBitrr/commit/cb12b31572907a43cfa41b15b48ebf14ba44188a) - @Feramance
 - [Version specification for setuptools due to errors as well as some other QoL changes](https://github.com/Feramance/qBitrr/commit/6e9ece269c65790544693f27550158879dd7b9fb) - @Feramance
-
----
-
-## v4.7.4 (29/05/2024)
-- [[patch] Potential fix](https://github.com/Feramance/qBitrr/commit/060de09a90984f678980dd24e1cbd97ad33faab5) - @Feramance
