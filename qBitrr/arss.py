@@ -296,6 +296,10 @@ class Arr:
             f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800
         )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
+        if self.ombi_search_requests or self.overseerr_requests:
+            self.request_search_timer = 0
+        else:
+            self.request_search_timer = None
 
         if self.case_sensitive_matches:
             self.folder_exclusion_regex_re = (
@@ -4700,7 +4704,6 @@ class Arr:
         self.search_setup_completed = True
 
     def run_request_search(self):
-        self.logger.trace("Starting request search function")
         if (
             (
                 (not self.ombi_search_requests and not self.overseerr_requests)
@@ -4709,18 +4712,14 @@ class Arr:
             or self.request_search_timer is None
             or (self.request_search_timer > time.time() - self.search_requests_every_x_seconds)
         ):
-            self.logger.trace("Skipping request search function")
             return None
-        self.logger.trace("registering search mode")
         self.register_search_mode()
-        self.logger.trace("Search mode registered")
         totcommands = -1
         if SEARCH_LOOP_DELAY == -1:
             loop_delay = 30
         else:
             loop_delay = SEARCH_LOOP_DELAY
         try:
-            self.logger.info("Starting request database update")
             self.db_request_update()
             try:
                 for entry, commands in self.db_get_request_files():
