@@ -1694,6 +1694,7 @@ class Arr:
                 .execute()
             )
         for entry in entries:
+            self.logger.trace("Yielding request %s", entry.Title)
             yield entry, len(entries)
 
     def db_request_update(self):
