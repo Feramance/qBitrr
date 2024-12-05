@@ -350,9 +350,6 @@ class Arr:
         except Exception:
             self.logger.debug("Failed to get version")
 
-        self.use_temp_for_missing = CONFIG.get(
-            f"{name}.EntrySearch.UseTempForMissing", fallback=False
-        )
         self.main_quality_profiles = CONFIG.get(
             f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
         )
@@ -363,6 +360,11 @@ class Arr:
         )
         if not isinstance(self.temp_quality_profiles, list):
             self.temp_quality_profiles = [self.temp_quality_profiles]
+
+        self.use_temp_for_missing = CONFIG.get(
+            f"{name}.EntrySearch.UseTempForMissing", fallback=False
+        ) and self.main_quality_profiles and self.temp_quality_profiles
+
         if self.use_temp_for_missing:
             self.temp_quality_profile_ids = self.parse_quality_profiles()
 
