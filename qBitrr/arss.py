@@ -292,8 +292,8 @@ class Arr:
         self.overseerr_approved_only = CONFIG.get(
             f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
         )
-        self.search_requests_every_x_seconds = timedelta(
-            seconds=CONFIG.get(f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800)
+        self.search_requests_every_x_seconds = CONFIG.get(
+            f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800
         )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
 
@@ -4700,93 +4700,69 @@ class Arr:
 
     def run_request_search(self):
         if (
-            not self.ombi_search_requests and not self.overseerr_requests
-        ) or not self.search_missing:
+            (
+                (not self.ombi_search_requests and not self.overseerr_requests)
+                or not self.search_missing
+            )
+            or self.request_search_timer is None
+            or (self.request_search_timer > time.time() - self.search_requests_every_x_seconds)
+        ):
             return None
         self.register_search_mode()
-        self.logger.notice("Starting Request search")
-
         totcommands = -1
-        searched = False
-        loop_timer = timedelta(seconds=self.search_requests_every_x_seconds)
-        timer = datetime.now()
-        while True:
-            if self.loop_completed:
-                totcommands = -1
-                searched = False
-                timer = datetime.now()
+        if SEARCH_LOOP_DELAY == -1:
+            loop_delay = 30
+        else:
+            loop_delay = SEARCH_LOOP_DELAY
+        try:
+            self.db_request_update()
             try:
-                self.db_request_update()
-                try:
-                    if datetime.now() >= (timer + loop_timer):
-                        self.refresh_download_queue()
-                        raise RestartLoopException
-                    if not searched:
-                        for entry, commands in self.db_get_request_files():
-                            if totcommands == -1:
-                                totcommands = commands
-                                self.logger.info("Starting search for %s items", totcommands)
-                            if SEARCH_LOOP_DELAY == -1:
-                                loop_delay = 30
-                            else:
-                                loop_delay = SEARCH_LOOP_DELAY
-                            while not self.maybe_do_search(
-                                entry,
-                                request=True,
-                                commands=totcommands,
-                            ):
-                                self.logger.debug("Waiting for active search commands")
-                                time.sleep(loop_delay)
-                            if SEARCH_LOOP_DELAY != -1:
-                                self.logger.info(
-                                    "Delaying search loop by %s seconds", SEARCH_LOOP_DELAY
-                                )
-                                time.sleep(SEARCH_LOOP_DELAY)
-                            totcommands -= 1
-                            if totcommands == 0:
-                                self.logger.info("All searches completed")
-                                searched = True
-                            elif datetime.now() >= (timer + loop_timer):
-                                timer = datetime.time()
-                                self.logger.info(
-                                    "Searches not completed, %s remaining", totcommands
-                                )
-                            while not self.maybe_do_search(entry, request=True):
-                                time.sleep(30)
-                except NoConnectionrException as e:
-                    self.logger.error(e.message)
-                    raise DelayLoopException(length=300, type=e.type)
-                except DelayLoopException:
-                    raise
-                except Exception as e:
-                    self.logger.exception(e, exc_info=sys.exc_info())
-                time.sleep(LOOP_SLEEP_TIMER)
-            except DelayLoopException as e:
-                if e.type == "qbit":
-                    self.logger.critical(
-                        "Failed to connected to qBit client, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "internet":
-                    self.logger.critical(
-                        "Failed to connected to the internet, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "arr":
-                    self.logger.critical(
-                        "Failed to connected to the Arr instance, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "delay":
-                    self.logger.critical(
-                        "Forced delay due to temporary issue with environment, sleeping for %s",
-                        timedelta(seconds=e.length),
-                    )
-                elif e.type == "no_downloads":
-                    self.logger.debug(
-                        "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
-                    )
-                time.sleep(e.length)
+                for entry, commands in self.db_get_request_files():
+                    if totcommands == -1:
+                        totcommands = commands
+                        self.logger.info("Starting request search for %s items", totcommands)
+                    while not self.maybe_do_search(
+                        entry,
+                        request=True,
+                        commands=totcommands,
+                    ):
+                        self.logger.debug("Waiting for active request search commands")
+                        time.sleep(loop_delay)
+                self.request_search_timer = time.time()
+                return
+            except NoConnectionrException as e:
+                self.logger.error(e.message)
+                raise DelayLoopException(length=300, type=e.type)
+            except DelayLoopException:
+                raise
+            except Exception as e:
+                self.logger.exception(e, exc_info=sys.exc_info())
+        except DelayLoopException as e:
+            if e.type == "qbit":
+                self.logger.critical(
+                    "Failed to connected to qBit client, sleeping for %s",
+                    timedelta(seconds=e.length),
+                )
+            elif e.type == "internet":
+                self.logger.critical(
+                    "Failed to connected to the internet, sleeping for %s",
+                    timedelta(seconds=e.length),
+                )
+            elif e.type == "arr":
+                self.logger.critical(
+                    "Failed to connected to the Arr instance, sleeping for %s",
+                    timedelta(seconds=e.length),
+                )
+            elif e.type == "delay":
+                self.logger.critical(
+                    "Forced delay due to temporary issue with environment, sleeping for %s",
+                    timedelta(seconds=e.length),
+                )
+            elif e.type == "no_downloads":
+                self.logger.debug(
+                    "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
+                )
+            time.sleep(e.length)
 
     def get_year_search(self) -> tuple[list[int], int]:
         years_list = set()
