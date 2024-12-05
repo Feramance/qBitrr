@@ -361,9 +361,11 @@ class Arr:
         if not isinstance(self.temp_quality_profiles, list):
             self.temp_quality_profiles = [self.temp_quality_profiles]
 
-        self.use_temp_for_missing = CONFIG.get(
-            f"{name}.EntrySearch.UseTempForMissing", fallback=False
-        ) and self.main_quality_profiles and self.temp_quality_profiles
+        self.use_temp_for_missing = (
+            CONFIG.get(f"{name}.EntrySearch.UseTempForMissing", fallback=False)
+            and self.main_quality_profiles
+            and self.temp_quality_profiles
+        )
 
         if self.use_temp_for_missing:
             self.temp_quality_profile_ids = self.parse_quality_profiles()
@@ -4707,15 +4709,54 @@ class Arr:
             return None
         self.logger.notice("Starting Request search")
 
+        totcommands = -1
+        searched = False
         while True:
+            if self.loop_completed:
+                totcommands = -1
+                searched = False
             try:
                 self.db_request_update()
                 try:
-                    for entry in self.db_get_request_files():
-                        while not self.maybe_do_search(entry, request=True):
-                            time.sleep(30)
-                    self.request_search_timer = time.time()
-                    return
+                    if datetime.now() >= (
+                        self.request_search_timer + self.search_requests_every_x_seconds
+                    ):
+                        self.refresh_download_queue()
+                        raise RestartLoopException
+                    if not searched:
+                        for entry, commands in self.db_get_request_files():
+                            if totcommands == -1:
+                                totcommands = commands
+                                self.logger.info("Starting search for %s items", totcommands)
+                            if SEARCH_LOOP_DELAY == -1:
+                                loop_delay = 30
+                            else:
+                                loop_delay = SEARCH_LOOP_DELAY
+                            while not self.maybe_do_search(
+                                entry,
+                                request=True,
+                                commands=totcommands,
+                            ):
+                                self.logger.debug("Waiting for active search commands")
+                                time.sleep(loop_delay)
+                            if SEARCH_LOOP_DELAY != -1:
+                                self.logger.info(
+                                    "Delaying search loop by %s seconds", SEARCH_LOOP_DELAY
+                                )
+                                time.sleep(SEARCH_LOOP_DELAY)
+                            totcommands -= 1
+                            if totcommands == 0:
+                                self.logger.info("All searches completed")
+                                searched = True
+                            elif datetime.now() >= (
+                                self.request_search_timer + self.search_requests_every_x_seconds
+                            ):
+                                self.request_search_timer = time.time()
+                                self.logger.info(
+                                    "Searches not completed, %s remaining", totcommands
+                                )
+                            while not self.maybe_do_search(entry, request=True):
+                                time.sleep(30)
                 except NoConnectionrException as e:
                     self.logger.error(e.message)
                     raise DelayLoopException(length=300, type=e.type)
