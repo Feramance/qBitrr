@@ -1619,6 +1619,7 @@ class Arr:
             return entries
 
     def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
+        entries = []
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
             yield None
         if not self.search_missing:
@@ -1654,7 +1655,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
-            yield from (
+            entries = (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
@@ -1690,12 +1691,14 @@ class Arr:
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.IsRequest is True
-            yield from (
+            entries = (
                 self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.Title.asc())
                 .execute()
             )
+        for entry in entries:
+            yield entry, len(entries)
 
     def db_request_update(self):
         if self.overseerr_requests:
