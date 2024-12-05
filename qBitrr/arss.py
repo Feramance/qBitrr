@@ -1618,7 +1618,7 @@ class Arr:
                 entries.append([entry, False, False])
             return entries
 
-    def db_get_request_files(self) -> Iterable[MoviesFilesModel | EpisodeFilesModel]:
+    def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
         entries = []
         if (not self.ombi_search_requests) or (not self.overseerr_requests):
             yield None
