@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.4 (05/12/2024)
+- [[patch] Quality profile change error handling when defined incorrectly](https://github.com/Feramance/qBitrr/commit/bc2666214800f87d229f90317eb07097e55e403d) - @Feramance
+
+---
+
 ## v4.10.3 (05/12/2024)
 - [[patch] Minor changes to better handle temp profile config edge cases](https://github.com/Feramance/qBitrr/commit/b4f58311406d797956c3fa8aecc88b7ac18bdd09) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/6a8c6224cd0b68a4c82ec87e773477bd071b601a) - @Feramance
@@ -344,9 +349,3 @@
 - [Bump docker/build-push-action from 5 to 6](https://github.com/Feramance/qBitrr/commit/c72eded66a49c6df65ed9d5a0cc66647a758e835) - @dependabot[bot]
 - [Merge pull request #80 from Feramance/dependabot/pip/urllib3-2.2.2](https://github.com/Feramance/qBitrr/commit/30370572963d9672011072fd8479d9e59a16ae64) - @Feramance
 - [Bump urllib3 from 2.2.1 to 2.2.2](https://github.com/Feramance/qBitrr/commit/061d73e2c5556a4d9ca0425dd7a102ef398e707e) - @dependabot[bot]
-
----
-
-## v4.7.5 (29/05/2024)
-- [[patch] Disabled main log unfil further notice](https://github.com/Feramance/qBitrr/commit/cb12b31572907a43cfa41b15b48ebf14ba44188a) - @Feramance
-- [Version specification for setuptools due to errors as well as some other QoL changes](https://github.com/Feramance/qBitrr/commit/6e9ece269c65790544693f27550158879dd7b9fb) - @Feramance
