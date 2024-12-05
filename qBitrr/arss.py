@@ -4716,6 +4716,7 @@ class Arr:
         else:
             loop_delay = SEARCH_LOOP_DELAY
         try:
+            self.logger.info("Starting request database update")
             self.db_request_update()
             try:
                 for entry, commands in self.db_get_request_files():
