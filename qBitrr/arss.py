@@ -3141,7 +3141,7 @@ class Arr:
                 return True
             active_commands = self.arr_db_query_commands_count()
             self.logger.info(
-                "%s%s active search commands, %s remaining", request_tag, active_commands, commands
+                "%s active search commands, %s remaining", active_commands, commands
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
