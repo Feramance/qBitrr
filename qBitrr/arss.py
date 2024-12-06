@@ -1623,32 +1623,9 @@ class Arr:
         self.logger.trace("Getting request files")
         if self.type == "sonarr":
             condition = self.model_file.IsRequest == True
-            condition = self.model_file.AirDateUtc.is_null(False)
-            if not self.search_specials:
-                condition &= self.model_file.SeasonNumber != 0
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.CustomFormatMet
-                        == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.QualityMet
-                        == False | self.model_file.CustomFormatMet
-                        == False
-                    )
-                else:
-                    condition &= self.model_file.EpisodeFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self.model_file.AirDateUtc.is_null(False)
+            condition &= self.model_file.EpisodeFileId == 0
+            condition &= self.model_file.Searched == False
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
@@ -1664,30 +1641,9 @@ class Arr:
             )
         elif self.type == "radarr":
             condition = self.model_file.IsRequest == True
-            condition = self.model_file.Year.is_null(False)
-            if self.do_upgrade_search:
-                condition &= self.model_file.Upgrade == False
-            else:
-                if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
-                    )
-                elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.CustomFormatMet
-                        == False
-                    )
-                elif self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.QualityMet
-                        == False | self.model_file.CustomFormatMet
-                        == False
-                    )
-                else:
-                    condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.Searched == False
+            condition &= self.model_file.Year.is_null(False)
+            condition &= self.model_file.MovieFileId == 0
+            condition &= self.model_file.Searched == False
             entries = list(
                 self.model_file.select()
                 .where(condition)
@@ -4731,7 +4687,7 @@ class Arr:
                         self.logger.debug("Waiting for active request search commands")
                         time.sleep(loop_delay)
                 self.request_search_timer = time.time()
-                return
+                return None
             except NoConnectionrException as e:
                 self.logger.error(e.message)
                 raise DelayLoopException(length=300, type=e.type)
