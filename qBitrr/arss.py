@@ -1620,6 +1620,7 @@ class Arr:
 
     def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
         entries = []
+        self.logger.trace("Getting request files")
         if self.type == "sonarr":
             condition = self.model_file.IsRequest is True
             if self.do_upgrade_search:
