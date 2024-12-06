@@ -1620,11 +1620,7 @@ class Arr:
 
     def db_get_request_files(self) -> Iterable[tuple[MoviesFilesModel | EpisodeFilesModel, int]]:
         entries = []
-        if (not self.ombi_search_requests) or (not self.overseerr_requests):
-            yield None
-        if not self.search_missing:
-            yield None
-        elif self.type == "sonarr":
+        if self.type == "sonarr":
             condition = self.model_file.IsRequest is True
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
@@ -1655,7 +1651,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(hours=2)
             )
-            entries = (
+            entries = list(
                 self.model_file.select()
                 .where(condition)
                 .order_by(
@@ -1691,7 +1687,7 @@ class Arr:
                 else:
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.IsRequest is True
-            entries = (
+            entries = list(
                 self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.Title.asc())
