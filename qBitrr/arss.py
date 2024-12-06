@@ -1651,7 +1651,6 @@ class Arr:
                 .execute()
             )
         for entry in entries:
-            self.logger.trace("Yielding request %s", entry.Title)
             yield entry, len(entries)
 
     def db_request_update(self):
@@ -4679,6 +4678,8 @@ class Arr:
                     if totcommands == -1:
                         totcommands = commands
                         self.logger.info("Starting request search for %s items", totcommands)
+                    else:
+                        totcommands -= 1
                     while not self.maybe_do_search(
                         entry,
                         request=True,
