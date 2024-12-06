@@ -1648,9 +1648,6 @@ class Arr:
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             condition &= self.model_file.AirDateUtc.is_null(False)
-            condition &= self.model_file.AirDateUtc < (
-                datetime.now(timezone.utc) - timedelta(hours=2)
-            )
             entries = list(
                 self.model_file.select()
                 .where(condition)
