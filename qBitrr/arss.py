@@ -1622,7 +1622,10 @@ class Arr:
         entries = []
         self.logger.trace("Getting request files")
         if self.type == "sonarr":
-            condition = self.model_file.IsRequest is True
+            condition = self.model_file.IsRequest == True
+            condition = self.model_file.AirDateUtc.is_null(False)
+            if not self.search_specials:
+                condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -1646,9 +1649,9 @@ class Arr:
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
                     condition &= self.model_file.Searched == False
-            if not self.search_specials:
-                condition &= self.model_file.SeasonNumber != 0
-            condition &= self.model_file.AirDateUtc.is_null(False)
+            condition &= self.model_file.AirDateUtc < (
+                datetime.now(timezone.utc) - timedelta(days=1)
+            )
             entries = list(
                 self.model_file.select()
                 .where(condition)
@@ -1660,7 +1663,8 @@ class Arr:
                 .execute()
             )
         elif self.type == "radarr":
-            condition = self.model_file.IsRequest is True
+            condition = self.model_file.IsRequest == True
+            condition = self.model_file.Year.is_null(False)
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -1683,6 +1687,7 @@ class Arr:
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
+                    condition &= self.model_file.Searched == False
             entries = list(
                 self.model_file.select()
                 .where(condition)
