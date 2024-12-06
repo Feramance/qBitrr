@@ -4689,11 +4689,8 @@ class Arr:
                     ):
                         self.logger.debug("Waiting for active request search commands")
                         time.sleep(loop_delay)
-                    if SEARCH_LOOP_DELAY != -1:
-                        self.logger.info(
-                            "Delaying request search loop by %s seconds", SEARCH_LOOP_DELAY
-                        )
-                        time.sleep(SEARCH_LOOP_DELAY)
+                    self.logger.info("Delaying request search loop by %s seconds", loop_delay)
+                    time.sleep(loop_delay)
                     if totcommands == 0:
                         self.logger.info("All request searches completed")
                     else:
@@ -4844,6 +4841,7 @@ class Arr:
                         self.api_call_count,
                         (datetime.now() - self.api_call_timer).seconds,
                     )
+                    self.logger.trace("Starting general search loop: %s", str(searched))
                     try:
                         if not searched:
                             for (
@@ -4869,12 +4867,9 @@ class Arr:
                                 ):
                                     self.logger.debug("Waiting for active search commands")
                                     time.sleep(loop_delay)
-                                if SEARCH_LOOP_DELAY != -1:
-                                    self.logger.info(
-                                        "Delaying search loop by %s seconds", SEARCH_LOOP_DELAY
-                                    )
-                                    time.sleep(SEARCH_LOOP_DELAY)
                                 totcommands -= 1
+                                self.logger.info("Delaying search loop by %s seconds", loop_delay)
+                                time.sleep(loop_delay)
                                 if totcommands == 0:
                                     self.logger.info("All searches completed")
                                     searched = True
