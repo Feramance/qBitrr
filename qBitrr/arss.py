@@ -1699,7 +1699,6 @@ class Arr:
                             continue
                         if e["episodeFileId"] != 0:
                             continue
-                        self.logger.trace("Updating requests")
                         self.db_update_single_series(db_entry=e, request=True)
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
@@ -1732,7 +1731,6 @@ class Arr:
                     continue
                 if m["hasFile"]:
                     continue
-                self.logger.trace("Updating requests")
                 self.db_update_single_series(db_entry=m, request=True)
 
     def db_overseerr_update(self):
@@ -4680,6 +4678,10 @@ class Arr:
                         self.logger.info("Starting request search for %s items", totcommands)
                     else:
                         totcommands -= 1
+                    if SEARCH_LOOP_DELAY == -1:
+                        loop_delay = 30
+                    else:
+                        loop_delay = SEARCH_LOOP_DELAY
                     while not self.maybe_do_search(
                         entry,
                         request=True,
@@ -4687,6 +4689,22 @@ class Arr:
                     ):
                         self.logger.debug("Waiting for active request search commands")
                         time.sleep(loop_delay)
+                    if SEARCH_LOOP_DELAY != -1:
+                        self.logger.info(
+                            "Delaying request search loop by %s seconds", SEARCH_LOOP_DELAY
+                        )
+                        time.sleep(SEARCH_LOOP_DELAY)
+                    if totcommands == 0:
+                        self.logger.info("All request searches completed")
+                    else:
+                        self.logger.info(
+                            "Request searches not completed, %s remaining", totcommands
+                        )
+                    self.logger.debug(
+                        "%s api calls in %s seconds",
+                        self.api_call_count,
+                        (datetime.now() - self.api_call_timer).seconds,
+                    )
                 self.request_search_timer = time.time()
                 return None
             except NoConnectionrException as e:
