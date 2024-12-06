@@ -1660,8 +1660,7 @@ class Arr:
                 .execute()
             )
         elif self.type == "radarr":
-            condition = self.model_file.Year <= datetime.now().year
-            condition &= self.model_file.Year > 0
+            condition = self.model_file.IsRequest is True
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -1684,7 +1683,6 @@ class Arr:
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
-                    condition &= self.model_file.IsRequest is True
             entries = list(
                 self.model_file.select()
                 .where(condition)
