@@ -4845,17 +4845,6 @@ class Arr:
                         (datetime.now() - self.api_call_timer).seconds,
                     )
                     try:
-                        if self.search_by_year:
-                            if years.index(self.search_current_year) != years_count - 1:
-                                years_index += 1
-                                self.search_current_year = years[years_index]
-                            elif datetime.now() >= (timer + loop_timer):
-                                self.refresh_download_queue()
-                                time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
-                                raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer):
-                            self.refresh_download_queue()
-                            raise RestartLoopException
                         if not searched:
                             for (
                                 entry,
@@ -4899,6 +4888,17 @@ class Arr:
                                     self.api_call_count,
                                     (datetime.now() - self.api_call_timer).seconds,
                                 )
+                        if self.search_by_year:
+                            if years.index(self.search_current_year) != years_count - 1:
+                                years_index += 1
+                                self.search_current_year = years[years_index]
+                            elif datetime.now() >= (timer + loop_timer):
+                                self.refresh_download_queue()
+                                time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
+                                raise RestartLoopException
+                        elif datetime.now() >= (timer + loop_timer):
+                            self.refresh_download_queue()
+                            raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
