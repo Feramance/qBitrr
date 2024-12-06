@@ -3005,17 +3005,15 @@ class Arr:
                     return True
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.info(
-                    "%s%s active search commands, %s remaining",
-                    request_tag,
+                    "%s active search commands, %s remaining",
                     active_commands,
                     commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
                     self.logger.trace(
-                        "%sIdle: Too many commands in queue: %s | "
+                        "Idle: Too many commands in queue: %s | "
                         "S%02dE%03d | "
                         "%s | [id=%s|AirDateUTC=%s]",
-                        request_tag,
                         file_model.SeriesTitle,
                         file_model.SeasonNumber,
                         file_model.EpisodeNumber,
@@ -3076,15 +3074,13 @@ class Arr:
                 file_model: SeriesFilesModel
                 active_commands = self.arr_db_query_commands_count()
                 self.logger.info(
-                    "%s%s active search commands, %s remaining",
-                    request_tag,
+                    "%s active search commands, %s remaining",
                     active_commands,
                     commands,
                 )
                 if not bypass_limit and active_commands >= self.search_command_limit:
                     self.logger.trace(
-                        "%sIdle: Too many commands in queue: %s | [id=%s]",
-                        request_tag,
+                        "Idle: Too many commands in queue: %s | [id=%s]",
                         file_model.Title,
                         file_model.EntryId,
                     )
@@ -3149,8 +3145,7 @@ class Arr:
             )
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
-                    "%sIdle: Too many commands in queue: %s | [id=%s]",
-                    request_tag,
+                    "Idle: Too many commands in queue: %s | [id=%s]",
                     file_model.Title,
                     file_model.EntryId,
                 )
@@ -4841,7 +4836,7 @@ class Arr:
                         self.api_call_count,
                         (datetime.now() - self.api_call_timer).seconds,
                     )
-                    self.logger.trace("Starting general search loop: %s", str(searched))
+                    self.logger.trace("Starting general search loop: %s", str(not searched))
                     try:
                         if not searched:
                             for (
@@ -4890,9 +4885,11 @@ class Arr:
                             elif datetime.now() >= (timer + loop_timer):
                                 self.refresh_download_queue()
                                 time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
+                                self.logger.trace("Restarting loop testing")
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
+                            self.logger.trace("Restarting loop testing")
                             raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
