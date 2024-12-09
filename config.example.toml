@@ -53,12 +53,12 @@ FFprobeAutoUpdate = true
 
 
 [qBit]
-# If this is enable qBitrr can run in a headless mode where it will only process searches.
+# If this is enabled qBitrr can run in headless mode where it will only process searches.
 # If media search is enabled in their individual categories
 # This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
 Disabled = false
 
-# qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")
+# qBit WebUI url/ip - Can be found in Options > Web UI (called "IP Address")
 Host = "CHANGE_ME"
 
 # qBit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)

@@ -3140,9 +3140,7 @@ class Arr:
                 ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
-            self.logger.info(
-                "%s active search commands, %s remaining", active_commands, commands
-            )
+            self.logger.info("%s active search commands, %s remaining", active_commands, commands)
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
                     "Idle: Too many commands in queue: %s | [id=%s]",
