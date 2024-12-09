@@ -1585,19 +1585,23 @@ class Arr:
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
             if self.do_upgrade_search:
+                self.logger.trace("Condition 1")
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    self.logger.trace("Condition 2")
                     condition &= (
                         self.model_file.Searched == False | self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    self.logger.trace("Condition 3")
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.CustomFormatMet
                         == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
+                    self.logger.trace("Condition 4")
                     condition &= (
                         self.model_file.Searched
                         == False | self.model_file.QualityMet
@@ -1605,9 +1609,11 @@ class Arr:
                         == False
                     )
                 else:
+                    self.logger.trace("Condition 5")
                     condition &= self.model_file.MovieFileId == 0
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
+                self.logger.trace("Condition 6")
                 condition &= self.model_file.Year == self.search_current_year
             for entry in (
                 self.model_file.select()
@@ -4880,7 +4886,7 @@ class Arr:
                                 time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
                                 self.logger.trace("Restarting loop testing 1")
                                 raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer):
+                        elif datetime.now() >= (timer + loop_timer) and searched:
                             self.refresh_download_queue()
                             self.logger.trace("Restarting loop testing 2")
                             raise RestartLoopException
