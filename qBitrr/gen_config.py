@@ -131,7 +131,7 @@ def _add_qbit_section(config: TOMLDocument):
     _gen_default_line(
         qbit,
         [
-            "If this is enable qBitrr can run in a headless mode where it will only process searches.",
+            "If this is enabled qBitrr can run in headless mode where it will only process searches.",
             "If media search is enabled in their individual categories",
             "This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit",
         ],
@@ -140,7 +140,7 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         qbit,
-        'qBit WebUI Port - Can be found in Options > Web UI (called "IP Address")',
+        'qBit WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")',
         "Host",
         ENVIRO_CONFIG.qbit.host or "CHANGE_ME",
     )

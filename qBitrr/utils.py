@@ -83,7 +83,7 @@ def has_internet(client: qbittorrentapi.Client):
 
     url = random.choice(PING_URLS)
     try:
-        if not is_connected(url) or client.transfer_info()["connection_status"] == "disconnected":
+        if not is_connected(url) and client.transfer_info()["connection_status"] == "disconnected":
             return False
     except:
         logger.error("Error getting qbittorrent transfer info %s", client.transfer_info())

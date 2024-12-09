@@ -4696,7 +4696,6 @@ class Arr:
                         (datetime.now() - self.api_call_timer).seconds,
                     )
                 self.request_search_timer = time.time()
-                return None
             except NoConnectionrException as e:
                 self.logger.error(e.message)
                 raise DelayLoopException(length=300, type=e.type)
@@ -4829,14 +4828,10 @@ class Arr:
                     self.refresh_download_queue()
                     self.db_update()
                     self.run_request_search()
-                    self.logger.debug(
-                        "%s api calls in %s seconds",
-                        self.api_call_count,
-                        (datetime.now() - self.api_call_timer).seconds,
-                    )
                     self.logger.trace("Starting general search loop: %s", str(not searched))
                     try:
                         if not searched:
+                            self.logger.trace("Getting general files")
                             for (
                                 entry,
                                 todays,
@@ -4883,11 +4878,11 @@ class Arr:
                             elif datetime.now() >= (timer + loop_timer):
                                 self.refresh_download_queue()
                                 time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
-                                self.logger.trace("Restarting loop testing")
+                                self.logger.trace("Restarting loop testing 1")
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
-                            self.logger.trace("Restarting loop testing")
+                            self.logger.trace("Restarting loop testing 2")
                             raise RestartLoopException
                     except RestartLoopException:
                         self.loop_completed = True
