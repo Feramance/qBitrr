@@ -1584,10 +1584,10 @@ class Arr:
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
-            # if self.do_upgrade_search:
-            #     self.logger.trace("Condition 1")
-            #     condition &= self.model_file.Upgrade == False
-            if not self.do_upgrade_search:
+            if self.do_upgrade_search:
+                self.logger.trace("Condition 1")
+                condition &= self.model_file.Upgrade == False
+            else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     self.logger.trace("Condition 2")
                     condition &= (
@@ -2903,7 +2903,7 @@ class Arr:
                         "manually removing it | %s",
                         file_or_folder,
                     )
-                except PermissionError:
+                except (PermissionError, OSError):
                     self.logger.debug(
                         "Folder in use: Failed to remove Folder: Folder was marked as failed by Ar "
                         "| %s",
@@ -2917,7 +2917,7 @@ class Arr:
                         "manually removing it | %s",
                         file_or_folder,
                     )
-                except PermissionError:
+                except (PermissionError, OSError):
                     self.logger.debug(
                         "File in use: Failed to remove file: File was marked as failed by Ar | %s",
                         file_or_folder,
@@ -2986,7 +2986,7 @@ class Arr:
                         file_model.EntryId,
                         file_model.AirDateUtc,
                     )
-                    file_model.update(Searched=True, Upgrade=True).where(
+                    self.model_file.update(Searched=True, Upgrade=True).where(
                         file_model.EntryId == file_model.EntryId
                     ).execute()
                     return True
@@ -3030,7 +3030,7 @@ class Arr:
                             JSONDecodeError,
                         ):
                             continue
-                file_model.update(Searched=True, Upgrade=True).where(
+                self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
                 if file_model.Reason:
@@ -3092,7 +3092,7 @@ class Arr:
                         JSONDecodeError,
                     ):
                         continue
-                file_model.update(Searched=True, Upgrade=True).where(
+                self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
                 self.logger.hnotice(
@@ -3122,7 +3122,7 @@ class Arr:
                     file_model.Title,
                     file_model.EntryId,
                 )
-                file_model.update(Searched=True, Upgrade=True).where(
+                self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
                 return True
@@ -3153,7 +3153,7 @@ class Arr:
                         JSONDecodeError,
                     ):
                         continue
-            file_model.update(Searched=True, Upgrade=True).where(
+            self.model_file.update(Searched=True, Upgrade=True).where(
                 file_model.EntryId == file_model.EntryId
             ).execute()
             if file_model.Reason:
