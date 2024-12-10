@@ -1584,10 +1584,10 @@ class Arr:
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
-            if self.do_upgrade_search:
-                self.logger.trace("Condition 1")
-                condition &= self.model_file.Upgrade == False
-            else:
+            # if self.do_upgrade_search:
+            #     self.logger.trace("Condition 1")
+            #     condition &= self.model_file.Upgrade == False
+            if not self.do_upgrade_search:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
                     self.logger.trace("Condition 2")
                     condition &= (
