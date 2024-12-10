@@ -4803,7 +4803,7 @@ class Arr:
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
                     self.db_update()
-                    self.run_request_search()
+                    # self.run_request_search()
                     self.logger.trace("Starting general search loop: %s", str(not searched))
                     try:
                         if not searched:
@@ -4815,7 +4815,6 @@ class Arr:
                                 series_search,
                                 commands,
                             ) in self.db_get_files():
-                                self.logger.trace("Grabbed %s items", totcommands)
                                 if totcommands == -1:
                                     totcommands = commands
                                     self.logger.info("Starting search for %s items", totcommands)
