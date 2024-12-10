@@ -2370,16 +2370,13 @@ class Arr:
                             self.model_file.SeriesTitle: SeriesTitle,
                             self.model_file.SeasonNumber: SeasonNumber,
                             self.model_file.QualityMet: QualityMet,
+                            self.model_file.Upgrade: False,
+                            self.model_file.Searched: searched,
                             self.model_file.MinCustomFormatScore: minCustomFormat,
                             self.model_file.CustomFormatScore: customFormat,
                             self.model_file.CustomFormatMet: customFormatMet,
                             self.model_file.Reason: reason,
                         }
-                        if searched:
-                            to_update[self.model_file.Searched] = searched
-
-                        upgrade = False
-                        to_update[self.model_file.Upgrade] = upgrade
 
                         self.logger.debug(
                             "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
@@ -2387,7 +2384,7 @@ class Arr:
                             SeasonNumber,
                             EpisodeNumber,
                             str(searched).ljust(5),
-                            str(upgrade).ljust(5),
+                            str(False).ljust(5),
                             str(QualityMet).ljust(5),
                             str(customFormatMet).ljust(5),
                         )
@@ -2410,7 +2407,7 @@ class Arr:
                             Searched=searched,
                             IsRequest=request,
                             QualityMet=QualityMet,
-                            Upgrade=upgrade,
+                            Upgrade=False,
                             MinCustomFormatScore=minCustomFormat,
                             CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
@@ -2539,20 +2536,16 @@ class Arr:
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
+                            self.series_file_model.Searched: searched,
+                            self.series_file_model.Upgrade: False,
                             self.series_file_model.MinCustomFormatScore: minCustomFormat,
                         }
-
-                        if searched:
-                            to_update[self.series_file_model.Searched] = searched
-
-                        upgrade = False
-                        to_update[self.series_file_model.Upgrade] = upgrade
 
                         self.logger.debug(
                             "Updating database entry | %s [Searched:%s][Upgrade:%s]",
                             Title.ljust(60, "."),
                             str(searched).ljust(5),
-                            str(upgrade).ljust(5),
+                            str(False).ljust(5),
                         )
 
                         db_commands = self.series_file_model.insert(
@@ -2560,7 +2553,7 @@ class Arr:
                             Title=Title,
                             Searched=searched,
                             Monitored=Monitored,
-                            Upgrade=upgrade,
+                            Upgrade=False,
                             MinCustomFormatScore=minCustomFormat,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId], update=to_update
@@ -2713,17 +2706,13 @@ class Arr:
                         self.model_file.MovieFileId: movieFileId,
                         self.model_file.Monitored: monitored,
                         self.model_file.QualityMet: qualityMet,
+                        self.model_file.Searched: searched,
+                        self.model_file.Upgrade: False,
                         self.model_file.MinCustomFormatScore: minCustomFormat,
                         self.model_file.CustomFormatScore: customFormat,
                         self.model_file.CustomFormatMet: customFormatMet,
                         self.model_file.Reason: reason,
                     }
-
-                    if searched:
-                        to_update[self.model_file.Searched] = searched
-
-                    upgrade = False
-                    to_update[self.model_file.Upgrade] = upgrade
 
                     if request:
                         to_update[self.model_file.IsRequest] = request
@@ -2732,7 +2721,7 @@ class Arr:
                         "Updating database entry | %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
                         title.ljust(60, "."),
                         str(searched).ljust(5),
-                        str(upgrade).ljust(5),
+                        str(False).ljust(5),
                         str(qualityMet).ljust(5),
                         str(customFormatMet).ljust(5),
                     )
@@ -2747,7 +2736,7 @@ class Arr:
                         MovieFileId=movieFileId,
                         IsRequest=request,
                         QualityMet=qualityMet,
-                        Upgrade=upgrade,
+                        Upgrade=False,
                         MinCustomFormatScore=minCustomFormat,
                         CustomFormatScore=customFormat,
                         CustomFormatMet=customFormatMet,
@@ -4826,6 +4815,7 @@ class Arr:
                                 series_search,
                                 commands,
                             ) in self.db_get_files():
+                                self.logger.trace("Grabbed %s items", totcommands)
                                 if totcommands == -1:
                                     totcommands = commands
                                     self.logger.info("Starting search for %s items", totcommands)
