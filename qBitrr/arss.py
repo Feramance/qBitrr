@@ -34,6 +34,7 @@ from qBitrr.config import (
     ENABLE_LOGS,
     FAILED_CATEGORY,
     FREE_SPACE,
+    FREE_SPACE_FOLDER,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
     PROCESS_ONLY,
@@ -4105,7 +4106,7 @@ class Arr:
             self.recently_queue.get(torrent.hash, torrent.added_on)
             < time_now - self.ignore_torrents_younger_than
         ):
-            return False
+            return True
         if self.stalled_delay == 0:
             self.logger.trace(
                 "Stalled check: %s [Current:%s][Added:%s][Limit:No Limit]",
@@ -5191,9 +5192,12 @@ class FreeSpaceManager(Arr):
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
-        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-            next(iter(self.categories))
-        )
+        if FREE_SPACE_FOLDER == "CHANGE_ME":
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                next(iter(self.categories))
+            )
+        else:
+            self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
         self.min_free_space = FREE_SPACE
         self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
             self.min_free_space

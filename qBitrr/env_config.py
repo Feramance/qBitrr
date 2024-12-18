@@ -32,6 +32,7 @@ class AppConfig:
         logging = environ.var(None, converter=Converter.bool)
         completed_download_folder = environ.var(None)
         free_space = environ.var(None)
+        free_space_folder = environ.var(None)
         no_internet_sleep_timer = environ.var(None, converter=Converter.int)
         loop_sleep_timer = environ.var(None, converter=Converter.int)
         search_loop_delay = environ.var(None, converter=Converter.int)

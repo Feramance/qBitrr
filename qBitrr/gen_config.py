@@ -55,6 +55,12 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        "Folder where the free space handler will check for free space (Please note, replace all '' with '/')",
+        "FreeSpaceFolder",
+        ENVIRO_CONFIG.settings.free_space_folder or "CHANGE_ME",
+    )
+    _gen_default_line(
+        settings,
         "Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)",
         "AutoPauseResume",
         ENVIRO_CONFIG.settings.auto_pause_resume or True,

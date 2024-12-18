@@ -15,6 +15,9 @@ CompletedDownloadFolder = "CHANGE_ME"
 #The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)
 FreeSpace = "-1"
 
+# Folder where the free space handler will check for free space (Please note, replace all '\' with '/')
+FreeSpaceFolder = "CHANGE_ME"
+
 # Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)
 AutoPauseResume = true
 
