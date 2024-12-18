@@ -19,7 +19,7 @@
 A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
 
 ### POLL
-https://github.com/Feramance/qBitrr/discussions/149
+[Request searches?](https://github.com/Feramance/qBitrr/discussions/149)
 
 ## Notice
 
