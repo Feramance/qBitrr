@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.6 (18/12/2024)
+- [[patch] Free space config folder added](https://github.com/Feramance/qBitrr/commit/9286bdc67402a13b213254cf6e742905f1004e25) - @Feramance
+
+---
+
 ## v4.10.5 (10/12/2024)
 - [[patch] Minor changes and temporarily disabling separate request search](https://github.com/Feramance/qBitrr/commit/b4654957964b622e1eea8a984aebb6cb2cfd1566) - @Feramance
 - [Further testing](https://github.com/Feramance/qBitrr/commit/b024cf324bdef262d67c1b10ff5fd961144edfa8) - @Feramance
@@ -307,17 +312,3 @@
 - [[patch] Merge pull request #94 from Feramance/92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/284a33c3ab1565d65956f7ae0886b5009812b619) - @Feramance
 - [Update arss.py](https://github.com/Feramance/qBitrr/commit/af01f5b1edc0f3a042a1f9f686fc859b386dd199) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/Qbitrr into 92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/59e52f79587c19bfc98d7a0388b3376562c4bd98) - @Feramance
-
----
-
-## v4.8.1 (09/07/2024)
-- [[patch] pull request #91 from Feramance/90-native-apple-silicon-support-docker](https://github.com/Feramance/qBitrr/commit/04e6f8261308729a69bd30359b6f67fadcbe0745) - @Feramance
-- [Fixed stalled re-search type error](https://github.com/Feramance/qBitrr/commit/7c0dbfbcb0788ad9f9984ffa8ef88c8cf6dfb092) - @Feramance
-- [Updated loggiong for stalled delay -1](https://github.com/Feramance/qBitrr/commit/2f8af3ceeadbbdf3e04d44c9a3896b05ed5db9a2) - @Feramance
-- [Fixed workflow name](https://github.com/Feramance/qBitrr/commit/fd9c2a7a0776218a7ff9c931161cbc937d11ce9f) - @Feramance
-- [ARM workflow updates](https://github.com/Feramance/qBitrr/commit/7f1a666864bc817fd9bb4c78393762b8a5b1828b) - @Feramance
-- [Update PR workflow](https://github.com/Feramance/qBitrr/commit/17e583a6a534f1e7622547492df885e1e5989525) - @Feramance
-- [Merge pull request #89 from Feramance/dependabot/pip/certifi-2024.7.4](https://github.com/Feramance/qBitrr/commit/8ed25ff3593e20f0c4ac2644173522a121ced646) - @Feramance
-- [Bump certifi from 2024.6.2 to 2024.7.4](https://github.com/Feramance/qBitrr/commit/890f301127ffda660fc860ae0b73964260d03eb1) - @dependabot[bot]
-- [Merge pull request #88 from Feramance/dependabot/github_actions/dependabot/fetch-metadata-2.2.0](https://github.com/Feramance/qBitrr/commit/39076cd80be5d0ec36562a2959cbc730b4a304e9) - @Feramance
-- [Bump dependabot/fetch-metadata from 2.1.0 to 2.2.0](https://github.com/Feramance/qBitrr/commit/60fbe642c7134abc8f65e393defe409262fbd48c) - @dependabot[bot]
