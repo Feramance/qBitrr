@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.10.7 (18/12/2024)
+- [[patch] Hotfix 2](https://github.com/Feramance/qBitrr/commit/7e355b9d4977b8daed95da58323f1c6ffcadf521) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/0bb99509bbfe8949543108667caa1b2560436b93) - @Feramance
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/b301ea02b586a52af65959fa653135b815b4b435) - @Feramance
+
+---
+
 ## v4.10.6 (18/12/2024)
 - [[patch] Free space config folder added](https://github.com/Feramance/qBitrr/commit/9286bdc67402a13b213254cf6e742905f1004e25) - @Feramance
 
@@ -305,10 +312,3 @@
 - [Merge branch 'master' into 84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/013d97d6039a39a360e422edafbe531d6e24a869) - @Feramance
 - [Update arss.py](https://github.com/Feramance/qBitrr/commit/aea08ccd329338bca5a55ce6a3bd10cf29d2e96f) - @Feramance
 - [check for qbit disabled](https://github.com/Feramance/qBitrr/commit/fce2625c691b36fc65fa5657dd252df2b1b8d349) - @Feramance
-
----
-
-## v4.8.2 (09/07/2024)
-- [[patch] Merge pull request #94 from Feramance/92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/284a33c3ab1565d65956f7ae0886b5009812b619) - @Feramance
-- [Update arss.py](https://github.com/Feramance/qBitrr/commit/af01f5b1edc0f3a042a1f9f686fc859b386dd199) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/Qbitrr into 92-container-keeps-crashing-attributeerror-nonetype-object-has-no-attribute-torrents_create_tags](https://github.com/Feramance/qBitrr/commit/59e52f79587c19bfc98d7a0388b3376562c4bd98) - @Feramance
