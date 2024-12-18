@@ -2268,6 +2268,11 @@ class Arr:
 
                         if self.use_temp_for_missing:
                             try:
+                                self.logger.trace(
+                                    "Temp quality profile tests [%s][%s]",
+                                    searched,
+                                    db_entry["qualityProfileId"],
+                                )
                                 if (
                                     searched
                                     and db_entry["qualityProfileId"]
