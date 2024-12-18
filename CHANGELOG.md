@@ -1,5 +1,15 @@
 # Changelog
 
+## v4.10.8 (18/12/2024)
+- [[patch] Hotfix Free space config changes](https://github.com/Feramance/qBitrr/commit/072bffdca3af9b85c34c89f7f2a09fea4f530596) - @Feramance
+- [Changed log messages for clarity](https://github.com/Feramance/qBitrr/commit/631ec2dce2e710fdba7dc9a90558111817292a3e) - @Feramance
+- [Add logs for temp profile switching testing](https://github.com/Feramance/qBitrr/commit/9b137fd9eee21323f4762aa0e7ccbc234cfb09d3) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/a0c2a9622af9fdff5efed6eb8c58896b9b3dba55) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/8d62851db045e1daadf868a947b641d57f4c94f1) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/82adf8f79ed05da38057fcc49e988afedd7015b6) - @Feramance
+
+---
+
 ## v4.10.7 (18/12/2024)
 - [[patch] Hotfix 2](https://github.com/Feramance/qBitrr/commit/7e355b9d4977b8daed95da58323f1c6ffcadf521) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/0bb99509bbfe8949543108667caa1b2560436b93) - @Feramance
@@ -299,16 +309,3 @@
 - [Merge branch 'master' into 85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/5819744a7842de37ac57a87affe746d4ace035a0) - @Feramance
 - [Update config.example.toml](https://github.com/Feramance/qBitrr/commit/c60e2b4888cb5650136825934bafbf0bd6e489d6) - @Feramance
 - [Merge branch 'master' into 85-request-disable-tag-usage](https://github.com/Feramance/qBitrr/commit/bc8f7668d04e73bdf1176472d746f3d9674df14c) - @Feramance
-
----
-
-## v4.8.3 (16/07/2024)
-- [[patch] Merge pull request #95 from Feramance/84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/81ef59f69be61b774fdb847975d5a265ca927fa6) - @Feramance
-- [Final changes before merge](https://github.com/Feramance/qBitrr/commit/24201c9d36028a0734eb68fc97dd27ba063e77ae) - @Feramance
-- [Added more debugs and changed parameter value](https://github.com/Feramance/qBitrr/commit/32e9d39156815015906aa50074dbbb1e9a42ab16) - @Feramance
-- [Added debug logging for configs](https://github.com/Feramance/qBitrr/commit/34e793fb230e8b0619c583204e90da2ecc04e8a2) - @Feramance
-- [Workflow updates](https://github.com/Feramance/qBitrr/commit/45eddcc493699569c16cf0a2f36fc633856ecb6a) - @Feramance
-- [Re search stalled adjustements](https://github.com/Feramance/qBitrr/commit/42cf635362fe09aab3932f8ce4bafd80762c402c) - @Feramance
-- [Merge branch 'master' into 84-request-option-to-keep-stalled-torrents](https://github.com/Feramance/qBitrr/commit/013d97d6039a39a360e422edafbe531d6e24a869) - @Feramance
-- [Update arss.py](https://github.com/Feramance/qBitrr/commit/aea08ccd329338bca5a55ce6a3bd10cf29d2e96f) - @Feramance
-- [check for qbit disabled](https://github.com/Feramance/qBitrr/commit/fce2625c691b36fc65fa5657dd252df2b1b8d349) - @Feramance
