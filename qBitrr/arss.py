@@ -2288,7 +2288,7 @@ class Arr:
                                         ]
                                     }
                                     self.logger.debug(
-                                        "Updating quality profile for %s to %s",
+                                        "Upgrading quality profile for %s to %s",
                                         db_entry["title"],
                                         list(self.temp_quality_profile_ids.keys())[
                                             list(self.temp_quality_profile_ids.values()).index(
@@ -2307,7 +2307,7 @@ class Arr:
                                         ]
                                     }
                                     self.logger.debug(
-                                        "Updating quality profile for %s to %s",
+                                        "Downgrading quality profile for %s to %s",
                                         db_entry["title"],
                                         self.temp_quality_profile_ids[
                                             db_entry["qualityProfileId"]
