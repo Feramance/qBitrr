@@ -4845,7 +4845,6 @@ class Arr:
                                     self.logger.info("All searches completed")
                                     searched = True
                                 elif datetime.now() >= (timer + loop_timer):
-                                    timer = datetime.now()
                                     self.logger.info(
                                         "Searches not completed, %s remaining", totcommands
                                     )
