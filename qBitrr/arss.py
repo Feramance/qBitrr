@@ -1357,6 +1357,7 @@ class Arr:
             self.db_reset__episode_searched_state()
         elif self.type == "radarr":
             self.db_reset__movie_searched_state()
+        self.loop_completed = False
 
     def db_reset__series_searched_state(self):
         ids = []
@@ -4867,6 +4868,7 @@ class Arr:
                             self.logger.trace("Restarting loop testing 2")
                             raise RestartLoopException
                     except RestartLoopException:
+                        searched = True
                         self.loop_completed = True
                         self.db_update_processed = False
                         self.logger.info("Loop timer elapsed, restarting it.")
