@@ -4788,17 +4788,14 @@ class Arr:
             timer = datetime.now()
             years_index = 0
             totcommands = -1
-            searched = False
             self.db_update_processed = False
             while True:
                 if self.loop_completed:
                     years_index = 0
                     totcommands = -1
-                    searched = False
                     timer = datetime.now()
                 if self.search_by_year:
                     totcommands = -1
-                    searched = False
                     if years_index == 0:
                         years, years_count = self.get_year_search()
                         try:
@@ -4811,7 +4808,6 @@ class Arr:
                     self.refresh_download_queue()
                     self.db_update()
                     # self.run_request_search()
-                    self.logger.trace("Starting general search loop: %s", str(not searched))
                     try:
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
@@ -4822,7 +4818,7 @@ class Arr:
                                 time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
                                 self.logger.trace("Restarting loop testing 1")
                                 raise RestartLoopException
-                        elif datetime.now() >= (timer + loop_timer) and searched:
+                        elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
                             self.logger.trace("Restarting loop testing 2")
                             raise RestartLoopException
@@ -4855,7 +4851,6 @@ class Arr:
                             time.sleep(loop_delay)
                             if totcommands == 0:
                                 self.logger.info("All searches completed")
-                                searched = True
                             elif datetime.now() >= (timer + loop_timer):
                                 timer = datetime.now()
                                 self.logger.info(
@@ -4867,7 +4862,6 @@ class Arr:
                                 (datetime.now() - self.api_call_timer).seconds,
                             )
                     except RestartLoopException:
-                        searched = True
                         self.loop_completed = True
                         self.db_update_processed = False
                         self.logger.info("Loop timer elapsed, restarting it.")
