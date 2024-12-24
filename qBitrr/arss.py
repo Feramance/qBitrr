@@ -4813,46 +4813,6 @@ class Arr:
                     # self.run_request_search()
                     self.logger.trace("Starting general search loop: %s", str(not searched))
                     try:
-                        if not searched:
-                            self.logger.trace("Getting general files")
-                            for (
-                                entry,
-                                todays,
-                                limit_bypass,
-                                series_search,
-                                commands,
-                            ) in self.db_get_files():
-                                if totcommands == -1:
-                                    totcommands = commands
-                                    self.logger.info("Starting search for %s items", totcommands)
-                                if SEARCH_LOOP_DELAY == -1:
-                                    loop_delay = 30
-                                else:
-                                    loop_delay = SEARCH_LOOP_DELAY
-                                while not self.maybe_do_search(
-                                    entry,
-                                    todays=todays,
-                                    bypass_limit=limit_bypass,
-                                    series_search=series_search,
-                                    commands=totcommands,
-                                ):
-                                    self.logger.debug("Waiting for active search commands")
-                                    time.sleep(loop_delay)
-                                totcommands -= 1
-                                self.logger.info("Delaying search loop by %s seconds", loop_delay)
-                                time.sleep(loop_delay)
-                                if totcommands == 0:
-                                    self.logger.info("All searches completed")
-                                    searched = True
-                                elif datetime.now() >= (timer + loop_timer):
-                                    self.logger.info(
-                                        "Searches not completed, %s remaining", totcommands
-                                    )
-                                self.logger.debug(
-                                    "%s api calls in %s seconds",
-                                    self.api_call_count,
-                                    (datetime.now() - self.api_call_timer).seconds,
-                                )
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:
                                 years_index += 1
@@ -4866,6 +4826,46 @@ class Arr:
                             self.refresh_download_queue()
                             self.logger.trace("Restarting loop testing 2")
                             raise RestartLoopException
+                        self.logger.trace("Getting general files")
+                        for (
+                            entry,
+                            todays,
+                            limit_bypass,
+                            series_search,
+                            commands,
+                        ) in self.db_get_files():
+                            if totcommands == -1:
+                                totcommands = commands
+                                self.logger.info("Starting search for %s items", totcommands)
+                            if SEARCH_LOOP_DELAY == -1:
+                                loop_delay = 30
+                            else:
+                                loop_delay = SEARCH_LOOP_DELAY
+                            while not self.maybe_do_search(
+                                entry,
+                                todays=todays,
+                                bypass_limit=limit_bypass,
+                                series_search=series_search,
+                                commands=totcommands,
+                            ):
+                                self.logger.debug("Waiting for active search commands")
+                                time.sleep(loop_delay)
+                            totcommands -= 1
+                            self.logger.info("Delaying search loop by %s seconds", loop_delay)
+                            time.sleep(loop_delay)
+                            if totcommands == 0:
+                                self.logger.info("All searches completed")
+                                searched = True
+                            elif datetime.now() >= (timer + loop_timer):
+                                timer = datetime.now()
+                                self.logger.info(
+                                    "Searches not completed, %s remaining", totcommands
+                                )
+                            self.logger.debug(
+                                "%s api calls in %s seconds",
+                                self.api_call_count,
+                                (datetime.now() - self.api_call_timer).seconds,
+                            )
                     except RestartLoopException:
                         searched = True
                         self.loop_completed = True
