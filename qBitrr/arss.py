@@ -4778,7 +4778,6 @@ class Arr:
                             self.refresh_download_queue()
                             self.logger.trace("Restarting loop testing")
                             raise RestartLoopException
-                        self.logger.trace("Getting general files")
                         for (
                             entry,
                             todays,
