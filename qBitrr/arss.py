@@ -1385,7 +1385,6 @@ class Arr:
                 try:
                     series = self.client.get_series()
                     for s in series:
-                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             ids.append(e["id"])
@@ -1659,7 +1658,6 @@ class Arr:
                 ):
                     continue
             for s in series:
-                self.api_call_count += 1
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
                     if "airDateUtc" in e:
@@ -1756,7 +1754,6 @@ class Arr:
                     ):
                         continue
                 for s in series:
-                    self.api_call_count += 1
                     episodes = self.client.get_episode(s["id"], True)
                     for e in episodes:
                         if "airDateUtc" in e:
@@ -1809,7 +1806,6 @@ class Arr:
                     for s in series:
                         if isinstance(s, str):
                             continue
-                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             if isinstance(e, str):
@@ -1845,7 +1841,6 @@ class Arr:
                     for s in series:
                         if isinstance(s, str):
                             continue
-                        self.api_call_count += 1
                         episodes = self.client.get_episode(s["id"], True)
                         for e in episodes:
                             if isinstance(e, str):
@@ -2176,7 +2171,6 @@ class Arr:
                             try:
                                 if episodeData:
                                     if not episodeData.MinCustomFormatScore:
-                                        self.api_call_count += 1
                                         minCustomFormat = self.client.get_quality_profile(
                                             episode["series"]["qualityProfileId"]
                                         )["minFormatScore"]
@@ -2187,7 +2181,6 @@ class Arr:
                                             episode["episodeFile"]["id"]
                                             != episodeData.EpisodeFileId
                                         ):
-                                            self.api_call_count += 1
                                             customFormat = self.client.get_episode_file(
                                                 episode["episodeFile"]["id"]
                                             )["customFormatScore"]
@@ -2196,12 +2189,10 @@ class Arr:
                                     else:
                                         customFormat = 0
                                 else:
-                                    self.api_call_count += 1
                                     minCustomFormat = self.client.get_quality_profile(
                                         episode["series"]["qualityProfileId"]
                                     )["minFormatScore"]
                                     if episode["hasFile"]:
-                                        self.api_call_count += 1
                                         customFormat = self.client.get_episode_file(
                                             episode["episodeFile"]["id"]
                                         )["customFormatScore"]
@@ -2403,7 +2394,6 @@ class Arr:
                             try:
                                 seriesMetadata = self.client.get_series(id_=EntryId)
                                 if not seriesData:
-                                    self.api_call_count += 1
                                     minCustomFormat = self.client.get_quality_profile(
                                         seriesMetadata["qualityProfileId"]
                                     )["minFormatScore"]
@@ -2549,7 +2539,6 @@ class Arr:
                         try:
                             if movieData:
                                 if not movieData.MinCustomFormatScore:
-                                    self.api_call_count += 1
                                     minCustomFormat = self.client.get_quality_profile(
                                         db_entry["qualityProfileId"]
                                     )["minFormatScore"]
@@ -2557,7 +2546,6 @@ class Arr:
                                     minCustomFormat = movieData.MinCustomFormatScore
                                 if db_entry["hasFile"]:
                                     if db_entry["movieFile"]["id"] != movieData.MovieFileId:
-                                        self.api_call_count += 1
                                         customFormat = self.client.get_movie_file(
                                             db_entry["movieFile"]["id"]
                                         )["customFormatScore"]
@@ -2565,14 +2553,11 @@ class Arr:
                                         customFormat = 0
                                 else:
                                     customFormat = 0
-
                             else:
-                                self.api_call_count += 1
                                 minCustomFormat = self.client.get_quality_profile(
                                     db_entry["qualityProfileId"]
                                 )["minFormatScore"]
                                 if db_entry["hasFile"]:
-                                    self.api_call_count += 1
                                     customFormat = self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
                                     )["customFormatScore"]
@@ -4631,11 +4616,6 @@ class Arr:
                         self.logger.info(
                             "Request searches not completed, %s remaining", totcommands
                         )
-                    self.logger.debug(
-                        "%s api calls in %s seconds",
-                        self.api_call_count,
-                        (datetime.now() - self.api_call_timer).seconds,
-                    )
                 self.request_search_timer = time.time()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
@@ -4707,7 +4687,6 @@ class Arr:
                     continue
 
             for s in series:
-                self.api_call_count += 1
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
                     if "airDateUtc" in e:
