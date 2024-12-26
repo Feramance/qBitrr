@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.10 (26/12/2024)
+- [[patch] Removed bad variable calls](https://github.com/Feramance/qBitrr/commit/dbec9dcecc2a8e092ca0fc3714448b0ca98b1cf9) - @Feramance
+- [Removed redundant logging](https://github.com/Feramance/qBitrr/commit/d0883c7ae03fb02e8134b394e9d5ad86ce487d2d) - @Feramance
+
+---
+
 ## v4.10.9 (26/12/2024)
 - [[patch] Loop fixes](https://github.com/Feramance/qBitrr/commit/f934c77661a5f6276f46e0146cc132fa0714b35b) - @Feramance
 - [Remove redundant variable](https://github.com/Feramance/qBitrr/commit/3d4a3f90e7a78aacf9b47a4c1e95cf5267110952) - @Feramance
@@ -284,8 +290,3 @@
 
 ## v4.9.2 (23/08/2024)
 - [[patch] Added arm docker builds to release](https://github.com/Feramance/qBitrr/commit/0a37ea09a9d32c4d03cc3c862049f3964a725568) - @Feramance
-
----
-
-## v4.9.1 (23/08/2024)
-- [[patch] Season statistics error fix](https://github.com/Feramance/qBitrr/commit/3640ccf3f58a52e47c33d88d2a5b82209b2f7bcb) - @Feramance
