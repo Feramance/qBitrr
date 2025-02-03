@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.11 (03/02/2025)
+- [[patch] Keep temp profile config](https://github.com/Feramance/qBitrr/commit/6742616fd4aaa5191bf481016c57c7a4e394a48d) - @Feramance
+- [New logo upload](https://github.com/Feramance/qBitrr/commit/c2076a7bdc24385d9617dc093ac8ffe5f39bee78) - @Feramance
+
+---
+
 ## v4.10.10 (26/12/2024)
 - [[patch] Removed bad variable calls](https://github.com/Feramance/qBitrr/commit/dbec9dcecc2a8e092ca0fc3714448b0ca98b1cf9) - @Feramance
 - [Removed redundant logging](https://github.com/Feramance/qBitrr/commit/d0883c7ae03fb02e8134b394e9d5ad86ce487d2d) - @Feramance
@@ -285,8 +291,3 @@
 - [condition fixes](https://github.com/Feramance/qBitrr/commit/0d3e868f7889508897e4d2f9e7ae235cecfaf8a0) - @Feramance
 - [fix filter issues](https://github.com/Feramance/qBitrr/commit/25e1ab35ba27674280e63ce1e01dd51d0170430b) - @Feramance
 - [custom_format_unmet_check adjustment](https://github.com/Feramance/qBitrr/commit/4f3fbb58db240eb8f7bbc329f36c64f56ce60f6e) - @Feramance
-
----
-
-## v4.9.2 (23/08/2024)
-- [[patch] Added arm docker builds to release](https://github.com/Feramance/qBitrr/commit/0a37ea09a9d32c4d03cc3c862049f3964a725568) - @Feramance
