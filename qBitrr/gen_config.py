@@ -627,6 +627,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
         True,
     )
     _gen_default_line(search_table, "Use Temp profile for missing", "UseTempForMissing", False)
+    _gen_default_line(search_table, "Don't change back to main profile", "KeepTempProfile", False)
     _gen_default_line(
         search_table,
         "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",

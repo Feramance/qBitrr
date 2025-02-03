@@ -363,6 +363,7 @@ class Arr:
             and self.main_quality_profiles
             and self.temp_quality_profiles
         )
+        self.keep_temp_profile = CONFIG.get(f"{name}.EntrySearch.KeepTempProfile", fallback=False)
 
         if self.use_temp_for_missing:
             self.temp_quality_profile_ids = self.parse_quality_profiles()
@@ -2230,7 +2231,7 @@ class Arr:
                         if self.use_temp_for_missing:
                             try:
                                 self.logger.trace(
-                                    "Temp quality profile tests [%s][%s]",
+                                    "Temp quality profile [%s][%s]",
                                     searched,
                                     db_entry["qualityProfileId"],
                                 )
@@ -2238,6 +2239,7 @@ class Arr:
                                     searched
                                     and db_entry["qualityProfileId"]
                                     in self.temp_quality_profile_ids.values()
+                                    and not self.keep_temp_profile
                                 ):
                                     data: JsonObject = {
                                         "qualityProfileId": list(
@@ -2449,6 +2451,7 @@ class Arr:
                                     searched
                                     and db_entry["qualityProfileId"]
                                     in self.temp_quality_profile_ids.values()
+                                    and not self.keep_temp_profile
                                 ):
                                     db_entry["qualityProfileId"] = list(
                                         self.temp_quality_profile_ids.keys()
@@ -2597,6 +2600,7 @@ class Arr:
                                 searched
                                 and db_entry["qualityProfileId"]
                                 in self.temp_quality_profile_ids.values()
+                                and not self.keep_temp_profile
                             ):
                                 db_entry["qualityProfileId"] = list(
                                     self.temp_quality_profile_ids.keys()

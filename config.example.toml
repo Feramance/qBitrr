@@ -151,6 +151,9 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
+# Don't change back to main profile
+KeepTempProfile = false
+
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
@@ -357,6 +360,9 @@ SearchAgainOnSearchCompletion = true
 # Use Temp profile for missing
 UseTempForMissing = false
 
+# Don't change back to main profile
+KeepTempProfile = false
+
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
@@ -561,6 +567,9 @@ SearchAgainOnSearchCompletion = true
 
 # Use Temp profile for missing
 UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
 
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
@@ -773,6 +782,9 @@ SearchAgainOnSearchCompletion = true
 
 # Use Temp profile for missing
 UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
 
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
