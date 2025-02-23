@@ -5141,6 +5141,7 @@ class FreeSpaceManager(Arr):
         self.session = None
         self.register_torrent_database()
         self.logger.hnotice("Starting %s monitor", self._name)
+        self.search_setup_completed = False
 
     def register_torrent_database(self):
         self.torrent_db = SqliteDatabase(None)
