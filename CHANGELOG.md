@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.13 (26/02/2025)
+- [[patch] Fix max eta handling](https://github.com/Feramance/qBitrr/commit/cb4e892c097d5dd0ff547c7f0f34e90ca420b00c) - @Feramance
+
+---
+
 ## v4.10.12 (23/02/2025)
 - [[patch] Update arss.py](https://github.com/Feramance/qBitrr/commit/8bad377188bbdd09ddbfaf8decb1b0bc42982545) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/25f0f37dd0b872d9f3ac4685b57eb1e305d43538) - @Feramance
@@ -258,11 +263,3 @@
 ## v4.9.5 (27/09/2024)
 - [[patch] Fix for Attribute error in PlaceHolderArr Class](https://github.com/Feramance/qBitrr/commit/1fa6453163d555e1f98669e40cf36a4b1e24b9a8) - @Feramance
 - [Formatting changes](https://github.com/Feramance/qBitrr/commit/e14bc3440f89a63030c303c20fdd5f9213e91bc8) - @Feramance
-
----
-
-## v4.9.4 (26/09/2024)
-- [[patch] Merge pull request #109 from hunmar/patch-2](https://github.com/Feramance/qBitrr/commit/2d3af0c7eaa5db3aec26e35d5f0e5cef4146d026) - @Feramance
-- [better](https://github.com/Feramance/qBitrr/commit/23362a88b4e79fb500574b85956434c14ecef0fa) - @hunmar
-- [better](https://github.com/Feramance/qBitrr/commit/c117b2d063947941ed85a8f686135f746df4e916) - @hunmar
-- [Update arss.py](https://github.com/Feramance/qBitrr/commit/bcf4e3e0be339530100102c834c59021faee7d65) - @hunmar
