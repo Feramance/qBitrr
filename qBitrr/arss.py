@@ -4194,7 +4194,7 @@ class Arr:
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         elif (
-            torrent.progress >= self.maximum_deletable_percentage
+            torrent.progress <= self.maximum_deletable_percentage
             and not self.is_complete_state(torrent)
             and not self.in_tags(torrent, "qBitrr-ignored")
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
