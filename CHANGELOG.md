@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.14 (04/03/2025)
+- [[patch] Catch quality profile data errors](https://github.com/Feramance/qBitrr/commit/1de777789d4300409db863a1a6aa0afb1b720781) - @Feramance
+- [Dependency bump](https://github.com/Feramance/qBitrr/commit/63e2e619415d29d79bf7c8f0cbc004d7da79e217) - @Feramance
+
+---
+
 ## v4.10.13 (26/02/2025)
 - [[patch] Fix max eta handling](https://github.com/Feramance/qBitrr/commit/cb4e892c097d5dd0ff547c7f0f34e90ca420b00c) - @Feramance
 
@@ -257,9 +263,3 @@
 
 ## v4.9.6 (27/09/2024)
 - [[patch] Adjust search loop when using search by year](https://github.com/Feramance/qBitrr/commit/076901c2749609dc4710fadbd56a95bd71999f9f) - @Feramance
-
----
-
-## v4.9.5 (27/09/2024)
-- [[patch] Fix for Attribute error in PlaceHolderArr Class](https://github.com/Feramance/qBitrr/commit/1fa6453163d555e1f98669e40cf36a4b1e24b9a8) - @Feramance
-- [Formatting changes](https://github.com/Feramance/qBitrr/commit/e14bc3440f89a63030c303c20fdd5f9213e91bc8) - @Feramance
