@@ -2280,18 +2280,21 @@ class Arr:
                                 self.logger.warning(
                                     "Check quality profile settings for %s", db_entry["title"]
                                 )
-                            if data:
-                                while True:
-                                    try:
-                                        self.client.upd_episode(episode["id"], data)
-                                        break
-                                    except (
-                                        requests.exceptions.ChunkedEncodingError,
-                                        requests.exceptions.ContentDecodingError,
-                                        requests.exceptions.ConnectionError,
-                                        JSONDecodeError,
-                                    ):
-                                        continue
+                            try:
+                                if data:
+                                    while True:
+                                        try:
+                                            self.client.upd_episode(episode["id"], data)
+                                            break
+                                        except (
+                                            requests.exceptions.ChunkedEncodingError,
+                                            requests.exceptions.ContentDecodingError,
+                                            requests.exceptions.ConnectionError,
+                                            JSONDecodeError,
+                                        ):
+                                            continue
+                            except UnboundLocalError:
+                                pass
 
                         EntryId = episode["id"]
                         SeriesTitle = episode.get("series", {}).get("title")
