@@ -3316,6 +3316,7 @@ class Arr:
         if (
             self.recently_queue.get(torrent.hash, torrent.added_on)
             < time.time() - self.ignore_torrents_younger_than
+            and torrent.last_activity < time.time() - self.ignore_torrents_younger_than
         ):
             self.logger.info(
                 "Deleting Stale torrent: %s | "
