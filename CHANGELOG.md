@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.10.15 (07/03/2025)
+- [[patch] stalled activity is now checked against last activity](https://github.com/Feramance/qBitrr/commit/1c6fe184a39e730931e7477bf1161dc803f75df9) - @Feramance
+- [Small fixes](https://github.com/Feramance/qBitrr/commit/1261cd4dd206a502ad9a695afaf977cea271d215) - @Feramance
+- [Adjusted stale download handling to allow buffer of activity prior to deletion](https://github.com/Feramance/qBitrr/commit/770f40554eb72282c8437ecdc2a8af0ff6322b1d) - @Feramance
+- [Adjusted ratio/seed handling](https://github.com/Feramance/qBitrr/commit/902c823d9f87c0954ec45d946b894caa94a8c02e) - @Feramance
+
+---
+
 ## v4.10.14 (04/03/2025)
 - [[patch] Catch quality profile data errors](https://github.com/Feramance/qBitrr/commit/1de777789d4300409db863a1a6aa0afb1b720781) - @Feramance
 - [Dependency bump](https://github.com/Feramance/qBitrr/commit/63e2e619415d29d79bf7c8f0cbc004d7da79e217) - @Feramance
@@ -258,8 +266,3 @@
 
 ## v4.9.7 (09/10/2024)
 - [[patch] Potential log fix](https://github.com/Feramance/qBitrr/commit/8021d8f72f325b87ff774b63fd39b88bd84638c4) - @Feramance
-
----
-
-## v4.9.6 (27/09/2024)
-- [[patch] Adjust search loop when using search by year](https://github.com/Feramance/qBitrr/commit/076901c2749609dc4710fadbd56a95bd71999f9f) - @Feramance
