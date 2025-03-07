@@ -3899,6 +3899,8 @@ class Arr:
             not return_value and self.in_tags(torrent, "qBitrr-allowed_seeding")
         ) or self.in_tags(torrent, "qBitrr-free_space_paused"):
             self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
+
+        self.logger.trace("Config Settings returned [%s]: %r", torrent.name, data_settings)
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -4387,7 +4389,7 @@ class Arr:
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
             return True
         elif self.seeding_mode_global_remove_torrent == -1 and (
-            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+            torrent.ratio >= ratio_limit and torrent.seeding_time >= seeding_time_limit
         ):
             return True
         else:
