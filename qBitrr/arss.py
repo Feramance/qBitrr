@@ -3316,9 +3316,10 @@ class Arr:
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
         # seconds ago
-        if (
-            self.recently_queue.get(torrent.hash, torrent.added_on)
-            < time.time() - self.ignore_torrents_younger_than
+        if self.recently_queue.get(
+            torrent.hash, torrent.added_on
+        ) < time.time() - self.ignore_torrents_younger_than and torrent.last_activity < (
+            time.time() - self.ignore_torrents_younger_than
         ):
             self.logger.info(
                 "Deleting Stale torrent: %s | "
@@ -3902,6 +3903,8 @@ class Arr:
             not return_value and self.in_tags(torrent, "qBitrr-allowed_seeding")
         ) or self.in_tags(torrent, "qBitrr-free_space_paused"):
             self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
+
+        self.logger.trace("Config Settings returned [%s]: %r", torrent.name, data_settings)
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
@@ -4060,11 +4063,21 @@ class Arr:
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
         if not self.allowed_stalled:
+            self.logger.trace("Stalled check: Stalled delay disabled")
             return False
         if (
             self.recently_queue.get(torrent.hash, torrent.added_on)
             < time_now - self.ignore_torrents_younger_than
         ):
+            self.logger.trace(
+                "Stalled check: In recent queue %s [Current:%s][Added:%s][Limit:%s]",
+                torrent.name,
+                datetime.fromtimestamp(time_now),
+                datetime.fromtimestamp(torrent.added_on),
+                datetime.fromtimestamp(
+                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                ),
+            )
             return True
         if self.stalled_delay == 0:
             self.logger.trace(
@@ -4380,7 +4393,7 @@ class Arr:
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
             return True
         elif self.seeding_mode_global_remove_torrent == -1 and (
-            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
+            torrent.ratio >= ratio_limit and torrent.seeding_time >= seeding_time_limit
         ):
             return True
         else:
