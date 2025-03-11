@@ -4054,17 +4054,10 @@ class Arr:
 
     def _stalled_check(self, torrent: qbittorrentapi.TorrentDictionary, time_now: float) -> bool:
         stalled_ignore = True
-        self.logger.trace(
-            "Stalled check: [Current:%s][Added:%s][Check:%s]",
-            torrent.name,
-            time_now,
-            datetime.fromtimestamp(torrent.added_on),
-            self.ignore_torrents_younger_than,
-        )
         if not self.allowed_stalled:
             self.logger.trace("Stalled check: Stalled delay disabled")
             return False
-        if torrent.added_on < time_now - self.ignore_torrents_younger_than:
+        if time_now < torrent.added_on + timedelta(minutes=self.stalled_delay).seconds:
             self.logger.trace(
                 "Stalled check: In recent queue %s [Current:%s][Added:%s][Limit:%s]",
                 torrent.name,
