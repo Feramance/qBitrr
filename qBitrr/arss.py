@@ -399,7 +399,6 @@ class Arr:
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
-        self.recently_queue = {}
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
@@ -990,8 +989,6 @@ class Arr:
             self.delete_from_queue(
                 id_=entry, remove_from_client=remove_from_client, blacklist=False
             )
-        if hash_ in self.recently_queue:
-            del self.recently_queue[hash_]
         object_id = self.requeue_cache.get(entry)
         if self.re_search and object_id:
             if self.type == "sonarr":
@@ -3206,7 +3203,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3224,7 +3221,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3243,7 +3240,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3251,8 +3248,6 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        if torrent.state_enum == TorrentStates.QUEUED_DOWNLOAD:
-            self.recently_queue[torrent.hash] = time.time()
 
     def _process_single_torrent_added_to_ignore_cache(
         self, torrent: qbittorrentapi.TorrentDictionary
@@ -3264,7 +3259,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3284,7 +3279,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3301,7 +3296,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3316,10 +3311,9 @@ class Arr:
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
         # seconds ago
-        if self.recently_queue.get(
-            torrent.hash, torrent.added_on
-        ) < time.time() - self.ignore_torrents_younger_than and torrent.last_activity < (
-            time.time() - self.ignore_torrents_younger_than
+        if (
+            torrent.added_on < time.time() - self.ignore_torrents_younger_than
+            and torrent.last_activity < (time.time() - self.ignore_torrents_younger_than)
         ):
             self.logger.info(
                 "Deleting Stale torrent: %s | "
@@ -3329,7 +3323,7 @@ class Arr:
                 "| [%s] | %s (%s)",
                 extra,
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3346,7 +3340,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3376,7 +3370,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3394,7 +3388,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3413,7 +3407,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3432,7 +3426,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3449,7 +3443,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3470,7 +3464,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3486,7 +3480,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3517,7 +3511,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3539,7 +3533,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3555,7 +3549,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3575,7 +3569,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3592,7 +3586,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3610,7 +3604,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             torrent.ratio,
             timedelta(seconds=torrent.seeding_time),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3628,7 +3622,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             torrent.ratio,
             timedelta(seconds=torrent.seeding_time),
             datetime.fromtimestamp(torrent.last_activity),
@@ -3709,9 +3703,7 @@ class Arr:
                     "[Last active: %s] "
                     "| [%s] | %s (%s)",
                     round(torrent.progress * 100, 2),
-                    datetime.fromtimestamp(
-                        self.recently_queue.get(torrent.hash, torrent.added_on)
-                    ),
+                    datetime.fromtimestamp(torrent.added_on),
                     round(torrent.availability * 100, 2),
                     timedelta(seconds=torrent.eta),
                     datetime.fromtimestamp(torrent.last_activity),
@@ -3740,7 +3732,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3756,7 +3748,7 @@ class Arr:
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
                 round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+                datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
                 timedelta(seconds=torrent.eta),
                 datetime.fromtimestamp(torrent.last_activity),
@@ -3773,7 +3765,7 @@ class Arr:
             "[Last active: %s] "
             "| [%s] | %s (%s)",
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(self.recently_queue.get(torrent.hash, torrent.added_on)),
+            datetime.fromtimestamp(torrent.added_on),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
             datetime.fromtimestamp(torrent.last_activity),
@@ -4102,8 +4094,7 @@ class Arr:
             )
             or (
                 (
-                    self.recently_queue.get(torrent.hash, torrent.added_on)
-                    < time_now - self.ignore_torrents_younger_than
+                    torrent.added_on < time_now - self.ignore_torrents_younger_than
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
@@ -4261,8 +4252,7 @@ class Arr:
         elif (
             torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
             and torrent.state_enum.is_downloading
-            and self.recently_queue.get(torrent.hash, torrent.added_on)
-            < time_now - self.ignore_torrents_younger_than
+            and torrent.added_on < time_now - self.ignore_torrents_younger_than
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
             and not self.in_tags(torrent, "qBitrr-ignored")
@@ -4957,7 +4947,6 @@ class PlaceHolderArr(Arr):
         self.queue = []
         self.cache = {}
         self.requeue_cache = {}
-        self.recently_queue = {}
         self.sent_to_scan = set()
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
