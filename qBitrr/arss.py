@@ -4061,9 +4061,9 @@ class Arr:
             "Stalled vars: Added on: %s, Current: %s, Result: %s",
             torrent.added_on,
             time_now,
-            torrent.added_on < time_now - self.ignore_torrents_younger_than,
+            time_now < torrent.added_on + self.ignore_torrents_younger_than,
         )
-        if time_now > torrent.added_on + self.ignore_torrents_younger_than:
+        if time_now < torrent.added_on + self.ignore_torrents_younger_than:
             self.logger.trace(
                 "Stalled check: In recent queue %s [Current:%s][Added:%s][Limit:%s]",
                 torrent.name,
@@ -4100,7 +4100,7 @@ class Arr:
             )
             or (
                 (
-                    torrent.added_on < time_now - self.ignore_torrents_younger_than
+                    time_now > torrent.added_on + self.ignore_torrents_younger_than
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
@@ -4265,7 +4265,7 @@ class Arr:
         elif (
             torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD
             and torrent.state_enum.is_downloading
-            and torrent.added_on < time_now - self.ignore_torrents_younger_than
+            and time_now > torrent.added_on + self.ignore_torrents_younger_than
             and 0 < maximum_eta < torrent.eta
             and not self.do_not_remove_slow
             and not self.in_tags(torrent, "qBitrr-ignored")
@@ -4279,7 +4279,7 @@ class Arr:
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
                 (
-                    torrent.added_on < time_now - self.ignore_torrents_younger_than
+                    time_now > torrent.added_on + self.ignore_torrents_younger_than
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
