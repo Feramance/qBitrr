@@ -4062,7 +4062,7 @@ class Arr:
             torrent.name,
             datetime.fromtimestamp(time_now),
             datetime.fromtimestamp(torrent.added_on),
-            datetime.fromtimestamp(time_now - self.ignore_torrents_younger_than),
+            self.ignore_torrents_younger_than,
         )
         if torrent.added_on < time_now - self.ignore_torrents_younger_than:
             self.logger.trace(
