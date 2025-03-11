@@ -4065,7 +4065,7 @@ class Arr:
         if not self.allowed_stalled:
             self.logger.trace("Stalled check: Stalled delay disabled")
             return False
-        if torrent.added_on + self.ignore_torrents_younger_than > time_now:
+        if torrent.added_on < time_now - self.ignore_torrents_younger_than:
             self.logger.trace(
                 "Stalled check: In recent queue %s [Current:%s][Added:%s][Limit:%s]",
                 torrent.name,
@@ -4276,8 +4276,7 @@ class Arr:
             # "IgnoreTorrentsYoungerThan" variable, mark it for deletion.
             if (
                 (
-                    self.recently_queue.get(torrent.hash, torrent.added_on)
-                    < time_now - self.ignore_torrents_younger_than
+                    torrent.added_on < time_now - self.ignore_torrents_younger_than
                     and torrent.availability < 1
                 )
                 and torrent.hash in self.cleaned_torrents
