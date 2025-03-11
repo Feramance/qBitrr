@@ -4156,7 +4156,14 @@ class Arr:
         )
         maximum_eta = _tracker_max_eta
 
-        stalled_ignore = self._stalled_check(torrent, time_now)
+        if torrent.state_enum in (
+            TorrentStates.METADATA_DOWNLOAD,
+            TorrentStates.STALLED_DOWNLOAD,
+            TorrentStates.DOWNLOADING,
+        ):
+            stalled_ignore = self._stalled_check(torrent, time_now)
+        else:
+            stalled_ignore = False
 
         if self.in_tags(torrent, "qBitrr-ignored"):
             self.remove_tags(torrent, ["qBitrr-allowed_seeding", "qBitrr-free_space_paused"])
