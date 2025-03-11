@@ -4060,7 +4060,7 @@ class Arr:
         self.logger.trace(
             "Stalled check: [Current:%s][Added:%s][Check:%s]",
             torrent.name,
-            datetime.fromtimestamp(time_now),
+            time_now,
             datetime.fromtimestamp(torrent.added_on),
             self.ignore_torrents_younger_than,
         )
