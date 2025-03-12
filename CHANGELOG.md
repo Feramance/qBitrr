@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.18 (12/03/2025)
+- [[patch] Free space fixes and remove stalled tag if recent](https://github.com/Feramance/qBitrr/commit/8bf7bb4366c0dc38fd2ff2ae430c7c8bf8a79cfb) - @Feramance
+
+---
+
 ## v4.10.17 (12/03/2025)
 - [[patch] Updated paused torrent handling](https://github.com/Feramance/qBitrr/commit/1b4be8ff27ec72132e29db1a96ff612dad8d9df5) - @Feramance
 - [Free space adjustements](https://github.com/Feramance/qBitrr/commit/7805b27bc78a19ae27db7e0e19abe6c102ec396b) - @Feramance
@@ -256,20 +261,3 @@
 - [Log fixes](https://github.com/Feramance/qBitrr/commit/9a26c2aa64d41827c11c793bf11b48e955c644ac) - @Feramance
 - [Change from pathlib to os call](https://github.com/Feramance/qBitrr/commit/3915556a093c013807e4d29e6cd94156f48e35aa) - @Feramance
 - [Removed check and forced unlink](https://github.com/Feramance/qBitrr/commit/35b6d8b33b78f8c82b9c7cac62c60320cce2d23d) - @Feramance
-
----
-
-## v4.9.9 (10/10/2024)
-- [[patch] Windows log files fixes](https://github.com/Feramance/qBitrr/commit/504fe066aa9c16a07d6d2c3512516f3ae5a1a91e) - @Feramance
-- [Workflow update](https://github.com/Feramance/qBitrr/commit/4b8fa67af7bbc18470e4310db61707cbe53e5902) - @Feramance
-- [Added mkdocs](https://github.com/Feramance/qBitrr/commit/babc2a0e260cf20a80c02d27b9a65b56cce1c723) - @Feramance
-- [Requirements bump](https://github.com/Feramance/qBitrr/commit/c15564e81e5e0b38a265abca3961a1a89fdf8d6c) - @Feramance
-- [Merge pull request #116 from Feramance/workflow-tests](https://github.com/Feramance/qBitrr/commit/65893f0980f97cab0bbaa9e69a25fb54d16fd3cf) - @Feramance
-- [pr workflow tests](https://github.com/Feramance/qBitrr/commit/a0f8a9583084efead10c87b328ba0c86e8074a9c) - @Feramance
-- [Merge pull request #113 from Feramance/dependabot/github_actions/actions/checkout-4](https://github.com/Feramance/qBitrr/commit/76fc18ac77915869b2995a8d1afe3f9897066f0b) - @Feramance
-- [Merge branch 'master' into dependabot/github_actions/actions/checkout-4](https://github.com/Feramance/qBitrr/commit/04bb4b4c29bcc2f1b3736666c2b4ed086e4991bc) - @Feramance
-- [Merge pull request #114 from Feramance/dependabot/github_actions/pre-commit/action-3.0.1](https://github.com/Feramance/qBitrr/commit/98636e46997947554e954c891419332e2368197e) - @Feramance
-- [Merge pull request #115 from Feramance/dependabot/github_actions/actions/setup-python-5](https://github.com/Feramance/qBitrr/commit/60a42cdb55961f5980fb79aebd7a93aeb2dd4f04) - @Feramance
-- [Bump actions/setup-python from 2 to 5](https://github.com/Feramance/qBitrr/commit/ad7f5834c35adc1a5c86c62bd25a367d5712beb8) - @dependabot[bot]
-- [Bump pre-commit/action from 2.0.0 to 3.0.1](https://github.com/Feramance/qBitrr/commit/b83c201852ad9795f829e9d636900c1b8ed5798d) - @dependabot[bot]
-- [Bump actions/checkout from 2 to 4](https://github.com/Feramance/qBitrr/commit/afc7731ecaf23e25a42b1e27847e59d80b7bbd8c) - @dependabot[bot]
