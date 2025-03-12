@@ -4067,6 +4067,7 @@ class Arr:
                     torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
                 ),
             )
+            self.remove_tags(torrent, ["qBitrr-allowed_stalled"])
             return True
         if self.stalled_delay == 0:
             self.logger.trace(
