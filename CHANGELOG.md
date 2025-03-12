@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.17 (12/03/2025)
+- [[patch] Updated paused torrent handling](https://github.com/Feramance/qBitrr/commit/1b4be8ff27ec72132e29db1a96ff612dad8d9df5) - @Feramance
+- [Free space adjustements](https://github.com/Feramance/qBitrr/commit/7805b27bc78a19ae27db7e0e19abe6c102ec396b) - @Feramance
+
+---
+
 ## v4.10.16 (11/03/2025)
 - [[patch] Stalled delay fixes](https://github.com/Feramance/qBitrr/commit/fd119edf95348a255b27968e9dc55304f0228389) - @Feramance
 - [Further conditional adjustements for younger torrents and stalled delay](https://github.com/Feramance/qBitrr/commit/07a881e3496f49d93b63cf38549f8ba848eaf348) - @Feramance
@@ -267,15 +273,3 @@
 - [Bump actions/setup-python from 2 to 5](https://github.com/Feramance/qBitrr/commit/ad7f5834c35adc1a5c86c62bd25a367d5712beb8) - @dependabot[bot]
 - [Bump pre-commit/action from 2.0.0 to 3.0.1](https://github.com/Feramance/qBitrr/commit/b83c201852ad9795f829e9d636900c1b8ed5798d) - @dependabot[bot]
 - [Bump actions/checkout from 2 to 4](https://github.com/Feramance/qBitrr/commit/afc7731ecaf23e25a42b1e27847e59d80b7bbd8c) - @dependabot[bot]
-
----
-
-## v4.9.8 (10/10/2024)
-- [[patch] Merge pull request #112 from Feramance/code-refactoring](https://github.com/Feramance/qBitrr/commit/9fd5276285a3ba7bf0de4082c778f6dbc1d7130f) - @Feramance
-- [[patch] Critical fix in torrent handling](https://github.com/Feramance/qBitrr/commit/5e72617dd38a24a4f6ce8ec27b195a4787218efd) - @Feramance
-- [Remove test workflow](https://github.com/Feramance/qBitrr/commit/0c7acfdc54041f8613aa12a30ed6e3dd2fe0d4e3) - @Feramance
-- [Requirements file fix](https://github.com/Feramance/qBitrr/commit/336cc42a3dd14a453ff9e38353b15ed11724dce0) - @Feramance
-- [Workflow python version updates](https://github.com/Feramance/qBitrr/commit/722eb397e93fb8dab3bcbb9d0cee536785f9604b) - @Feramance
-- [Docs update](https://github.com/Feramance/qBitrr/commit/7c80ef1a51acdbf7c335b51fbdb761a6c6e0f845) - @Feramance
-- [Docs update](https://github.com/Feramance/qBitrr/commit/2e83c196e85fff3b6b72021f87a66e7ae4017a33) - @Feramance
-- [General code refactoring and reformatting](https://github.com/Feramance/qBitrr/commit/3c547ed4a8cbd47e60ef362fa92d5c6926633d9c) - @Feramance
