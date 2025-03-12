@@ -2740,10 +2740,11 @@ class Arr:
         try:
             while True:
                 try:
-                    res = self.client._delete(
-                        f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
-                        self.client.ver_uri,
-                    )
+                    res = self.client.del_queue(id_, remove_from_client, blacklist)
+                    # res = self.client._delete(
+                    #     f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
+                    #     self.client.ver_uri,
+                    # )
                     break
                 except (
                     requests.exceptions.ChunkedEncodingError,
@@ -2752,8 +2753,8 @@ class Arr:
                     JSONDecodeError,
                 ):
                     continue
-        except PyarrResourceNotFound:
-            self.logger.error("Connection Error")
+        except PyarrResourceNotFound as e:
+            self.logger.error("Connection Error: " + e.message)
             raise DelayLoopException(length=300, type=self._name)
         return res
 
@@ -4093,10 +4094,7 @@ class Arr:
                 and not self.in_tags(torrent, "qBitrr-free_space_paused")
             )
             or (
-                (
-                    time_now > torrent.added_on + self.ignore_torrents_younger_than
-                    and torrent.availability < 1
-                )
+                torrent.availability < 1
                 and torrent.hash in self.cleaned_torrents
                 and torrent.state_enum in (TorrentStates.DOWNLOADING)
                 and not self.in_tags(torrent, "qBitrr-ignored")
@@ -4129,7 +4127,15 @@ class Arr:
                 else:
                     self.logger.trace("Stalled, adding tag: %s", torrent.name)
             elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
-                self.logger.trace("Stalled: %s", torrent.name)
+                self.logger.trace(
+                    "Stalled: %s [Current:%s][Last Activity:%s][Limit:%s]",
+                    torrent.name,
+                    datetime.fromtimestamp(time_now),
+                    datetime.fromtimestamp(torrent.last_activity),
+                    datetime.fromtimestamp(
+                        torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
+                    ),
+                )
 
         elif self.in_tags(torrent, "qBitrr-allowed_stalled"):
             self.remove_tags(torrent, ["qBitrr-allowed_stalled"])
