@@ -4209,6 +4209,7 @@ class Arr:
             torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD
             and torrent.amount_left != 0
             and not self.in_tags(torrent, "qBitrr-free_space_paused")
+            and not self.in_tags(torrent, "qBitrr-ignored")
         ):
             self._process_single_torrent_paused(torrent)
         elif (
