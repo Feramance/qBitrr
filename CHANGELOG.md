@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.20 (12/03/2025)
+- [[patch] Adjusted stalled delay fallback, logs, and stalled delay now acts on the last activity, rather than added on](https://github.com/Feramance/qBitrr/commit/a61080f740835600c02383376134b6157a024346) - @Feramance
+
+---
+
 ## v4.10.19 (12/03/2025)
 - [[patch] Enabled stalled delay default](https://github.com/Feramance/qBitrr/commit/e9df62d84372b997f399e52e0870150438191104) - @Feramance
 
@@ -252,9 +257,3 @@
 - [Adjust code](https://github.com/Feramance/qBitrr/commit/c0085f6ae431a276c51e074cfadefb453a517fa3) - @Feramance
 - [Updated category check logic](https://github.com/Feramance/qBitrr/commit/385cb7f6de88e4f09698cf350e768abb55d69897) - @Feramance
 - [Temporarily removed catch statement for testing](https://github.com/Feramance/qBitrr/commit/d5c6810ada03b8b48f6671aa5e115e3188d4536d) - @Feramance
-
----
-
-## v4.9.11 (16/10/2024)
-- [[patch] Added exception handling](https://github.com/Feramance/qBitrr/commit/3a3f4f151eb0a1cc70906a6feeff9d2c9583635f) - @Feramance
-- [Removed mkdocs](https://github.com/Feramance/qBitrr/commit/b132e74095e706ff632ff41535399bc54f1ef538) - @Feramance
