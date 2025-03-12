@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.19 (12/03/2025)
+- [[patch] Enabled stalled delay default](https://github.com/Feramance/qBitrr/commit/e9df62d84372b997f399e52e0870150438191104) - @Feramance
+
+---
+
 ## v4.10.18 (12/03/2025)
 - [[patch] Free space fixes and remove stalled tag if recent](https://github.com/Feramance/qBitrr/commit/8bf7bb4366c0dc38fd2ff2ae430c7c8bf8a79cfb) - @Feramance
 
@@ -253,11 +258,3 @@
 ## v4.9.11 (16/10/2024)
 - [[patch] Added exception handling](https://github.com/Feramance/qBitrr/commit/3a3f4f151eb0a1cc70906a6feeff9d2c9583635f) - @Feramance
 - [Removed mkdocs](https://github.com/Feramance/qBitrr/commit/b132e74095e706ff632ff41535399bc54f1ef538) - @Feramance
-
----
-
-## v4.9.10 (10/10/2024)
-- [[patch] Merge pull request #117 from Feramance/108-unable-to-start-qbitrr-log-files](https://github.com/Feramance/qBitrr/commit/fefe317c7c37fa2ea1cff59c797076809618b2b6) - @Feramance
-- [Log fixes](https://github.com/Feramance/qBitrr/commit/9a26c2aa64d41827c11c793bf11b48e955c644ac) - @Feramance
-- [Change from pathlib to os call](https://github.com/Feramance/qBitrr/commit/3915556a093c013807e4d29e6cd94156f48e35aa) - @Feramance
-- [Removed check and forced unlink](https://github.com/Feramance/qBitrr/commit/35b6d8b33b78f8c82b9c7cac62c60320cce2d23d) - @Feramance
