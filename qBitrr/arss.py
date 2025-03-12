@@ -250,7 +250,7 @@ class Arr:
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
         self.re_search_stalled = CONFIG.get(f"{name}.Torrent.ReSearchStalled", fallback=False)
-        self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=0)
+        self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=15)
         self.allowed_stalled = True if self.stalled_delay != -1 else False
 
         self.search_current_year = None
@@ -4059,7 +4059,7 @@ class Arr:
             return False
         if time_now < torrent.added_on + self.ignore_torrents_younger_than:
             self.logger.trace(
-                "Stalled check: In recent queue %s [Current:%s][Added:%s][Limit:%s]",
+                "Stalled check: In recent queue %s [Current:%s][Added:%s][Starting:%s]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
                 datetime.fromtimestamp(torrent.added_on),
@@ -4070,19 +4070,19 @@ class Arr:
             return True
         if self.stalled_delay == 0:
             self.logger.trace(
-                "Stalled check: %s [Current:%s][Added:%s][Limit:No Limit]",
+                "Stalled check: %s [Current:%s][Last Activity:%s][Limit:No Limit]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
-                datetime.fromtimestamp(torrent.added_on),
+                datetime.fromtimestamp(torrent.last_activity),
             )
         else:
             self.logger.trace(
-                "Stalled check: %s [Current:%s][Added:%s][Limit:%s]",
+                "Stalled check: %s [Current:%s][Last Activity:%s][Limit:%s]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
-                datetime.fromtimestamp(torrent.added_on),
+                datetime.fromtimestamp(torrent.last_activity),
                 datetime.fromtimestamp(
-                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                    torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
                 ),
             )
         if (
@@ -4105,7 +4105,8 @@ class Arr:
         ) and self.allowed_stalled:
             if (
                 self.stalled_delay > 0
-                and time_now >= torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
+                and time_now
+                >= torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
             ):
                 stalled_ignore = False
                 self.logger.trace("Process stalled, delay expired: %s", torrent.name)
