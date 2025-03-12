@@ -357,11 +357,11 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         torrent_table,
         "Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)",
         "StalledDelay",
-        -1,
+        15,
     )
     _gen_default_line(
         torrent_table,
-        "Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent",
+        "Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.",
         "ReSearchStalled",
         False,
     )

@@ -233,9 +233,9 @@ MaximumDeletablePercentage = 0.99
 DoNotRemoveSlow = true
 
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
-StalledDelay = -1
+StalledDelay = 15
 
-# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
 
@@ -441,11 +441,11 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Re-search stalled torrents
-ReSearchStalled = false
-
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
-StalledDelay = -1
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
 
 
 [Sonarr-Anime.Torrent.SeedingMode]
@@ -643,11 +643,11 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Re-search stalled torrents
-ReSearchStalled = false
-
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
-StalledDelay = -1
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
 
 
 [Radarr-1080.Torrent.SeedingMode]
@@ -858,11 +858,11 @@ MaximumDeletablePercentage = 0.99
 # Ignore slow torrents.
 DoNotRemoveSlow = true
 
-# Re-search stalled torrents
-ReSearchStalled = false
-
 # Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
-StalledDelay = -1
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
 
 
 [Radarr-4K.Torrent.SeedingMode]
