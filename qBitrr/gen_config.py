@@ -146,19 +146,19 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         qbit,
-        'qBit WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")',
+        'qbittorrent WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")',
         "Host",
         ENVIRO_CONFIG.qbit.host or "CHANGE_ME",
     )
     _gen_default_line(
         qbit,
-        'qBit WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
+        'qbittorrent WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
         "Port",
         ENVIRO_CONFIG.qbit.port or 8080,
     )
     _gen_default_line(
         qbit,
-        "qBit WebUI Authentication - Can be found in Options > Web UI > Authentication",
+        "qbittorrent WebUI Authentication - Can be found in Options > Web UI > Authentication",
         "UserName",
         ENVIRO_CONFIG.qbit.username or "CHANGE_ME",
     )
@@ -170,7 +170,7 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         qbit,
-        "Set to true to allow abittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)",
+        "Set to true to allow qbittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)",
         "v5",
         ENVIRO_CONFIG.qbit.v5 or False,
     )
