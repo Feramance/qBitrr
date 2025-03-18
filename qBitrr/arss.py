@@ -94,19 +94,19 @@ class Arr:
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        if ENABLE_LOGS:
-            logs_folder = HOME_PATH.joinpath("logs")
-            logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
-            logfile = logs_folder.joinpath(self._name + ".log")
-            if pathlib.Path(logfile).is_file():
-                logold = logs_folder.joinpath(self._name + ".log.old")
-                if pathlib.Path(logold).exists():
-                    logold.unlink()
-                logfile.rename(logold)
-            fh = logging.FileHandler(logfile)
-            self.logger.addHandler(fh)
-        run_logs(self.logger)
+        # if ENABLE_LOGS:
+        #     logs_folder = HOME_PATH.joinpath("logs")
+        #     logs_folder.mkdir(parents=True, exist_ok=True)
+        #     logs_folder.chmod(mode=0o777)
+        #     logfile = logs_folder.joinpath(self._name + ".log")
+        #     if pathlib.Path(logfile).is_file():
+        #         logold = logs_folder.joinpath(self._name + ".log.old")
+        #         if pathlib.Path(logold).exists():
+        #             logold.unlink()
+        #         logfile.rename(logold)
+        #     fh = logging.FileHandler(logfile)
+        #     self.logger.addHandler(fh)
+        run_logs(self.logger, self._name)
 
         if not QBIT_DISABLED:
             categories = self.manager.qbit_manager.client.torrent_categories.categories

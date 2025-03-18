@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import pathlib
 import time
 from logging import Logger
 
@@ -85,7 +86,7 @@ logger = logging.getLogger("qBitrr.Misc")
 HAS_RUN = False
 
 
-def run_logs(logger: Logger) -> None:
+def run_logs(logger: Logger, _name: str = None) -> None:
     global HAS_RUN
     try:
         configkeys = {f"qBitrr.{i}" for i in CONFIG.sections()}
@@ -118,6 +119,18 @@ def run_logs(logger: Logger) -> None:
         },
         reconfigure=True,
     )
+    if ENABLE_LOGS and _name:
+        logs_folder = HOME_PATH.joinpath("logs")
+        logs_folder.mkdir(parents=True, exist_ok=True)
+        logs_folder.chmod(mode=0o777)
+        logfile = logs_folder.joinpath(_name + ".log")
+        if pathlib.Path(logfile).is_file():
+            logold = logs_folder.joinpath(_name + ".log.old")
+            if pathlib.Path(logold).exists():
+                logold.unlink()
+            logfile.rename(logold)
+        fh = logging.FileHandler(logfile)
+        logger.addHandler(fh)
     if HAS_RUN is False:
         HAS_RUN = True
         log_debugs(logger)
