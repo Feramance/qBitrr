@@ -31,7 +31,6 @@ from qBitrr.config import (
     AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
-    ENABLE_LOGS,
     FAILED_CATEGORY,
     FREE_SPACE,
     FREE_SPACE_FOLDER,
@@ -51,7 +50,6 @@ from qBitrr.errors import (
     SkipException,
     UnhandledError,
 )
-from qBitrr.home_path import HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.tables import (
     EpisodeFilesModel,
@@ -94,18 +92,6 @@ class Arr:
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        # if ENABLE_LOGS:
-        #     logs_folder = HOME_PATH.joinpath("logs")
-        #     logs_folder.mkdir(parents=True, exist_ok=True)
-        #     logs_folder.chmod(mode=0o777)
-        #     logfile = logs_folder.joinpath(self._name + ".log")
-        #     if pathlib.Path(logfile).is_file():
-        #         logold = logs_folder.joinpath(self._name + ".log.old")
-        #         if pathlib.Path(logold).exists():
-        #             logold.unlink()
-        #         logfile.rename(logold)
-        #     fh = logging.FileHandler(logfile)
-        #     self.logger.addHandler(fh)
         run_logs(self.logger, self._name)
 
         if not QBIT_DISABLED:
@@ -4982,19 +4968,7 @@ class PlaceHolderArr(Arr):
         self.tracker_delay = ExpiringSet(max_age_seconds=600)
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        if ENABLE_LOGS:
-            logs_folder = HOME_PATH.joinpath("logs")
-            logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
-            logfile = logs_folder.joinpath(self._name + ".log")
-            if pathlib.Path(logfile).is_file():
-                logold = logs_folder.joinpath(self._name + ".log.old")
-                if pathlib.Path(logold).exists():
-                    logold.unlink()
-                logfile.rename(logold)
-            fh = logging.FileHandler(logfile)
-            self.logger.addHandler(fh)
-        run_logs(self.logger)
+        run_logs(self.logger, self._name)
         self.search_missing = False
         self.session = None
         self.search_setup_completed = False
@@ -5118,19 +5092,7 @@ class FreeSpaceManager(Arr):
         self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        if ENABLE_LOGS:
-            logs_folder = HOME_PATH.joinpath("logs")
-            logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
-            logfile = logs_folder.joinpath(self._name + ".log")
-            if pathlib.Path(logfile).is_file():
-                logold = logs_folder.joinpath(self._name + ".log.old")
-                if pathlib.Path(logold).exists():
-                    logold.unlink()
-                logfile.rename(logold)
-            fh = logging.FileHandler(logfile)
-            self.logger.addHandler(fh)
-        run_logs(self.logger)
+        run_logs(self.logger, self._name)
         self.categories = categories
         self.logger.trace("Categories: %s", self.categories)
         self.pause = set()

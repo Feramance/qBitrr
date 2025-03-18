@@ -3,7 +3,6 @@ from __future__ import annotations
 import atexit
 import itertools
 import logging
-import pathlib
 import sys
 import time
 from multiprocessing import freeze_support
@@ -22,14 +21,12 @@ from qBitrr.config import (
     APPDATA_FOLDER,
     CONFIG,
     CONFIG_EXISTS,
-    ENABLE_LOGS,
     QBIT_DISABLED,
     SEARCH_ONLY,
     process_flags,
 )
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
-from qBitrr.home_path import HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
 
@@ -41,19 +38,7 @@ else:
 CHILD_PROCESSES = []
 
 logger = logging.getLogger("qBitrr")
-# if ENABLE_LOGS:
-#     logs_folder = HOME_PATH.joinpath("logs")
-#     logs_folder.mkdir(parents=True, exist_ok=True)
-#     logs_folder.chmod(mode=0o777)
-#     logfile = logs_folder.joinpath("qBitrr.log")
-#     if pathlib.Path(logfile).is_file():
-#         logold = logs_folder.joinpath( "qBitrr.log.old")
-#         if pathlib.Path(logold).exists():
-#             logold.unlink()
-#         logfile.rename(logold)
-#     fh = logging.FileHandler(logfile)
-#     logger.addHandler(fh)
-run_logs(logger)
+run_logs(logger, "Main")
 
 
 class qBitManager:
@@ -70,19 +55,7 @@ class qBitManager:
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.qBit_v5 = CONFIG.get("qBit.v5", fallback=False)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        if ENABLE_LOGS:
-            logs_folder = HOME_PATH.joinpath("logs")
-            logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
-            logfile = logs_folder.joinpath(self._name + ".log")
-            if pathlib.Path(logfile).is_file():
-                logold = logs_folder.joinpath(self._name + ".log.old")
-                if pathlib.Path(logold).exists():
-                    logold.unlink()
-                logfile.rename(logold)
-            fh = logging.FileHandler(logfile)
-            self.logger.addHandler(fh)
-        run_logs(self.logger)
+        run_logs(self.logger, self._name)
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
