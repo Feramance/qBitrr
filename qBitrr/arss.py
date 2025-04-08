@@ -2169,7 +2169,7 @@ class Arr:
                                                 episode["episodeFile"]["id"]
                                             )["customFormatScore"]
                                         else:
-                                            customFormat = 0
+                                            customFormat = episodeData.CustomFormatScore
                                     else:
                                         customFormat = 0
                                 else:
@@ -2544,7 +2544,7 @@ class Arr:
                                             db_entry["movieFile"]["id"]
                                         )["customFormatScore"]
                                     else:
-                                        customFormat = 0
+                                        customFormat = movieData.CustomFormatScore
                                 else:
                                     customFormat = 0
                             else:
