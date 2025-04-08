@@ -2199,6 +2199,11 @@ class Arr:
                             if "episodeFile" in episode
                             else False
                         )
+                        self.logger.trace(
+                            "Custom format check [Minimum=%s|Current=%s]",
+                            minCustomFormat,
+                            customFormat,
+                        )
                         if (
                             episode["hasFile"]
                             and not (self.quality_unmet_search and QualityUnmet)
@@ -2567,6 +2572,11 @@ class Arr:
                         db_entry["episodeFile"]["qualityCutoffNotMet"]
                         if "episodeFile" in db_entry
                         else False
+                    )
+                    self.logger.trace(
+                        "Custom format check [Minimum=%s|Current=%s]",
+                        minCustomFormat,
+                        customFormat,
                     )
                     if (
                         db_entry["hasFile"]
