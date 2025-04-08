@@ -4,7 +4,7 @@
 #
 #    pip-compile --extra=fast --output-file=requirements.fast.txt --strip-extras
 #
-attrs==25.1.0
+attrs==25.3.0
     # via environ-config
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -58,7 +58,7 @@ pox==0.3.5
     # via pathos
 ppft==1.7.6.9
     # via pathos
-pyarr==5.2.0
+pyarr==5.1.2
     # via qBitrr2 (setup.py)
 pyreadline3==3.5.4
     # via humanfriendly
@@ -73,7 +73,7 @@ six==1.17.0
     # via qbittorrent-api
 tomlkit==0.7.2
     # via qBitrr2 (setup.py)
-types-requests==2.32.0.20241016
+types-requests==2.32.0.20250328
     # via pyarr
 ujson==5.10.0
     # via qBitrr2 (setup.py)

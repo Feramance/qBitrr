@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: qBitrr2
-Version: 4.10.13
+Version: 4.10.20
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -38,7 +38,7 @@ Requires-Dist: packaging==22.0
 Requires-Dist: pathos==0.2.8
 Requires-Dist: peewee==3.14.7
 Requires-Dist: ping3==3.0.2
-Requires-Dist: pyarr==5.2.0
+Requires-Dist: pyarr==5.1.2
 Requires-Dist: qbittorrent-api==2023.7.52
 Requires-Dist: requests==2.32.0
 Requires-Dist: tomlkit==0.7.2
@@ -67,6 +67,7 @@ Requires-Dist: twine==3.7.1; extra == "all"
 Requires-Dist: ujson==5.10.0; extra == "all"
 Requires-Dist: upgrade-pip==0.1.4; extra == "all"
 Requires-Dist: ujson==5.10.0; extra == "all"
+Dynamic: license-file
 
 # <img src="assets/logo.png" width="32px"/> qBitrr
 
@@ -134,7 +135,7 @@ Some things to know before using it.
 
 ### Native
 
-- `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope.
+- `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope)
 
 Alternatively:
 

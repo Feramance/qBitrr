@@ -45,5 +45,6 @@ newenv:
 syncenv:
 	python.exe -m pip install --upgrade pip
 	pip install -Ur requirements.all.txt
+	pre-commit install
 help:
 	@echo "$$HELP_BODY"

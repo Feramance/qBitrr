@@ -6,7 +6,7 @@
 #
 altgraph==0.17.4
     # via pyinstaller
-attrs==25.1.0
+attrs==25.3.0
     # via environ-config
 backports-tarfile==1.2.0
     # via jaraco-context
@@ -49,13 +49,13 @@ environ-config==23.2.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
     # via qBitrr2 (setup.py)
-filelock==3.17.0
+filelock==3.18.0
     # via virtualenv
 future==1.0.0
     # via ffmpeg-python
 humanfriendly==10.0
     # via coloredlogs
-identify==2.6.8
+identify==2.6.9
     # via pre-commit
 idna==3.10
     # via requests
@@ -114,7 +114,7 @@ pip-tools==7.3.0
     # via qBitrr2 (setup.py)
 pkginfo==1.12.1.2
     # via twine
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via
     #   black
     #   virtualenv
@@ -124,13 +124,13 @@ ppft==1.7.6.9
     # via pathos
 pre-commit==3.3.3
     # via qBitrr2 (setup.py)
-pyarr==5.2.0
+pyarr==5.1.2
     # via qBitrr2 (setup.py)
 pygments==2.19.1
     # via readme-renderer
 pyinstaller==5.13.1
     # via qBitrr2 (setup.py)
-pyinstaller-hooks-contrib==2025.1
+pyinstaller-hooks-contrib==2025.2
     # via pyinstaller
 pyproject-hooks==1.2.0
     # via build
@@ -169,7 +169,7 @@ tqdm==4.67.1
     # via twine
 twine==3.7.1
     # via qBitrr2 (setup.py)
-types-requests==2.32.0.20241016
+types-requests==2.32.0.20250328
     # via pyarr
 ujson==5.10.0
     # via qBitrr2 (setup.py)
@@ -180,7 +180,7 @@ urllib3==2.3.0
     #   qbittorrent-api
     #   requests
     #   types-requests
-virtualenv==20.29.2
+virtualenv==20.30.0
     # via pre-commit
 wheel==0.45.1
     # via pip-tools
