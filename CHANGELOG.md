@@ -1,5 +1,22 @@
 # Changelog
 
+## v4.10.21 (21/04/2025)
+- [[patch] Merge pull request #162 from Feramance:160-question-regarding-the-initial-_monitored_tracker_urls-loading](https://github.com/Feramance/qBitrr/commit/ceb162cd1eee785c969cc07f0e9483b8bb74cab7) - @Feramance
+- [Fix per @overlord73](https://github.com/Feramance/qBitrr/commit/f38baf50338b5a20db9657a574425f59b5fe68d0) - @Feramance
+- [Update custom format unmet handling](https://github.com/Feramance/qBitrr/commit/189428a38f36b9ffd3273051fcdf872a8715273a) - @Feramance
+- [Dependency bump and pyarr downgrade](https://github.com/Feramance/qBitrr/commit/254de97188a2f1ce3b98f2a0ecfe90fe003b7c0b) - @Feramance
+- [Custom format logging](https://github.com/Feramance/qBitrr/commit/b543d394607e0e0caf6db8ab4735f5144e9121cd) - @Feramance
+- [Merge pull request #159 from bruvv/patch-2](https://github.com/Feramance/qBitrr/commit/57b1f33148ee985d62b376722e9790bea045148c) - @Feramance
+- [Update gen_config.py](https://github.com/Feramance/qBitrr/commit/2467ba9a639548e154c92d58d28c1ee40ef8a654) - @bruvv
+- [Fixed some typos](https://github.com/Feramance/qBitrr/commit/184f06550b360d46fdf1213577f9fad77eeb427d) - @bruvv
+- [Further logging updates for improved logs](https://github.com/Feramance/qBitrr/commit/d06c83c860251972cc4b05140db0ebc92a67248b) - @Feramance
+- [Removed ansi colour formatting for neatness](https://github.com/Feramance/qBitrr/commit/83d0fc6fed9dcd1c4c37534bb4989e3c12db8870) - @Feramance
+- [Coloured log files](https://github.com/Feramance/qBitrr/commit/1d7fd695eeb655a8fb628adcaae94b699b2c692b) - @Feramance
+- [Logging changes](https://github.com/Feramance/qBitrr/commit/091d6234aa425833b59fa5b3dc3eb969773cce74) - @Feramance
+- [Attempting to fix connection error](https://github.com/Feramance/qBitrr/commit/fb916f50881d65cbd32596e29d5c7336f6f889e7) - @Feramance
+
+---
+
 ## v4.10.20 (12/03/2025)
 - [[patch] Adjusted stalled delay fallback, logs, and stalled delay now acts on the last activity, rather than added on](https://github.com/Feramance/qBitrr/commit/a61080f740835600c02383376134b6157a024346) - @Feramance
 
@@ -237,23 +254,3 @@
 - [[patch] Merge pull request #123 from Feramance/search-adjustments](https://github.com/Feramance/qBitrr/commit/305cccff537dbf23aa2abe896e937ff6e10f2f61) - @Feramance
 - [Logging](https://github.com/Feramance/qBitrr/commit/9e2fe51052373c6c945fb5f50f67471340989173) - @Feramance
 - [fixed condition](https://github.com/Feramance/qBitrr/commit/577d4b4681f23150fe258cdf9680627790ecc4b9) - @Feramance
-
----
-
-## v4.9.12 (27/10/2024)
-- [[patch] Merge pull request #119 from Feramance/103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/76f0379a2228077481159e9087c963f26187deae) - @Feramance
-- [Merge branch '103-report-an-errorwhich-has-already-been-registered' of https://github.com/Feramance/qBitrr into 103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/7802207d62a427feb49fd0e8fa07929b0c1adb37) - @Feramance
-- [Reverted condition changes](https://github.com/Feramance/qBitrr/commit/0e0e55b30c8cefc9c5d7778d1fdf3f69e0d45bd8) - @Feramance
-- [Search testing](https://github.com/Feramance/qBitrr/commit/1679bee1ed7802d757726e32f14184a35b2be34a) - @Feramance
-- [Adjusted boolean checks](https://github.com/Feramance/qBitrr/commit/ca6fc4295d284eb86b30ba513cb74063d7ef91d6) - @Feramance
-- [Query logic update](https://github.com/Feramance/qBitrr/commit/6a2ef445fa279bd0028f35b37065abdda1514fdb) - @Feramance
-- [Remove file id check](https://github.com/Feramance/qBitrr/commit/b8055ae7e1985117ccb679b2f7245e8bc96eeab3) - @Feramance
-- [More logging](https://github.com/Feramance/qBitrr/commit/8680a61e34c8b06d1fab148c22aa12e7305e221c) - @Feramance
-- [Merge branch '103-report-an-errorwhich-has-already-been-registered' of https://github.com/Feramance/qBitrr into 103-report-an-errorwhich-has-already-been-registered](https://github.com/Feramance/qBitrr/commit/7c4a58c30223c1b18e75eb40c4cdea8a4b972550) - @Feramance
-- [More logging](https://github.com/Feramance/qBitrr/commit/0e1db8cb294823dd1e1f93061dd72b4077eec4f0) - @Feramance
-- [Removing yield test](https://github.com/Feramance/qBitrr/commit/00709f1f2b3ac30534f6e894bf44b8935cb57ecb) - @Feramance
-- [Search logs](https://github.com/Feramance/qBitrr/commit/dcb860624f96a7355c085c0781d4eb7f2cd09cae) - @Feramance
-- [Re-add exception handling](https://github.com/Feramance/qBitrr/commit/d724b19d5d77117418c763a426bc604f50e64f60) - @Feramance
-- [Adjust code](https://github.com/Feramance/qBitrr/commit/c0085f6ae431a276c51e074cfadefb453a517fa3) - @Feramance
-- [Updated category check logic](https://github.com/Feramance/qBitrr/commit/385cb7f6de88e4f09698cf350e768abb55d69897) - @Feramance
-- [Temporarily removed catch statement for testing](https://github.com/Feramance/qBitrr/commit/d5c6810ada03b8b48f6671aa5e115e3188d4536d) - @Feramance
