@@ -185,7 +185,7 @@ class Arr:
         self._monitored_tracker_urls: set[str] = {
             r
             for i in self.monitored_trackers
-            if not (r := i.get("URI")) not in self._remove_trackers_if_exists
+            if (r := i.get("URI")) not in self._remove_trackers_if_exists
         }
         self._add_trackers_if_missing: set[str] = {
             i.get("URI") for i in self.monitored_trackers if i.get("AddTrackerIfMissing") is True
