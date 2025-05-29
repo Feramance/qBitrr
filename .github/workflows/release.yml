@@ -90,12 +90,14 @@ jobs:
         git_commit_gpgsign: true
         git_tag_gpgsign: true
       id: import_gpg
-    - uses: ModeSevenIndustrialSolutions/action-automatic-releases@latest
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
       with:
-        repo_token: ${{ secrets.PAT }}
+        token: ${{ secrets.PAT }}
+        tag_name: v${{ needs.bump_version.outputs.NEW_RELEASE }}
+        name: v${{ needs.bump_version.outputs.NEW_RELEASE }}
+        draft: false
         prerelease: false
-        automatic_release_tag: v${{needs.bump_version.outputs.NEW_RELEASE}}
-        title: v${{needs.bump_version.outputs.NEW_RELEASE}}
   release_hash:
     name: Update The Version Hash
     needs: [bump_version, release]
