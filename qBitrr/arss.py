@@ -595,9 +595,9 @@ class Arr:
             return False
 
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        for tag in tags:
-            self.logger.trace("Removing tag %s from %s", tag, torrent.name)
-            if TAGLESS:
+        self.logger.trace("Removing tag %s from %s", tag, torrent.name)
+        if TAGLESS:
+            for tag in tags:
                 query = (
                     self.torrents.select()
                     .where(
@@ -635,20 +635,13 @@ class Arr:
                         == torrent.hash & self.torrents.Category
                         == torrent.category
                     )
-            else:
-                if tag == "qBitrr-allowed_seeding":
-                    torrent.remove_tags(["qBitrr-allowed_seeding"])
-                elif tag == "qBitrr-imported":
-                    torrent.remove_tags(["qBitrr-imported"])
-                elif tag == "qBitrr-allowed_stalled":
-                    torrent.remove_tags(["qBitrr-allowed_stalled"])
-                elif tag == "qBitrr-free_space_paused":
-                    torrent.remove_tags(["qBitrr-free_space_paused"])
+        else:
+            torrent.remove_tags(tags)
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        for tag in tags:
-            self.logger.trace("Adding tag %s from %s", tag, torrent.name)
-            if TAGLESS:
+        self.logger.trace("Adding tag %s from %s", tag, torrent.name)
+        if TAGLESS:
+            for tag in tags:
                 query = (
                     self.torrents.select()
                     .where(
@@ -686,15 +679,8 @@ class Arr:
                         == torrent.hash & self.torrents.Category
                         == torrent.category
                     )
-            else:
-                if tag == "qBitrr-allowed_seeding":
-                    torrent.add_tags(["qBitrr-allowed_seeding"])
-                elif tag == "qBitrr-imported":
-                    torrent.add_tags(["qBitrr-imported"])
-                elif tag == "qBitrr-allowed_stalled":
-                    torrent.add_tags(["qBitrr-allowed_stalled"])
-                elif tag == "qBitrr-free_space_paused":
-                    torrent.add_tags(["qBitrr-free_space_paused"])
+        else:
+            torrent.add_tags(tags)
 
     def _get_models(
         self,
@@ -2199,16 +2185,11 @@ class Arr:
                             if "episodeFile" in episode
                             else False
                         )
-                        self.logger.trace(
-                            "Custom format check [Minimum=%s|Current=%s]",
-                            minCustomFormat,
-                            customFormat,
-                        )
                         if (
                             episode["hasFile"]
                             and not (self.quality_unmet_search and QualityUnmet)
                             and not (
-                                self.custom_format_unmet_search and customFormat < minCustomFormat
+                                self.custom_format_unmet_search and customFormat <= minCustomFormat
                             )
                         ):
                             searched = True
@@ -2304,7 +2285,7 @@ class Arr:
                         AirDateUtc = episode["airDateUtc"]
                         Monitored = episode["monitored"]
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
-                        customFormatMet = customFormat > minCustomFormat
+                        customFormatMet = customFormat >= minCustomFormat
 
                         if not episode["hasFile"]:
                             reason = "Missing"
@@ -2573,16 +2554,11 @@ class Arr:
                         if "episodeFile" in db_entry
                         else False
                     )
-                    self.logger.trace(
-                        "Custom format check [Minimum=%s|Current=%s]",
-                        minCustomFormat,
-                        customFormat,
-                    )
                     if (
                         db_entry["hasFile"]
                         and not (self.quality_unmet_search and QualityUnmet)
                         and not (
-                            self.custom_format_unmet_search and customFormat < minCustomFormat
+                            self.custom_format_unmet_search and customFormat <= minCustomFormat
                         )
                     ):
                         searched = True
@@ -2646,7 +2622,7 @@ class Arr:
                     entryId = db_entry["id"]
                     movieFileId = db_entry["movieFileId"]
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
-                    customFormatMet = customFormat > minCustomFormat
+                    customFormatMet = customFormat >= minCustomFormat
 
                     if not db_entry["hasFile"]:
                         reason = "Missing"
