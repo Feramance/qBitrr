@@ -1,5 +1,12 @@
 # Changelog
 
+## v4.10.22 (29/05/2025)
+- [[patch] Retry release workflow](https://github.com/Feramance/qBitrr/commit/20ffbe4d2dc678a33bce56e60456130739d803c9) - @Feramance
+- [Update release workflow](https://github.com/Feramance/qBitrr/commit/967e1bf002aba1d3a6a89159f72530b9ed0c05db) - @Feramance
+- [[patch] Updated tagging to handle all tags appropriately](https://github.com/Feramance/qBitrr/commit/7580e73d3889c687b1316987b5cc0aa81c43cc03) - @Feramance
+
+---
+
 ## v4.10.21 (21/04/2025)
 - [[patch] Merge pull request #162 from Feramance:160-question-regarding-the-initial-_monitored_tracker_urls-loading](https://github.com/Feramance/qBitrr/commit/ceb162cd1eee785c969cc07f0e9483b8bb74cab7) - @Feramance
 - [Fix per @overlord73](https://github.com/Feramance/qBitrr/commit/f38baf50338b5a20db9657a574425f59b5fe68d0) - @Feramance
@@ -247,10 +254,3 @@
 - [[patch] Removed redundant logs](https://github.com/Feramance/qBitrr/commit/4be37677f61204e811307b271b5a0b67b4b53a52) - @Feramance
 - [Fixed in tags check](https://github.com/Feramance/qBitrr/commit/62b29a91d5a74810dc2b14e7f0a1c4d02250d415) - @Feramance
 - [Tag check changes](https://github.com/Feramance/qBitrr/commit/9a43ab8af16f5f8bfb289eab44677992088b16d5) - @Feramance
-
----
-
-## v4.9.13 (27/10/2024)
-- [[patch] Merge pull request #123 from Feramance/search-adjustments](https://github.com/Feramance/qBitrr/commit/305cccff537dbf23aa2abe896e937ff6e10f2f61) - @Feramance
-- [Logging](https://github.com/Feramance/qBitrr/commit/9e2fe51052373c6c945fb5f50f67471340989173) - @Feramance
-- [fixed condition](https://github.com/Feramance/qBitrr/commit/577d4b4681f23150fe258cdf9680627790ecc4b9) - @Feramance
