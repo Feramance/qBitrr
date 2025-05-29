@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.23 (29/05/2025)
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/ca816463818878164bee3b31f9c04576c300aeeb) - @Feramance
+- [Update readme](https://github.com/Feramance/qBitrr/commit/cec04e271a9501a0b9f1fce46ab4d43563e9292e) - @Feramance
+
+---
+
 ## v4.10.22 (29/05/2025)
 - [[patch] Retry release workflow](https://github.com/Feramance/qBitrr/commit/20ffbe4d2dc678a33bce56e60456130739d803c9) - @Feramance
 - [Update release workflow](https://github.com/Feramance/qBitrr/commit/967e1bf002aba1d3a6a89159f72530b9ed0c05db) - @Feramance
@@ -247,10 +253,3 @@
 ## v4.9.15 (12/11/2024)
 - [[patch] Update ujson version](https://github.com/Feramance/qBitrr/commit/18b96cf12de8415f5b8774205e0632fd56e05098) - @Feramance
 - [Merge pull request #124 from Feramance/dependabot/github_actions/crazy-max/ghaction-import-gpg-6.2.0](https://github.com/Feramance/qBitrr/commit/1f95077994afc3158e43d7413379950289ecd51d) - @Feramance
-
----
-
-## v4.9.14 (28/10/2024)
-- [[patch] Removed redundant logs](https://github.com/Feramance/qBitrr/commit/4be37677f61204e811307b271b5a0b67b4b53a52) - @Feramance
-- [Fixed in tags check](https://github.com/Feramance/qBitrr/commit/62b29a91d5a74810dc2b14e7f0a1c4d02250d415) - @Feramance
-- [Tag check changes](https://github.com/Feramance/qBitrr/commit/9a43ab8af16f5f8bfb289eab44677992088b16d5) - @Feramance
