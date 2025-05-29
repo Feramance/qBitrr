@@ -55,7 +55,7 @@ I am starting development on qBitrr+ which will be C# based for better overall p
 Some things to know before using it.
 
 - **Latest supported qbittorrent version is 4.6.7**
-- qbittorrent v5 does not currently have a stable API. A config is available for those who wish to use it anyway but I will not be dealing with issues related to qbittorrent v5 for the time being
+- qbittorrent v5 is supported via a config value (this will be removed later on)
 - qbittorrent >= 4.5.x
 - [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
 - qBit set to create sub-folders for tag.
