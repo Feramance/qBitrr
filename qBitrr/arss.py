@@ -595,7 +595,8 @@ class Arr:
             return False
 
     def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        self.logger.trace("Removing tag %s from %s", tag, torrent.name)
+        for tag in tags:
+            self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         if TAGLESS:
             for tag in tags:
                 query = (
@@ -639,7 +640,8 @@ class Arr:
             torrent.remove_tags(tags)
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
-        self.logger.trace("Adding tag %s from %s", tag, torrent.name)
+        for tag in tags:
+            self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         if TAGLESS:
             for tag in tags:
                 query = (
