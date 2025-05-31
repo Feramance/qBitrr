@@ -3004,7 +3004,7 @@ class Arr:
                 while True:
                     try:
                         self.client.post_command(
-                            self.search_api_command, seriesId=file_model.EntryId
+                            "SeriesSearch", seriesId=file_model.EntryId
                         )
                         break
                     except (
