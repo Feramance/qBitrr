@@ -477,7 +477,12 @@ class Arr:
                 )
 
         if self.type == "sonarr":
-            if self.quality_unmet_search or self.do_upgrade_search or self.series_search:
+            if (
+                self.quality_unmet_search
+                or self.do_upgrade_search
+                or self.custom_format_unmet_search
+                or self.series_search
+            ):
                 self.search_api_command = "SeriesSearch"
             else:
                 self.search_api_command = "MissingEpisodeSearch"

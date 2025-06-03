@@ -160,7 +160,7 @@ MainQualityProfile = []
 # Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
-# Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
+# Search by series instead of by episode (This is true if QualityUnmetSearch, CustomFormatUnmetSearch, or DoUpgradeSearch are enabled)
 SearchBySeries = true
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
@@ -369,7 +369,7 @@ MainQualityProfile = []
 # Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
 
-# Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)
+# Search by series instead of by episode (This is true if QualityUnmetSearch, CustomFormatUnmetSearch, or DoUpgradeSearch are enabled)
 SearchBySeries = true
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
