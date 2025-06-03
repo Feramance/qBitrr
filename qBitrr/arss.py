@@ -3003,7 +3003,9 @@ class Arr:
                 ).on_conflict_replace().execute()
                 while True:
                     try:
-                        self.client.post_command(self.search_api_command, seriesId=file_model.EntryId)
+                        self.client.post_command(
+                            self.search_api_command, seriesId=file_model.EntryId
+                        )
                         break
                     except (
                         requests.exceptions.ChunkedEncodingError,
