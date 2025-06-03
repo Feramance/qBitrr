@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.10.24 (03/06/2025)
+- [[patch] Some logic updates for the Sonarr search command](https://github.com/Feramance/qBitrr/commit/80762778f4517cd8b167b5e5bc47120e2345525a) - @Feramance
+- [Merge pull request #164 from christianha1111/master](https://github.com/Feramance/qBitrr/commit/8b92f3e3a7e0c339f44e3c0584d238c00151a59c) - @Feramance
+- [Update arss.py](https://github.com/Feramance/qBitrr/commit/7d03fddde6f9201c4d64918084fc42460e45c6cd) - @Feramance
+- [fix "SeriesSearch"](https://github.com/Feramance/qBitrr/commit/9d0a1b8ef7c1a0d64f155370aaf84624d7f9c713) - @christianha1111
+- [use "SeriesSearch" in post_command. self.search_api_command was null unless. search_api_command is only set if self.search_missing:](https://github.com/Feramance/qBitrr/commit/753fc8b5bbed75d26cff9c2283f616614d2e873c) - @christianha1111
+
+---
+
 ## v4.10.23 (29/05/2025)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/ca816463818878164bee3b31f9c04576c300aeeb) - @Feramance
 - [Update readme](https://github.com/Feramance/qBitrr/commit/cec04e271a9501a0b9f1fce46ab4d43563e9292e) - @Feramance
@@ -247,9 +256,3 @@
 - [[patch] Dependency updates and newenv changes](https://github.com/Feramance/qBitrr/commit/693bde3c28ca429888acf179ae41d6910e6ce65f) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/08568267a777a78e76253f23e02421b8b9ccab93) - @Feramance
 - [[patch] Dependency update](https://github.com/Feramance/qBitrr/commit/2c4d169800f93c825a2a73d083b759b75472d77f) - @Feramance
-
----
-
-## v4.9.15 (12/11/2024)
-- [[patch] Update ujson version](https://github.com/Feramance/qBitrr/commit/18b96cf12de8415f5b8774205e0632fd56e05098) - @Feramance
-- [Merge pull request #124 from Feramance/dependabot/github_actions/crazy-max/ghaction-import-gpg-6.2.0](https://github.com/Feramance/qBitrr/commit/1f95077994afc3158e43d7413379950289ecd51d) - @Feramance
