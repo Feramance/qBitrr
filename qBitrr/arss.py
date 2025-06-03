@@ -1003,7 +1003,7 @@ class Arr:
                     self.logger.trace("Research series id: %s", series_id)
                     while True:
                         try:
-                            self.client.post_command(self.search_api_command, seriesId=series_id)
+                            self.client.post_command("SeriesSearch", seriesId=series_id)
                             break
                         except (
                             requests.exceptions.ChunkedEncodingError,
