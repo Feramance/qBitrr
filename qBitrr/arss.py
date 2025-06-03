@@ -476,11 +476,11 @@ class Arr:
                     "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds
                 )
 
-            if self.type == "sonarr":
-                if self.quality_unmet_search or self.do_upgrade_search:
-                    self.search_api_command = "SeriesSearch"
-                else:
-                    self.search_api_command = "MissingEpisodeSearch"
+        if self.type == "sonarr":
+            if self.quality_unmet_search or self.do_upgrade_search or self.series_search:
+                self.search_api_command = "SeriesSearch"
+            else:
+                self.search_api_command = "MissingEpisodeSearch"
 
         if not QBIT_DISABLED and not TAGLESS:
             self.manager.qbit_manager.client.torrents_create_tags(
