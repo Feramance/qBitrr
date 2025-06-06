@@ -570,6 +570,19 @@ class Arr:
             if tag == "qBitrr-ignored":
                 return_value = "qBitrr-ignored" in torrent.tags
             else:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
                 condition = (
                     self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
                 )
