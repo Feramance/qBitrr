@@ -503,7 +503,6 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
-        self.torrents: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -570,6 +569,19 @@ class Arr:
             if tag == "qBitrr-ignored":
                 return_value = "qBitrr-ignored" in torrent.tags
             else:
+                query = (
+                    self.torrents.select()
+                    .where(
+                        self.torrents.Hash
+                        == torrent.hash & self.torrents.Category
+                        == torrent.category
+                    )
+                    .execute()
+                )
+                if not query:
+                    self.torrents.insert(
+                        Hash=torrent.hash, Category=torrent.category
+                    ).on_conflict_ignore().execute()
                 condition = (
                     self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
                 )
@@ -4566,6 +4578,8 @@ class Arr:
             self.torrent_db.connect()
             self.torrent_db.create_tables([Torrents])
             self.torrents = Torrents
+        else:
+            self.torrents: TorrentLibrary = None
 
         self.model_file = Files
         self.model_queue = Queue
@@ -4844,11 +4858,11 @@ class Arr:
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
-        self.register_search_mode()
         self.logger.hnotice("Starting torrent monitoring for %s", self._name)
         while True:
             try:
                 try:
+                    self.register_search_mode()
                     try:
                         if not self.manager.qbit_manager.is_alive:
                             raise NoConnectionrException(
