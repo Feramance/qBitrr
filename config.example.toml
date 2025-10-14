@@ -109,7 +109,7 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing episode file(s)", "Not 
 
 
 [Sonarr-TV.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
@@ -133,7 +133,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -318,7 +318,7 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing episode file(s)", "Not 
 
 
 [Sonarr-Anime.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
@@ -342,7 +342,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -527,7 +527,7 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 
 
 [Radarr-1080.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
@@ -550,7 +550,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -742,7 +742,7 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 
 
 [Radarr-4K.EntrySearch]
-# All these settings depends on SearchMissing being True and access to the Servarr database file.
+# All these settings depends on SearchMissing being True
 
 # Should search for Missing files?
 SearchMissing = true
@@ -765,7 +765,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search movies which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
