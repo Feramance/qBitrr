@@ -1,5 +1,13 @@
 # Changelog
 
+## v4.10.25 (14/10/2025)
+- [[patch] Merge pull request #167 from Feramance/165-attributeerror-nonetype-object-has-no-attribute-hash](https://github.com/Feramance/qBitrr/commit/8d7061a4e0a1470e0e99546a3855571114635e3d) - @Feramance
+- [Small fixes](https://github.com/Feramance/qBitrr/commit/bc288574e9ae9b73c3993c91645c9fe243679d9b) - @Feramance
+- [Minor tweaks to torrents library call](https://github.com/Feramance/qBitrr/commit/64309436a69db2387eb65afa5fc2e539d3ac03db) - @Feramance
+- [Added check before starting condition for `in tags`](https://github.com/Feramance/qBitrr/commit/1e08660a22856d1bc9bc9c1c31642c5476b9591a) - @Feramance
+
+---
+
 ## v4.10.24 (03/06/2025)
 - [[patch] Some logic updates for the Sonarr search command](https://github.com/Feramance/qBitrr/commit/80762778f4517cd8b167b5e5bc47120e2345525a) - @Feramance
 - [Merge pull request #164 from christianha1111/master](https://github.com/Feramance/qBitrr/commit/8b92f3e3a7e0c339f44e3c0584d238c00151a59c) - @Feramance
@@ -249,10 +257,3 @@
 - [Dependabot config update](https://github.com/Feramance/qBitrr/commit/e6f14d0c70158dd93b4cdbad0cc5e2824bba6c09) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/f16088b2f2c6d8bd2c44ef8ec2f4a99c125786e1) - @Feramance
 - [Dependabot yml config updates](https://github.com/Feramance/qBitrr/commit/099c2e5edb66260498875317a2724dca55da6a08) - @Feramance
-
----
-
-## v4.9.16 (12/11/2024)
-- [[patch] Dependency updates and newenv changes](https://github.com/Feramance/qBitrr/commit/693bde3c28ca429888acf179ae41d6910e6ce65f) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/08568267a777a78e76253f23e02421b8b9ccab93) - @Feramance
-- [[patch] Dependency update](https://github.com/Feramance/qBitrr/commit/2c4d169800f93c825a2a73d083b759b75472d77f) - @Feramance
