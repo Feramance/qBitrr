@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.27 (15/10/2025)
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/f468e796c7568c359d2378bbc7727629ea533775) - @Feramance
+
+---
+
 ## v4.10.26 (15/10/2025)
 - [[patch] Dependency updates](https://github.com/Feramance/qBitrr/commit/4cd39849a2173f3b3dc2a9621d0f0c8f11fb1a88) - @Feramance
 
@@ -244,11 +249,3 @@
 - [[patch] added api logging and set allow stalled behaviour to ignore the `IgnoreTorrentsYoungerThan` config](https://github.com/Feramance/qBitrr/commit/d371e3aa68f2038a59194faae9348ba1f5a0d4fe) - @Feramance
 - [Headless mode fix and limited qbittorrent version](https://github.com/Feramance/qBitrr/commit/431e5513b89475e5493e042378471c196af5ad77) - @Feramance
 - [Config notes update](https://github.com/Feramance/qBitrr/commit/358f1fe0b98467f77e066c952af6b27af7373177) - @Feramance
-
----
-
-## v4.9.18 (14/11/2024)
-- [[patch] Merge pull request #131 from Feramance/127-attributeerror-in-headless-mode](https://github.com/Feramance/qBitrr/commit/4506eb9c6dc8c9ef9cf9e882e26c1498ae03d4a1) - @Feramance
-- [Fix headless mode category path checks](https://github.com/Feramance/qBitrr/commit/52e6cb9130ae03a6d308a6c0976d12710cd6707f) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/fd06a192608a440301ef87a7132cb2958b42edce) - @Feramance
-- [Config updates](https://github.com/Feramance/qBitrr/commit/4bbd2d679919ad2b2e10f7e363c4753137da247e) - @Feramance
