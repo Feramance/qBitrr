@@ -46,7 +46,7 @@ run_logs(logger, "Main")
 class qBitManager:
     min_supported_version = VersionClass("4.3.9")
     soft_not_supported_supported_version = VersionClass("4.4.4")
-    max_supported_version = VersionClass("4.6.7")
+    # max_supported_version = VersionClass("5.1.2")
     _head_less_mode = False
 
     def __init__(self):
@@ -55,7 +55,6 @@ class qBitManager:
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
-        self.qBit_v5 = CONFIG.get("qBit.v5", fallback=False)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
         self.logger.debug(
@@ -104,16 +103,12 @@ class qBitManager:
 
     def _version_validator(self):
         validated = False
-        if self.qBit_v5:
-            if self.min_supported_version <= self.current_qbit_version:
-                validated = True
-        else:
-            if (
-                self.min_supported_version
-                <= self.current_qbit_version
-                <= self.max_supported_version
-            ):
-                validated = True
+        if (
+            self.min_supported_version
+            <= self.current_qbit_version
+            # <= self.max_supported_version
+        ):
+            validated = True
 
         if self._validated_version and validated:
             self.logger.info(
@@ -127,11 +122,11 @@ class qBitManager:
             time.sleep(10)
         else:
             self.logger.critical(
-                "You are currently running qBitTorrent version %s, "
-                "Supported version range is %s to < %s",
+                "You are currently running qBitTorrent version %s which is not supported by qBitrr.",
+                # "Supported version range is %s to < %s",
                 self.current_qbit_version,
-                self.min_supported_version,
-                self.max_supported_version,
+                # self.min_supported_version,
+                # self.max_supported_version,
             )
             sys.exit(1)
 

@@ -73,9 +73,6 @@ UserName = "CHANGE_ME"
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "CHANGE_ME"
 
-# Set to true to allow qbittorrent v5 (Some API calls will not work as expected due to qbittorrent API issues not qBitrr)
-v5 = false
-
 
 [Sonarr-TV]
 # Toggle whether to manage the Servarr instance torrents.
