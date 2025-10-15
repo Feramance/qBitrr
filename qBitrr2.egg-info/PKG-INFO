@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qBitrr2
-Version: 4.10.24
+Version: 4.10.25
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -28,20 +28,20 @@ Classifier: Typing :: Typed
 Requires-Python: <4,>=3.8.3
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cachetools==5.3.2
-Requires-Dist: colorama==0.4.4
-Requires-Dist: coloredlogs==15.0.1
-Requires-Dist: environ-config==23.2.0
-Requires-Dist: ffmpeg-python==0.2.0
-Requires-Dist: jaraco.docker==2.0
-Requires-Dist: packaging==22.0
-Requires-Dist: pathos==0.2.8
-Requires-Dist: peewee==3.14.7
-Requires-Dist: ping3==3.0.2
-Requires-Dist: pyarr==5.1.2
-Requires-Dist: qbittorrent-api==2023.7.52
-Requires-Dist: requests==2.32.0
-Requires-Dist: tomlkit==0.7.2
+Requires-Dist: cachetools
+Requires-Dist: colorama
+Requires-Dist: coloredlogs
+Requires-Dist: environ-config
+Requires-Dist: ffmpeg-python
+Requires-Dist: jaraco.docker
+Requires-Dist: packaging
+Requires-Dist: pathos
+Requires-Dist: peewee
+Requires-Dist: ping3
+Requires-Dist: pyarr
+Requires-Dist: qbittorrent-api
+Requires-Dist: requests
+Requires-Dist: tomlkit
 Provides-Extra: dev
 Requires-Dist: black==24.3.0; extra == "dev"
 Requires-Dist: bump2version==1.0.1; extra == "dev"
