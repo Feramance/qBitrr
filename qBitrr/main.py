@@ -13,7 +13,6 @@ import requests
 from packaging import version as version_parser
 from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames
-from qbittorrentapi.decorators import login_required  # , response_text
 
 from qBitrr.arss import ArrManager
 from qBitrr.bundled_data import patched_version
@@ -29,6 +28,9 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
+
+# from qbittorrentapi.decorators import login_required, response_text
+
 
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
@@ -134,7 +136,7 @@ class qBitManager:
             sys.exit(1)
 
     # @response_text(str)
-    @login_required
+    # @login_required
     def app_version(self, **kwargs):
         return self.client._get(
             _name=APINames.Application,
@@ -143,6 +145,12 @@ class qBitManager:
             _retry_backoff_factor=0,
             **kwargs,
         )
+
+    def transfer_info(self, **kwargs):
+        """Proxy transfer info requests to the underlying qBittorrent client."""
+        if self.client is None:
+            return {"connection_status": "disconnected"}
+        return self.client.transfer_info(**kwargs)
 
     @property
     def is_alive(self) -> bool:
