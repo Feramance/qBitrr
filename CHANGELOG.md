@@ -1,5 +1,10 @@
 # Changelog
 
+## v4.10.26 (15/10/2025)
+- [[patch] Dependency updates](https://github.com/Feramance/qBitrr/commit/4cd39849a2173f3b3dc2a9621d0f0c8f11fb1a88) - @Feramance
+
+---
+
 ## v4.10.25 (14/10/2025)
 - [[patch] Merge pull request #167 from Feramance/165-attributeerror-nonetype-object-has-no-attribute-hash](https://github.com/Feramance/qBitrr/commit/8d7061a4e0a1470e0e99546a3855571114635e3d) - @Feramance
 - [Small fixes](https://github.com/Feramance/qBitrr/commit/bc288574e9ae9b73c3993c91645c9fe243679d9b) - @Feramance
@@ -247,13 +252,3 @@
 - [Fix headless mode category path checks](https://github.com/Feramance/qBitrr/commit/52e6cb9130ae03a6d308a6c0976d12710cd6707f) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/fd06a192608a440301ef87a7132cb2958b42edce) - @Feramance
 - [Config updates](https://github.com/Feramance/qBitrr/commit/4bbd2d679919ad2b2e10f7e363c4753137da247e) - @Feramance
-
----
-
-## v4.9.17 (13/11/2024)
-- [[patch] Improved search by year logging](https://github.com/Feramance/qBitrr/commit/d3d6178c9bb1013e47f2ab1a95a4192abcc8e1ef) - @Feramance
-- [Pre-commit changes](https://github.com/Feramance/qBitrr/commit/691f6c3d6a3084cd4f793c1e35d6ff1423a18f6c) - @Feramance
-- [Dependabot adjustmenets](https://github.com/Feramance/qBitrr/commit/45a7cd022f1de0c2df0efc37341cb404d641c23d) - @Feramance
-- [Dependabot config update](https://github.com/Feramance/qBitrr/commit/e6f14d0c70158dd93b4cdbad0cc5e2824bba6c09) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/f16088b2f2c6d8bd2c44ef8ec2f4a99c125786e1) - @Feramance
-- [Dependabot yml config updates](https://github.com/Feramance/qBitrr/commit/099c2e5edb66260498875317a2724dca55da6a08) - @Feramance
