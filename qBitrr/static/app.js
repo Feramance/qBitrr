@@ -5,6 +5,17 @@ const headers = () => {
     return h;
 };
 
+// Store token from URL query if present (for first-load auth)
+(function () {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const t = params.get("token");
+        if (t) localStorage.setItem("token", t);
+    } catch (_) {
+        /* ignore */
+    }
+})();
+
 let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }
 async function bootstrapToken() {
     try {
@@ -17,7 +28,11 @@ async function bootstrapToken() {
 }
 function globalSearch(q) {
     if (!currentArr) return;
-    if (currentArr.type === "radarr") {
+    if (currentArr.type === "radarrAll") {
+        radarrAggSearch(q);
+    } else if (currentArr.type === "sonarrAll") {
+        sonarrAggSearch(q);
+    } else if (currentArr.type === "radarr") {
         filterRadarr(currentArr.cat, currentArr.targetId, q);
     } else if (currentArr.type === "sonarr") {
         filterSonarr(currentArr.cat, currentArr.targetId, q);
@@ -222,6 +237,7 @@ document.addEventListener("change", (e) => {
 
 const radarrState = {};
 const sonarrState = {};
+const arrIndex = { radarr: {}, sonarr: {} };
 async function loadArrList() {
     const [arrRes, procRes] = await Promise.all([
         fetch("/api/arr", { headers: headers() }),
@@ -232,35 +248,20 @@ async function loadArrList() {
     const nameByCat = {};
     for (const p of procs.processes || [])
         nameByCat[p.category] = p.name || p.category;
-    let rs = "",
-        ss = "";
+    const radarrCats = [];
+    const sonarrCats = [];
     for (const a of d.arr) {
         const name = a.name || nameByCat[a.category] || a.category;
-        if (a.type === "radarr") {
-            const id = `radarrOut_${a.category}`;
-            rs += `<div><div>
-                <button class='btn' onclick="loadRadarr('${a.category}','${id}')">${name}</button>
-                <input placeholder='search' oninput="filterRadarr('${a.category}','${id}',this.value)" />
-                <input id='${id}_ps' type='number' value='50' style='width:60px'/>
-                <button onclick="pageRadarr('${a.category}','${id}',-1)">Prev</button>
-                <button onclick="pageRadarr('${a.category}','${id}',1)">Next</button>
-                <button onclick="restartArr('${a.category}')">Restart</button>
-                </div><div id='${id}'></div></div>`;
-        }
-        if (a.type === "sonarr") {
-            const id = `sonarrOut_${a.category}`;
-            ss += `<div><div>
-                <button class='btn' onclick="loadSonarr('${a.category}','${id}')">${name}</button>
-                <input placeholder='search' oninput="filterSonarr('${a.category}','${id}',this.value)" />
-                <input id='${id}_ps' type='number' value='25' style='width:60px'/>
-                <button onclick="pageSonarr('${a.category}','${id}',-1)">Prev</button>
-                <button onclick="pageSonarr('${a.category}','${id}',1)">Next</button>
-                <button onclick="restartArr('${a.category}')">Restart</button>
-                </div><div id='${id}'></div></div>`;
-        }
+        if (a.type === "radarr") { radarrCats.push(a.category); arrIndex && (arrIndex.radarr = arrIndex.radarr || {}, arrIndex.radarr[a.category] = name); }
+        if (a.type === "sonarr") { sonarrCats.push(a.category); arrIndex && (arrIndex.sonarr = arrIndex.sonarr || {}, arrIndex.sonarr[a.category] = name); }
     }
-    document.getElementById("radarrList").innerHTML = rs;
-    document.getElementById("sonarrList").innerHTML = ss;
+    const rnav = document.getElementById("radarrNav");
+    if (rnav) rnav.innerHTML = `<button class="btn" onclick="loadRadarrAllInstances(window.__radarrCats)">Load All Radarr</button>`;
+    const snav = document.getElementById("sonarrNav");
+    if (snav) snav.innerHTML = `<button class="btn" onclick="loadSonarrAllInstances(window.__sonarrCats)">Load All Sonarr</button>`;
+    // Store cats on window for button handlers
+    window.__radarrCats = radarrCats;
+    window.__sonarrCats = sonarrCats;
 }
 async function restartArr(cat) {
     const res = await fetch(`/api/arr/${cat}/restart`, {
@@ -321,9 +322,8 @@ function pageRadarr(cat, targetId, delta) {
     loadRadarr(cat, targetId);
 }
 function filterRadarr(cat, targetId, q) {
-    document.getElementById(`${targetId}`).dataset.filter = q;
-    radarrState[cat] = { page: 0 };
-    loadRadarr(cat, targetId);
+    try { radarrState[cat] = { page: 0 }; } catch(_) {}
+    loadRadarrAll(cat, q);
 }
 
 async function loadSonarr(cat, targetId) {
@@ -383,9 +383,8 @@ function pageSonarr(cat, targetId, delta) {
     loadSonarr(cat, targetId);
 }
 function filterSonarr(cat, targetId, q) {
-    document.getElementById(`${targetId}`).dataset.filter = q;
-    sonarrState[cat] = { page: 0 };
-    loadSonarr(cat, targetId);
+    try { sonarrState[cat] = { page: 0 }; } catch(_) {}
+    loadSonarrAll(cat, q);
 }
 
 async function loadConfig() {
@@ -714,6 +713,81 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+// Load full Radarr dataset for an instance and render a single table
+async function loadRadarrAll(cat, q = "") {
+    currentArr = { type: "radarr", cat, targetId: "radarrContent" };
+    const content = document.getElementById("radarrContent");
+    if (!content) return;
+    content.innerHTML = '<span class="hint">Loading movies…</span>';
+    const pageSize = 500;
+    let page = 0;
+    let all = [];
+    while (true) {
+        const r = await fetch(`/api/radarr/${cat}/movies?q=${encodeURIComponent(q)}&page=${page}&page_size=${pageSize}`, { headers: headers() });
+        if (!r.ok) break;
+        const d = await r.json();
+        all = all.concat(d.movies || []);
+        if (!d.movies || d.movies.length < pageSize) break;
+        page += 1;
+        if (page > 100) break;
+    }
+    renderRadarrAllTable(all);
+}
+function renderRadarrAllTable(items) {
+    const content = document.getElementById("radarrContent");
+    if (!content) return;
+    let html = '';
+    html += `<div class="row"><div class="col field"><input placeholder="search movies" oninput="globalSearch(this.value)"/></div></div>`;
+    html += "<table><tr><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr>";
+    for (const m of items) {
+        html += `<tr><td>${m.title || ''}</td><td>${m.year || ''}</td><td>${m.monitored ? 'Yes' : 'No'}</td><td>${m.hasFile ? 'Yes' : 'No'}</td></tr>`;
+    }
+    html += "</table>";
+    content.innerHTML = html;
+}
+
+// Load full Sonarr dataset for an instance and render a flattened episodes table
+async function loadSonarrAll(cat, q = "") {
+    currentArr = { type: "sonarr", cat, targetId: "sonarrContent" };
+    const content = document.getElementById("sonarrContent");
+    if (!content) return;
+    content.innerHTML = '<span class="hint">Loading series…</span>';
+    const pageSize = 200;
+    let page = 0;
+    let allSeries = [];
+    while (true) {
+        const r = await fetch(`/api/sonarr/${cat}/series?q=${encodeURIComponent(q)}&page=${page}&page_size=${pageSize}`, { headers: headers() });
+        if (!r.ok) break;
+        const d = await r.json();
+        allSeries = allSeries.concat(d.series || []);
+        if (!d.series || d.series.length < pageSize) break;
+        page += 1;
+        if (page > 200) break;
+    }
+    const rows = [];
+    for (const s of allSeries) {
+        const seriesTitle = s.series?.title || '';
+        for (const [sn, sv] of Object.entries(s.seasons || {})) {
+            for (const e of (sv.episodes || [])) {
+                rows.push({ series: seriesTitle, season: sn, ep: e.episodeNumber, title: e.title || '', monitored: !!e.monitored, hasFile: !!e.hasFile, air: e.airDateUtc || '' });
+            }
+        }
+    }
+    renderSonarrAllTable(rows);
+}
+function renderSonarrAllTable(rows) {
+    const content = document.getElementById("sonarrContent");
+    if (!content) return;
+    let html = '';
+    html += `<div class="row"><div class="col field"><input placeholder="search episodes" oninput="globalSearch(this.value)"/></div></div>`;
+    html += "<table><tr><th>Series</th><th>Season</th><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr>";
+    for (const r of rows) {
+        html += `<tr><td>${r.series}</td><td>${r.season}</td><td>${r.ep}</td><td>${r.title}</td><td>${r.monitored ? 'Yes':'No'}</td><td>${r.hasFile ? 'Yes':'No'}</td><td>${r.air}</td></tr>`;
+    }
+    html += "</table>";
+    content.innerHTML = html;
+}
+
 // Config helpers for token visibility and saving
 function toggleTokenVisibility(inputId, cb) {
     const el = document.getElementById(inputId);
@@ -733,4 +807,117 @@ async function saveTokenToConfig() {
     });
     alert("Token saved");
     localStorage.setItem("token", val);
+}
+
+// Aggregated views across all instances with loading placeholders and pagination
+const radarrAgg = { items: [], filtered: [], page: 0, pageSize: 50, q: "" };
+function radarrAggApply() {
+    const ql = (radarrAgg.q || "").toLowerCase();
+    if (!ql) radarrAgg.filtered = radarrAgg.items;
+    else radarrAgg.filtered = radarrAgg.items.filter(m => (m.title||'').toLowerCase().includes(ql) || (m.__instance||'').toLowerCase().includes(ql));
+    const totalPages = Math.max(1, Math.ceil(radarrAgg.filtered.length / radarrAgg.pageSize));
+    radarrAgg.page = Math.min(radarrAgg.page, totalPages - 1);
+}
+function renderRadarrAgg() {
+    const content = document.getElementById('radarrContent');
+    if (!content) return;
+    radarrAggApply();
+    const start = radarrAgg.page * radarrAgg.pageSize;
+    const items = radarrAgg.filtered.slice(start, start + radarrAgg.pageSize);
+    let html = '';
+    html += `<div class="row"><div class="col field"><input placeholder="search movies" value="${radarrAgg.q}" oninput="radarrAggSearch(this.value)"/></div></div>`;
+    html += '<table><tr><th>Instance</th><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr>';
+    for (const m of items) {
+        html += `<tr><td>${m.__instance||''}</td><td>${m.title||''}</td><td>${m.year||''}</td><td>${m.monitored?'Yes':'No'}</td><td>${m.hasFile?'Yes':'No'}</td></tr>`;
+    }
+    html += '</table>';
+    const totalPages = Math.max(1, Math.ceil(radarrAgg.filtered.length / radarrAgg.pageSize));
+    html += `<div class="row" style="margin-top:8px"><div class="col">Page ${radarrAgg.page+1} of ${totalPages} (${radarrAgg.filtered.length} items)</div><div class="col" style="text-align:right"><button class="btn" onclick="radarrAggPage(-1)">Prev</button> <button class="btn" onclick="radarrAggPage(1)">Next</button></div></div>`;
+    content.innerHTML = html;
+}
+function radarrAggPage(d) {
+    const totalPages = Math.max(1, Math.ceil(radarrAgg.filtered.length / radarrAgg.pageSize));
+    radarrAgg.page = Math.min(totalPages-1, Math.max(0, radarrAgg.page + d));
+    renderRadarrAgg();
+}
+function radarrAggSearch(q) { radarrAgg.q = q||""; radarrAgg.page = 0; renderRadarrAgg(); }
+async function loadRadarrAllInstances(cats) {
+    currentArr = { type: 'radarrAll' };
+    const content = document.getElementById('radarrContent');
+    if (!content) return;
+    content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading Radarr…</div>';
+    radarrAgg.items = [];
+    for (const cat of (cats||[])) {
+        const label = (arrIndex.radarr && arrIndex.radarr[cat]) || cat;
+        let page = 0, pageSize = 500;
+        while (true) {
+            const r = await fetch(`/api/radarr/${cat}/movies?q=&page=${page}&page_size=${pageSize}`, { headers: headers() });
+            if (!r.ok) break;
+            const d = await r.json();
+            for (const m of (d.movies||[])) radarrAgg.items.push({ ...m, __instance: label });
+            if (!d.movies || d.movies.length < pageSize) break;
+            page += 1; if (page > 100) break;
+        }
+    }
+    radarrAgg.page = 0; radarrAgg.q = ""; renderRadarrAgg();
+}
+
+const sonarrAgg = { rows: [], filtered: [], page: 0, pageSize: 100, q: "" };
+function sonarrAggApply() {
+    const ql = (sonarrAgg.q || "").toLowerCase();
+    if (!ql) sonarrAgg.filtered = sonarrAgg.rows;
+    else sonarrAgg.filtered = sonarrAgg.rows.filter(r => (r.series||'').toLowerCase().includes(ql) || (r.__instance||'').toLowerCase().includes(ql) || (r.title||'').toLowerCase().includes(ql));
+    const totalPages = Math.max(1, Math.ceil(sonarrAgg.filtered.length / sonarrAgg.pageSize));
+    sonarrAgg.page = Math.min(sonarrAgg.page, totalPages - 1);
+}
+function renderSonarrAgg() {
+    const content = document.getElementById('sonarrContent');
+    if (!content) return;
+    sonarrAggApply();
+    const start = sonarrAgg.page * sonarrAgg.pageSize;
+    const rows = sonarrAgg.filtered.slice(start, start + sonarrAgg.pageSize);
+    let html = '';
+    html += `<div class="row"><div class="col field"><input placeholder="search episodes" value="${sonarrAgg.q}" oninput="sonarrAggSearch(this.value)"/></div></div>`;
+    html += '<table><tr><th>Instance</th><th>Series</th><th>Season</th><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr>';
+    for (const r of rows) {
+        html += `<tr><td>${r.__instance||''}</td><td>${r.series}</td><td>${r.season}</td><td>${r.ep}</td><td>${r.title}</td><td>${r.monitored?'Yes':'No'}</td><td>${r.hasFile?'Yes':'No'}</td><td>${r.air}</td></tr>`;
+    }
+    html += '</table>';
+    const totalPages = Math.max(1, Math.ceil(sonarrAgg.filtered.length / sonarrAgg.pageSize));
+    html += `<div class="row" style="margin-top:8px"><div class="col">Page ${sonarrAgg.page+1} of ${totalPages} (${sonarrAgg.filtered.length} rows)</div><div class="col" style="text-align:right"><button class="btn" onclick="sonarrAggPage(-1)">Prev</button> <button class="btn" onclick="sonarrAggPage(1)">Next</button></div></div>`;
+    content.innerHTML = html;
+}
+function sonarrAggPage(d) {
+    const totalPages = Math.max(1, Math.ceil(sonarrAgg.filtered.length / sonarrAgg.pageSize));
+    sonarrAgg.page = Math.min(totalPages-1, Math.max(0, sonarrAgg.page + d));
+    renderSonarrAgg();
+}
+function sonarrAggSearch(q) { sonarrAgg.q = q||""; sonarrAgg.page = 0; renderSonarrAgg(); }
+async function loadSonarrAllInstances(cats) {
+    currentArr = { type: 'sonarrAll' };
+    const content = document.getElementById('sonarrContent');
+    if (!content) return;
+    content.innerHTML = '<div class="loading"><span class="spinner"></span> Loading Sonarr…</div>';
+    sonarrAgg.rows = [];
+    for (const cat of (cats||[])) {
+        const label = (arrIndex.sonarr && arrIndex.sonarr[cat]) || cat;
+        let page = 0, pageSize = 200;
+        while (true) {
+            const r = await fetch(`/api/sonarr/${cat}/series?q=&page=${page}&page_size=${pageSize}`, { headers: headers() });
+            if (!r.ok) break;
+            const d = await r.json();
+            const series = d.series || [];
+            for (const s of series) {
+                const seriesTitle = s.series?.title || '';
+                for (const [sn, sv] of Object.entries(s.seasons || {})) {
+                    for (const e of (sv.episodes || [])) {
+                        sonarrAgg.rows.push({ __instance: label, series: seriesTitle, season: sn, ep: e.episodeNumber, title: e.title || '', monitored: !!e.monitored, hasFile: !!e.hasFile, air: e.airDateUtc || '' });
+                    }
+                }
+            }
+            if (!series || series.length < pageSize) break;
+            page += 1; if (page > 200) break;
+        }
+    }
+    sonarrAgg.page = 0; sonarrAgg.q = ""; renderSonarrAgg();
 }

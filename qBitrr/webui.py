@@ -79,7 +79,8 @@ class WebUI:
 
         @app.get("/ui")
         def ui_index():
-            return redirect("/static/index.html")
+            # Pass token to the UI so the browser can store it for API calls
+            return redirect(f"/static/index.html?token={self.token}")
 
         @app.get("/api/processes")
         def api_processes():
