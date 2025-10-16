@@ -1,5 +1,11 @@
 # Changelog
 
+## v4.10.28 (16/10/2025)
+- [[patch] Fixed Arr has no attribute torrents](https://github.com/Feramance/qBitrr/commit/b4db5fa7987206d9e5cd203dcebe0b8933ebe0a8) - @Feramance
+- [Removed v5 config](https://github.com/Feramance/qBitrr/commit/dc942c4adca4863ca7bea74b19aeca5d7f4bd419) - @Feramance
+
+---
+
 ## v4.10.27 (15/10/2025)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/f468e796c7568c359d2378bbc7727629ea533775) - @Feramance
 
@@ -242,10 +248,3 @@
 
 ## v4.9.20 (27/11/2024)
 - [[patch] Added config option to allow qbittorrent v5](https://github.com/Feramance/qBitrr/commit/7262b39754025c7c40a969e4300638b88402c438) - @Feramance
-
----
-
-## v4.9.19 (25/11/2024)
-- [[patch] added api logging and set allow stalled behaviour to ignore the `IgnoreTorrentsYoungerThan` config](https://github.com/Feramance/qBitrr/commit/d371e3aa68f2038a59194faae9348ba1f5a0d4fe) - @Feramance
-- [Headless mode fix and limited qbittorrent version](https://github.com/Feramance/qBitrr/commit/431e5513b89475e5493e042378471c196af5ad77) - @Feramance
-- [Config notes update](https://github.com/Feramance/qBitrr/commit/358f1fe0b98467f77e066c952af6b27af7373177) - @Feramance
