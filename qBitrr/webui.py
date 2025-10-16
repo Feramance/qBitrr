@@ -5,7 +5,6 @@ import logging
 import threading
 from typing import Any
 
-import tomllib
 from flask import Flask, jsonify, redirect, request, send_file
 
 from qBitrr.config import CONFIG, HOME_PATH
@@ -19,6 +18,19 @@ def _toml_set(doc, dotted_key: str, value: Any):
             cur[k] = {}
         cur = cur[k]
     cur[keys[-1]] = value
+
+
+def _toml_to_jsonable(obj: Any) -> Any:
+    try:
+        if hasattr(obj, "unwrap"):
+            return _toml_to_jsonable(obj.unwrap())
+        if isinstance(obj, dict):
+            return {k: _toml_to_jsonable(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_toml_to_jsonable(v) for v in obj]
+        return obj
+    except Exception:
+        return obj
 
 
 class WebUI:
@@ -372,8 +384,8 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             try:
-                # Render current config as a JSON-able dict via tomllib
-                data = tomllib.loads(CONFIG.config.as_string())
+                # Render current config as a JSON-able dict via tomlkit
+                data = _toml_to_jsonable(CONFIG.config)
                 return jsonify(data)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500

@@ -16,6 +16,7 @@ qBitrr/logger.py
 qBitrr/main.py
 qBitrr/tables.py
 qBitrr/utils.py
+qBitrr/webui.py
 qBitrr2.egg-info/PKG-INFO
 qBitrr2.egg-info/SOURCES.txt
 qBitrr2.egg-info/dependency_links.txt
