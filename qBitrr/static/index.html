@@ -1,92 +1,185 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
+    <head>
+        <meta charset="utf-8" />
+        <title>qBitrr WebUI</title>
+        <link rel="stylesheet" href="/static/style.css" />
+    </head>
 
-<head>
-  <meta charset="utf-8" />
-  <title>qBitrr WebUI</title>
-  <link rel="stylesheet" href="/static/style.css" />
-</head>
+    <body>
+        <div class="appbar">
+            <h1>qBitrr WebUI</h1>
+            <div class="toolbar">
+                <span id="status" class="hint">Loading...</span>
+                <input
+                    id="globalSearch"
+                    type="text"
+                    placeholder="Search current view"
+                    oninput="globalSearch(this.value)"
+                />
+                <button class="btn ghost" onclick="loadStatus()">
+                    Refresh
+                </button>
+                <div class="spacer"></div>
+                <input
+                    id="token"
+                    type="password"
+                    placeholder="Token (optional)"
+                />
+                <button class="btn" onclick="saveToken()">Save</button>
+                <button class="btn ghost" onclick="showTokenLocal()">
+                    Show Token (local)
+                </button>
+            </div>
+        </div>
+        <div class="container">
+            <div class="nav">
+                <a
+                    href="#"
+                    onclick="activate('processes')"
+                    id="tab-processes"
+                    class="active"
+                    >Processes</a
+                >
+                <a href="#" onclick="activate('logs')" id="tab-logs">Logs</a>
+                <a href="#" onclick="activate('radarr')" id="tab-radarr"
+                    >Radarr</a
+                >
+                <a href="#" onclick="activate('sonarr')" id="tab-sonarr"
+                    >Sonarr</a
+                >
+                <a href="#" onclick="activate('config')" id="tab-config"
+                    >Config</a
+                >
+            </div>
+            <section id="processes" class="card">
+                <div class="card-header">Processes</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col">
+                            <button class="btn" onclick="loadProcesses()">
+                                Refresh
+                            </button>
+                            <button class="btn" onclick="restartAll()">
+                                Restart All
+                            </button>
+                            <button class="btn" onclick="rebuildArrs()">
+                                Rebuild Arrs
+                            </button>
+                        </div>
+                        <div class="col">
+                            <div class="field">
+                                <label>Log Level</label>
+                                <div class="row">
+                                    <select id="logLevel" class="col">
+                                        <option>CRITICAL</option>
+                                        <option>ERROR</option>
+                                        <option>WARNING</option>
+                                        <option>NOTICE</option>
+                                        <option>INFO</option>
+                                        <option>DEBUG</option>
+                                        <option>TRACE</option>
+                                    </select>
+                                    <button
+                                        class="btn"
+                                        onclick="applyLogLevel()"
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="procOut"></div>
+                </div>
+            </section>
 
-<body>
-  <h1>qBitrr WebUI</h1>
-  <div>
-    <button onclick="loadStatus()">Refresh Status</button>
-    <span id="status"></span>
-  </div>
-  <div>Token: <input id="token" type="password" placeholder="Optional" /> <button onclick="saveToken()">Save</button>
-    <button onclick="showTokenLocal()">Show Token (local)</button></div>
-  <nav>
-    <a href="#" onclick="show('processes')">Processes</a>
-    <a href="#" onclick="show('logs')">Logs</a>
-    <a href="#" onclick="show('radarr')">Radarr</a>
-    <a href="#" onclick="show('sonarr')">Sonarr</a>
-    <a href="#" onclick="show('config')">Config</a>
-  </nav>
-  <section id="processes" style="display:none">
-    <h2>Processes</h2>
-    <button onclick="loadProcesses()">Refresh</button>
-    <button onclick="restartAll()">Restart All</button>
-    <button onclick="rebuildArrs()">Rebuild Arrs</button>
-    <div>
-      <label>Log Level: </label>
-      <select id="logLevel">
-        <option>CRITICAL</option>
-        <option>ERROR</option>
-        <option>WARNING</option>
-        <option>NOTICE</option>
-        <option>INFO</option>
-        <option>DEBUG</option>
-        <option>TRACE</option>
-      </select>
-      <button onclick="applyLogLevel()">Apply</button>
-    </div>
-    <div id="procOut"></div>
-  </section>
+            <section id="logs" class="card" style="display: none">
+                <div class="card-header">Logs</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col field">
+                            <label for="logSelect">Log File</label>
+                            <select id="logSelect"></select>
+                        </div>
+                        <div class="col field">
+                            <label>&nbsp;</label>
+                            <div class="row">
+                                <button class="btn" onclick="refreshLogList()">
+                                    Reload List
+                                </button>
+                                <button class="btn" onclick="downloadCurrent()">
+                                    Download
+                                </button>
+                                <label
+                                    class="hint"
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    "
+                                    ><input
+                                        type="checkbox"
+                                        id="logFollow"
+                                        checked
+                                    />
+                                    Live</label
+                                >
+                            </div>
+                        </div>
+                    </div>
+                    <pre id="logTail" data-filename=""></pre>
+                </div>
+            </section>
 
-  <section id="logs" style="display:none">
-    <h2>Logs</h2>
-    <button onclick="loadLogs()">Refresh</button>
-    <div id="logFiles"></div>
-    <div>
-      <button onclick="downloadCurrent()">Download Selected</button>
-    </div>
-    <pre id="logTail" data-filename=""></pre>
-  </section>
+            <section id="radarr" class="card" style="display: none">
+                <div class="card-header">Radarr</div>
+                <div class="card-body">
+                    <button class="btn" onclick="loadArrList()">
+                        Discover Categories
+                    </button>
+                    <div id="radarrList"></div>
+                </div>
+            </section>
 
-  <section id="radarr" style="display:none">
-    <h2>Radarr</h2>
-    <button onclick="loadArrList()">Discover Categories</button>
-    <div id="radarrList"></div>
-    <div id="radarrOut"></div>
-  </section>
+            <section id="sonarr" class="card" style="display: none">
+                <div class="card-header">Sonarr</div>
+                <div class="card-body">
+                    <button class="btn" onclick="loadArrList()">
+                        Discover Categories
+                    </button>
+                    <div id="sonarrList"></div>
+                </div>
+            </section>
 
-  <section id="sonarr" style="display:none">
-    <h2>Sonarr</h2>
-    <button onclick="loadArrList()">Discover Categories</button>
-    <div id="sonarrList"></div>
-    <div id="sonarrOut"></div>
-  </section>
+            <section id="config" class="card" style="display: none">
+                <div class="card-header">Config</div>
+                <div class="card-body">
+                    <div class="row">
+                        <button class="btn" onclick="renderConfigForms()">
+                            Load
+                        </button>
+                        <button class="btn" onclick="addArrInstance('radarr')">
+                            Add Radarr Instance
+                        </button>
+                        <button class="btn" onclick="addArrInstance('sonarr')">
+                            Add Sonarr Instance
+                        </button>
+                    </div>
+                    <div id="configForms"></div>
+                    <div class="row" style="margin-top: 12px">
+                        <button
+                            class="btn primary"
+                            onclick="submitConfigForms()"
+                        >
+                            Save + Live Reload
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div class="toasts" id="toasts"></div>
 
-  <section id="config" style="display:none">
-    <h2>Config</h2>
-    <button onclick="loadConfig()">Load</button>
-    <div>
-      <input id="cfgKey" placeholder="Dotted.Key" />
-      <input id="cfgVal" placeholder="Value (JSON)" />
-      <button onclick="addChange()">Queue Change</button>
-    </div>
-    <div>
-      <label>WebUI Token:</label>
-      <input id="configToken" type="password" placeholder="WebUIToken" />
-      <label><input type="checkbox" id="toggleConfigToken" onchange="toggleTokenVisibility('configToken', this)" /> Show</label>
-      <button onclick="saveTokenToConfig()">Save Token</button>
-    </div>
-    <pre id="cfgOut"></pre>
-    <pre id="changes"></pre>
-    <button onclick="saveChanges()">Save + Live Reload</button>
-  </section>
-
-  <script src="/static/app.js"></script>
-</body>
-
+        <script src="/static/app.js"></script>
+    </body>
 </html>

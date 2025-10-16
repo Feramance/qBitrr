@@ -1,33 +1,208 @@
+:root {
+    --bg: #101114;
+    --surface: #1b1e22;
+    --on-surface: #eaeef2;
+    --muted: #9aa3ac;
+    --primary: #7aa2f7;
+    --primary-variant: #3b82f6;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --border: #2a2f36;
+    --elev: 8px;
+}
+
+* {
+    box-sizing: border-box;
+}
+html,
 body {
-  font-family: Arial, sans-serif;
-  margin: 16px;
+    height: 100%;
 }
-nav a {
-  margin-right: 12px;
+body {
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+        "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--on-surface);
 }
-pre {
-  background: #111;
-  color: #ddd;
-  padding: 8px;
-  overflow: auto;
-  max-height: 50vh;
+
+.appbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: #0b0c0f;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
+.appbar h1 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.container {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.toolbar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    color: var(--muted);
+}
+
+.nav {
+    display: flex;
+    gap: 8px;
+}
+.nav a {
+    color: var(--muted);
+    text-decoration: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+.nav a.active,
+.nav a:hover {
+    color: var(--on-surface);
+    border-color: var(--primary);
+    background: rgba(122, 162, 247, 0.08);
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 var(--elev) 24px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+.card .card-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600;
+    color: var(--muted);
+}
+.card .card-body {
+    padding: 12px 14px;
+}
+
+.btn {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: #0f131a;
+    color: var(--on-surface);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+.btn.primary {
+    border-color: var(--primary-variant);
+    background: var(--primary);
+    color: #0a0a0a;
+}
+.btn.ghost {
+    background: transparent;
+}
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.field {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0;
+}
+.field label {
+    color: var(--muted);
+    font-size: 12px;
+}
+.field input,
+.field select,
+.field textarea {
+    background: #0f131a;
+    color: var(--on-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.row .col {
+    flex: 1 1 260px;
+}
+
 table {
-  border-collapse: collapse;
-  width: 100%;
+    border-collapse: collapse;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
 }
 th,
 td {
-  border: 1px solid #ccc;
-  padding: 4px 6px;
-  font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 10px;
+    font-size: 13px;
+    text-align: left;
 }
+th {
+    background: #12151a;
+    color: var(--muted);
+}
+
 details {
-  margin: 6px 0;
+    margin: 6px 0;
 }
 .ok {
-  color: green;
+    color: var(--success);
 }
 .bad {
-  color: red;
+    color: var(--danger);
+}
+
+.hint {
+    color: var(--muted);
+    font-size: 12px;
+}
+.spacer {
+    flex: 1;
+}
+
+/* Toasts */
+.toasts {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: grid;
+    gap: 10px;
+    z-index: 9999;
+}
+.toast {
+    background: #12151a;
+    color: var(--on-surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    min-width: 240px;
+}
+.toast.success {
+    border-left-color: var(--success);
+}
+.toast.error {
+    border-left-color: var(--danger);
 }

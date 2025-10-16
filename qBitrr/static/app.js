@@ -25,7 +25,15 @@ async function showTokenLocal() {
 function show(id) {
     for (const s of document.querySelectorAll("section"))
         s.style.display = "none";
-    document.getElementById(id).style.display = "block";
+    const el = document.getElementById(id);
+    if (el) el.style.display = "block";
+}
+function activate(id) {
+    ["processes", "logs", "radarr", "sonarr", "config"].forEach((t) => {
+        const link = document.getElementById("tab-" + t);
+        if (link) link.classList.toggle("active", t === id);
+    });
+    show(id);
 }
 
 async function loadStatus() {
@@ -77,40 +85,91 @@ async function rebuildArrs() {
     loadProcesses();
     loadArrList();
 }
+function toast(msg, type = "") {
+    const wrap = document.getElementById("toasts");
+    if (!wrap) return;
+    const el = document.createElement("div");
+    el.className = "toast " + type;
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => {
+        el.style.opacity = "0";
+    }, 2800);
+    setTimeout(() => {
+        wrap.removeChild(el);
+    }, 3500);
+}
 async function applyLogLevel() {
     const lv = document.getElementById("logLevel").value;
-    await fetch("/api/loglevel", {
+    const res = await fetch("/api/loglevel", {
         method: "POST",
         headers: headers(),
         body: JSON.stringify({ level: lv }),
     });
-    alert("Log level set to " + lv);
+    if (res.ok) {
+        toast("Log level set to " + lv, "success");
+    } else {
+        toast("Failed to set log level", "error");
+    }
 }
 
-async function loadLogs() {
+async function refreshLogList() {
     const r = await fetch("/api/logs", { headers: headers() });
     const d = await r.json();
-    let html = "";
+    const sel = document.getElementById("logSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
     for (const f of d.files) {
-        html += `<button onclick=tail('${f}')>${f}</button> `;
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.textContent = f;
+        sel.appendChild(opt);
     }
-    document.getElementById("logFiles").innerHTML = html;
+    if (d.files && d.files.length) {
+        sel.value = d.files[0];
+        startLogFollow();
+    }
+}
+async function loadLogs() {
+    await refreshLogList();
 }
 async function tail(name) {
     const t = localStorage.getItem("token");
     const q = t ? `?token=${encodeURIComponent(t)}` : "";
     const r = await fetch(`/api/logs/${name}${q}`);
     const c = await r.text();
-    document.getElementById("logTail").textContent = c;
-    document.getElementById("logTail").dataset.filename = name;
+    const el = document.getElementById("logTail");
+    if (!el) return;
+    el.textContent = c;
+    el.dataset.filename = name;
+    el.scrollTop = el.scrollHeight;
 }
 function downloadCurrent() {
-    const name = document.getElementById("logTail").dataset.filename;
+    const sel = document.getElementById("logSelect");
+    const name = sel && sel.value;
     if (!name) return;
     const t = localStorage.getItem("token");
     const q = t ? `?token=${encodeURIComponent(t)}` : "";
     window.location = `/api/logs/${name}/download${q}`;
 }
+let logTimer = null;
+function startLogFollow() {
+    if (logTimer) clearInterval(logTimer);
+    const sel = document.getElementById("logSelect");
+    if (!sel) return;
+    const run = () => {
+        const live = document.getElementById("logFollow");
+        if (live && !live.checked) return;
+        if (sel.value) tail(sel.value);
+    };
+    run();
+    logTimer = setInterval(run, 2000);
+}
+document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "logSelect") {
+        startLogFollow();
+    }
+});
 
 const radarrState = {};
 const sonarrState = {};
@@ -133,11 +192,15 @@ async function loadArrList() {
     document.getElementById("sonarrList").innerHTML = ss;
 }
 async function restartArr(cat) {
-    await fetch(`/api/arr/${cat}/restart`, {
+    const res = await fetch(`/api/arr/${cat}/restart`, {
         method: "POST",
         headers: headers(),
     });
-    alert("Restarted " + cat);
+    if (res.ok) {
+        toast("Restarted " + cat, "success");
+    } else {
+        toast("Failed to restart " + cat, "error");
+    }
 }
 
 async function loadRadarr(cat, targetId) {
@@ -304,7 +367,265 @@ async function saveChanges() {
 }
 
 // default view
-show("processes");
+// add modern navigation helpers and improved sections
+function activate(id) {
+    ["processes", "logs", "radarr", "sonarr", "config"].forEach((t) => {
+        const link = document.getElementById("tab-" + t);
+        if (link) link.classList.toggle("active", t === id);
+    });
+    show(id);
+}
+async function refreshLogList() {
+    const r = await fetch("/api/logs", { headers: headers() });
+    const d = await r.json();
+    const sel = document.getElementById("logSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    for (const f of d.files) {
+        const opt = document.createElement("option");
+        opt.value = f;
+        opt.textContent = f;
+        sel.appendChild(opt);
+    }
+    if (d.files?.length) {
+        sel.value = d.files[0];
+        startLogFollow();
+    }
+}
+async function loadLogs() {
+    await refreshLogList();
+}
+async function tail(name) {
+    const t = localStorage.getItem("token");
+    const q = t ? `?token=${encodeURIComponent(t)}` : "";
+    const r = await fetch(`/api/logs/${name}${q}`);
+    const c = await r.text();
+    const el = document.getElementById("logTail");
+    if (!el) return;
+    el.textContent = c;
+    el.dataset.filename = name;
+    el.scrollTop = el.scrollHeight;
+}
+function downloadCurrent() {
+    const sel = document.getElementById("logSelect");
+    const name = sel && sel.value;
+    if (!name) return;
+    const t = localStorage.getItem("token");
+    const q = t ? `?token=${encodeURIComponent(t)}` : "";
+    window.location = `/api/logs/${name}/download${q}`;
+}
+document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "logSelect") {
+        startLogFollow();
+    }
+});
+
+// Config form renderer
+function inputField(label, id, value, type = "text") {
+    return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type}" value="${
+        value ?? ""
+    }"/></div>`;
+}
+function checkboxField(label, id, checked) {
+    return `<div class="field"><label><input id="${id}" type="checkbox" ${
+        checked ? "checked" : ""
+    }/> ${label}</label></div>`;
+}
+function selectField(label, id, value, options) {
+    const opts = options
+        .map(
+            (o) =>
+                `<option ${
+                    String(o) == String(value) ? "selected" : ""
+                }>${o}</option>`
+        )
+        .join("");
+    return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts}</select></div>`;
+}
+async function renderConfigForms() {
+    const r = await fetch("/api/config", { headers: headers() });
+    const cfg = await r.json();
+    const root = document.getElementById("configForms");
+    if (!root) return;
+    root.innerHTML = "";
+    let html =
+        '<div class="card"><div class="card-header">Settings</div><div class="card-body">';
+    html += selectField(
+        "Console Level",
+        "cfg_ConsoleLevel",
+        cfg.Settings?.ConsoleLevel || "INFO",
+        ["CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"]
+    );
+    html += checkboxField("Logging", "cfg_Logging", !!cfg.Settings?.Logging);
+    html += inputField(
+        "Completed Download Folder",
+        "cfg_CompletedDownloadFolder",
+        cfg.Settings?.CompletedDownloadFolder
+    );
+    html += inputField("Free Space", "cfg_FreeSpace", cfg.Settings?.FreeSpace);
+    html += inputField(
+        "Free Space Folder",
+        "cfg_FreeSpaceFolder",
+        cfg.Settings?.FreeSpaceFolder
+    );
+    html += checkboxField(
+        "Auto Pause/Resume",
+        "cfg_AutoPauseResume",
+        !!cfg.Settings?.AutoPauseResume
+    );
+    html += inputField(
+        "No Internet Sleep (s)",
+        "cfg_NoInternetSleepTimer",
+        cfg.Settings?.NoInternetSleepTimer,
+        "number"
+    );
+    html += inputField(
+        "Loop Sleep (s)",
+        "cfg_LoopSleepTimer",
+        cfg.Settings?.LoopSleepTimer,
+        "number"
+    );
+    html += inputField(
+        "Search Loop Delay (s)",
+        "cfg_SearchLoopDelay",
+        cfg.Settings?.SearchLoopDelay,
+        "number"
+    );
+    html += inputField(
+        "Failed Category",
+        "cfg_FailedCategory",
+        cfg.Settings?.FailedCategory
+    );
+    html += inputField(
+        "Recheck Category",
+        "cfg_RecheckCategory",
+        cfg.Settings?.RecheckCategory
+    );
+    html += checkboxField("Tagless", "cfg_Tagless", !!cfg.Settings?.Tagless);
+    html += inputField(
+        "Ignore Torrents Younger Than (s)",
+        "cfg_IgnoreTorrentsYoungerThan",
+        cfg.Settings?.IgnoreTorrentsYoungerThan,
+        "number"
+    );
+    html += inputField(
+        "WebUI Host",
+        "cfg_WebUIHost",
+        cfg.Settings?.WebUIHost || "0.0.0.0"
+    );
+    html += inputField(
+        "WebUI Port",
+        "cfg_WebUIPort",
+        cfg.Settings?.WebUIPort || 6969,
+        "number"
+    );
+    html +=
+        inputField(
+            "WebUI Token",
+            "cfg_WebUIToken",
+            cfg.Settings?.WebUIToken || "",
+            "password"
+        ) +
+        '<label class="hint"><input type="checkbox" onchange="toggleTokenVisibility(\'cfg_WebUIToken\', this)"/> Show</label>';
+    html += "</div></div>";
+    html +=
+        '<div class="card" style="margin-top:12px"><div class="card-header">qBit</div><div class="card-body">';
+    html += checkboxField(
+        "Disabled",
+        "cfg_qBit_Disabled",
+        !!cfg.qBit?.Disabled
+    );
+    html += inputField("Host", "cfg_qBit_Host", cfg.qBit?.Host);
+    html += inputField("Port", "cfg_qBit_Port", cfg.qBit?.Port, "number");
+    html += inputField("UserName", "cfg_qBit_UserName", cfg.qBit?.UserName);
+    html +=
+        inputField(
+            "Password",
+            "cfg_qBit_Password",
+            cfg.qBit?.Password,
+            "password"
+        ) +
+        '<label class="hint"><input type="checkbox" onchange="toggleTokenVisibility(\'cfg_qBit_Password\', this)"/> Show</label>';
+    html += "</div></div>";
+    for (const key of Object.keys(cfg)) {
+        if (/(rad|son|anim)arr/i.test(key)) {
+            const sec = cfg[key] || {};
+            html += `<div class="card" style="margin-top:12px"><div class="card-header">${key}</div><div class="card-body">`;
+            html += checkboxField(
+                "Managed",
+                `cfg_${key}_Managed`,
+                !!sec.Managed
+            );
+            html += inputField("URI", `cfg_${key}_URI`, sec.URI);
+            html +=
+                inputField(
+                    "API Key",
+                    `cfg_${key}_APIKey`,
+                    sec.APIKey,
+                    "password"
+                ) +
+                `<label class="hint"><input type="checkbox" onchange="toggleTokenVisibility('cfg_${key}_APIKey', this)"/> Show</label>`;
+            html += inputField("Category", `cfg_${key}_Category`, sec.Category);
+            html += "</div></div>";
+        }
+    }
+    root.innerHTML = html;
+}
+async function submitConfigForms() {
+    const changes = {};
+    const get = (id) => document.getElementById(id);
+    changes["Settings.ConsoleLevel"] = get("cfg_ConsoleLevel").value;
+    changes["Settings.Logging"] = get("cfg_Logging").checked;
+    changes["Settings.CompletedDownloadFolder"] = get(
+        "cfg_CompletedDownloadFolder"
+    ).value;
+    changes["Settings.FreeSpace"] = get("cfg_FreeSpace").value;
+    changes["Settings.FreeSpaceFolder"] = get("cfg_FreeSpaceFolder").value;
+    changes["Settings.AutoPauseResume"] = get("cfg_AutoPauseResume").checked;
+    changes["Settings.NoInternetSleepTimer"] = Number(
+        get("cfg_NoInternetSleepTimer").value || 0
+    );
+    changes["Settings.LoopSleepTimer"] = Number(
+        get("cfg_LoopSleepTimer").value || 0
+    );
+    changes["Settings.SearchLoopDelay"] = Number(
+        get("cfg_SearchLoopDelay").value || 0
+    );
+    changes["Settings.FailedCategory"] = get("cfg_FailedCategory").value;
+    changes["Settings.RecheckCategory"] = get("cfg_RecheckCategory").value;
+    changes["Settings.Tagless"] = get("cfg_Tagless").checked;
+    changes["Settings.IgnoreTorrentsYoungerThan"] = Number(
+        get("cfg_IgnoreTorrentsYoungerThan").value || 0
+    );
+    changes["Settings.WebUIHost"] = get("cfg_WebUIHost").value;
+    changes["Settings.WebUIPort"] = Number(get("cfg_WebUIPort").value || 6969);
+    changes["Settings.WebUIToken"] = get("cfg_WebUIToken").value;
+    changes["qBit.Disabled"] = get("cfg_qBit_Disabled").checked;
+    changes["qBit.Host"] = get("cfg_qBit_Host").value;
+    changes["qBit.Port"] = Number(get("cfg_qBit_Port").value || 0);
+    changes["qBit.UserName"] = get("cfg_qBit_UserName").value;
+    changes["qBit.Password"] = get("cfg_qBit_Password").value;
+    const cards = document.querySelectorAll("#configForms .card .card-header");
+    for (const header of cards) {
+        const key = header.textContent.trim();
+        if (/(rad|son|anim)arr/i.test(key)) {
+            const m = (id) => document.getElementById(`cfg_${key}_${id}`);
+            if (m("Managed")) changes[`${key}.Managed`] = m("Managed").checked;
+            if (m("URI")) changes[`${key}.URI`] = m("URI").value;
+            if (m("APIKey")) changes[`${key}.APIKey`] = m("APIKey").value;
+            if (m("Category")) changes[`${key}.Category`] = m("Category").value;
+        }
+    }
+    await fetch("/api/config", {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ changes }),
+    });
+    alert("Saved");
+}
+
+// default view
+activate("processes");
 loadProcesses();
 loadStatus();
 
