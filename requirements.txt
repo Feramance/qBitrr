@@ -25,6 +25,11 @@ dill==0.4.0
 environ-config==24.1.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
+    # via
+    #   pyarr
+    #   qBitrr2 (setup.py)
+    #   qbittorrent-api
+flask==3.0.3
     # via qBitrr2 (setup.py)
 future==1.0.0
     # via ffmpeg-python
@@ -65,10 +70,7 @@ pyreadline3==3.5.4
 qbittorrent-api==2025.7.0
     # via qBitrr2 (setup.py)
 requests==2.32.5
-    # via
-    #   pyarr
-    #   qBitrr2 (setup.py)
-    #   qbittorrent-api
+    # via qBitrr2 WebUI
 tomlkit==0.13.3
     # via qBitrr2 (setup.py)
 types-requests==2.32.4.20250913

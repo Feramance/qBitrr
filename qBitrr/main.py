@@ -27,6 +27,7 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
+from qBitrr.webui import WebUI
 
 # from qbittorrentapi.decorators import login_required, response_text
 
@@ -98,6 +99,14 @@ class qBitManager:
             )
         self.arr_manager = ArrManager(self).build_arr_instances()
         run_logs(self.logger)
+        # Start WebUI
+        try:
+            web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
+        except Exception:
+            web_port = 6969
+        web_host = CONFIG.get("Settings.WebUIHost", fallback="0.0.0.0") or "0.0.0.0"
+        self.webui = WebUI(self, host=web_host, port=web_port)
+        self.webui.start()
 
     def _version_validator(self):
         validated = False

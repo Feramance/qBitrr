@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <title>qBitrr WebUI</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+  <h1>qBitrr WebUI</h1>
+  <div>
+    <button onclick="loadStatus()">Refresh Status</button>
+    <span id="status"></span>
+  </div>
+  <div>Token: <input id="token" type="password" placeholder="Optional" /> <button onclick="saveToken()">Save</button>
+    <button onclick="showTokenLocal()">Show Token (local)</button></div>
+  <nav>
+    <a href="#" onclick="show('processes')">Processes</a>
+    <a href="#" onclick="show('logs')">Logs</a>
+    <a href="#" onclick="show('radarr')">Radarr</a>
+    <a href="#" onclick="show('sonarr')">Sonarr</a>
+    <a href="#" onclick="show('config')">Config</a>
+  </nav>
+  <section id="processes" style="display:none">
+    <h2>Processes</h2>
+    <button onclick="loadProcesses()">Refresh</button>
+    <button onclick="restartAll()">Restart All</button>
+    <button onclick="rebuildArrs()">Rebuild Arrs</button>
+    <div>
+      <label>Log Level: </label>
+      <select id="logLevel">
+        <option>CRITICAL</option>
+        <option>ERROR</option>
+        <option>WARNING</option>
+        <option>NOTICE</option>
+        <option>INFO</option>
+        <option>DEBUG</option>
+        <option>TRACE</option>
+      </select>
+      <button onclick="applyLogLevel()">Apply</button>
+    </div>
+    <div id="procOut"></div>
+  </section>
+
+  <section id="logs" style="display:none">
+    <h2>Logs</h2>
+    <button onclick="loadLogs()">Refresh</button>
+    <div id="logFiles"></div>
+    <div>
+      <button onclick="downloadCurrent()">Download Selected</button>
+    </div>
+    <pre id="logTail" data-filename=""></pre>
+  </section>
+
+  <section id="radarr" style="display:none">
+    <h2>Radarr</h2>
+    <button onclick="loadArrList()">Discover Categories</button>
+    <div id="radarrList"></div>
+    <div id="radarrOut"></div>
+  </section>
+
+  <section id="sonarr" style="display:none">
+    <h2>Sonarr</h2>
+    <button onclick="loadArrList()">Discover Categories</button>
+    <div id="sonarrList"></div>
+    <div id="sonarrOut"></div>
+  </section>
+
+  <section id="config" style="display:none">
+    <h2>Config</h2>
+    <button onclick="loadConfig()">Load</button>
+    <div>
+      <input id="cfgKey" placeholder="Dotted.Key" />
+      <input id="cfgVal" placeholder="Value (JSON)" />
+      <button onclick="addChange()">Queue Change</button>
+    </div>
+    <div>
+      <label>WebUI Token:</label>
+      <input id="configToken" type="password" placeholder="WebUIToken" />
+      <label><input type="checkbox" id="toggleConfigToken" onchange="toggleTokenVisibility('configToken', this)" /> Show</label>
+      <button onclick="saveTokenToConfig()">Save Token</button>
+    </div>
+    <pre id="cfgOut"></pre>
+    <pre id="changes"></pre>
+    <button onclick="saveChanges()">Save + Live Reload</button>
+  </section>
+
+  <script src="/static/app.js"></script>
+</body>
+
+</html>

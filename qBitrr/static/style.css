@@ -1,0 +1,33 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 16px;
+}
+nav a {
+  margin-right: 12px;
+}
+pre {
+  background: #111;
+  color: #ddd;
+  padding: 8px;
+  overflow: auto;
+  max-height: 50vh;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+details {
+  margin: 6px 0;
+}
+.ok {
+  color: green;
+}
+.bad {
+  color: red;
+}
