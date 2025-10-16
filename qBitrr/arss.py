@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import atexit
 import contextlib
 import itertools
 import logging
@@ -66,6 +67,7 @@ from qBitrr.utils import (
     has_internet,
     parse_size,
     validate_and_return_torrent_file,
+    with_retry,
 )
 
 if TYPE_CHECKING:
@@ -655,7 +657,18 @@ class Arr:
                         == torrent.category
                     )
         else:
-            torrent.remove_tags(tags)
+            with contextlib.suppress(Exception):
+                with_retry(
+                    lambda: torrent.remove_tags(tags),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
 
     def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
         for tag in tags:
@@ -700,7 +713,18 @@ class Arr:
                         == torrent.category
                     )
         else:
-            torrent.add_tags(tags)
+            with contextlib.suppress(Exception):
+                with_retry(
+                    lambda: torrent.add_tags(tags),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
 
     def _get_models(
         self,
@@ -891,7 +915,18 @@ class Arr:
                 self.logger.debug(
                     "Pausing %s (%s)", i, self.manager.qbit_manager.name_cache.get(i)
                 )
-            self.manager.qbit.torrents_pause(torrent_hashes=self.pause)
+            with contextlib.suppress(Exception):
+                with_retry(
+                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=self.pause),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
             self.pause.clear()
 
     def _process_imports(self) -> None:
@@ -916,40 +951,44 @@ class Arr:
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
                     if self.type == "sonarr":
-                        while True:
-                            try:
-                                self.client.post_command(
-                                    "DownloadedEpisodesScan",
-                                    path=str(path),
-                                    downloadClientId=torrent.hash.upper(),
-                                    importMode=self.import_mode,
-                                )
-                                break
-                            except (
+                        with_retry(
+                            lambda: self.client.post_command(
+                                "DownloadedEpisodesScan",
+                                path=str(path),
+                                downloadClientId=torrent.hash.upper(),
+                                importMode=self.import_mode,
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
-                            ):
-                                continue
+                                requests.exceptions.RequestException,
+                            ),
+                        )
                         self.logger.success("DownloadedEpisodesScan: %s", path)
                     elif self.type == "radarr":
-                        while True:
-                            try:
-                                self.client.post_command(
-                                    "DownloadedMoviesScan",
-                                    path=str(path),
-                                    downloadClientId=torrent.hash.upper(),
-                                    importMode=self.import_mode,
-                                )
-                                break
-                            except (
+                        with_retry(
+                            lambda: self.client.post_command(
+                                "DownloadedMoviesScan",
+                                path=str(path),
+                                downloadClientId=torrent.hash.upper(),
+                                importMode=self.import_mode,
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
-                            ):
-                                continue
+                                requests.exceptions.RequestException,
+                            ),
+                        )
                         self.logger.success("DownloadedMoviesScan: %s", path)
                 except Exception as ex:
                     self.logger.error(
@@ -1236,17 +1275,19 @@ class Arr:
             self.rss_sync_timer_last_checked is not None
             and self.rss_sync_timer_last_checked < now - timedelta(minutes=self.rss_sync_timer)
         ):
-            while True:
-                try:
-                    self.client.post_command("RssSync")
-                    break
-                except (
+            with_retry(
+                lambda: self.client.post_command("RssSync"),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=(
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ):
-                    continue
+                    requests.exceptions.RequestException,
+                ),
+            )
             self.rss_sync_timer_last_checked = now
 
         if (
@@ -1254,17 +1295,19 @@ class Arr:
             and self.refresh_downloads_timer_last_checked
             < now - timedelta(minutes=self.refresh_downloads_timer)
         ):
-            while True:
-                try:
-                    self.client.post_command("RefreshMonitoredDownloads")
-                    break
-                except (
+            with_retry(
+                lambda: self.client.post_command("RefreshMonitoredDownloads"),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=(
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ):
-                    continue
+                    requests.exceptions.RequestException,
+                ),
+            )
             self.refresh_downloads_timer_last_checked = now
 
     def arr_db_query_commands_count(self) -> int:
@@ -4440,19 +4483,21 @@ class Arr:
         self._update_bad_queue_items()
 
     def get_queue(self, page=1, page_size=1000, sort_direction="ascending", sort_key="timeLeft"):
-        while True:
-            try:
-                res = self.client.get_queue(
-                    page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
-                )
-                break
-            except (
+        res = with_retry(
+            lambda: self.client.get_queue(
+                page=page, page_size=page_size, sort_key=sort_key, sort_dir=sort_direction
+            ),
+            retries=3,
+            backoff=0.5,
+            max_backoff=3,
+            exceptions=(
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ):
-                continue
+                requests.exceptions.RequestException,
+            ),
+        )
         try:
             res = res.get("records", [])
         except AttributeError:
@@ -4607,6 +4652,7 @@ class Arr:
         else:
             loop_delay = SEARCH_LOOP_DELAY
         try:
+            event = self.manager.qbit_manager.shutdown_event
             self.db_request_update()
             try:
                 for entry, commands in self.db_get_request_files():
@@ -4619,15 +4665,17 @@ class Arr:
                         loop_delay = 30
                     else:
                         loop_delay = SEARCH_LOOP_DELAY
-                    while not self.maybe_do_search(
-                        entry,
-                        request=True,
-                        commands=totcommands,
+                    while (not event.is_set()) and (
+                        not self.maybe_do_search(
+                            entry,
+                            request=True,
+                            commands=totcommands,
+                        )
                     ):
                         self.logger.debug("Waiting for active request search commands")
-                        time.sleep(loop_delay)
+                        event.wait(loop_delay)
                     self.logger.info("Delaying request search loop by %s seconds", loop_delay)
-                    time.sleep(loop_delay)
+                    event.wait(loop_delay)
                     if totcommands == 0:
                         self.logger.info("All request searches completed")
                     else:
@@ -4667,23 +4715,26 @@ class Arr:
                 self.logger.debug(
                     "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
                 )
-            time.sleep(e.length)
+            # Respect shutdown signal
+            self.manager.qbit_manager.shutdown_event.wait(e.length)
 
     def get_year_search(self) -> tuple[list[int], int]:
         years_list = set()
         years = []
         if self.type == "radarr":
-            while True:
-                try:
-                    movies = self.client.get_movie()
-                    break
-                except (
+            movies = with_retry(
+                lambda: self.client.get_movie(),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=(
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ):
-                    continue
+                    requests.exceptions.RequestException,
+                ),
+            )
 
             for m in movies:
                 if not m["monitored"]:
@@ -4692,20 +4743,34 @@ class Arr:
                     years_list.add(m["year"])
 
         elif self.type == "sonarr":
-            while True:
-                try:
-                    series = self.client.get_series()
-                    break
-                except (
+            series = with_retry(
+                lambda: self.client.get_series(),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=(
                     requests.exceptions.ChunkedEncodingError,
                     requests.exceptions.ContentDecodingError,
                     requests.exceptions.ConnectionError,
                     JSONDecodeError,
-                ):
-                    continue
+                    requests.exceptions.RequestException,
+                ),
+            )
 
             for s in series:
-                episodes = self.client.get_episode(s["id"], True)
+                episodes = with_retry(
+                    lambda: self.client.get_episode(s["id"], True),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
                 for e in episodes:
                     if "airDateUtc" in e:
                         if not self.search_specials and e["seasonNumber"] == 0:
@@ -4742,7 +4807,8 @@ class Arr:
             years_index = 0
             totcommands = -1
             self.db_update_processed = False
-            while True:
+            event = self.manager.qbit_manager.shutdown_event
+            while not event.is_set():
                 if self.loop_completed:
                     years_index = 0
                     totcommands = -1
@@ -4768,7 +4834,7 @@ class Arr:
                                 self.search_current_year = years[years_index]
                             elif datetime.now() >= (timer + loop_timer):
                                 self.refresh_download_queue()
-                                time.sleep(((timer + loop_timer) - datetime.now()).total_seconds())
+                                event.wait(((timer + loop_timer) - datetime.now()).total_seconds())
                                 self.logger.trace("Restarting loop testing")
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
@@ -4789,18 +4855,20 @@ class Arr:
                                 loop_delay = 30
                             else:
                                 loop_delay = SEARCH_LOOP_DELAY
-                            while not self.maybe_do_search(
-                                entry,
-                                todays=todays,
-                                bypass_limit=limit_bypass,
-                                series_search=series_search,
-                                commands=totcommands,
+                            while (not event.is_set()) and (
+                                not self.maybe_do_search(
+                                    entry,
+                                    todays=todays,
+                                    bypass_limit=limit_bypass,
+                                    series_search=series_search,
+                                    commands=totcommands,
+                                )
                             ):
                                 self.logger.debug("Waiting for active search commands")
-                                time.sleep(loop_delay)
+                                event.wait(loop_delay)
                             totcommands -= 1
                             self.logger.info("Delaying search loop by %s seconds", loop_delay)
-                            time.sleep(loop_delay)
+                            event.wait(loop_delay)
                             if totcommands == 0:
                                 self.logger.info("All searches completed")
                             elif datetime.now() >= (timer + loop_timer):
@@ -4826,7 +4894,7 @@ class Arr:
                         raise DelayLoopException(length=300, type="qbit")
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
-                    time.sleep(LOOP_SLEEP_TIMER)
+                    event.wait(LOOP_SLEEP_TIMER)
                 except DelayLoopException as e:
                     if e.type == "qbit":
                         self.logger.critical(
@@ -4849,13 +4917,13 @@ class Arr:
                             "sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    time.sleep(e.length)
+                    event.wait(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
                 else:
-                    time.sleep(5)
+                    event.wait(5)
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
@@ -4863,7 +4931,8 @@ class Arr:
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
         self.logger.hnotice("Starting torrent monitoring for %s", self._name)
-        while True:
+        event = self.manager.qbit_manager.shutdown_event
+        while not event.is_set():
             try:
                 try:
                     self.register_search_mode()
@@ -4894,7 +4963,7 @@ class Arr:
                         sys.exit(0)
                     except Exception as e:
                         self.logger.error(e, exc_info=sys.exc_info())
-                    time.sleep(LOOP_SLEEP_TIMER)
+                    event.wait(LOOP_SLEEP_TIMER)
                 except DelayLoopException as e:
                     if e.type == "qbit":
                         self.logger.critical(
@@ -4922,7 +4991,7 @@ class Arr:
                             "No downloads in category, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    time.sleep(e.length)
+                    event.wait(e.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
@@ -4935,13 +5004,13 @@ class Arr:
         _temp = []
         if self.search_missing:
             self.process_search_loop = pathos.helpers.mp.Process(
-                target=self.run_search_loop, daemon=True
+                target=self.run_search_loop, daemon=False
             )
             self.manager.qbit_manager.child_processes.append(self.process_search_loop)
             _temp.append(self.process_search_loop)
-        if not any([QBIT_DISABLED, SEARCH_ONLY]):
+        if not (QBIT_DISABLED or SEARCH_ONLY):
             self.process_torrent_loop = pathos.helpers.mp.Process(
-                target=self.run_torrent_loop, daemon=True
+                target=self.run_torrent_loop, daemon=False
             )
             self.manager.qbit_manager.child_processes.append(self.process_torrent_loop)
             _temp.append(self.process_torrent_loop)
@@ -4995,9 +5064,31 @@ class PlaceHolderArr(Arr):
             updated_recheck.append(h)
             if c := self.manager.qbit_manager.cache.get(h):
                 temp[c].append(h)
-        self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck)
+        with contextlib.suppress(Exception):
+            with_retry(
+                lambda: self.manager.qbit.torrents_recheck(torrent_hashes=updated_recheck),
+                retries=3,
+                backoff=0.5,
+                max_backoff=3,
+                exceptions=(
+                    qbittorrentapi.exceptions.APIError,
+                    qbittorrentapi.exceptions.APIConnectionError,
+                    requests.exceptions.RequestException,
+                ),
+            )
         for k, v in temp.items():
-            self.manager.qbit.torrents_set_category(torrent_hashes=v, category=k)
+            with contextlib.suppress(Exception):
+                with_retry(
+                    lambda: self.manager.qbit.torrents_set_category(torrent_hashes=v, category=k),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
 
         for k in updated_recheck:
             self.timed_ignore_cache.add(k)
@@ -5020,10 +5111,36 @@ class PlaceHolderArr(Arr):
             # Remove all bad torrents from the Client.
             temp_to_delete = set()
             if to_delete_all:
-                self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda: self.manager.qbit.torrents_delete(
+                            hashes=to_delete_all, delete_files=True
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda: self.manager.qbit.torrents_delete(
+                            hashes=temp_to_delete, delete_files=True
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
             to_delete_all = to_delete_all.union(temp_to_delete)
             for h in to_delete_all:
                 if h in self.manager.qbit_manager.name_cache:
@@ -5043,11 +5160,21 @@ class PlaceHolderArr(Arr):
             try:
                 while True:
                     try:
-                        torrents = self.manager.qbit_manager.client.torrents.info(
-                            status_filter="all",
-                            category=self.category,
-                            sort="added_on",
-                            reverse=False,
+                        torrents = with_retry(
+                            lambda: self.manager.qbit_manager.client.torrents.info(
+                                status_filter="all",
+                                category=self.category,
+                                sort="added_on",
+                                reverse=False,
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
+                                qbittorrentapi.exceptions.APIError,
+                                qbittorrentapi.exceptions.APIConnectionError,
+                                requests.exceptions.RequestException,
+                            ),
                         )
                         break
                     except qbittorrentapi.exceptions.APIError:
@@ -5093,9 +5220,6 @@ class PlaceHolderArr(Arr):
         except DelayLoopException:
             raise
 
-    def run_search_loop(self):
-        return
-
 
 class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
@@ -5121,8 +5245,12 @@ class FreeSpaceManager(Arr):
         else:
             self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
         self.min_free_space = FREE_SPACE
-        self.current_free_space = shutil.disk_usage(self.completed_folder).free - parse_size(
-            self.min_free_space
+        # Parse once to avoid repeated conversions
+        self._min_free_space_bytes = (
+            parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
+        )
+        self.current_free_space = (
+            shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
         )
         self.logger.trace("Current free space: %s", self.current_free_space)
         self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
@@ -5131,6 +5259,10 @@ class FreeSpaceManager(Arr):
         self.register_torrent_database()
         self.logger.hnotice("Starting %s monitor", self._name)
         self.search_setup_completed = False
+        # Ensure DB is closed when process exits
+        atexit.register(
+            lambda: self.torrent_db.close() if not self.torrent_db.is_closed() else None
+        )
 
     def register_torrent_database(self):
         self.torrent_db = SqliteDatabase(None)
@@ -5237,9 +5369,18 @@ class FreeSpaceManager(Arr):
             try:
                 while True:
                     try:
-                        torrents = self.manager.qbit_manager.client.torrents.info(
-                            status_filter="all", sort="added_on", reverse=False
-                        )
+                        # Fetch per category to reduce client-side filtering
+                        torrents = []
+                        for cat in self.categories:
+                            with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                                torrents.extend(
+                                    self.manager.qbit_manager.client.torrents.info(
+                                        status_filter="all",
+                                        category=cat,
+                                        sort="added_on",
+                                        reverse=False,
+                                    )
+                                )
                         break
                     except qbittorrentapi.exceptions.APIError:
                         continue
@@ -5253,9 +5394,9 @@ class FreeSpaceManager(Arr):
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
-                self.current_free_space = shutil.disk_usage(
-                    self.completed_folder
-                ).free - parse_size(self.min_free_space)
+                self.current_free_space = (
+                    shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
+                )
                 self.logger.trace("Current free space: %s", self.current_free_space)
                 sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 for torrent in sorted_torrents:
@@ -5304,7 +5445,7 @@ class ArrManager:
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger("qBitrr.ArrManager")
         run_logs(self.logger)
-        if not self.ffprobe_available and not any([QBIT_DISABLED, SEARCH_ONLY]):
+        if not self.ffprobe_available and not (QBIT_DISABLED or SEARCH_ONLY):
             self.logger.error(
                 "'%s' was not found, disabling all functionality dependant on it",
                 self.qbit_manager.ffprobe_downloader.probe_path,
@@ -5335,7 +5476,12 @@ class ArrManager:
                     continue
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
-        if FREE_SPACE != "-1" and AUTO_PAUSE_RESUME:
+        if (
+            FREE_SPACE != "-1"
+            and AUTO_PAUSE_RESUME
+            and not QBIT_DISABLED
+            and len(self.arr_categories) > 0
+        ):
             managed_object = FreeSpaceManager(self.arr_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
         for cat in self.special_categories:
