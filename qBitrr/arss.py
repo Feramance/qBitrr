@@ -503,6 +503,7 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
+        self.torrents: TorrentLibrary = None
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -2758,6 +2759,9 @@ class Arr:
                 return True
             if file.is_dir():
                 self.logger.trace("Not probeable: File is a directory: %s", file)
+                return False
+            if file.name.endswith(".!qB"):
+                self.logger.trace("Not probeable: File is still downloading: %s", file)
                 return False
             output = ffmpeg.probe(
                 str(file.absolute()), cmd=self.manager.qbit_manager.ffprobe_downloader.probe_path
