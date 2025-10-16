@@ -3,7 +3,7 @@
     <head>
         <meta charset="utf-8" />
         <title>qBitrr WebUI</title>
-        <link rel="stylesheet" href="/static/style.css" />
+        <link rel="stylesheet" href="/static/style.css?v=2" />
     </head>
 
     <body>
@@ -126,9 +126,6 @@
             <section id="radarr" class="card" style="display: none">
                 <div class="card-header">Radarr</div>
                 <div class="card-body">
-                    <button class="btn" onclick="loadArrList()">
-                        Discover Categories
-                    </button>
                     <div id="radarrList"></div>
                 </div>
             </section>
@@ -136,9 +133,6 @@
             <section id="sonarr" class="card" style="display: none">
                 <div class="card-header">Sonarr</div>
                 <div class="card-body">
-                    <button class="btn" onclick="loadArrList()">
-                        Discover Categories
-                    </button>
                     <div id="sonarrList"></div>
                 </div>
             </section>
@@ -147,9 +141,6 @@
                 <div class="card-header">Config</div>
                 <div class="card-body">
                     <div class="row">
-                        <button class="btn" onclick="renderConfigForms()">
-                            Load
-                        </button>
                         <button class="btn" onclick="addArrInstance('radarr')">
                             Add Radarr Instance
                         </button>
@@ -171,6 +162,6 @@
         </div>
         <div class="toasts" id="toasts"></div>
 
-        <script src="/static/app.js"></script>
+        <script src="/static/app.js?v=2"></script>
     </body>
 </html>

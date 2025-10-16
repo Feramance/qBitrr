@@ -312,7 +312,9 @@ class WebUI:
             for k, arr in self.manager.arr_manager.managed_objects.items():
                 t = getattr(arr, "type", None)
                 if t in ("radarr", "sonarr"):
-                    items.append({"category": k, "type": t})
+                    name = getattr(arr, "_name", k)
+                    category = getattr(arr, "category", k)
+                    items.append({"category": category, "name": name, "type": t})
             return jsonify({"arr": items})
 
         @app.get("/api/status")
@@ -329,16 +331,20 @@ class WebUI:
             for k, arr in self.manager.arr_manager.managed_objects.items():
                 t = getattr(arr, "type", None)
                 if t in ("radarr", "sonarr"):
+                    # Determine liveness based on child search/torrent processes
                     alive = False
-                    try:
-                        alive = (
-                            bool(arr.is_alive())
-                            if callable(getattr(arr, "is_alive", None))
-                            else False
-                        )
-                    except Exception:
-                        alive = False
-                    arrs.append({"category": k, "type": t, "alive": alive})
+                    for loop in ("search", "torrent"):
+                        p = getattr(arr, f"process_{loop}_loop", None)
+                        if p is not None:
+                            try:
+                                if p.is_alive():
+                                    alive = True
+                                    break
+                            except Exception:
+                                pass
+                    name = getattr(arr, "_name", k)
+                    category = getattr(arr, "category", k)
+                    arrs.append({"category": category, "name": name, "type": t, "alive": alive})
             return jsonify({"qbit": qb, "arrs": arrs})
 
         @app.get("/api/token")
@@ -392,6 +398,11 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             try:
+                # Reload config from disk to reflect latest file
+                try:
+                    CONFIG.load()
+                except Exception:
+                    pass
                 # Render current config as a JSON-able dict via tomlkit
                 data = _toml_to_jsonable(CONFIG.config)
                 return jsonify(data)

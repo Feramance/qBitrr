@@ -5,6 +5,25 @@ const headers = () => {
     return h;
 };
 
+let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }
+async function bootstrapToken() {
+    try {
+        const r = await fetch("/api/token");
+        const d = await r.json();
+        if (d.token) localStorage.setItem("token", d.token);
+    } catch (_) {
+        /* ignore */
+    }
+}
+function globalSearch(q) {
+    if (!currentArr) return;
+    if (currentArr.type === "radarr") {
+        filterRadarr(currentArr.cat, currentArr.targetId, q);
+    } else if (currentArr.type === "sonarr") {
+        filterSonarr(currentArr.cat, currentArr.targetId, q);
+    }
+}
+
 function saveToken() {
     const t = document.getElementById("token").value;
     localStorage.setItem("token", t);
@@ -37,16 +56,46 @@ function activate(id) {
 }
 
 async function loadStatus() {
-    const r = await fetch("/api/status", { headers: headers() });
-    const d = await r.json();
-    const qb = d.qbit.alive
-        ? "<span class=ok>qBit OK</span>"
-        : "<span class=bad>qBit DOWN</span>";
-    let arr = "";
-    for (const a of d.arrs) {
-        arr += `${a.category}:${a.alive ? "OK" : "DOWN"} `;
+    const [s, p, a] = await Promise.all([
+        fetch("/api/status", { headers: headers() })
+            .then((r) => r.json())
+            .catch((_) => ({ qbit: { alive: false }, arrs: [] })),
+        fetch("/api/processes", { headers: headers() })
+            .then((r) => r.json())
+            .catch((_) => ({ processes: [] })),
+        fetch("/api/arr", { headers: headers() })
+            .then((r) => r.json())
+            .catch((_) => ({ arr: [] })),
+    ]);
+    const qb =
+        s.qbit && s.qbit.alive
+            ? "<span class=ok>qBit OK</span>"
+            : "<span class=bad>qBit DOWN</span>";
+    const nameByCat = {};
+    for (const it of a.arr || []) {
+        nameByCat[it.category] = it.name || it.category;
     }
-    document.getElementById("status").innerHTML = qb + " | " + arr;
+    const aliveByCat = {};
+    for (const proc of p.processes || []) {
+        if (proc.alive) aliveByCat[proc.category] = true;
+        if (!nameByCat[proc.category])
+            nameByCat[proc.category] = proc.name || proc.category;
+    }
+    const cats = new Set([
+        ...(s.arrs ? s.arrs.map((x) => x.category) : []),
+        ...Object.keys(aliveByCat),
+    ]);
+    let arrText = "";
+    for (const cat of cats) {
+        const alive =
+            aliveByCat[cat] ??
+            (s.arrs
+                ? s.arrs.find((x) => x.category === cat)?.alive || false
+                : false);
+        const label = nameByCat[cat] || cat;
+        arrText += `${label}:${alive ? "OK" : "DOWN"} `;
+    }
+    document.getElementById("status").innerHTML = qb + " | " + arrText;
 }
 
 async function loadProcesses() {
@@ -174,18 +223,40 @@ document.addEventListener("change", (e) => {
 const radarrState = {};
 const sonarrState = {};
 async function loadArrList() {
-    const r = await fetch("/api/arr", { headers: headers() });
-    const d = await r.json();
+    const [arrRes, procRes] = await Promise.all([
+        fetch("/api/arr", { headers: headers() }),
+        fetch("/api/processes", { headers: headers() }),
+    ]);
+    const d = await arrRes.json();
+    const procs = await procRes.json();
+    const nameByCat = {};
+    for (const p of procs.processes || [])
+        nameByCat[p.category] = p.name || p.category;
     let rs = "",
         ss = "";
     for (const a of d.arr) {
+        const name = a.name || nameByCat[a.category] || a.category;
         if (a.type === "radarr") {
             const id = `radarrOut_${a.category}`;
-            rs += `<div><div><input placeholder='filter' oninput=filterRadarr('${a.category}','${id}',this.value) /><input id='${id}_ps' type='number' value='50' style='width:60px'/> <button onclick=pageRadarr('${a.category}','${id}',-1)>Prev</button> <button onclick=pageRadarr('${a.category}','${id}',1)>Next</button> <button onclick=loadRadarr('${a.category}','${id}')>Load ${a.category}</button> <button onclick=restartArr('${a.category}')>Restart</button></div><div id='${id}'></div></div>`;
+            rs += `<div><div>
+                <button class='btn' onclick="loadRadarr('${a.category}','${id}')">${name}</button>
+                <input placeholder='search' oninput="filterRadarr('${a.category}','${id}',this.value)" />
+                <input id='${id}_ps' type='number' value='50' style='width:60px'/>
+                <button onclick="pageRadarr('${a.category}','${id}',-1)">Prev</button>
+                <button onclick="pageRadarr('${a.category}','${id}',1)">Next</button>
+                <button onclick="restartArr('${a.category}')">Restart</button>
+                </div><div id='${id}'></div></div>`;
         }
         if (a.type === "sonarr") {
             const id = `sonarrOut_${a.category}`;
-            ss += `<div><div><input placeholder='filter' oninput=filterSonarr('${a.category}','${id}',this.value) /><input id='${id}_ps' type='number' value='25' style='width:60px'/> <button onclick=pageSonarr('${a.category}','${id}',-1)>Prev</button> <button onclick=pageSonarr('${a.category}','${id}',1)>Next</button> <button onclick=loadSonarr('${a.category}','${id}')>Load ${a.category}</button> <button onclick=restartArr('${a.category}')>Restart</button></div><div id='${id}'></div></div>`;
+            ss += `<div><div>
+                <button class='btn' onclick="loadSonarr('${a.category}','${id}')">${name}</button>
+                <input placeholder='search' oninput="filterSonarr('${a.category}','${id}',this.value)" />
+                <input id='${id}_ps' type='number' value='25' style='width:60px'/>
+                <button onclick="pageSonarr('${a.category}','${id}',-1)">Prev</button>
+                <button onclick="pageSonarr('${a.category}','${id}',1)">Next</button>
+                <button onclick="restartArr('${a.category}')">Restart</button>
+                </div><div id='${id}'></div></div>`;
         }
     }
     document.getElementById("radarrList").innerHTML = rs;
@@ -217,6 +288,7 @@ async function loadRadarr(cat, targetId) {
     );
     const d = await r.json();
     radarrState[cat] = { page, counts: d.counts, total: d.total };
+    currentArr = { type: "radarr", cat, targetId };
     renderRadarr(cat, targetId, d.movies, d.total, ps);
 }
 function renderRadarr(cat, targetId, items, total, ps) {
@@ -268,6 +340,7 @@ async function loadSonarr(cat, targetId) {
     );
     const d = await r.json();
     sonarrState[cat] = { page, counts: d.counts, total: d.total };
+    currentArr = { type: "sonarr", cat, targetId };
     renderSonarr(cat, targetId, d.series, d.total, ps);
 }
 function renderSonarr(cat, targetId, series, total, ps) {
@@ -374,6 +447,9 @@ function activate(id) {
         if (link) link.classList.toggle("active", t === id);
     });
     show(id);
+    if (id === "config") {
+        renderConfigForms();
+    }
 }
 async function refreshLogList() {
     const r = await fetch("/api/logs", { headers: headers() });
@@ -625,15 +701,17 @@ async function submitConfigForms() {
 }
 
 // default view – auto-load needed data
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    activate('processes');
-    loadProcesses();
-    loadStatus();
-    await refreshLogList();
-    await loadArrList();
-    await renderConfigForms();
-  } catch(e) { /* ignore */ }
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        await bootstrapToken();
+        activate("processes");
+        loadProcesses();
+        loadStatus();
+        await refreshLogList();
+        await loadArrList();
+    } catch (e) {
+        /* ignore */
+    }
 });
 
 // Config helpers for token visibility and saving
