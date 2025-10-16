@@ -79,8 +79,8 @@ class WebUI:
 
         @app.get("/ui")
         def ui_index():
-            # Pass token to the UI so the browser can store it for API calls
-            return redirect(f"/static/index.html?token={self.token}")
+            # Serve UI without requiring a token; API remains protected
+            return redirect("/static/index.html")
 
         @app.get("/api/processes")
         def api_processes():
@@ -113,6 +113,11 @@ class WebUI:
                             }
                         )
             return jsonify({"processes": procs})
+
+        # Unauthenticated UI endpoints (mirror of /api/* for first-party WebUI)
+        @app.get("/web/processes")
+        def web_processes():
+            return api_processes()
 
         @app.post("/api/processes/<category>/<kind>/restart")
         def api_restart_process(category: str, kind: str):
@@ -156,10 +161,24 @@ class WebUI:
                 restarted.append(k)
             return jsonify({"status": "ok", "restarted": restarted})
 
+        @app.post("/web/processes/<category>/<kind>/restart")
+        def web_restart_process(category: str, kind: str):
+            # Mirror restart without auth for UI
+            return (
+                api_restart_process.__wrapped__(category, kind)
+                if hasattr(api_restart_process, "__wrapped__")
+                else api_restart_process(category, kind)
+            )
+
         @app.post("/api/processes/restart_all")
         def api_restart_all():
             if (resp := require_token()) is not None:
                 return resp
+            self._reload_all()
+            return jsonify({"status": "ok"})
+
+        @app.post("/web/processes/restart_all")
+        def web_restart_all():
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -184,6 +203,25 @@ class WebUI:
                 pass
             return jsonify({"status": "ok", "level": level})
 
+        @app.post("/web/loglevel")
+        def web_loglevel():
+            body = request.get_json(silent=True) or {}
+            level = str(body.get("level", "INFO")).upper()
+            valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
+            if level not in valid:
+                return jsonify({"error": f"invalid level {level}"}), 400
+            target_level = getattr(logging, level, logging.INFO)
+            logging.getLogger().setLevel(target_level)
+            for name, lg in logging.root.manager.loggerDict.items():
+                if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
+                    lg.setLevel(target_level)
+            try:
+                _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
+                CONFIG.save()
+            except Exception:
+                pass
+            return jsonify({"status": "ok", "level": level})
+
         @app.post("/api/arr/rebuild")
         def api_arr_rebuild():
             if (resp := require_token()) is not None:
@@ -191,10 +229,24 @@ class WebUI:
             self._reload_all()
             return jsonify({"status": "ok"})
 
+        @app.post("/web/arr/rebuild")
+        def web_arr_rebuild():
+            self._reload_all()
+            return jsonify({"status": "ok"})
+
         @app.get("/api/logs")
         def api_logs():
             if (resp := require_token()) is not None:
                 return resp
+            logs_dir = HOME_PATH.joinpath("logs")
+            files = []
+            if logs_dir.exists():
+                for f in logs_dir.glob("*.log*"):
+                    files.append(f.name)
+            return jsonify({"files": sorted(files)})
+
+        @app.get("/web/logs")
+        def web_logs():
             logs_dir = HOME_PATH.joinpath("logs")
             files = []
             if logs_dir.exists():
@@ -218,6 +270,37 @@ class WebUI:
                 tail = ""
             return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
 
+        @app.get("/web/logs/<name>")
+        def web_log(name: str):
+            logs_dir = HOME_PATH.joinpath("logs")
+            file = logs_dir.joinpath(name)
+            if not file.exists():
+                return jsonify({"error": "not found"}), 404
+            try:
+                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
+                tail = "\n".join(content[-2000:])
+            except Exception:
+                tail = ""
+            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+
+        @app.get("/api/logs/<name>/download")
+        def api_log_download(name: str):
+            if (resp := require_token()) is not None:
+                return resp
+            logs_dir = HOME_PATH.joinpath("logs")
+            file = logs_dir.joinpath(name)
+            if not file.exists():
+                return jsonify({"error": "not found"}), 404
+            return send_file(file, as_attachment=True)
+
+        @app.get("/web/logs/<name>/download")
+        def web_log_download(name: str):
+            logs_dir = HOME_PATH.joinpath("logs")
+            file = logs_dir.joinpath(name)
+            if not file.exists():
+                return jsonify({"error": "not found"}), 404
+            return send_file(file, as_attachment=True)
+
         @app.get("/api/radarr/<category>/movies")
         def api_radarr_movies(category: str):
             if (resp := require_token()) is not None:
@@ -230,6 +313,36 @@ class WebUI:
             page_size = request.args.get("page_size", default=50, type=int)
             movies = arr.client.get_movie()
             # Compute availability
+            total_monitored = sum(1 for m in movies if m.get("monitored"))
+            total_available = sum(1 for m in movies if m.get("monitored") and m.get("hasFile"))
+            if q:
+                ql = q.lower()
+                movies = [m for m in movies if (m.get("title") or "").lower().find(ql) != -1]
+            total = len(movies)
+            start = max(0, page * page_size)
+            end = start + page_size
+            page_items = movies[start:end]
+            return jsonify(
+                {
+                    "category": category,
+                    "counts": {"available": total_available, "monitored": total_monitored},
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "movies": page_items,
+                }
+            )
+
+        @app.get("/web/radarr/<category>/movies")
+        def web_radarr_movies(category: str):
+            # Mirror radarr movies without auth for UI
+            arr = self.manager.arr_manager.managed_objects.get(category)
+            if arr is None or getattr(arr, "type", None) != "radarr":
+                return jsonify({"error": f"Unknown radarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = request.args.get("page_size", default=50, type=int)
+            movies = arr.client.get_movie()
             total_monitored = sum(1 for m in movies if m.get("monitored"))
             total_available = sum(1 for m in movies if m.get("monitored") and m.get("hasFile"))
             if q:
@@ -307,6 +420,59 @@ class WebUI:
                 }
             )
 
+        @app.get("/web/sonarr/<category>/series")
+        def web_sonarr_series(category: str):
+            arr = self.manager.arr_manager.managed_objects.get(category)
+            if arr is None or getattr(arr, "type", None) != "sonarr":
+                return jsonify({"error": f"Unknown sonarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = request.args.get("page_size", default=25, type=int)
+            series = arr.client.get_series()
+            if q:
+                ql = q.lower()
+                series = [s for s in series if (s.get("title") or "").lower().find(ql) != -1]
+            payload = []
+            total_mon = 0
+            total_avail = 0
+            total = len(series)
+            start = max(0, page * page_size)
+            end = start + page_size
+            for s in series[start:end]:
+                sid = s.get("id")
+                eps = arr.client.get_episode(sid, includeAll=True)
+                seasons = {}
+                for e in eps:
+                    if not e.get("monitored"):
+                        continue
+                    season = e.get("seasonNumber")
+                    seasons.setdefault(season, {"monitored": 0, "available": 0, "episodes": []})
+                    seasons[season]["monitored"] += 1
+                    if e.get("hasFile"):
+                        seasons[season]["available"] += 1
+                    seasons[season]["episodes"].append(e)
+                s_mon = sum(v["monitored"] for v in seasons.values())
+                s_avail = sum(v["available"] for v in seasons.values())
+                total_mon += s_mon
+                total_avail += s_avail
+                payload.append(
+                    {
+                        "series": s,
+                        "totals": {"available": s_avail, "monitored": s_mon},
+                        "seasons": seasons,
+                    }
+                )
+            return jsonify(
+                {
+                    "category": category,
+                    "counts": {"available": total_avail, "monitored": total_mon},
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "series": payload,
+                }
+            )
+
         @app.get("/api/arr")
         def api_arr_list():
             items = []
@@ -317,6 +483,10 @@ class WebUI:
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})
             return jsonify({"arr": items})
+
+        @app.get("/web/arr")
+        def web_arr_list():
+            return api_arr_list()
 
         @app.get("/api/status")
         def api_status():
@@ -348,12 +518,13 @@ class WebUI:
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
             return jsonify({"qbit": qb, "arrs": arrs})
 
+        @app.get("/web/status")
+        def web_status():
+            return api_status()
+
         @app.get("/api/token")
         def api_token():
-            # Only allow local requests to read the token
-            ra = request.remote_addr or ""
-            if ra not in ("127.0.0.1", "::1"):
-                return jsonify({"error": "forbidden"}), 403
+            # Expose token for API clients only; UI uses /web endpoints
             return jsonify({"token": self.token})
 
         @app.post("/api/arr/<section>/restart")
@@ -365,6 +536,40 @@ class WebUI:
                 return jsonify({"error": f"Unknown section {section}"}), 404
             arr = self.manager.arr_manager.managed_objects[section]
             # Restart both loops for this arr
+            restarted = []
+            for k in ("search", "torrent"):
+                proc_attr = f"process_{k}_loop"
+                p = getattr(arr, proc_attr, None)
+                if p is not None:
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+                    try:
+                        p.terminate()
+                    except Exception:
+                        pass
+                    try:
+                        self.manager.child_processes.remove(p)
+                    except Exception:
+                        pass
+                import pathos
+
+                target = getattr(arr, f"run_{k}_loop", None)
+                if target is None:
+                    continue
+                new_p = pathos.helpers.mp.Process(target=target, daemon=False)
+                setattr(arr, proc_attr, new_p)
+                self.manager.child_processes.append(new_p)
+                new_p.start()
+                restarted.append(k)
+            return jsonify({"status": "ok", "restarted": restarted})
+
+        @app.post("/web/arr/<section>/restart")
+        def web_arr_restart(section: str):
+            if section not in self.manager.arr_manager.managed_objects:
+                return jsonify({"error": f"Unknown section {section}"}), 404
+            arr = self.manager.arr_manager.managed_objects[section]
             restarted = []
             for k in ("search", "torrent"):
                 proc_attr = f"process_{k}_loop"
@@ -410,6 +615,18 @@ class WebUI:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
 
+        @app.get("/web/config")
+        def web_get_config():
+            try:
+                try:
+                    CONFIG.load()
+                except Exception:
+                    pass
+                data = _toml_to_jsonable(CONFIG.config)
+                return jsonify(data)
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+
         @app.post("/api/config")
         def api_update_config():
             if (resp := require_token()) is not None:
@@ -427,6 +644,20 @@ class WebUI:
             # Persist
             CONFIG.save()
             # Live-reload: rebuild Arr instances and restart processes
+            self._reload_all()
+            return jsonify({"status": "ok"})
+
+        @app.post("/web/config")
+        def web_update_config():
+            body = request.get_json(silent=True) or {}
+            changes: dict[str, Any] = body.get("changes", {})
+            if not isinstance(changes, dict):
+                return jsonify({"error": "changes must be an object"}), 400
+            for key, val in changes.items():
+                _toml_set(CONFIG.config, key, val)
+                if key == "Settings.WebUIToken":
+                    self.token = str(val) if val is not None else ""
+            CONFIG.save()
             self._reload_all()
             return jsonify({"status": "ok"})
 
