@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import secrets
 import threading
 from typing import Any
 
@@ -39,8 +40,15 @@ class WebUI:
         self.host = host
         self.port = port
         self.app = Flask(__name__)
-        # Security token (optional)
+        # Security token (optional) – auto-generate and persist if empty
         self.token = CONFIG.get("Settings.WebUIToken", fallback=None)
+        if not self.token:
+            self.token = secrets.token_hex(32)
+            try:
+                _toml_set(CONFIG.config, "Settings.WebUIToken", self.token)
+                CONFIG.save()
+            except Exception:
+                pass
         self._register_routes()
         self._thread: threading.Thread | None = None
 

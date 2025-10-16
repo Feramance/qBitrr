@@ -624,10 +624,17 @@ async function submitConfigForms() {
     alert("Saved");
 }
 
-// default view
-activate("processes");
-loadProcesses();
-loadStatus();
+// default view – auto-load needed data
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    activate('processes');
+    loadProcesses();
+    loadStatus();
+    await refreshLogList();
+    await loadArrList();
+    await renderConfigForms();
+  } catch(e) { /* ignore */ }
+});
 
 // Config helpers for token visibility and saving
 function toggleTokenVisibility(inputId, cb) {
