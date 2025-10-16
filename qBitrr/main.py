@@ -182,6 +182,41 @@ class qBitManager:
             sys.exit(1)
 
 
+def _report_config_issues():
+    try:
+        issues = []
+        # Check required settings
+        from qBitrr.config import COMPLETED_DOWNLOAD_FOLDER, CONFIG, FREE_SPACE, FREE_SPACE_FOLDER
+
+        if not COMPLETED_DOWNLOAD_FOLDER or str(COMPLETED_DOWNLOAD_FOLDER).upper() == "CHANGE_ME":
+            issues.append("Settings.CompletedDownloadFolder is missing or set to CHANGE_ME")
+        if FREE_SPACE != "-1":
+            if not FREE_SPACE_FOLDER or str(FREE_SPACE_FOLDER).upper() == "CHANGE_ME":
+                issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
+        # Check Arr sections
+        for key in CONFIG.sections():
+            import re
+
+            m = re.match(r"(rad|son|anim)arr.*", key, re.IGNORECASE)
+            if not m:
+                continue
+            managed = CONFIG.get(f"{key}.Managed", fallback=False)
+            if not managed:
+                continue
+            uri = CONFIG.get(f"{key}.URI", fallback=None)
+            apikey = CONFIG.get(f"{key}.APIKey", fallback=None)
+            if not uri or str(uri).upper() == "CHANGE_ME":
+                issues.append(f"{key}.URI is missing or set to CHANGE_ME")
+            if not apikey or str(apikey).upper() == "CHANGE_ME":
+                issues.append(f"{key}.APIKey is missing or set to CHANGE_ME")
+        if issues:
+            logger.error("Configuration issues detected:")
+            for i in issues:
+                logger.error(" - %s", i)
+    except Exception as e:
+        logger.debug("Config validation skipped due to error: %s", e)
+
+
 def run():
     early_exit = process_flags()
     if early_exit is True:
@@ -243,38 +278,3 @@ if __name__ == "__main__":
     freeze_support()
     file_cleanup()
     run()
-
-
-def _report_config_issues():
-    try:
-        issues = []
-        # Check required settings
-        from qBitrr.config import COMPLETED_DOWNLOAD_FOLDER, CONFIG, FREE_SPACE, FREE_SPACE_FOLDER
-
-        if not COMPLETED_DOWNLOAD_FOLDER or str(COMPLETED_DOWNLOAD_FOLDER).upper() == "CHANGE_ME":
-            issues.append("Settings.CompletedDownloadFolder is missing or set to CHANGE_ME")
-        if FREE_SPACE != "-1":
-            if not FREE_SPACE_FOLDER or str(FREE_SPACE_FOLDER).upper() == "CHANGE_ME":
-                issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
-        # Check Arr sections
-        for key in CONFIG.sections():
-            import re
-
-            m = re.match(r"(rad|son|anim)arr.*", key, re.IGNORECASE)
-            if not m:
-                continue
-            managed = CONFIG.get(f"{key}.Managed", fallback=False)
-            if not managed:
-                continue
-            uri = CONFIG.get(f"{key}.URI", fallback=None)
-            apikey = CONFIG.get(f"{key}.APIKey", fallback=None)
-            if not uri or str(uri).upper() == "CHANGE_ME":
-                issues.append(f"{key}.URI is missing or set to CHANGE_ME")
-            if not apikey or str(apikey).upper() == "CHANGE_ME":
-                issues.append(f"{key}.APIKey is missing or set to CHANGE_ME")
-        if issues:
-            logger.error("Configuration issues detected:")
-            for i in issues:
-                logger.error(" - %s", i)
-    except Exception as e:
-        logger.debug("Config validation skipped due to error: %s", e)
