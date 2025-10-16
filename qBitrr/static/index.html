@@ -4,6 +4,30 @@
         <meta charset="utf-8" />
         <title>qBitrr WebUI</title>
         <link rel="stylesheet" href="/static/style.css?v=2" />
+        <script>
+            function show(id) {
+                try {
+                    var secs = document.querySelectorAll('section');
+                    for (var i=0;i<secs.length;i++) secs[i].style.display = 'none';
+                    var el = document.getElementById(id);
+                    if (el) el.style.display = 'block';
+                } catch (e) {}
+            }
+            function activate(id) {
+                try {
+                    var tabs = ["processes","logs","radarr","sonarr","config"];
+                    for (var i=0;i<tabs.length;i++) {
+                        var t = tabs[i];
+                        var link = document.getElementById('tab-' + t);
+                        if (link) link.classList.toggle('active', t === id);
+                    }
+                    show(id);
+                    if (id === 'config' && window.renderConfigForms) {
+                        window.renderConfigForms();
+                    }
+                } catch (e) {}
+            }
+        </script>
     </head>
 
     <body>
