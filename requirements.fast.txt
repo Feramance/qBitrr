@@ -25,6 +25,11 @@ dill==0.4.0
 environ-config==24.1.0
     # via qBitrr2 (setup.py)
 ffmpeg-python==0.2.0
+    # via
+    #   qbittorrent-api
+    #   requests
+    #   types-requests
+flask==3.0.3
     # via qBitrr2 (setup.py)
 future==1.0.0
     # via ffmpeg-python
@@ -76,7 +81,4 @@ types-requests==2.32.4.20250913
 ujson==5.10.0
     # via qBitrr2 (setup.py)
 urllib3==2.5.0
-    # via
-    #   qbittorrent-api
-    #   requests
-    #   types-requests
+    # via qBitrr WebUI
