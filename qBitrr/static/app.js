@@ -1417,15 +1417,17 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
                 try {
                     window.loadProcesses && window.loadProcesses();
                 } catch (_) {}
-            }, 5000);
+            }, 1000);
         } else if (id === "radarr" || id === "sonarr") {
             // initial nav build and start 5s refresh for counts
             if (typeof window.loadArrList === "function") window.loadArrList();
             arrTimer = setInterval(() => {
                 try {
-                    window.loadArrList && window.loadArrList();
+                    window.refreshArrCounts && window.refreshArrCounts();
+                    if (typeof window.refreshActiveArrTable === "function")
+                        window.refreshActiveArrTable();
                 } catch (_) {}
-            }, 5000);
+            }, 1000);
         }
     };
     // If page initially lands on processes (default), kick off timers
@@ -1498,7 +1500,7 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
         }
         return rows;
     }
-    async function refreshActiveArrTable() {
+    window.refreshActiveArrTable = async function () {
         try {
             if (!window.currentArr) return;
             const t = window.currentArr.type;
@@ -1534,7 +1536,7 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
                 window.loadSonarrAll(window.currentArr.cat, q);
             }
         } catch (_) {}
-    }
+    };
     // Hook into existing onTabActivated refresh loop
     let dataTimer = null;
     const prevOnTabActivated = window.onTabActivated;
@@ -1551,4 +1553,363 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
             dataTimer = setInterval(refreshActiveArrTable, 1000);
         }
     };
+})();
+// WebUI overrides: per-instance ARR views with Live toggle, last-updated, and 1s auto-refresh
+(function () {
+    const H = () => ({ "Content-Type": "application/json" });
+    const nowTime = () => new Date().toLocaleTimeString();
+
+    // Build per-instance nav buttons only (no aggregated buttons)
+    window.loadArrList = async function () {
+        try {
+            const [arrRes, procRes] = await Promise.all([
+                fetch("/web/arr", { headers: H() }),
+                fetch("/web/processes", { headers: H() }),
+            ]);
+            const d = await arrRes.json();
+            const procs = await procRes.json();
+            const nameByCat = {};
+            (procs.processes || []).forEach(
+                (p) => (nameByCat[p.category] = p.name || p.category)
+            );
+
+            const build = (containerId, type, onClick) => {
+                const nav = document.getElementById(containerId);
+                if (!nav) return;
+                nav.innerHTML = "";
+                const cats = (d.arr || [])
+                    .filter((a) => a.type === type)
+                    .map((a) => a.category);
+                for (const cat of cats) {
+                    const label = nameByCat[cat] || cat;
+                    const btn = document.createElement("button");
+                    btn.className = "btn ghost";
+                    btn.style.display = "block";
+                    btn.style.width = "100%";
+                    btn.style.textAlign = "left";
+                    btn.style.margin = "4px 0";
+                    btn.textContent = label;
+                    btn.dataset.cat = cat;
+                    btn.dataset.label = label;
+                    btn.dataset.type = type;
+                    btn.onclick = () => onClick(cat);
+                    nav.appendChild(btn);
+                }
+            };
+            build(
+                "radarrNav",
+                "radarr",
+                (cat) =>
+                    window.loadRadarrInstance && window.loadRadarrInstance(cat)
+            );
+            build(
+                "sonarrNav",
+                "sonarr",
+                (cat) =>
+                    window.loadSonarrInstance && window.loadSonarrInstance(cat)
+            );
+            window.refreshArrCounts && window.refreshArrCounts();
+        } catch (_) {
+            /* ignore */
+        }
+    };
+
+    // Update per-instance counts and UP/DOWN without rebuilding nav
+    window.refreshArrCounts = async function () {
+        try {
+            let aliveByCat = {};
+            try {
+                const pr = await fetch("/web/processes", { headers: H() });
+                if (pr.ok) {
+                    const pd = await pr.json();
+                    (pd.processes || []).forEach((p) => {
+                        if (p.alive) aliveByCat[p.category] = true;
+                    });
+                }
+            } catch (_) {}
+            const update = async (containerId, type) => {
+                const c = document.getElementById(containerId);
+                if (!c) return;
+                const btns = Array.from(c.querySelectorAll("button")).filter(
+                    (b) => b.dataset && b.dataset.cat
+                );
+                await Promise.all(
+                    btns.map(async (b) => {
+                        const cat = b.dataset.cat;
+                        const label = b.dataset.label || b.textContent;
+                        let counts = null;
+                        try {
+                            const r = await fetch(
+                                type === "radarr"
+                                    ? `/web/radarr/${cat}/movies?page=0&page_size=1`
+                                    : `/web/sonarr/${cat}/series?page=0&page_size=1`,
+                                { headers: H() }
+                            );
+                            if (r.ok) {
+                                const resp = await r.json();
+                                counts =
+                                    resp && resp.counts ? resp.counts : null;
+                            }
+                        } catch (_) {}
+                        const suffix = counts
+                            ? ` (${counts.monitored || 0}/${
+                                  counts.available || 0
+                              })`
+                            : "";
+                        const badge = aliveByCat[cat]
+                            ? "<span class='ok'>UP</span>"
+                            : "<span class='bad'>DOWN</span>";
+                        b.innerHTML = label + suffix + " " + badge;
+                    })
+                );
+            };
+            await update("radarrNav", "radarr");
+            await update("sonarrNav", "sonarr");
+        } catch (_) {
+            /* ignore */
+        }
+    };
+
+    // Single‑instance Radarr table
+    window.loadRadarrInstance = async function (cat, opts = {}) {
+        try {
+            const q =
+                (opts.q != null
+                    ? opts.q
+                    : window.currentArr && window.currentArr.q) || "";
+            const pg =
+                (opts.page != null
+                    ? opts.page
+                    : window.currentArr && window.currentArr.page) || 0;
+            const ps =
+                (opts.pageSize != null
+                    ? opts.pageSize
+                    : window.currentArr && window.currentArr.pageSize) || 50;
+            window.currentArr = {
+                type: "radarr",
+                cat,
+                q,
+                page: pg,
+                pageSize: ps,
+            };
+            const root = document.getElementById("radarrContent");
+            if (!root) return;
+            root.innerHTML = `<div class="loading"><span class="spinner"></span> Loading…</div>`;
+            const r = await fetch(
+                `/web/radarr/${cat}/movies?q=${encodeURIComponent(
+                    q
+                )}&page=${pg}&page_size=${ps}`,
+                { headers: H() }
+            );
+            if (!r.ok) {
+                root.innerHTML = `<div class='hint'>Failed to load.</div>`;
+                return;
+            }
+            const d = await r.json();
+            const counts = d.counts || { monitored: 0, available: 0 };
+            let html = "";
+            html += `<div class="row"><div class="col field"><input placeholder="search movies" value="${q}" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${
+                window._arrLive === false ? "" : "checked"
+            }/> Live</label></div>`;
+            html += `<div class='hint'>Counts: ${counts.available || 0}/${
+                counts.monitored || 0
+            } &nbsp; Last updated: <span id='radarrUpdated'>${nowTime()}</span></div>`;
+            html +=
+                "<table><tr><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr>";
+            for (const m of d.movies || [])
+                html += `<tr><td>${m.title || ""}</td><td>${
+                    m.year || ""
+                }</td><td>${m.monitored ? "Yes" : "No"}</td><td>${
+                    m.hasFile ? "Yes" : "No"
+                }</td></tr>`;
+            html += "</table>";
+            const totalPages = Math.max(1, Math.ceil((d.total || 0) / ps));
+            html += `<div class=\"row\" style=\"margin-top:8px\"><div class=\"col\">Page ${
+                pg + 1
+            } of ${totalPages} (${
+                d.total || 0
+            } items)</div><div class=\"col\" style=\"text-align:right\"><button class=\"btn\" onclick=\"(function(){ window.currentArr.page=Math.max(0,(window.currentArr.page||0)-1); window.loadRadarrInstance(window.currentArr.cat, window.currentArr); })()\">Prev</button> <button class=\"btn\" onclick=\"(function(){ const tp=${totalPages}; window.currentArr.page=Math.min(tp-1,(window.currentArr.page||0)+1); window.loadRadarrInstance(window.currentArr.cat, window.currentArr); })()\">Next</button></div></div>`;
+            root.innerHTML = html;
+        } catch (_) {
+            /* ignore */
+        }
+    };
+
+    // Single‑instance Sonarr table
+    window.loadSonarrInstance = async function (cat, opts = {}) {
+        try {
+            const q =
+                (opts.q != null
+                    ? opts.q
+                    : window.currentArr && window.currentArr.q) || "";
+            const pg =
+                (opts.page != null
+                    ? opts.page
+                    : window.currentArr && window.currentArr.page) || 0;
+            const ps =
+                (opts.pageSize != null
+                    ? opts.pageSize
+                    : window.currentArr && window.currentArr.pageSize) || 25;
+            window.currentArr = {
+                type: "sonarr",
+                cat,
+                q,
+                page: pg,
+                pageSize: ps,
+            };
+            const root = document.getElementById("sonarrContent");
+            if (!root) return;
+            root.innerHTML = `<div class="loading"><span class="spinner"></span> Loading…</div>`;
+            const r = await fetch(
+                `/web/sonarr/${cat}/series?q=${encodeURIComponent(
+                    q
+                )}&page=${pg}&page_size=${ps}`,
+                { headers: H() }
+            );
+            if (!r.ok) {
+                root.innerHTML = `<div class='hint'>Failed to load.</div>`;
+                return;
+            }
+            const d = await r.json();
+            const counts = d.counts || { monitored: 0, available: 0 };
+            let html = "";
+            html += `<div class="row"><div class="col field"><input placeholder="search series" value="${q}" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${
+                window._arrLive === false ? "" : "checked"
+            }/> Live</label></div>`;
+            html += `<div class='hint'>Counts: ${counts.available || 0}/${
+                counts.monitored || 0
+            } &nbsp; Last updated: <span id='sonarrUpdated'>${nowTime()}</span></div>`;
+            for (const s of d.series || []) {
+                html += `<details><summary>${s.series.title} - ${
+                    s.totals.available || 0
+                } / ${s.totals.monitored || 0}</summary>`;
+                const seasons = Object.entries(s.seasons || {}).sort(
+                    (a, b) => a[0] - b[0]
+                );
+                for (const [sn, sv] of seasons) {
+                    html += `<details style='margin-left:12px'><summary>Season ${sn} - ${
+                        sv.available || 0
+                    } / ${sv.monitored || 0}</summary>`;
+                    html +=
+                        "<table><tr><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr>";
+                    for (const e of sv.episodes || [])
+                        html += `<tr><td>${e.episodeNumber || ""}</td><td>${
+                            e.title || ""
+                        }</td><td>${e.monitored ? "Yes" : "No"}</td><td>${
+                            e.hasFile ? "Yes" : "No"
+                        }</td><td>${e.airDateUtc || ""}</td></tr>`;
+                    html += "</table></details>";
+                }
+                html += "</details>";
+            }
+            const totalPages = Math.max(1, Math.ceil((d.total || 0) / ps));
+            html += `<div class=\"row\" style=\"margin-top:8px\"><div class=\"col\">Page ${
+                pg + 1
+            } of ${totalPages} (${
+                d.total || 0
+            } series)</div><div class=\"col\" style=\"text-align:right\"><button class=\"btn\" onclick=\"(function(){ window.currentArr.page=Math.max(0,(window.currentArr.page||0)-1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Prev</button> <button class=\"btn\" onclick=\"(function(){ const tp=${totalPages}; window.currentArr.page=Math.min(tp-1,(window.currentArr.page||0)+1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Next</button></div></div>`;
+            root.innerHTML = html;
+        } catch (_) {
+            /* ignore */
+        }
+    };
+
+    // Global search routes to active per‑instance view
+    window.globalSearch = function (q) {
+        if (!window.currentArr) return;
+        const { type, cat, pageSize } = window.currentArr;
+        if (type === "radarr")
+            return window.loadRadarrInstance(cat, { q, page: 0, pageSize });
+        if (type === "sonarr")
+            return window.loadSonarrInstance(cat, { q, page: 0, pageSize });
+    };
+
+    // Active table refresh (1s), respects Live toggle and active tab
+    window.refreshActiveArrTable = async function () {
+        try {
+            if (!window.currentArr) return;
+            if (window._arrLive === false) return;
+            if (
+                window.__activeTab !== "radarr" &&
+                window.__activeTab !== "sonarr"
+            )
+                return;
+            const { type, cat, q, page, pageSize } = window.currentArr;
+            if (type === "radarr")
+                return window.loadRadarrInstance(cat, { q, page, pageSize });
+            if (type === "sonarr")
+                return window.loadSonarrInstance(cat, { q, page, pageSize });
+        } catch (_) {}
+    };
+})();
+
+// Timers: status (1s), processes (1s when active), ARR counts+tables (1s when active)
+(function () {
+    const clearTimers = () => {
+        if (window.__statusTimer) {
+            clearInterval(window.__statusTimer);
+            window.__statusTimer = null;
+        }
+        if (window.__procTimer) {
+            clearInterval(window.__procTimer);
+            window.__procTimer = null;
+        }
+        if (window.__arrTimer) {
+            clearInterval(window.__arrTimer);
+            window.__arrTimer = null;
+        }
+    };
+    // Always refresh status
+    try {
+        if (!window.__statusTimer) {
+            try {
+                window.loadStatus && window.loadStatus();
+            } catch (_) {}
+            window.__statusTimer = setInterval(() => {
+                try {
+                    window.loadStatus && window.loadStatus();
+                } catch (_) {}
+            }, 1000);
+        }
+    } catch (_) {}
+
+    window.onTabActivated = function (id) {
+        clearTimers();
+        if (id === "processes") {
+            try {
+                window.loadProcesses && window.loadProcesses();
+            } catch (_) {}
+            window.__procTimer = setInterval(() => {
+                try {
+                    window.loadProcesses && window.loadProcesses();
+                } catch (_) {}
+            }, 1000);
+        } else if (id === "radarr" || id === "sonarr") {
+            try {
+                window.loadArrList && window.loadArrList();
+            } catch (_) {}
+            window.__arrTimer = setInterval(() => {
+                try {
+                    if (window._arrLive !== false) {
+                        window.refreshArrCounts && window.refreshArrCounts();
+                        window.refreshActiveArrTable &&
+                            window.refreshActiveArrTable();
+                    }
+                } catch (_) {}
+            }, 1000);
+        }
+    };
+
+    // Kick off for initial active tab
+    document.addEventListener("DOMContentLoaded", function () {
+        try {
+            if (!window.__activeTab) {
+                const active = document.querySelector(".nav a.active");
+                window.__activeTab = active
+                    ? (active.id || "tab-processes").replace("tab-", "")
+                    : "processes";
+            }
+            window.onTabActivated(window.__activeTab);
+        } catch (_) {}
+    });
 })();
