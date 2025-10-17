@@ -815,6 +815,136 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
     });
 })();
 
+// Incremental per-instance table updates and radarr skeleton override
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  const nowTime = () => (new Date()).toLocaleTimeString();
+  function movieKey(m){ return (m && (m.id != null)) ? String(m.id) : `${m && m.title || ''}:${m && m.year || ''}`; }
+
+  function renderRadarrSkeleton(root, state){
+    const qVal = state && state.q ? String(state.q) : '';
+    root.innerHTML = `<div class="row"><div class="col field"><input id="radarrSearchInput" placeholder="search movies" value="${qVal}" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${ (window._arrLive===false)?'':'checked' }/> Live</label></div>` +
+      `<div class='hint'>Counts: <span id='radarrCounts'></span> &nbsp; Last updated: <span id='radarrUpdated'></span></div>` +
+      `<table><thead><tr><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr></thead><tbody id='radarrTable'></tbody></table>` +
+      `<div class="row" style="margin-top:8px"><div class="col" id="radarrPagerLeft"></div><div class="col" id="radarrPagerRight" style="text-align:right"></div></div>`;
+  }
+
+  function radarrApplyPagination(state, totals){
+    const totalPages = Math.max(1, Math.ceil((totals||0)/(state.pageSize||50)));
+    const left = document.getElementById('radarrPagerLeft');
+    const right = document.getElementById('radarrPagerRight');
+    if (left) left.textContent = `Page ${ (state.page||0)+1 } of ${ totalPages } (${ totals||0 } items)`;
+    if (right) right.innerHTML = `<button class="btn" onclick="(function(){ window.currentArr.page=Math.max(0,(window.currentArr.page||0)-1); window.loadRadarrInstance(window.currentArr.cat, window.currentArr); })()">Prev</button>
+      <button class="btn" onclick="(function(){ const tp=${totalPages}; window.currentArr.page=Math.min(tp-1,(window.currentArr.page||0)+1); window.loadRadarrInstance(window.currentArr.cat, window.currentArr); })()">Next</button>`;
+  }
+
+  function ensureRadarrTable(){
+    const root = document.getElementById('radarrContent'); if (!root) return null;
+    let tbody = root.querySelector('tbody#radarrTable');
+    if (!tbody){ renderRadarrSkeleton(root, window.currentArr||{}); tbody = root.querySelector('tbody#radarrTable'); }
+    return tbody;
+  }
+
+  window.radarrUpdateTable = function(d){
+    const tbody = ensureRadarrTable(); if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const rowMap = new Map(rows.map(r => [r.getAttribute('data-key'), r]));
+    (d.movies||[]).forEach(m => {
+      const key = movieKey(m);
+      let tr = rowMap.get(key);
+      if (!tr){ tr = document.createElement('tr'); tr.setAttribute('data-key', key); tr.innerHTML = `<td class="c-title"></td><td class="c-year"></td><td class="c-mon"></td><td class="c-file"></td>`; tbody.appendChild(tr); }
+      const cTitle = tr.querySelector('.c-title'); if (cTitle && cTitle.textContent !== (m.title||'')) cTitle.textContent = m.title||'';
+      const cYear  = tr.querySelector('.c-year');  if (cYear  && cYear.textContent  !== String(m.year||'')) cYear.textContent  = m.year||'';
+      const cMon   = tr.querySelector('.c-mon');   if (cMon   && cMon.textContent   !== (m.monitored?'Yes':'No')) cMon.textContent = m.monitored?'Yes':'No';
+      const cFile  = tr.querySelector('.c-file');  if (cFile  && cFile.textContent  !== (m.hasFile?'Yes':'No')) cFile.textContent = m.hasFile?'Yes':'No';
+    });
+    const countsEl = document.getElementById('radarrCounts'); if (countsEl && d.counts) countsEl.textContent = `${d.counts.monitored||0}/${d.counts.available||0}`;
+    const updEl = document.getElementById('radarrUpdated'); if (updEl) updEl.textContent = nowTime();
+    if (window.currentArr) radarrApplyPagination(window.currentArr, d.total||0);
+  };
+
+  // Override refreshActiveArrTable to use incremental updates for Radarr
+  const __origRefresh = window.refreshActiveArrTable;
+  window.refreshActiveArrTable = async function(){
+    try {
+      if (!window.currentArr) return; if (window._arrLive===false) return;
+      if (window.__activeTab!=='radarr' && window.__activeTab!=='sonarr') return;
+      const { type, cat, q, page, pageSize } = window.currentArr;
+      if (type==='radarr'){
+        const r = await fetch(`/web/radarr/${cat}/movies?q=${encodeURIComponent(q||'')}&page=${page||0}&page_size=${pageSize||50}`, { headers: H() });
+        if (!r.ok) return; const d = await r.json(); window.radarrUpdateTable && window.radarrUpdateTable(d); return;
+      }
+      if (type==='sonarr'){
+        // Keep Sonarr static; only update counts + last updated to avoid reflow
+        const r = await fetch(`/web/sonarr/${cat}/series?q=${encodeURIComponent(q||'')}&page=${page||0}&page_size=${pageSize||25}`, { headers: H() });
+        if (!r.ok) return; const d = await r.json(); const updEl = document.getElementById('sonarrUpdated'); if (updEl) updEl.textContent = nowTime(); const hint=document.querySelector('#sonarrContent .hint'); if (hint && d.counts){ hint.innerHTML = `Counts: ${d.counts.monitored||0}/${d.counts.available||0} &nbsp; Last updated: <span id='sonarrUpdated'>${nowTime()}</span>`; } return;
+      }
+    } catch(e){ }
+    try { __origRefresh && __origRefresh(); } catch(_){ }
+  };
+})();
+
+// Extend incremental updates to Sonarr with stable table skeleton
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  const nowTime = () => (new Date()).toLocaleTimeString();
+  function epKey(series, season, ep){ const sid = (series && (series.id!=null)) ? series.id : (series && series.title) || ''; return `${sid}:${season}:${ep}`; }
+  function ensureSonarrTable(){
+    const root = document.getElementById('sonarrContent'); if (!root) return null;
+    let tbody = root.querySelector('tbody#sonarrTable');
+    if (!tbody){
+      const qVal = (window.currentArr && window.currentArr.q) ? String(window.currentArr.q) : '';
+      root.innerHTML = `<div class=\"row\"><div class=\"col field\"><input id=\"sonarrSearchInput\" placeholder=\"search series\" value=\"${qVal}\" oninput=\"globalSearch(this.value)\"/></div><label class=\"hint\" style=\"display:flex;align-items:center;gap:6px\"><input type=\"checkbox\" onchange=\"window._arrLive=this.checked\" ${ (window._arrLive===false)?'':'checked' }/> Live</label></div>` +
+        `<div class='hint'>Counts: <span id='sonarrCounts'></span> &nbsp; Last updated: <span id='sonarrUpdated'></span></div>` +
+        `<table><thead><tr><th>Series</th><th>Season</th><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr></thead><tbody id='sonarrTable'></tbody></table>` +
+        `<div class=\"row\" style=\"margin-top:8px\"><div class=\"col\" id=\"sonarrPagerLeft\"></div><div class=\"col\" id=\"sonarrPagerRight\" style=\"text-align:right\"></div></div>`;
+      tbody = root.querySelector('tbody#sonarrTable');
+    }
+    return tbody;
+  }
+  function sonarrApplyPagination(state, totals){
+    const tp = Math.max(1, Math.ceil((totals||0)/(state.pageSize||25)));
+    const left = document.getElementById('sonarrPagerLeft'); const right = document.getElementById('sonarrPagerRight');
+    if (left) left.textContent = `Page ${ (state.page||0)+1 } of ${ tp } (${ totals||0 } series)`;
+    if (right) right.innerHTML = `<button class=\"btn\" onclick=\"(function(){ window.currentArr.page=Math.max(0,(window.currentArr.page||0)-1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Prev</button>
+      <button class=\"btn\" onclick=\"(function(){ const tp=${tp}; window.currentArr.page=Math.min(tp-1,(window.currentArr.page||0)+1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Next</button>`;
+  }
+  window.sonarrUpdateTable = function(d){
+    const tbody = ensureSonarrTable(); if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const rowMap = new Map(rows.map(r => [r.getAttribute('data-key'), r]));
+    (d.series||[]).forEach(s => {
+      const series = s.series || {};
+      const seasons = s.seasons || {};
+      Object.entries(seasons).forEach(([sn, sv]) => {
+        (sv.episodes||[]).forEach(e => {
+          const key = epKey(series, sn, e.episodeNumber);
+          let tr = rowMap.get(key);
+          if (!tr){ tr = document.createElement('tr'); tr.setAttribute('data-key', key); tr.innerHTML = `<td class=\"c-series\"></td><td class=\"c-season\"></td><td class=\"c-ep\"></td><td class=\"c-title\"></td><td class=\"c-mon\"></td><td class=\"c-file\"></td><td class=\"c-air\"></td>`; tbody.appendChild(tr); }
+          const set = (sel,val)=>{ const el=tr.querySelector(sel); if (el && el.textContent!==String(val??'')) el.textContent = String(val??''); };
+          set('.c-series', series.title||''); set('.c-season', sn); set('.c-ep', e.episodeNumber||''); set('.c-title', e.title||''); set('.c-mon', e.monitored?'Yes':'No'); set('.c-file', e.hasFile?'Yes':'No'); set('.c-air', e.airDateUtc||'');
+        });
+      });
+    });
+    const countsEl = document.getElementById('sonarrCounts'); if (countsEl && d.counts) countsEl.textContent = `${d.counts.monitored||0}/${d.counts.available||0}`;
+    const updEl = document.getElementById('sonarrUpdated'); if (updEl) updEl.textContent = nowTime();
+    if (window.currentArr) sonarrApplyPagination(window.currentArr, d.total||0);
+  };
+  // Override loader to immediately use skeleton + incremental update
+  const __origLoadSonarr = window.loadSonarrInstance;
+  window.loadSonarrInstance = async function(cat, opts={}){
+    try {
+      const q = (opts.q!=null ? opts.q : (window.currentArr && window.currentArr.q)) || '';
+      const pg = (opts.page!=null ? opts.page : (window.currentArr && window.currentArr.page)) || 0;
+      const ps = (opts.pageSize!=null ? opts.pageSize : (window.currentArr && window.currentArr.pageSize)) || 25;
+      window.currentArr = { type:'sonarr', cat, q, page:pg, pageSize:ps };
+      const r = await fetch(`/web/sonarr/${cat}/series?q=${encodeURIComponent(q)}&page=${pg}&page_size=${ps}`, { headers: H() });
+      if (!r.ok) { const root=document.getElementById('sonarrContent'); if (root) root.innerHTML = `<div class='hint bad'>Instance unavailable (server error). Retrying automatically…</div>`; return; }
+      const d = await r.json(); window.sonarrUpdateTable && window.sonarrUpdateTable(d);
+    } catch(e){ try { __origLoadSonarr && __origLoadSonarr(cat, opts); } catch(_){} }
+  };
+})();
+
 // Incremental per-instance table updates to avoid full redraws
 (function(){
   const H = () => ({ 'Content-Type': 'application/json' });
@@ -876,6 +1006,114 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
       }
     } catch(e){}
     try { __origRefresh && __origRefresh(); } catch(_){ }
+  };
+})();
+
+// Final overrides: flip counts to available/monitored and nested Sonarr incremental updates
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  const nowTime = () => (new Date()).toLocaleTimeString();
+
+  // Override refreshArrCounts to flip counts and include ERR badge
+  window.refreshArrCounts = async function(){
+    try {
+      let aliveByCat = {};
+      try { const pr = await fetch('/web/processes',{headers:H()}); if (pr.ok){ const pd=await pr.json(); (pd.processes||[]).forEach(p=>{ if(p.alive) aliveByCat[p.category]=true; }); } } catch(_){}
+      const update = async (containerId, type) => {
+        const c = document.getElementById(containerId); if (!c) return;
+        const btns = Array.from(c.querySelectorAll('button')).filter(b=>b.dataset && b.dataset.cat);
+        for (const b of btns){
+          const cat = b.dataset.cat; const label = b.dataset.label || b.textContent;
+          let counts=null, hadError=false;
+          try { const r=await fetch(type==='radarr'?`/web/radarr/${cat}/movies?page=0&page_size=1`:`/web/sonarr/${cat}/series?page=0&page_size=1`, {headers:H()}); if (r.ok){ const d=await r.json(); counts = d && d.counts ? d.counts : null; } else { hadError=true } } catch(_) { hadError=true }
+          const suffix = counts ? ` (${counts.available||0}/${counts.monitored||0})` : '';
+          const parts = [];
+          parts.push(aliveByCat[cat]?"<span class='ok'>UP</span>":"<span class='bad'>DOWN</span>");
+          if (hadError) parts.push("<span class='bad'>ERR</span>");
+          b.innerHTML = label + suffix + ' ' + parts.join(' ');
+        }
+      };
+      await update('radarrNav','radarr');
+      await update('sonarrNav','sonarr');
+    } catch(_){ }
+  };
+
+  // Flip Radarr counts display to available/monitored in incremental updater
+  if (window.radarrUpdateTable){
+    const origRadarrUpdate = window.radarrUpdateTable;
+    window.radarrUpdateTable = function(d){
+      try { origRadarrUpdate(d); } catch(_){ }
+      try {
+        const countsEl = document.getElementById('radarrCounts');
+        if (countsEl && d.counts) countsEl.textContent = `${d.counts.available||0}/${d.counts.monitored||0}`;
+        const updEl = document.getElementById('radarrUpdated'); if (updEl) updEl.textContent = nowTime();
+      } catch(_){ }
+    };
+  }
+
+  // Nested, collapsible Sonarr incremental updates
+  function ensureSonarrSkeleton(){
+    const root = document.getElementById('sonarrContent'); if (!root) return null;
+    if (!root.querySelector('#sonarrSeries')){
+      const qVal = (window.currentArr && window.currentArr.q) ? String(window.currentArr.q) : '';
+      root.innerHTML = `<div class=\"row\"><div class=\"col field\"><input id=\"sonarrSearchInput\" placeholder=\"search series\" value=\"${qVal}\" oninput=\"globalSearch(this.value)\"/></div><label class=\"hint\" style=\"display:flex;align-items:center;gap:6px\"><input type=\"checkbox\" onchange=\"window._arrLive=this.checked\" ${ (window._arrLive===false)?'':'checked' }/> Live</label></div>` +
+        `<div class='hint'>Counts: <span id='sonarrCounts'></span> &nbsp; Last updated: <span id='sonarrUpdated'></span></div>` +
+        `<div id='sonarrSeries'></div>` +
+        `<div class=\"row\" style=\"margin-top:8px\"><div class=\"col\" id=\"sonarrPagerLeft\"></div><div class=\"col\" id=\"sonarrPagerRight\" style=\"text-align:right\"></div></div>`;
+    }
+    return root.querySelector('#sonarrSeries');
+  }
+  function sonarrSeriesKey(series){ return (series && (series.id!=null)) ? String(series.id) : (series && series.title) || ''; }
+  function sonarrApplyPagination(state, totals){
+    const tp = Math.max(1, Math.ceil((totals||0)/(state.pageSize||25)));
+    const left = document.getElementById('sonarrPagerLeft'); const right = document.getElementById('sonarrPagerRight');
+    if (left) left.textContent = `Page ${ (state.page||0)+1 } of ${ tp } (${ totals||0 } series)`;
+    if (right) right.innerHTML = `<button class=\"btn\" onclick=\"(function(){ window.currentArr.page=Math.max(0,(window.currentArr.page||0)-1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Prev</button>
+      <button class=\"btn\" onclick=\"(function(){ const tp=${tp}; window.currentArr.page=Math.min(tp-1,(window.currentArr.page||0)+1); window.loadSonarrInstance(window.currentArr.cat, window.currentArr); })()\">Next</button>`;
+  }
+  window.sonarrUpdateTable = function(d){
+    const container = ensureSonarrSkeleton(); if (!container) return;
+    const seriesMap = new Map(Array.from(container.querySelectorAll('details[data-series]')).map(el => [el.getAttribute('data-series'), el]));
+    (d.series||[]).forEach(s => {
+      const series = s.series || {}; const sid = sonarrSeriesKey(series);
+      let sDetails = seriesMap.get(sid);
+      if (!sDetails){ sDetails = document.createElement('details'); sDetails.setAttribute('data-series', sid); sDetails.innerHTML = `<summary class=\"sum-series\"></summary><div class=\"series-body\"></div>`; container.appendChild(sDetails); }
+      const sum = sDetails.querySelector('.sum-series');
+      const title = series.title||''; const avail = (s.totals && s.totals.available)||0; const mon = (s.totals && s.totals.monitored)||0;
+      const desiredSummary = `${title} - ${avail} / ${mon}`;
+      if (sum && sum.textContent !== desiredSummary) sum.textContent = desiredSummary;
+      const body = sDetails.querySelector('.series-body');
+      // Seasons
+      const seasonMap = new Map(Array.from(body.querySelectorAll('details[data-season]')).map(el => [el.getAttribute('data-season'), el]));
+      const seasons = s.seasons || {};
+      Object.entries(seasons).forEach(([sn, sv]) => {
+        let dSeason = seasonMap.get(String(sn));
+        if (!dSeason){ dSeason = document.createElement('details'); dSeason.setAttribute('data-season', String(sn)); dSeason.innerHTML = `<summary class=\"sum-season\"></summary><table><thead><tr><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr></thead><tbody></tbody></table>`; body.appendChild(dSeason);}
+        const ssum = dSeason.querySelector('.sum-season'); const sAvail = sv.available||0; const sMon = sv.monitored||0; const sSummary = `Season ${sn} - ${sAvail} / ${sMon}`; if (ssum && ssum.textContent !== sSummary) ssum.textContent = sSummary;
+        const tbody = dSeason.querySelector('tbody'); const rowMap = new Map(Array.from(tbody.querySelectorAll('tr')).map(r=>[r.getAttribute('data-ep'), r]));
+        (sv.episodes||[]).forEach(e => {
+          const key = String(e.episodeNumber||''); let tr = rowMap.get(key);
+          if (!tr){ tr = document.createElement('tr'); tr.setAttribute('data-ep', key); tr.innerHTML = `<td class=\"c-ep\"></td><td class=\"c-title\"></td><td class=\"c-mon\"></td><td class=\"c-file\"></td><td class=\"c-air\"></td>`; tbody.appendChild(tr); }
+          const set = (sel,val)=>{ const el=tr.querySelector(sel); if (el && el.textContent!==String(val??'')) el.textContent = String(val??''); };
+          set('.c-ep', e.episodeNumber||''); set('.c-title', e.title||''); set('.c-mon', e.monitored?'Yes':'No'); set('.c-file', e.hasFile?'Yes':'No'); set('.c-air', e.airDateUtc||'');
+        });
+      });
+    });
+    const countsEl = document.getElementById('sonarrCounts'); if (countsEl && d.counts) countsEl.textContent = `${d.counts.available||0}/${d.counts.monitored||0}`;
+    const updEl = document.getElementById('sonarrUpdated'); if (updEl) updEl.textContent = nowTime();
+    if (window.currentArr) sonarrApplyPagination(window.currentArr, d.total||0);
+  };
+  const __origLoadSonarr = window.loadSonarrInstance;
+  window.loadSonarrInstance = async function(cat, opts={}){
+    try {
+      const q = (opts.q!=null ? opts.q : (window.currentArr && window.currentArr.q)) || '';
+      const pg = (opts.page!=null ? opts.page : (window.currentArr && window.currentArr.page)) || 0;
+      const ps = (opts.pageSize!=null ? opts.pageSize : (window.currentArr && window.currentArr.pageSize)) || 25;
+      window.currentArr = { type:'sonarr', cat, q, page:pg, pageSize:ps };
+      const r = await fetch(`/web/sonarr/${cat}/series?q=${encodeURIComponent(q)}&page=${pg}&page_size=${ps}`, { headers: H() });
+      if (!r.ok) { const root=document.getElementById('sonarrContent'); if (root) root.innerHTML = `<div class='hint bad'>Instance unavailable (server error). Retrying automatically…</div>`; return; }
+      const d = await r.json(); window.sonarrUpdateTable && window.sonarrUpdateTable(d);
+    } catch(e){ try { __origLoadSonarr && __origLoadSonarr(cat, opts); } catch(_){} }
   };
 })();
 
