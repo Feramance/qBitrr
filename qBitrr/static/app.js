@@ -128,3 +128,96 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
     };
   }
 })();
+
+// Fallback Config render/save if missing
+(function(){
+  const H = () => ({ "Content-Type": "application/json" });
+  if (typeof window.renderConfigForms !== 'function') {
+    window.renderConfigForms = async function(){
+      const r = await fetch('/web/config', { headers: H() });
+      const cfg = await r.json();
+      const root = document.getElementById('configForms');
+      if (!root) return;
+      let html = '<div class="card"><div class="card-header">Settings</div><div class="card-body">';
+      function input(label, id, val, type){return `<div class="field"><label for="${id}">${label}</label><input id="${id}" type="${type||'text'}" value="${val??''}"></div>`}
+      function checkbox(label, id, checked){return `<div class="field"><label><input id="${id}" type="checkbox" ${checked?'checked':''}/> ${label}</label></div>`}
+      function select(label,id,val,opts){ const o=opts.map(x=>`<option ${String(x)==String(val)?'selected':''}>${x}</option>`).join(''); return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${o}</select></div>` }
+      html += select('Console Level','cfg_ConsoleLevel', cfg.Settings?.ConsoleLevel||'INFO', ['CRITICAL','ERROR','WARNING','NOTICE','INFO','DEBUG','TRACE']);
+      html += checkbox('Logging','cfg_Logging', !!cfg.Settings?.Logging);
+      html += input('Completed Download Folder','cfg_CompletedDownloadFolder', cfg.Settings?.CompletedDownloadFolder);
+      html += input('Free Space','cfg_FreeSpace', cfg.Settings?.FreeSpace);
+      html += input('Free Space Folder','cfg_FreeSpaceFolder', cfg.Settings?.FreeSpaceFolder);
+      html += checkbox('Auto Pause/Resume','cfg_AutoPauseResume', !!cfg.Settings?.AutoPauseResume);
+      html += input('No Internet Sleep (s)','cfg_NoInternetSleepTimer', cfg.Settings?.NoInternetSleepTimer,'number');
+      html += input('Loop Sleep (s)','cfg_LoopSleepTimer', cfg.Settings?.LoopSleepTimer,'number');
+      html += input('Search Loop Delay (s)','cfg_SearchLoopDelay', cfg.Settings?.SearchLoopDelay,'number');
+      html += input('Failed Category','cfg_FailedCategory', cfg.Settings?.FailedCategory);
+      html += input('Recheck Category','cfg_RecheckCategory', cfg.Settings?.RecheckCategory);
+      html += checkbox('Tagless','cfg_Tagless', !!cfg.Settings?.Tagless);
+      html += input('Ignore Torrents Younger Than','cfg_IgnoreTorrentsYoungerThan', cfg.Settings?.IgnoreTorrentsYoungerThan,'number');
+      html += input('WebUI Host','cfg_WebUIHost', cfg.Settings?.WebUIHost);
+      html += input('WebUI Port','cfg_WebUIPort', cfg.Settings?.WebUIPort,'number');
+      html += input('WebUI Token','cfg_WebUIToken', cfg.Settings?.WebUIToken);
+      html += '</div></div>';
+      html += '<div class="card" style="margin-top:12px"><div class="card-header">qBit</div><div class="card-body">';
+      html += checkbox('Disabled','cfg_qBit_Disabled', !!cfg.qBit?.Disabled);
+      html += input('Host','cfg_qBit_Host', cfg.qBit?.Host);
+      html += input('Port','cfg_qBit_Port', cfg.qBit?.Port, 'number');
+      html += input('UserName','cfg_qBit_UserName', cfg.qBit?.UserName);
+      html += input('Password','cfg_qBit_Password', cfg.qBit?.Password,'password');
+      html += '</div></div>';
+      // Arr sections
+      for (const key of Object.keys(cfg||{})){
+        if (/(rad|son|anim)arr/i.test(key)){
+          const sec = cfg[key]||{};
+          html += `<div class="card" style="margin-top:12px"><div class="card-header">${key}</div><div class="card-body">`;
+          html += checkbox('Managed', `cfg_${key}_Managed`, !!sec.Managed);
+          html += input('URI', `cfg_${key}_URI`, sec.URI);
+          html += input('API Key', `cfg_${key}_APIKey`, sec.APIKey, 'password');
+          html += input('Category', `cfg_${key}_Category`, sec.Category);
+          html += '</div></div>';
+        }
+      }
+      root.innerHTML = html;
+    }
+  }
+  if (typeof window.submitConfigForms !== 'function') {
+    window.submitConfigForms = async function(){
+      const get = (id)=>document.getElementById(id);
+      const changes = {};
+      if (get('cfg_ConsoleLevel')) changes['Settings.ConsoleLevel'] = get('cfg_ConsoleLevel').value;
+      if (get('cfg_Logging')) changes['Settings.Logging'] = get('cfg_Logging').checked;
+      if (get('cfg_CompletedDownloadFolder')) changes['Settings.CompletedDownloadFolder'] = get('cfg_CompletedDownloadFolder').value;
+      if (get('cfg_FreeSpace')) changes['Settings.FreeSpace'] = get('cfg_FreeSpace').value;
+      if (get('cfg_FreeSpaceFolder')) changes['Settings.FreeSpaceFolder'] = get('cfg_FreeSpaceFolder').value;
+      if (get('cfg_AutoPauseResume')) changes['Settings.AutoPauseResume'] = get('cfg_AutoPauseResume').checked;
+      if (get('cfg_NoInternetSleepTimer')) changes['Settings.NoInternetSleepTimer'] = Number(get('cfg_NoInternetSleepTimer').value||0);
+      if (get('cfg_LoopSleepTimer')) changes['Settings.LoopSleepTimer'] = Number(get('cfg_LoopSleepTimer').value||0);
+      if (get('cfg_SearchLoopDelay')) changes['Settings.SearchLoopDelay'] = Number(get('cfg_SearchLoopDelay').value||0);
+      if (get('cfg_FailedCategory')) changes['Settings.FailedCategory'] = get('cfg_FailedCategory').value;
+      if (get('cfg_RecheckCategory')) changes['Settings.RecheckCategory'] = get('cfg_RecheckCategory').value;
+      if (get('cfg_Tagless')) changes['Settings.Tagless'] = get('cfg_Tagless').checked;
+      if (get('cfg_IgnoreTorrentsYoungerThan')) changes['Settings.IgnoreTorrentsYoungerThan'] = Number(get('cfg_IgnoreTorrentsYoungerThan').value||0);
+      if (get('cfg_WebUIHost')) changes['Settings.WebUIHost'] = get('cfg_WebUIHost').value;
+      if (get('cfg_WebUIPort')) changes['Settings.WebUIPort'] = Number(get('cfg_WebUIPort').value||6969);
+      if (get('cfg_WebUIToken')) changes['Settings.WebUIToken'] = get('cfg_WebUIToken').value;
+      if (get('cfg_qBit_Disabled')) changes['qBit.Disabled'] = get('cfg_qBit_Disabled').checked;
+      if (get('cfg_qBit_Host')) changes['qBit.Host'] = get('cfg_qBit_Host').value;
+      if (get('cfg_qBit_Port')) changes['qBit.Port'] = Number(get('cfg_qBit_Port').value||0);
+      if (get('cfg_qBit_UserName')) changes['qBit.UserName'] = get('cfg_qBit_UserName').value;
+      if (get('cfg_qBit_Password')) changes['qBit.Password'] = get('cfg_qBit_Password').value;
+      const headers = H();
+      // Dynamic arr cards
+      const cards = document.querySelectorAll('#configForms .card .card-header');
+      for (const header of cards){ const key = header.textContent.trim(); if (/(rad|son|anim)arr/i.test(key)){
+        const m = (id)=> document.getElementById(`cfg_${key}_${id}`);
+        if (m('Managed')) changes[`${key}.Managed`] = m('Managed').checked;
+        if (m('URI')) changes[`${key}.URI`] = m('URI').value;
+        if (m('APIKey')) changes[`${key}.APIKey`] = m('APIKey').value;
+        if (m('Category')) changes[`${key}.Category`] = m('Category').value;
+      } }
+      await fetch('/web/config', { method:'POST', headers, body: JSON.stringify({ changes }) });
+      alert('Saved');
+    }
+  }
+})();

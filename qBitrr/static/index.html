@@ -22,9 +22,8 @@
                         if (link) link.classList.toggle('active', t === id);
                     }
                     show(id);
-                    if (id === 'config' && window.renderConfigForms) {
-                        window.renderConfigForms();
-                    }
+                    if ((id === 'radarr' || id === 'sonarr') && typeof window.loadArrList === 'function') { window.loadArrList(); }
+                    if (id === 'config' && typeof window.renderConfigForms === 'function') { window.renderConfigForms(); }
                 } catch (e) {}
             }
         </script>
