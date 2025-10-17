@@ -243,10 +243,26 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
       procTimer = setInterval(()=>{ try { window.loadProcesses && window.loadProcesses(); } catch(_){} }, 1000);
     } else if (id === 'radarr' || id === 'sonarr') {
       if (typeof window.loadArrList === 'function') window.loadArrList();
-      arrTimer = setInterval(()=>{ try { window.refreshArrCounts && window.refreshArrCounts(); } catch(_){} }, 1000);
+      arrTimer = setInterval(()=>{ try {
+        window.refreshArrCounts && window.refreshArrCounts();
+        // also refresh the active table data without losing search/page
+        if (typeof window.refreshActiveArrTable === 'function') window.refreshActiveArrTable();
+      } catch(_){} }, 1000);
     }
   };
-  document.addEventListener('DOMContentLoaded', function(){ try { if (window.__activeTab) { window.onTabActivated(window.__activeTab); } } catch(_){} });
+  document.addEventListener('DOMContentLoaded', function(){
+    try {
+      // Always auto-refresh the toolbar status every 1s
+      try { window.loadStatus && window.loadStatus(); } catch(_){ }
+      setInterval(()=>{ try { window.loadStatus && window.loadStatus(); } catch(_){ } }, 1000);
+      // Determine active tab if not set
+      if (!window.__activeTab) {
+        var active = document.querySelector('.nav a.active');
+        window.__activeTab = active ? (active.id||'tab-processes').replace('tab-','') : 'processes';
+      }
+      window.onTabActivated(window.__activeTab);
+    } catch(_){}
+  });
 })();
 
 // Add instance helper for Config: creates a new card with fields
@@ -319,6 +335,29 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
           html += input('URI', `cfg_${key}_URI`, sec.URI);
           html += input('API Key', `cfg_${key}_APIKey`, sec.APIKey, 'password');
           html += input('Category', `cfg_${key}_Category`, sec.Category);
+          // EntrySearch
+          html += '<div class="hint" style="margin-top:8px">EntrySearch</div>';
+          html += checkbox('Search Missing', `cfg_${key}_EntrySearch_SearchMissing`, !!(sec.EntrySearch && sec.EntrySearch.SearchMissing));
+          html += checkbox('Do Upgrade Search', `cfg_${key}_EntrySearch_DoUpgradeSearch`, !!(sec.EntrySearch && sec.EntrySearch.DoUpgradeSearch));
+          html += checkbox('Quality Unmet Search', `cfg_${key}_EntrySearch_QualityUnmetSearch`, !!(sec.EntrySearch && sec.EntrySearch.QualityUnmetSearch));
+          html += checkbox('Custom Format Unmet Search', `cfg_${key}_EntrySearch_CustomFormatUnmetSearch`, !!(sec.EntrySearch && sec.EntrySearch.CustomFormatUnmetSearch));
+          html += checkbox('Force Minimum Custom Format', `cfg_${key}_EntrySearch_ForceMinimumCustomFormat`, !!(sec.EntrySearch && sec.EntrySearch.ForceMinimumCustomFormat));
+          html += input('Search Limit', `cfg_${key}_EntrySearch_SearchLimit`, (sec.EntrySearch && sec.EntrySearch.SearchLimit), 'number');
+          html += checkbox("Prioritize Today's Releases", `cfg_${key}_EntrySearch_PrioritizeTodaysReleases`, !!(sec.EntrySearch && sec.EntrySearch.PrioritizeTodaysReleases));
+          // Torrent
+          html += '<div class="hint" style="margin-top:8px">Torrent</div>';
+          html += input('Ignore Torrents Younger Than (s)', `cfg_${key}_Torrent_IgnoreTorrentsYoungerThan`, (sec.Torrent && sec.Torrent.IgnoreTorrentsYoungerThan), 'number');
+          html += input('Maximum ETA (s)', `cfg_${key}_Torrent_MaximumETA`, (sec.Torrent && sec.Torrent.MaximumETA), 'number');
+          html += input('Maximum Deletable Percentage', `cfg_${key}_Torrent_MaximumDeletablePercentage`, (sec.Torrent && sec.Torrent.MaximumDeletablePercentage), 'number');
+          html += checkbox('Do Not Remove Slow', `cfg_${key}_Torrent_DoNotRemoveSlow`, !!(sec.Torrent && sec.Torrent.DoNotRemoveSlow));
+          html += input('Stalled Delay (min)', `cfg_${key}_Torrent_StalledDelay`, (sec.Torrent && sec.Torrent.StalledDelay), 'number');
+          html += checkbox('Re-Search Stalled', `cfg_${key}_Torrent_ReSearchStalled`, !!(sec.Torrent && sec.Torrent.ReSearchStalled));
+          html += input('File Extension Allowlist (comma)', `cfg_${key}_Torrent_FileExtensionAllowlist`, ((sec.Torrent && sec.Torrent.FileExtensionAllowlist)||[]).join(','));
+          // SeedingMode
+          html += '<div class="hint" style="margin-top:8px">Seeding Mode</div>';
+          html += input('Max Upload Ratio', `cfg_${key}_SeedingMode_MaxUploadRatio`, (sec.Torrent && sec.Torrent.SeedingMode && sec.Torrent.SeedingMode.MaxUploadRatio), 'number');
+          html += input('Max Seeding Time (s)', `cfg_${key}_SeedingMode_MaxSeedingTime`, (sec.Torrent && sec.Torrent.SeedingMode && sec.Torrent.SeedingMode.MaxSeedingTime), 'number');
+          html += input('Remove Torrent (policy)', `cfg_${key}_SeedingMode_RemoveTorrent`, (sec.Torrent && sec.Torrent.SeedingMode && sec.Torrent.SeedingMode.RemoveTorrent), 'number');
           html += '</div></div>';
         }
       }
@@ -360,7 +399,7 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
         if (m('APIKey')) changes[`${key}.APIKey`] = m('APIKey').value;
         if (m('Category')) changes[`${key}.Category`] = m('Category').value;
       } }
-      await fetch('/web/config', { method:'POST', headers, body: JSON.stringify({ changes }) });
+      \ \ \ \ \ \ //\ Extend\ arr\ card\ mappings\ for\ advanced\ fields\n\ \ \ \ \ \ const\ headers\ =\ H\(\);\n\ \ \ \ \ \ for\ \(const\ header\ of\ cards\)\{\ const\ key\ =\ header\.textContent\.trim\(\);\ if\ \(/\(rad\|son\|anim\)arr/i\.test\(key\)\)\{\n\ \ \ \ \ \ \ \ const\ m\ =\ \(id\)=>\ document\.getElementById\(cfg__\);\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_SearchMissing'\)\)\ changes\[\$\{key}\.EntrySearch\.SearchMissing]\ =\ m\('EntrySearch_SearchMissing'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_DoUpgradeSearch'\)\)\ changes\[\$\{key}\.EntrySearch\.DoUpgradeSearch]\ =\ m\('EntrySearch_DoUpgradeSearch'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_QualityUnmetSearch'\)\)\ changes\[\$\{key}\.EntrySearch\.QualityUnmetSearch]\ =\ m\('EntrySearch_QualityUnmetSearch'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_CustomFormatUnmetSearch'\)\)\ changes\[\$\{key}\.EntrySearch\.CustomFormatUnmetSearch]\ =\ m\('EntrySearch_CustomFormatUnmetSearch'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_ForceMinimumCustomFormat'\)\)\ changes\[\$\{key}\.EntrySearch\.ForceMinimumCustomFormat]\ =\ m\('EntrySearch_ForceMinimumCustomFormat'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_SearchLimit'\)\)\ changes\[\$\{key}\.EntrySearch\.SearchLimit]\ =\ Number\(m\('EntrySearch_SearchLimit'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('EntrySearch_PrioritizeTodaysReleases'\)\)\ changes\[\$\{key}\.EntrySearch\.PrioritizeTodaysReleases]\ =\ m\('EntrySearch_PrioritizeTodaysReleases'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_IgnoreTorrentsYoungerThan'\)\)\ changes\[\$\{key}\.Torrent\.IgnoreTorrentsYoungerThan]\ =\ Number\(m\('Torrent_IgnoreTorrentsYoungerThan'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_MaximumETA'\)\)\ changes\[\$\{key}\.Torrent\.MaximumETA]\ =\ Number\(m\('Torrent_MaximumETA'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_MaximumDeletablePercentage'\)\)\ changes\[\$\{key}\.Torrent\.MaximumDeletablePercentage]\ =\ Number\(m\('Torrent_MaximumDeletablePercentage'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_DoNotRemoveSlow'\)\)\ changes\[\$\{key}\.Torrent\.DoNotRemoveSlow]\ =\ m\('Torrent_DoNotRemoveSlow'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_StalledDelay'\)\)\ changes\[\$\{key}\.Torrent\.StalledDelay]\ =\ Number\(m\('Torrent_StalledDelay'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_ReSearchStalled'\)\)\ changes\[\$\{key}\.Torrent\.ReSearchStalled]\ =\ m\('Torrent_ReSearchStalled'\)\.checked;\n\ \ \ \ \ \ \ \ if\ \(m\('Torrent_FileExtensionAllowlist'\)\)\ changes\[\$\{key}\.Torrent\.FileExtensionAllowlist]\ =\ m\('Torrent_FileExtensionAllowlist'\)\.value\.split\(','\)\.map\(s=>s\.trim\(\)\)\.filter\(Boolean\);\n\ \ \ \ \ \ \ \ if\ \(m\('SeedingMode_MaxUploadRatio'\)\)\ changes\[\$\{key}\.Torrent\.SeedingMode\.MaxUploadRatio]\ =\ Number\(m\('SeedingMode_MaxUploadRatio'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('SeedingMode_MaxSeedingTime'\)\)\ changes\[\$\{key}\.Torrent\.SeedingMode\.MaxSeedingTime]\ =\ Number\(m\('SeedingMode_MaxSeedingTime'\)\.value\|\|0\);\n\ \ \ \ \ \ \ \ if\ \(m\('SeedingMode_RemoveTorrent'\)\)\ changes\[\$\{key}\.Torrent\.SeedingMode\.RemoveTorrent]\ =\ Number\(m\('SeedingMode_RemoveTorrent'\)\.value\|\|0\);\n\ \ \ \ \ \ }\ }\n\ \ \ \ \ \ await\ fetch\('/web/config',\ \{\ method:'POST',\ headers,\ body:\ JSON\.stringify\(\{\ changes\ }\)\ }\);
       alert('Saved');
     }
   }
