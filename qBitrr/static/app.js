@@ -80,7 +80,7 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
     window.loadArrList = async function(){ const [arrRes,procRes]=await Promise.all([fetch('/web/arr',{headers:H()}),fetch('/web/processes',{headers:H()})]); const d=await arrRes.json(); const nameByCat={}; const procs=await procRes.json(); for (const p of (procs.processes||[])) nameByCat[p.category]=p.name||p.category; const rnav=document.getElementById('radarrNav'); const snav=document.getElementById('sonarrNav'); if(rnav) rnav.innerHTML=''; if(snav) snav.innerHTML=''; const rbtn=document.createElement('button'); rbtn.className='btn'; rbtn.textContent='Load All Radarr'; rbtn.onclick=()=>window.loadRadarrAllInstances && window.loadRadarrAllInstances((d.arr||[]).filter(a=>a.type==='radarr').map(a=>a.category)); rnav && rnav.appendChild(rbtn); const sbtn=document.createElement('button'); sbtn.className='btn'; sbtn.textContent='Load All Sonarr'; sbtn.onclick=()=>window.loadSonarrAllInstances && window.loadSonarrAllInstances((d.arr||[]).filter(a=>a.type==='sonarr').map(a=>a.category)); snav && snav.appendChild(sbtn); };
   }
   if (typeof window.loadRadarrAllInstances !== 'function') {
-    window.loadRadarrAllInstances = async function(cats){ const content=document.getElementById('radarrContent'); if(!content) return; content.innerHTML='<div class="loading"><span class="spinner"></span> Loading Radarr…</div>'; let items=[]; for (const cat of cats||[]){ let page=0; const ps=500; while(true){ const r=await fetch(`/web/radarr/${cat}/movies?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const m of (d.movies||[])) items.push({...m,__instance:cat}); if(!d.movies || d.movies.length<ps) break; page++; if(page>50) break; } } window._radarrAgg={items, q:'', page:0, pageSize:50}; window.renderRadarrAgg(); };
+    window.loadRadarrAllInstances = async function(cats){ const content=document.getElementById('radarrContent'); if(!content) return; content.innerHTML='<div class="loading"><span class="spinner"></span> Loading Radarr…</div>'; let items=[]; for (const cat of cats||[]){ let page=0; const ps=500; while(true){ const r=await fetch(`/web/radarr/${cat}/movies?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const m of (d.movies||[])) items.push({...m,__instance:cat}); if(!d.movies || d.movies.length<ps) break; page++; if(page>50) break; } } window._radarrAgg={items, q:(window._radarrAgg&&window._radarrAgg.q)||'', page:0, pageSize:50, cats: cats||[]}; window.currentArr={ type:'radarrAll' }; window.renderRadarrAgg(); };
   }
   if (typeof window.renderRadarrAgg !== 'function') {
     window.renderRadarrAgg = function(){ const st=window._radarrAgg||{items:[],q:'',page:0,pageSize:50}; const content=document.getElementById('radarrContent'); if(!content) return; const ql=(st.q||'').toLowerCase(); const filtered = ql? st.items.filter(m=> (m.title||'').toLowerCase().includes(ql) || (m.__instance||'').toLowerCase().includes(ql)) : st.items; const totalPages=Math.max(1, Math.ceil(filtered.length / st.pageSize)); st.page=Math.min(st.page,totalPages-1); const start=st.page*st.pageSize; const pageItems=filtered.slice(start,start+st.pageSize); let html=''; html+=`<div class="row"><div class="col field"><input placeholder="search movies" value="${st.q}" oninput="radarrAggSearch(this.value)"/></div></div>`; html+='<table><tr><th>Instance</th><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr>'; for (const m of pageItems){ html+=`<tr><td>${m.__instance||''}</td><td>${m.title||''}</td><td>${m.year||''}</td><td>${m.monitored?'Yes':'No'}</td><td>${m.hasFile?'Yes':'No'}</td></tr>`;} html+='</table>'; html+=`<div class="row" style="margin-top:8px"><div class="col">Page ${st.page+1} of ${totalPages} (${filtered.length} items)</div><div class="col" style="text-align:right"><button class="btn" onclick="radarrAggPage(-1)">Prev</button> <button class="btn" onclick="radarrAggPage(1)">Next</button></div></div>`; content.innerHTML=html; };
@@ -92,7 +92,7 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
     window.radarrAggPage = function(delta){ if(!window._radarrAgg) return; const st=window._radarrAgg; const totalPages=Math.max(1, Math.ceil((st.q? st.items.filter(m=> (m.title||'').toLowerCase().includes(st.q.toLowerCase()) || (m.__instance||'').toLowerCase().includes(st.q.toLowerCase())): st.items).length / st.pageSize)); st.page=Math.min(totalPages-1, Math.max(0, st.page+delta)); window.renderRadarrAgg(); };
   }
   if (typeof window.loadSonarrAllInstances !== 'function') {
-    window.loadSonarrAllInstances = async function(cats){ const content=document.getElementById('sonarrContent'); if(!content) return; content.innerHTML='<div class="loading"><span class="spinner"></span> Loading Sonarr…</div>'; let rows=[]; for (const cat of cats||[]){ let page=0; const ps=200; while(true){ const r=await fetch(`/web/sonarr/${cat}/series?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const s of (d.series||[])){ const title=s.series?.title||''; for (const [sn,sv] of Object.entries(s.seasons||{})){ for (const e of (sv.episodes||[])){ rows.push({__instance:cat, series:title, season:sn, ep:e.episodeNumber, title:e.title||'', monitored:!!e.monitored, hasFile:!!e.hasFile, air:e.airDateUtc||''}); } } } if(!d.series || d.series.length<ps) break; page++; if(page>100) break; } } window._sonarrAgg={rows, q:'', page:0, pageSize:100}; window.renderSonarrAgg(); };
+    window.loadSonarrAllInstances = async function(cats){ const content=document.getElementById('sonarrContent'); if(!content) return; content.innerHTML='<div class="loading"><span class="spinner"></span> Loading Sonarr…</div>'; let rows=[]; for (const cat of cats||[]){ let page=0; const ps=200; while(true){ const r=await fetch(`/web/sonarr/${cat}/series?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const s of (d.series||[])){ const title=s.series?.title||''; for (const [sn,sv] of Object.entries(s.seasons||{})){ for (const e of (sv.episodes||[])){ rows.push({__instance:cat, series:title, season:sn, ep:e.episodeNumber, title:e.title||'', monitored:!!e.monitored, hasFile:!!e.hasFile, air:e.airDateUtc||''}); } } } if(!d.series || d.series.length<ps) break; page++; if(page>100) break; } } window._sonarrAgg={rows, q:(window._sonarrAgg&&window._sonarrAgg.q)||'', page:0, pageSize:100, cats: cats||[]}; window.currentArr={ type:'sonarrAll' }; window.renderSonarrAgg(); };
   }
   if (typeof window.renderSonarrAgg !== 'function') {
     window.renderSonarrAgg = function(){ const st=window._sonarrAgg||{rows:[],q:'',page:0,pageSize:100}; const content=document.getElementById('sonarrContent'); if(!content) return; const ql=(st.q||'').toLowerCase(); const filtered = ql? st.rows.filter(r=> (r.series||'').toLowerCase().includes(ql) || (r.__instance||'').toLowerCase().includes(ql) || (r.title||'').toLowerCase().includes(ql)) : st.rows; const totalPages=Math.max(1, Math.ceil(filtered.length / st.pageSize)); st.page=Math.min(st.page,totalPages-1); const start=st.page*st.pageSize; const pageRows=filtered.slice(start,start+st.pageSize); let html=''; html+=`<div class="row"><div class="col field"><input placeholder="search episodes" value="${st.q}" oninput="sonarrAggSearch(this.value)"/></div></div>`; html+='<table><tr><th>Instance</th><th>Series</th><th>Season</th><th>Ep</th><th>Title</th><th>Monitored</th><th>Has File</th><th>Air Date</th></tr>'; for (const r of pageRows){ html+=`<tr><td>${r.__instance||''}</td><td>${r.series}</td><td>${r.season}</td><td>${r.ep}</td><td>${r.title}</td><td>${r.monitored?'Yes':'No'}</td><td>${r.hasFile?'Yes':'No'}</td><td>${r.air}</td></tr>`;} html+='</table>'; html+=`<div class="row" style="margin-top:8px"><div class="col">Page ${st.page+1} of ${totalPages} (${filtered.length} rows)</div><div class="col" style="text-align:right"><button class="btn" onclick="sonarrAggPage(-1)">Prev</button> <button class="btn" onclick="sonarrAggPage(1)">Next</button></div></div>`; content.innerHTML=html; };
@@ -103,6 +103,150 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
   if (typeof window.sonarrAggPage !== 'function') {
     window.sonarrAggPage = function(delta){ if(!window._sonarrAgg) return; const st=window._sonarrAgg; const totalPages=Math.max(1, Math.ceil((st.q? st.rows.filter(r=> (r.series||'').toLowerCase().includes(st.q.toLowerCase()) || (r.__instance||'').toLowerCase().includes(st.q.toLowerCase()) || (r.title||'').toLowerCase().includes(st.q.toLowerCase())): st.rows).length / st.pageSize)); st.page=Math.min(totalPages-1, Math.max(0, st.page+delta)); window.renderSonarrAgg(); };
   }
+})();
+
+// Enhance left nav buttons with monitored/available counts per instance
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  async function getRadarrCounts(cat){
+    try {
+      const r = await fetch(`/web/radarr/${cat}/movies?page=0&page_size=1`, { headers: H() });
+      if (!r.ok) return null; const d = await r.json();
+      return d && d.counts ? d.counts : null;
+    } catch { return null }
+  }
+  async function getSonarrCounts(cat){
+    try {
+      const r = await fetch(`/web/sonarr/${cat}/series?page=0&page_size=1`, { headers: H() });
+      if (!r.ok) return null; const d = await r.json();
+      return d && d.counts ? d.counts : null;
+    } catch { return null }
+  }
+  // Override to include counts next to each instance button
+  window.loadArrList = async function(){
+    const [arrRes, procRes] = await Promise.all([
+      fetch('/web/arr', { headers: H() }),
+      fetch('/web/processes', { headers: H() })
+    ]);
+    const d = await arrRes.json();
+    const procs = await procRes.json();
+    const nameByCat = {}; (procs.processes||[]).forEach(p => nameByCat[p.category] = p.name || p.category);
+
+    const rnav = document.getElementById('radarrNav');
+    if (rnav) {
+      rnav.innerHTML = '';
+      const rcats = (d.arr||[]).filter(a => a.type === 'radarr').map(a => a.category);
+      const allBtn = document.createElement('button'); allBtn.className='btn'; allBtn.textContent='Load All Radarr'; allBtn.onclick=()=>window.loadRadarrAllInstances && window.loadRadarrAllInstances(rcats); rnav.appendChild(allBtn);
+      // Fetch counts in parallel
+      const results = await Promise.all(rcats.map(async cat => ({ cat, counts: await getRadarrCounts(cat) })));
+      for (const { cat, counts } of results) {
+        const labelName = nameByCat[cat] || cat;
+        const suffix = counts ? ` (${counts.monitored||0}/${counts.available||0})` : '';
+        const b = document.createElement('button'); b.className='btn ghost'; b.style.display='block'; b.style.width='100%'; b.style.textAlign='left'; b.style.margin='4px 0'; b.textContent = labelName + suffix; b.onclick=()=>window.loadRadarrAll && window.loadRadarrAll(cat);
+        rnav.appendChild(b);
+      }
+    }
+
+    const snav = document.getElementById('sonarrNav');
+    if (snav) {
+      snav.innerHTML = '';
+      const scats = (d.arr||[]).filter(a => a.type === 'sonarr').map(a => a.category);
+      const allBtn = document.createElement('button'); allBtn.className='btn'; allBtn.textContent='Load All Sonarr'; allBtn.onclick=()=>window.loadSonarrAllInstances && window.loadSonarrAllInstances(scats); snav.appendChild(allBtn);
+      const results = await Promise.all(scats.map(async cat => ({ cat, counts: await getSonarrCounts(cat) })));
+      for (const { cat, counts } of results) {
+        const labelName = nameByCat[cat] || cat;
+        const suffix = counts ? ` (${counts.monitored||0}/${counts.available||0})` : '';
+        const b = document.createElement('button'); b.className='btn ghost'; b.style.display='block'; b.style.width='100%'; b.style.textAlign='left'; b.style.margin='4px 0'; b.textContent = labelName + suffix; b.onclick=()=>window.loadSonarrAll && window.loadSonarrAll(cat);
+        snav.appendChild(b);
+      }
+    }
+  };
+})();
+
+// Lightweight 1s auto-refresh of counts without rebuilding nav
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  async function getRadarrCounts(cat){
+    try { const r = await fetch(`/web/radarr/${cat}/movies?page=0&page_size=1`, { headers: H() }); if (!r.ok) return null; const d = await r.json(); return d.counts||null; } catch { return null }
+  }
+  async function getSonarrCounts(cat){
+    try { const r = await fetch(`/web/sonarr/${cat}/series?page=0&page_size=1`, { headers: H() }); if (!r.ok) return null; const d = await r.json(); return d.counts||null; } catch { return null }
+  }
+  // Override loadArrList to add data attributes for later incremental refresh
+  window.loadArrList = async function(){
+    const [arrRes, procRes] = await Promise.all([
+      fetch('/web/arr', { headers: H() }),
+      fetch('/web/processes', { headers: H() })
+    ]);
+    const d = await arrRes.json();
+    const procs = await procRes.json();
+    const nameByCat = {}; (procs.processes||[]).forEach(p => nameByCat[p.category] = p.name || p.category);
+
+    const rnav = document.getElementById('radarrNav');
+    if (rnav) {
+      rnav.innerHTML = '';
+      const rcats = (d.arr||[]).filter(a => a.type === 'radarr').map(a => a.category);
+      const allBtn = document.createElement('button'); allBtn.className='btn'; allBtn.textContent='Load All Radarr'; allBtn.onclick=()=>window.loadRadarrAllInstances && window.loadRadarrAllInstances(rcats); rnav.appendChild(allBtn);
+      const results = await Promise.all(rcats.map(async cat => ({ cat, counts: await getRadarrCounts(cat) })));
+      for (const { cat, counts } of results) {
+        const labelName = nameByCat[cat] || cat;
+        const suffix = counts ? ` (${counts.monitored||0}/${counts.available||0})` : '';
+        const b = document.createElement('button'); b.className='btn ghost'; b.style.display='block'; b.style.width='100%'; b.style.textAlign='left'; b.style.margin='4px 0'; b.textContent = labelName + suffix; b.onclick=()=>{ window.currentArr = { type: 'radarr', cat, targetId: 'radarrContent' }; window.loadRadarrAll && window.loadRadarrAll(cat); };
+        b.dataset.cat = cat; b.dataset.type='radarr'; b.dataset.label = labelName;
+        rnav.appendChild(b);
+      }
+    }
+
+    const snav = document.getElementById('sonarrNav');
+    if (snav) {
+      snav.innerHTML = '';
+      const scats = (d.arr||[]).filter(a => a.type === 'sonarr').map(a => a.category);
+      const allBtn = document.createElement('button'); allBtn.className='btn'; allBtn.textContent='Load All Sonarr'; allBtn.onclick=()=>window.loadSonarrAllInstances && window.loadSonarrAllInstances(scats); snav.appendChild(allBtn);
+      const results = await Promise.all(scats.map(async cat => ({ cat, counts: await getSonarrCounts(cat) })));
+      for (const { cat, counts } of results) {
+        const labelName = nameByCat[cat] || cat;
+        const suffix = counts ? ` (${counts.monitored||0}/${counts.available||0})` : '';
+        const b = document.createElement('button'); b.className='btn ghost'; b.style.display='block'; b.style.width='100%'; b.style.textAlign='left'; b.style.margin='4px 0'; b.textContent = labelName + suffix; b.onclick=()=>{ window.currentArr = { type: 'sonarr', cat, targetId: 'sonarrContent' }; window.loadSonarrAll && window.loadSonarrAll(cat); };
+        b.dataset.cat = cat; b.dataset.type='sonarr'; b.dataset.label = labelName;
+        snav.appendChild(b);
+      }
+    }
+    // Initial counts set; subsequent refresh uses refreshArrCounts
+    window.refreshArrCounts && window.refreshArrCounts();
+  };
+
+  window.refreshArrCounts = async function(){
+    const updateButtons = async (containerId, type) => {
+      const c = document.getElementById(containerId); if (!c) return;
+      const btns = Array.from(c.querySelectorAll('button')).filter(b => b.dataset && b.dataset.cat);
+      await Promise.all(btns.map(async b => {
+        const cat = b.dataset.cat; const label = b.dataset.label || b.textContent.replace(/\(.*\)$/,'').trim();
+        const counts = type === 'radarr' ? await getRadarrCounts(cat) : await getSonarrCounts(cat);
+        const suffix = counts ? ` (${counts.monitored||0}/${counts.available||0})` : '';
+        b.textContent = label + suffix;
+      }));
+    };
+    await updateButtons('radarrNav','radarr');
+    await updateButtons('sonarrNav','sonarr');
+  };
+})();
+
+// Override tab timers: 1s refresh and incremental count updates
+(function(){
+  let procTimer = null;
+  let arrTimer = null;
+  function clearTimers(){ if (procTimer) { clearInterval(procTimer); procTimer=null; } if (arrTimer) { clearInterval(arrTimer); arrTimer=null; } }
+  window.onTabActivated = function(id){
+    clearTimers();
+    if (id === 'processes') {
+      if (typeof window.loadProcesses === 'function') window.loadProcesses();
+      procTimer = setInterval(()=>{ try { window.loadProcesses && window.loadProcesses(); } catch(_){} }, 1000);
+    } else if (id === 'radarr' || id === 'sonarr') {
+      if (typeof window.loadArrList === 'function') window.loadArrList();
+      arrTimer = setInterval(()=>{ try { window.refreshArrCounts && window.refreshArrCounts(); } catch(_){} }, 1000);
+    }
+  };
+  document.addEventListener('DOMContentLoaded', function(){ try { if (window.__activeTab) { window.onTabActivated(window.__activeTab); } } catch(_){} });
 })();
 
 // Add instance helper for Config: creates a new card with fields
@@ -220,4 +364,134 @@ window.loadProcesses = loadProcesses; window.restart = restart; window.restartAl
       alert('Saved');
     }
   }
+})();
+
+// Overrides: per-instance buttons + unified search routing
+(function(){
+  // Unified search routing across aggregated and single-instance views
+  window.globalSearch = function(q){
+    try {
+      if (!window.currentArr) return;
+      const t = window.currentArr.type;
+      if (t === 'radarrAll') return window.radarrAggSearch && window.radarrAggSearch(q);
+      if (t === 'sonarrAll') return window.sonarrAggSearch && window.sonarrAggSearch(q);
+      if (t === 'radarr') return window.loadRadarrAll && window.loadRadarrAll(window.currentArr.cat, q);
+      if (t === 'sonarr') return window.loadSonarrAll && window.loadSonarrAll(window.currentArr.cat, q);
+    } catch (e) { /* ignore */ }
+  };
+
+  // Build left nav with a 'Load All' plus one button per instance
+  window.loadArrList = async function(){
+    const H = () => ({ 'Content-Type': 'application/json' });
+    const [arrRes, procRes] = await Promise.all([
+      fetch('/web/arr', { headers: H() }),
+      fetch('/web/processes', { headers: H() })
+    ]);
+    const d = await arrRes.json();
+    const procs = await procRes.json();
+    const nameByCat = {};
+    for (const p of (procs.processes||[])) nameByCat[p.category] = p.name || p.category;
+
+    const rnav = document.getElementById('radarrNav');
+    if (rnav) {
+      rnav.innerHTML = '';
+      const rcats = (d.arr||[]).filter(a => a.type === 'radarr').map(a => a.category);
+      const allBtn = document.createElement('button');
+      allBtn.className = 'btn';
+      allBtn.textContent = 'Load All Radarr';
+      allBtn.onclick = () => window.loadRadarrAllInstances && window.loadRadarrAllInstances(rcats);
+      rnav.appendChild(allBtn);
+      for (const cat of rcats) {
+        const b = document.createElement('button');
+        b.className = 'btn ghost';
+        b.style.display = 'block'; b.style.width = '100%'; b.style.textAlign = 'left'; b.style.margin = '4px 0';
+        b.textContent = nameByCat[cat] || cat;
+        b.onclick = () => window.loadRadarrAll && window.loadRadarrAll(cat);
+        rnav.appendChild(b);
+      }
+    }
+
+    const snav = document.getElementById('sonarrNav');
+    if (snav) {
+      snav.innerHTML = '';
+      const scats = (d.arr||[]).filter(a => a.type === 'sonarr').map(a => a.category);
+      const allBtn = document.createElement('button');
+      allBtn.className = 'btn';
+      allBtn.textContent = 'Load All Sonarr';
+      allBtn.onclick = () => window.loadSonarrAllInstances && window.loadSonarrAllInstances(scats);
+      snav.appendChild(allBtn);
+      for (const cat of scats) {
+        const b = document.createElement('button');
+        b.className = 'btn ghost';
+        b.style.display = 'block'; b.style.width = '100%'; b.style.textAlign = 'left'; b.style.margin = '4px 0';
+        b.textContent = nameByCat[cat] || cat;
+        b.onclick = () => window.loadSonarrAll && window.loadSonarrAll(cat);
+        snav.appendChild(b);
+      }
+    }
+  };
+})();
+
+// Auto-refresh timers for Processes and ARR counts
+(function(){
+  let procTimer = null;
+  let arrTimer = null;
+  function clearTimers(){ if (procTimer) { clearInterval(procTimer); procTimer=null; } if (arrTimer) { clearInterval(arrTimer); arrTimer=null; } }
+  window.onTabActivated = function(id){
+    clearTimers();
+    if (id === 'processes') {
+      // initial load and start 5s refresh
+      if (typeof window.loadProcesses === 'function') window.loadProcesses();
+      procTimer = setInterval(()=>{ try { window.loadProcesses && window.loadProcesses(); } catch(_){} }, 5000);
+    } else if (id === 'radarr' || id === 'sonarr') {
+      // initial nav build and start 5s refresh for counts
+      if (typeof window.loadArrList === 'function') window.loadArrList();
+      arrTimer = setInterval(()=>{ try { window.loadArrList && window.loadArrList(); } catch(_){} }, 5000);
+    }
+  };
+  // If page initially lands on processes (default), kick off timers
+  document.addEventListener('DOMContentLoaded', function(){ try { if (window.__activeTab) { window.onTabActivated(window.__activeTab); } } catch(_){} });
+})();
+
+// Periodic data refresh for active ARR tables (1s)
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  async function fetchRadarrCatsItems(cats){
+    let items=[]; for (const cat of cats||[]){ let page=0; const ps=500; while(true){ const r=await fetch(`/web/radarr/${cat}/movies?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const m of (d.movies||[])) items.push({...m,__instance:cat}); if(!d.movies || d.movies.length<ps) break; page++; if(page>20) break; } } return items;
+  }
+  async function fetchSonarrCatsRows(cats){
+    let rows=[]; for (const cat of cats||[]){ let page=0; const ps=200; while(true){ const r=await fetch(`/web/sonarr/${cat}/series?q=&page=${page}&page_size=${ps}`,{headers:H()}); if(!r.ok) break; const d=await r.json(); for (const s of (d.series||[])){ const title=s.series?.title||''; for (const [sn,sv] of Object.entries(s.seasons||{})){ for (const e of (sv.episodes||[])){ rows.push({__instance:cat, series:title, season:sn, ep:e.episodeNumber, title:e.title||'', monitored:!!e.monitored, hasFile:!!e.hasFile, air:e.airDateUtc||''}); } } } if(!d.series || d.series.length<ps) break; page++; if(page>50) break; } } return rows;
+  }
+  async function refreshActiveArrTable(){
+    try {
+      if (!window.currentArr) return;
+      const t = window.currentArr.type;
+      if (t === 'radarrAll' && window._radarrAgg){
+        const keepQ = window._radarrAgg.q||''; const keepPage = window._radarrAgg.page||0; const cats = window._radarrAgg.cats||[];
+        const items = await fetchRadarrCatsItems(cats);
+        window._radarrAgg.items = items; window._radarrAgg.q = keepQ; window._radarrAgg.page = keepPage;
+        window.renderRadarrAgg && window.renderRadarrAgg();
+      } else if (t === 'sonarrAll' && window._sonarrAgg){
+        const keepQ = window._sonarrAgg.q||''; const keepPage = window._sonarrAgg.page||0; const cats = window._sonarrAgg.cats||[];
+        const rows = await fetchSonarrCatsRows(cats);
+        window._sonarrAgg.rows = rows; window._sonarrAgg.q = keepQ; window._sonarrAgg.page = keepPage;
+        window.renderSonarrAgg && window.renderSonarrAgg();
+      } else if (t === 'radarr' && window.loadRadarrAll){
+        const qEl = document.querySelector('#radarrContent input[type="text"]'); const q = qEl ? qEl.value : '';
+        window.loadRadarrAll(window.currentArr.cat, q);
+      } else if (t === 'sonarr' && window.loadSonarrAll){
+        const qEl = document.querySelector('#sonarrContent input[type="text"]'); const q = qEl ? qEl.value : '';
+        window.loadSonarrAll(window.currentArr.cat, q);
+      }
+    } catch (_) {}
+  }
+  // Hook into existing onTabActivated refresh loop
+  let dataTimer = null; const prevOnTabActivated = window.onTabActivated;
+  window.onTabActivated = function(id){
+    try { if (typeof prevOnTabActivated === 'function') prevOnTabActivated(id); } catch(_){ }
+    if (dataTimer) { clearInterval(dataTimer); dataTimer=null; }
+    if (id === 'radarr' || id === 'sonarr'){
+      dataTimer = setInterval(refreshActiveArrTable, 1000);
+    }
+  };
 })();

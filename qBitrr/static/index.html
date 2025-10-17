@@ -22,6 +22,8 @@
                         if (link) link.classList.toggle('active', t === id);
                     }
                     show(id);
+                    window.__activeTab = id;
+                    if (typeof window.onTabActivated === 'function') { window.onTabActivated(id); }
                     if ((id === 'radarr' || id === 'sonarr') && typeof window.loadArrList === 'function') { window.loadArrList(); }
                     if (id === 'config' && typeof window.renderConfigForms === 'function') { window.renderConfigForms(); }
                 } catch (e) {}
