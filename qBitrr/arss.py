@@ -22,7 +22,7 @@ import requests
 from packaging import version as version_parser
 from peewee import SqliteDatabase
 from pyarr import RadarrAPI, SonarrAPI
-from pyarr.exceptions import PyarrResourceNotFound
+from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
@@ -4534,7 +4534,7 @@ class Arr:
             self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def parse_quality_profiles(self) -> dict[int, int]:
-        temp_quality_profile_ids = {}
+        temp_quality_profile_ids: dict[int, int] = {}
 
         while True:
             try:
@@ -4546,7 +4546,23 @@ class Arr:
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
             ):
+                # transient network/encoding issues; retry
                 continue
+            except PyarrServerError as e:
+                # Server-side error (e.g., Radarr DB disk I/O). Log and wait 5 minutes before retrying.
+                self.logger.error(
+                    "Failed to get quality profiles (server error): %s -- retrying in 5 minutes", e
+                )
+                try:
+                    time.sleep(300)
+                except Exception:
+                    pass
+                continue
+            except Exception as e:
+                # Unexpected error; log and continue without profiles.
+                self.logger.error("Unexpected error getting quality profiles: %s", e)
+                profiles = []
+                break
 
         for n in self.main_quality_profiles:
             pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
