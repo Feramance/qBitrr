@@ -129,6 +129,27 @@ def _add_settings_section(config: TOMLDocument):
         "FFprobeAutoUpdate",
         True if ENVIRO_CONFIG.settings.ping_urls is None else ENVIRO_CONFIG.settings.ping_urls,
     )
+    _gen_default_line(
+        settings,
+        "WebUI listen port (default 6969)",
+        "WebUIPort",
+        6969,
+    )
+    _gen_default_line(
+        settings,
+        "WebUI listen host (default 0.0.0.0)",
+        "WebUIHost",
+        "0.0.0.0",
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Optional bearer token to secure WebUI/API.",
+            "Set a non-empty value to require Authorization: Bearer <token>.",
+        ],
+        "WebUIToken",
+        "",
+    )
     config.add("Settings", settings)
 
 

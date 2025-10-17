@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>qBitrr WebUI</title>
+        <link rel="stylesheet" href="/static/style.css?v=2" />
+        <script>
+            function show(id) {
+                try {
+                    var secs = document.querySelectorAll("section");
+                    for (var i = 0; i < secs.length; i++)
+                        secs[i].style.display = "none";
+                    var el = document.getElementById(id);
+                    if (el) el.style.display = "block";
+                } catch (e) {}
+            }
+            function activate(id) {
+                try {
+                    var tabs = [
+                        "processes",
+                        "logs",
+                        "radarr",
+                        "sonarr",
+                        "config",
+                    ];
+                    for (var i = 0; i < tabs.length; i++) {
+                        var t = tabs[i];
+                        var link = document.getElementById("tab-" + t);
+                        if (link) link.classList.toggle("active", t === id);
+                    }
+                    show(id);
+                    window.__activeTab = id;
+                    if (typeof window.onTabActivated === "function") {
+                        window.onTabActivated(id);
+                    }
+                    if (
+                        (id === "radarr" || id === "sonarr") &&
+                        typeof window.loadArrList === "function"
+                    ) {
+                        window.loadArrList();
+                    }
+                    if (
+                        id === "config" &&
+                        typeof window.renderConfigForms === "function"
+                    ) {
+                        window.renderConfigForms();
+                    }
+                } catch (e) {}
+            }
+        </script>
+    </head>
+
+    <body>
+        <div class="appbar">
+            <h1>qBitrr WebUI</h1>
+            <div class="toolbar">
+                <span id="status" class="hint">Loading...</span>
+                <input
+                    id="globalSearch"
+                    type="text"
+                    placeholder="Search current view"
+                    oninput="globalSearch(this.value)"
+                />
+                <button class="btn ghost" onclick="loadStatus()">
+                    Refresh
+                </button>
+                <div class="spacer"></div>
+            </div>
+        </div>
+        <div class="container">
+            <div class="nav">
+                <a
+                    href="#"
+                    onclick="activate('processes')"
+                    id="tab-processes"
+                    class="active"
+                    >Processes</a
+                >
+                <a href="#" onclick="activate('logs')" id="tab-logs">Logs</a>
+                <a href="#" onclick="activate('radarr')" id="tab-radarr"
+                    >Radarr</a
+                >
+                <a href="#" onclick="activate('sonarr')" id="tab-sonarr"
+                    >Sonarr</a
+                >
+                <a href="#" onclick="activate('config')" id="tab-config"
+                    >Config</a
+                >
+            </div>
+            <section id="processes" class="card">
+                <div class="card-header">Processes</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col">
+                            <button class="btn" onclick="loadProcesses()">
+                                Refresh
+                            </button>
+                            <button class="btn" onclick="restartAll()">
+                                Restart All
+                            </button>
+                            <button class="btn" onclick="rebuildArrs()">
+                                Rebuild Arrs
+                            </button>
+                        </div>
+                        <div class="col">
+                            <div class="field">
+                                <label>Log Level</label>
+                                <div class="row">
+                                    <select id="logLevel" class="col">
+                                        <option>CRITICAL</option>
+                                        <option>ERROR</option>
+                                        <option>WARNING</option>
+                                        <option>NOTICE</option>
+                                        <option>INFO</option>
+                                        <option>DEBUG</option>
+                                        <option>TRACE</option>
+                                    </select>
+                                    <button
+                                        class="btn"
+                                        onclick="applyLogLevel()"
+                                    >
+                                        Apply
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="procOut"></div>
+                </div>
+            </section>
+
+            <section id="logs" class="card" style="display: none">
+                <div class="card-header">Logs</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col field">
+                            <label for="logSelect">Log File</label>
+                            <select id="logSelect"></select>
+                        </div>
+                        <div class="col field">
+                            <label>&nbsp;</label>
+                            <div class="row">
+                                <button class="btn" onclick="refreshLogList()">
+                                    Reload List
+                                </button>
+                                <button class="btn" onclick="downloadCurrent()">
+                                    Download
+                                </button>
+                                <label
+                                    class="hint"
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    "
+                                    ><input
+                                        type="checkbox"
+                                        id="logFollow"
+                                        checked
+                                    />
+                                    Live</label
+                                >
+                            </div>
+                        </div>
+                    </div>
+                    <pre id="logTail" data-filename=""></pre>
+                </div>
+            </section>
+
+            <section id="radarr" class="card" style="display: none">
+                <div class="card-header">Radarr</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div
+                            class="col"
+                            style="max-width: 260px"
+                            id="radarrNav"
+                        ></div>
+                        <div class="col" id="radarrContent"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sonarr" class="card" style="display: none">
+                <div class="card-header">Sonarr</div>
+                <div class="card-body">
+                    <div class="row">
+                        <div
+                            class="col"
+                            style="max-width: 260px"
+                            id="sonarrNav"
+                        ></div>
+                        <div class="col" id="sonarrContent"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="config" class="card" style="display: none">
+                <div class="card-header">Config</div>
+                <div class="card-body">
+                    <div class="row">
+                        <button class="btn" onclick="addArrInstance('radarr')">
+                            Add Radarr Instance
+                        </button>
+                        <button class="btn" onclick="addArrInstance('sonarr')">
+                            Add Sonarr Instance
+                        </button>
+                    </div>
+                    <div id="configForms"></div>
+                    <div class="row" style="margin-top: 12px">
+                        <button
+                            class="btn primary"
+                            onclick="submitConfigForms()"
+                        >
+                            Save + Live Reload
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div class="toasts" id="toasts"></div>
+
+        <script src="/static/app.js?v=4"></script>
+    </body>
+</html>

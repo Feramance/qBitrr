@@ -1,0 +1,2 @@
+recursive-include qBitrr/static *
+include config.example.toml

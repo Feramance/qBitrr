@@ -21,6 +21,35 @@ CACHE = TTLCache(maxsize=50, ttl=60)
 UNITS = {"k": 1024, "m": 1048576, "g": 1073741824, "t": 1099511627776}
 
 
+def with_retry(
+    func, *, retries=3, backoff=0.5, max_backoff=5.0, jitter=0.25, exceptions=(Exception,)
+):
+    """Run `func()` with exponential backoff and jitter for transient failures.
+
+    - retries: total attempts (including first). Set to 1 for no retry.
+    - backoff: initial backoff seconds, doubles each attempt up to max_backoff.
+    - jitter: random jitter in seconds added to each delay.
+    - exceptions: tuple of exception types to catch and retry on.
+    """
+    attempt = 0
+    while True:
+        try:
+            return func()
+        except exceptions as e:
+            attempt += 1
+            if attempt >= retries:
+                raise
+            delay = min(max_backoff, backoff * (2 ** (attempt - 1))) + random.random() * jitter
+            logger.debug(
+                "Retryable error: %s. Retrying in %.2fs (attempt %s/%s)",
+                e,
+                delay,
+                attempt + 1,
+                retries,
+            )
+            time.sleep(delay)
+
+
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
     file_counter = 0
     error = True
@@ -44,10 +73,10 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     count = 9
     while not path.exists():
         logger.debug(
-            "Attempt %s/10: File does not yet exists! (Possibly being moved?) | "
+            "Attempt %s/10: File does not yet exist! (Possibly being moved?) | "
             "%s | Sleeping for 0.1s",
-            path,
             10 - count,
+            path,
         )
         time.sleep(0.1)
         if count == 0:
@@ -61,10 +90,10 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
             path = path.parent.absolute()
         while not path.exists():
             logger.debug(
-                "Attempt %s/10:File does not yet exists! (Possibly being moved?) | "
+                "Attempt %s/10: File does not yet exist! (Possibly being moved?) | "
                 "%s | Sleeping for 0.1s",
-                path,
                 10 - count,
+                path,
             )
             time.sleep(0.1)
             if count == 0:
@@ -81,14 +110,22 @@ def validate_and_return_torrent_file(file: str) -> pathlib.Path:
 def has_internet(client: qbittorrentapi.Client):
     from qBitrr.config import PING_URLS
 
+    # Prefer qBit's connection status to avoid frequent pings
+    try:
+        status = client.transfer_info().get("connection_status")
+        if status and status != "disconnected":
+            return True
+    except Exception as e:
+        logger.debug("transfer_info unavailable: %s", e)
+    # Fallback to a single ping
     url = random.choice(PING_URLS)
     try:
-        if not is_connected(url) and client.transfer_info()["connection_status"] == "disconnected":
-            return False
-    except:
-        logger.error("Error getting qbittorrent transfer info %s", client.transfer_info())
-    logger.debug("Successfully connected to %s", url)
-    return True
+        if is_connected(url):
+            logger.debug("Successfully connected to %s", url)
+            return True
+    except Exception as e:
+        logger.debug("Ping to %s failed: %s", url, e)
+    return False
 
 
 def _basic_ping(hostname):
@@ -153,7 +190,7 @@ class ExpiringSet:
 
     def __repr__(self):
         self.__update__()
-        return f"{self.__class__.__name__}({', '.join(self.container.keys())})"
+        return f"{self.__class__.__name__}({', '.join(map(str, self.container.keys()))})"
 
     def extend(self, args):
         """Add several items at once."""
@@ -200,8 +237,9 @@ class ExpiringSet:
                 del self.container[k]
                 return False
 
-    def __hash__(self):
-        return hash(*(self.container.keys()))
-
     def __eq__(self, other):
-        return self.__hash__() == other.__hash__()
+        if not isinstance(other, ExpiringSet):
+            return False
+        self.__update__()
+        other.__update__()
+        return set(self.container.keys()) == set(other.container.keys())

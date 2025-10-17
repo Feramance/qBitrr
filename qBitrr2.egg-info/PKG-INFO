@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qBitrr2
-Version: 4.10.25
+Version: 4.10.28
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -238,3 +238,29 @@ Please do not hesitate to open an issue for feature requests or any suggestions 
 ## Reporting an Issue
 
 When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you.
+**WebUI**
+- Overview
+  - Built-in WebUI runs in-process for monitoring and control.
+  - Default address: `0.0.0.0:6969` (configurable).
+  - Configure in `Settings`:
+    - `Settings.WebUIHost` (default `0.0.0.0`)
+    - `Settings.WebUIPort` (default `6969`)
+    - `Settings.WebUIToken` (optional bearer token; set to secure the UI/API)
+- Access
+  - Open `http://0.0.0.0:6969/ui` (replace host/port if changed).
+  - If a token is set, provide it via `Authorization: Bearer <token>` or `?token=<token>`.
+- Features
+  - Processes: show all loops (search/torrent) per category, restart individually or all.
+  - Logs: list log files, view last 2000 lines, download full file.
+  - Radarr: list movies for a category and show `available/monitored` counts.
+  - Sonarr: series view with expandable seasons and episode lists; counts at each level.
+  - Config: view current config (JSON), queue edits by dotted keys, save to TOML and live-reload.
+- API Endpoints (selected)
+  - `GET /api/processes` — List processes
+  - `POST /api/processes/<category>/<kind>/restart` — Restart loop (kind: `search`/`torrent`/`all`)
+  - `POST /api/processes/restart_all` — Rebuild Arrs and restart all loops
+  - `GET /api/logs` — List logs; `GET /api/logs/<name>` tail; `GET /api/logs/<name>/download` full file
+  - `GET /api/arr` — Discover Arr-managed categories and types
+  - `GET /api/radarr/<category>/movies` — Movies + counts
+  - `GET /api/sonarr/<category>/series` — Series → seasons → episodes + counts
+  - `GET/POST /api/config` — Get JSON view / apply dotted-key changes, save and live-reload
