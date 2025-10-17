@@ -7,25 +7,44 @@
         <script>
             function show(id) {
                 try {
-                    var secs = document.querySelectorAll('section');
-                    for (var i=0;i<secs.length;i++) secs[i].style.display = 'none';
+                    var secs = document.querySelectorAll("section");
+                    for (var i = 0; i < secs.length; i++)
+                        secs[i].style.display = "none";
                     var el = document.getElementById(id);
-                    if (el) el.style.display = 'block';
+                    if (el) el.style.display = "block";
                 } catch (e) {}
             }
             function activate(id) {
                 try {
-                    var tabs = ["processes","logs","radarr","sonarr","config"];
-                    for (var i=0;i<tabs.length;i++) {
+                    var tabs = [
+                        "processes",
+                        "logs",
+                        "radarr",
+                        "sonarr",
+                        "config",
+                    ];
+                    for (var i = 0; i < tabs.length; i++) {
                         var t = tabs[i];
-                        var link = document.getElementById('tab-' + t);
-                        if (link) link.classList.toggle('active', t === id);
+                        var link = document.getElementById("tab-" + t);
+                        if (link) link.classList.toggle("active", t === id);
                     }
                     show(id);
                     window.__activeTab = id;
-                    if (typeof window.onTabActivated === 'function') { window.onTabActivated(id); }
-                    if ((id === 'radarr' || id === 'sonarr') && typeof window.loadArrList === 'function') { window.loadArrList(); }
-                    if (id === 'config' && typeof window.renderConfigForms === 'function') { window.renderConfigForms(); }
+                    if (typeof window.onTabActivated === "function") {
+                        window.onTabActivated(id);
+                    }
+                    if (
+                        (id === "radarr" || id === "sonarr") &&
+                        typeof window.loadArrList === "function"
+                    ) {
+                        window.loadArrList();
+                    }
+                    if (
+                        id === "config" &&
+                        typeof window.renderConfigForms === "function"
+                    ) {
+                        window.renderConfigForms();
+                    }
                 } catch (e) {}
             }
         </script>
@@ -152,7 +171,11 @@
                 <div class="card-header">Radarr</div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col" style="max-width: 260px" id="radarrNav"></div>
+                        <div
+                            class="col"
+                            style="max-width: 260px"
+                            id="radarrNav"
+                        ></div>
                         <div class="col" id="radarrContent"></div>
                     </div>
                 </div>
@@ -162,7 +185,11 @@
                 <div class="card-header">Sonarr</div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col" style="max-width: 260px" id="sonarrNav"></div>
+                        <div
+                            class="col"
+                            style="max-width: 260px"
+                            id="sonarrNav"
+                        ></div>
                         <div class="col" id="sonarrContent"></div>
                     </div>
                 </div>
