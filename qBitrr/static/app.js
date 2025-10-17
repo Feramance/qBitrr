@@ -815,6 +815,70 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
     });
 })();
 
+// Incremental per-instance table updates to avoid full redraws
+(function(){
+  const H = () => ({ 'Content-Type': 'application/json' });
+  const nowTime = () => (new Date()).toLocaleTimeString();
+  function movieKey(m){ return (m && (m.id != null)) ? String(m.id) : `${m && m.title || ''}:${m && m.year || ''}`; }
+  function ensureRadarrTable(){
+    const root = document.getElementById('radarrContent'); if (!root) return null;
+    let tbody = root.querySelector('tbody#radarrTable');
+    if (!tbody){
+      root.innerHTML = `<div class="row"><div class="col field"><input placeholder="search movies" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${ (window._arrLive===false)?'':'checked' }/> Live</label></div>` +
+        `<div class='hint'>Counts: <span id='radarrCounts'></span> &nbsp; Last updated: <span id='radarrUpdated'></span></div>` +
+        `<table><thead><tr><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr></thead><tbody id='radarrTable'></tbody></table>`;
+      tbody = root.querySelector('tbody#radarrTable');
+    }
+    return tbody;
+  }
+  window.radarrUpdateTable = function(d){
+    const tbody = ensureRadarrTable(); if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const rowMap = new Map(rows.map(r => [r.getAttribute('data-key'), r]));
+    const seen = new Set();
+    (d.movies||[]).forEach(m => {
+      const key = movieKey(m); seen.add(key);
+      let tr = rowMap.get(key);
+      if (!tr){
+        tr = document.createElement('tr'); tr.setAttribute('data-key', key);
+        tr.innerHTML = `<td class="c-title"></td><td class="c-year"></td><td class="c-mon"></td><td class="c-file"></td>`;
+        tbody.appendChild(tr);
+      }
+      const cTitle = tr.querySelector('.c-title'); if (cTitle && cTitle.textContent !== (m.title||'')) cTitle.textContent = m.title||'';
+      const cYear  = tr.querySelector('.c-year');  if (cYear  && cYear.textContent  !== String(m.year||'')) cYear.textContent  = m.year||'';
+      const cMon   = tr.querySelector('.c-mon');   if (cMon   && cMon.textContent   !== (m.monitored?'Yes':'No')) cMon.textContent = m.monitored?'Yes':'No';
+      const cFile  = tr.querySelector('.c-file');  if (cFile  && cFile.textContent  !== (m.hasFile?'Yes':'No')) cFile.textContent = m.hasFile?'Yes':'No';
+    });
+    const countsEl = document.getElementById('radarrCounts'); if (countsEl && d.counts) countsEl.textContent = `${d.counts.monitored||0}/${d.counts.available||0}`;
+    const updEl = document.getElementById('radarrUpdated'); if (updEl) updEl.textContent = nowTime();
+  };
+  window.sonarrUpdateCounts = function(d){
+    const updEl = document.getElementById('sonarrUpdated'); if (updEl) updEl.textContent = nowTime();
+    const hint = document.querySelector('#sonarrContent .hint');
+    if (hint && d.counts) {
+      const m = d.counts.monitored||0, a = d.counts.available||0;
+      hint.innerHTML = `Counts: ${m}/${a} &nbsp; Last updated: <span id='sonarrUpdated'>${nowTime()}</span>`;
+    }
+  };
+  const __origRefresh = window.refreshActiveArrTable;
+  window.refreshActiveArrTable = async function(){
+    try {
+      if (!window.currentArr) return; if (window._arrLive===false) return;
+      if (window.__activeTab!=='radarr' && window.__activeTab!=='sonarr') return;
+      const { type, cat, q, page, pageSize } = window.currentArr;
+      if (type==='radarr'){
+        const r = await fetch(`/web/radarr/${cat}/movies?q=${encodeURIComponent(q||'')}&page=${page||0}&page_size=${pageSize||50}`, { headers: H() });
+        if (!r.ok) return; const d = await r.json(); window.radarrUpdateTable && window.radarrUpdateTable(d); return;
+      }
+      if (type==='sonarr'){
+        const r = await fetch(`/web/sonarr/${cat}/series?q=${encodeURIComponent(q||'')}&page=${page||0}&page_size=${pageSize||25}`, { headers: H() });
+        if (!r.ok) return; const d = await r.json(); window.sonarrUpdateCounts && window.sonarrUpdateCounts(d); return;
+      }
+    } catch(e){}
+    try { __origRefresh && __origRefresh(); } catch(_){ }
+  };
+})();
+
 // Add instance helper for Config: creates a new card with fields
 (function () {
     if (typeof window.addArrInstance !== "function") {
@@ -1711,9 +1775,7 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
             html += `<div class="row"><div class="col field"><input placeholder="search movies" value="${q}" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${
                 window._arrLive === false ? "" : "checked"
             }/> Live</label></div>`;
-            html += `<div class='hint'>Counts: ${counts.available || 0}/${
-                counts.monitored || 0
-            } &nbsp; Last updated: <span id='radarrUpdated'>${nowTime()}</span></div>`;
+            html += `<div class='hint'>Counts: / &nbsp; Last updated: <span id='radarrUpdated'>${nowTime()}</span></div>`;
             html +=
                 "<table><tr><th>Title</th><th>Year</th><th>Monitored</th><th>Has File</th></tr>";
             for (const m of d.movies || [])
@@ -1776,9 +1838,7 @@ let currentArr = null; // { type: 'radarr'|'sonarr', cat, targetId }function glo
             html += `<div class="row"><div class="col field"><input placeholder="search series" value="${q}" oninput="globalSearch(this.value)"/></div><label class="hint" style="display:flex;align-items:center;gap:6px"><input type="checkbox" onchange="window._arrLive=this.checked" ${
                 window._arrLive === false ? "" : "checked"
             }/> Live</label></div>`;
-            html += `<div class='hint'>Counts: ${counts.available || 0}/${
-                counts.monitored || 0
-            } &nbsp; Last updated: <span id='sonarrUpdated'>${nowTime()}</span></div>`;
+            html += `<div class='hint'>Counts: / &nbsp; Last updated: <span id='sonarrUpdated'>${nowTime()}</span></div>`;
             for (const s of d.series || []) {
                 html += `<details><summary>${s.series.title} - ${
                     s.totals.available || 0
