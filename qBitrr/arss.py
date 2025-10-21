@@ -505,7 +505,24 @@ class Arr:
         self.series_file_model: SeriesFilesModel = None
         self.model_queue: EpisodeQueueModel | MovieQueueModel = None
         self.persistent_queue: FilesQueued = None
-        self.torrents: TorrentLibrary = None
+        self.torrents: TorrentLibrary | None = None
+        # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
+        # early and fail fast if it cannot be set up.
+        self.register_search_mode()
+        # Ensure DBs are closed on process exit
+        atexit.register(
+            lambda: (
+                hasattr(self, "db") and self.db and not self.db.is_closed() and self.db.close()
+            )
+        )
+        atexit.register(
+            lambda: (
+                hasattr(self, "torrent_db")
+                and self.torrent_db
+                and not self.torrent_db.is_closed()
+                and self.torrent_db.close()
+            )
+        )
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @property
@@ -575,9 +592,8 @@ class Arr:
                 query = (
                     self.torrents.select()
                     .where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
                     )
                     .execute()
                 )
@@ -585,17 +601,17 @@ class Arr:
                     self.torrents.insert(
                         Hash=torrent.hash, Category=torrent.category
                     ).on_conflict_ignore().execute()
-                condition = (
-                    self.torrents.Hash == torrent.hash & self.torrents.Category == torrent.category
+                condition = (self.torrents.Hash == torrent.hash) & (
+                    self.torrents.Category == torrent.category
                 )
                 if tag == "qBitrr-allowed_seeding":
-                    condition &= self.torrents.AllowedSeeding is True
+                    condition &= self.torrents.AllowedSeeding == True
                 elif tag == "qBitrr-imported":
-                    condition &= self.torrents.Imported is True
+                    condition &= self.torrents.Imported == True
                 elif tag == "qBitrr-allowed_stalled":
-                    condition &= self.torrents.AllowedStalled is True
+                    condition &= self.torrents.AllowedStalled == True
                 elif tag == "qBitrr-free_space_paused":
-                    condition &= self.torrents.FreeSpacePaused is True
+                    condition &= self.torrents.FreeSpacePaused == True
                 query = self.torrents.select().where(condition).execute()
                 if query:
                     return_value = True
@@ -622,9 +638,8 @@ class Arr:
                 query = (
                     self.torrents.select()
                     .where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
                     )
                     .execute()
                 )
@@ -634,28 +649,24 @@ class Arr:
                     ).on_conflict_ignore().execute()
                 if tag == "qBitrr-allowed_seeding":
                     self.torrents.update(AllowedSeeding=False).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-imported":
                     self.torrents.update(Imported=False).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-allowed_stalled":
                     self.torrents.update(AllowedStalled=False).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-free_space_paused":
                     self.torrents.update(FreeSpacePaused=False).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
         else:
             with contextlib.suppress(Exception):
                 with_retry(
@@ -678,9 +689,8 @@ class Arr:
                 query = (
                     self.torrents.select()
                     .where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
                     )
                     .execute()
                 )
@@ -690,28 +700,24 @@ class Arr:
                     ).on_conflict_ignore().execute()
                 if tag == "qBitrr-allowed_seeding":
                     self.torrents.update(AllowedSeeding=True).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-imported":
                     self.torrents.update(Imported=True).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-allowed_stalled":
                     self.torrents.update(AllowedStalled=True).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
                 elif tag == "qBitrr-free_space_paused":
                     self.torrents.update(FreeSpacePaused=True).where(
-                        self.torrents.Hash
-                        == torrent.hash & self.torrents.Category
-                        == torrent.category
-                    )
+                        (self.torrents.Hash == torrent.hash)
+                        & (self.torrents.Category == torrent.category)
+                    ).execute()
         else:
             with contextlib.suppress(Exception):
                 with_retry(
@@ -1385,7 +1391,7 @@ class Arr:
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
             self.series_file_model.update(Searched=False, Upgrade=False).where(
-                self.series_file_model.Searched is True
+                self.series_file_model.Searched == True
             ).execute()
             while True:
                 try:
@@ -1412,7 +1418,7 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched is True
+                self.model_file.Searched == True
             ).execute()
             while True:
                 try:
@@ -1439,7 +1445,7 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched is True
+                self.model_file.Searched == True
             ).execute()
             while True:
                 try:
@@ -1471,21 +1477,18 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.CustomFormatMet == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.QualityMet
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                        (self.model_file.Searched == False)
+                        | (self.model_file.QualityMet == False)
+                        | (self.model_file.CustomFormatMet == False)
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
@@ -1538,21 +1541,18 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.CustomFormatMet == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.QualityMet
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                        (self.model_file.Searched == False)
+                        | (self.model_file.QualityMet == False)
+                        | (self.model_file.CustomFormatMet == False)
                     )
                 else:
                     condition &= self.model_file.EpisodeFileId == 0
@@ -1604,21 +1604,18 @@ class Arr:
                 condition &= self.model_file.Upgrade == False
             else:
                 if self.quality_unmet_search and not self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched == False | self.model_file.QualityMet == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.QualityMet == False
                     )
                 elif not self.quality_unmet_search and self.custom_format_unmet_search:
-                    condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.CustomFormatMet == False
                     )
                 elif self.quality_unmet_search and self.custom_format_unmet_search:
                     condition &= (
-                        self.model_file.Searched
-                        == False | self.model_file.QualityMet
-                        == False | self.model_file.CustomFormatMet
-                        == False
+                        (self.model_file.Searched == False)
+                        | (self.model_file.QualityMet == False)
+                        | (self.model_file.CustomFormatMet == False)
                     )
                 else:
                     condition &= self.model_file.MovieFileId == 0
@@ -2261,6 +2258,7 @@ class Arr:
                             ).execute()
 
                         if self.use_temp_for_missing:
+                            data = None
                             try:
                                 self.logger.trace(
                                     "Temp quality profile [%s][%s]",
@@ -2312,21 +2310,18 @@ class Arr:
                                 self.logger.warning(
                                     "Check quality profile settings for %s", db_entry["title"]
                                 )
-                            try:
-                                if data:
-                                    while True:
-                                        try:
-                                            self.client.upd_episode(episode["id"], data)
-                                            break
-                                        except (
-                                            requests.exceptions.ChunkedEncodingError,
-                                            requests.exceptions.ContentDecodingError,
-                                            requests.exceptions.ConnectionError,
-                                            JSONDecodeError,
-                                        ):
-                                            continue
-                            except UnboundLocalError:
-                                pass
+                            if data:
+                                while True:
+                                    try:
+                                        self.client.upd_episode(episode["id"], data)
+                                        break
+                                    except (
+                                        requests.exceptions.ChunkedEncodingError,
+                                        requests.exceptions.ContentDecodingError,
+                                        requests.exceptions.ConnectionError,
+                                        JSONDecodeError,
+                                    ):
+                                        continue
 
                         EntryId = episode["id"]
                         SeriesTitle = episode.get("series", {}).get("title")
@@ -2425,7 +2420,9 @@ class Arr:
                 else:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
-                    seriesData = self.model_file.get_or_none(self.model_file.EntryId == EntryId)
+                    seriesData = self.series_file_model.get_or_none(
+                        self.series_file_model.EntryId == EntryId
+                    )
                     if db_entry["monitored"] or self.search_unmonitored:
                         while True:
                             try:
@@ -2435,7 +2432,7 @@ class Arr:
                                         seriesMetadata["qualityProfileId"]
                                     )["minFormatScore"]
                                 else:
-                                    minCustomFormat = seriesMetadata.MinCustomFormatScore
+                                    minCustomFormat = seriesData.MinCustomFormatScore
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -2613,8 +2610,8 @@ class Arr:
                         # except KeyError:
                         #     self.logger.warning("Key Error [%s]", db_entry["id"])
                     QualityUnmet = (
-                        db_entry["episodeFile"]["qualityCutoffNotMet"]
-                        if "episodeFile" in db_entry
+                        db_entry["movieFile"]["qualityCutoffNotMet"]
+                        if "movieFile" in db_entry
                         else False
                     )
                     if (
@@ -4581,7 +4578,34 @@ class Arr:
     def register_search_mode(self):
         if self.search_setup_completed:
             return
+
+        # Determine which models we need in this mode (including TorrentLibrary when TAGLESS)
+        db1, db2, db3, db4 = self._get_models()
+
+        # If searches are disabled, we still want the torrent tag-emulation DB in TAGLESS mode,
+        # but can skip the per-entry search database setup.
         if not self.search_missing:
+            if db4 and getattr(self, "torrents", None) is None:
+                self.torrent_db = SqliteDatabase(None)
+                self.torrent_db.init(
+                    str(self._app_data_folder.joinpath("Torrents.db")),
+                    pragmas={
+                        "journal_mode": "wal",
+                        "cache_size": -1 * 64000,  # 64MB
+                        "foreign_keys": 1,
+                        "ignore_check_constraints": 0,
+                        "synchronous": 0,
+                    },
+                    timeout=15,
+                )
+
+                class Torrents(db4):
+                    class Meta:
+                        database = self.torrent_db
+
+                self.torrent_db.connect()
+                self.torrent_db.create_tables([Torrents])
+                self.torrents = Torrents
             self.search_setup_completed = True
             return
 
@@ -4595,9 +4619,8 @@ class Arr:
                 "ignore_check_constraints": 0,
                 "synchronous": 0,
             },
+            timeout=15,
         )
-
-        db1, db2, db3, db4 = self._get_models()
 
         class Files(db1):
             class Meta:
@@ -4634,6 +4657,7 @@ class Arr:
                     "ignore_check_constraints": 0,
                     "synchronous": 0,
                 },
+                timeout=15,
             )
 
             class Torrents(db4):
@@ -4661,7 +4685,6 @@ class Arr:
             or (self.request_search_timer > time.time() - self.search_requests_every_x_seconds)
         ):
             return None
-        self.register_search_mode()
         totcommands = -1
         if SEARCH_LOOP_DELAY == -1:
             loop_delay = 30
@@ -4815,7 +4838,6 @@ class Arr:
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
-            self.register_search_mode()
             if not self.search_missing:
                 return None
             loop_timer = timedelta(minutes=15)
@@ -4951,7 +4973,6 @@ class Arr:
         while not event.is_set():
             try:
                 try:
-                    self.register_search_mode()
                     try:
                         if not self.manager.qbit_manager.is_alive:
                             raise NoConnectionrException(
@@ -5254,6 +5275,10 @@ class FreeSpaceManager(Arr):
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
+        # Needed by register_search_mode for torrent DB pathing
+        self._app_data_folder = APPDATA_FOLDER
+        # Track search setup state to cooperate with Arr.register_search_mode
+        self.search_setup_completed = False
         if FREE_SPACE_FOLDER == "CHANGE_ME":
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                 next(iter(self.categories))
@@ -5272,34 +5297,28 @@ class FreeSpaceManager(Arr):
         self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
         self.session = None
-        self.register_torrent_database()
+        # Reuse Arr's search-mode initializer to set up the torrent tag-emulation DB
+        # without needing Arr type, by overriding _get_models below.
+        self.torrents = None
+        self.register_search_mode()
         self.logger.hnotice("Starting %s monitor", self._name)
-        self.search_setup_completed = False
-        # Ensure DB is closed when process exits
+        # Ensure DB is closed when process exits (guard attribute existence)
         atexit.register(
-            lambda: self.torrent_db.close() if not self.torrent_db.is_closed() else None
+            lambda: (
+                hasattr(self, "torrent_db")
+                and self.torrent_db
+                and not self.torrent_db.is_closed()
+                and self.torrent_db.close()
+            )
         )
 
-    def register_torrent_database(self):
-        self.torrent_db = SqliteDatabase(None)
-        self.torrent_db.init(
-            str(APPDATA_FOLDER.joinpath("Torrents.db")),
-            pragmas={
-                "journal_mode": "wal",
-                "cache_size": -1 * 64000,  # 64MB
-                "foreign_keys": 1,
-                "ignore_check_constraints": 0,
-                "synchronous": 0,
-            },
-        )
-
-        class Torrents(TorrentLibrary):
-            class Meta:
-                database = self.torrent_db
-
-        self.torrent_db.connect()
-        self.torrent_db.create_tables([Torrents])
-        self.torrents = Torrents
+    def _get_models(
+        self,
+    ) -> tuple[None, None, None, type[TorrentLibrary] | None,]:
+        # FreeSpaceManager should never create the per-entry search database.
+        # Return None for file and queue models so only the torrent DB (TAGLESS)
+        # can be initialized by register_search_mode.
+        return None, None, None, (TorrentLibrary if TAGLESS else None)
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
