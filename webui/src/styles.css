@@ -63,15 +63,16 @@ body {
     display: flex;
     gap: 8px;
 }
-.nav a {
+.nav button {
     color: var(--muted);
-    text-decoration: none;
+    background: transparent;
+    border: 1px solid var(--border);
     padding: 8px 10px;
     border-radius: 6px;
-    border: 1px solid var(--border);
+    cursor: pointer;
 }
-.nav a.active,
-.nav a:hover {
+.nav button.active,
+.nav button:hover {
     color: var(--on-surface);
     border-color: var(--primary);
     background: rgba(122, 162, 247, 0.08);
@@ -112,9 +113,13 @@ body {
 .btn.ghost {
     background: transparent;
 }
-.btn:hover {
+.btn:hover:not(:disabled) {
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .field {
@@ -134,6 +139,9 @@ body {
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 8px 10px;
+}
+.field input[type="checkbox"] {
+    width: auto;
 }
 .row {
     display: flex;
@@ -166,6 +174,9 @@ th {
 details {
     margin: 6px 0;
 }
+details summary {
+    cursor: pointer;
+}
 .ok {
     color: var(--success);
 }
@@ -179,6 +190,16 @@ details {
 }
 .spacer {
     flex: 1;
+}
+
+pre {
+    background: #0f131a;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--on-surface);
+    max-height: 420px;
+    overflow: auto;
 }
 
 /* Loading placeholder */
@@ -221,10 +242,80 @@ details {
     border-radius: 8px;
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
     min-width: 240px;
+    transition: opacity 0.3s ease;
 }
 .toast.success {
     border-left-color: var(--success);
 }
 .toast.error {
     border-left-color: var(--danger);
+}
+
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.stack {
+    display: grid;
+    gap: 12px;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tab-panel {
+    margin-top: 12px;
+}
+
+.sidebar {
+    display: grid;
+    gap: 8px;
+    min-width: 220px;
+}
+
+.sidebar .btn {
+    width: 100%;
+    text-align: left;
+}
+
+.split {
+    display: flex;
+    gap: 16px;
+}
+.split .pane {
+    flex: 1;
+}
+.split .pane.sidebar {
+    flex: 0 0 260px;
+}
+
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 11px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }

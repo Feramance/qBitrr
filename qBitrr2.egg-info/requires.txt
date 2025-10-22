@@ -1,6 +1,7 @@
 cachetools
 colorama
 coloredlogs
+flask
 environ-config
 ffmpeg-python
 jaraco.docker

@@ -75,12 +75,25 @@ jobs:
         echo "Current version: $(python setup.py --version)"
         echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Build web UI assets
+      run: |
+        cd webui
+        npm ci
+        npm run build
+    - name: Verify static assets are committed
+      run: |
+        git status --short qBitrr/static
+        git diff --exit-code qBitrr/static
     - name: Install Python dependencies
       run: |
         python -m pip install -U pip
         python -m pip install -U setuptools==69.5.1
         python -m pip install -U wheel
-        python -m pip install -r requirements.dev.txt
+        python -m pip install -e '.[dev]'
     - name: Run PyInstaller
       env:
         PYTHONOPTIMIZE: 1     # Enable optimizations as if the -O flag is given.

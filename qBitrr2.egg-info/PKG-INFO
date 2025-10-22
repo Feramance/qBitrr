@@ -31,6 +31,7 @@ License-File: LICENSE
 Requires-Dist: cachetools
 Requires-Dist: colorama
 Requires-Dist: coloredlogs
+Requires-Dist: flask
 Requires-Dist: environ-config
 Requires-Dist: ffmpeg-python
 Requires-Dist: jaraco.docker

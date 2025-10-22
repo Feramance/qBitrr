@@ -7,6 +7,8 @@
 .env
 .venv/
 venv/
+/webui/node_modules/
+/webui/dist/
 /.github/workflows/test.yml
 __pycache__/
 *.py[cod]

@@ -2,12 +2,20 @@
 
 PYTHON ?= python
 
-ROOT_DIR:=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+ROOT_DIR:=$(abspath .)
+WEBUI_DIR:=$(ROOT_DIR)/webui
+VENV_DIR:=$(ROOT_DIR)/.venv
 
-ifneq ($(wildcard $(ROOT_DIR)/.venv/.),)
-	VENV_PYTHON = $(ROOT_DIR)/.venv/bin/python
+ifeq ($(OS),Windows_NT)
+	VENV_PYTHON := ./.venv/Scripts/python.exe
+	VENV_PIP := ./.venv/Scripts/pip.exe
+	WEBUI_BUILD := if exist "$(WEBUI_DIR)\package.json" (pushd "$(WEBUI_DIR)" && npm ci && npm run build && popd)
 else
-	VENV_PYTHON = $(PYTHON)
+	VENV_PYTHON := ./.venv/bin/python
+	VENV_PIP := ./.venv/bin/pip
+	WEBUI_BUILD := if [ -f "$(WEBUI_DIR)/package.json" ]; then \
+		cd "$(WEBUI_DIR)" && npm ci && npm run build; \
+	fi
 endif
 
 define HELP_BODY
@@ -28,23 +36,20 @@ reformat:
 
 # Dependencies
 bumpdeps:
-	pip-compile -o requirements.txt --upgrade --strip-extras
-	pip-compile -o requirements.dev.txt --extra dev --upgrade --strip-extras
-	pip-compile -o requirements.fast.txt --extra fast --upgrade --strip-extras
-	pip-compile -o requirements.all.txt --extra all --upgrade --strip-extras
+	@echo "Dependencies are managed via setup.cfg extras; update versions there and adjust requirements*.txt if publishing to PyPI."
 
 # Development environment
 newenv:
-	$(PYTHON) -m venv --clear .venv
-	.venv/bin/pip install -U pip
-	.venv/bin/pip install -U setuptools==69.5.1
-	.venv/bin/pip install -U wheel
-	.venv/bin/pip install -U pre-commit
+	$(PYTHON) -m venv --clear ".venv"
+	"$(VENV_PIP)" install -U pip
+	"$(VENV_PIP)" install -U setuptools==69.5.1
+	"$(VENV_PIP)" install -U wheel
+	"$(VENV_PIP)" install -U pre-commit
 	$(MAKE) syncenv
-	pre-commit install
 syncenv:
-	python.exe -m pip install --upgrade pip
-	pip install -Ur requirements.all.txt
-	pre-commit install
+	"$(VENV_PYTHON)" -m pip install --upgrade pip
+	"$(VENV_PYTHON)" -m pip install -e ".[all]"
+	"$(VENV_PYTHON)" -m pre_commit install
+	@$(WEBUI_BUILD)
 help:
 	@echo "$$HELP_BODY"
