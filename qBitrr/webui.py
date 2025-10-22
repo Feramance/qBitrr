@@ -7,6 +7,7 @@ import threading
 from typing import Any
 
 from flask import Flask, jsonify, redirect, request, send_file
+from peewee import fn
 
 from qBitrr.config import CONFIG, HOME_PATH
 
@@ -51,6 +52,181 @@ class WebUI:
                 pass
         self._register_routes()
         self._thread: threading.Thread | None = None
+
+    @staticmethod
+    def _safe_bool(value: Any) -> bool:
+        return bool(value) and str(value).lower() not in {"0", "false", "none"}
+
+    def _radarr_movies_from_db(
+        self, arr, search: str | None, page: int, page_size: int
+    ) -> dict[str, Any]:
+        model = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
+        if model is None or db is None:
+            return {
+                "counts": {"available": 0, "monitored": 0},
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "movies": [],
+            }
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        with db.connection_context():
+            base_query = model.select()
+            monitored_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.Monitored == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            available_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(
+                    (model.Monitored == True)  # noqa: E712
+                    & (model.MovieFileId.is_null(False))
+                    & (model.MovieFileId != 0)
+                )
+                .scalar()
+                or 0
+            )
+            query = base_query
+            if search:
+                query = query.where(model.Title.contains(search))
+            total = query.count()
+            page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
+            movies = []
+            for movie in page_items:
+                movies.append(
+                    {
+                        "id": movie.EntryId,
+                        "title": movie.Title or "",
+                        "year": movie.Year,
+                        "monitored": self._safe_bool(movie.Monitored),
+                        "hasFile": self._safe_bool(movie.MovieFileId),
+                    }
+                )
+        return {
+            "counts": {"available": available_count, "monitored": monitored_count},
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "movies": movies,
+        }
+
+    def _sonarr_series_from_db(
+        self, arr, search: str | None, page: int, page_size: int
+    ) -> dict[str, Any]:
+        episodes_model = getattr(arr, "model_file", None)
+        series_model = getattr(arr, "series_file_model", None)
+        db = getattr(arr, "db", None)
+        if episodes_model is None or series_model is None or db is None:
+            return {
+                "counts": {"available": 0, "monitored": 0},
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "series": [],
+            }
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        with db.connection_context():
+            monitored_count = (
+                episodes_model.select(fn.COUNT(episodes_model.EntryId))
+                .where(episodes_model.Monitored == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            available_count = (
+                episodes_model.select(fn.COUNT(episodes_model.EntryId))
+                .where(
+                    (episodes_model.Monitored == True)  # noqa: E712
+                    & (episodes_model.EpisodeFileId.is_null(False))
+                    & (episodes_model.EpisodeFileId != 0)
+                )
+                .scalar()
+                or 0
+            )
+            series_query = series_model.select()
+            if search:
+                series_query = series_query.where(series_model.Title.contains(search))
+            total_series = series_query.count()
+            series_rows = (
+                series_query.order_by(series_model.Title.asc())
+                .paginate(page + 1, page_size)
+                .iterator()
+            )
+            payload = []
+            for series in series_rows:
+                episodes = (
+                    episodes_model.select()
+                    .where(episodes_model.SeriesId == series.EntryId)
+                    .order_by(
+                        episodes_model.SeasonNumber.asc(),
+                        episodes_model.EpisodeNumber.asc(),
+                    )
+                    .iterator()
+                )
+                seasons: dict[str, dict[str, Any]] = {}
+                series_monitored = 0
+                series_available = 0
+                for ep in episodes:
+                    season_value = getattr(ep, "SeasonNumber", None)
+                    season_key = str(season_value) if season_value is not None else "unknown"
+                    season_bucket = seasons.setdefault(
+                        season_key,
+                        {"monitored": 0, "available": 0, "episodes": []},
+                    )
+                    is_monitored = self._safe_bool(ep.Monitored)
+                    if is_monitored:
+                        season_bucket["monitored"] += 1
+                        series_monitored += 1
+                        if self._safe_bool(ep.EpisodeFileId):
+                            season_bucket["available"] += 1
+                            series_available += 1
+                    elif self._safe_bool(ep.EpisodeFileId):
+                        # Episode has a file but is not monitored; do not count
+                        # toward monitored totals, but still capture availability
+                        season_bucket["available"] += 0
+                    air_date = getattr(ep, "AirDateUtc", None)
+                    if isinstance(air_date, str):
+                        air_value = air_date
+                    elif air_date is not None:
+                        try:
+                            air_value = air_date.isoformat()
+                        except Exception:
+                            air_value = str(air_date)
+                    else:
+                        air_value = ""
+                    season_bucket["episodes"].append(
+                        {
+                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                            "title": getattr(ep, "Title", "") or "",
+                            "monitored": is_monitored,
+                            "hasFile": self._safe_bool(ep.EpisodeFileId),
+                            "airDateUtc": air_value,
+                        }
+                    )
+                payload.append(
+                    {
+                        "series": {
+                            "id": getattr(series, "EntryId", None),
+                            "title": getattr(series, "Title", "") or "",
+                        },
+                        "totals": {
+                            "available": series_available,
+                            "monitored": series_monitored,
+                        },
+                        "seasons": seasons,
+                    }
+                )
+        return {
+            "counts": {"available": available_count, "monitored": monitored_count},
+            "total": total_series,
+            "page": page,
+            "page_size": page_size,
+            "series": payload,
+        }
 
     # Routes
     def _register_routes(self):
@@ -311,27 +487,9 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=50, type=int)
-            movies = arr.client.get_movie()
-            # Compute availability
-            total_monitored = sum(1 for m in movies if m.get("monitored"))
-            total_available = sum(1 for m in movies if m.get("monitored") and m.get("hasFile"))
-            if q:
-                ql = q.lower()
-                movies = [m for m in movies if (m.get("title") or "").lower().find(ql) != -1]
-            total = len(movies)
-            start = max(0, page * page_size)
-            end = start + page_size
-            page_items = movies[start:end]
-            return jsonify(
-                {
-                    "category": category,
-                    "counts": {"available": total_available, "monitored": total_monitored},
-                    "total": total,
-                    "page": page,
-                    "page_size": page_size,
-                    "movies": page_items,
-                }
-            )
+            payload = self._radarr_movies_from_db(arr, q, page, page_size)
+            payload["category"] = category
+            return jsonify(payload)
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
@@ -342,26 +500,9 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=50, type=int)
-            movies = arr.client.get_movie()
-            total_monitored = sum(1 for m in movies if m.get("monitored"))
-            total_available = sum(1 for m in movies if m.get("monitored") and m.get("hasFile"))
-            if q:
-                ql = q.lower()
-                movies = [m for m in movies if (m.get("title") or "").lower().find(ql) != -1]
-            total = len(movies)
-            start = max(0, page * page_size)
-            end = start + page_size
-            page_items = movies[start:end]
-            return jsonify(
-                {
-                    "category": category,
-                    "counts": {"available": total_available, "monitored": total_monitored},
-                    "total": total,
-                    "page": page,
-                    "page_size": page_size,
-                    "movies": page_items,
-                }
-            )
+            payload = self._radarr_movies_from_db(arr, q, page, page_size)
+            payload["category"] = category
+            return jsonify(payload)
 
         @app.get("/api/sonarr/<category>/series")
         def api_sonarr_series(category: str):
@@ -373,63 +514,9 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=25, type=int)
-            series = arr.client.get_series()
-            if q:
-                ql = q.lower()
-                series = [s for s in series if (s.get("title") or "").lower().find(ql) != -1]
-            payload = []
-            total_mon = 0
-            total_avail = 0
-            total = len(series)
-            start = max(0, page * page_size)
-            end = start + page_size
-            for s in series[start:end]:
-                if not isinstance(s, dict):
-                    continue
-                sid = s.get("id")
-                if sid is None:
-                    continue
-                try:
-                    eps = arr.client.get_episode(sid, includeAll=True)
-                except Exception:
-                    eps = []
-                seasons = {}
-                for e in eps:
-                    if not isinstance(e, dict):
-                        continue
-                    season = e.get("seasonNumber")
-                    key = str(season) if season is not None else "unknown"
-                    seasons.setdefault(key, {"monitored": 0, "available": 0, "episodes": []})
-                    if e.get("monitored"):
-                        seasons[key]["monitored"] += 1
-                        if e.get("hasFile"):
-                            seasons[key]["available"] += 1
-                    seasons[key]["episodes"].append(e)
-                # aggregate per series
-                s_mon = sum(v["monitored"] for v in seasons.values())
-                s_avail = sum(v["available"] for v in seasons.values())
-                total_mon += s_mon
-                total_avail += s_avail
-                payload.append(
-                    {
-                        "series": s,
-                        "totals": {"available": s_avail, "monitored": s_mon},
-                        "seasons": seasons,
-                    }
-                )
-            return jsonify(
-                {
-                    "category": category,
-                    "counts": {
-                        "available": total_avail,
-                        "monitored": total_mon,
-                    },
-                    "total": total,
-                    "page": page,
-                    "page_size": page_size,
-                    "series": payload,
-                }
-            )
+            payload = self._sonarr_series_from_db(arr, q, page, page_size)
+            payload["category"] = category
+            return jsonify(payload)
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
@@ -439,58 +526,9 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=25, type=int)
-            series = arr.client.get_series()
-            if q:
-                ql = q.lower()
-                series = [s for s in series if (s.get("title") or "").lower().find(ql) != -1]
-            payload = []
-            total_mon = 0
-            total_avail = 0
-            total = len(series)
-            start = max(0, page * page_size)
-            end = start + page_size
-            for s in series[start:end]:
-                if not isinstance(s, dict):
-                    continue
-                sid = s.get("id")
-                if sid is None:
-                    continue
-                try:
-                    eps = arr.client.get_episode(sid, includeAll=True)
-                except Exception:
-                    eps = []
-                seasons = {}
-                for e in eps:
-                    if not e.get("monitored"):
-                        continue
-                    season = e.get("seasonNumber")
-                    seasons.setdefault(season, {"monitored": 0, "available": 0, "episodes": []})
-                    if e.get("monitored"):
-                        seasons[season]["monitored"] += 1
-                    if e.get("hasFile"):
-                        seasons[season]["available"] += 1
-                    seasons[season]["episodes"].append(e)
-                s_mon = sum(v["monitored"] for v in seasons.values())
-                s_avail = sum(v["available"] for v in seasons.values())
-                total_mon += s_mon
-                total_avail += s_avail
-                payload.append(
-                    {
-                        "series": s,
-                        "totals": {"available": s_avail, "monitored": s_mon},
-                        "seasons": seasons,
-                    }
-                )
-            return jsonify(
-                {
-                    "category": category,
-                    "counts": {"available": total_avail, "monitored": total_mon},
-                    "total": total,
-                    "page": page,
-                    "page_size": page_size,
-                    "series": payload,
-                }
-            )
+            payload = self._sonarr_series_from_db(arr, q, page, page_size)
+            payload["category"] = category
+            return jsonify(payload)
 
         @app.get("/api/arr")
         def api_arr_list():
