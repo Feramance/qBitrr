@@ -27,6 +27,6 @@ qBitrr2.egg-info/requires.txt
 qBitrr2.egg-info/top_level.txt
 qBitrr/static/index.html
 qBitrr/static/vite.svg
-qBitrr/static/assets/index-Bdhq7OfI.js
-qBitrr/static/assets/index-Bdhq7OfI.js.map
-qBitrr/static/assets/index-Dt6HaF7o.css
+qBitrr/static/assets/app.css
+qBitrr/static/assets/app.js
+qBitrr/static/assets/app.js.map

@@ -1,10 +1,10 @@
 # Frontend build stage
 FROM node:20-bookworm AS webui-build
-WORKDIR /src/webui
-COPY webui/package*.json ./
-RUN npm ci
-COPY webui/ .
-RUN npm run build
+WORKDIR /src
+COPY webui/package*.json webui/
+RUN cd webui && npm ci
+COPY webui webui
+RUN mkdir -p qBitrr/static && cd webui && npm run build
 
 # Pin Python to the latest supported version
 # (This avoids it auto updating to a higher untested version)
@@ -25,7 +25,7 @@ ENV PYTHONOPTIMIZE=1
 RUN pip install --quiet -U pip wheel
 WORKDIR /app
 COPY . /app
-COPY --from=webui-build /src/webui/dist/ /app/qBitrr/static/
+COPY --from=webui-build /src/qBitrr/static/ /app/qBitrr/static/
 RUN pip install --quiet ".[fast]"
 
 WORKDIR /config

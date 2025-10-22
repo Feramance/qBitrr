@@ -10,5 +10,20 @@ export default defineConfig({
     outDir: resolve(__dirname, "../qBitrr/static"),
     emptyOutDir: true,
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: "assets/app.js",
+        chunkFileNames: "assets/[name].js",
+        assetFileNames: ({ name }) => {
+          if (name && name.endsWith(".css")) {
+            return "assets/app.css";
+          }
+          if (name && name.endsWith(".js.map")) {
+            return "assets/app.js.map";
+          }
+          return "assets/[name][extname]";
+        },
+      },
+    },
   },
 });
