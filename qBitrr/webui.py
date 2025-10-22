@@ -57,9 +57,36 @@ class WebUI:
     def _safe_bool(value: Any) -> bool:
         return bool(value) and str(value).lower() not in {"0", "false", "none"}
 
+    @staticmethod
+    def _safe_str(value: Any) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+    def _ensure_arr_db(self, arr) -> bool:
+        if getattr(arr, "search_setup_completed", False):
+            return True
+        try:
+            arr.register_search_mode()
+        except Exception:
+            return False
+        return bool(getattr(arr, "search_setup_completed", False))
+
+    @staticmethod
+    def _safe_bool(value: Any) -> bool:
+        return bool(value) and str(value).lower() not in {"0", "false", "none"}
+
     def _radarr_movies_from_db(
         self, arr, search: str | None, page: int, page_size: int
     ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {"available": 0, "monitored": 0},
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "movies": [],
+            }
         model = getattr(arr, "model_file", None)
         db = getattr(arr, "db", None)
         if model is None or db is None:
@@ -117,6 +144,14 @@ class WebUI:
     def _sonarr_series_from_db(
         self, arr, search: str | None, page: int, page_size: int
     ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {"available": 0, "monitored": 0},
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "series": [],
+            }
         episodes_model = getattr(arr, "model_file", None)
         series_model = getattr(arr, "series_file_model", None)
         db = getattr(arr, "db", None)
@@ -139,11 +174,7 @@ class WebUI:
             )
             available_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                .where(
-                    (episodes_model.Monitored == True)  # noqa: E712
-                    & (episodes_model.EpisodeFileId.is_null(False))
-                    & (episodes_model.EpisodeFileId != 0)
-                )
+                .where(episodes_model.EpisodeFileId.is_null(False))
                 .scalar()
                 or 0
             )
@@ -177,25 +208,23 @@ class WebUI:
                         season_key,
                         {"monitored": 0, "available": 0, "episodes": []},
                     )
-                    is_monitored = self._safe_bool(ep.Monitored)
+                    is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                    has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
                     if is_monitored:
                         season_bucket["monitored"] += 1
                         series_monitored += 1
-                        if self._safe_bool(ep.EpisodeFileId):
-                            season_bucket["available"] += 1
+                    if has_file:
+                        season_bucket["available"] += 1
+                        if is_monitored:
                             series_available += 1
-                    elif self._safe_bool(ep.EpisodeFileId):
-                        # Episode has a file but is not monitored; do not count
-                        # toward monitored totals, but still capture availability
-                        season_bucket["available"] += 0
                     air_date = getattr(ep, "AirDateUtc", None)
-                    if isinstance(air_date, str):
-                        air_value = air_date
-                    elif air_date is not None:
+                    if hasattr(air_date, "isoformat"):
                         try:
                             air_value = air_date.isoformat()
                         except Exception:
                             air_value = str(air_date)
+                    elif isinstance(air_date, str):
+                        air_value = air_date
                     else:
                         air_value = ""
                     season_bucket["episodes"].append(
@@ -203,7 +232,7 @@ class WebUI:
                             "episodeNumber": getattr(ep, "EpisodeNumber", None),
                             "title": getattr(ep, "Title", "") or "",
                             "monitored": is_monitored,
-                            "hasFile": self._safe_bool(ep.EpisodeFileId),
+                            "hasFile": has_file,
                             "airDateUtc": air_value,
                         }
                     )

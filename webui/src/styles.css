@@ -171,6 +171,17 @@ th {
     color: var(--muted);
 }
 
+th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sort-arrow {
+    font-size: 10px;
+    margin-left: 4px;
+    color: var(--muted);
+}
+
 details {
     margin: 6px 0;
 }

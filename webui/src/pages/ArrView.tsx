@@ -37,6 +37,18 @@ interface SonarrAggRow {
   airDate: string;
 }
 
+type RadarrSortKey = "title" | "year" | "monitored" | "hasFile";
+type RadarrAggSortKey = "__instance" | RadarrSortKey;
+type SonarrAggSortKey =
+  | "__instance"
+  | "series"
+  | "season"
+  | "episode"
+  | "title"
+  | "monitored"
+  | "hasFile"
+  | "airDate";
+
 const RADARR_PAGE_SIZE = 50;
 const RADARR_AGG_PAGE_SIZE = 50;
 const RADARR_AGG_FETCH_SIZE = 500;
@@ -76,6 +88,10 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const [aggSort, setAggSort] = useState<{
+    key: RadarrAggSortKey;
+    direction: "asc" | "desc";
+  }>({ key: "__instance", direction: "asc" });
 
   const loadInstances = useCallback(async () => {
     try {
@@ -231,11 +247,45 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     });
   }, [aggRows, aggFilter]);
 
+  const sortedAggRows = useMemo(() => {
+    const list = [...filteredAggRows];
+    const getValue = (row: RadarrAggRow, key: RadarrAggSortKey) => {
+      switch (key) {
+        case "__instance":
+          return (row.__instance || "").toLowerCase();
+        case "title":
+          return (row.title || "").toLowerCase();
+        case "year":
+          return row.year ?? 0;
+        case "monitored":
+          return row.monitored ? 1 : 0;
+        case "hasFile":
+          return row.hasFile ? 1 : 0;
+        default:
+          return "";
+      }
+    };
+    list.sort((a, b) => {
+      const valueA = getValue(a, aggSort.key);
+      const valueB = getValue(b, aggSort.key);
+      let comparison = 0;
+      if (typeof valueA === "number" && typeof valueB === "number") {
+        comparison = valueA - valueB;
+      } else if (typeof valueA === "string" && typeof valueB === "string") {
+        comparison = valueA.localeCompare(valueB);
+      } else {
+        comparison = String(valueA).localeCompare(String(valueB));
+      }
+      return aggSort.direction === "asc" ? comparison : -comparison;
+    });
+    return list;
+  }, [filteredAggRows, aggSort]);
+
   const aggPages = Math.max(
     1,
-    Math.ceil(filteredAggRows.length / RADARR_AGG_PAGE_SIZE)
+    Math.ceil(sortedAggRows.length / RADARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = filteredAggRows.slice(
+  const aggPageRows = sortedAggRows.slice(
     aggPage * RADARR_AGG_PAGE_SIZE,
     aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
   );
@@ -315,12 +365,24 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
               <RadarrAggregateView
                 loading={aggLoading}
                 rows={aggPageRows}
-                total={filteredAggRows.length}
+                total={sortedAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
                 onRefresh={() => void loadAggregate()}
                 lastUpdated={aggUpdated}
+                sort={aggSort}
+                onSort={(key) =>
+                  setAggSort((prev) =>
+                    prev.key === key
+                      ? {
+                          key,
+                          direction:
+                            prev.direction === "asc" ? "desc" : "asc",
+                        }
+                      : { key, direction: "asc" }
+                  )
+                }
               />
             ) : (
               <RadarrInstanceView
@@ -352,6 +414,8 @@ interface RadarrAggregateViewProps {
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   lastUpdated: string | null;
+  sort: { key: RadarrAggSortKey; direction: "asc" | "desc" };
+  onSort: (key: RadarrAggSortKey) => void;
 }
 
 function RadarrAggregateView({
@@ -363,7 +427,21 @@ function RadarrAggregateView({
   onPageChange,
   onRefresh,
   lastUpdated,
+  sort,
+  onSort,
 }: RadarrAggregateViewProps): JSX.Element {
+  const renderIndicator = (key: RadarrAggSortKey) =>
+    sort.key === key ? (
+      <span className="sort-arrow">{sort.direction === "asc" ? "▲" : "▼"}</span>
+    ) : null;
+
+  const renderHeader = (key: RadarrAggSortKey, label: string) => (
+    <th className="sortable" onClick={() => onSort(key)}>
+      {label}
+      {renderIndicator(key)}
+    </th>
+  );
+
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -384,11 +462,11 @@ function RadarrAggregateView({
           <table>
             <thead>
               <tr>
-                <th>Instance</th>
-                <th>Title</th>
-                <th>Year</th>
-                <th>Monitored</th>
-                <th>Has File</th>
+                {renderHeader("__instance", "Instance")}
+                {renderHeader("title", "Title")}
+                {renderHeader("year", "Year")}
+                {renderHeader("monitored", "Monitored")}
+                {renderHeader("hasFile", "Has File")}
               </tr>
             </thead>
             <tbody>
@@ -455,6 +533,56 @@ function RadarrInstanceView({
   const movies = data?.movies ?? [];
   const showInitialLoading = loading && movies.length === 0;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
+  const [sort, setSort] = useState<{ key: RadarrSortKey; direction: "asc" | "desc" }>({ key: "title", direction: "asc" });
+
+  const sortedMovies = useMemo(() => {
+    const list = [...(data?.movies ?? [])];
+    const getValue = (movie: RadarrMovie, key: RadarrSortKey) => {
+      switch (key) {
+        case "title":
+          return (movie.title || "").toLowerCase();
+        case "year":
+          return movie.year ?? 0;
+        case "monitored":
+          return movie.monitored ? 1 : 0;
+        case "hasFile":
+          return movie.hasFile ? 1 : 0;
+        default:
+          return "";
+      }
+    };
+    list.sort((a, b) => {
+      const valueA = getValue(a, sort.key);
+      const valueB = getValue(b, sort.key);
+      let comparison = 0;
+      if (typeof valueA === "number" && typeof valueB === "number") {
+        comparison = valueA - valueB;
+      } else if (typeof valueA === "string" && typeof valueB === "string") {
+        comparison = valueA.localeCompare(valueB);
+      } else {
+        comparison = String(valueA).localeCompare(String(valueB));
+      }
+      return sort.direction === "asc" ? comparison : -comparison;
+    });
+    return list;
+  }, [data?.movies, sort]);
+
+  const handleSort = (key: RadarrSortKey) => {
+    setSort((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: "asc" }
+    );
+  };
+
+  const renderHeader = (key: RadarrSortKey, label: string) => (
+    <th className="sortable" onClick={() => handleSort(key)}>
+      {label}
+      {sort.key === key ? (
+        <span className="sort-arrow">{sort.direction === "asc" ? "▲" : "▼"}</span>
+      ) : null}
+    </th>
+  );
 
   return (
     <div className="stack">
@@ -478,14 +606,14 @@ function RadarrInstanceView({
       <table>
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Year</th>
-            <th>Monitored</th>
-            <th>Has File</th>
+            {renderHeader("title", "Title")}
+            {renderHeader("year", "Year")}
+            {renderHeader("monitored", "Monitored")}
+            {renderHeader("hasFile", "Has File")}
           </tr>
         </thead>
         <tbody>
-          {movies.map((movie) => (
+          {sortedMovies.map((movie) => (
             <tr key={movie.id ?? `${movie.title}-${movie.year}`}>
               <td>{movie.title ?? ""}</td>
               <td>{movie.year ?? ""}</td>
@@ -544,6 +672,10 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const [aggSort, setAggSort] = useState<{
+    key: SonarrAggSortKey;
+    direction: "asc" | "desc";
+  }>({ key: "__instance", direction: "asc" });
 
   const loadInstances = useCallback(async () => {
     try {
@@ -716,11 +848,51 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     });
   }, [aggRows, aggFilter]);
 
+  const sortedAggRows = useMemo(() => {
+    const list = [...filteredAggRows];
+    const getValue = (row: SonarrAggRow, key: SonarrAggSortKey) => {
+      switch (key) {
+        case "__instance":
+          return row.__instance.toLowerCase();
+        case "series":
+          return row.series.toLowerCase();
+        case "season":
+          return Number(row.season) || 0;
+        case "episode":
+          return Number(row.episode) || 0;
+        case "title":
+          return row.title.toLowerCase();
+        case "monitored":
+          return row.monitored ? 1 : 0;
+        case "hasFile":
+          return row.hasFile ? 1 : 0;
+        case "airDate":
+          return row.airDate || "";
+        default:
+          return "";
+      }
+    };
+    list.sort((a, b) => {
+      const valueA = getValue(a, aggSort.key);
+      const valueB = getValue(b, aggSort.key);
+      let comparison = 0;
+      if (typeof valueA === "number" && typeof valueB === "number") {
+        comparison = valueA - valueB;
+      } else if (typeof valueA === "string" && typeof valueB === "string") {
+        comparison = valueA.localeCompare(valueB);
+      } else {
+        comparison = String(valueA).localeCompare(String(valueB));
+      }
+      return aggSort.direction === "asc" ? comparison : -comparison;
+    });
+    return list;
+  }, [filteredAggRows, aggSort]);
+
   const aggPages = Math.max(
     1,
-    Math.ceil(filteredAggRows.length / SONARR_AGG_PAGE_SIZE)
+    Math.ceil(sortedAggRows.length / SONARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = filteredAggRows.slice(
+  const aggPageRows = sortedAggRows.slice(
     aggPage * SONARR_AGG_PAGE_SIZE,
     aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
   );
@@ -800,12 +972,24 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
               <SonarrAggregateView
                 loading={aggLoading}
                 rows={aggPageRows}
-                total={filteredAggRows.length}
+                total={sortedAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
                 onRefresh={() => void loadAggregate()}
                 lastUpdated={aggUpdated}
+                sort={aggSort}
+                onSort={(key) =>
+                  setAggSort((prev) =>
+                    prev.key === key
+                      ? {
+                          key,
+                          direction:
+                            prev.direction === "asc" ? "desc" : "asc",
+                        }
+                      : { key, direction: "asc" }
+                  )
+                }
               />
             ) : (
               <SonarrInstanceView
@@ -837,6 +1021,8 @@ interface SonarrAggregateViewProps {
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   lastUpdated: string | null;
+  sort: { key: SonarrAggSortKey; direction: "asc" | "desc" };
+  onSort: (key: SonarrAggSortKey) => void;
 }
 
 function SonarrAggregateView({
@@ -848,7 +1034,21 @@ function SonarrAggregateView({
   onPageChange,
   onRefresh,
   lastUpdated,
+  sort,
+  onSort,
 }: SonarrAggregateViewProps): JSX.Element {
+  const renderIndicator = (key: SonarrAggSortKey) =>
+    sort.key === key ? (
+      <span className="sort-arrow">{sort.direction === "asc" ? "▲" : "▼"}</span>
+    ) : null;
+
+  const renderHeader = (key: SonarrAggSortKey, label: string) => (
+    <th className="sortable" onClick={() => onSort(key)}>
+      {label}
+      {renderIndicator(key)}
+    </th>
+  );
+
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -868,14 +1068,14 @@ function SonarrAggregateView({
           <table>
             <thead>
               <tr>
-                <th>Instance</th>
-                <th>Series</th>
-                <th>Season</th>
-                <th>Episode</th>
-                <th>Title</th>
-                <th>Monitored</th>
-                <th>Has File</th>
-                <th>Air Date</th>
+                {renderHeader("__instance", "Instance")}
+                {renderHeader("series", "Series")}
+                {renderHeader("season", "Season")}
+                {renderHeader("episode", "Episode")}
+                {renderHeader("title", "Title")}
+                {renderHeader("monitored", "Monitored")}
+                {renderHeader("hasFile", "Has File")}
+                {renderHeader("airDate", "Air Date")}
               </tr>
             </thead>
             <tbody>
