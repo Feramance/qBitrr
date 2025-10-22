@@ -531,7 +531,6 @@ function RadarrInstanceView({
 }: RadarrInstanceViewProps): JSX.Element {
   const counts = data?.counts;
   const movies = data?.movies ?? [];
-  const showInitialLoading = loading && movies.length === 0;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   const [sort, setSort] = useState<{ key: RadarrSortKey; direction: "asc" | "desc" }>({ key: "title", direction: "asc" });
 
@@ -598,11 +597,6 @@ function RadarrInstanceView({
           Restart Instance
         </button>
       </div>
-      {showInitialLoading && (
-        <div className="loading">
-          <span className="spinner" /> Updating…
-        </div>
-      )}
       <table>
         <thead>
           <tr>
@@ -1143,7 +1137,6 @@ function SonarrInstanceView({
 }: SonarrInstanceViewProps): JSX.Element {
   const series = data?.series ?? [];
   const counts = data?.counts;
-  const showInitialLoading = loading && series.length === 0;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   return (
     <div className="stack">
@@ -1159,11 +1152,6 @@ function SonarrInstanceView({
           Restart Instance
         </button>
       </div>
-      {showInitialLoading && (
-        <div className="loading">
-          <span className="spinner" /> Updating…
-        </div>
-      )}
       <div className="stack">
         {series.map((entry, idx) => {
           const title =

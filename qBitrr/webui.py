@@ -64,13 +64,20 @@ class WebUI:
         return str(value)
 
     def _ensure_arr_db(self, arr) -> bool:
-        if getattr(arr, "search_setup_completed", False):
-            return True
-        try:
-            arr.register_search_mode()
-        except Exception:
+        if not getattr(arr, "search_setup_completed", False):
+            try:
+                arr.register_search_mode()
+            except Exception:
+                return False
+        if not getattr(arr, "search_setup_completed", False):
             return False
-        return bool(getattr(arr, "search_setup_completed", False))
+        if not getattr(arr, "_webui_db_loaded", False):
+            try:
+                arr.db_update()
+                arr._webui_db_loaded = True
+            except Exception:
+                arr._webui_db_loaded = False
+        return True
 
     @staticmethod
     def _safe_bool(value: Any) -> bool:
