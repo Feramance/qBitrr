@@ -454,19 +454,15 @@ function RadarrInstanceView({
   const counts = data?.counts;
   const movies = data?.movies ?? [];
   const showInitialLoading = loading && movies.length === 0;
-  const refreshLabel = loading
-    ? "Refreshing…"
-    : lastUpdated
-    ? `Last updated ${lastUpdated}`
-    : null;
+  const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
 
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
-            Monitored: {counts?.monitored ?? 0} / Available:{" "}
-            {counts?.available ?? 0}
+            Available: {counts?.available ?? 0} / Monitored:{" "}
+            {counts?.monitored ?? 0}
           </span>
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
@@ -948,18 +944,14 @@ function SonarrInstanceView({
   const series = data?.series ?? [];
   const counts = data?.counts;
   const showInitialLoading = loading && series.length === 0;
-  const refreshLabel = loading
-    ? "Refreshing…"
-    : lastUpdated
-    ? `Last updated ${lastUpdated}`
-    : null;
+  const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
-            Monitored: {counts?.monitored ?? 0} / Available:{" "}
-            {counts?.available ?? 0}
+            Available: {counts?.available ?? 0} / Monitored:{" "}
+            {counts?.monitored ?? 0}
           </span>
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>

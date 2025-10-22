@@ -393,17 +393,18 @@ class WebUI:
                     eps = arr.client.get_episode(sid, includeAll=True)
                 except Exception:
                     eps = []
-                # Build seasons
                 seasons = {}
                 for e in eps:
-                    if not e.get("monitored"):
+                    if not isinstance(e, dict):
                         continue
                     season = e.get("seasonNumber")
-                    seasons.setdefault(season, {"monitored": 0, "available": 0, "episodes": []})
-                    seasons[season]["monitored"] += 1
-                    if e.get("hasFile"):
-                        seasons[season]["available"] += 1
-                    seasons[season]["episodes"].append(e)
+                    key = str(season) if season is not None else "unknown"
+                    seasons.setdefault(key, {"monitored": 0, "available": 0, "episodes": []})
+                    if e.get("monitored"):
+                        seasons[key]["monitored"] += 1
+                        if e.get("hasFile"):
+                            seasons[key]["available"] += 1
+                    seasons[key]["episodes"].append(e)
                 # aggregate per series
                 s_mon = sum(v["monitored"] for v in seasons.values())
                 s_avail = sum(v["available"] for v in seasons.values())
@@ -464,7 +465,8 @@ class WebUI:
                         continue
                     season = e.get("seasonNumber")
                     seasons.setdefault(season, {"monitored": 0, "available": 0, "episodes": []})
-                    seasons[season]["monitored"] += 1
+                    if e.get("monitored"):
+                        seasons[season]["monitored"] += 1
                     if e.get("hasFile"):
                         seasons[season]["available"] += 1
                     seasons[season]["episodes"].append(e)
