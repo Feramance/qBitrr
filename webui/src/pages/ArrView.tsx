@@ -19,6 +19,7 @@ import type {
   SonarrEpisode,
   SonarrSeriesEntry,
   SonarrSeriesResponse,
+  SonarrSeason,
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
@@ -105,6 +106,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     key: RadarrAggSortKey;
     direction: "asc" | "desc";
   }>({ key: "__instance", direction: "asc" });
+  const [onlyMissing, setOnlyMissing] = useState(false);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -179,9 +181,13 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       category: string,
       page: number,
       query: string,
-      options: { preloadAll?: boolean } = {}
+      options: { preloadAll?: boolean; showLoading?: boolean } = {}
     ) => {
-      setInstanceLoading(true);
+      const preloadAll = options.preloadAll !== false;
+      const showLoading = options.showLoading ?? true;
+      if (showLoading) {
+        setInstanceLoading(true);
+      }
       try {
         const key = `${category}::${query}`;
         const keyChanged = instanceKeyRef.current !== key;
@@ -216,7 +222,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
           instancePagesRef.current = next;
           return next;
         });
-        if (options.preloadAll !== false) {
+        if (preloadAll) {
           const pagesToFetch: number[] = [];
           for (let i = 0; i < totalPages; i += 1) {
             if (i === resolvedPage) continue;
@@ -326,11 +332,22 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       if (selection && selection !== "aggregate") {
         void fetchInstance(selection, instancePage, instanceQuery, {
           preloadAll: false,
+          showLoading: false,
         });
       }
     },
     active && selection && selection !== "aggregate" && live ? 1000 : null
   );
+
+  useEffect(() => {
+    setAggPage(0);
+    setInstancePage(0);
+  }, [onlyMissing]);
+
+  useEffect(() => {
+    setAggPage(0);
+    setInstancePage(0);
+  }, [onlyMissing]);
 
   useEffect(() => {
     globalSearchRef.current = globalSearch;
@@ -343,14 +360,20 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    if (!aggFilter) return aggRows;
-    const q = aggFilter.toLowerCase();
-    return aggRows.filter((row) => {
-      const title = (row.title ?? "").toString().toLowerCase();
-      const instance = (row.__instance ?? "").toLowerCase();
-      return title.includes(q) || instance.includes(q);
-    });
-  }, [aggRows, aggFilter]);
+    let rows = aggRows;
+    if (aggFilter) {
+      const q = aggFilter.toLowerCase();
+      rows = rows.filter((row) => {
+        const title = (row.title ?? "").toString().toLowerCase();
+        const instance = (row.__instance ?? "").toLowerCase();
+        return title.includes(q) || instance.includes(q);
+      });
+    }
+    if (onlyMissing) {
+      rows = rows.filter((row) => !row.hasFile);
+    }
+    return rows;
+  }, [aggRows, aggFilter, onlyMissing]);
 
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
@@ -460,6 +483,14 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                   onChange={(event) => setGlobalSearch(event.target.value)}
                 />
               </div>
+              <label className="hint inline" style={{ marginBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={onlyMissing}
+                  onChange={(event) => setOnlyMissing(event.target.checked)}
+                />
+                Only Missing
+              </label>
               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
@@ -503,6 +534,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                 totalPages={instanceTotalPages}
                 pageSize={instancePageSize}
                 allMovies={allInstanceMovies}
+                onlyMissing={onlyMissing}
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstance(selection as string, page, instanceQuery, {
@@ -632,6 +664,7 @@ interface RadarrInstanceViewProps {
   totalPages: number;
   pageSize: number;
   allMovies: RadarrMovie[];
+  onlyMissing: boolean;
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -644,17 +677,38 @@ function RadarrInstanceView({
   totalPages,
   pageSize,
   allMovies,
+  onlyMissing,
   onPageChange,
   onRestart,
   lastUpdated,
 }: RadarrInstanceViewProps): JSX.Element {
   const counts = data?.counts;
-  const totalItems = data?.total ?? allMovies.length;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   const [sort, setSort] = useState<{ key: RadarrSortKey; direction: "asc" | "desc" }>({ key: "title", direction: "asc" });
 
+  const sourceMovies = useMemo(
+    () => (onlyMissing ? allMovies.filter((movie) => !movie.hasFile) : allMovies),
+    [allMovies, onlyMissing]
+  );
+
+  const totalItems = onlyMissing
+    ? sourceMovies.length
+    : data?.total ?? allMovies.length;
+
+  const effectiveTotalPages = onlyMissing
+    ? Math.max(1, Math.ceil(Math.max(sourceMovies.length, 1) / pageSize))
+    : totalPages;
+
+  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
+
+  useEffect(() => {
+    if (safePage !== page) {
+      onPageChange(safePage);
+    }
+  }, [safePage, page, onPageChange]);
+
   const sortedMovies = useMemo(() => {
-    const list = [...allMovies];
+    const list = [...sourceMovies];
     const getValue = (movie: RadarrMovie, key: RadarrSortKey) => {
       switch (key) {
         case "title":
@@ -683,15 +737,15 @@ function RadarrInstanceView({
       return sort.direction === "asc" ? comparison : -comparison;
     });
     return list;
-  }, [allMovies, sort]);
+  }, [sourceMovies, sort]);
 
   const pageRows = useMemo(
     () =>
       sortedMovies.slice(
-        page * pageSize,
-        page * pageSize + pageSize
+        safePage * pageSize,
+        safePage * pageSize + pageSize
       ),
-    [sortedMovies, page, pageSize]
+    [sortedMovies, safePage, pageSize]
   );
 
   const handleSort = (key: RadarrSortKey) => {
@@ -747,21 +801,21 @@ function RadarrInstanceView({
       </table>
       <div className="pagination">
         <div>
-          Page {page + 1} of {totalPages} ({totalItems} items · page size{" "}
+          Page {safePage + 1} of {effectiveTotalPages} ({totalItems} items · page size{" "}
           {pageSize})
         </div>
         <div className="inline">
           <button
             className="btn"
-            onClick={() => onPageChange(Math.max(0, page - 1))}
-            disabled={page === 0 || loading}
+            onClick={() => onPageChange(Math.max(0, safePage - 1))}
+            disabled={safePage === 0 || loading}
           >
             Prev
           </button>
           <button
             className="btn"
-            onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-            disabled={page >= totalPages - 1 || loading}
+            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+            disabled={safePage >= effectiveTotalPages - 1 || loading}
           >
             Next
           </button>
@@ -808,6 +862,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     key: SonarrAggSortKey;
     direction: "asc" | "desc";
   }>({ key: "__instance", direction: "asc" });
+  const [onlyMissing, setOnlyMissing] = useState(false);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -842,9 +897,12 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       category: string,
       page: number,
       query: string,
-      options: { preloadAll?: boolean } = {}
+      options: { preloadAll?: boolean; showLoading?: boolean } = {}
     ) => {
-      setInstanceLoading(true);
+      const { preloadAll = true, showLoading = true } = options;
+      if (showLoading) {
+        setInstanceLoading(true);
+      }
       try {
         const key = `${category}::${query}`;
         const keyChanged = instanceKeyRef.current !== key;
@@ -882,7 +940,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
           instancePagesRef.current = next;
           return next;
         });
-        if (options.preloadAll) {
+        if (preloadAll) {
           const pagesToFetch: number[] = [];
           for (let i = 0; i < totalPages; i += 1) {
             if (i === resolvedPage) continue;
@@ -921,7 +979,9 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
           "error"
         );
       } finally {
-        setInstanceLoading(false);
+        if (showLoading) {
+          setInstanceLoading(false);
+        }
       }
     },
     [push]
@@ -993,7 +1053,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     if (!selection || selection === "aggregate") return;
     setInstancePage(0);
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, { preloadAll: true });
+    void fetchInstance(selection, 0, query, { preloadAll: true, showLoading: true });
   }, [active, selection, fetchInstance]);
 
   useEffect(() => {
@@ -1010,7 +1070,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term, { preloadAll: true });
+        void fetchInstance(selection, 0, term, { preloadAll: true, showLoading: true });
       }
     };
     register(handler);
@@ -1022,6 +1082,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       if (selection && selection !== "aggregate") {
         void fetchInstance(selection, instancePage, instanceQuery, {
           preloadAll: false,
+          showLoading: false,
         });
       }
     },
@@ -1039,16 +1100,22 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    if (!aggFilter) return aggRows;
-    const q = aggFilter.toLowerCase();
-    return aggRows.filter((row) => {
-      return (
-        row.series.toLowerCase().includes(q) ||
-        row.title.toLowerCase().includes(q) ||
-        row.__instance.toLowerCase().includes(q)
-      );
-    });
-  }, [aggRows, aggFilter]);
+    let rows = aggRows;
+    if (aggFilter) {
+      const q = aggFilter.toLowerCase();
+      rows = rows.filter((row) => {
+        return (
+          row.series.toLowerCase().includes(q) ||
+          row.title.toLowerCase().includes(q) ||
+          row.__instance.toLowerCase().includes(q)
+        );
+      });
+    }
+    if (onlyMissing) {
+      rows = rows.filter((row) => !row.hasFile);
+    }
+    return rows;
+  }, [aggRows, aggFilter, onlyMissing]);
 
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
@@ -1153,6 +1220,14 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                   onChange={(event) => setGlobalSearch(event.target.value)}
                 />
               </div>
+              <label className="hint inline" style={{ marginBottom: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={onlyMissing}
+                  onChange={(event) => setOnlyMissing(event.target.checked)}
+                />
+                Only Missing
+              </label>
               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
@@ -1197,10 +1272,12 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                 pageSize={instancePageSize}
                 totalPages={instanceTotalPages}
                 totalItems={instanceTotalItems}
+                onlyMissing={onlyMissing}
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstance(selection as string, page, instanceQuery, {
                     preloadAll: false,
+                    showLoading: true,
                   });
                 }}
                 onRestart={() => void handleRestart()}
@@ -1297,25 +1374,25 @@ function SonarrAggregateView({
           </table>
           <div className="pagination">
             <div>
-              Page {page + 1} of {totalPages} ({total} items)
-            </div>
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, page - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() =>
-                  onPageChange(Math.min(totalPages - 1, page + 1))
-                }
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </button>
+          Page {page + 1} of {totalPages} ({total} items)
+        </div>
+        <div className="inline">
+          <button
+            className="btn"
+            onClick={() => onPageChange(Math.max(0, page - 1))}
+            disabled={page === 0}
+          >
+            Prev
+          </button>
+          <button
+            className="btn"
+            onClick={() =>
+              onPageChange(Math.min(totalPages - 1, page + 1))
+            }
+            disabled={page >= totalPages - 1}
+          >
+            Next
+          </button>
             </div>
           </div>
         </>
@@ -1332,6 +1409,7 @@ interface SonarrInstanceViewProps {
   pageSize: number;
   totalPages: number;
   totalItems: number;
+  onlyMissing: boolean;
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -1340,16 +1418,46 @@ interface SonarrInstanceViewProps {
 function SonarrInstanceView({
   loading,
   counts,
-  series,
+  series: seriesEntries,
   page,
   pageSize,
   totalPages,
   totalItems,
+  onlyMissing,
   onPageChange,
   onRestart,
   lastUpdated,
 }: SonarrInstanceViewProps): JSX.Element {
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
+  const filteredSeries = useMemo(() => {
+    if (!onlyMissing) return seriesEntries;
+    const result: SonarrSeriesEntry[] = [];
+    for (const entry of seriesEntries) {
+      const seasons = entry.seasons ?? {};
+      const filteredSeasons: Record<string, SonarrSeason> = {};
+      for (const [seasonNumber, season] of Object.entries(seasons)) {
+        const episodes = (season.episodes ?? []).filter((episode) => !episode.hasFile);
+        if (!episodes.length) continue;
+        filteredSeasons[seasonNumber] = { ...season, episodes };
+      }
+      if (Object.keys(filteredSeasons).length === 0) continue;
+      result.push({
+        ...entry,
+        seasons: filteredSeasons,
+      });
+    }
+    return result;
+  }, [seriesEntries, onlyMissing]);
+  const totalItemsDisplay = onlyMissing ? filteredSeries.length : totalItems;
+  const effectiveTotalPages = totalPages;
+  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
+
+  useEffect(() => {
+    if (safePage !== page) {
+      onPageChange(safePage);
+    }
+  }, [safePage, page, onPageChange]);
+
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -1369,8 +1477,8 @@ function SonarrInstanceView({
           <div className="loading">
             <span className="spinner" /> Loading Sonarr library…
           </div>
-        ) : series.length ? (
-          series.map((entry, idx) => {
+        ) : filteredSeries.length ? (
+          filteredSeries.map((entry, idx) => {
             const title =
               (entry.series?.["title"] as string | undefined) ||
               `Series ${idx + 1}`;
@@ -1427,21 +1535,21 @@ function SonarrInstanceView({
       </div>
       <div className="pagination">
         <div>
-          Page {page + 1} of {totalPages} ({totalItems} items · page size{" "}
+          Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items · page size{" "}
           {pageSize})
         </div>
         <div className="inline">
           <button
             className="btn"
-            onClick={() => onPageChange(Math.max(0, page - 1))}
-            disabled={page === 0 || loading}
+            onClick={() => onPageChange(Math.max(0, safePage - 1))}
+            disabled={safePage === 0 || loading}
           >
             Prev
           </button>
           <button
             className="btn"
-            onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-            disabled={page >= totalPages - 1 || loading}
+            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+            disabled={safePage >= effectiveTotalPages - 1 || loading}
           >
             Next
           </button>
