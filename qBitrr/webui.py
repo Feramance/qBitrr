@@ -162,7 +162,7 @@ class WebUI:
         episodes_model = getattr(arr, "model_file", None)
         series_model = getattr(arr, "series_file_model", None)
         db = getattr(arr, "db", None)
-        if episodes_model is None or series_model is None or db is None:
+        if episodes_model is None or db is None:
             return {
                 "counts": {"available": 0, "monitored": 0},
                 "total": 0,
@@ -172,6 +172,7 @@ class WebUI:
             }
         page = max(page, 0)
         page_size = max(page_size, 1)
+        resolved_page = page
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -185,81 +186,230 @@ class WebUI:
                 .scalar()
                 or 0
             )
-            series_query = series_model.select()
-            if search:
-                series_query = series_query.where(series_model.Title.contains(search))
-            total_series = series_query.count()
-            series_rows = (
-                series_query.order_by(series_model.Title.asc())
-                .paginate(page + 1, page_size)
-                .iterator()
-            )
-            payload = []
-            for series in series_rows:
-                episodes = (
-                    episodes_model.select()
-                    .where(episodes_model.SeriesId == series.EntryId)
+            payload: list[dict[str, Any]] = []
+            total_series = 0
+
+            if series_model is not None:
+                series_query = series_model.select()
+                if search:
+                    series_query = series_query.where(series_model.Title.contains(search))
+                total_series = series_query.count()
+                if total_series:
+                    max_pages = (total_series + page_size - 1) // page_size
+                    if max_pages:
+                        resolved_page = min(resolved_page, max_pages - 1)
+                    resolved_page = max(resolved_page, 0)
+                    series_rows = (
+                        series_query.order_by(series_model.Title.asc())
+                        .paginate(resolved_page + 1, page_size)
+                        .iterator()
+                    )
+                    for series in series_rows:
+                        episodes = (
+                            episodes_model.select()
+                            .where(episodes_model.SeriesId == series.EntryId)
+                            .order_by(
+                                episodes_model.SeasonNumber.asc(),
+                                episodes_model.EpisodeNumber.asc(),
+                            )
+                            .iterator()
+                        )
+                        seasons: dict[str, dict[str, Any]] = {}
+                        series_monitored = 0
+                        series_available = 0
+                        for ep in episodes:
+                            season_value = getattr(ep, "SeasonNumber", None)
+                            season_key = (
+                                str(season_value) if season_value is not None else "unknown"
+                            )
+                            season_bucket = seasons.setdefault(
+                                season_key,
+                                {"monitored": 0, "available": 0, "episodes": []},
+                            )
+                            is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                            has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                            if is_monitored:
+                                season_bucket["monitored"] += 1
+                                series_monitored += 1
+                            if has_file:
+                                season_bucket["available"] += 1
+                                if is_monitored:
+                                    series_available += 1
+                            air_date = getattr(ep, "AirDateUtc", None)
+                            if hasattr(air_date, "isoformat"):
+                                try:
+                                    air_value = air_date.isoformat()
+                                except Exception:
+                                    air_value = str(air_date)
+                            elif isinstance(air_date, str):
+                                air_value = air_date
+                            else:
+                                air_value = ""
+                            season_bucket["episodes"].append(
+                                {
+                                    "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                                    "title": getattr(ep, "Title", "") or "",
+                                    "monitored": is_monitored,
+                                    "hasFile": has_file,
+                                    "airDateUtc": air_value,
+                                }
+                            )
+                        payload.append(
+                            {
+                                "series": {
+                                    "id": getattr(series, "EntryId", None),
+                                    "title": getattr(series, "Title", "") or "",
+                                },
+                                "totals": {
+                                    "available": series_available,
+                                    "monitored": series_monitored,
+                                },
+                                "seasons": seasons,
+                            }
+                        )
+
+            if not payload:
+                # Fallback: construct series payload from episode data (episode mode)
+                base_episode_query = episodes_model.select()
+                if search:
+                    search_filters = []
+                    if hasattr(episodes_model, "SeriesTitle"):
+                        search_filters.append(episodes_model.SeriesTitle.contains(search))
+                    search_filters.append(episodes_model.Title.contains(search))
+                    expr = search_filters[0]
+                    for extra in search_filters[1:]:
+                        expr |= extra
+                    base_episode_query = base_episode_query.where(expr)
+
+                series_id_field = (
+                    getattr(episodes_model, "SeriesId", None)
+                    if hasattr(episodes_model, "SeriesId")
+                    else None
+                )
+                series_title_field = (
+                    getattr(episodes_model, "SeriesTitle", None)
+                    if hasattr(episodes_model, "SeriesTitle")
+                    else None
+                )
+
+                distinct_fields = []
+                field_names: list[str] = []
+                if series_id_field is not None:
+                    distinct_fields.append(series_id_field)
+                    field_names.append("SeriesId")
+                if series_title_field is not None:
+                    distinct_fields.append(series_title_field)
+                    field_names.append("SeriesTitle")
+                if not distinct_fields:
+                    # Fall back to title only to avoid empty select
+                    distinct_fields.append(episodes_model.Title.alias("SeriesTitle"))
+                    field_names.append("SeriesTitle")
+
+                distinct_query = (
+                    base_episode_query.select(*distinct_fields)
+                    .distinct()
                     .order_by(
+                        series_title_field.asc()
+                        if series_title_field is not None
+                        else episodes_model.Title.asc()
+                    )
+                )
+                series_key_rows = list(distinct_query.tuples())
+                total_series = len(series_key_rows)
+                if total_series:
+                    max_pages = (total_series + page_size - 1) // page_size
+                    resolved_page = min(resolved_page, max_pages - 1)
+                    resolved_page = max(resolved_page, 0)
+                    start = resolved_page * page_size
+                    end = start + page_size
+                    page_keys = series_key_rows[start:end]
+                else:
+                    resolved_page = 0
+                    page_keys = []
+
+                payload = []
+                for key in page_keys:
+                    key_data = dict(zip(field_names, key))
+                    series_id = key_data.get("SeriesId")
+                    series_title = key_data.get("SeriesTitle")
+                    episode_conditions = []
+                    if series_id is not None:
+                        episode_conditions.append(episodes_model.SeriesId == series_id)
+                    if series_title is not None:
+                        episode_conditions.append(episodes_model.SeriesTitle == series_title)
+                    episodes_query = episodes_model.select()
+                    if episode_conditions:
+                        condition = episode_conditions[0]
+                        for extra in episode_conditions[1:]:
+                            condition &= extra
+                        episodes_query = episodes_query.where(condition)
+                    episodes_query = episodes_query.order_by(
                         episodes_model.SeasonNumber.asc(),
                         episodes_model.EpisodeNumber.asc(),
                     )
-                    .iterator()
-                )
-                seasons: dict[str, dict[str, Any]] = {}
-                series_monitored = 0
-                series_available = 0
-                for ep in episodes:
-                    season_value = getattr(ep, "SeasonNumber", None)
-                    season_key = str(season_value) if season_value is not None else "unknown"
-                    season_bucket = seasons.setdefault(
-                        season_key,
-                        {"monitored": 0, "available": 0, "episodes": []},
-                    )
-                    is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                    has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
-                    if is_monitored:
-                        season_bucket["monitored"] += 1
-                        series_monitored += 1
-                    if has_file:
-                        season_bucket["available"] += 1
+                    seasons: dict[str, dict[str, Any]] = {}
+                    series_monitored = 0
+                    series_available = 0
+                    for ep in episodes_query.iterator():
+                        season_value = getattr(ep, "SeasonNumber", None)
+                        season_key = str(season_value) if season_value is not None else "unknown"
+                        season_bucket = seasons.setdefault(
+                            season_key,
+                            {"monitored": 0, "available": 0, "episodes": []},
+                        )
+                        is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                        has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
                         if is_monitored:
-                            series_available += 1
-                    air_date = getattr(ep, "AirDateUtc", None)
-                    if hasattr(air_date, "isoformat"):
-                        try:
-                            air_value = air_date.isoformat()
-                        except Exception:
-                            air_value = str(air_date)
-                    elif isinstance(air_date, str):
-                        air_value = air_date
-                    else:
-                        air_value = ""
-                    season_bucket["episodes"].append(
+                            season_bucket["monitored"] += 1
+                            series_monitored += 1
+                        if has_file:
+                            season_bucket["available"] += 1
+                            if is_monitored:
+                                series_available += 1
+                        air_date = getattr(ep, "AirDateUtc", None)
+                        if hasattr(air_date, "isoformat"):
+                            try:
+                                air_value = air_date.isoformat()
+                            except Exception:
+                                air_value = str(air_date)
+                        elif isinstance(air_date, str):
+                            air_value = air_date
+                        else:
+                            air_value = ""
+                        season_bucket["episodes"].append(
+                            {
+                                "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                                "title": getattr(ep, "Title", "") or "",
+                                "monitored": is_monitored,
+                                "hasFile": has_file,
+                                "airDateUtc": air_value,
+                            }
+                        )
+                    payload.append(
                         {
-                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                            "title": getattr(ep, "Title", "") or "",
-                            "monitored": is_monitored,
-                            "hasFile": has_file,
-                            "airDateUtc": air_value,
+                            "series": {
+                                "id": series_id,
+                                "title": (
+                                    series_title
+                                    or (
+                                        f"Series {len(payload) + 1}"
+                                        if series_id is None
+                                        else str(series_id)
+                                    )
+                                ),
+                            },
+                            "totals": {
+                                "available": series_available,
+                                "monitored": series_monitored,
+                            },
+                            "seasons": seasons,
                         }
                     )
-                payload.append(
-                    {
-                        "series": {
-                            "id": getattr(series, "EntryId", None),
-                            "title": getattr(series, "Title", "") or "",
-                        },
-                        "totals": {
-                            "available": series_available,
-                            "monitored": series_monitored,
-                        },
-                        "seasons": seasons,
-                    }
-                )
+
         return {
             "counts": {"available": available_count, "monitored": monitored_count},
             "total": total_series,
-            "page": page,
+            "page": resolved_page,
             "page_size": page_size,
             "series": payload,
         }
