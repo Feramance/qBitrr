@@ -98,7 +98,7 @@ export interface SonarrSeriesResponse {
   total: number;
   page: number;
   page_size: number;
-  totals: {
+  counts: {
     available: number;
     monitored: number;
   };

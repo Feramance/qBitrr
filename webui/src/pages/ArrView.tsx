@@ -453,6 +453,12 @@ function RadarrInstanceView({
 }: RadarrInstanceViewProps): JSX.Element {
   const counts = data?.counts;
   const movies = data?.movies ?? [];
+  const showInitialLoading = loading && movies.length === 0;
+  const refreshLabel = loading
+    ? "Refreshing…"
+    : lastUpdated
+    ? `Last updated ${lastUpdated}`
+    : null;
 
   return (
     <div className="stack">
@@ -462,13 +468,13 @@ function RadarrInstanceView({
             Monitored: {counts?.monitored ?? 0} / Available:{" "}
             {counts?.available ?? 0}
           </span>
-          {lastUpdated ? <span>Last updated {lastUpdated}</span> : null}
+          {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
           Restart Instance
         </button>
       </div>
-      {loading && (
+      {showInitialLoading && (
         <div className="loading">
           <span className="spinner" /> Updating…
         </div>
@@ -940,21 +946,28 @@ function SonarrInstanceView({
   lastUpdated,
 }: SonarrInstanceViewProps): JSX.Element {
   const series = data?.series ?? [];
+  const counts = data?.counts;
+  const showInitialLoading = loading && series.length === 0;
+  const refreshLabel = loading
+    ? "Refreshing…"
+    : lastUpdated
+    ? `Last updated ${lastUpdated}`
+    : null;
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
-            Monitored: {data?.totals?.monitored ?? 0} / Available:{" "}
-            {data?.totals?.available ?? 0}
+            Monitored: {counts?.monitored ?? 0} / Available:{" "}
+            {counts?.available ?? 0}
           </span>
-          {lastUpdated ? <span>Last updated {lastUpdated}</span> : null}
+          {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
           Restart Instance
         </button>
       </div>
-      {loading && (
+      {showInitialLoading && (
         <div className="loading">
           <span className="spinner" /> Updating…
         </div>

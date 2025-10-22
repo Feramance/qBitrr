@@ -32,7 +32,7 @@ body {
     z-index: 100;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     padding: 12px 16px;
     background: #0b0c0f;
     border-bottom: 1px solid var(--border);
@@ -281,6 +281,8 @@ pre {
     display: grid;
     gap: 8px;
     min-width: 220px;
+    align-content: start;
+    align-items: start;
 }
 
 .sidebar .btn {
@@ -301,7 +303,7 @@ pre {
 
 .pagination {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     margin-top: 12px;
 }

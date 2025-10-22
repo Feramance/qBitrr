@@ -5,7 +5,6 @@ import { ArrView } from "./pages/ArrView";
 import { ConfigView } from "./pages/ConfigView";
 import { ToastProvider, ToastViewport } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
-import { StatusSummary } from "./components/StatusSummary";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
 
@@ -16,7 +15,7 @@ interface NavTab {
 
 function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
-  const { value: searchValue, setValue: setSearchValue } = useSearch();
+  const { setValue: setSearchValue } = useSearch();
 
   const tabs = useMemo<NavTab[]>(
     () => [
@@ -34,16 +33,6 @@ function AppShell(): JSX.Element {
       <header className="appbar">
         <div>
           <h1>qBitrr WebUI</h1>
-        </div>
-        <div className="toolbar">
-          <StatusSummary />
-          <input
-            type="text"
-            placeholder="Search current view"
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            style={{ minWidth: 200 }}
-          />
         </div>
       </header>
       <main className="container">
