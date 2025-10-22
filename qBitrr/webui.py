@@ -384,8 +384,15 @@ class WebUI:
             start = max(0, page * page_size)
             end = start + page_size
             for s in series[start:end]:
+                if not isinstance(s, dict):
+                    continue
                 sid = s.get("id")
-                eps = arr.client.get_episode(sid, includeAll=True)
+                if sid is None:
+                    continue
+                try:
+                    eps = arr.client.get_episode(sid, includeAll=True)
+                except Exception:
+                    eps = []
                 # Build seasons
                 seasons = {}
                 for e in eps:
@@ -412,7 +419,10 @@ class WebUI:
             return jsonify(
                 {
                     "category": category,
-                    "counts": {"available": total_avail, "monitored": total_mon},
+                    "counts": {
+                        "available": total_avail,
+                        "monitored": total_mon,
+                    },
                     "total": total,
                     "page": page,
                     "page_size": page_size,
@@ -439,8 +449,15 @@ class WebUI:
             start = max(0, page * page_size)
             end = start + page_size
             for s in series[start:end]:
+                if not isinstance(s, dict):
+                    continue
                 sid = s.get("id")
-                eps = arr.client.get_episode(sid, includeAll=True)
+                if sid is None:
+                    continue
+                try:
+                    eps = arr.client.get_episode(sid, includeAll=True)
+                except Exception:
+                    eps = []
                 seasons = {}
                 for e in eps:
                     if not e.get("monitored"):
