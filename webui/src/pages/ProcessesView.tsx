@@ -4,21 +4,10 @@ import {
   rebuildArrs,
   restartAllProcesses,
   restartProcess,
-  setLogLevel,
 } from "../api/client";
 import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
-
-const LOG_LEVELS = [
-  "CRITICAL",
-  "ERROR",
-  "WARNING",
-  "NOTICE",
-  "INFO",
-  "DEBUG",
-  "TRACE",
-] as const;
 
 interface ProcessesViewProps {
   active: boolean;
@@ -27,9 +16,6 @@ interface ProcessesViewProps {
 export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(false);
-  const [logLevel, setLogLevelState] = useState<(typeof LOG_LEVELS)[number]>(
-    "INFO"
-  );
   const { push } = useToast();
 
   const load = useCallback(async () => {
@@ -104,26 +90,12 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     }
   }, [load, push]);
 
-  const handleApplyLogLevel = useCallback(async () => {
-    try {
-      await setLogLevel(logLevel);
-      push(`Log level set to ${logLevel}`, "success");
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to set log level",
-        "error"
-      );
-    }
-  }, [logLevel, push]);
-
   const rows = useMemo(
     () =>
       processes.map((proc) => (
         <tr key={`${proc.category}:${proc.kind}`}>
-          <td>{proc.category}</td>
           <td>{proc.name}</td>
           <td>{proc.kind}</td>
-          <td>{proc.pid ?? ""}</td>
           <td>
             <span className={proc.alive ? "ok" : "bad"}>
               {proc.alive ? "Yes" : "No"}
@@ -158,38 +130,13 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               Rebuild Arrs
             </button>
           </div>
-          <div className="col">
-            <div className="field">
-              <label htmlFor="logLevel">Log Level</label>
-              <div className="row" style={{ alignItems: "flex-end" }}>
-                <select
-                  id="logLevel"
-                  value={logLevel}
-                  onChange={(event) =>
-                    setLogLevelState(event.target.value as typeof LOG_LEVELS[number])
-                  }
-                >
-                  {LOG_LEVELS.map((level) => (
-                    <option key={level} value={level}>
-                      {level}
-                    </option>
-                  ))}
-                </select>
-                <button className="btn" onClick={() => void handleApplyLogLevel()}>
-                  Apply
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
         <div>
           <table>
             <thead>
               <tr>
-                <th>Category</th>
                 <th>Name</th>
                 <th>Kind</th>
-                <th>PID</th>
                 <th>Alive</th>
                 <th>Actions</th>
               </tr>

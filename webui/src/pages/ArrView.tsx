@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type JSX,
+} from "react";
 import {
   getArrList,
   getRadarrMovies,
@@ -82,6 +89,12 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceLoading, setInstanceLoading] = useState(false);
   const [live, setLive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [instancePages, setInstancePages] = useState<Record<number, RadarrMovie[]>>({});
+  const [instancePageSize, setInstancePageSize] = useState(RADARR_PAGE_SIZE);
+  const [instanceTotalPages, setInstanceTotalPages] = useState(1);
+  const instanceKeyRef = useRef<string>("");
+  const instancePagesRef = useRef<Record<number, RadarrMovie[]>>({});
+  const globalSearchRef = useRef(globalSearch);
 
   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
@@ -121,10 +134,64 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     }
   }, [push, selection]);
 
+  const preloadRemainingPages = useCallback(
+    async (
+      category: string,
+      query: string,
+      pageSize: number,
+      pages: number[],
+      key: string
+    ) => {
+      if (!pages.length) return;
+      try {
+        const results: { page: number; movies: RadarrMovie[] }[] = [];
+        for (const pg of pages) {
+          const res = await getRadarrMovies(category, pg, pageSize, query);
+          const resolved = res.page ?? pg;
+          results.push({ page: resolved, movies: res.movies ?? [] });
+          if (instanceKeyRef.current !== key) {
+            return;
+          }
+        }
+        if (instanceKeyRef.current !== key) return;
+        setInstancePages((prev) => {
+          const next = { ...prev };
+          for (const { page, movies } of results) {
+            next[page] = movies;
+          }
+          instancePagesRef.current = next;
+          return next;
+        });
+      } catch (error) {
+        push(
+          error instanceof Error
+            ? error.message
+            : `Failed to load additional pages for ${category}`,
+          "error"
+        );
+      }
+    },
+    [push]
+  );
+
   const fetchInstance = useCallback(
-    async (category: string, page: number, query: string) => {
+    async (
+      category: string,
+      page: number,
+      query: string,
+      options: { preloadAll?: boolean } = {}
+    ) => {
       setInstanceLoading(true);
       try {
+        const key = `${category}::${query}`;
+        const keyChanged = instanceKeyRef.current !== key;
+        if (keyChanged) {
+          instanceKeyRef.current = key;
+          setInstancePages(() => {
+            instancePagesRef.current = {};
+            return {};
+          });
+        }
         const response = await getRadarrMovies(
           category,
           page,
@@ -132,9 +199,39 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
           query
         );
         setInstanceData(response);
-        setInstancePage(response.page ?? page);
+        const resolvedPage = response.page ?? page;
+        setInstancePage(resolvedPage);
         setInstanceQuery(query);
         setLastUpdated(new Date().toLocaleTimeString());
+        const pageSize = response.page_size ?? RADARR_PAGE_SIZE;
+        const totalItems = response.total ?? (response.movies ?? []).length;
+        const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
+        setInstancePageSize(pageSize);
+        setInstanceTotalPages(totalPages);
+        const movies = response.movies ?? [];
+        const existingPages = keyChanged ? {} : instancePagesRef.current;
+        setInstancePages((prev) => {
+          const base = keyChanged ? {} : prev;
+          const next = { ...base, [resolvedPage]: movies };
+          instancePagesRef.current = next;
+          return next;
+        });
+        if (options.preloadAll !== false) {
+          const pagesToFetch: number[] = [];
+          for (let i = 0; i < totalPages; i += 1) {
+            if (i === resolvedPage) continue;
+            if (!existingPages[i]) {
+              pagesToFetch.push(i);
+            }
+          }
+          void preloadRemainingPages(
+            category,
+            query,
+            pageSize,
+            pagesToFetch,
+            key
+          );
+        }
       } catch (error) {
         push(
           error instanceof Error
@@ -146,7 +243,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
         setInstanceLoading(false);
       }
     },
-    [push]
+    [push, preloadRemainingPages]
   );
 
   const loadAggregate = useCallback(async () => {
@@ -196,8 +293,10 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    void fetchInstance(selection, instancePage, globalSearch);
-  }, [active, selection, instancePage, globalSearch, fetchInstance]);
+    setInstancePage(0);
+    const query = globalSearchRef.current;
+    void fetchInstance(selection, 0, query, { preloadAll: true });
+  }, [active, selection, fetchInstance]);
 
   useEffect(() => {
     if (!active) return;
@@ -213,7 +312,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term);
+        void fetchInstance(selection, 0, term, { preloadAll: true });
       }
     };
     register(handler);
@@ -225,11 +324,17 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   useInterval(
     () => {
       if (selection && selection !== "aggregate") {
-        void fetchInstance(selection, instancePage, instanceQuery);
+        void fetchInstance(selection, instancePage, instanceQuery, {
+          preloadAll: false,
+        });
       }
     },
     active && selection && selection !== "aggregate" && live ? 1000 : null
   );
+
+  useEffect(() => {
+    globalSearchRef.current = globalSearch;
+  }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -290,12 +395,18 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
   );
 
-  const totalInstancePages = Math.max(
-    1,
-    instanceData
-      ? Math.ceil((instanceData.total ?? 0) / (instanceData.page_size ?? RADARR_PAGE_SIZE))
-      : 1
-  );
+  const allInstanceMovies = useMemo(() => {
+    const pages = Object.keys(instancePages)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const rows: RadarrMovie[] = [];
+    pages.forEach((pg) => {
+      if (instancePages[pg]) {
+        rows.push(...instancePages[pg]);
+      }
+    });
+    return rows;
+  }, [instancePages]);
 
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
@@ -389,10 +500,14 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                 loading={instanceLoading}
                 data={instanceData}
                 page={instancePage}
-                totalPages={totalInstancePages}
+                totalPages={instanceTotalPages}
+                pageSize={instancePageSize}
+                allMovies={allInstanceMovies}
                 onPageChange={(page) => {
                   setInstancePage(page);
-                  void fetchInstance(selection as string, page, instanceQuery);
+                  void fetchInstance(selection as string, page, instanceQuery, {
+                    preloadAll: true,
+                  });
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
@@ -515,6 +630,8 @@ interface RadarrInstanceViewProps {
   data: RadarrMoviesResponse | null;
   page: number;
   totalPages: number;
+  pageSize: number;
+  allMovies: RadarrMovie[];
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -525,17 +642,19 @@ function RadarrInstanceView({
   data,
   page,
   totalPages,
+  pageSize,
+  allMovies,
   onPageChange,
   onRestart,
   lastUpdated,
 }: RadarrInstanceViewProps): JSX.Element {
   const counts = data?.counts;
-  const movies = data?.movies ?? [];
+  const totalItems = data?.total ?? allMovies.length;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   const [sort, setSort] = useState<{ key: RadarrSortKey; direction: "asc" | "desc" }>({ key: "title", direction: "asc" });
 
   const sortedMovies = useMemo(() => {
-    const list = [...(data?.movies ?? [])];
+    const list = [...allMovies];
     const getValue = (movie: RadarrMovie, key: RadarrSortKey) => {
       switch (key) {
         case "title":
@@ -564,7 +683,16 @@ function RadarrInstanceView({
       return sort.direction === "asc" ? comparison : -comparison;
     });
     return list;
-  }, [data?.movies, sort]);
+  }, [allMovies, sort]);
+
+  const pageRows = useMemo(
+    () =>
+      sortedMovies.slice(
+        page * pageSize,
+        page * pageSize + pageSize
+      ),
+    [sortedMovies, page, pageSize]
+  );
 
   const handleSort = (key: RadarrSortKey) => {
     setSort((prev) =>
@@ -607,7 +735,7 @@ function RadarrInstanceView({
           </tr>
         </thead>
         <tbody>
-          {sortedMovies.map((movie) => (
+          {pageRows.map((movie) => (
             <tr key={movie.id ?? `${movie.title}-${movie.year}`}>
               <td>{movie.title ?? ""}</td>
               <td>{movie.year ?? ""}</td>
@@ -619,7 +747,8 @@ function RadarrInstanceView({
       </table>
       <div className="pagination">
         <div>
-          Page {page + 1} of {totalPages} ({data?.total ?? movies.length} items)
+          Page {page + 1} of {totalPages} ({totalItems} items · page size{" "}
+          {pageSize})
         </div>
         <div className="inline">
           <button
@@ -660,6 +789,15 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceLoading, setInstanceLoading] = useState(false);
   const [live, setLive] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [instancePages, setInstancePages] = useState<
+    Record<number, SonarrSeriesEntry[]>
+  >({});
+  const instancePagesRef = useRef<Record<number, SonarrSeriesEntry[]>>({});
+  const instanceKeyRef = useRef<string>("");
+  const [instancePageSize, setInstancePageSize] = useState(SONARR_PAGE_SIZE);
+  const [instanceTotalPages, setInstanceTotalPages] = useState(1);
+  const [instanceTotalItems, setInstanceTotalItems] = useState(0);
+  const globalSearchRef = useRef(globalSearch);
 
   const [aggRows, setAggRows] = useState<SonarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
@@ -700,9 +838,25 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   }, [push, selection]);
 
   const fetchInstance = useCallback(
-    async (category: string, page: number, query: string) => {
+    async (
+      category: string,
+      page: number,
+      query: string,
+      options: { preloadAll?: boolean } = {}
+    ) => {
       setInstanceLoading(true);
       try {
+        const key = `${category}::${query}`;
+        const keyChanged = instanceKeyRef.current !== key;
+        if (keyChanged) {
+          instanceKeyRef.current = key;
+          setInstancePages(() => {
+            instancePagesRef.current = {};
+            return {};
+          });
+          setInstanceTotalItems(0);
+          setInstanceTotalPages(1);
+        }
         const response = await getSonarrSeries(
           category,
           page,
@@ -710,9 +864,55 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
           query
         );
         setInstanceData(response);
-        setInstancePage(response.page ?? page);
+        const resolvedPage = response.page ?? page;
+        setInstancePage(resolvedPage);
         setInstanceQuery(query);
         setLastUpdated(new Date().toLocaleTimeString());
+        const pageSize = response.page_size ?? SONARR_PAGE_SIZE;
+        const totalItems = response.total ?? (response.series ?? []).length;
+        const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
+        setInstancePageSize(pageSize);
+        setInstanceTotalPages(totalPages);
+        setInstanceTotalItems(totalItems);
+        const series = response.series ?? [];
+        const existingPages = keyChanged ? {} : instancePagesRef.current;
+        setInstancePages((prev) => {
+          const base = keyChanged ? {} : prev;
+          const next = { ...base, [resolvedPage]: series };
+          instancePagesRef.current = next;
+          return next;
+        });
+        if (options.preloadAll) {
+          const pagesToFetch: number[] = [];
+          for (let i = 0; i < totalPages; i += 1) {
+            if (i === resolvedPage) continue;
+            if (!existingPages[i]) {
+              pagesToFetch.push(i);
+            }
+          }
+          for (const targetPage of pagesToFetch) {
+            try {
+              const res = await getSonarrSeries(
+                category,
+                targetPage,
+                pageSize,
+                query
+              );
+              if (instanceKeyRef.current !== key) {
+                break;
+              }
+              const pageIndex = res.page ?? targetPage;
+              const pageSeries = res.series ?? [];
+              setInstancePages((prev) => {
+                const snapshot = { ...prev, [pageIndex]: pageSeries };
+                instancePagesRef.current = snapshot;
+                return snapshot;
+              });
+            } catch {
+              break;
+            }
+          }
+        }
       } catch (error) {
         push(
           error instanceof Error
@@ -791,8 +991,10 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    void fetchInstance(selection, instancePage, globalSearch);
-  }, [active, selection, instancePage, globalSearch, fetchInstance]);
+    setInstancePage(0);
+    const query = globalSearchRef.current;
+    void fetchInstance(selection, 0, query, { preloadAll: true });
+  }, [active, selection, fetchInstance]);
 
   useEffect(() => {
     if (!active) return;
@@ -808,7 +1010,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term);
+        void fetchInstance(selection, 0, term, { preloadAll: true });
       }
     };
     register(handler);
@@ -818,11 +1020,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   useInterval(
     () => {
       if (selection && selection !== "aggregate") {
-        void fetchInstance(selection, instancePage, instanceQuery);
+        void fetchInstance(selection, instancePage, instanceQuery, {
+          preloadAll: false,
+        });
       }
     },
     active && selection && selection !== "aggregate" && live ? 1000 : null
   );
+
+  useEffect(() => {
+    globalSearchRef.current = globalSearch;
+  }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -891,12 +1099,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
   );
 
-  const totalInstancePages = Math.max(
-    1,
-    instanceData
-      ? Math.ceil((instanceData.total ?? 0) / (instanceData.page_size ?? SONARR_PAGE_SIZE))
-      : 1
-  );
+  const currentSeries = instancePages[instancePage] ?? [];
 
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
@@ -988,12 +1191,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             ) : (
               <SonarrInstanceView
                 loading={instanceLoading}
-                data={instanceData}
+                counts={instanceData?.counts ?? null}
+                series={currentSeries}
                 page={instancePage}
-                totalPages={totalInstancePages}
+                pageSize={instancePageSize}
+                totalPages={instanceTotalPages}
+                totalItems={instanceTotalItems}
                 onPageChange={(page) => {
                   setInstancePage(page);
-                  void fetchInstance(selection as string, page, instanceQuery);
+                  void fetchInstance(selection as string, page, instanceQuery, {
+                    preloadAll: false,
+                  });
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
@@ -1118,9 +1326,12 @@ function SonarrAggregateView({
 
 interface SonarrInstanceViewProps {
   loading: boolean;
-  data: SonarrSeriesResponse | null;
+  counts: { available: number; monitored: number } | null;
+  series: SonarrSeriesEntry[];
   page: number;
+  pageSize: number;
   totalPages: number;
+  totalItems: number;
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -1128,15 +1339,16 @@ interface SonarrInstanceViewProps {
 
 function SonarrInstanceView({
   loading,
-  data,
+  counts,
+  series,
   page,
+  pageSize,
   totalPages,
+  totalItems,
   onPageChange,
   onRestart,
   lastUpdated,
 }: SonarrInstanceViewProps): JSX.Element {
-  const series = data?.series ?? [];
-  const counts = data?.counts;
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   return (
     <div className="stack">
@@ -1153,60 +1365,70 @@ function SonarrInstanceView({
         </button>
       </div>
       <div className="stack">
-        {series.map((entry, idx) => {
-          const title =
-            (entry.series?.["title"] as string | undefined) || `Series ${idx + 1}`;
-          return (
-            <details key={idx} open>
-              <summary>
-                {title}{" "}
-                <span className="hint">
-                  (Monitored {entry.totals?.monitored ?? 0} / Available{" "}
-                  {entry.totals?.available ?? 0})
-                </span>
-              </summary>
-              {Object.entries(entry.seasons ?? {}).map(
-                ([seasonNumber, season]) => (
-                  <details key={seasonNumber}>
-                    <summary>
-                      Season {seasonNumber}{" "}
-                      <span className="hint">
-                        (Monitored {season.monitored} / Available{" "}
-                        {season.available})
-                      </span>
-                    </summary>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Episode</th>
-                          <th>Title</th>
-                          <th>Monitored</th>
-                          <th>Has File</th>
-                          <th>Air Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(season.episodes ?? []).map((ep, epIdx) => (
-                          <tr key={ep.id ?? epIdx}>
-                            <td>{ep.episodeNumber ?? ""}</td>
-                            <td>{ep.title ?? ""}</td>
-                            <td>{ep.monitored ? "Yes" : "No"}</td>
-                            <td>{ep.hasFile ? "Yes" : "No"}</td>
-                            <td>{ep.airDateUtc ?? ""}</td>
+        {loading ? (
+          <div className="loading">
+            <span className="spinner" /> Loading Sonarr library…
+          </div>
+        ) : series.length ? (
+          series.map((entry, idx) => {
+            const title =
+              (entry.series?.["title"] as string | undefined) ||
+              `Series ${idx + 1}`;
+            return (
+              <details key={idx} open>
+                <summary>
+                  {title}{" "}
+                  <span className="hint">
+                    (Monitored {entry.totals?.monitored ?? 0} / Available{" "}
+                    {entry.totals?.available ?? 0})
+                  </span>
+                </summary>
+                {Object.entries(entry.seasons ?? {}).map(
+                  ([seasonNumber, season]) => (
+                    <details key={seasonNumber}>
+                      <summary>
+                        Season {seasonNumber}{" "}
+                        <span className="hint">
+                          (Monitored {season.monitored} / Available{" "}
+                          {season.available})
+                        </span>
+                      </summary>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Episode</th>
+                            <th>Title</th>
+                            <th>Monitored</th>
+                            <th>Has File</th>
+                            <th>Air Date</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </details>
-                )
-              )}
-            </details>
-          );
-        })}
+                        </thead>
+                        <tbody>
+                          {(season.episodes ?? []).map((ep, epIdx) => (
+                            <tr key={ep.id ?? epIdx}>
+                              <td>{ep.episodeNumber ?? ""}</td>
+                              <td>{ep.title ?? ""}</td>
+                              <td>{ep.monitored ? "Yes" : "No"}</td>
+                              <td>{ep.hasFile ? "Yes" : "No"}</td>
+                              <td>{ep.airDateUtc ?? ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </details>
+                  )
+                )}
+              </details>
+            );
+          })
+        ) : (
+          <div className="hint">No series found.</div>
+        )}
       </div>
       <div className="pagination">
         <div>
-          Page {page + 1} of {totalPages} ({data?.total ?? series.length} items)
+          Page {page + 1} of {totalPages} ({totalItems} items · page size{" "}
+          {pageSize})
         </div>
         <div className="inline">
           <button
