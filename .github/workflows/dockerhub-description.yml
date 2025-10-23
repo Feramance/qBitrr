@@ -1,4 +1,5 @@
-name: Update Docker Hub Description
+name: Sync external descriptions
+
 on:
   push:
     branches:
@@ -7,14 +8,55 @@ on:
     - README.md
     - .github/workflows/dockerhub-description.yml
   workflow_dispatch:
+
 jobs:
-  dockerHubDescription:
-    name: Update Docker Hub Description
+  publish-descriptions:
+    name: Update Docker Hub and PyPI metadata
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Check out repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-    - name: Docker Hub Description
+    - name: Sync PKG-INFO long description
+      id: sync-pkg-info
+      shell: bash
+      run: |
+        python - <<'PY'
+        import os
+        from pathlib import Path
+
+        readme_path = Path("README.md")
+        pkg_info_path = Path("qBitrr2.egg-info/PKG-INFO")
+
+        readme = readme_path.read_text(encoding="utf-8").strip()
+        raw_pkg = pkg_info_path.read_text(encoding="utf-8")
+        normalized = raw_pkg.replace("\r\n", "\n")
+
+        if "\n\n" in normalized:
+          header, _ = normalized.split("\n\n", 1)
+        else:
+          header = normalized.strip()
+
+        new_content = header.rstrip("\n") + "\n\n" + readme + "\n"
+
+        changed = normalized != new_content
+        if changed:
+          pkg_info_path.write_text(new_content, encoding="utf-8")
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+          fh.write(f"changed={'true' if changed else 'false'}\n")
+        PY
+
+    - name: Commit PKG-INFO update
+      if: steps.sync-pkg-info.outputs.changed == 'true'
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: 'docs: sync PKG-INFO description'
+        file_pattern: qBitrr2.egg-info/PKG-INFO
+
+    - name: Update Docker Hub description
       uses: peter-evans/dockerhub-description@v4
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}

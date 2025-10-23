@@ -4,7 +4,7 @@ Version: 4.10.28
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
-Author-email: fera@fera.wtf
+Author-email: techagius2093@gmail.com
 License: MIT
 Project-URL: Issue Tracker, https://github.com/Feramance/qBitrr/issues
 Project-URL: Source Code, https://github.com/Feramance/qBitrr
@@ -38,227 +38,158 @@ Requires-Dist: jaraco.docker
 Requires-Dist: packaging
 Requires-Dist: pathos
 Requires-Dist: peewee
-Requires-Dist: ping3
-Requires-Dist: pyarr
-Requires-Dist: qbittorrent-api
-Requires-Dist: requests
-Requires-Dist: tomlkit
-Provides-Extra: dev
-Requires-Dist: black==24.3.0; extra == "dev"
-Requires-Dist: bump2version==1.0.1; extra == "dev"
-Requires-Dist: isort==5.10.1; extra == "dev"
-Requires-Dist: pip-tools==7.3.0; extra == "dev"
-Requires-Dist: pre-commit==3.3.3; extra == "dev"
-Requires-Dist: pyinstaller==5.13.1; extra == "dev"
-Requires-Dist: pyupgrade==2.31.0; extra == "dev"
-Requires-Dist: twine==3.7.1; extra == "dev"
-Requires-Dist: ujson==5.10.0; extra == "dev"
-Requires-Dist: upgrade-pip==0.1.4; extra == "dev"
-Provides-Extra: fast
-Requires-Dist: ujson==5.10.0; extra == "fast"
-Provides-Extra: all
-Requires-Dist: black==24.3.0; extra == "all"
-Requires-Dist: bump2version==1.0.1; extra == "all"
-Requires-Dist: isort==5.10.1; extra == "all"
-Requires-Dist: pip-tools==7.3.0; extra == "all"
-Requires-Dist: pre-commit==3.3.3; extra == "all"
-Requires-Dist: pyinstaller==5.13.1; extra == "all"
-Requires-Dist: pyupgrade==2.31.0; extra == "all"
-Requires-Dist: twine==3.7.1; extra == "all"
-Requires-Dist: ujson==5.10.0; extra == "all"
-Requires-Dist: upgrade-pip==0.1.4; extra == "all"
-Requires-Dist: ujson==5.10.0; extra == "all"
-Dynamic: license-file
 
-# <img src="assets/logo.png" width="32px"/> qBitrr
+# qBitrr
 
-[![PyPI - License](https://img.shields.io/pypi/l/qbitrr)](https://github.com/Feramance/Qbitrr/blob/master/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/qBitrr2?label=PyPI)](https://pypi.org/project/qBitrr2/)
-[![Downloads](https://img.shields.io/pypi/dm/qbitrr2)](https://pypi.org/project/qBitrr2/)
-[![Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
-
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/qbitrr)
-[![Platforms](https://img.shields.io/badge/platform-linux--64%20%7C%20osx--64%20%7C%20win--32%20%7C%20win--64-lightgrey)](https://github.com/Feramance/qBitrr/releases/latest)
-
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
+[![Downloads](https://img.shields.io/pypi/dm/qBitrr2)](https://pypi.org/project/qBitrr2/)
+[![Docker Pulls](https://img.shields.io/docker/pulls/feramance/qbitrr.svg)](https://hub.docker.com/r/feramance/qbitrr)
 [![CodeQL](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/codeql.yml)
-[![Create a Release](https://github.com/Feramance/qBitrr/actions/workflows/release.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/release.yml)
 [![Nightly Build](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml/badge.svg?branch=master)](https://github.com/Feramance/qBitrr/actions/workflows/nightly.yml)
+[![pre-commit.ci](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
+[![License: MIT](https://img.shields.io/pypi/l/qbitrr)](LICENSE)
 
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
+> 🧩 qBitrr keeps qBittorrent, Radarr, Sonarr, and your request tools chatting happily so downloads finish, import, and clean up without babysitting.
 
-A simple script to monitor [qBit](https://github.com/qbittorrent/qBittorrent) and communicate with [Radarr](https://github.com/Radarr/Radarr) and [Sonarr](https://github.com/Sonarr/Sonarr)
+## 📚 What's Inside
+- [qBitrr](#qbitrr)
+  - [📚 What's Inside](#-whats-inside)
+  - [🧠 Overview](#-overview)
+  - [✨ Highlights](#-highlights)
+  - [📌 State of the Project](#-state-of-the-project)
+  - [⚡ Quickstart](#-quickstart)
+    - [Install with pip](#install-with-pip)
+    - [Run with Docker](#run-with-docker)
+  - [🛠️ Configuration](#️-configuration)
+  - [🖥️ Built-in Web UI](#️-built-in-web-ui)
+  - [🔁 Day-to-day Ops](#-day-to-day-ops)
+  - [🆘 Troubleshooting](#-troubleshooting)
+  - [🤝 Contributing](#-contributing)
+  - [❤️ Support](#️-support)
+  - [📄 License](#-license)
 
-# POLL
+## 🧠 Overview
+qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent for stalled jobs, kicks Radarr/Sonarr when something finishes, prunes your completed folder, and even offers a slick React dashboard so you can see what's running at a glance.
 
-[Request searches?](https://github.com/Feramance/qBitrr/discussions/149)
+## ✨ Highlights
+- 🚑 **Health checks** – spot stalled or broken torrents, blacklist them on the relevant Arr, and optionally trigger a re-search.
+- 📬 **Instant imports** – call `DownloadedMoviesScan` and `DownloadedEpisodesScan` the moment qBittorrent is done.
+- 🧹 **Smart skips & cleanup** – ignore by extension, folder, or regex and keep completed downloads tidy.
+- 🔍 **ffprobe verification** – confirm files are real media before handing them off.
+- 🔄 **Arr keep-alive** – schedule RSS refreshes, queue updates, missing-media searches, CF-score rescans, and more.
+- 🛰️ **Request automation** – pull in Overseerr/Ombi asks and auto-manage trackers.
+- 💾 **Disk guard rails** – pause torrenting when free space dips under your threshold.
+- 💻 **First-party Web UI** – live process monitoring, log tails, Arr insights, and config edits in one place.
 
-## Notice (slowly getting there, will take some time)
+## 📌 State of the Project
+The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
 
-I am starting development on qBitrr+ which will be C# based for better overall performance and will also include a WebUI for better refined control on setting and what to search/upgrade etc. Hoping this will be the be all and end all application to manage your Radarr/Sonarr, Overseerr/Ombi and qBittorrent instances in one UI. This is still in it's very early stages and will likely be a couple months before a concrete alpha is rolled out (from start of February 2024). Once I have something solid I will remove this notice and  add a link to the new qBitrr+, in the meantime I will be sharing periodic updates on my [Patreon](https://patreon.com/qBitrr)
+## ⚡ Quickstart
+qBitrr supports Python 3.8+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
 
-## Features
+### Install with pip
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install qBitrr2
 
-- Monitor qBit for Stalled/bad entries and delete them then blacklist them on Arrs (Option to also trigger a re-search action).
-- Monitor qBit for completed entries and tell the appropriate Arr instance to import it:
-  - `qbitrr DownloadedMoviesScan` for Radarr
-  - `qbitrr DownloadedEpisodesScan` for Sonarr
-- Skip files in qBit entries by extension, folder or regex.
-- Monitor completed folder and clean it up.
-- Usage of [ffprobe](https://github.com/FFmpeg/FFmpeg) to ensure downloaded entries are valid media.
-- Trigger periodic Rss Syncs on the appropriate Arr instances.
-- Trigger Queue update on appropriate Arr instances.
-- Search requests from [Overseerr](https://github.com/sct/overseerr) or [Ombi](https://github.com/Ombi-app/Ombi).
-- Auto add/remove trackers
-- Set per tracker values
-- **Sonarr v4 support**
-- **Radarr v4 and v5 support**
-- Monitor Arr's to trigger missing episode searches.
-- Searches Radarr missing movies based on Minimum Availability
-- Customizable searching by series or singular episodes
-- Optionally searches year by year is ascending or descending order (config option available)
-- Search for CF Score unmet and cancel torrents base on CF Score or Quality unmet search
-- Set minimum free space in download directory and pause torrent downloads accordingly
-- Change quality profile temporarily for missing items until found
+# First run creates ~/config/config.toml
+qBitrr2
+```
 
-## Tested with
+Update later with:
+```bash
+python -m pip install --upgrade qBitrr2
+```
 
-Some things to know before using it.
-
-- **Latest supported qbittorrent version is 4.6.7**
-- qbittorrent v5 is supported via a config value (this will be removed later on)
-- qbittorrent >= 4.5.x
-- [Sonarr](https://github.com/Sonarr/Sonarr) and [Radarr](https://github.com/Radarr/Radarr) both setup to add tags to all downloads.
-- qBit set to create sub-folders for tag.
-
-## Usage
-
-### Native
-
-- `python -m pip install qBitrr2` (I would recommend in a dedicated [venv](https://docs.python.org/3.3/library/venv.html) but that's out of scope)
-
-Alternatively:
-
-- Download the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
-
-#### Run the script
-
-1. Activate your venv
-2. Run `qBitrr2`  to generate a config file
-3. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
-4. Run `qBitrr2` if installed through pip again to start the script
-
-Alternatively:
-
-1. Unzip the downloaded release and run it
-2. Run `qBitrr`  to generate a config file
-3. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
-4. Run `qBitrr` if installed through pip again to start the script
-
-#### How to update the script
-
-1. Activate your venv
-2. Run `python -m pip install -U qBitrr2`
-
-Alternatively:
-
-1. Download on the [latest release](https://github.com/Feramance/Qbitrr/releases/latest)
-2. Unzip the downloaded release and run it
-3. Run `qBitrr`  to generate a config file
-4. Edit the config file (located at `~/config/config.toml` (~ is your current directory)
-5. Run `qBitrr` if installed through pip again to start the script
-
-***There is no auto-update feature, you will need to manually download the latest release and replace the old one.***
-
-### Docker
-
-#### Docker Image
-
-- The docker image can be found on [DockerHub](https://hub.docker.com/r/feramance/qbitrr) or [Github](https://github.com/Feramance/qBitrr/pkgs/container/qbitrr)
-
-#### Docker Run
-
+### Run with Docker
+Minimal setup:
 ```bash
 docker run -d \
-  --name=qbitrr \
+  --name qbitrr \
   -e TZ=Europe/London \
   -v /etc/localtime:/etc/localtime:ro \
   -v /path/to/appdata/qbitrr:/config \
-  -v /path/to/completed/downloads/folder:/completed_downloads:rw \
+  -v /path/to/completed/downloads:/completed_downloads:rw \
   --restart unless-stopped \
   feramance/qbitrr:latest
 ```
 
-#### Docker Compose
-
+Compose example with a little more structure:
 ```yaml
-version: "3"
 services:
   qbitrr:
     image: feramance/qbitrr:latest
-    user: 1000:1000 # Required to ensure the container is run as the user who has perms to see the 2 mount points and the ability to write to the CompletedDownloadFolder mount
-    tty: true # Ensure the output of docker-compose logs qBitrr are properly colored.
+    user: 1000:1000
     restart: unless-stopped
-    # networks: This container MUST share a network with your Sonarr/Radarr instances
     environment:
-      - TZ=Europe/London
+      TZ: Europe/London
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - /path/to/appdata/qbitrr:/config  # Config folder for qBitrr
-      - /path/to/completed/downloads/folder:/completed_downloads:rw # The script will ALWAYS require write permission in this folder if mounted, this folder is used to monitor completed downloads and if not present will cause the script to ignore downloaded file monitoring.
-      # Now just to make sure it is clean, when using this script in a docker you will need to ensure you config.toml values reflect the mounted folders.
-      # The same would apply to Settings.CompletedDownloadFolder
-      # e.g CompletedDownloadFolder = /completed_downloads/folder/in/container
-
-    logging: # this script will generate a LOT of logs - so it is up to you to decide how much of it you want to store
-      driver: "json-file"
+      - /path/to/appdata/qbitrr:/config
+      - /path/to/completed/downloads:/completed_downloads:rw
+    logging:
+      driver: json-file
       options:
-        max-size: "50m"
-        max-file: 3
-    depends_on: # Not needed but this ensures qBitrr only starts if the dependencies are up and running
+        max-size: 50m
+        max-file: "3"
+    depends_on:
       - qbittorrent
       - radarr-1080p
-      - radarr-4k
       - sonarr-1080p
-      - sonarr-anime
-      - overseerr
-      - ombi
 ```
 
-##### Important mentions for docker
+> ℹ️ On first boot the container writes `config.rename_me.toml` under `/config`. Rename it to `config.toml`, adjust the paths to match your mounts, and restart.
 
-- The script will always expect a completed config.toml file
-- When you first start the container a "config.rename_me.toml" will be added to `/path/to/appdata/qbitrr`
-  - Make sure to rename it to 'config.toml' then edit it to your desired values
+## 🛠️ Configuration
+- Default config path: `~/config/config.toml` (native) or `/config/config.toml` (Docker).
+- Tag new downloads in Radarr/Sonarr so qBitrr can map them correctly.
+- qBittorrent 5.x works via a config flag (will become default later). The latest validated build is **4.6.7**.
+- Turn on logging (`Settings.Logging = true`) when you need support—logs land in `~/logs/` or `/config/logs`.
 
-## Feature Suggestions
+See `config.example.toml` for every knob and dial.
 
-Please do not hesitate to open an issue for feature requests or any suggestions you may have. I plan on periodically adding any features I might feel I want to add but welcome to other suggestions I might not have thought of yet.
+## 🖥️ Built-in Web UI
+The React + Vite dashboard listens on `http://<host>:6969/ui` by default.
 
-## Reporting an Issue
+- 🔐 **Authentication** – set `Settings.WebUIToken` to protect `/api/*`. The UI itself uses the `/web/*` helpers.
+- 🗂️ **Tabs** – Processes, Logs, Radarr, Sonarr, and Config—all live data, all actionable.
+- 🧪 **Developing the UI** – the source lives in `webui/`. Run `npm ci && npm run dev` to hack locally, and `npm run build` (or `make syncenv`) before committing so the bundled assets stay current.
 
-When reporting an issue, please ensure that log files are enabled while running qBitrr and attach them to the issue. Thank you.
-## Built-in WebUI
+## 🔁 Day-to-day Ops
+- ♻️ Rebuild Arr metadata via "Rebuild Arrs" in the UI or `POST /api/arr/rebuild`.
+- 🔁 Restart individual loops or slam the "Restart All" button when something is stuck.
+- 📬 Overseerr/Ombi integration pulls new requests automatically once configured.
+- 🗃️ Logs roll into `~/logs/` (think `Main.log`, `WebUI.log`, etc.)—view them in the UI or right off disk.
 
-qBitrr includes a WebUI (now powered by React + Vite) that runs inside the main process. It is enabled by default and listens on `http://0.0.0.0:6969/ui` unless you change the host/port in the config.
+## 🆘 Troubleshooting
+1. Enable file logging, reproduce the issue, and grab the relevant snippets (scrub secrets).
+2. Open the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml). Include:
+   - qBitrr version (`qBitrr2 --version` or Docker tag)
+   - OS / deployment details
+   - qBittorrent + Arr versions (and request tools if used)
+   - Reproduction steps and what you expected to happen
+3. For feature ideas, hop over to the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml).
 
-- **Security**: optionally set `Settings.WebUIToken`; the UI hits unauthenticated `/web/*` endpoints, but API clients should prefer the token-protected `/api/*`.
-- **Tabs**:
-  - *Processes* – live process list with per-loop restart buttons.
-  - *Logs* – view/download log files, with optional auto-tail.
-  - *Radarr / Sonarr* – per-instance detail plus aggregated search views.
-  - *Config* – edit TOML via forms; saving writes the file and live-reloads qBitrr.
-- **Endpoints**: all UI routes proxy the underlying API (`/web/status`, `/web/processes`, `/web/radarr/<category>/movies`, `/web/sonarr/<category>/series`, `/web/config`, etc.).
+## 🤝 Contributing
+We'd love your help! Before opening a PR:
+- Read the [pull request template](.github/pull_request_template.md).
+- Run `make lint` or `pre-commit run --all-files` for Python changes; `npm run lint` for UI code.
+- Add or update tests when behaviour changes.
+- Mention docs or release notes updates if users should know about the change.
 
-### Working on the WebUI
+Unsure whether an idea fits? File a feature request first and we'll chat.
 
-The React sources live in `webui/`. The compiled bundle is committed under `qBitrr/static/` and regenerated by `npm run build`, `make syncenv`, and the Docker/CI pipelines. For local UI development:
+## ❤️ Support
+- ⭐ Star the repo to spread the word.
+- 🐛 Report issues with logs attached so we can fix them faster.
+- 🛠️ Contribute code, docs, translations—whatever you enjoy.
+- ☕ Sponsor development:
+  - [Patreon](https://patreon.com/qBitrr)
+  - [PayPal](https://www.paypal.me/feramance)
 
-```bash
-cd webui
-npm ci
-npm run dev   # starts Vite on http://localhost:5173
-```
+Every bit of support keeps qBitrr humming—thanks for being here!
 
-After changes run `npm run build` (or `make syncenv`) so the generated assets in `qBitrr/static/` stay up to date before committing.
+## 📄 License
+qBitrr is released under the [MIT License](LICENSE).

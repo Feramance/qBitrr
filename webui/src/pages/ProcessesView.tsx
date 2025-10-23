@@ -172,82 +172,72 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       groupedProcesses.map(({ app, instances }) => {
         const cards = instances.map(({ name, items }) => {
           const runningCount = items.filter((item) => item.alive).length;
-          const statusClass =
-            runningCount === items.length
-              ? "status-pill status-pill--ok"
+          const totalCount = items.length;
+          const tone =
+            totalCount === 0
+              ? ""
+              : runningCount === totalCount
+              ? "status-pill--ok"
               : runningCount === 0
-              ? "status-pill status-pill--bad"
-              : "status-pill";
+              ? "status-pill--bad"
+              : "";
           const statusLabel =
-            runningCount === items.length
+            totalCount === 0
+              ? "No Processes"
+              : runningCount === totalCount
               ? "All Running"
               : runningCount === 0
               ? "Stopped"
-              : `${runningCount}/${items.length} Running`;
+              : `${runningCount}/${totalCount} Running`;
+          const statusClass = ["status-pill", "process-card__status"];
+          if (tone) statusClass.push(tone);
+          const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
 
-        return (
-          <div className="process-card" key={name}>
-            <div className="process-card__header">
-              <div>
-                <div className="process-card__name">{name}</div>
-                <div className="process-card__meta">
-                  {items.map((item, index) => (
-                    <span key={`${item.category}:${item.kind}`}>
-                      {index > 0 ? <span className="separator">|</span> : null}{" "}
-                      {item.kind} <span className="separator">·</span>{" "}
-                      {item.category}
-                      {item.pid ? (
-                        <>
-                          <span className="separator">·</span>
-                          <span>PID {item.pid}</span>
-                        </>
-                      ) : null}
-                    </span>
-                  ))}
+          return (
+            <div className="process-card" key={name}>
+              <div className="process-card__header">
+                <div className="process-card__title">
+                  <div className="process-card__name">{name}</div>
+                  <div className="process-card__summary">{summaryLabel}</div>
                 </div>
+                <span className={statusClass.join(" ")}>
+                  <span className="status-pill__dot" />
+                  {statusLabel}
+                </span>
               </div>
-              <span className={statusClass}>
-                <span className="status-pill__dot" />
-                {statusLabel}
-              </span>
-            </div>
-            <div className="process-card__list">
-              {items.map((item) => (
-                <div className="process-card__row" key={`${item.category}:${item.kind}`}>
-                  <div className="process-card__row-info">
-                    <strong>{item.kind}</strong>
-                    <span className="hint">
-                      {item.category}
-                      {item.pid ? ` · PID ${item.pid}` : ""}
-                    </span>
+              <div className="process-card__list">
+                {items.map((item) => (
+                  <div className="process-card__row" key={`${item.category}:${item.kind}`}>
+                    <div className="process-card__row-info">
+                      <strong>{item.kind}</strong>
+                      <span className="hint">{item.category}</span>
+                    </div>
+                    <div className="process-card__row-actions">
+                      <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
+                        <span className="status-pill__dot" />
+                        {item.alive ? "Running" : "Stopped"}
+                      </span>
+                      <button
+                        className="btn"
+                        onClick={() => handleRestart(item.category, item.kind)}
+                      >
+                        Restart
+                      </button>
+                    </div>
                   </div>
-                  <div className="process-card__row-actions">
-                    <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
-                      <span className="status-pill__dot" />
-                      {item.alive ? "Running" : "Stopped"}
-                    </span>
-                    <button
-                      className="btn"
-                      onClick={() => handleRestart(item.category, item.kind)}
-                    >
-                      Restart
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="process-card__footer">
+                <button
+                  className="btn ghost"
+                  onClick={() => void handleRestartGroup(items)}
+                >
+                  Restart All
+                </button>
+              </div>
             </div>
-            <div className="process-card__footer">
-              <button
-                className="btn ghost"
-                onClick={() => void handleRestartGroup(items)}
-              >
-                Restart All
-              </button>
-            </div>
-          </div>
-        );
+          );
         });
-
         return { app, cards };
       }),
     [groupedProcesses, handleRestart, handleRestartGroup]

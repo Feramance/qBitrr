@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest an improvement or a new capability.
+title: 'feat: <summary>'
+labels: [enhancement, needs triage]
+body:
+- type: markdown
+  attributes:
+    value: |
+      Share the problem you are trying to solve and how qBitrr could help. Concrete context makes it easier to discuss scope and implementation.
+- type: textarea
+  id: problem
+  attributes:
+    label: Problem statement
+    description: What workflow or pain point prompted this request?
+    placeholder: Monitoring stalled torrents in multiple categories requires manual follow-up...
+  validations:
+    required: true
+- type: textarea
+  id: solution
+  attributes:
+    label: Proposed solution
+    description: Describe the feature you would like to see. Screenshots or mockups are welcome.
+  validations:
+    required: true
+- type: textarea
+  id: alternatives
+  attributes:
+    label: Alternatives considered
+    description: Mention any workarounds or other approaches you evaluated.
+  validations:
+    required: false
+- type: textarea
+  id: extra
+  attributes:
+    label: Additional context
+    description: Links, related issues, or other notes.
+  validations:
+    required: false
+- type: checkboxes
+  id: confirmations
+  attributes:
+    label: Checklist
+    options:
+    - label: I searched existing issues and discussions to avoid duplicates.
+      required: true
+    - label: I am willing to help validate or contribute to this feature.
+      required: false

@@ -16,7 +16,7 @@ interface LogsViewProps {
 
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string>("");
+  const [selected, setSelected] = useState<string>("Main.log");
   const [content, setContent] = useState("");
   const [isLive, setIsLive] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
@@ -27,9 +27,19 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     setLoadingList(true);
     try {
       const data = await getLogs();
-      setFiles(data.files ?? []);
-      if (data.files?.length) {
-        setSelected((prev) => prev || data.files![0]);
+      const list = data.files ?? [];
+      setFiles(list);
+      if (list.length) {
+        setSelected((prev) => {
+          if (prev && list.includes(prev)) {
+            return prev;
+          }
+          const mainLog =
+            list.find((file) => file.toLowerCase() === "main.log") ?? null;
+          return mainLog ?? list[0];
+        });
+      } else {
+        setSelected("");
       }
     } catch (error) {
       push(

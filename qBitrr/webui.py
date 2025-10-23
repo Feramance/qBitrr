@@ -10,6 +10,7 @@ from flask import Flask, jsonify, redirect, request, send_file
 from peewee import fn
 
 from qBitrr.config import CONFIG, HOME_PATH
+from qBitrr.logger import run_logs
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
@@ -41,7 +42,17 @@ class WebUI:
         self.host = host
         self.port = port
         self.app = Flask(__name__)
-        # Security token (optional) – auto-generate and persist if empty
+        self.logger = logging.getLogger("qBitrr.WebUI")
+        run_logs(self.logger, "WebUI")
+        self.logger.info("Initialising WebUI on %s:%s", self.host, self.port)
+        self.app.logger.handlers.clear()
+        self.app.logger.propagate = True
+        self.app.logger.setLevel(self.logger.level)
+        werkzeug_logger = logging.getLogger("werkzeug")
+        werkzeug_logger.handlers.clear()
+        werkzeug_logger.propagate = True
+        werkzeug_logger.setLevel(self.logger.level)
+        # Security token (optional) - auto-generate and persist if empty
         self.token = CONFIG.get("Settings.WebUIToken", fallback=None)
         if not self.token:
             self.token = secrets.token_hex(32)
@@ -50,6 +61,8 @@ class WebUI:
                 CONFIG.save()
             except Exception:
                 pass
+            else:
+                self.logger.notice("Generated new WebUI token")
         self._register_routes()
         self._thread: threading.Thread | None = None
 
@@ -931,7 +944,9 @@ class WebUI:
 
     def start(self):
         if self._thread and self._thread.is_alive():
+            self.logger.debug("WebUI already running on %s:%s", self.host, self.port)
             return
+        self.logger.notice("Starting WebUI on %s:%s", self.host, self.port)
         self._thread = threading.Thread(
             target=lambda: self.app.run(
                 host=self.host, port=self.port, debug=False, use_reloader=False
@@ -940,3 +955,4 @@ class WebUI:
             daemon=True,
         )
         self._thread.start()
+        self.logger.success("WebUI thread started (name=%s)", self._thread.name)

@@ -373,24 +373,27 @@ pre {
 .process-card__header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 .process-card__name {
     font-weight: 600;
     font-size: 16px;
 }
-.process-card__meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+.process-card__title {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+.process-card__summary {
     font-size: 12px;
     color: var(--muted);
-    word-break: break-word;
 }
-.process-card__meta .separator {
-    color: var(--muted);
-    padding: 0 4px;
+.process-card__status {
+    white-space: nowrap;
+    align-self: flex-start;
+    flex-shrink: 0;
 }
 .process-card__footer {
     display: flex;
