@@ -39,6 +39,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: ${{ github.head_ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -75,12 +76,27 @@ jobs:
         npm ci
         npm run build
 
-    - name: Commit built web UI assets
+    - name: Sync built web UI assets
       if: github.event.pull_request.head.repo.full_name == github.repository
-      uses: stefanzweifel/git-auto-commit-action@v5.0.1
-      with:
-        commit_message: 'chore(build): sync webui static assets [skip ci]'
-        file_pattern: qBitrr/static/*
+      env:
+        BRANCH_REF: ${{ github.head_ref }}
+      run: |
+        set -eo pipefail
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git status --short qBitrr/static || true
+        git add qBitrr/static
+        if git diff --cached --quiet; then
+          echo "No static asset changes detected."
+        else
+          git commit -m "chore(build): sync webui static assets [skip ci]"
+          if git push origin HEAD:"${BRANCH_REF}"; then
+            echo "Static asset updates pushed to ${BRANCH_REF}."
+          else
+            echo "::error::Unable to push static asset updates automatically. Please pull locally, rebuild webui, and commit qBitrr/static."
+            exit 1
+          fi
+        fi
 
     - id: repo
       uses: ASzc/change-string-case-action@v6
@@ -169,6 +185,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+        ref: ${{ github.head_ref }}
 
     - name: Install Homebrew dependencies
       if: runner.os == 'macOS'
