@@ -1483,7 +1483,7 @@ function SonarrInstanceView({
               (entry.series?.["title"] as string | undefined) ||
               `Series ${idx + 1}`;
             return (
-              <details key={idx} open>
+              <details key={idx}>
                 <summary>
                   {title}{" "}
                   <span className="hint">

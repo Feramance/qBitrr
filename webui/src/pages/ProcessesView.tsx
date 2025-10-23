@@ -90,27 +90,44 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     }
   }, [load, push]);
 
-  const rows = useMemo(
+  const cards = useMemo(
     () =>
-      processes.map((proc) => (
-        <tr key={`${proc.category}:${proc.kind}`}>
-          <td>{proc.name}</td>
-          <td>{proc.kind}</td>
-          <td>
-            <span className={proc.alive ? "ok" : "bad"}>
-              {proc.alive ? "Yes" : "No"}
-            </span>
-          </td>
-          <td>
-            <button
-              className="btn"
-              onClick={() => handleRestart(proc.category, proc.kind)}
-            >
-              Restart
-            </button>
-          </td>
-        </tr>
-      )),
+      processes.map((proc) => {
+        const statusClass = proc.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad";
+        const statusLabel = proc.alive ? "Running" : "Stopped";
+        return (
+          <div className="process-card" key={`${proc.category}:${proc.kind}`}>
+            <div className="process-card__header">
+              <div>
+                <div className="process-card__name">{proc.name}</div>
+                <div className="process-card__meta">
+                  <span>{proc.kind}</span>
+                  <span className="separator">|</span>
+                  <span>{proc.category}</span>
+                  {proc.pid ? (
+                    <>
+                      <span className="separator">|</span>
+                      <span>PID {proc.pid}</span>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              <span className={statusClass}>
+                <span className="status-pill__dot" />
+                {statusLabel}
+              </span>
+            </div>
+            <div className="process-card__footer">
+              <button
+                className="btn"
+                onClick={() => handleRestart(proc.category, proc.kind)}
+              >
+                Restart
+              </button>
+            </div>
+          </div>
+        );
+      }),
     [processes, handleRestart]
   );
 
@@ -131,18 +148,10 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             </button>
           </div>
         </div>
-        <div>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Kind</th>
-                <th>Alive</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>{rows}</tbody>
-          </table>
+        <div className="process-grid">
+          {processes.length ? cards : (
+            <div className="empty-state">No processes available.</div>
+          )}
         </div>
       </div>
     </section>
