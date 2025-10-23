@@ -1,4 +1,4 @@
-exclude: ^(CHANGELOG.md|bundled_data.py|.bumpversion.cfg|Dockerfile|setup.cfg|.github/FUNDING.yml)
+exclude: ^(CHANGELOG\.md|bundled_data\.py|\.bumpversion\.cfg|Dockerfile|setup\.cfg|\.github/FUNDING\.yml|qBitrr/static/.*)
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.4.0
