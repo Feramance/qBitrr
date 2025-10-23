@@ -791,11 +791,14 @@ class MyConfig:
         return values if values is not ... else default
 
 
-def _write_config_file(docker=False) -> pathlib.Path:
+def _write_config_file(docker: bool = False) -> pathlib.Path:
     doc = generate_doc()
-    file_name = "config.rename_me.toml" if docker else "config.toml"
-    config_file = HOME_PATH.joinpath(file_name)
-    if config_file.exists() and not docker:
+    config_file = HOME_PATH.joinpath("config.toml")
+    if docker:
+        if config_file.exists():
+            print(f"{config_file} already exists, keeping current configuration.")
+            return config_file
+    elif config_file.exists():
         print(f"{config_file} already exists, File is not being replaced.")
         config_file = pathlib.Path.cwd().joinpath("config_new.toml")
     config = MyConfig(config_file, config=doc)

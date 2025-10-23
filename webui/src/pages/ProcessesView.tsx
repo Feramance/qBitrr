@@ -177,40 +177,42 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             totalCount === 0
               ? ""
               : runningCount === totalCount
-              ? "status-pill--ok"
+              ? "status-indicator--ok"
               : runningCount === 0
-              ? "status-pill--bad"
+              ? "status-indicator--bad"
               : "";
+          const statusClass = ["status-indicator"];
+          if (tone) statusClass.push(tone);
           const statusLabel =
             totalCount === 0
-              ? "No Processes"
+              ? "No processes"
               : runningCount === totalCount
-              ? "All Running"
+              ? "All running"
               : runningCount === 0
               ? "Stopped"
-              : `${runningCount}/${totalCount} Running`;
-          const statusClass = ["status-pill", "process-card__status"];
-          if (tone) statusClass.push(tone);
+              : `${runningCount}/${totalCount} running`;
           const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
+          const displayName = name === "FreeSpaceManager" ? "Free Space Manager" : name;
 
           return (
             <div className="process-card" key={name}>
               <div className="process-card__header">
                 <div className="process-card__title">
-                  <div className="process-card__name">{name}</div>
+                  <div className="process-card__name">{displayName}</div>
                   <div className="process-card__summary">{summaryLabel}</div>
                 </div>
-                <span className={statusClass.join(" ")}>
-                  <span className="status-pill__dot" />
-                  {statusLabel}
-                </span>
+                <span
+                  className={statusClass.join(" ")}
+                  title={statusLabel}
+                  aria-label={statusLabel}
+                  role="img"
+                />
               </div>
               <div className="process-card__list">
                 {items.map((item) => (
                   <div className="process-card__row" key={`${item.category}:${item.kind}`}>
                     <div className="process-card__row-info">
                       <strong>{item.kind}</strong>
-                      <span className="hint">{item.category}</span>
                     </div>
                     <div className="process-card__row-actions">
                       <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>

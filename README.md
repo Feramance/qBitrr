@@ -97,7 +97,7 @@ services:
       - sonarr-1080p
 ```
 
-> ℹ️ On first boot the container writes `config.rename_me.toml` under `/config`. Rename it to `config.toml`, adjust the paths to match your mounts, and restart.
+> ℹ️ On first boot the container writes `config.toml` under `/config`. Update the values to match your mounts and restart the container.
 
 ## 🛠️ Configuration
 - Default config path: `~/config/config.toml` (native) or `/config/config.toml` (Docker).
