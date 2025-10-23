@@ -20,7 +20,7 @@ jobs:
       fail-fast: false
       matrix:
         python:
-        - '3.10'
+        - 3.10.11
         os:
         - windows-latest
         - macOS-latest
@@ -46,6 +46,10 @@ jobs:
       with:
         fetch-depth: 0
         ref: ${{ github.event.pull_request.head.sha }}
+    - name: Install Homebrew dependencies
+      if: runner.os == 'macOS'
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v5
       with:
@@ -68,8 +72,20 @@ jobs:
         echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
       id: archieve
     - name: Update git hash
+      env:
+        RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
       run: |
-        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.outputs.HASH }}\"/g' ./qBitrr/bundled_data.py
+        python - <<'PY'
+        import os
+        from pathlib import Path
+        import re
+
+        release_hash = os.environ["RELEASE_HASH"]
+        path = Path("qBitrr/bundled_data.py")
+        content = path.read_text()
+        updated = re.sub(r'git_hash = ".*"', f'git_hash = "{release_hash}"', content)
+        path.write_text(updated)
+        PY
     - name: Retrieve current version
       run: |
         echo "Current version: $(python setup.py --version)"
