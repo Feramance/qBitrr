@@ -807,15 +807,15 @@ function RadarrInstanceView({
         <div className="inline">
           <button
             className="btn"
-            onClick={() => onPageChange(Math.max(0, safePage - 1))}
-            disabled={safePage === 0 || loading}
+            onClick={() => onPageChange(Math.max(0, page - 1))}
+            disabled={page === 0 || loading}
           >
             Prev
           </button>
           <button
             className="btn"
-            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
-            disabled={safePage >= effectiveTotalPages - 1 || loading}
+            onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+            disabled={page >= totalPages - 1 || loading}
           >
             Next
           </button>
@@ -1449,14 +1449,6 @@ function SonarrInstanceView({
     return result;
   }, [seriesEntries, onlyMissing]);
   const totalItemsDisplay = onlyMissing ? filteredSeries.length : totalItems;
-  const effectiveTotalPages = totalPages;
-  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
-
-  useEffect(() => {
-    if (safePage !== page) {
-      onPageChange(safePage);
-    }
-  }, [safePage, page, onPageChange]);
 
   return (
     <div className="stack">
@@ -1535,21 +1527,23 @@ function SonarrInstanceView({
       </div>
       <div className="pagination">
         <div>
-          Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items · page size{" "}
+          Page {page + 1} of {totalPages} ({totalItemsDisplay} items · page size{" "}
           {pageSize})
         </div>
         <div className="inline">
           <button
             className="btn"
-            onClick={() => onPageChange(Math.max(0, safePage - 1))}
-            disabled={safePage === 0 || loading}
+            onClick={() => onPageChange(Math.max(0, page - 1))}
+            disabled={page === 0 || loading}
           >
             Prev
           </button>
           <button
             className="btn"
-            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
-            disabled={safePage >= effectiveTotalPages - 1 || loading}
+            onClick={() =>
+              onPageChange(Math.min(totalPages - 1, page + 1))
+            }
+            disabled={page >= totalPages - 1 || loading}
           >
             Next
           </button>

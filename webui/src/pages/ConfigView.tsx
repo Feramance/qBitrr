@@ -492,58 +492,64 @@ function FieldGroup({
   basePath,
   onChange,
 }: FieldGroupProps): JSX.Element {
-  return (
-    <div className="stack">
-      {title ? <div className="hint" style={{ marginTop: 8 }}>{title}</div> : null}
-      {fields.map((field) => {
-        const path = [...basePath, ...field.path];
-        const rawValue = getValue(state as ConfigDocument, field.path);
-        const formatted =
-          field.format?.(rawValue) ??
-          (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
-        if (field.type === "checkbox") {
-          return (
-            <label className="hint inline" key={path.join(".")}>
-              <input
-                type="checkbox"
-                checked={Boolean(formatted)}
-                onChange={(event) =>
-                  onChange(path, field, event.target.checked)
-                }
-              />
-              {field.label}
-            </label>
-          );
-        }
-        if (field.type === "select") {
-          return (
-            <div className="field" key={path.join(".")}>
-              <label>{field.label}</label>
-              <select
-                value={String(formatted)}
-                onChange={(event) => onChange(path, field, event.target.value)}
-              >
-                {(field.options ?? []).map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-          );
-        }
-        return (
-          <div className="field" key={path.join(".")}>
-            <label>{field.label}</label>
-            <input
-              type={field.type === "number" ? "number" : field.type}
-              value={String(formatted)}
-              placeholder={field.placeholder}
-              onChange={(event) => onChange(path, field, event.target.value)}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
+  const renderedFields = fields.map((field) => {
+    const path = [...basePath, ...field.path];
+    const rawValue = getValue(state as ConfigDocument, field.path);
+    const formatted =
+      field.format?.(rawValue) ??
+      (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
+    if (field.type === "checkbox") {
+      return (
+        <label className="hint inline" key={path.join(".")}>
+          <input
+            type="checkbox"
+            checked={Boolean(formatted)}
+            onChange={(event) =>
+              onChange(path, field, event.target.checked)
+            }
+          />
+          {field.label}
+        </label>
+      );
+    }
+    if (field.type === "select") {
+      return (
+        <div className="field" key={path.join(".")}>
+          <label>{field.label}</label>
+          <select
+            value={String(formatted)}
+            onChange={(event) => onChange(path, field, event.target.value)}
+          >
+            {(field.options ?? []).map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    return (
+      <div className="field" key={path.join(".")}>
+        <label>{field.label}</label>
+        <input
+          type={field.type === "number" ? "number" : field.type}
+          value={String(formatted)}
+          placeholder={field.placeholder}
+          onChange={(event) => onChange(path, field, event.target.value)}
+        />
+      </div>
+    );
+  });
+
+  if (title) {
+    return (
+      <details className="config-section" open>
+        <summary>{title}</summary>
+        <div className="config-section__body stack">{renderedFields}</div>
+      </details>
+    );
+  }
+
+  return <div className="stack">{renderedFields}</div>;
 }
