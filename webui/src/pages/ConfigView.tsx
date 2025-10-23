@@ -634,6 +634,32 @@ export function ConfigView(): JSX.Element {
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
 
+  const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeArrKey) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveArrKey(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const { style } = document.body;
+    const originalOverflow = style.overflow;
+    style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      style.overflow = originalOverflow;
+    };
+  }, [activeArrKey]);
+
+  useEffect(() => {
+    if (!activeArrKey) return;
+    if (!arrSections.some(([key]) => key === activeArrKey)) {
+      setActiveArrKey(null);
+    }
+  }, [activeArrKey, arrSections]);
+
   const addArrInstance = useCallback(
     (type: "radarr" | "sonarr") => {
       if (!formState) return;
@@ -703,14 +729,23 @@ export function ConfigView(): JSX.Element {
   }
 
   return (
-    <section className="card">
-      <div className="card-header">Config</div>
-      <div className="card-body config-layout">
-        <div className="config-actions">
-          <button className="btn" onClick={() => addArrInstance("radarr")}>
+    <>
+      <section className="card">
+        <div className="card-header">Config</div>
+        <div className="card-body config-layout">
+          <div className="config-actions">
+          <button
+            className="btn"
+            type="button"
+            onClick={() => addArrInstance("radarr")}
+          >
             Add Radarr Instance
           </button>
-          <button className="btn" onClick={() => addArrInstance("sonarr")}>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => addArrInstance("sonarr")}
+          >
             Add Sonarr Instance
           </button>
         </div>
@@ -731,59 +766,45 @@ export function ConfigView(): JSX.Element {
         {arrSections.length ? (
           <div className="config-arr-grid">
             {arrSections.map(([key, value]) => {
-              const fieldSets = getArrFieldSets(key);
+              const uri = getValue(value as ConfigDocument, ["URI"]);
+              const category = getValue(value as ConfigDocument, ["Category"]);
+              const managed = getValue(value as ConfigDocument, ["Managed"]);
+              const importMode = getValue(value as ConfigDocument, ["importMode"]);
               return (
-                <details className="card config-card" key={key}>
-                  <summary>{key}</summary>
+                <div className="card config-card config-arr-card" key={key}>
+                  <div className="card-header">{key}</div>
                   <div className="card-body">
-                    <FieldGroup
-                      title="General"
-                      fields={fieldSets.generalFields}
-                      state={value}
-                      basePath={[key]}
-                      onChange={handleFieldChange}
-                    />
-                    <FieldGroup
-                      title="Entry Search"
-                      fields={fieldSets.entryFields}
-                      state={value}
-                      basePath={[key]}
-                      onChange={handleFieldChange}
-                    />
-                    {fieldSets.entryOmbiFields.length ? (
-                      <FieldGroup
-                        title="Entry Search - Ombi"
-                        fields={fieldSets.entryOmbiFields}
-                        state={value}
-                        basePath={[key]}
-                        onChange={handleFieldChange}
-                      />
-                    ) : null}
-                    {fieldSets.entryOverseerrFields.length ? (
-                      <FieldGroup
-                        title="Entry Search - Overseerr"
-                        fields={fieldSets.entryOverseerrFields}
-                        state={value}
-                        basePath={[key]}
-                        onChange={handleFieldChange}
-                      />
-                    ) : null}
-                    <FieldGroup
-                      title="Torrent"
-                      fields={fieldSets.torrentFields}
-                      state={value}
-                      basePath={[key]}
-                      onChange={handleFieldChange}
-                    />
-                    <FieldGroup
-                      title="Seeding Mode"
-                      fields={fieldSets.seedingFields}
-                      state={value}
-                      basePath={[key]}
-                      onChange={handleFieldChange}
-                    />
+                    <dl className="config-arr-summary">
+                      <div className="config-arr-summary__item">
+                        <dt>Managed</dt>
+                        <dd>{managed ? "Enabled" : "Disabled"}</dd>
+                      </div>
+                      <div className="config-arr-summary__item">
+                        <dt>Category</dt>
+                        <dd>{category ? String(category) : "—"}</dd>
+                      </div>
+                      <div className="config-arr-summary__item">
+                        <dt>Import Mode</dt>
+                        <dd>{importMode ? String(importMode) : "Auto"}</dd>
+                      </div>
+                      <div className="config-arr-summary__item">
+                        <dt>URI</dt>
+                        <dd className="config-arr-summary__uri">
+                          {uri ? String(uri) : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                    <div className="config-arr-actions">
+                      <button
+                        className="btn primary"
+                        type="button"
+                        onClick={() => setActiveArrKey(key)}
+                      >
+                        Configure
+                      </button>
+                    </div>
                   </div>
-                </details>
+                </div>
               );
             })}
           </div>
@@ -798,7 +819,16 @@ export function ConfigView(): JSX.Element {
           </button>
         </div>
       </div>
-    </section>
+      </section>
+      {activeArrKey && formState ? (
+        <ArrInstanceModal
+          keyName={activeArrKey}
+          state={(formState[activeArrKey] as ConfigDocument) ?? null}
+          onChange={handleFieldChange}
+          onClose={() => setActiveArrKey(null)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -832,6 +862,7 @@ interface FieldGroupProps {
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  defaultOpen?: boolean;
 }
 
 function FieldGroup({
@@ -840,6 +871,7 @@ function FieldGroup({
   state,
   basePath,
   onChange,
+  defaultOpen = false,
 }: FieldGroupProps): JSX.Element {
   const renderedFields = fields.map((field) => {
     const path = [...basePath, ...field.path];
@@ -913,7 +945,7 @@ function FieldGroup({
 
   if (title) {
     return (
-      <details className="config-section">
+      <details className="config-section" open={defaultOpen}>
         <summary>{title}</summary>
         <div className="config-section__body field-grid">{renderedFields}</div>
       </details>
@@ -921,4 +953,99 @@ function FieldGroup({
   }
 
   return <div className="field-grid">{renderedFields}</div>;
+}
+
+interface ArrInstanceModalProps {
+  keyName: string;
+  state: ConfigDocument | null;
+  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onClose: () => void;
+}
+
+function ArrInstanceModal({
+  keyName,
+  state,
+  onChange,
+  onClose,
+}: ArrInstanceModalProps): JSX.Element | null {
+  if (!state) return null;
+  const fieldSets = getArrFieldSets(keyName);
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="arr-config-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="arr-config-title">Configure {keyName}</h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="modal-body">
+          <FieldGroup
+            title="General"
+            fields={fieldSets.generalFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+          <FieldGroup
+            title="Entry Search"
+            fields={fieldSets.entryFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+          {fieldSets.entryOmbiFields.length ? (
+            <FieldGroup
+              title="Entry Search - Ombi"
+              fields={fieldSets.entryOmbiFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+              defaultOpen
+            />
+          ) : null}
+          {fieldSets.entryOverseerrFields.length ? (
+            <FieldGroup
+              title="Entry Search - Overseerr"
+              fields={fieldSets.entryOverseerrFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+              defaultOpen
+            />
+          ) : null}
+          <FieldGroup
+            title="Torrent"
+            fields={fieldSets.torrentFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+          <FieldGroup
+            title="Seeding Mode"
+            fields={fieldSets.seedingFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+        </div>
+        <div className="modal-footer">
+          <button className="btn primary" type="button" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
