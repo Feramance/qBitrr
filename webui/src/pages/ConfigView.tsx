@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { getTooltip } from "../config/tooltips";
 
 type FieldType = "text" | "number" | "checkbox" | "password" | "select";
 
@@ -14,6 +15,17 @@ interface FieldDefinition {
   parse?: (value: string | boolean) => unknown;
   format?: (value: unknown) => string | boolean;
 }
+
+const parseList = (value: string | boolean): string[] =>
+  String(value)
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+const formatList = (value: unknown): string =>
+  Array.isArray(value) ? value.join(", ") : String(value ?? "");
+
+const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
 const SETTINGS_FIELDS: FieldDefinition[] = [
   {
@@ -58,6 +70,19 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["Settings", "IgnoreTorrentsYoungerThan"],
     type: "number",
   },
+  {
+    label: "Ping URLs",
+    path: ["Settings", "PingURLS"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+    placeholder: "one.one.one.one, dns.google.com",
+  },
+  {
+    label: "FFprobe Auto Update",
+    path: ["Settings", "FFprobeAutoUpdate"],
+    type: "checkbox",
+  },
   { label: "WebUI Host", path: ["Settings", "WebUIHost"], type: "text" },
   {
     label: "WebUI Port",
@@ -80,12 +105,46 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
   { label: "URI", path: ["URI"], type: "text", placeholder: "http://host:port" },
   { label: "API Key", path: ["APIKey"], type: "password", placeholder: "apikey" },
   { label: "Category", path: ["Category"], type: "text" },
+  { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
+  {
+    label: "Import Mode",
+    path: ["importMode"],
+    type: "select",
+    options: IMPORT_MODE_OPTIONS,
+  },
+  {
+    label: "RSS Sync Timer (min)",
+    path: ["RssSyncTimer"],
+    type: "number",
+  },
+  {
+    label: "Refresh Downloads Timer (min)",
+    path: ["RefreshDownloadsTimer"],
+    type: "number",
+  },
+  {
+    label: "Arr Error Codes To Blocklist",
+    path: ["ArrErrorCodesToBlocklist"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
 ];
 
 const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
   {
     label: "Search Missing",
     path: ["EntrySearch", "SearchMissing"],
+    type: "checkbox",
+  },
+  {
+    label: "Also Search Specials",
+    path: ["EntrySearch", "AlsoSearchSpecials"],
+    type: "checkbox",
+  },
+  {
+    label: "Unmonitored",
+    path: ["EntrySearch", "Unmonitored"],
     type: "checkbox",
   },
   {
@@ -114,13 +173,151 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     type: "number",
   },
   {
+    label: "Search By Year",
+    path: ["EntrySearch", "SearchByYear"],
+    type: "checkbox",
+  },
+  {
+    label: "Search In Reverse",
+    path: ["EntrySearch", "SearchInReverse"],
+    type: "checkbox",
+  },
+  {
+    label: "Search Requests Every (s)",
+    path: ["EntrySearch", "SearchRequestsEvery"],
+    type: "number",
+  },
+  {
+    label: "Search Again On Completion",
+    path: ["EntrySearch", "SearchAgainOnSearchCompletion"],
+    type: "checkbox",
+  },
+  {
+    label: "Use Temp Profile For Missing",
+    path: ["EntrySearch", "UseTempForMissing"],
+    type: "checkbox",
+  },
+  {
+    label: "Keep Temp Profile",
+    path: ["EntrySearch", "KeepTempProfile"],
+    type: "checkbox",
+  },
+  {
+    label: "Main Quality Profile",
+    path: ["EntrySearch", "MainQualityProfile"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+  {
+    label: "Temp Quality Profile",
+    path: ["EntrySearch", "TempQualityProfile"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+  {
+    label: "Search By Series",
+    path: ["EntrySearch", "SearchBySeries"],
+    type: "checkbox",
+  },
+  {
     label: "Prioritize Today's Releases",
     path: ["EntrySearch", "PrioritizeTodaysReleases"],
     type: "checkbox",
   },
 ];
 
+const ARR_ENTRY_SEARCH_OMBI_FIELDS: FieldDefinition[] = [
+  {
+    label: "Search Ombi Requests",
+    path: ["EntrySearch", "Ombi", "SearchOmbiRequests"],
+    type: "checkbox",
+  },
+  {
+    label: "Ombi URI",
+    path: ["EntrySearch", "Ombi", "OmbiURI"],
+    type: "text",
+    placeholder: "http://host:port",
+  },
+  {
+    label: "Ombi API Key",
+    path: ["EntrySearch", "Ombi", "OmbiAPIKey"],
+    type: "password",
+  },
+  {
+    label: "Approved Only",
+    path: ["EntrySearch", "Ombi", "ApprovedOnly"],
+    type: "checkbox",
+  },
+  {
+    label: "Is 4K Instance",
+    path: ["EntrySearch", "Ombi", "Is4K"],
+    type: "checkbox",
+  },
+];
+
+const ARR_ENTRY_SEARCH_OVERSEERR_FIELDS: FieldDefinition[] = [
+  {
+    label: "Search Overseerr Requests",
+    path: ["EntrySearch", "Overseerr", "SearchOverseerrRequests"],
+    type: "checkbox",
+  },
+  {
+    label: "Overseerr URI",
+    path: ["EntrySearch", "Overseerr", "OverseerrURI"],
+    type: "text",
+    placeholder: "http://host:port",
+  },
+  {
+    label: "Overseerr API Key",
+    path: ["EntrySearch", "Overseerr", "OverseerrAPIKey"],
+    type: "password",
+  },
+  {
+    label: "Approved Only",
+    path: ["EntrySearch", "Overseerr", "ApprovedOnly"],
+    type: "checkbox",
+  },
+  {
+    label: "Is 4K Instance",
+    path: ["EntrySearch", "Overseerr", "Is4K"],
+    type: "checkbox",
+  },
+];
+
 const ARR_TORRENT_FIELDS: FieldDefinition[] = [
+  {
+    label: "Case Sensitive Matches",
+    path: ["Torrent", "CaseSensitiveMatches"],
+    type: "checkbox",
+  },
+  {
+    label: "Folder Exclusion Regex",
+    path: ["Torrent", "FolderExclusionRegex"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+  {
+    label: "File Name Exclusion Regex",
+    path: ["Torrent", "FileNameExclusionRegex"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+  {
+    label: "File Extension Allowlist",
+    path: ["Torrent", "FileExtensionAllowlist"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+  {
+    label: "Auto Delete",
+    path: ["Torrent", "AutoDelete"],
+    type: "checkbox",
+  },
   {
     label: "Ignore Torrents Younger Than (s)",
     path: ["Torrent", "IgnoreTorrentsYoungerThan"],
@@ -147,24 +344,35 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     type: "number",
   },
   {
-    label: "Re-Search Stalled",
+    label: "Re-search Stalled",
     path: ["Torrent", "ReSearchStalled"],
     type: "checkbox",
   },
   {
-    label: "File Extension Allowlist (comma separated)",
-    path: ["Torrent", "FileExtensionAllowlist"],
+    label: "Remove Dead Trackers",
+    path: ["Torrent", "RemoveDeadTrackers"],
+    type: "checkbox",
+  },
+  {
+    label: "Remove Tracker Messages",
+    path: ["Torrent", "RemoveTrackerWithMessage"],
     type: "text",
-    parse: (value) =>
-      String(value)
-        .split(",")
-        .map((part) => part.trim())
-        .filter(Boolean),
-    format: (value) => (Array.isArray(value) ? value.join(",") : String(value ?? "")),
+    parse: parseList,
+    format: formatList,
   },
 ];
 
 const ARR_SEEDING_FIELDS: FieldDefinition[] = [
+  {
+    label: "Download Rate Limit Per Torrent",
+    path: ["Torrent", "SeedingMode", "DownloadRateLimitPerTorrent"],
+    type: "number",
+  },
+  {
+    label: "Upload Rate Limit Per Torrent",
+    path: ["Torrent", "SeedingMode", "UploadRateLimitPerTorrent"],
+    type: "number",
+  },
   {
     label: "Max Upload Ratio",
     path: ["Torrent", "SeedingMode", "MaxUploadRatio"],
@@ -181,6 +389,37 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
     type: "number",
   },
 ];
+
+function getArrFieldSets(arrKey: string) {
+  const lower = arrKey.toLowerCase();
+  const isSonarr = lower.includes("sonarr");
+  const generalFields = [...ARR_GENERAL_FIELDS];
+  const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
+    const joined = field.path.join(".");
+    if (!isSonarr) {
+      if (
+        joined === "EntrySearch.AlsoSearchSpecials" ||
+        joined === "EntrySearch.SearchBySeries" ||
+        joined === "EntrySearch.PrioritizeTodaysReleases"
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+  const entryOmbiFields = [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
+  const entryOverseerrFields = [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
+  const torrentFields = [...ARR_TORRENT_FIELDS];
+  const seedingFields = [...ARR_SEEDING_FIELDS];
+  return {
+    generalFields,
+    entryFields,
+    entryOmbiFields,
+    entryOverseerrFields,
+    torrentFields,
+    seedingFields,
+  };
+}
 
 function cloneConfig(config: ConfigDocument | null): ConfigDocument | null {
   return config ? JSON.parse(JSON.stringify(config)) : null;
@@ -228,35 +467,116 @@ function flatten(doc: ConfigDocument, prefix: string[] = []): Record<string, unk
 }
 
 function ensureArrDefaults(type: string): ConfigDocument {
-  return {
-    Managed: true,
-    URI: "",
-    APIKey: "",
-    Category: type,
-    EntrySearch: {
-      SearchMissing: false,
-      DoUpgradeSearch: false,
-      QualityUnmetSearch: false,
-      CustomFormatUnmetSearch: false,
-      ForceMinimumCustomFormat: false,
-      SearchLimit: 0,
-      PrioritizeTodaysReleases: false,
-    },
-    Torrent: {
-      IgnoreTorrentsYoungerThan: 0,
-      MaximumETA: 0,
-      MaximumDeletablePercentage: 0,
-      DoNotRemoveSlow: false,
-      StalledDelay: 0,
-      ReSearchStalled: false,
-      FileExtensionAllowlist: [],
-      SeedingMode: {
-        MaxUploadRatio: 0,
-        MaxSeedingTime: 0,
-        RemoveTorrent: 0,
-      },
+  const lowerType = type.toLowerCase();
+  const isSonarr = lowerType.includes("sonarr");
+  const isRadarr = lowerType.includes("radarr");
+  const is4k = lowerType.includes("4k");
+  const arrErrorCodes = isRadarr
+    ? [
+        "Not an upgrade for existing movie file(s)",
+        "Not a preferred word upgrade for existing movie file(s)",
+        "Unable to determine if file is a sample",
+      ]
+    : [
+        "Not an upgrade for existing episode file(s)",
+        "Not a preferred word upgrade for existing episode file(s)",
+        "Unable to determine if file is a sample",
+      ];
+
+  const entrySearch: Record<string, unknown> = {
+    SearchMissing: true,
+    Unmonitored: false,
+    SearchLimit: 5,
+    SearchByYear: true,
+    SearchInReverse: false,
+    SearchRequestsEvery: 300,
+    DoUpgradeSearch: false,
+    QualityUnmetSearch: false,
+    CustomFormatUnmetSearch: false,
+    ForceMinimumCustomFormat: false,
+    SearchAgainOnSearchCompletion: true,
+    UseTempForMissing: false,
+    KeepTempProfile: false,
+    MainQualityProfile: [],
+    TempQualityProfile: [],
+  };
+
+  if (isSonarr) {
+    entrySearch.AlsoSearchSpecials = false;
+    entrySearch.SearchBySeries = true;
+    entrySearch.PrioritizeTodaysReleases = true;
+  }
+
+  entrySearch.Ombi = {
+    SearchOmbiRequests: false,
+    OmbiURI: "CHANGE_ME",
+    OmbiAPIKey: "CHANGE_ME",
+    ApprovedOnly: true,
+    Is4K: is4k,
+  };
+  entrySearch.Overseerr = {
+    SearchOverseerrRequests: false,
+    OverseerrURI: "CHANGE_ME",
+    OverseerrAPIKey: "CHANGE_ME",
+    ApprovedOnly: true,
+    Is4K: is4k,
+  };
+
+  const torrent: Record<string, unknown> = {
+    CaseSensitiveMatches: false,
+    FolderExclusionRegex: [
+      "\\bextras?\\b",
+      "\\bfeaturettes?\\b",
+      "\\bsamples?\\b",
+      "\\bscreens?\\b",
+      "\\bnc(ed|op)?(\\\\d+)?\\b",
+    ],
+    FileNameExclusionRegex: [
+      "\\bncop\\\\d+?\\b",
+      "\\bnced\\\\d+?\\b",
+      "\\bsample\\b",
+      "brarbg.com\\b",
+      "\\btrailer\\b",
+      "music video",
+      "comandotorrents.com",
+    ],
+    FileExtensionAllowlist: [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
+    AutoDelete: false,
+    IgnoreTorrentsYoungerThan: 600,
+    MaximumETA: 604800,
+    MaximumDeletablePercentage: 0.99,
+    DoNotRemoveSlow: true,
+    StalledDelay: 15,
+    ReSearchStalled: false,
+    RemoveDeadTrackers: false,
+    RemoveTrackerWithMessage: [
+      "skipping tracker announce (unreachable)",
+      "No such host is known",
+      "unsupported URL protocol",
+      "info hash is not authorized with this tracker",
+    ],
+    SeedingMode: {
+      DownloadRateLimitPerTorrent: -1,
+      UploadRateLimitPerTorrent: -1,
+      MaxUploadRatio: -1,
+      MaxSeedingTime: -1,
+      RemoveTorrent: -1,
     },
   };
+
+  return {
+    Managed: true,
+    URI: "CHANGE_ME",
+    APIKey: "CHANGE_ME",
+    Category: type,
+    ReSearch: true,
+    importMode: "Auto",
+    RssSyncTimer: 5,
+    RefreshDownloadsTimer: 5,
+    ArrErrorCodesToBlocklist: arrErrorCodes,
+    EntrySearch: entrySearch as ConfigDocument,
+    Torrent: torrent as ConfigDocument,
+  } as ConfigDocument;
 }
 
 export function ConfigView(): JSX.Element {
@@ -385,61 +705,90 @@ export function ConfigView(): JSX.Element {
   return (
     <section className="card">
       <div className="card-header">Config</div>
-      <div className="card-body stack">
-        <button className="btn" onClick={() => addArrInstance("radarr")}>
-          Add Radarr Instance
-        </button>
-        <button className="btn" onClick={() => addArrInstance("sonarr")}>
-          Add Sonarr Instance
-        </button>
-        <ConfigCard
-          title="Settings"
-          fields={SETTINGS_FIELDS}
-          state={formState}
-          onChange={handleFieldChange}
-        />
-        <ConfigCard
-          title="qBit"
-          fields={QBIT_FIELDS}
-          state={formState}
-          onChange={handleFieldChange}
-        />
-        {arrSections.map(([key, value]) => (
-          <details className="card config-card" key={key} open>
-            <summary>{key}</summary>
-            <div className="card-body stack">
-              <FieldGroup
-                title="General"
-                fields={ARR_GENERAL_FIELDS}
-                state={value}
-                basePath={[key]}
-                onChange={handleFieldChange}
-              />
-              <FieldGroup
-                title="Entry Search"
-                fields={ARR_ENTRY_SEARCH_FIELDS}
-                state={value}
-                basePath={[key]}
-                onChange={handleFieldChange}
-              />
-              <FieldGroup
-                title="Torrent"
-                fields={ARR_TORRENT_FIELDS}
-                state={value}
-                basePath={[key]}
-                onChange={handleFieldChange}
-              />
-              <FieldGroup
-                title="Seeding Mode"
-                fields={ARR_SEEDING_FIELDS}
-                state={value}
-                basePath={[key]}
-                onChange={handleFieldChange}
-              />
-            </div>
-          </details>
-        ))}
-        <div className="row" style={{ justifyContent: "flex-end" }}>
+      <div className="card-body config-layout">
+        <div className="config-actions">
+          <button className="btn" onClick={() => addArrInstance("radarr")}>
+            Add Radarr Instance
+          </button>
+          <button className="btn" onClick={() => addArrInstance("sonarr")}>
+            Add Sonarr Instance
+          </button>
+        </div>
+        <div className="config-grid">
+          <ConfigCard
+            title="Settings"
+            fields={SETTINGS_FIELDS}
+            state={formState}
+            onChange={handleFieldChange}
+          />
+          <ConfigCard
+            title="qBit"
+            fields={QBIT_FIELDS}
+            state={formState}
+            onChange={handleFieldChange}
+          />
+        </div>
+        {arrSections.length ? (
+          <div className="config-arr-grid">
+            {arrSections.map(([key, value]) => {
+              const fieldSets = getArrFieldSets(key);
+              return (
+                <details className="card config-card" key={key}>
+                  <summary>{key}</summary>
+                  <div className="card-body">
+                    <FieldGroup
+                      title="General"
+                      fields={fieldSets.generalFields}
+                      state={value}
+                      basePath={[key]}
+                      onChange={handleFieldChange}
+                    />
+                    <FieldGroup
+                      title="Entry Search"
+                      fields={fieldSets.entryFields}
+                      state={value}
+                      basePath={[key]}
+                      onChange={handleFieldChange}
+                    />
+                    {fieldSets.entryOmbiFields.length ? (
+                      <FieldGroup
+                        title="Entry Search - Ombi"
+                        fields={fieldSets.entryOmbiFields}
+                        state={value}
+                        basePath={[key]}
+                        onChange={handleFieldChange}
+                      />
+                    ) : null}
+                    {fieldSets.entryOverseerrFields.length ? (
+                      <FieldGroup
+                        title="Entry Search - Overseerr"
+                        fields={fieldSets.entryOverseerrFields}
+                        state={value}
+                        basePath={[key]}
+                        onChange={handleFieldChange}
+                      />
+                    ) : null}
+                    <FieldGroup
+                      title="Torrent"
+                      fields={fieldSets.torrentFields}
+                      state={value}
+                      basePath={[key]}
+                      onChange={handleFieldChange}
+                    />
+                    <FieldGroup
+                      title="Seeding Mode"
+                      fields={fieldSets.seedingFields}
+                      state={value}
+                      basePath={[key]}
+                      onChange={handleFieldChange}
+                    />
+                  </div>
+                </details>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="config-footer">
           <button
             className="btn primary"
             onClick={() => void handleSubmit()}
@@ -462,7 +811,7 @@ interface ConfigCardProps {
 
 function ConfigCard({ title, fields, state, onChange }: ConfigCardProps): JSX.Element {
   return (
-    <details className="card config-card" open>
+    <details className="card config-card">
       <summary>{title}</summary>
       <div className="card-body">
         <FieldGroup
@@ -498,24 +847,37 @@ function FieldGroup({
     const formatted =
       field.format?.(rawValue) ??
       (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
+    const tooltip = getTooltip(path);
     if (field.type === "checkbox") {
       return (
-        <label className="hint inline" key={path.join(".")}>
+        <label className="checkbox-field" key={path.join(".")}>
           <input
             type="checkbox"
             checked={Boolean(formatted)}
-            onChange={(event) =>
-              onChange(path, field, event.target.checked)
-            }
+            onChange={(event) => onChange(path, field, event.target.checked)}
           />
-          {field.label}
+          <span className="checkbox-field__text">
+            {field.label}
+            {tooltip ? (
+              <span className="help-icon" title={tooltip} aria-label={tooltip}>
+                ?
+              </span>
+            ) : null}
+          </span>
         </label>
       );
     }
     if (field.type === "select") {
       return (
         <div className="field" key={path.join(".")}>
-          <label>{field.label}</label>
+          <label className="field-label">
+            <span>{field.label}</span>
+            {tooltip ? (
+              <span className="help-icon" title={tooltip} aria-label={tooltip}>
+                ?
+              </span>
+            ) : null}
+          </label>
           <select
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
@@ -531,7 +893,14 @@ function FieldGroup({
     }
     return (
       <div className="field" key={path.join(".")}>
-        <label>{field.label}</label>
+        <label className="field-label">
+          <span>{field.label}</span>
+          {tooltip ? (
+            <span className="help-icon" title={tooltip} aria-label={tooltip}>
+              ?
+            </span>
+          ) : null}
+        </label>
         <input
           type={field.type === "number" ? "number" : field.type}
           value={String(formatted)}
@@ -544,12 +913,12 @@ function FieldGroup({
 
   if (title) {
     return (
-      <details className="config-section" open>
+      <details className="config-section">
         <summary>{title}</summary>
-        <div className="config-section__body stack">{renderedFields}</div>
+        <div className="config-section__body field-grid">{renderedFields}</div>
       </details>
     );
   }
 
-  return <div className="stack">{renderedFields}</div>;
+  return <div className="field-grid">{renderedFields}</div>;
 }

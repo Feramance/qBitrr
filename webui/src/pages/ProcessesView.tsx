@@ -193,6 +193,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               : `${runningCount}/${totalCount} running`;
           const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
           const displayName = name === "FreeSpaceManager" ? "Free Space Manager" : name;
+          const uniqueKinds = Array.from(new Set(items.map((item) => item.kind)));
 
           return (
             <div className="process-card" key={name}>
@@ -200,6 +201,18 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 <div className="process-card__title">
                   <div className="process-card__name">{displayName}</div>
                   <div className="process-card__summary">{summaryLabel}</div>
+                  {uniqueKinds.length ? (
+                    <div className="process-card__badges">
+                      {uniqueKinds.map((kind) => (
+                        <span
+                          className="process-card__badge"
+                          key={`${name}:${kind}:badge`}
+                        >
+                          {kind}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <span
                   className={statusClass.join(" ")}
@@ -210,17 +223,17 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               </div>
               <div className="process-card__list">
                 {items.map((item) => (
-                  <div className="process-card__row" key={`${item.category}:${item.kind}`}>
-                    <div className="process-card__row-info">
-                      <strong>{item.kind}</strong>
-                    </div>
-                    <div className="process-card__row-actions">
+                  <div className="process-chip" key={`${item.category}:${item.kind}`}>
+                    <div className="process-chip__top">
+                      <span className="process-chip__name">{item.kind}</span>
                       <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
                         <span className="status-pill__dot" />
                         {item.alive ? "Running" : "Stopped"}
                       </span>
+                    </div>
+                    <div className="process-chip__actions">
                       <button
-                        className="btn"
+                        className="btn ghost"
                         onClick={() => handleRestart(item.category, item.kind)}
                       >
                         Restart
