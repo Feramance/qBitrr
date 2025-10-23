@@ -91,18 +91,60 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   }, [load, push]);
 
   const groupedProcesses = useMemo(() => {
-    const buckets = new Map<string, ProcessInfo[]>();
+    type InstanceGroup = { name: string; items: ProcessInfo[] };
+    type AppGroup = { app: string; instances: InstanceGroup[] };
+
+    const appBuckets = new Map<string, Map<string, ProcessInfo[]>>();
+
+    const classifyApp = (proc: ProcessInfo): string => {
+      const category = (proc.category ?? "").toLowerCase();
+      const name = (proc.name ?? "").toLowerCase();
+      if (category.includes("radarr") || name.includes("radarr")) return "Radarr";
+      if (category.includes("sonarr") || name.includes("sonarr")) return "Sonarr";
+      if (
+        category.includes("qbit") ||
+        category.includes("qbittorrent") ||
+        name.includes("qbit") ||
+        name.includes("qbittorrent")
+      ) {
+        return "qBittorrent";
+      }
+      return "Other";
+    };
+
     processes.forEach((proc) => {
-      const key = proc.name || `${proc.category}:${proc.kind}`;
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key)!.push(proc);
+      const app = classifyApp(proc);
+      if (!appBuckets.has(app)) appBuckets.set(app, new Map());
+      const instances = appBuckets.get(app)!;
+      const instanceKey =
+        proc.name || proc.category || `${proc.category}:${proc.kind}`;
+      if (!instances.has(instanceKey)) instances.set(instanceKey, []);
+      instances.get(instanceKey)!.push(proc);
     });
-    return Array.from(buckets.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, items]) => ({
-        name,
-        items: items.sort((a, b) => a.kind.localeCompare(b.kind)),
-      }));
+
+    const appOrder = ["Radarr", "Sonarr", "qBittorrent", "Other"];
+
+    const result: AppGroup[] = Array.from(appBuckets.entries())
+      .map(([app, instances]) => {
+        const sortedInstances = Array.from(instances.entries())
+          .map(([name, items]) => ({
+            name,
+            items: items.sort((a, b) => a.kind.localeCompare(b.kind)),
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        return { app, instances: sortedInstances };
+      })
+      .filter((group) => group.instances.length);
+
+    result.sort((a, b) => {
+      const order = (label: string) => {
+        const index = appOrder.indexOf(label);
+        return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+      };
+      return order(a.app) - order(b.app) || a.app.localeCompare(b.app);
+    });
+
+    return result;
   }, [processes]);
 
   const handleRestartGroup = useCallback(
@@ -125,22 +167,23 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     [load, push]
   );
 
-  const cards = useMemo(
+  const cardsByApp = useMemo(
     () =>
-      groupedProcesses.map(({ name, items }) => {
-        const runningCount = items.filter((item) => item.alive).length;
-        const statusClass =
-          runningCount === items.length
-            ? "status-pill status-pill--ok"
-            : runningCount === 0
-            ? "status-pill status-pill--bad"
-            : "status-pill";
-        const statusLabel =
-          runningCount === items.length
-            ? "All Running"
-            : runningCount === 0
-            ? "Stopped"
-            : `${runningCount}/${items.length} Running`;
+      groupedProcesses.map(({ app, instances }) => {
+        const cards = instances.map(({ name, items }) => {
+          const runningCount = items.filter((item) => item.alive).length;
+          const statusClass =
+            runningCount === items.length
+              ? "status-pill status-pill--ok"
+              : runningCount === 0
+              ? "status-pill status-pill--bad"
+              : "status-pill";
+          const statusLabel =
+            runningCount === items.length
+              ? "All Running"
+              : runningCount === 0
+              ? "Stopped"
+              : `${runningCount}/${items.length} Running`;
 
         return (
           <div className="process-card" key={name}>
@@ -150,9 +193,15 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 <div className="process-card__meta">
                   {items.map((item, index) => (
                     <span key={`${item.category}:${item.kind}`}>
-                      {index > 0 ? <span className="separator">| </span> : null}
+                      {index > 0 ? <span className="separator">|</span> : null}{" "}
                       {item.kind} <span className="separator">·</span>{" "}
                       {item.category}
+                      {item.pid ? (
+                        <>
+                          <span className="separator">·</span>
+                          <span>PID {item.pid}</span>
+                        </>
+                      ) : null}
                     </span>
                   ))}
                 </div>
@@ -197,6 +246,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             </div>
           </div>
         );
+        });
+
+        return { app, cards };
       }),
     [groupedProcesses, handleRestart, handleRestartGroup]
   );
@@ -218,11 +270,16 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             </button>
           </div>
         </div>
-        <div className="process-grid">
-          {processes.length ? cards : (
-            <div className="empty-state">No processes available.</div>
-          )}
-        </div>
+        {cardsByApp.length ? (
+          cardsByApp.map(({ app, cards }) => (
+            <div className="process-section" key={app}>
+              <div className="process-section__title">{app}</div>
+              <div className="process-grid">{cards}</div>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">No processes available.</div>
+        )}
       </div>
     </section>
   );

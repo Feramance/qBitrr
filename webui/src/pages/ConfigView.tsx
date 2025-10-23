@@ -405,8 +405,8 @@ export function ConfigView(): JSX.Element {
           onChange={handleFieldChange}
         />
         {arrSections.map(([key, value]) => (
-          <div className="card" key={key}>
-            <div className="card-header">{key}</div>
+          <details className="card config-card" key={key} open>
+            <summary>{key}</summary>
             <div className="card-body stack">
               <FieldGroup
                 title="General"
@@ -437,7 +437,7 @@ export function ConfigView(): JSX.Element {
                 onChange={handleFieldChange}
               />
             </div>
-          </div>
+          </details>
         ))}
         <div className="row" style={{ justifyContent: "flex-end" }}>
           <button
@@ -462,8 +462,8 @@ interface ConfigCardProps {
 
 function ConfigCard({ title, fields, state, onChange }: ConfigCardProps): JSX.Element {
   return (
-    <div className="card">
-      <div className="card-header">{title}</div>
+    <details className="card config-card" open>
+      <summary>{title}</summary>
       <div className="card-body">
         <FieldGroup
           title={null}
@@ -473,7 +473,7 @@ function ConfigCard({ title, fields, state, onChange }: ConfigCardProps): JSX.El
           onChange={onChange}
         />
       </div>
-    </div>
+    </details>
   );
 }
 

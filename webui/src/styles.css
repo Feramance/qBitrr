@@ -340,6 +340,22 @@ pre {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
+.process-section {
+    display: grid;
+    gap: 12px;
+}
+.process-section + .process-section {
+    margin-top: 12px;
+}
+.process-section__title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 4px;
+}
+
 .process-card {
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -370,9 +386,11 @@ pre {
     gap: 6px;
     font-size: 12px;
     color: var(--muted);
+    word-break: break-word;
 }
 .process-card__meta .separator {
     color: var(--muted);
+    padding: 0 4px;
 }
 .process-card__footer {
     display: flex;
@@ -388,6 +406,7 @@ pre {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 10px;
     padding: 10px 12px;
@@ -396,6 +415,8 @@ pre {
 .process-card__row-info {
     display: grid;
     gap: 4px;
+    min-width: 0;
+    flex: 1;
 }
 .process-card__row-actions {
     display: flex;
@@ -429,6 +450,36 @@ pre {
     padding: 20px;
     text-align: center;
     color: var(--muted);
+}
+
+.config-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+}
+.config-card summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted);
+    list-style: none;
+    outline: none;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+.config-card summary::-webkit-details-marker {
+    display: none;
+}
+.config-card summary::before {
+    content: "▾";
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.2s ease;
+}
+.config-card[open] summary::before {
+    transform: rotate(0deg);
+}
+.config-card:not([open]) summary::before {
+    transform: rotate(-90deg);
 }
 
 .config-section {
