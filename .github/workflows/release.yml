@@ -22,6 +22,9 @@ defaults:
   run:
     shell: bash
 
+permissions:
+  contents: write
+
 env:
   project-name: qBitrr
   GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
@@ -45,7 +48,7 @@ jobs:
     - name: Install release tooling
       run: |
         python -m pip install --upgrade pip
-        pip install bump2version build wheel
+        pip install setuptools bump2version build wheel
 
     - name: Dry-run version bump
       run: |
@@ -71,6 +74,13 @@ jobs:
         cd webui
         npm ci
         npm run build
+
+    - name: Commit built web UI assets
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      uses: stefanzweifel/git-auto-commit-action@v5.0.1
+      with:
+        commit_message: 'chore(build): sync webui static assets [skip ci]'
+        file_pattern: qBitrr/static/*
 
     - id: repo
       uses: ASzc/change-string-case-action@v6
@@ -219,6 +229,13 @@ jobs:
         cd webui
         npm ci
         npm run build
+
+    - name: Commit built web UI assets
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      uses: stefanzweifel/git-auto-commit-action@v5.0.1
+      with:
+        commit_message: 'chore(build): sync webui static assets [skip ci]'
+        file_pattern: qBitrr/static/*
 
     - name: Verify static assets are committed
       run: |
