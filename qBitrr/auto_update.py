@@ -38,7 +38,7 @@ class AutoUpdater:
             self._iterator = None
             return False
 
-        self._stop_event.clear()
+        self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._run, name="AutoUpdater", daemon=True)
         self._thread.start()
         self._logger.info("Auto update scheduled with cron '%s'.", self._cron_expr)
@@ -46,26 +46,29 @@ class AutoUpdater:
 
     def stop(self) -> None:
         self._stop_event.set()
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=5)
+        thread = self._thread
+        if thread and thread.is_alive():
+            thread.join(timeout=5)
+            if thread.is_alive():
+                self._logger.warning("Auto update worker failed to stop within timeout")
         self._thread = None
-        self._stop_event.clear()
 
     def _run(self) -> None:
         iterator = self._iterator
         if iterator is None:
             return
+        stop_event = self._stop_event
         while True:
             next_run = iterator.get_next(datetime)
             self._logger.debug("Next auto update scheduled for %s", next_run.isoformat())
             while True:
-                if self._stop_event.is_set():
+                if stop_event.is_set():
                     return
                 wait_seconds = (next_run - datetime.now()).total_seconds()
                 if wait_seconds <= 0:
                     break
-                self._stop_event.wait(timeout=min(wait_seconds, 60))
-            if self._stop_event.is_set():
+                stop_event.wait(timeout=min(wait_seconds, 60))
+            if stop_event.is_set():
                 return
             self._execute()
 

@@ -25,6 +25,10 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Hostnames used to test for internet connectivity. They are pinged frequently.",
   "Settings.FFprobeAutoUpdate":
     "Download and update the bundled ffprobe binary automatically.",
+  "Settings.AutoUpdateEnabled":
+    "Enable the background worker that periodically checks for qBitrr updates.",
+  "Settings.AutoUpdateCron":
+    "Cron expression describing when to check for updates (default weekly Sunday at 03:00).",
   "Settings.WebUIHost":
     "Interface address for the built-in WebUI. 0.0.0.0 binds on all interfaces.",
   "Settings.WebUIPort": "Port number for the built-in WebUI.",

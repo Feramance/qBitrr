@@ -85,6 +85,17 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["Settings", "FFprobeAutoUpdate"],
     type: "checkbox",
   },
+  {
+    label: "Auto Update Enabled",
+    path: ["Settings", "AutoUpdateEnabled"],
+    type: "checkbox",
+  },
+  {
+    label: "Auto Update Cron",
+    path: ["Settings", "AutoUpdateCron"],
+    type: "text",
+    placeholder: "0 3 * * 0",
+  },
   { label: "WebUI Host", path: ["Settings", "WebUIHost"], type: "text" },
   {
     label: "WebUI Port",
@@ -1193,9 +1204,9 @@ function SecureField({
 
   const maskedValue =
     value && !revealed
-      ? "•".repeat(Math.min(Math.max(value.length, 8), 16))
+      ? "*".repeat(Math.min(Math.max(value.length, 8), 16))
       : "";
-  const displayValue = revealed ? value : placeholder ?? maskedValue;
+  const displayValue = revealed ? value : value ? maskedValue : "";
 
   const handleRefresh = () => {
     let newKey = "";
