@@ -6,6 +6,14 @@ import { getTooltip } from "../config/tooltips";
 
 type FieldType = "text" | "number" | "checkbox" | "password" | "select";
 
+interface ValidationContext {
+  root: ConfigDocument;
+  section?: ConfigDocument | null;
+  sectionKey?: string;
+}
+
+type FieldValidator = (value: unknown, context: ValidationContext) => string | undefined;
+
 interface FieldDefinition {
   label: string;
   path?: string[];
@@ -16,7 +24,16 @@ interface FieldDefinition {
   format?: (value: unknown) => string | boolean;
   sectionName?: boolean;
   secure?: boolean;
+  required?: boolean;
+  validate?: FieldValidator;
 }
+
+interface ValidationError {
+  path: string[];
+  message: string;
+}
+
+const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
 
 const parseList = (value: string | boolean): string[] =>
   String(value)
@@ -35,34 +52,94 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["Settings", "ConsoleLevel"],
     type: "select",
     options: ["CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"],
+    required: true,
   },
   { label: "Logging", path: ["Settings", "Logging"], type: "checkbox" },
   {
     label: "Completed Download Folder",
     path: ["Settings", "CompletedDownloadFolder"],
     type: "text",
+    required: true,
+    validate: (value) => {
+      const folder = String(value ?? "").trim();
+      if (!folder || folder.toUpperCase() === "CHANGE_ME") {
+        return "Completed Download Folder must be set to a valid path.";
+      }
+      return undefined;
+    },
   },
-  { label: "Free Space", path: ["Settings", "FreeSpace"], type: "text" },
+  {
+    label: "Free Space",
+    path: ["Settings", "FreeSpace"],
+    type: "text",
+    required: true,
+    validate: (value) => {
+      const raw = String(value ?? "").trim();
+      if (!raw) {
+        return "Free Space must be provided.";
+      }
+      if (raw === "-1") {
+        return undefined;
+      }
+      if (!/^-?\d+(\.\d+)?[KMGTP]?$/i.test(raw)) {
+        return "Free Space must be -1 or a number optionally suffixed with K, M, G, T, or P.";
+      }
+      return undefined;
+    },
+  },
   {
     label: "Free Space Folder",
     path: ["Settings", "FreeSpaceFolder"],
     type: "text",
+    validate: (value, context) => {
+      const freeSpace = getValue(context.root, ["Settings", "FreeSpace"]);
+      const requiresFolder = String(freeSpace ?? "").trim() !== "-1";
+      if (!requiresFolder) {
+        return undefined;
+      }
+      const folder = String(value ?? "").trim();
+      if (!folder || folder.toUpperCase() === "CHANGE_ME") {
+        return "Free Space Folder is required when Free Space monitoring is enabled.";
+      }
+      return undefined;
+    },
   },
   { label: "Auto Pause/Resume", path: ["Settings", "AutoPauseResume"], type: "checkbox" },
   {
     label: "No Internet Sleep (s)",
     path: ["Settings", "NoInternetSleepTimer"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "No Internet Sleep must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Loop Sleep (s)",
     path: ["Settings", "LoopSleepTimer"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Loop Sleep must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Search Loop Delay (s)",
     path: ["Settings", "SearchLoopDelay"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Search Loop Delay must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   { label: "Failed Category", path: ["Settings", "FailedCategory"], type: "text" },
   { label: "Recheck Category", path: ["Settings", "RecheckCategory"], type: "text" },
@@ -71,6 +148,13 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
     label: "Ignore Torrents Younger Than",
     path: ["Settings", "IgnoreTorrentsYoungerThan"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Ignore Torrents Younger Than must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Ping URLs",
@@ -95,20 +179,69 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["Settings", "AutoUpdateCron"],
     type: "text",
     placeholder: "0 3 * * 0",
+    required: true,
+    validate: (value) => {
+      const cron = String(value ?? "").trim();
+      const parts = cron.split(/\s+/).filter(Boolean);
+      if (parts.length < 5 || parts.length > 6) {
+        return "Auto Update Cron must contain 5 or 6 space-separated fields.";
+      }
+      return undefined;
+    },
   },
-  { label: "WebUI Host", path: ["Settings", "WebUIHost"], type: "text" },
+  {
+    label: "WebUI Host",
+    path: ["Settings", "WebUIHost"],
+    type: "text",
+    required: true,
+    validate: (value) => {
+      if (!String(value ?? "").trim()) {
+        return "WebUI Host is required.";
+      }
+      return undefined;
+    },
+  },
   {
     label: "WebUI Port",
     path: ["Settings", "WebUIPort"],
     type: "number",
+    validate: (value) => {
+      const port = typeof value === "number" ? value : Number(value);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return "WebUI Port must be between 1 and 65535.";
+      }
+      return undefined;
+    },
   },
   { label: "WebUI Token", path: ["Settings", "WebUIToken"], type: "text" },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
   { label: "Disabled", path: ["qBit", "Disabled"], type: "checkbox" },
-  { label: "Host", path: ["qBit", "Host"], type: "text" },
-  { label: "Port", path: ["qBit", "Port"], type: "number" },
+  {
+    label: "Host",
+    path: ["qBit", "Host"],
+    type: "text",
+    required: true,
+    validate: (value) => {
+      if (!String(value ?? "").trim()) {
+        return "qBit Host is required.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Port",
+    path: ["qBit", "Port"],
+    type: "number",
+    validate: (value) => {
+      const port = typeof value === "number" ? value : Number(value);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        return "qBit Port must be between 1 and 65535.";
+      }
+      return undefined;
+    },
+  },
   { label: "UserName", path: ["qBit", "UserName"], type: "text" },
   { label: "Password", path: ["qBit", "Password"], type: "password" },
 ];
@@ -116,25 +249,85 @@ const QBIT_FIELDS: FieldDefinition[] = [
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
   { label: "Display Name", type: "text", placeholder: "Sonarr-TV", sectionName: true },
   { label: "Managed", path: ["Managed"], type: "checkbox" },
-  { label: "URI", path: ["URI"], type: "text", placeholder: "http://host:port" },
-  { label: "API Key", path: ["APIKey"], type: "password", secure: true },
-  { label: "Category", path: ["Category"], type: "text" },
+  {
+    label: "URI",
+    path: ["URI"],
+    type: "text",
+    placeholder: "http://host:port",
+    required: true,
+    validate: (value, context) => {
+      const uri = String(value ?? "").trim();
+      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
+      if (!managed) {
+        return undefined;
+      }
+      if (!uri || uri.toUpperCase() === "CHANGE_ME") {
+        return "URI must be set to a valid URL when the instance is managed.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "API Key",
+    path: ["APIKey"],
+    type: "password",
+    secure: true,
+    required: true,
+    validate: (value, context) => {
+      const apiKey = String(value ?? "").trim();
+      const managed = Boolean(getValue(context.section ?? {}, ["Managed"]));
+      if (!managed) {
+        return undefined;
+      }
+      if (!apiKey || apiKey.toUpperCase() === "CHANGE_ME") {
+        return "API Key must be provided when the instance is managed.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Category",
+    path: ["Category"],
+    type: "text",
+    required: true,
+    validate: (value) => {
+      if (!String(value ?? "").trim()) {
+        return "Category is required.";
+      }
+      return undefined;
+    },
+  },
   { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
   {
     label: "Import Mode",
     path: ["importMode"],
     type: "select",
     options: IMPORT_MODE_OPTIONS,
+    required: true,
   },
   {
     label: "RSS Sync Timer (min)",
     path: ["RssSyncTimer"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "RSS Sync Timer must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Refresh Downloads Timer (min)",
     path: ["RefreshDownloadsTimer"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Refresh Downloads Timer must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Arr Error Codes To Blocklist",
@@ -185,6 +378,13 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     label: "Search Limit",
     path: ["EntrySearch", "SearchLimit"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Search Limit must be at least 1.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Search By Year",
@@ -200,6 +400,13 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     label: "Search Requests Every (s)",
     path: ["EntrySearch", "SearchRequestsEvery"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Search Requests Every must be at least 1 second.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Search Again On Completion",
@@ -336,16 +543,37 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     label: "Ignore Torrents Younger Than (s)",
     path: ["Torrent", "IgnoreTorrentsYoungerThan"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Ignore Torrents Younger Than must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Maximum ETA (s)",
     path: ["Torrent", "MaximumETA"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Maximum ETA must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Maximum Deletable Percentage",
     path: ["Torrent", "MaximumDeletablePercentage"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0 || num > 100) {
+        return "Maximum Deletable Percentage must be between 0 and 100.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Do Not Remove Slow",
@@ -356,6 +584,13 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     label: "Stalled Delay (min)",
     path: ["Torrent", "StalledDelay"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Stalled Delay must be a non-negative number.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Re-search Stalled",
@@ -381,26 +616,67 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
     label: "Download Rate Limit Per Torrent",
     path: ["Torrent", "SeedingMode", "DownloadRateLimitPerTorrent"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Download Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Upload Rate Limit Per Torrent",
     path: ["Torrent", "SeedingMode", "UploadRateLimitPerTorrent"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Upload Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Max Upload Ratio",
     path: ["Torrent", "SeedingMode", "MaxUploadRatio"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Max Upload Ratio must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Max Seeding Time (s)",
     path: ["Torrent", "SeedingMode", "MaxSeedingTime"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Max Seeding Time must be -1 or greater.";
+      }
+      return undefined;
+    },
   },
   {
     label: "Remove Torrent (policy)",
     path: ["Torrent", "SeedingMode", "RemoveTorrent"],
     type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num)) {
+        return "Remove Torrent policy must be a number.";
+      }
+      if (num === -1) {
+        return undefined;
+      }
+      if (![1, 2, 3, 4].includes(num)) {
+        return "Remove Torrent policy must be -1, 1, 2, 3, or 4.";
+      }
+      return undefined;
+    },
   },
 ];
 
@@ -436,6 +712,119 @@ function getArrFieldSets(arrKey: string) {
     torrentFields,
     seedingFields,
   };
+}
+
+function isEmptyValue(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    (typeof value === "string" && value.trim() === "") ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+function basicValidation(def: FieldDefinition, value: unknown): string | undefined {
+  const label = def.label;
+  const isRequired = def.required ?? (def.type === "number" || def.type === "select");
+  switch (def.type) {
+    case "text":
+    case "password": {
+      if (!isRequired) {
+        return undefined;
+      }
+      if (isEmptyValue(value)) {
+        return `${label} is required.`;
+      }
+      return undefined;
+    }
+    case "number": {
+      if (value === null || value === undefined || value === "") {
+        return isRequired ? `${label} is required.` : undefined;
+      }
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num)) {
+        return `${label} must be a valid number.`;
+      }
+      return undefined;
+    }
+    case "checkbox": {
+      if (value === null || value === undefined) {
+        return isRequired ? `${label} is required.` : undefined;
+      }
+      if (typeof value !== "boolean") {
+        return `${label} must be true or false.`;
+      }
+      return undefined;
+    }
+    case "select": {
+      if (isEmptyValue(value)) {
+        return `${label} is required.`;
+      }
+      if (typeof value !== "string") {
+        return `${label} must be selected.`;
+      }
+      if (def.options && !def.options.includes(value)) {
+        return `${label} must be one of ${def.options.join(", ")}.`;
+      }
+      return undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
+function validateFieldGroup(
+  errors: ValidationError[],
+  fields: FieldDefinition[],
+  state: ConfigDocument | null,
+  basePath: string[],
+  context: ValidationContext
+): void {
+  if (!state) return;
+  for (const field of fields) {
+    if (field.sectionName) {
+      continue;
+    }
+    const pathSegments = field.path ?? [];
+    const value = pathSegments.length
+      ? getValue(state as ConfigDocument, pathSegments)
+      : undefined;
+    const fullPath = [...basePath, ...pathSegments];
+    const baseError = basicValidation(field, value);
+    if (baseError) {
+      errors.push({ path: fullPath, message: baseError });
+      continue;
+    }
+    if (field.validate) {
+      const customError = field.validate(value, context);
+      if (customError) {
+        errors.push({ path: fullPath, message: customError });
+      }
+    }
+  }
+}
+
+function validateFormState(formState: ConfigDocument | null): ValidationError[] {
+  if (!formState) return [];
+  const errors: ValidationError[] = [];
+  const rootContext: ValidationContext = { root: formState };
+  validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
+  validateFieldGroup(errors, QBIT_FIELDS, formState, [], rootContext);
+  for (const [key, value] of Object.entries(formState)) {
+    if (!SERVARR_SECTION_REGEX.test(key) || !value || typeof value !== "object") {
+      continue;
+    }
+    const section = value as ConfigDocument;
+    const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
+    const fieldSets = getArrFieldSets(key);
+    validateFieldGroup(errors, fieldSets.generalFields, section, [key], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryFields, section, [key], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [key], sectionContext);
+    validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [key], sectionContext);
+    validateFieldGroup(errors, fieldSets.torrentFields, section, [key], sectionContext);
+    validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
+  }
+  return errors;
 }
 
 function cloneConfig(config: ConfigDocument | null): ConfigDocument | null {
@@ -652,7 +1041,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const arrSections = useMemo(() => {
     if (!formState) return [] as Array<[string, ConfigDocument]>;
     return Object.entries(formState).filter(([key, value]) =>
-      /(rad|son|anim)arr/i.test(key) && value && typeof value === "object"
+      SERVARR_SECTION_REGEX.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
@@ -791,6 +1180,19 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     if (!formState) return;
     setSaving(true);
     try {
+      const validationErrors = validateFormState(formState);
+      if (validationErrors.length) {
+        const formatted = validationErrors
+          .map((error) => `${error.path.join(".")}: ${error.message}`)
+          .join("\n");
+        const message =
+          validationErrors.length === 1
+            ? formatted
+            : `Please resolve the following issues:\n${formatted}`;
+        push(message, "error");
+        setSaving(false);
+        return;
+      }
       const flattenedOriginal = flatten(originalConfig ?? {});
       const flattenedCurrent = flatten(formState);
       const changes: Record<string, unknown> = {};

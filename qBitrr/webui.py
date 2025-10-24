@@ -925,6 +925,10 @@ class WebUI:
                     self.token = str(val) if val is not None else ""
             # Persist
             CONFIG.save()
+            try:
+                self.manager.configure_auto_update()
+            except Exception:
+                self.logger.exception("Failed to refresh auto update configuration")
             # Live-reload: rebuild Arr instances and restart processes
             self._reload_all()
             return jsonify({"status": "ok"})
@@ -945,6 +949,10 @@ class WebUI:
                 if key == "Settings.WebUIToken":
                     self.token = str(val) if val is not None else ""
             CONFIG.save()
+            try:
+                self.manager.configure_auto_update()
+            except Exception:
+                self.logger.exception("Failed to refresh auto update configuration")
             self._reload_all()
             return jsonify({"status": "ok"})
 
