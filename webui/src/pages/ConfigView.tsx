@@ -101,6 +101,7 @@ const QBIT_FIELDS: FieldDefinition[] = [
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
+  { label: "Display Name", path: ["Name"], type: "text", placeholder: "My Arr" },
   { label: "Managed", path: ["Managed"], type: "checkbox" },
   { label: "URI", path: ["URI"], type: "text", placeholder: "http://host:port" },
   { label: "API Key", path: ["APIKey"], type: "password", placeholder: "apikey" },
@@ -565,6 +566,7 @@ function ensureArrDefaults(type: string): ConfigDocument {
   };
 
   return {
+    Name: type,
     Managed: true,
     URI: "CHANGE_ME",
     APIKey: "CHANGE_ME",
@@ -579,7 +581,12 @@ function ensureArrDefaults(type: string): ConfigDocument {
   } as ConfigDocument;
 }
 
-export function ConfigView(): JSX.Element {
+interface ConfigViewProps {
+  onDirtyChange?: (dirty: boolean) => void;
+}
+
+export function ConfigView(props?: ConfigViewProps): JSX.Element {
+  const { onDirtyChange } = props ?? {};
   const { push } = useToast();
   const [originalConfig, setOriginalConfig] = useState<ConfigDocument | null>(
     null
@@ -636,6 +643,60 @@ export function ConfigView(): JSX.Element {
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isQbitOpen, setQbitOpen] = useState(false);
+  const [isDirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (!formState || !originalConfig) {
+      setDirty(false);
+      return;
+    }
+    const flattenedOriginal = flatten(originalConfig);
+    const flattenedCurrent = flatten(formState);
+
+    let dirty = false;
+    for (const [key, value] of Object.entries(flattenedCurrent)) {
+      const originalValue = flattenedOriginal[key];
+      const changed =
+        Array.isArray(value) || Array.isArray(originalValue)
+          ? JSON.stringify(value ?? []) !== JSON.stringify(originalValue ?? [])
+          : value !== originalValue;
+      if (changed) {
+        dirty = true;
+        break;
+      }
+    }
+    if (!dirty) {
+      for (const key of Object.keys(flattenedOriginal)) {
+        if (!(key in flattenedCurrent)) {
+          dirty = true;
+          break;
+        }
+      }
+    }
+    setDirty(dirty);
+  }, [formState, originalConfig]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+
+  useEffect(() => {
+    return () => {
+      onDirtyChange?.(false);
+    };
+  }, [onDirtyChange]);
 
   useEffect(() => {
     const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isQbitOpen);
@@ -675,7 +736,9 @@ export function ConfigView(): JSX.Element {
         key = `${prefix}-${index}`;
       }
       const next = cloneConfig(formState) ?? {};
-      next[key] = ensureArrDefaults(type);
+      const defaults = ensureArrDefaults(type);
+      defaults.Name = key;
+      next[key] = defaults;
       setFormState(next);
     },
     [formState]
@@ -771,10 +834,10 @@ export function ConfigView(): JSX.Element {
               const uri = getValue(value as ConfigDocument, ["URI"]);
               const category = getValue(value as ConfigDocument, ["Category"]);
               const managed = getValue(value as ConfigDocument, ["Managed"]);
-              const importMode = getValue(value as ConfigDocument, ["importMode"]);
+              const displayName = getValue(value as ConfigDocument, ["Name"]);
               return (
                 <div className="card config-card config-arr-card" key={key}>
-                  <div className="card-header">{key}</div>
+                  <div className="card-header">{displayName ? String(displayName) : key}</div>
                   <div className="card-body">
                     <dl className="config-arr-summary">
                       <div className="config-arr-summary__item">
@@ -783,16 +846,12 @@ export function ConfigView(): JSX.Element {
                       </div>
                       <div className="config-arr-summary__item">
                         <dt>Category</dt>
-                        <dd>{category ? String(category) : "—"}</dd>
-                      </div>
-                      <div className="config-arr-summary__item">
-                        <dt>Import Mode</dt>
-                        <dd>{importMode ? String(importMode) : "Auto"}</dd>
+                        <dd>{category ? String(category) : "-"}</dd>
                       </div>
                       <div className="config-arr-summary__item">
                         <dt>URI</dt>
                         <dd className="config-arr-summary__uri">
-                          {uri ? String(uri) : "—"}
+                          {uri ? String(uri) : "-"}
                         </dd>
                       </div>
                     </dl>

@@ -518,6 +518,17 @@ pre {
     display: grid;
     gap: 12px;
 }
+.config-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 160px;
+}
+.config-summary-card p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.4;
+}
 
 .config-layout {
     display: grid;

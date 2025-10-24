@@ -15,6 +15,7 @@ interface NavTab {
 
 function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
+  const [configDirty, setConfigDirty] = useState(false);
   const { setValue: setSearchValue } = useSearch();
 
   const tabs = useMemo<NavTab[]>(
@@ -42,6 +43,14 @@ function AppShell(): JSX.Element {
               key={tab.id}
               className={activeTab === tab.id ? "active" : ""}
               onClick={() => {
+                if (activeTab === "config" && tab.id !== "config" && configDirty) {
+                  const shouldLeave = window.confirm(
+                    "You have unsaved configuration changes. Leave without saving?"
+                  );
+                  if (!shouldLeave) {
+                    return;
+                  }
+                }
                 setActiveTab(tab.id);
                 setSearchValue("");
               }}
@@ -54,7 +63,7 @@ function AppShell(): JSX.Element {
         {activeTab === "logs" && <LogsView active />}
         {activeTab === "radarr" && <ArrView type="radarr" active />}
         {activeTab === "sonarr" && <ArrView type="sonarr" active />}
-        {activeTab === "config" && <ConfigView />}
+        {activeTab === "config" && <ConfigView onDirtyChange={setConfigDirty} />}
       </main>
     </>
   );
