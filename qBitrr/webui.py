@@ -750,9 +750,11 @@ class WebUI:
                 "alive": bool(self.manager.is_alive),
                 "host": self.manager.qBit_Host,
                 "port": self.manager.qBit_Port,
-                "version": str(self.manager.current_qbit_version)
-                if self.manager.current_qbit_version
-                else None,
+                "version": (
+                    str(self.manager.current_qbit_version)
+                    if self.manager.current_qbit_version
+                    else None
+                ),
             }
             arrs = []
             for k, arr in self.manager.arr_manager.managed_objects.items():

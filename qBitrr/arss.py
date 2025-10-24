@@ -2934,11 +2934,11 @@ class Arr:
         request_tag = (
             "[OVERSEERR REQUEST]: "
             if request and self.overseerr_requests
-            else "[OMBI REQUEST]: "
-            if request and self.ombi_search_requests
-            else "[PRIORITY SEARCH - TODAY]: "
-            if todays
-            else ""
+            else (
+                "[OMBI REQUEST]: "
+                if request and self.ombi_search_requests
+                else "[PRIORITY SEARCH - TODAY]: " if todays else ""
+            )
         )
         self.refresh_download_queue()
         if request or todays:
@@ -3081,9 +3081,11 @@ class Arr:
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
                     request_tag,
-                    "Missing episodes in"
-                    if "Missing" in self.search_api_command
-                    else "All episodes in",
+                    (
+                        "Missing episodes in"
+                        if "Missing" in self.search_api_command
+                        else "All episodes in"
+                    ),
                     file_model.Title,
                     file_model.EntryId,
                 )
@@ -3847,38 +3849,46 @@ class Arr:
         )
 
         data_settings = {
-            "ratio_limit": r
-            if (
-                r := most_important_tracker.get(
-                    "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+            "ratio_limit": (
+                r
+                if (
+                    r := most_important_tracker.get(
+                        "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                    )
                 )
-            )
-            > 0
-            else -5,
-            "seeding_time_limit": r
-            if (
-                r := most_important_tracker.get(
-                    "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                > 0
+                else -5
+            ),
+            "seeding_time_limit": (
+                r
+                if (
+                    r := most_important_tracker.get(
+                        "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                    )
                 )
-            )
-            > 0
-            else -5,
-            "dl_limit": r
-            if (
-                r := most_important_tracker.get(
-                    "DownloadRateLimit", self.seeding_mode_global_download_limit
+                > 0
+                else -5
+            ),
+            "dl_limit": (
+                r
+                if (
+                    r := most_important_tracker.get(
+                        "DownloadRateLimit", self.seeding_mode_global_download_limit
+                    )
                 )
-            )
-            > 0
-            else -5,
-            "up_limit": r
-            if (
-                r := most_important_tracker.get(
-                    "UploadRateLimit", self.seeding_mode_global_upload_limit
+                > 0
+                else -5
+            ),
+            "up_limit": (
+                r
+                if (
+                    r := most_important_tracker.get(
+                        "UploadRateLimit", self.seeding_mode_global_upload_limit
+                    )
                 )
-            )
-            > 0
-            else -5,
+                > 0
+                else -5
+            ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
         }
@@ -3972,22 +3982,26 @@ class Arr:
             # Only use globals if there is not a configured equivalent value on the
             # highest priority tracker
             data = {
-                "ratio_limit": r
-                if (
-                    r := most_important_tracker.get(
-                        "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                "ratio_limit": (
+                    r
+                    if (
+                        r := most_important_tracker.get(
+                            "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
+                        )
                     )
-                )
-                > 0
-                else None,
-                "seeding_time_limit": r
-                if (
-                    r := most_important_tracker.get(
-                        "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                    > 0
+                    else None
+                ),
+                "seeding_time_limit": (
+                    r
+                    if (
+                        r := most_important_tracker.get(
+                            "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
+                        )
                     )
-                )
-                > 0
-                else None,
+                    > 0
+                    else None
+                ),
             }
             if any(r is not None for r in data):
                 if (
@@ -4044,9 +4058,9 @@ class Arr:
         else:
             data = {
                 "ratio_limit": r if (r := self.seeding_mode_global_max_upload_ratio) > 0 else None,
-                "seeding_time_limit": r
-                if (r := self.seeding_mode_global_max_seeding_time) > 0
-                else None,
+                "seeding_time_limit": (
+                    r if (r := self.seeding_mode_global_max_seeding_time) > 0 else None
+                ),
             }
             if any(r is not None for r in data):
                 if (
@@ -5314,7 +5328,12 @@ class FreeSpaceManager(Arr):
 
     def _get_models(
         self,
-    ) -> tuple[None, None, None, type[TorrentLibrary] | None,]:
+    ) -> tuple[
+        None,
+        None,
+        None,
+        type[TorrentLibrary] | None,
+    ]:
         # FreeSpaceManager should never create the per-entry search database.
         # Return None for file and queue models so only the torrent DB (TAGLESS)
         # can be initialized by register_search_mode.

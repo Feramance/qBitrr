@@ -633,14 +633,18 @@ export function ConfigView(): JSX.Element {
       /(rad|son|anim)arr/i.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
-
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
+  const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isQbitOpen, setQbitOpen] = useState(false);
 
   useEffect(() => {
-    if (!activeArrKey) return;
+    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isQbitOpen);
+    if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setActiveArrKey(null);
+        setSettingsOpen(false);
+        setQbitOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -651,7 +655,7 @@ export function ConfigView(): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey]);
+  }, [activeArrKey, isSettingsOpen, isQbitOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -749,18 +753,16 @@ export function ConfigView(): JSX.Element {
             Add Sonarr Instance
           </button>
         </div>
-        <div className="config-grid">
-          <ConfigCard
+          <div className="config-grid">
+          <ConfigSummaryCard
             title="Settings"
-            fields={SETTINGS_FIELDS}
-            state={formState}
-            onChange={handleFieldChange}
+            description="Core application configuration"
+            onConfigure={() => setSettingsOpen(true)}
           />
-          <ConfigCard
+          <ConfigSummaryCard
             title="qBit"
-            fields={QBIT_FIELDS}
-            state={formState}
-            onChange={handleFieldChange}
+            description="qBittorrent connection details"
+            onConfigure={() => setQbitOpen(true)}
           />
         </div>
         {arrSections.length ? (
@@ -828,31 +830,53 @@ export function ConfigView(): JSX.Element {
           onClose={() => setActiveArrKey(null)}
         />
       ) : null}
+      {isSettingsOpen ? (
+        <SimpleConfigModal
+          title="Settings"
+          fields={SETTINGS_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+      {isQbitOpen ? (
+        <SimpleConfigModal
+          title="qBit"
+          fields={QBIT_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setQbitOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
 
-interface ConfigCardProps {
+interface ConfigSummaryCardProps {
   title: string;
-  fields: FieldDefinition[];
-  state: ConfigDocument | null;
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  description: string;
+  onConfigure: () => void;
 }
 
-function ConfigCard({ title, fields, state, onChange }: ConfigCardProps): JSX.Element {
+function ConfigSummaryCard({
+  title,
+  description,
+  onConfigure,
+}: ConfigSummaryCardProps): JSX.Element {
   return (
-    <details className="card config-card">
-      <summary>{title}</summary>
-      <div className="card-body">
-        <FieldGroup
-          title={null}
-          fields={fields}
-          state={state}
-          basePath={[]}
-          onChange={onChange}
-        />
+    <div className="card config-card">
+      <div className="card-header">{title}</div>
+      <div className="card-body config-summary-card">
+        <p>{description}</p>
+        <div className="config-arr-actions">
+          <button className="btn primary" type="button" onClick={onConfigure}>
+            Configure
+          </button>
+        </div>
       </div>
-    </details>
+    </div>
   );
 }
 
@@ -1036,6 +1060,59 @@ function ArrInstanceModal({
             fields={fieldSets.seedingFields}
             state={state}
             basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+        </div>
+        <div className="modal-footer">
+          <button className="btn primary" type="button" onClick={onClose}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface SimpleConfigModalProps {
+  title: string;
+  fields: FieldDefinition[];
+  state: ConfigDocument | null;
+  basePath: string[];
+  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onClose: () => void;
+}
+
+function SimpleConfigModal({
+  title,
+  fields,
+  state,
+  basePath,
+  onChange,
+  onClose,
+}: SimpleConfigModalProps): JSX.Element | null {
+  if (!state) return null;
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${title}-modal-title`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id={`${title}-modal-title`}>{title}</h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div className="modal-body">
+          <FieldGroup
+            title={null}
+            fields={fields}
+            state={state}
+            basePath={basePath}
             onChange={onChange}
             defaultOpen
           />
