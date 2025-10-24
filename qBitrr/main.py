@@ -14,6 +14,7 @@ from packaging import version as version_parser
 from packaging.version import Version as VersionClass
 from qbittorrentapi import APINames
 
+from qBitrr.auto_update import AutoUpdater, perform_self_update
 from qBitrr.bundled_data import patched_version
 from qBitrr.config import (
     APPDATA_FOLDER,
@@ -21,6 +22,7 @@ from qBitrr.config import (
     CONFIG_EXISTS,
     QBIT_DISABLED,
     SEARCH_ONLY,
+    get_auto_update_settings,
     process_flags,
 )
 from qBitrr.env_config import ENVIRO_CONFIG
@@ -29,9 +31,6 @@ from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet, absolute_file_paths
 from qBitrr.webui import WebUI
 
-# from qbittorrentapi.decorators import login_required, response_text
-
-
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
 else:
@@ -39,6 +38,10 @@ else:
 
 logger = logging.getLogger("qBitrr")
 run_logs(logger, "Main")
+
+
+def _mask_secret(value: str | None) -> str:
+    return "[redacted]" if value else ""
 
 
 class qBitManager:
@@ -61,7 +64,7 @@ class qBitManager:
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
-            self.qBit_Password,
+            _mask_secret(self.qBit_Password),
         )
         self._validated_version = False
         self.client = None
@@ -89,6 +92,7 @@ class qBitManager:
         self.name_cache = {}
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
+        self.auto_updater = None
         self.ffprobe_downloader = FFprobeDownloader()
         try:
             if not (QBIT_DISABLED or SEARCH_ONLY):
@@ -107,6 +111,28 @@ class qBitManager:
         web_host = CONFIG.get("Settings.WebUIHost", fallback="0.0.0.0") or "0.0.0.0"
         self.webui = WebUI(self, host=web_host, port=web_port)
         self.webui.start()
+        self.configure_auto_update()
+
+    def configure_auto_update(self) -> None:
+        enabled, cron = get_auto_update_settings()
+        if self.auto_updater:
+            self.auto_updater.stop()
+            self.auto_updater = None
+        if not enabled:
+            self.logger.debug("Auto update is disabled")
+            return
+        updater = AutoUpdater(cron, self._perform_auto_update, self.logger)
+        if updater.start():
+            self.auto_updater = updater
+        else:
+            self.logger.error("Auto update could not be scheduled; leaving it disabled")
+
+    def _perform_auto_update(self) -> None:
+        self.logger.notice("Performing auto update...")
+        perform_self_update(self.logger)
+        self.logger.notice(
+            "Auto update cycle complete. A restart may be required if files were updated."
+        )
 
     def _version_validator(self):
         validated = False

@@ -588,7 +588,10 @@ pre {
 }
 .config-footer {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 .field-grid {
     display: grid;
@@ -616,6 +619,24 @@ pre {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+}
+.secure-field {
+    gap: 8px;
+}
+.secure-field__input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.secure-field__input-group input {
+    flex: 1;
+}
+.secure-field__controls {
+    display: flex;
+    gap: 6px;
+}
+.secure-field__controls .btn {
+    padding: 6px 10px;
 }
 .help-icon {
     display: inline-flex;

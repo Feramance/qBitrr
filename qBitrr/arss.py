@@ -70,6 +70,13 @@ from qBitrr.utils import (
     with_retry,
 )
 
+
+def _mask_secret(secret: str | None) -> str:
+    if not secret:
+        return ""
+    return "[redacted]"
+
+
 if TYPE_CHECKING:
     from qBitrr.main import qBitManager
 
@@ -419,7 +426,7 @@ class Arr:
             self.re_search,
             self.category,
             self.uri,
-            self.apikey,
+            _mask_secret(self.apikey),
             self.refresh_downloads_timer,
             self.rss_sync_timer,
         )
@@ -465,14 +472,16 @@ class Arr:
             self.logger.debug("Script Config:  SearchOmbiRequests=%s", self.ombi_search_requests)
             if self.ombi_search_requests:
                 self.logger.debug("Script Config:  OmbiURI=%s", self.ombi_uri)
-                self.logger.debug("Script Config:  OmbiAPIKey=%s", self.ombi_api_key)
+                self.logger.debug("Script Config:  OmbiAPIKey=%s", _mask_secret(self.ombi_api_key))
                 self.logger.debug("Script Config:  ApprovedOnly=%s", self.ombi_approved_only)
             self.logger.debug(
                 "Script Config:  SearchOverseerrRequests=%s", self.overseerr_requests
             )
             if self.overseerr_requests:
                 self.logger.debug("Script Config:  OverseerrURI=%s", self.overseerr_uri)
-                self.logger.debug("Script Config:  OverseerrAPIKey=%s", self.overseerr_api_key)
+                self.logger.debug(
+                    "Script Config:  OverseerrAPIKey=%s", _mask_secret(self.overseerr_api_key)
+                )
             if self.ombi_search_requests or self.overseerr_requests:
                 self.logger.debug(
                     "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds

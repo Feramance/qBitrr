@@ -23,6 +23,25 @@ def _toml_set(doc, dotted_key: str, value: Any):
     cur[keys[-1]] = value
 
 
+def _toml_delete(doc, dotted_key: str) -> None:
+    keys = dotted_key.split(".")
+    cur = doc
+    parents = []
+    for k in keys[:-1]:
+        next_cur = cur.get(k)
+        if not isinstance(next_cur, dict):
+            return
+        parents.append((cur, k))
+        cur = next_cur
+    cur.pop(keys[-1], None)
+    for parent, key in reversed(parents):
+        node = parent.get(key)
+        if isinstance(node, dict) and not node:
+            parent.pop(key, None)
+        else:
+            break
+
+
 def _toml_to_jsonable(obj: Any) -> Any:
     try:
         if hasattr(obj, "unwrap"):
@@ -895,6 +914,11 @@ class WebUI:
                 return jsonify({"error": "changes must be an object"}), 400
             # Apply changes
             for key, val in changes.items():
+                if val is None:
+                    _toml_delete(CONFIG.config, key)
+                    if key == "Settings.WebUIToken":
+                        self.token = ""
+                    continue
                 _toml_set(CONFIG.config, key, val)
                 if key == "Settings.WebUIToken":
                     # Update in-memory token immediately
@@ -912,6 +936,11 @@ class WebUI:
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
             for key, val in changes.items():
+                if val is None:
+                    _toml_delete(CONFIG.config, key)
+                    if key == "Settings.WebUIToken":
+                        self.token = ""
+                    continue
                 _toml_set(CONFIG.config, key, val)
                 if key == "Settings.WebUIToken":
                     self.token = str(val) if val is not None else ""
@@ -935,6 +964,7 @@ class WebUI:
         from qBitrr.arss import ArrManager
 
         self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
+        self.manager.configure_auto_update()
         # Spawn and start new processes
         for arr in self.manager.arr_manager.managed_objects.values():
             _, procs = arr.spawn_child_processes()

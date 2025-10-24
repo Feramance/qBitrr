@@ -131,6 +131,28 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
+        [
+            "Automatically attempt to update qBitrr on a schedule",
+            "Set to true to enable the auto-update worker.",
+        ],
+        "AutoUpdateEnabled",
+        (
+            ENVIRO_CONFIG.settings.auto_update_enabled
+            if ENVIRO_CONFIG.settings.auto_update_enabled is not None
+            else False
+        ),
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Cron expression describing when to check for updates",
+            "Default is weekly Sunday at 03:00 (0 3 * * 0).",
+        ],
+        "AutoUpdateCron",
+        ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
+    )
+    _gen_default_line(
+        settings,
         "WebUI listen port (default 6969)",
         "WebUIPort",
         6969,

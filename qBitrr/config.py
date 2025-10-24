@@ -173,3 +173,16 @@ if SEARCH_ONLY and QBIT_DISABLED is False:
 # Settings Config Values
 FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
 FF_PROBE = APPDATA_FOLDER.joinpath("ffprobe")
+
+
+def get_auto_update_settings() -> tuple[bool, str]:
+    enabled_env = ENVIRO_CONFIG.settings.auto_update_enabled
+    cron_env = ENVIRO_CONFIG.settings.auto_update_cron
+    enabled = (
+        enabled_env
+        if enabled_env is not None
+        else CONFIG.get("Settings.AutoUpdateEnabled", fallback=False)
+    )
+    cron = cron_env or CONFIG.get("Settings.AutoUpdateCron", fallback="0 3 * * 0")
+    cron = str(cron or "0 3 * * 0")
+    return bool(enabled), cron

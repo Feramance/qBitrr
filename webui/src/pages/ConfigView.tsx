@@ -8,12 +8,14 @@ type FieldType = "text" | "number" | "checkbox" | "password" | "select";
 
 interface FieldDefinition {
   label: string;
-  path: string[];
+  path?: string[];
   type: FieldType;
   options?: string[];
   placeholder?: string;
   parse?: (value: string | boolean) => unknown;
   format?: (value: unknown) => string | boolean;
+  sectionName?: boolean;
+  secure?: boolean;
 }
 
 const parseList = (value: string | boolean): string[] =>
@@ -101,10 +103,10 @@ const QBIT_FIELDS: FieldDefinition[] = [
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
-  { label: "Display Name", path: ["Name"], type: "text", placeholder: "My Arr" },
+  { label: "Display Name", type: "text", placeholder: "Sonarr-TV", sectionName: true },
   { label: "Managed", path: ["Managed"], type: "checkbox" },
   { label: "URI", path: ["URI"], type: "text", placeholder: "http://host:port" },
-  { label: "API Key", path: ["APIKey"], type: "password", placeholder: "apikey" },
+  { label: "API Key", path: ["APIKey"], type: "password", secure: true },
   { label: "Category", path: ["Category"], type: "text" },
   { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
   {
@@ -396,6 +398,9 @@ function getArrFieldSets(arrKey: string) {
   const isSonarr = lower.includes("sonarr");
   const generalFields = [...ARR_GENERAL_FIELDS];
   const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
+    if (!field.path) {
+      return true;
+    }
     const joined = field.path.join(".");
     if (!isSonarr) {
       if (
@@ -566,7 +571,6 @@ function ensureArrDefaults(type: string): ConfigDocument {
   };
 
   return {
-    Name: type,
     Managed: true,
     URI: "CHANGE_ME",
     APIKey: "CHANGE_ME",
@@ -737,11 +741,39 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
       const next = cloneConfig(formState) ?? {};
       const defaults = ensureArrDefaults(type);
-      defaults.Name = key;
+      if (defaults && typeof defaults === "object") {
+        (defaults as Record<string, unknown>).Name = key;
+      }
       next[key] = defaults;
       setFormState(next);
     },
     [formState]
+  );
+
+  const handleRenameSection = useCallback(
+    (oldName: string, rawNewName: string) => {
+      if (!formState) return;
+      const newName = rawNewName.trim();
+      if (!newName || newName === oldName) {
+        return;
+      }
+      if (formState[newName]) {
+        push(`An instance named "${newName}" already exists`, "error");
+        return;
+      }
+      const next = cloneConfig(formState) ?? {};
+      const section = next[oldName];
+      delete next[oldName];
+      next[newName] = section;
+      if (section && typeof section === "object") {
+        (section as Record<string, unknown>).Name = newName;
+      }
+      setFormState(next);
+      if (activeArrKey === oldName) {
+        setActiveArrKey(newName);
+      }
+    },
+    [formState, push, activeArrKey]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -760,6 +792,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
             : value !== originalValue;
         if (changed) {
           changes[key] = value;
+        }
+      }
+      for (const key of Object.keys(flattenedOriginal)) {
+        if (!(key in flattenedCurrent)) {
+          changes[key] = null;
         }
       }
       if (Object.keys(changes).length === 0) {
@@ -800,92 +837,92 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       <section className="card">
         <div className="card-header">Config</div>
         <div className="card-body config-layout">
-          <div className="config-actions">
-          <button
-            className="btn"
-            type="button"
-            onClick={() => addArrInstance("radarr")}
-          >
-            Add Radarr Instance
-          </button>
-          <button
-            className="btn"
-            type="button"
-            onClick={() => addArrInstance("sonarr")}
-          >
-            Add Sonarr Instance
-          </button>
-        </div>
           <div className="config-grid">
-          <ConfigSummaryCard
-            title="Settings"
-            description="Core application configuration"
-            onConfigure={() => setSettingsOpen(true)}
-          />
-          <ConfigSummaryCard
-            title="qBit"
-            description="qBittorrent connection details"
-            onConfigure={() => setQbitOpen(true)}
-          />
-        </div>
-        {arrSections.length ? (
-          <div className="config-arr-grid">
-            {arrSections.map(([key, value]) => {
-              const uri = getValue(value as ConfigDocument, ["URI"]);
-              const category = getValue(value as ConfigDocument, ["Category"]);
-              const managed = getValue(value as ConfigDocument, ["Managed"]);
-              const displayName = getValue(value as ConfigDocument, ["Name"]);
-              return (
-                <div className="card config-card config-arr-card" key={key}>
-                  <div className="card-header">{displayName ? String(displayName) : key}</div>
-                  <div className="card-body">
-                    <dl className="config-arr-summary">
-                      <div className="config-arr-summary__item">
-                        <dt>Managed</dt>
-                        <dd>{managed ? "Enabled" : "Disabled"}</dd>
+            <ConfigSummaryCard
+              title="Settings"
+              description="Core application configuration"
+              onConfigure={() => setSettingsOpen(true)}
+            />
+            <ConfigSummaryCard
+              title="qBit"
+              description="qBittorrent connection details"
+              onConfigure={() => setQbitOpen(true)}
+            />
+          </div>
+          {arrSections.length ? (
+            <div className="config-arr-grid">
+              {arrSections.map(([key, value]) => {
+                const uri = getValue(value as ConfigDocument, ["URI"]);
+                const category = getValue(value as ConfigDocument, ["Category"]);
+                const managed = getValue(value as ConfigDocument, ["Managed"]);
+                return (
+                  <div className="card config-card config-arr-card" key={key}>
+                    <div className="card-header">{key}</div>
+                    <div className="card-body">
+                      <dl className="config-arr-summary">
+                        <div className="config-arr-summary__item">
+                          <dt>Managed</dt>
+                          <dd>{managed ? "Enabled" : "Disabled"}</dd>
+                        </div>
+                        <div className="config-arr-summary__item">
+                          <dt>Category</dt>
+                          <dd>{category ? String(category) : "-"}</dd>
+                        </div>
+                        <div className="config-arr-summary__item">
+                          <dt>URI</dt>
+                          <dd className="config-arr-summary__uri">
+                            {uri ? String(uri) : "-"}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="config-arr-actions">
+                        <button
+                          className="btn primary"
+                          type="button"
+                          onClick={() => setActiveArrKey(key)}
+                        >
+                          Configure
+                        </button>
                       </div>
-                      <div className="config-arr-summary__item">
-                        <dt>Category</dt>
-                        <dd>{category ? String(category) : "-"}</dd>
-                      </div>
-                      <div className="config-arr-summary__item">
-                        <dt>URI</dt>
-                        <dd className="config-arr-summary__uri">
-                          {uri ? String(uri) : "-"}
-                        </dd>
-                      </div>
-                    </dl>
-                    <div className="config-arr-actions">
-                      <button
-                        className="btn primary"
-                        type="button"
-                        onClick={() => setActiveArrKey(key)}
-                      >
-                        Configure
-                      </button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          ) : null}
+          <div className="config-footer">
+            <div className="config-actions">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => addArrInstance("radarr")}
+              >
+                Add Radarr Instance
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => addArrInstance("sonarr")}
+              >
+                Add Sonarr Instance
+              </button>
+            </div>
+            <button
+              className="btn primary"
+              onClick={() => void handleSubmit()}
+              disabled={saving}
+            >
+              Save + Live Reload
+            </button>
           </div>
-        ) : null}
-        <div className="config-footer">
-          <button
-            className="btn primary"
-            onClick={() => void handleSubmit()}
-            disabled={saving}
-          >
-            Save + Live Reload
-          </button>
         </div>
-      </div>
       </section>
       {activeArrKey && formState ? (
         <ArrInstanceModal
           keyName={activeArrKey}
           state={(formState[activeArrKey] as ConfigDocument) ?? null}
           onChange={handleFieldChange}
+          onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
         />
       ) : null}
@@ -945,6 +982,7 @@ interface FieldGroupProps {
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
 }
 
@@ -954,18 +992,54 @@ function FieldGroup({
   state,
   basePath,
   onChange,
+  onRenameSection,
   defaultOpen = false,
 }: FieldGroupProps): JSX.Element {
+  const sectionName = basePath[0] ?? "";
   const renderedFields = fields.map((field) => {
-    const path = [...basePath, ...field.path];
-    const rawValue = getValue(state as ConfigDocument, field.path);
+    if (field.sectionName) {
+      if (!sectionName) {
+        return null;
+      }
+      const tooltip = getTooltip([sectionName]);
+      return (
+        <SectionNameField
+          key={`${sectionName}.__name`}
+          label={field.label}
+          tooltip={tooltip}
+          currentName={sectionName}
+          placeholder={field.placeholder}
+          onRename={(newName) => onRenameSection?.(sectionName, newName)}
+        />
+      );
+    }
+
+    const pathSegments = field.path ?? [];
+    const path = [...basePath, ...pathSegments];
+    const rawValue = field.path
+      ? getValue(state as ConfigDocument, field.path as string[])
+      : undefined;
     const formatted =
       field.format?.(rawValue) ??
       (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
     const tooltip = getTooltip(path);
+
+    if (field.secure) {
+      return (
+        <SecureField
+          key={path.join('.')}
+          label={field.label}
+          tooltip={tooltip}
+          value={String(rawValue ?? '')}
+          placeholder={field.placeholder}
+          onChange={(val) => onChange(path, field, val)}
+        />
+      );
+    }
+
     if (field.type === "checkbox") {
       return (
-        <label className="checkbox-field" key={path.join(".")}>
+        <label className="checkbox-field" key={path.join('.')}>
           <input
             type="checkbox"
             checked={Boolean(formatted)}
@@ -984,7 +1058,7 @@ function FieldGroup({
     }
     if (field.type === "select") {
       return (
-        <div className="field" key={path.join(".")}>
+        <div className="field" key={path.join('.')}>
           <label className="field-label">
             <span>{field.label}</span>
             {tooltip ? (
@@ -1007,7 +1081,7 @@ function FieldGroup({
       );
     }
     return (
-      <div className="field" key={path.join(".")}>
+      <div className="field" key={path.join('.')}>
         <label className="field-label">
           <span>{field.label}</span>
           {tooltip ? (
@@ -1038,10 +1112,144 @@ function FieldGroup({
   return <div className="field-grid">{renderedFields}</div>;
 }
 
+interface SectionNameFieldProps {
+  label: string;
+  currentName: string;
+  placeholder?: string;
+  tooltip?: string;
+  onRename: (newName: string) => void;
+}
+
+function SectionNameField({
+  label,
+  currentName,
+  placeholder,
+  tooltip,
+  onRename,
+}: SectionNameFieldProps): JSX.Element {
+  const [value, setValue] = useState(currentName);
+
+  useEffect(() => {
+    setValue(currentName);
+  }, [currentName]);
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setValue(currentName);
+      return;
+    }
+    if (trimmed !== currentName) {
+      onRename(trimmed);
+    }
+  };
+
+  return (
+    <div className="field">
+      <label className="field-label">
+        <span>{label}</span>
+        {tooltip ? (
+          <span className="help-icon" title={tooltip} aria-label={tooltip}>
+            ?
+          </span>
+        ) : null}
+      </label>
+      <input
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            setValue(currentName);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+interface SecureFieldProps {
+  label: string;
+  value: string;
+  placeholder?: string;
+  tooltip?: string;
+  onChange: (value: string) => void;
+}
+
+function SecureField({
+  label,
+  value,
+  placeholder,
+  tooltip,
+  onChange,
+}: SecureFieldProps): JSX.Element {
+  const [revealed, setRevealed] = useState(false);
+
+  const maskedValue =
+    value && !revealed
+      ? "•".repeat(Math.min(Math.max(value.length, 8), 16))
+      : "";
+  const displayValue = revealed ? value : placeholder ?? maskedValue;
+
+  const handleRefresh = () => {
+    let newKey = "";
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      newKey = crypto.randomUUID().replace(/-/g, "");
+    } else {
+      newKey = Array.from({ length: 32 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join("");
+    }
+    setRevealed(true);
+    onChange(newKey);
+  };
+
+  return (
+    <div className="field secure-field">
+      <label className="field-label">
+        <span>{label}</span>
+        {tooltip ? (
+          <span className="help-icon" title={tooltip} aria-label={tooltip}>
+            ?
+          </span>
+        ) : null}
+      </label>
+      <div className="secure-field__input-group">
+        <input
+          type={revealed ? "text" : "password"}
+          value={revealed ? value : displayValue}
+          placeholder={placeholder}
+          readOnly={!revealed}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <div className="secure-field__controls">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => setRevealed((prev) => !prev)}
+          >
+            {revealed ? "Hide" : "Show"}
+          </button>
+          <button type="button" className="btn ghost" onClick={handleRefresh}>
+            Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ArrInstanceModalProps {
   keyName: string;
   state: ConfigDocument | null;
   onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
 }
 
@@ -1049,6 +1257,7 @@ function ArrInstanceModal({
   keyName,
   state,
   onChange,
+  onRename,
   onClose,
 }: ArrInstanceModalProps): JSX.Element | null {
   if (!state) return null;
@@ -1076,6 +1285,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[keyName]}
             onChange={onChange}
+            onRenameSection={onRename}
             defaultOpen
           />
           <FieldGroup
