@@ -20,6 +20,7 @@ interface FieldDefinition {
   type: FieldType;
   options?: string[];
   placeholder?: string;
+  description?: string;
   parse?: (value: string | boolean) => unknown;
   format?: (value: unknown) => string | boolean;
   sectionName?: boolean;
@@ -45,6 +46,199 @@ const formatList = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : String(value ?? "");
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+type CronFieldType = "minute" | "hour" | "dayOfMonth" | "month" | "dayOfWeek" | "year";
+
+const CRON_FIELD_LABELS: Record<CronFieldType, { singular: string; plural: string }> = {
+  minute: { singular: "minute", plural: "minutes" },
+  hour: { singular: "hour", plural: "hours" },
+  dayOfMonth: { singular: "day", plural: "days" },
+  month: { singular: "month", plural: "months" },
+  dayOfWeek: { singular: "day", plural: "days" },
+  year: { singular: "year", plural: "years" },
+};
+
+const SENTENCE_END = /(.+?[.!?])(\s|$)/;
+
+function extractTooltipSummary(tooltip?: string): string | undefined {
+  if (!tooltip) return undefined;
+  const trimmed = tooltip.trim();
+  if (!trimmed) return undefined;
+  const match = trimmed.match(SENTENCE_END);
+  const sentence = match ? match[1] : trimmed;
+  return sentence.length > 160 ? `${sentence.slice(0, 157)}…` : sentence;
+}
+
+function padTwo(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+function isNumeric(value: string): boolean {
+  return /^-?\d+$/.test(value);
+}
+
+function formatOrdinal(value: string): string {
+  if (!isNumeric(value)) return value;
+  const num = Number(value);
+  const abs = Math.abs(num);
+  const mod100 = abs % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
+  switch (abs % 10) {
+    case 1:
+      return `${value}st`;
+    case 2:
+      return `${value}nd`;
+    case 3:
+      return `${value}rd`;
+    default:
+      return `${value}th`;
+  }
+}
+
+function formatCronToken(token: string, type: CronFieldType): string {
+  const trimmed = token.trim();
+  if (!trimmed) return "*";
+  if (/^[A-Za-z#LW?]+$/.test(trimmed)) return trimmed;
+  if (type === "month" && isNumeric(trimmed)) {
+    const monthIndex = Number(trimmed);
+    if (monthIndex >= 1 && monthIndex <= 12) {
+      return MONTH_NAMES[monthIndex - 1];
+    }
+  }
+  if (type === "dayOfWeek" && isNumeric(trimmed)) {
+    const dayIndex = Number(trimmed) % 7;
+    if (dayIndex >= 0 && dayIndex <= 6) {
+      return DAY_NAMES[dayIndex];
+    }
+  }
+  if (type === "dayOfMonth") {
+    return formatOrdinal(trimmed);
+  }
+  return trimmed;
+}
+
+function describeCronField(value: string, type: CronFieldType): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "*") {
+    return `every ${CRON_FIELD_LABELS[type].plural}`;
+  }
+  if (trimmed === "?") {
+    return `any ${CRON_FIELD_LABELS[type].singular}`;
+  }
+  if (trimmed.startsWith("*/")) {
+    const step = trimmed.slice(2);
+    return `every ${step} ${Number(step) === 1 ? CRON_FIELD_LABELS[type].singular : CRON_FIELD_LABELS[type].plural}`;
+  }
+  if (trimmed.includes("/")) {
+    const [base, step] = trimmed.split("/");
+    const baseDescription =
+      !base || base === "*" ? `every ${CRON_FIELD_LABELS[type].plural}` : describeCronField(base, type);
+    const stepSize = Number(step);
+    const cadence =
+      Number.isFinite(stepSize) && stepSize > 0
+        ? `every ${step} ${stepSize === 1 ? CRON_FIELD_LABELS[type].singular : CRON_FIELD_LABELS[type].plural}`
+        : `every ${step} units`;
+    return `${baseDescription} (${cadence})`;
+  }
+  if (trimmed.includes(",")) {
+    return trimmed
+      .split(",")
+      .map((part) => formatCronToken(part, type))
+      .join(", ");
+  }
+  if (trimmed.includes("-")) {
+    const [start, end] = trimmed.split("-");
+    return `${formatCronToken(start, type)} to ${formatCronToken(end, type)}`;
+  }
+  return formatCronToken(trimmed, type);
+}
+
+function describeCronTime(minuteField: string, hourField: string): string {
+  const minuteTrimmed = minuteField.trim();
+  const hourTrimmed = hourField.trim();
+  if ((minuteTrimmed === "*" || minuteTrimmed === "*/1") && hourTrimmed === "*") {
+    return "Runs every minute";
+  }
+  if (hourTrimmed === "*" && minuteTrimmed.startsWith("*/")) {
+    const step = minuteTrimmed.slice(2);
+    return `Runs every ${step} minutes`;
+  }
+  if (hourTrimmed === "*" && isNumeric(minuteTrimmed)) {
+    return `Runs at minute ${Number(minuteTrimmed)} each hour`;
+  }
+  if (isNumeric(hourTrimmed) && isNumeric(minuteTrimmed)) {
+    return `Runs at ${padTwo(Number(hourTrimmed))}:${padTwo(Number(minuteTrimmed))}`;
+  }
+  const minuteDescription = describeCronField(minuteTrimmed, "minute");
+  const hourDescription = describeCronField(hourTrimmed, "hour");
+  return `Minutes: ${minuteDescription}; Hours: ${hourDescription}`;
+}
+
+function describeCronDay(dayOfMonthField: string, dayOfWeekField: string): string {
+  const dom = dayOfMonthField.trim();
+  const dow = dayOfWeekField.trim();
+  const domWildcard = dom === "*" || dom === "?";
+  const dowWildcard = dow === "*" || dow === "?";
+  if (domWildcard && dowWildcard) {
+    return "Every day";
+  }
+  const segments: string[] = [];
+  if (!domWildcard) {
+    segments.push(`Days of month: ${describeCronField(dom, "dayOfMonth")}`);
+  }
+  if (!dowWildcard) {
+    segments.push(`Weekdays: ${describeCronField(dow, "dayOfWeek")}`);
+  }
+  return segments.join("; ");
+}
+
+function describeCron(expression: string): string {
+  const parts = expression.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 5 || parts.length > 6) {
+    return "Enter 5 or 6 cron fields (minute hour day month weekday [year]).";
+  }
+  const [minute, hour, dayOfMonth, month, dayOfWeek, year] = [
+    parts[0] ?? "*",
+    parts[1] ?? "*",
+    parts[2] ?? "*",
+    parts[3] ?? "*",
+    parts[4] ?? "*",
+    parts[5],
+  ];
+  const timeDescription = describeCronTime(minute, hour);
+  const dayDescription = describeCronDay(dayOfMonth, dayOfWeek);
+  const monthDescription = month.trim() === "*" ? "Every month" : `Months: ${describeCronField(month, "month")}`;
+  const pieces = [timeDescription, dayDescription, monthDescription];
+  if (year) {
+    pieces.push(`Years: ${describeCronField(year, "year")}`);
+  }
+  return pieces.join(" · ");
+}
 
 const SETTINGS_FIELDS: FieldDefinition[] = [
   {
@@ -1331,56 +1525,63 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
             <div className="config-arr-groups">
               {groupedArrSections.map((group) => (
                 <section className="config-arr-group" key={group.type}>
-                  <h3 className="config-arr-group__title">{group.label}</h3>
-                  <div className="config-arr-grid">
-                    {group.items.map(([key, value]) => {
-                      const uri = getValue(value as ConfigDocument, ["URI"]);
-                      const category = getValue(value as ConfigDocument, ["Category"]);
-                      const managed = getValue(value as ConfigDocument, ["Managed"]);
-                      const canDelete = group.type === "radarr" || group.type === "sonarr";
-                      return (
-                        <div className="card config-card config-arr-card" key={key}>
-                          <div className="card-header">{key}</div>
-                          <div className="card-body">
-                            <dl className="config-arr-summary">
-                              <div className="config-arr-summary__item">
-                                <dt>Managed</dt>
-                                <dd>{managed ? "Enabled" : "Disabled"}</dd>
-                              </div>
-                              <div className="config-arr-summary__item">
-                                <dt>Category</dt>
-                                <dd>{category ? String(category) : "-"}</dd>
-                              </div>
-                              <div className="config-arr-summary__item">
-                                <dt>URI</dt>
-                                <dd className="config-arr-summary__uri">
-                                  {uri ? String(uri) : "-"}
-                                </dd>
-                              </div>
-                            </dl>
-                            <div className="config-arr-actions">
-                              {canDelete ? (
+                  <details className="config-arr-group__details" open>
+                    <summary>
+                      <span>{group.label}</span>
+                      <span className="config-arr-group__count">
+                        {group.items.length}
+                      </span>
+                    </summary>
+                    <div className="config-arr-grid">
+                      {group.items.map(([key, value]) => {
+                        const uri = getValue(value as ConfigDocument, ["URI"]);
+                        const category = getValue(value as ConfigDocument, ["Category"]);
+                        const managed = getValue(value as ConfigDocument, ["Managed"]);
+                        const canDelete = group.type === "radarr" || group.type === "sonarr";
+                        return (
+                          <div className="card config-card config-arr-card" key={key}>
+                            <div className="card-header">{key}</div>
+                            <div className="card-body">
+                              <dl className="config-arr-summary">
+                                <div className="config-arr-summary__item">
+                                  <dt>Managed</dt>
+                                  <dd>{managed ? "Enabled" : "Disabled"}</dd>
+                                </div>
+                                <div className="config-arr-summary__item">
+                                  <dt>Category</dt>
+                                  <dd>{category ? String(category) : "-"}</dd>
+                                </div>
+                                <div className="config-arr-summary__item">
+                                  <dt>URI</dt>
+                                  <dd className="config-arr-summary__uri">
+                                    {uri ? String(uri) : "-"}
+                                  </dd>
+                                </div>
+                              </dl>
+                              <div className="config-arr-actions">
+                                {canDelete ? (
+                                  <button
+                                    className="btn danger"
+                                    type="button"
+                                    onClick={() => deleteArrInstance(key)}
+                                  >
+                                    Delete
+                                  </button>
+                                ) : null}
                                 <button
-                                  className="btn danger"
+                                  className="btn primary"
                                   type="button"
-                                  onClick={() => deleteArrInstance(key)}
+                                  onClick={() => setActiveArrKey(key)}
                                 >
-                                  Delete
+                                  Configure
                                 </button>
-                              ) : null}
-                              <button
-                                className="btn primary"
-                                type="button"
-                                onClick={() => setActiveArrKey(key)}
-                              >
-                                Configure
-                              </button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 </section>
               ))}
             </div>
@@ -1471,6 +1672,19 @@ function ConfigSummaryCard({
   );
 }
 
+interface CronDescriptorProps {
+  expression: string;
+}
+
+function CronDescriptor({ expression }: CronDescriptorProps): JSX.Element {
+  const readable = useMemo(() => describeCron(expression), [expression]);
+  return (
+    <p className="field-hint" role="status" aria-live="polite">
+      {readable}
+    </p>
+  );
+}
+
 interface FieldGroupProps {
   title: string | null;
   fields: FieldDefinition[];
@@ -1511,6 +1725,7 @@ function FieldGroup({
 
     const pathSegments = field.path ?? [];
     const path = [...basePath, ...pathSegments];
+    const key = path.join('.');
     const rawValue = field.path
       ? getValue(state as ConfigDocument, field.path as string[])
       : undefined;
@@ -1518,13 +1733,20 @@ function FieldGroup({
       field.format?.(rawValue) ??
       (field.type === "checkbox" ? Boolean(rawValue) : String(rawValue ?? ""));
     const tooltip = getTooltip(path);
+    const description =
+      field.description ??
+      extractTooltipSummary(tooltip) ??
+      (field.type === "checkbox"
+        ? `Enable or disable ${field.label}.`
+        : `Set the ${field.label} value.`);
 
     if (field.secure) {
       return (
         <SecureField
-          key={path.join('.')}
+          key={key}
           label={field.label}
           tooltip={tooltip}
+          description={description}
           value={String(rawValue ?? '')}
           placeholder={field.placeholder}
           onChange={(val) => onChange(path, field, val)}
@@ -1532,20 +1754,33 @@ function FieldGroup({
       );
     }
 
+    const descriptionNode = description ? (
+      <p className="field-description">{description}</p>
+    ) : null;
+    const cronDescriptorNode =
+      key === 'Settings.AutoUpdateCron' ? (
+        <CronDescriptor expression={String(formatted)} />
+      ) : null;
+
     if (field.type === "checkbox") {
       return (
-        <label className="checkbox-field" key={path.join('.')}>
+        <label className="checkbox-field" key={key}>
           <input
             type="checkbox"
             checked={Boolean(formatted)}
             onChange={(event) => onChange(path, field, event.target.checked)}
           />
-          <span className="checkbox-field__text">
-            {field.label}
-            {tooltip ? (
-              <span className="help-icon" title={tooltip} aria-label={tooltip}>
-                ?
-              </span>
+          <span className="checkbox-field__content">
+            <span className="checkbox-field__text">
+              {field.label}
+              {tooltip ? (
+                <span className="help-icon" title={tooltip} aria-label={tooltip}>
+                  ?
+                </span>
+              ) : null}
+            </span>
+            {description ? (
+              <span className="field-description">{description}</span>
             ) : null}
           </span>
         </label>
@@ -1553,7 +1788,7 @@ function FieldGroup({
     }
     if (field.type === "select") {
       return (
-        <div className="field" key={path.join('.')}>
+        <div className="field" key={key}>
           <label className="field-label">
             <span>{field.label}</span>
             {tooltip ? (
@@ -1562,6 +1797,7 @@ function FieldGroup({
               </span>
             ) : null}
           </label>
+          {descriptionNode}
           <select
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
@@ -1572,11 +1808,12 @@ function FieldGroup({
               </option>
             ))}
           </select>
+          {cronDescriptorNode}
         </div>
       );
     }
     return (
-      <div className="field" key={path.join('.')}>
+      <div className="field" key={key}>
         <label className="field-label">
           <span>{field.label}</span>
           {tooltip ? (
@@ -1585,12 +1822,14 @@ function FieldGroup({
             </span>
           ) : null}
         </label>
+        {descriptionNode}
         <input
           type={field.type === "number" ? "number" : field.type}
           value={String(formatted)}
           placeholder={field.placeholder}
           onChange={(event) => onChange(path, field, event.target.value)}
         />
+        {cronDescriptorNode}
       </div>
     );
   });
@@ -1623,6 +1862,8 @@ function SectionNameField({
   onRename,
 }: SectionNameFieldProps): JSX.Element {
   const [value, setValue] = useState(currentName);
+  const description =
+    extractTooltipSummary(tooltip) ?? `Rename the ${currentName} instance.`;
 
   useEffect(() => {
     setValue(currentName);
@@ -1649,6 +1890,7 @@ function SectionNameField({
           </span>
         ) : null}
       </label>
+      {description ? <p className="field-description">{description}</p> : null}
       <input
         type="text"
         value={value}
@@ -1674,6 +1916,7 @@ interface SecureFieldProps {
   value: string;
   placeholder?: string;
   tooltip?: string;
+  description?: string;
   onChange: (value: string) => void;
 }
 
@@ -1682,6 +1925,7 @@ function SecureField({
   value,
   placeholder,
   tooltip,
+  description,
   onChange,
 }: SecureFieldProps): JSX.Element {
   const [revealed, setRevealed] = useState(false);
@@ -1715,6 +1959,7 @@ function SecureField({
           </span>
         ) : null}
       </label>
+      {description ? <p className="field-description">{description}</p> : null}
       <div className="secure-field__input-group">
         <input
           type={revealed ? "text" : "password"}
@@ -1742,7 +1987,7 @@ function SecureField({
 
 interface ArrInstanceModalProps {
   keyName: string;
-  state: ConfigDocument | null;
+  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;

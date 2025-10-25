@@ -191,6 +191,22 @@ body {
 .field input[type="checkbox"] {
     width: auto;
 }
+.field-description,
+.field-hint {
+    display: block;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--muted);
+}
+.field-description {
+    margin-top: 2px;
+}
+.field-hint {
+    color: var(--primary);
+    font-weight: 500;
+    margin-top: 4px;
+}
 .row {
     display: flex;
     flex-wrap: wrap;
@@ -612,6 +628,39 @@ pre {
     flex-direction: column;
     gap: 12px;
 }
+.config-arr-group__details {
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.02);
+}
+.config-arr-group__details summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted);
+    list-style: none;
+}
+.config-arr-group__details summary::-webkit-details-marker {
+    display: none;
+}
+.config-arr-group__details[open] summary {
+    margin-bottom: 12px;
+}
+.config-arr-group__count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--muted);
+}
 .config-arr-group__title {
     margin: 0;
     font-size: 14px;
@@ -624,6 +673,7 @@ pre {
     display: grid;
     gap: 16px;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    margin-top: 4px;
 }
 .config-arr-grid .card-body {
     display: flex;
@@ -674,7 +724,15 @@ pre {
 .field-grid {
     display: grid;
     gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.modal .field-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+@media (max-width: 720px) {
+    .modal .field-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 .field-label {
     display: flex;
@@ -685,18 +743,26 @@ pre {
 }
 .checkbox-field {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 8px;
     font-size: 13px;
     color: var(--muted);
 }
 .checkbox-field input {
-    margin: 0;
+    margin: 4px 0 0;
+}
+.checkbox-field__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 100%;
 }
 .checkbox-field__text {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    font-weight: 600;
+    color: var(--muted);
 }
 .secure-field {
     gap: 8px;
@@ -772,19 +838,22 @@ pre {
     inset: 0;
     background: rgba(0, 0, 0, 0.7);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 24px;
+    overflow-y: auto;
+    overflow-x: hidden;
     z-index: 120;
 }
 .modal {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
-    width: min(960px, 100%);
-    max-height: 92vh;
+    width: min(840px, calc(100% - 48px));
+    max-height: min(92vh, calc(100vh - 80px));
     display: flex;
     flex-direction: column;
+    margin: 40px auto;
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
 }
 .modal-header {
@@ -802,8 +871,9 @@ pre {
     color: var(--on-surface);
 }
 .modal-body {
-    padding: 16px 20px;
+    padding: 16px 20px 20px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: grid;
     gap: 16px;
 }
