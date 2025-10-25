@@ -9,7 +9,15 @@ ifeq ($(OS),Windows_NT)
 	VENV_PYTHON := ./.venv/Scripts/python.exe
 	WEBUI_BUILD := if exist "$(WEBUI_DIR)\package.json" (pushd "$(WEBUI_DIR)" && npm ci && npm run build && popd)
 else
-	PYTHON ?= $(shell command -v python3 >/dev/null 2>&1 && echo python3 || command -v python >/dev/null 2>&1 && echo python || echo python3)
+	PYTHON ?= $(shell \
+		if command -v python3 >/dev/null 2>&1; then \
+			echo python3; \
+		elif command -v python >/dev/null 2>&1; then \
+			echo python; \
+		else \
+			echo python3; \
+		fi \
+	)
 	VENV_PYTHON := ./.venv/bin/python
 	WEBUI_BUILD := if [ -f "$(WEBUI_DIR)/package.json" ]; then \
 		cd "$(WEBUI_DIR)" && npm ci && npm run build; \
