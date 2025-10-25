@@ -533,6 +533,16 @@ pre {
 .process-chip .btn {
     padding: 6px 10px;
 }
+.process-chip__detail {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.35;
+}
+.process-chip__detail-time {
+    font-style: italic;
+    color: var(--muted);
+}
 .status-pill__dot {
     width: 6px;
     height: 6px;

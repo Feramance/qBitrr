@@ -655,25 +655,51 @@ class WebUI:
                     if p is None:
                         continue
                     try:
-                        procs.append(
-                            {
-                                "category": cat,
-                                "name": name,
-                                "kind": kind,
-                                "pid": getattr(p, "pid", None),
-                                "alive": bool(p.is_alive()),
-                            }
-                        )
+                        payload = {
+                            "category": cat,
+                            "name": name,
+                            "kind": kind,
+                            "pid": getattr(p, "pid", None),
+                            "alive": bool(p.is_alive()),
+                        }
+                        if kind == "search":
+                            summary = getattr(arr, "last_search_description", None)
+                            timestamp = getattr(arr, "last_search_timestamp", None)
+                            if summary:
+                                payload["searchSummary"] = summary
+                            if timestamp:
+                                payload["searchTimestamp"] = timestamp
+                        elif kind == "torrent":
+                            queue_count = getattr(arr, "queue_active_count", None)
+                            category_count = getattr(arr, "category_torrent_count", None)
+                            if queue_count is not None:
+                                payload["queueCount"] = queue_count
+                            if category_count is not None:
+                                payload["categoryCount"] = category_count
+                        procs.append(payload)
                     except Exception:
-                        procs.append(
-                            {
-                                "category": cat,
-                                "name": name,
-                                "kind": kind,
-                                "pid": getattr(p, "pid", None),
-                                "alive": False,
-                            }
-                        )
+                        payload = {
+                            "category": cat,
+                            "name": name,
+                            "kind": kind,
+                            "pid": getattr(p, "pid", None),
+                            "alive": False,
+                        }
+                        if kind == "search":
+                            summary = getattr(arr, "last_search_description", None)
+                            timestamp = getattr(arr, "last_search_timestamp", None)
+                            if summary:
+                                payload["searchSummary"] = summary
+                            if timestamp:
+                                payload["searchTimestamp"] = timestamp
+                        elif kind == "torrent":
+                            queue_count = getattr(arr, "queue_active_count", None)
+                            category_count = getattr(arr, "category_torrent_count", None)
+                            if queue_count is not None:
+                                payload["queueCount"] = queue_count
+                            if category_count is not None:
+                                payload["categoryCount"] = category_count
+                        procs.append(payload)
             return jsonify({"processes": procs})
 
         # Unauthenticated UI endpoints (mirror of /api/* for first-party WebUI)

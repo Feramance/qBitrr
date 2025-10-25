@@ -395,6 +395,11 @@ class Arr:
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
 
+        self.last_search_description: str | None = None
+        self.last_search_timestamp: str | None = None
+        self.queue_active_count: int = 0
+        self.category_torrent_count: int = 0
+
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
             max_age_seconds=self.ignore_torrents_younger_than * 2
@@ -533,6 +538,34 @@ class Arr:
             )
         )
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    @staticmethod
+    def _humanize_request_tag(tag: str) -> str | None:
+        if not tag:
+            return None
+        cleaned = tag.strip().strip(": ")
+        cleaned = cleaned.strip("[]")
+        upper = cleaned.upper()
+        if "OVERSEERR" in upper:
+            return "Overseerr request"
+        if "OMBI" in upper:
+            return "Ombi request"
+        if "PRIORITY SEARCH - TODAY" in upper:
+            return "Today's releases"
+        return cleaned or None
+
+    def _record_search_activity(
+        self,
+        description: str | None,
+        *,
+        context: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        segments = [segment for segment in (context, description, detail) if segment]
+        if not segments:
+            return
+        self.last_search_description = " · ".join(segments)
+        self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
 
     @property
     def is_alive(self) -> bool:
@@ -3026,7 +3059,8 @@ class Arr:
                 self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
-                if file_model.Reason:
+                reason_text = getattr(file_model, "Reason", None)
+                if reason_text:
                     self.logger.hnotice(
                         "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
                         request_tag,
@@ -3036,7 +3070,7 @@ class Arr:
                         file_model.Title,
                         file_model.EntryId,
                         file_model.AirDateUtc,
-                        file_model.Reason,
+                        reason_text,
                     )
                 else:
                     self.logger.hnotice(
@@ -3049,6 +3083,15 @@ class Arr:
                         file_model.EntryId,
                         file_model.AirDateUtc,
                     )
+                description = f"{file_model.SeriesTitle} S{file_model.SeasonNumber:02d}E{file_model.EpisodeNumber:02d}"
+                if getattr(file_model, "Title", None):
+                    description = f"{description} · {file_model.Title}"
+                context_label = self._humanize_request_tag(request_tag)
+                self._record_search_activity(
+                    description,
+                    context=context_label,
+                    detail=str(reason_text) if reason_text else None,
+                )
                 return True
             else:
                 file_model: SeriesFilesModel
@@ -3098,6 +3141,14 @@ class Arr:
                     file_model.Title,
                     file_model.EntryId,
                 )
+                context_label = self._humanize_request_tag(request_tag)
+                scope = (
+                    "Missing episodes in"
+                    if "Missing" in self.search_api_command
+                    else "All episodes in"
+                )
+                description = f"{scope} {file_model.Title}"
+                self._record_search_activity(description, context=context_label)
                 return True
         elif self.type == "radarr":
             file_model: MoviesFilesModel
@@ -3149,7 +3200,8 @@ class Arr:
             self.model_file.update(Searched=True, Upgrade=True).where(
                 file_model.EntryId == file_model.EntryId
             ).execute()
-            if file_model.Reason:
+            reason_text = getattr(file_model, "Reason", None)
+            if reason_text:
                 self.logger.hnotice(
                     "%sSearching for: %s (%s) [tmdbId=%s|id=%s][%s]",
                     request_tag,
@@ -3157,7 +3209,7 @@ class Arr:
                     file_model.Year,
                     file_model.TmdbId,
                     file_model.EntryId,
-                    file_model.Reason,
+                    reason_text,
                 )
             else:
                 self.logger.hnotice(
@@ -3168,6 +3220,17 @@ class Arr:
                     file_model.TmdbId,
                     file_model.EntryId,
                 )
+            context_label = self._humanize_request_tag(request_tag)
+            description = (
+                f"{file_model.Title} ({file_model.Year})"
+                if getattr(file_model, "Year", None)
+                else f"{file_model.Title}"
+            )
+            self._record_search_activity(
+                description,
+                context=context_label,
+                detail=str(reason_text) if reason_text else None,
+            )
             return True
 
     def process(self):
@@ -3206,6 +3269,7 @@ class Arr:
                         else:
                             raise qbittorrentapi.exceptions.APIError
                 torrents = [t for t in torrents if hasattr(t, "category")]
+                self.category_torrent_count = len(torrents)
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if not has_internet(self.manager.qbit_manager.client):
@@ -4459,7 +4523,8 @@ class Arr:
             return False
 
     def refresh_download_queue(self):
-        self.queue = self.get_queue()
+        self.queue = self.get_queue() or []
+        self.queue_active_count = len(self.queue)
         self.requeue_cache = defaultdict(set)
         if self.queue:
             self.cache = {
