@@ -4,7 +4,7 @@ Version: 4.10.28
 Summary: "A simple Python script to talk to qBittorrent and Arr's"
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
-Author-email: techagius2093@gmail.com
+Author-email: fera@fera.wtf
 License: MIT
 Project-URL: Issue Tracker, https://github.com/Feramance/qBitrr/issues
 Project-URL: Source Code, https://github.com/Feramance/qBitrr
@@ -38,6 +38,38 @@ Requires-Dist: jaraco.docker
 Requires-Dist: packaging
 Requires-Dist: pathos
 Requires-Dist: peewee
+Requires-Dist: ping3
+Requires-Dist: pyarr
+Requires-Dist: qbittorrent-api
+Requires-Dist: requests
+Requires-Dist: tomlkit
+Requires-Dist: croniter
+Provides-Extra: dev
+Requires-Dist: black==24.3.0; extra == "dev"
+Requires-Dist: bump2version==1.0.1; extra == "dev"
+Requires-Dist: isort==5.10.1; extra == "dev"
+Requires-Dist: pip-tools==7.3.0; extra == "dev"
+Requires-Dist: pre-commit==3.3.3; extra == "dev"
+Requires-Dist: pyinstaller==5.13.1; extra == "dev"
+Requires-Dist: pyupgrade==2.31.0; extra == "dev"
+Requires-Dist: twine==3.7.1; extra == "dev"
+Requires-Dist: ujson==5.10.0; extra == "dev"
+Requires-Dist: upgrade-pip==0.1.4; extra == "dev"
+Provides-Extra: fast
+Requires-Dist: ujson==5.10.0; extra == "fast"
+Provides-Extra: all
+Requires-Dist: black==24.3.0; extra == "all"
+Requires-Dist: bump2version==1.0.1; extra == "all"
+Requires-Dist: isort==5.10.1; extra == "all"
+Requires-Dist: pip-tools==7.3.0; extra == "all"
+Requires-Dist: pre-commit==3.3.3; extra == "all"
+Requires-Dist: pyinstaller==5.13.1; extra == "all"
+Requires-Dist: pyupgrade==2.31.0; extra == "all"
+Requires-Dist: twine==3.7.1; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
+Requires-Dist: upgrade-pip==0.1.4; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
+Dynamic: license-file
 
 # qBitrr
 
@@ -52,21 +84,19 @@ Requires-Dist: peewee
 > 🧩 qBitrr keeps qBittorrent, Radarr, Sonarr, and your request tools chatting happily so downloads finish, import, and clean up without babysitting.
 
 ## 📚 What's Inside
-- [qBitrr](#qbitrr)
-  - [📚 What's Inside](#-whats-inside)
-  - [🧠 Overview](#-overview)
-  - [✨ Highlights](#-highlights)
-  - [📌 State of the Project](#-state-of-the-project)
-  - [⚡ Quickstart](#-quickstart)
-    - [Install with pip](#install-with-pip)
-    - [Run with Docker](#run-with-docker)
-  - [🛠️ Configuration](#️-configuration)
-  - [🖥️ Built-in Web UI](#️-built-in-web-ui)
-  - [🔁 Day-to-day Ops](#-day-to-day-ops)
-  - [🆘 Troubleshooting](#-troubleshooting)
-  - [🤝 Contributing](#-contributing)
-  - [❤️ Support](#️-support)
-  - [📄 License](#-license)
+- [Overview](#-overview)
+- [Highlights](#-highlights)
+- [State of the Project](#-state-of-the-project)
+- [Quickstart](#-quickstart)
+  - [Install with pip](#install-with-pip)
+  - [Run with Docker](#run-with-docker)
+- [Configuration](#-configuration)
+- [Built-in Web UI](#-built-in-web-ui)
+- [Day-to-day Ops](#-day-to-day-ops)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [Support](#-support)
+- [License](#-license)
 
 ## 🧠 Overview
 qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent for stalled jobs, kicks Radarr/Sonarr when something finishes, prunes your completed folder, and even offers a slick React dashboard so you can see what's running at a glance.

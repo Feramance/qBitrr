@@ -1,18 +1,16 @@
 .DEFAULT_GOAL := help
 
-PYTHON ?= python
-
 ROOT_DIR:=$(abspath .)
 WEBUI_DIR:=$(ROOT_DIR)/webui
 VENV_DIR:=$(ROOT_DIR)/.venv
 
 ifeq ($(OS),Windows_NT)
+	PYTHON ?= python
 	VENV_PYTHON := ./.venv/Scripts/python.exe
-	VENV_PIP := ./.venv/Scripts/pip.exe
 	WEBUI_BUILD := if exist "$(WEBUI_DIR)\package.json" (pushd "$(WEBUI_DIR)" && npm ci && npm run build && popd)
 else
+	PYTHON ?= $(shell command -v python3 >/dev/null 2>&1 && echo python3 || command -v python >/dev/null 2>&1 && echo python || echo python3)
 	VENV_PYTHON := ./.venv/bin/python
-	VENV_PIP := ./.venv/bin/pip
 	WEBUI_BUILD := if [ -f "$(WEBUI_DIR)/package.json" ]; then \
 		cd "$(WEBUI_DIR)" && npm ci && npm run build; \
 	fi
@@ -41,10 +39,10 @@ bumpdeps:
 # Development environment
 newenv:
 	$(PYTHON) -m venv --clear ".venv"
-	"$(VENV_PIP)" install -U pip
-	"$(VENV_PIP)" install -U setuptools==69.5.1
-	"$(VENV_PIP)" install -U wheel
-	"$(VENV_PIP)" install -U pre-commit
+	"$(VENV_PYTHON)" -m pip install --upgrade pip
+	"$(VENV_PYTHON)" -m pip install --upgrade setuptools==69.5.1
+	"$(VENV_PYTHON)" -m pip install --upgrade wheel
+	"$(VENV_PYTHON)" -m pip install --upgrade pre-commit
 	$(MAKE) syncenv
 syncenv:
 	"$(VENV_PYTHON)" -m pip install --upgrade pip

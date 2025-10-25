@@ -13,6 +13,7 @@ pyarr
 qbittorrent-api
 requests
 tomlkit
+croniter
 
 [all]
 black==24.3.0
