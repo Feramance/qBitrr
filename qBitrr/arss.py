@@ -399,6 +399,7 @@ class Arr:
         self.last_search_timestamp: str | None = None
         self.queue_active_count: int = 0
         self.category_torrent_count: int = 0
+        self.free_space_tagged_count: int = 0
 
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
@@ -5177,6 +5178,11 @@ class PlaceHolderArr(Arr):
         self.search_missing = False
         self.session = None
         self.search_setup_completed = False
+        self.last_search_description: str | None = None
+        self.last_search_timestamp: str | None = None
+        self.queue_active_count: int = 0
+        self.category_torrent_count: int = 0
+        self.free_space_tagged_count: int = 0
         self.logger.hnotice("Starting %s monitor", self._name)
 
     def _process_errored(self):
@@ -5305,6 +5311,7 @@ class PlaceHolderArr(Arr):
                     except qbittorrentapi.exceptions.APIError:
                         continue
                 torrents = [t for t in torrents if hasattr(t, "category")]
+                self.category_torrent_count = len(torrents)
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if not has_internet(self.manager.qbit_manager):
@@ -5388,6 +5395,11 @@ class FreeSpaceManager(Arr):
         # Reuse Arr's search-mode initializer to set up the torrent tag-emulation DB
         # without needing Arr type, by overriding _get_models below.
         self.torrents = None
+        self.last_search_description: str | None = None
+        self.last_search_timestamp: str | None = None
+        self.queue_active_count: int = 0
+        self.category_torrent_count: int = 0
+        self.free_space_tagged_count: int = 0
         self.register_search_mode()
         self.logger.hnotice("Starting %s monitor", self._name)
         # Ensure DB is closed when process exits (guard attribute existence)
@@ -5515,6 +5527,10 @@ class FreeSpaceManager(Arr):
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 torrents = [t for t in torrents if t.category in self.categories]
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
+                self.category_torrent_count = len(torrents)
+                self.free_space_tagged_count = sum(
+                    1 for t in torrents if self.in_tags(t, "qBitrr-free_space_paused")
+                )
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 if not has_internet(self.manager.qbit_manager):

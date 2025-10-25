@@ -10,6 +10,7 @@ export interface ProcessInfo {
   searchTimestamp?: string;
   queueCount?: number;
   categoryCount?: number;
+  metricType?: string;
 }
 
 export interface ProcessesResponse {

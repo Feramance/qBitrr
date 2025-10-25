@@ -275,12 +275,47 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                         return <div className="process-chip__detail">{content}</div>;
                       }
                       if (kindLower === "torrent") {
+                        const metricType = item.metricType?.toLowerCase();
+                        if (metricType === "category") {
+                          const categoryTotal =
+                            typeof item.categoryCount === "number" ? item.categoryCount : null;
+                          const content = categoryTotal !== null
+                            ? `Category torrents ${categoryTotal}`
+                            : "Category metrics unavailable";
+                          return <div className="process-chip__detail">{content}</div>;
+                        }
+                        if (metricType === "free-space") {
+                          const tagged =
+                            typeof item.queueCount === "number" ? item.queueCount : null;
+                          const content = tagged !== null
+                            ? `Tagged for free space ${tagged}`
+                            : "Free space metrics unavailable";
+                          return <div className="process-chip__detail">{content}</div>;
+                        }
                         const hasQueue = typeof item.queueCount === "number";
                         const hasCategory = typeof item.categoryCount === "number";
-                        const content = hasQueue && hasCategory
-                          ? `Queue ${item.queueCount} / Category ${item.categoryCount}`
-                          : "Queue metrics unavailable";
-                        return <div className="process-chip__detail">{content}</div>;
+                        if (hasQueue && hasCategory) {
+                          return (
+                            <div className="process-chip__detail">
+                              {`Queue ${item.queueCount} / Category ${item.categoryCount}`}
+                            </div>
+                          );
+                        }
+                        if (hasCategory) {
+                          return (
+                            <div className="process-chip__detail">
+                              {`Category ${item.categoryCount}`}
+                            </div>
+                          );
+                        }
+                        if (hasQueue) {
+                          return (
+                            <div className="process-chip__detail">
+                              {`Queue ${item.queueCount}`}
+                            </div>
+                          );
+                        }
+                        return <div className="process-chip__detail">Queue metrics unavailable</div>;
                       }
                       return null;
                     })()}

@@ -12,6 +12,7 @@ from flask import Flask, jsonify, redirect, request, send_file
 from packaging import version as version_parser
 from peewee import fn
 
+from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
 from qBitrr.bundled_data import patched_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.logger import run_logs
@@ -647,6 +648,32 @@ class WebUI:
         @app.get("/api/processes")
         def api_processes():
             procs = []
+
+            def _populate_process_metadata(arr_obj, proc_kind, payload_dict):
+                if proc_kind == "search":
+                    summary = getattr(arr_obj, "last_search_description", None)
+                    timestamp = getattr(arr_obj, "last_search_timestamp", None)
+                    if summary:
+                        payload_dict["searchSummary"] = summary
+                    if timestamp:
+                        payload_dict["searchTimestamp"] = timestamp
+                elif proc_kind == "torrent":
+                    queue_count = getattr(arr_obj, "queue_active_count", None)
+                    category_count = getattr(arr_obj, "category_torrent_count", None)
+                    metric_type = None
+                    if isinstance(arr_obj, PlaceHolderArr):
+                        metric_type = "category"
+                        queue_count = None
+                    elif isinstance(arr_obj, FreeSpaceManager):
+                        metric_type = "free-space"
+                        queue_count = getattr(arr_obj, "free_space_tagged_count", None)
+                    if queue_count is not None:
+                        payload_dict["queueCount"] = queue_count
+                    if category_count is not None:
+                        payload_dict["categoryCount"] = category_count
+                    if metric_type:
+                        payload_dict["metricType"] = metric_type
+
             for arr in self.manager.arr_manager.managed_objects.values():
                 name = getattr(arr, "_name", "unknown")
                 cat = getattr(arr, "category", name)
@@ -662,20 +689,7 @@ class WebUI:
                             "pid": getattr(p, "pid", None),
                             "alive": bool(p.is_alive()),
                         }
-                        if kind == "search":
-                            summary = getattr(arr, "last_search_description", None)
-                            timestamp = getattr(arr, "last_search_timestamp", None)
-                            if summary:
-                                payload["searchSummary"] = summary
-                            if timestamp:
-                                payload["searchTimestamp"] = timestamp
-                        elif kind == "torrent":
-                            queue_count = getattr(arr, "queue_active_count", None)
-                            category_count = getattr(arr, "category_torrent_count", None)
-                            if queue_count is not None:
-                                payload["queueCount"] = queue_count
-                            if category_count is not None:
-                                payload["categoryCount"] = category_count
+                        _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
                     except Exception:
                         payload = {
@@ -685,20 +699,7 @@ class WebUI:
                             "pid": getattr(p, "pid", None),
                             "alive": False,
                         }
-                        if kind == "search":
-                            summary = getattr(arr, "last_search_description", None)
-                            timestamp = getattr(arr, "last_search_timestamp", None)
-                            if summary:
-                                payload["searchSummary"] = summary
-                            if timestamp:
-                                payload["searchTimestamp"] = timestamp
-                        elif kind == "torrent":
-                            queue_count = getattr(arr, "queue_active_count", None)
-                            category_count = getattr(arr, "category_torrent_count", None)
-                            if queue_count is not None:
-                                payload["queueCount"] = queue_count
-                            if category_count is not None:
-                                payload["categoryCount"] = category_count
+                        _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
             return jsonify({"processes": procs})
 
