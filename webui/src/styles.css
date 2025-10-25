@@ -143,6 +143,16 @@ body {
     background: var(--primary);
     color: #0a0a0a;
 }
+.btn.danger {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.12);
+}
+.btn.danger:hover:not(:disabled) {
+    background: var(--danger);
+    color: #0a0a0a;
+    border-color: var(--danger);
+}
 .btn.ghost {
     background: transparent;
 }
@@ -592,6 +602,24 @@ pre {
     gap: 16px;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
+.config-arr-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+.config-arr-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.config-arr-group__title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
 .config-arr-grid {
     display: grid;
     gap: 16px;
@@ -633,6 +661,8 @@ pre {
 .config-arr-actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 .config-footer {
     display: flex;

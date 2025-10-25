@@ -213,7 +213,12 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
-  { label: "WebUI Token", path: ["Settings", "WebUIToken"], type: "text" },
+  {
+    label: "WebUI Token",
+    path: ["Settings", "WebUIToken"],
+    type: "password",
+    secure: true,
+  },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -1044,6 +1049,40 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       SERVARR_SECTION_REGEX.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
+  const groupedArrSections = useMemo(() => {
+    const groups: Array<{
+      label: string;
+      type: "radarr" | "sonarr" | "other";
+      items: Array<[string, ConfigDocument]>;
+    }> = [];
+    const sorted = [...arrSections].sort((a, b) =>
+      a[0].localeCompare(b[0], undefined, { numeric: true, sensitivity: "base" })
+    );
+    const radarr: Array<[string, ConfigDocument]> = [];
+    const sonarr: Array<[string, ConfigDocument]> = [];
+    const others: Array<[string, ConfigDocument]> = [];
+    for (const entry of sorted) {
+      const [key] = entry;
+      const keyLower = key.toLowerCase();
+      if (keyLower.startsWith("radarr")) {
+        radarr.push(entry);
+      } else if (keyLower.startsWith("sonarr")) {
+        sonarr.push(entry);
+      } else {
+        others.push(entry);
+      }
+    }
+    if (radarr.length) {
+      groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
+    }
+    if (sonarr.length) {
+      groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
+    }
+    if (others.length) {
+      groups.push({ label: "Other Instances", type: "other", items: others });
+    }
+    return groups;
+  }, [arrSections]);
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isQbitOpen, setQbitOpen] = useState(false);
@@ -1148,6 +1187,32 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       setFormState(next);
     },
     [formState]
+  );
+  const deleteArrInstance = useCallback(
+    (key: string) => {
+      if (!formState) return;
+      const keyLower = key.toLowerCase();
+      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr")) {
+        return;
+      }
+      const confirmed = window.confirm(
+        `Delete ${key}? This action cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+      const next = cloneConfig(formState) ?? {};
+      if (!(key in next)) {
+        return;
+      }
+      delete next[key];
+      setFormState(next);
+      if (activeArrKey === key) {
+        setActiveArrKey(null);
+      }
+      push(`${key} removed`, "success");
+    },
+    [formState, activeArrKey, push]
   );
 
   const handleRenameSection = useCallback(
@@ -1262,45 +1327,62 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               onConfigure={() => setQbitOpen(true)}
             />
           </div>
-          {arrSections.length ? (
-            <div className="config-arr-grid">
-              {arrSections.map(([key, value]) => {
-                const uri = getValue(value as ConfigDocument, ["URI"]);
-                const category = getValue(value as ConfigDocument, ["Category"]);
-                const managed = getValue(value as ConfigDocument, ["Managed"]);
-                return (
-                  <div className="card config-card config-arr-card" key={key}>
-                    <div className="card-header">{key}</div>
-                    <div className="card-body">
-                      <dl className="config-arr-summary">
-                        <div className="config-arr-summary__item">
-                          <dt>Managed</dt>
-                          <dd>{managed ? "Enabled" : "Disabled"}</dd>
+          {groupedArrSections.length ? (
+            <div className="config-arr-groups">
+              {groupedArrSections.map((group) => (
+                <section className="config-arr-group" key={group.type}>
+                  <h3 className="config-arr-group__title">{group.label}</h3>
+                  <div className="config-arr-grid">
+                    {group.items.map(([key, value]) => {
+                      const uri = getValue(value as ConfigDocument, ["URI"]);
+                      const category = getValue(value as ConfigDocument, ["Category"]);
+                      const managed = getValue(value as ConfigDocument, ["Managed"]);
+                      const canDelete = group.type === "radarr" || group.type === "sonarr";
+                      return (
+                        <div className="card config-card config-arr-card" key={key}>
+                          <div className="card-header">{key}</div>
+                          <div className="card-body">
+                            <dl className="config-arr-summary">
+                              <div className="config-arr-summary__item">
+                                <dt>Managed</dt>
+                                <dd>{managed ? "Enabled" : "Disabled"}</dd>
+                              </div>
+                              <div className="config-arr-summary__item">
+                                <dt>Category</dt>
+                                <dd>{category ? String(category) : "-"}</dd>
+                              </div>
+                              <div className="config-arr-summary__item">
+                                <dt>URI</dt>
+                                <dd className="config-arr-summary__uri">
+                                  {uri ? String(uri) : "-"}
+                                </dd>
+                              </div>
+                            </dl>
+                            <div className="config-arr-actions">
+                              {canDelete ? (
+                                <button
+                                  className="btn danger"
+                                  type="button"
+                                  onClick={() => deleteArrInstance(key)}
+                                >
+                                  Delete
+                                </button>
+                              ) : null}
+                              <button
+                                className="btn primary"
+                                type="button"
+                                onClick={() => setActiveArrKey(key)}
+                              >
+                                Configure
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="config-arr-summary__item">
-                          <dt>Category</dt>
-                          <dd>{category ? String(category) : "-"}</dd>
-                        </div>
-                        <div className="config-arr-summary__item">
-                          <dt>URI</dt>
-                          <dd className="config-arr-summary__uri">
-                            {uri ? String(uri) : "-"}
-                          </dd>
-                        </div>
-                      </dl>
-                      <div className="config-arr-actions">
-                        <button
-                          className="btn primary"
-                          type="button"
-                          onClick={() => setActiveArrKey(key)}
-                        >
-                          Configure
-                        </button>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </section>
+              ))}
             </div>
           ) : null}
           <div className="config-footer">
