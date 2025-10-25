@@ -1740,6 +1740,9 @@ function FieldGroup({
         ? `Enable or disable ${field.label}.`
         : `Set the ${field.label} value.`);
 
+    const isArrInstance = basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "");
+    const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
+
     if (field.secure) {
       return (
         <SecureField
@@ -1749,6 +1752,7 @@ function FieldGroup({
           description={description}
           value={String(rawValue ?? '')}
           placeholder={field.placeholder}
+          canRefresh={!isArrApiKey}
           onChange={(val) => onChange(path, field, val)}
         />
       );
@@ -1917,6 +1921,7 @@ interface SecureFieldProps {
   placeholder?: string;
   tooltip?: string;
   description?: string;
+  canRefresh?: boolean;
   onChange: (value: string) => void;
 }
 
@@ -1926,6 +1931,7 @@ function SecureField({
   placeholder,
   tooltip,
   description,
+  canRefresh = true,
   onChange,
 }: SecureFieldProps): JSX.Element {
   const [revealed, setRevealed] = useState(false);
@@ -1976,9 +1982,11 @@ function SecureField({
           >
             {revealed ? "Hide" : "Show"}
           </button>
-          <button type="button" className="btn ghost" onClick={handleRefresh}>
-            Refresh
-          </button>
+          {canRefresh ? (
+            <button type="button" className="btn ghost" onClick={handleRefresh}>
+              Refresh
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

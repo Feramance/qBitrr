@@ -194,6 +194,12 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
           const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
           const displayName = name === "FreeSpaceManager" ? "Free Space Manager" : name;
           const uniqueKinds = Array.from(new Set(items.map((item) => item.kind)));
+          const filteredKinds = uniqueKinds.filter((kind) => {
+            const lower = kind.toLowerCase();
+            return lower !== "search" && lower !== "torrent";
+          });
+          const formatKind = (kind: string) =>
+            kind ? kind.charAt(0).toUpperCase() + kind.slice(1) : kind;
 
           return (
             <div className="process-card" key={name}>
@@ -201,14 +207,14 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 <div className="process-card__title">
                   <div className="process-card__name">{displayName}</div>
                   <div className="process-card__summary">{summaryLabel}</div>
-                  {uniqueKinds.length ? (
+                  {filteredKinds.length ? (
                     <div className="process-card__badges">
-                      {uniqueKinds.map((kind) => (
+                      {filteredKinds.map((kind) => (
                         <span
                           className="process-card__badge"
                           key={`${name}:${kind}:badge`}
                         >
-                          {kind}
+                          {formatKind(kind)}
                         </span>
                       ))}
                     </div>
@@ -225,7 +231,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 {items.map((item) => (
                   <div className="process-chip" key={`${item.category}:${item.kind}`}>
                     <div className="process-chip__top">
-                      <span className="process-chip__name">{item.kind}</span>
+                      <span className="process-chip__name">{formatKind(item.kind)}</span>
                       <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
                         <span className="status-pill__dot" />
                         {item.alive ? "Running" : "Stopped"}
