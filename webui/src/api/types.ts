@@ -110,3 +110,23 @@ export type ConfigDocument = Record<string, unknown>;
 export interface ConfigUpdatePayload {
   changes: Record<string, unknown>;
 }
+
+export interface UpdateState {
+  in_progress: boolean;
+  last_result: "success" | "error" | null;
+  last_error: string | null;
+  completed_at: string | null;
+}
+
+export interface MetaResponse {
+  current_version: string;
+  latest_version: string | null;
+  update_available: boolean;
+  changelog: string | null;
+  changelog_url: string | null;
+  repository_url: string;
+  homepage_url: string;
+  last_checked: string | null;
+  error?: string | null;
+  update_state: UpdateState;
+}

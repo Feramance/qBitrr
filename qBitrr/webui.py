@@ -4,11 +4,15 @@ import io
 import logging
 import secrets
 import threading
+from datetime import datetime, timedelta
 from typing import Any
 
+import requests
 from flask import Flask, jsonify, redirect, request, send_file
+from packaging import version as version_parser
 from peewee import fn
 
+from qBitrr.bundled_data import patched_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.logger import run_logs
 
@@ -82,12 +86,176 @@ class WebUI:
                 pass
             else:
                 self.logger.notice("Generated new WebUI token")
+        self._github_repo = "Feramance/qBitrr"
+        self._version_lock = threading.Lock()
+        self._version_cache = {
+            "current_version": patched_version,
+            "latest_version": None,
+            "changelog": "",
+            "changelog_url": f"https://github.com/{self._github_repo}/releases",
+            "repository_url": f"https://github.com/{self._github_repo}",
+            "homepage_url": f"https://github.com/{self._github_repo}",
+            "update_available": False,
+            "last_checked": None,
+            "error": None,
+        }
+        self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+        self._update_state = {
+            "in_progress": False,
+            "last_result": None,
+            "last_error": None,
+            "completed_at": None,
+        }
+        self._update_thread: threading.Thread | None = None
         self._register_routes()
         self._thread: threading.Thread | None = None
 
     @staticmethod
-    def _safe_bool(value: Any) -> bool:
-        return bool(value) and str(value).lower() not in {"0", "false", "none"}
+    def _normalize_version(value: str | None) -> str | None:
+        if not value:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        if cleaned[0] in {"v", "V"}:
+            cleaned = cleaned[1:]
+        if "-" in cleaned:
+            cleaned = cleaned.split("-", 1)[0]
+        return cleaned or None
+
+    def _is_newer_version(self, candidate: str | None) -> bool:
+        if not candidate:
+            return False
+        current_norm = self._normalize_version(patched_version)
+        if not current_norm:
+            return True
+        try:
+            latest_version = version_parser.parse(candidate)
+            current_version = version_parser.parse(current_norm)
+            return latest_version > current_version
+        except Exception:
+            return candidate != current_norm
+
+    def _fetch_version_info(self) -> dict[str, Any]:
+        repo = self._github_repo
+        url = f"https://api.github.com/repos/{repo}/releases/latest"
+        headers = {"Accept": "application/vnd.github+json"}
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            message = str(exc)
+            if len(message) > 200:
+                message = f"{message[:197]}..."
+            self.logger.debug("Failed to fetch latest release information: %s", exc)
+            return {"error": message}
+
+        raw_tag = (payload.get("tag_name") or payload.get("name") or "").strip()
+        normalized_latest = self._normalize_version(raw_tag)
+        latest_display = raw_tag or normalized_latest
+        changelog = payload.get("body") or ""
+        changelog_url = payload.get("html_url") or f"https://github.com/{repo}/releases"
+        update_available = self._is_newer_version(normalized_latest)
+        return {
+            "latest_version": latest_display,
+            "update_available": update_available,
+            "changelog": changelog,
+            "changelog_url": changelog_url,
+            "error": None,
+        }
+
+    def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
+        now = datetime.utcnow()
+        fetch_required = force
+        with self._version_lock:
+            if not force and now < self._version_cache_expiry:
+                snapshot = dict(self._version_cache)
+                snapshot["update_state"] = dict(self._update_state)
+                return snapshot
+            if not force:
+                fetch_required = True
+            # optimistic expiry to avoid concurrent fetches
+            self._version_cache_expiry = now + timedelta(minutes=5)
+
+        if fetch_required:
+            latest_info = self._fetch_version_info()
+        else:
+            latest_info = {}
+
+        with self._version_lock:
+            if latest_info:
+                if latest_info.get("latest_version") is not None:
+                    self._version_cache["latest_version"] = latest_info["latest_version"]
+                if latest_info.get("changelog") is not None:
+                    self._version_cache["changelog"] = latest_info.get("changelog") or ""
+                if latest_info.get("changelog_url"):
+                    self._version_cache["changelog_url"] = latest_info["changelog_url"]
+                if "update_available" in latest_info:
+                    self._version_cache["update_available"] = bool(latest_info["update_available"])
+                if "error" in latest_info:
+                    self._version_cache["error"] = latest_info["error"]
+            self._version_cache["current_version"] = patched_version
+            self._version_cache["last_checked"] = now.isoformat()
+            # Extend cache validity if fetch succeeded; otherwise allow quick retry.
+            if not latest_info or latest_info.get("error"):
+                self._version_cache_expiry = now + timedelta(minutes=5)
+            else:
+                self._version_cache_expiry = now + timedelta(hours=1)
+            snapshot = dict(self._version_cache)
+            snapshot["update_state"] = dict(self._update_state)
+            return snapshot
+
+    def _trigger_manual_update(self) -> tuple[bool, str]:
+        with self._version_lock:
+            if self._update_state["in_progress"]:
+                return False, "An update is already in progress."
+            update_thread = threading.Thread(
+                target=self._run_manual_update, name="ManualUpdater", daemon=True
+            )
+            self._update_state["in_progress"] = True
+            self._update_state["last_error"] = None
+            self._update_state["last_result"] = None
+            self._update_thread = update_thread
+        update_thread.start()
+        return True, "started"
+
+    def _run_manual_update(self) -> None:
+        result = "success"
+        error_message: str | None = None
+        try:
+            self.logger.notice("Manual update triggered from WebUI")
+            try:
+                self.manager._perform_auto_update()
+            except AttributeError:
+                from qBitrr.auto_update import perform_self_update
+
+                perform_self_update(self.manager.logger)
+        except Exception as exc:
+            result = "error"
+            error_message = str(exc)
+            self.logger.exception("Manual update failed")
+        finally:
+            completed_at = datetime.utcnow().isoformat()
+            with self._version_lock:
+                self._update_state.update(
+                    {
+                        "in_progress": False,
+                        "last_result": result,
+                        "last_error": error_message,
+                        "completed_at": completed_at,
+                    }
+                )
+                self._update_thread = None
+                self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+            try:
+                self.manager.configure_auto_update()
+            except Exception:
+                self.logger.exception("Failed to reconfigure auto update after manual update")
+            try:
+                self._ensure_version_info(force=True)
+            except Exception:
+                self.logger.debug("Version metadata refresh after update failed", exc_info=True)
 
     @staticmethod
     def _safe_str(value: Any) -> str:
@@ -762,6 +930,34 @@ class WebUI:
         @app.get("/web/arr")
         def web_arr_list():
             return api_arr_list()
+
+        @app.get("/api/meta")
+        def api_meta():
+            if (resp := require_token()) is not None:
+                return resp
+            force = self._safe_bool(request.args.get("force"))
+            return jsonify(self._ensure_version_info(force=force))
+
+        @app.get("/web/meta")
+        def web_meta():
+            force = self._safe_bool(request.args.get("force"))
+            return jsonify(self._ensure_version_info(force=force))
+
+        @app.post("/api/update")
+        def api_update():
+            if (resp := require_token()) is not None:
+                return resp
+            ok, message = self._trigger_manual_update()
+            if not ok:
+                return jsonify({"error": message}), 409
+            return jsonify({"status": "started"})
+
+        @app.post("/web/update")
+        def web_update():
+            ok, message = self._trigger_manual_update()
+            if not ok:
+                return jsonify({"error": message}), 409
+            return jsonify({"status": "started"})
 
         @app.get("/api/status")
         def api_status():

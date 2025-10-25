@@ -557,8 +557,8 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     type: "number",
     validate: (value) => {
       const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Maximum ETA must be a non-negative number.";
+      if (!Number.isFinite(num) || num < -1) {
+        return "Maximum ETA must be -1 or a non-negative number.";
       }
       return undefined;
     },

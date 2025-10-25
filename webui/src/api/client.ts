@@ -2,6 +2,7 @@ import type {
   ArrListResponse,
   ConfigDocument,
   ConfigUpdatePayload,
+  MetaResponse,
   LogsListResponse,
   ProcessesResponse,
   RadarrMoviesResponse,
@@ -57,6 +58,11 @@ async function handleText(res: Response): Promise<string> {
     throw new Error(`${res.status} ${res.statusText}`);
   }
   return res.text();
+}
+
+export async function getMeta(params?: { force?: boolean }): Promise<MetaResponse> {
+  const query = params?.force ? "?force=1" : "";
+  return handleJson(await fetch(`/web/meta${query}`));
 }
 
 export async function getStatus(): Promise<StatusResponse> {
@@ -171,6 +177,14 @@ export async function updateConfig(
     ...buildInit({
       body: JSON.stringify(payload),
     }),
+  });
+  await handleJson(res);
+}
+
+export async function triggerUpdate(): Promise<void> {
+  const res = await fetch("/web/update", {
+    method: "POST",
+    ...buildInit(),
   });
   await handleJson(res);
 }
