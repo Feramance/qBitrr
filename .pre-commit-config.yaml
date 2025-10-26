@@ -46,14 +46,6 @@ repos:
   rev: v0.3.1
   hooks:
   - id: absolufy-imports
-- repo: local
-  hooks:
-  - id: webui-static-build
-    name: WebUI static bundle
-    entry: bash webui/scripts/precommit-build.sh
-    language: system
-    pass_filenames: false
-    stages: [pre-commit]
 ci:
   autofix_commit_msg: |
     [pre-commit.ci] auto fixes from pre-commit.com hooks
