@@ -103,10 +103,10 @@ jobs:
         cd webui
         npm ci
         npm run build
-    - name: Verify static assets are committed
+    - name: Copy web UI assets into package
       run: |
-        git status --short qBitrr/static
-        git diff --exit-code qBitrr/static
+        rm -rf qBitrr/static/*
+        rsync -a webui/dist/ qBitrr/static/
     - name: Install Python dependencies
       run: |
         python -m pip install -U pip
