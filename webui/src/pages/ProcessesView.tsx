@@ -20,9 +20,23 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setProcesses([]);
     try {
       const data = await getProcesses();
-      setProcesses(data.processes ?? []);
+      const next = (data.processes ?? []).map((process) => {
+        if (typeof process.searchSummary === "string") {
+          const trimmed = process.searchSummary.trim();
+          const sanitized = /^\d+\s+queued item/i.test(trimmed)
+            ? ""
+            : trimmed;
+          return {
+            ...process,
+            searchSummary: sanitized,
+          };
+        }
+        return process;
+      });
+      setProcesses(next);
     } catch (error) {
       push(
         error instanceof Error
@@ -39,12 +53,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     void load();
   }, [load]);
 
-  useInterval(
-    () => {
-      void load();
-    },
-    active ? 5000 : null
-  );
+  useInterval(() => {
+    void load();
+  }, active ? 5000 : null);
 
   const handleRestart = useCallback(
     async (category: string, kind: string) => {

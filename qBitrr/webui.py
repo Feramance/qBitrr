@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 import secrets
 import threading
 from datetime import datetime, timedelta, timezone
@@ -673,10 +674,15 @@ class WebUI:
                 pieces = []
                 arr_type = (getattr(arr_obj, "type", "") or "").lower()
                 if arr_type == "radarr":
-                    title = record.get("title") or (record.get("movie") or {}).get("title")
+                    movie_info = record.get("movie") or {}
+                    title = movie_info.get("title") or record.get("title")
                     if title:
+                        if title == record.get("title"):
+                            cleaned = title.split("/")[-1]
+                            cleaned = re.sub(r"\.[^.]+$", "", cleaned)
+                            title = cleaned.replace(".", " ").strip()
                         pieces.append(title)
-                    year = record.get("year") or (record.get("movie") or {}).get("year")
+                    year = movie_info.get("year") or record.get("year")
                     if year:
                         pieces.append(str(year))
                 elif arr_type == "sonarr":
@@ -691,6 +697,7 @@ class WebUI:
                         episode_number = episode.get("episodeNumber")
                     if season is not None and episode_number is not None:
                         pieces.append(f"S{int(season):02d}E{int(episode_number):02d}")
+                    # Intentionally omit individual episode titles/status values
                 else:
                     title = record.get("title")
                     if title:
@@ -775,8 +782,6 @@ class WebUI:
                     )
                     metrics["summary"] = summary or None
                     metrics["timestamp"] = timestamp
-                if metrics["summary"] is None and queue_count:
-                    metrics["summary"] = f"{queue_count} queued item(s)"
                 if qbit_client and category:
                     try:
                         torrents = qbit_client.torrents_info(
