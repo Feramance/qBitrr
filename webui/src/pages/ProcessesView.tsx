@@ -175,9 +175,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     [load, push]
   );
 
-  const cardsByApp = useMemo(
-    () =>
-      groupedProcesses.map(({ app, instances }) => {
+  const cardsByApp = groupedProcesses.map(({ app, instances }) => {
         const cards = instances.map(({ name, items }) => {
           const runningCount = items.filter((item) => item.alive).length;
           const totalCount = items.length;
@@ -276,46 +274,26 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                       }
                       if (kindLower === "torrent") {
                         const metricType = item.metricType?.toLowerCase();
+                        const categoryTotal =
+                          typeof item.categoryCount === "number" ? item.categoryCount : null;
+                        const queueTotal =
+                          typeof item.queueCount === "number" ? item.queueCount : null;
+                        let effectiveTotal: number | null = null;
                         if (metricType === "category") {
-                          const categoryTotal =
-                            typeof item.categoryCount === "number" ? item.categoryCount : null;
-                          const content = categoryTotal !== null
-                            ? `Category torrents ${categoryTotal}`
-                            : "Category metrics unavailable";
-                          return <div className="process-chip__detail">{content}</div>;
+                          effectiveTotal = categoryTotal;
+                        } else if (metricType === "free-space") {
+                          effectiveTotal = queueTotal;
+                        } else {
+                          effectiveTotal = categoryTotal ?? queueTotal;
                         }
-                        if (metricType === "free-space") {
-                          const tagged =
-                            typeof item.queueCount === "number" ? item.queueCount : null;
-                          const content = tagged !== null
-                            ? `Tagged for free space ${tagged}`
-                            : "Free space metrics unavailable";
-                          return <div className="process-chip__detail">{content}</div>;
-                        }
-                        const hasQueue = typeof item.queueCount === "number";
-                        const hasCategory = typeof item.categoryCount === "number";
-                        if (hasQueue && hasCategory) {
+                        if (effectiveTotal !== null) {
                           return (
                             <div className="process-chip__detail">
-                              {`Queue ${item.queueCount} / Category ${item.categoryCount}`}
+                              {`Torrent count ${effectiveTotal}`}
                             </div>
                           );
                         }
-                        if (hasCategory) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Category ${item.categoryCount}`}
-                            </div>
-                          );
-                        }
-                        if (hasQueue) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Queue ${item.queueCount}`}
-                            </div>
-                          );
-                        }
-                        return <div className="process-chip__detail">Queue metrics unavailable</div>;
+                        return <div className="process-chip__detail">Torrent count unavailable</div>;
                       }
                       return null;
                     })()}
@@ -342,9 +320,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
           );
         });
         return { app, cards };
-      }),
-    [groupedProcesses, handleRestart, handleRestartGroup]
-  );
+      });
 
   return (
     <section className="card">
