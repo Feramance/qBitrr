@@ -278,21 +278,33 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                           typeof item.categoryCount === "number" ? item.categoryCount : null;
                         const queueTotal =
                           typeof item.queueCount === "number" ? item.queueCount : null;
-                        let effectiveTotal: number | null = null;
-                        if (metricType === "category") {
-                          effectiveTotal = categoryTotal;
-                        } else if (metricType === "free-space") {
-                          effectiveTotal = queueTotal;
-                        } else {
-                          effectiveTotal = categoryTotal ?? queueTotal;
-                        }
-                        if (effectiveTotal !== null) {
+
+                        if (!metricType) {
+                          const queueLabel = queueTotal !== null ? queueTotal : "?";
+                          const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
                           return (
                             <div className="process-chip__detail">
-                              {`Torrent count ${effectiveTotal}`}
+                              {`Torrents in queue ${queueLabel} / category ${categoryLabel}`}
                             </div>
                           );
                         }
+
+                        if (metricType === "category" && categoryTotal !== null) {
+                          return (
+                            <div className="process-chip__detail">
+                              {`Torrent count ${categoryTotal}`}
+                            </div>
+                          );
+                        }
+
+                        if (metricType === "free-space" && queueTotal !== null) {
+                          return (
+                            <div className="process-chip__detail">
+                              {`Torrent count ${queueTotal}`}
+                            </div>
+                          );
+                        }
+
                         return <div className="process-chip__detail">Torrent count unavailable</div>;
                       }
                       return null;

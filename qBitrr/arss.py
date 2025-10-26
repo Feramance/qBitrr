@@ -4526,6 +4526,7 @@ class Arr:
     def refresh_download_queue(self):
         self.queue = self.get_queue() or []
         self.queue_active_count = len(self.queue)
+        self.category_torrent_count = 0
         self.requeue_cache = defaultdict(set)
         if self.queue:
             self.cache = {

@@ -50,7 +50,7 @@ repos:
   hooks:
   - id: webui-static-build
     name: WebUI static bundle
-    entry: bash -c "cd webui && npm run build"
+    entry: bash webui/scripts/precommit-build.sh
     language: system
     pass_filenames: false
     stages: [pre-commit]
