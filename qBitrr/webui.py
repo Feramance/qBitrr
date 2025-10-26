@@ -827,6 +827,25 @@ class WebUI:
                     queue_timestamp = metrics.get("timestamp")
                     attr_summary = getattr(arr_obj, "last_search_description", None)
                     attr_timestamp = getattr(arr_obj, "last_search_timestamp", None)
+                    cached_summary = None
+                    cached_timestamp = None
+                    try:
+                        category_key = getattr(arr_obj, "category", None)
+                        search_cache = getattr(
+                            getattr(self.manager, "arr_manager", None), "search_activity", {}
+                        )
+                        if (
+                            isinstance(search_cache, dict)
+                            and category_key is not None
+                            and category_key in search_cache
+                        ):
+                            cached_entry = search_cache.get(category_key) or {}
+                            if isinstance(cached_entry, dict):
+                                cached_summary = cached_entry.get("summary")
+                                cached_timestamp = cached_entry.get("timestamp")
+                    except Exception:
+                        cached_summary = None
+                        cached_timestamp = None
 
                     def _iso_to_utc(value):
                         if not value:
@@ -851,6 +870,7 @@ class WebUI:
 
                     queue_dt = _iso_to_utc(queue_timestamp)
                     attr_dt = _iso_to_utc(attr_timestamp)
+                    cache_dt = _iso_to_utc(cached_timestamp)
                     now = datetime.now(timezone.utc)
                     if queue_dt and now - queue_dt > timedelta(minutes=30):
                         queue_summary = None
@@ -858,6 +878,9 @@ class WebUI:
                     if attr_dt and now - attr_dt > timedelta(minutes=30):
                         attr_summary = None
                         attr_dt = None
+                    if cache_dt and now - cache_dt > timedelta(minutes=30):
+                        cached_summary = None
+                        cache_dt = None
 
                     selected_summary = None
                     selected_timestamp: datetime | str | None = None
@@ -865,15 +888,21 @@ class WebUI:
                     if queue_summary and queue_dt and (not attr_dt or queue_dt >= attr_dt):
                         selected_summary = queue_summary
                         selected_timestamp = queue_dt
-                    elif attr_summary and attr_dt:
+                    elif attr_summary and attr_dt and (not cache_dt or attr_dt >= cache_dt):
                         selected_summary = attr_summary
                         selected_timestamp = attr_dt
+                    elif cached_summary and cache_dt:
+                        selected_summary = cached_summary
+                        selected_timestamp = cache_dt
                     elif attr_summary:
                         selected_summary = attr_summary
                         selected_timestamp = attr_timestamp
                     elif queue_summary:
                         selected_summary = queue_summary
                         selected_timestamp = queue_timestamp
+                    elif cached_summary:
+                        selected_summary = cached_summary
+                        selected_timestamp = cached_timestamp
 
                     if selected_summary:
                         payload_dict["searchSummary"] = selected_summary

@@ -567,6 +567,12 @@ class Arr:
             return
         self.last_search_description = " · ".join(segments)
         self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
+        search_state = getattr(self.manager, "search_activity", None)
+        if isinstance(search_state, dict):
+            search_state[self.category] = {
+                "summary": self.last_search_description,
+                "timestamp": self.last_search_timestamp,
+            }
 
     @property
     def is_alive(self) -> bool:
@@ -5587,6 +5593,7 @@ class ArrManager:
         self.managed_objects: dict[str, Arr] = {}
         self.qbit: qbittorrentapi.Client = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
+        self.search_activity: dict[str, dict[str, object]] = {}
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger("qBitrr.ArrManager")
         run_logs(self.logger)
