@@ -821,18 +821,68 @@ class WebUI:
                 metrics = metrics_cache.get(id(arr_obj))
                 if metrics is None:
                     metrics = _collect_metrics(arr_obj)
-                    metrics_cache[id(arr_obj)] = metrics
+                metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
-                    summary = metrics.get("summary") or getattr(
-                        arr_obj, "last_search_description", None
-                    )
-                    timestamp = metrics.get("timestamp") or getattr(
-                        arr_obj, "last_search_timestamp", None
-                    )
-                    if summary:
-                        payload_dict["searchSummary"] = summary
-                    if timestamp:
-                        payload_dict["searchTimestamp"] = timestamp
+                    queue_summary = metrics.get("summary")
+                    queue_timestamp = metrics.get("timestamp")
+                    attr_summary = getattr(arr_obj, "last_search_description", None)
+                    attr_timestamp = getattr(arr_obj, "last_search_timestamp", None)
+
+                    def _iso_to_utc(value):
+                        if not value:
+                            return None
+                        if isinstance(value, datetime):
+                            return value.astimezone(timezone.utc)
+                        if isinstance(value, str):
+                            try:
+                                candidate = value.rstrip("Z")
+                                if candidate == value:
+                                    dt_value = datetime.fromisoformat(candidate)
+                                else:
+                                    dt_value = datetime.fromisoformat(candidate).replace(
+                                        tzinfo=timezone.utc
+                                    )
+                                if dt_value.tzinfo is None:
+                                    dt_value = dt_value.replace(tzinfo=timezone.utc)
+                                return dt_value.astimezone(timezone.utc)
+                            except Exception:
+                                return None
+                        return None
+
+                    queue_dt = _iso_to_utc(queue_timestamp)
+                    attr_dt = _iso_to_utc(attr_timestamp)
+                    now = datetime.now(timezone.utc)
+                    if queue_dt and now - queue_dt > timedelta(minutes=30):
+                        queue_summary = None
+                        queue_dt = None
+                    if attr_dt and now - attr_dt > timedelta(minutes=30):
+                        attr_summary = None
+                        attr_dt = None
+
+                    selected_summary = None
+                    selected_timestamp: datetime | str | None = None
+
+                    if queue_summary and queue_dt and (not attr_dt or queue_dt >= attr_dt):
+                        selected_summary = queue_summary
+                        selected_timestamp = queue_dt
+                    elif attr_summary and attr_dt:
+                        selected_summary = attr_summary
+                        selected_timestamp = attr_dt
+                    elif attr_summary:
+                        selected_summary = attr_summary
+                        selected_timestamp = attr_timestamp
+                    elif queue_summary:
+                        selected_summary = queue_summary
+                        selected_timestamp = queue_timestamp
+
+                    if selected_summary:
+                        payload_dict["searchSummary"] = selected_summary
+                        if selected_timestamp:
+                            payload_dict["searchTimestamp"] = (
+                                selected_timestamp.isoformat()
+                                if isinstance(selected_timestamp, datetime)
+                                else selected_timestamp
+                            )
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
                     if queue_count is None:
