@@ -716,7 +716,12 @@ class WebUI:
                     "timestamp": None,
                     "metric_type": None,
                 }
-                qbit_client = getattr(self.manager.qbit_manager, "client", None)
+                manager_ref = getattr(arr_obj, "manager", None)
+                if manager_ref and hasattr(manager_ref, "qbit_manager"):
+                    qbit_manager = manager_ref.qbit_manager
+                else:
+                    qbit_manager = getattr(self.manager, "qbit_manager", self.manager)
+                qbit_client = getattr(qbit_manager, "client", None)
                 category = getattr(arr_obj, "category", None)
 
                 if isinstance(arr_obj, FreeSpaceManager):
