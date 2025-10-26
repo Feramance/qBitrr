@@ -674,13 +674,11 @@ class WebUI:
                 arr_type = (getattr(arr_obj, "type", "") or "").lower()
                 if arr_type == "radarr":
                     title = record.get("title") or (record.get("movie") or {}).get("title")
+                    if title:
+                        pieces.append(title)
                     year = record.get("year") or (record.get("movie") or {}).get("year")
-                    quality = record.get("quality")
-                    quality_name = quality.get("name") if isinstance(quality, dict) else None
-                    status = record.get("status")
-                    for part in (title, year and str(year), quality_name, status):
-                        if part:
-                            pieces.append(part)
+                    if year:
+                        pieces.append(str(year))
                 elif arr_type == "sonarr":
                     series = (record.get("series") or {}).get("title")
                     episode = record.get("episode")
@@ -693,14 +691,6 @@ class WebUI:
                         episode_number = episode.get("episodeNumber")
                     if season is not None and episode_number is not None:
                         pieces.append(f"S{int(season):02d}E{int(episode_number):02d}")
-                    title = (
-                        episode.get("title") if isinstance(episode, dict) else record.get("title")
-                    )
-                    if title:
-                        pieces.append(title)
-                    status = record.get("status")
-                    if status:
-                        pieces.append(status)
                 else:
                     title = record.get("title")
                     if title:
