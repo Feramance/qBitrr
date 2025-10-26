@@ -43,7 +43,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     () => {
       void load();
     },
-    active ? 1000 : null
+    active ? 5000 : null
   );
 
   const handleRestart = useCallback(
