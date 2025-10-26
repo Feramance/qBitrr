@@ -312,7 +312,8 @@ jobs:
     - name: Copy web UI assets into package
       run: |
         rm -rf qBitrr/static/*
-        rsync -a webui/dist/ qBitrr/static/
+        mkdir -p qBitrr/static
+        cp -a webui/dist/. qBitrr/static/
 
     - name: Install Python dependencies
       run: |
