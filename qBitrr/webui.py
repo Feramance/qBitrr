@@ -649,24 +649,168 @@ class WebUI:
         def api_processes():
             procs = []
 
+            def _parse_timestamp(raw_value):
+                if not raw_value:
+                    return None
+                try:
+                    if isinstance(raw_value, (int, float)):
+                        return datetime.fromtimestamp(raw_value, timezone.utc).isoformat()
+                    if isinstance(raw_value, str):
+                        trimmed = raw_value.rstrip("Z")
+                        dt = datetime.fromisoformat(trimmed)
+                        if raw_value.endswith("Z"):
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        elif dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        return dt.astimezone(timezone.utc).isoformat()
+                except Exception:
+                    return None
+                return None
+
+            def _format_queue_summary(arr_obj, record):
+                if not isinstance(record, dict):
+                    return None
+                pieces = []
+                arr_type = (getattr(arr_obj, "type", "") or "").lower()
+                if arr_type == "radarr":
+                    title = record.get("title") or (record.get("movie") or {}).get("title")
+                    year = record.get("year") or (record.get("movie") or {}).get("year")
+                    quality = record.get("quality")
+                    quality_name = quality.get("name") if isinstance(quality, dict) else None
+                    status = record.get("status")
+                    for part in (title, year and str(year), quality_name, status):
+                        if part:
+                            pieces.append(part)
+                elif arr_type == "sonarr":
+                    series = (record.get("series") or {}).get("title")
+                    episode = record.get("episode")
+                    if series:
+                        pieces.append(series)
+                    season = None
+                    episode_number = None
+                    if isinstance(episode, dict):
+                        season = episode.get("seasonNumber")
+                        episode_number = episode.get("episodeNumber")
+                    if season is not None and episode_number is not None:
+                        pieces.append(f"S{int(season):02d}E{int(episode_number):02d}")
+                    title = (
+                        episode.get("title") if isinstance(episode, dict) else record.get("title")
+                    )
+                    if title:
+                        pieces.append(title)
+                    status = record.get("status")
+                    if status:
+                        pieces.append(status)
+                else:
+                    title = record.get("title")
+                    if title:
+                        pieces.append(title)
+                cleaned = [str(part) for part in pieces if part]
+                return " · ".join(cleaned) if cleaned else None
+
+            def _collect_metrics(arr_obj):
+                metrics = {
+                    "queue": None,
+                    "category": None,
+                    "summary": None,
+                    "timestamp": None,
+                    "metric_type": None,
+                }
+                qbit_client = getattr(self.manager.qbit_manager, "client", None)
+                category = getattr(arr_obj, "category", None)
+
+                if isinstance(arr_obj, FreeSpaceManager):
+                    metrics["metric_type"] = "free-space"
+                    if qbit_client:
+                        try:
+                            torrents = qbit_client.torrents_info(status_filter="all")
+                            count = 0
+                            for torrent in torrents:
+                                tags = getattr(torrent, "tags", "") or ""
+                                if "qBitrr-free_space_paused" in str(tags):
+                                    count += 1
+                            metrics["category"] = count
+                            metrics["queue"] = count
+                        except Exception:
+                            pass
+                    return metrics
+
+                if isinstance(arr_obj, PlaceHolderArr):
+                    metrics["metric_type"] = "category"
+                    if qbit_client and category:
+                        try:
+                            torrents = qbit_client.torrents_info(
+                                status_filter="all", category=category
+                            )
+                            count = sum(
+                                1
+                                for torrent in torrents
+                                if getattr(torrent, "category", None) == category
+                            )
+                            metrics["queue"] = count
+                            metrics["category"] = count
+                        except Exception:
+                            pass
+                    return metrics
+
+                # Standard Arr (Radarr/Sonarr)
+                try:
+                    raw_queue = arr_obj.get_queue(
+                        page=1, page_size=50, sort_direction="descending"
+                    )
+                    if isinstance(raw_queue, dict):
+                        records = raw_queue.get("records", []) or []
+                    else:
+                        records = list(raw_queue or [])
+                except Exception:
+                    records = []
+                queue_count = len(records)
+                metrics["queue"] = queue_count
+                if records:
+                    first = records[0]
+                    summary = _format_queue_summary(arr_obj, first)
+                    timestamp = (
+                        _parse_timestamp(first.get("created"))
+                        or _parse_timestamp(first.get("queued"))
+                        or _parse_timestamp(first.get("updated"))
+                        or _parse_timestamp(first.get("added"))
+                    )
+                    metrics["summary"] = summary or None
+                    metrics["timestamp"] = timestamp
+                if metrics["summary"] is None and queue_count:
+                    metrics["summary"] = f"{queue_count} queued item(s)"
+                if qbit_client and category:
+                    try:
+                        torrents = qbit_client.torrents_info(
+                            status_filter="all", category=category
+                        )
+                        metrics["category"] = sum(
+                            1
+                            for torrent in torrents
+                            if getattr(torrent, "category", None) == category
+                        )
+                    except Exception:
+                        pass
+                return metrics
+
+            metrics_cache: dict[int, dict[str, object]] = {}
+
             def _populate_process_metadata(arr_obj, proc_kind, payload_dict):
+                metrics = metrics_cache.get(id(arr_obj))
+                if metrics is None:
+                    metrics = _collect_metrics(arr_obj)
+                    metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
-                    summary = getattr(arr_obj, "last_search_description", None)
-                    timestamp = getattr(arr_obj, "last_search_timestamp", None)
+                    summary = metrics.get("summary")
+                    timestamp = metrics.get("timestamp")
                     if summary:
                         payload_dict["searchSummary"] = summary
                     if timestamp:
                         payload_dict["searchTimestamp"] = timestamp
                 elif proc_kind == "torrent":
-                    queue_count = getattr(arr_obj, "queue_active_count", None)
-                    category_count = getattr(arr_obj, "category_torrent_count", None)
-                    metric_type = None
-                    if isinstance(arr_obj, PlaceHolderArr):
-                        metric_type = "category"
-                        queue_count = None
-                    elif isinstance(arr_obj, FreeSpaceManager):
-                        metric_type = "free-space"
-                        queue_count = getattr(arr_obj, "free_space_tagged_count", None)
+                    queue_count = metrics.get("queue")
+                    category_count = metrics.get("category")
+                    metric_type = metrics.get("metric_type")
                     if queue_count is not None:
                         payload_dict["queueCount"] = queue_count
                     if category_count is not None:

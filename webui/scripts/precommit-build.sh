@@ -6,6 +6,11 @@ WEBUI_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${WEBUI_DIR}"
 
+if ! command -v npm >/dev/null 2>&1; then
+  echo "[pre-commit] npm not available; skipping webui build"
+  exit 0
+fi
+
 NEED_INSTALL=false
 if [ ! -d "node_modules" ]; then
   NEED_INSTALL=true
