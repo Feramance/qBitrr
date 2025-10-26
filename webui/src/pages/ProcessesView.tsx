@@ -46,14 +46,6 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     active ? 1000 : null
   );
 
-  const formatTimestamp = useCallback((value: string): string => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-    return date.toLocaleString();
-  }, []);
-
   const handleRestart = useCallback(
     async (category: string, kind: string) => {
       try {
@@ -247,26 +239,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                       const kindLower = item.kind.toLowerCase();
                       if (kindLower === "search") {
                         const summary = item.searchSummary ?? "";
-                        const timestamp = item.searchTimestamp
-                          ? formatTimestamp(item.searchTimestamp)
-                          : null;
                         let content: JSX.Element | string;
                         if (summary) {
-                          content = (
-                            <>
-                              {summary}
-                              {timestamp ? (
-                                <span className="process-chip__detail-time"> · {timestamp}</span>
-                              ) : null}
-                            </>
-                          );
-                        } else if (timestamp) {
-                          content = (
-                            <>
-                              Last search at{" "}
-                              <span className="process-chip__detail-time">{timestamp}</span>
-                            </>
-                          );
+                          content = summary;
                         } else {
                           content = "No searches recorded";
                         }
