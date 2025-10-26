@@ -868,50 +868,60 @@ class WebUI:
                                 return None
                         return None
 
-                    queue_dt = _iso_to_utc(queue_timestamp)
-                    attr_dt = _iso_to_utc(attr_timestamp)
-                    cache_dt = _iso_to_utc(cached_timestamp)
                     now = datetime.now(timezone.utc)
-                    if queue_dt and now - queue_dt > timedelta(minutes=30):
-                        queue_summary = None
-                        queue_dt = None
-                    if attr_dt and now - attr_dt > timedelta(minutes=30):
-                        attr_summary = None
-                        attr_dt = None
-                    if cache_dt and now - cache_dt > timedelta(minutes=30):
-                        cached_summary = None
-                        cache_dt = None
 
-                    selected_summary = None
-                    selected_timestamp: datetime | str | None = None
+                    def _candidate(
+                        source: str, summary: str | None, raw_ts: datetime | str | None
+                    ):
+                        if not summary:
+                            return None
+                        dt_value = _iso_to_utc(raw_ts)
+                        if dt_value and now - dt_value > timedelta(minutes=30):
+                            return None
+                        return (source, summary, dt_value, raw_ts)
 
-                    if queue_summary and queue_dt and (not attr_dt or queue_dt >= attr_dt):
-                        selected_summary = queue_summary
-                        selected_timestamp = queue_dt
-                    elif attr_summary and attr_dt and (not cache_dt or attr_dt >= cache_dt):
-                        selected_summary = attr_summary
-                        selected_timestamp = attr_dt
-                    elif cached_summary and cache_dt:
-                        selected_summary = cached_summary
-                        selected_timestamp = cache_dt
-                    elif attr_summary:
-                        selected_summary = attr_summary
-                        selected_timestamp = attr_timestamp
-                    elif queue_summary:
-                        selected_summary = queue_summary
-                        selected_timestamp = queue_timestamp
-                    elif cached_summary:
-                        selected_summary = cached_summary
-                        selected_timestamp = cached_timestamp
+                    candidates: list[tuple[str, str, datetime | None, datetime | str | None]] = []
+                    for candidate in (
+                        _candidate("queue", queue_summary, queue_timestamp),
+                        _candidate("attr", attr_summary, attr_timestamp),
+                        _candidate("cache", cached_summary, cached_timestamp),
+                    ):
+                        if candidate is not None:
+                            candidates.append(candidate)
 
-                    if selected_summary:
-                        payload_dict["searchSummary"] = selected_summary
-                        if selected_timestamp:
-                            payload_dict["searchTimestamp"] = (
-                                selected_timestamp.isoformat()
-                                if isinstance(selected_timestamp, datetime)
-                                else selected_timestamp
+                    if not candidates and queue_summary:
+                        candidates.append(("queue", queue_summary, None, queue_timestamp))
+                    if not candidates and attr_summary:
+                        candidates.append(("attr", attr_summary, None, attr_timestamp))
+                    if not candidates and cached_summary:
+                        candidates.append(("cache", cached_summary, None, cached_timestamp))
+
+                    if candidates:
+
+                        def _sort_key(
+                            item: tuple[str, str, datetime | None, datetime | str | None],
+                        ):
+                            source, _, dt_value, _ = item
+                            has_dt = dt_value is not None
+                            return (
+                                1 if has_dt else 0,
+                                dt_value if dt_value is not None else datetime.min,
+                                1 if source == "queue" else 0,
                             )
+
+                        _, selected_summary, selected_dt, selected_raw = max(
+                            candidates, key=_sort_key
+                        )
+                        if selected_summary:
+                            payload_dict["searchSummary"] = selected_summary
+                            if selected_dt is not None:
+                                payload_dict["searchTimestamp"] = selected_dt.isoformat()
+                            elif selected_raw:
+                                payload_dict["searchTimestamp"] = (
+                                    selected_raw.isoformat()
+                                    if isinstance(selected_raw, datetime)
+                                    else selected_raw
+                                )
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
                     if queue_count is None:
