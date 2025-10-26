@@ -311,9 +311,13 @@ jobs:
 
     - name: Copy web UI assets into package
       run: |
-        rm -rf qBitrr/static/*
-        mkdir -p qBitrr/static
-        cp -a webui/dist/. qBitrr/static/
+        if [ -d webui/dist ]; then
+          rm -rf qBitrr/static/*
+          mkdir -p qBitrr/static
+          cp -a webui/dist/. qBitrr/static/
+        else
+          echo "webui/dist not found; assuming assets already built into qBitrr/static"
+        fi
 
     - name: Install Python dependencies
       run: |
