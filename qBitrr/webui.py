@@ -906,7 +906,7 @@ class WebUI:
                             return (
                                 1 if has_dt else 0,
                                 dt_value if dt_value is not None else datetime.min,
-                                1 if source == "queue" else 0,
+                                {"cache": 3, "attr": 2, "queue": 1}.get(source, 0),
                             )
 
                         _, selected_summary, selected_dt, selected_raw = max(
