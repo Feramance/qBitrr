@@ -754,19 +754,22 @@ class WebUI:
                     return metrics
 
                 # Standard Arr (Radarr/Sonarr)
-                try:
-                    raw_queue = arr_obj.get_queue(
-                        page=1, page_size=50, sort_direction="descending"
-                    )
-                    if isinstance(raw_queue, dict):
-                        records = raw_queue.get("records", []) or []
-                    else:
-                        records = list(raw_queue or [])
-                except Exception:
-                    records = []
+                records = []
+                client = getattr(arr_obj, "client", None)
+                if client is not None:
+                    try:
+                        raw_queue = arr_obj.get_queue(
+                            page=1, page_size=50, sort_direction="descending"
+                        )
+                        if isinstance(raw_queue, dict):
+                            records = raw_queue.get("records", []) or []
+                        else:
+                            records = list(raw_queue or [])
+                    except Exception:
+                        records = []
                 queue_count = len(records)
-                metrics["queue"] = queue_count
-                if records:
+                if queue_count:
+                    metrics["queue"] = queue_count
                     first = records[0]
                     summary = _format_queue_summary(arr_obj, first)
                     timestamp = (
@@ -801,15 +804,23 @@ class WebUI:
                     metrics = _collect_metrics(arr_obj)
                     metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
-                    summary = metrics.get("summary")
-                    timestamp = metrics.get("timestamp")
+                    summary = metrics.get("summary") or getattr(
+                        arr_obj, "last_search_description", None
+                    )
+                    timestamp = metrics.get("timestamp") or getattr(
+                        arr_obj, "last_search_timestamp", None
+                    )
                     if summary:
                         payload_dict["searchSummary"] = summary
                     if timestamp:
                         payload_dict["searchTimestamp"] = timestamp
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
+                    if queue_count is None:
+                        queue_count = getattr(arr_obj, "queue_active_count", None)
                     category_count = metrics.get("category")
+                    if category_count is None:
+                        category_count = getattr(arr_obj, "category_torrent_count", None)
                     metric_type = metrics.get("metric_type")
                     if queue_count is not None:
                         payload_dict["queueCount"] = queue_count
