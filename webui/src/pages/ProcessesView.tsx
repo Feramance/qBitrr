@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import {
   getProcesses,
   rebuildArrs,
@@ -9,6 +9,80 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 
+const RELEASE_TOKEN_REGEX =
+  /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
+const EPISODE_TOKEN_REGEX = /\bS\d{1,3}E\d{1,3}\b/i;
+const SEASON_TOKEN_REGEX = /\bSeason\s+\d+\b/i;
+
+function sanitizeSearchSummary(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  if (/^\d+\s+queued item/i.test(trimmed)) return "";
+  const normalized = trimmed.replace(/\s+/g, " ");
+  const releaseMatch = normalized.match(
+    /^(?<title>.+?)\s+(?<year>(?:19|20)\d{2})(?:\s+(?<rest>.*))?$/
+  );
+
+  if (releaseMatch) {
+    const rest = releaseMatch.groups?.rest ?? "";
+    const looksLikeEpisode =
+      EPISODE_TOKEN_REGEX.test(rest) || SEASON_TOKEN_REGEX.test(rest);
+    if (rest && !looksLikeEpisode && RELEASE_TOKEN_REGEX.test(rest)) {
+      const rawTitle = releaseMatch.groups?.title ?? "";
+      const cleanedTitle = rawTitle
+        .replace(/[-_.]/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      const year = releaseMatch.groups?.year ?? "";
+      if (cleanedTitle) {
+        return year ? `${cleanedTitle} (${year})` : cleanedTitle;
+      }
+    }
+  }
+
+  return normalized;
+}
+
+function isProcessEqual(a: ProcessInfo, b: ProcessInfo): boolean {
+  return (
+    a.category === b.category &&
+    a.name === b.name &&
+    a.kind === b.kind &&
+    a.pid === b.pid &&
+    a.alive === b.alive &&
+    (a.searchSummary ?? "") === (b.searchSummary ?? "") &&
+    (a.searchTimestamp ?? "") === (b.searchTimestamp ?? "") &&
+    (a.queueCount ?? null) === (b.queueCount ?? null) &&
+    (a.categoryCount ?? null) === (b.categoryCount ?? null) &&
+    (a.metricType ?? "") === (b.metricType ?? "")
+  );
+}
+
+function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (!isProcessEqual(a[index], b[index])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getRefreshDelay(active: boolean, processes: ProcessInfo[]): number | null {
+  if (!active) return null;
+  const hasActiveSearch = processes.some(
+    (proc) => proc.alive && proc.kind.toLowerCase() === "search"
+  );
+  if (hasActiveSearch) return 5000;
+  const hasQueueActivity = processes.some(
+    (proc) =>
+      typeof proc.queueCount === "number" && proc.queueCount > 0
+  );
+  if (hasQueueActivity) return 10000;
+  return 20000;
+}
+
 interface ProcessesViewProps {
   active: boolean;
 }
@@ -17,18 +91,19 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const { push } = useToast();
+  const isFetching = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setProcesses([]);
+    if (isFetching.current) {
+      return;
+    }
+    isFetching.current = true;
+    setLoading((prev) => (prev ? prev : true));
     try {
       const data = await getProcesses();
       const next = (data.processes ?? []).map((process) => {
         if (typeof process.searchSummary === "string") {
-          const trimmed = process.searchSummary.trim();
-          const sanitized = /^\d+\s+queued item/i.test(trimmed)
-            ? ""
-            : trimmed;
+          const sanitized = sanitizeSearchSummary(process.searchSummary);
           return {
             ...process,
             searchSummary: sanitized,
@@ -36,7 +111,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
         }
         return process;
       });
-      setProcesses(next);
+      setProcesses((prev) =>
+        areProcessListsEqual(prev, next) ? prev : next
+      );
     } catch (error) {
       push(
         error instanceof Error
@@ -45,6 +122,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
         "error"
       );
     } finally {
+      isFetching.current = false;
       setLoading(false);
     }
   }, [push]);
@@ -53,9 +131,20 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (active) {
+      void load();
+    }
+  }, [active, load]);
+
+  const refreshDelay = useMemo(
+    () => getRefreshDelay(active, processes),
+    [active, processes]
+  );
+
   useInterval(() => {
     void load();
-  }, active ? 5000 : null);
+  }, refreshDelay);
 
   const handleRestart = useCallback(
     async (category: string, kind: string) => {

@@ -675,14 +675,33 @@ class WebUI:
                 arr_type = (getattr(arr_obj, "type", "") or "").lower()
                 if arr_type == "radarr":
                     movie_info = record.get("movie") or {}
-                    title = movie_info.get("title") or record.get("title")
+                    title = movie_info.get("title")
+                    year = movie_info.get("year")
+                    release_title = record.get("title") or ""
+                    release_name = ""
+                    release_year = None
+                    if release_title:
+                        cleaned = release_title.split("/")[-1]
+                        cleaned = re.sub(r"\.[^.]+$", "", cleaned)
+                        cleaned = re.sub(r"[-_.]+", " ", cleaned).strip()
+                        release_name = cleaned
+                        match = re.match(
+                            r"(?P<name>.+?)\s+(?P<year>(?:19|20)\d{2})(?:\s|$)",
+                            cleaned,
+                        )
+                        if match:
+                            extracted_name = (match.group("name") or "").strip(" .-_")
+                            if extracted_name:
+                                release_name = re.sub(r"[-_.]+", " ", extracted_name).strip()
+                            release_year = match.group("year")
+                    if not title and release_name:
+                        title = release_name
+                    elif title and release_title and title == release_title and release_name:
+                        title = release_name
+                    if not year:
+                        year = release_year or record.get("year")
                     if title:
-                        if title == record.get("title"):
-                            cleaned = title.split("/")[-1]
-                            cleaned = re.sub(r"\.[^.]+$", "", cleaned)
-                            title = cleaned.replace(".", " ").strip()
                         pieces.append(title)
-                    year = movie_info.get("year") or record.get("year")
                     if year:
                         pieces.append(str(year))
                 elif arr_type == "sonarr":
