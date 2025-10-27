@@ -1449,16 +1449,24 @@ function SonarrInstanceView({
     for (const entry of seriesEntries) {
       const seasons = entry.seasons ?? {};
       const filteredSeasons: Record<string, SonarrSeason> = {};
+      let hasMissingEpisodes = false;
       for (const [seasonNumber, season] of Object.entries(seasons)) {
         const episodes = (season.episodes ?? []).filter((episode) => !episode.hasFile);
         if (!episodes.length) continue;
         filteredSeasons[seasonNumber] = { ...season, episodes };
+        hasMissingEpisodes = true;
       }
-      if (Object.keys(filteredSeasons).length === 0) continue;
-      result.push({
-        ...entry,
-        seasons: filteredSeasons,
-      });
+      const totals = entry.totals ?? {};
+      const hasMissingByTotals =
+        (totals.monitored ?? 0) > (totals.available ?? 0);
+      if (hasMissingEpisodes) {
+        result.push({
+          ...entry,
+          seasons: filteredSeasons,
+        });
+      } else if (hasMissingByTotals) {
+        result.push(entry);
+      }
     }
     return result;
   }, [seriesEntries, onlyMissing]);
