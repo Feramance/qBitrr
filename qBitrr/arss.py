@@ -568,11 +568,19 @@ class Arr:
         context: str | None = None,
         detail: str | None = None,
     ) -> None:
-        segments = [segment for segment in (context, description, detail) if segment]
+        self.last_search_description = description
+        self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
+        if detail == "loop-complete":
+            detail = "Searches completed, waiting till next loop"
+        elif detail == "no-pending-searches":
+            detail = "No pending searches"
+            self.last_search_description = detail
+        segments = [
+            segment for segment in (context, self.last_search_description, detail) if segment
+        ]
         if not segments:
             return
         self.last_search_description = " · ".join(segments)
-        self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
         record_search_activity(
             str(self.category),
             self.last_search_description,
@@ -4994,10 +5002,18 @@ class Arr:
                                 self.refresh_download_queue()
                                 event.wait(((timer + loop_timer) - datetime.now()).total_seconds())
                                 self.logger.trace("Restarting loop testing")
+                                try:
+                                    self._record_search_activity(None, detail="loop-complete")
+                                except Exception:
+                                    pass
                                 raise RestartLoopException
                         elif datetime.now() >= (timer + loop_timer):
                             self.refresh_download_queue()
                             self.logger.trace("Restarting loop testing")
+                            try:
+                                self._record_search_activity(None, detail="loop-complete")
+                            except Exception:
+                                pass
                             raise RestartLoopException
                         for (
                             entry,
@@ -5029,6 +5045,12 @@ class Arr:
                             event.wait(loop_delay)
                             if totcommands == 0:
                                 self.logger.info("All searches completed")
+                                try:
+                                    self._record_search_activity(
+                                        None, detail="no-pending-searches"
+                                    )
+                                except Exception:
+                                    pass
                             elif datetime.now() >= (timer + loop_timer):
                                 timer = datetime.now()
                                 self.logger.info(
