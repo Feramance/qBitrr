@@ -7,6 +7,7 @@ import secrets
 import threading
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -67,7 +68,7 @@ def _toml_to_jsonable(obj: Any) -> Any:
 
 
 class WebUI:
-    def __init__(self, manager, host: str = "0.0.0.0", port: int = 6969):
+    def __init__(self, manager, host: str = "127.0.0.1", port: int = 6969):
         self.manager = manager
         self.host = host
         self.port = port
@@ -75,6 +76,11 @@ class WebUI:
         self.logger = logging.getLogger("qBitrr.WebUI")
         run_logs(self.logger, "WebUI")
         self.logger.info("Initialising WebUI on %s:%s", self.host, self.port)
+        if self.host in {"0.0.0.0", "::"}:
+            self.logger.warning(
+                "WebUI configured to listen on %s. Expose this only behind a trusted reverse proxy.",
+                self.host,
+            )
         self.app.logger.handlers.clear()
         self.app.logger.propagate = True
         self.app.logger.setLevel(self.logger.level)
@@ -624,6 +630,18 @@ class WebUI:
     # Routes
     def _register_routes(self):
         app = self.app
+        logs_root = (HOME_PATH / "logs").resolve()
+
+        def _resolve_log_file(name: str) -> Path | None:
+            try:
+                candidate = (logs_root / name).resolve(strict=False)
+            except Exception:
+                return None
+            try:
+                candidate.relative_to(logs_root)
+            except ValueError:
+                return None
+            return candidate
 
         @app.get("/health")
         def health():
@@ -653,6 +671,8 @@ class WebUI:
 
         @app.get("/api/processes")
         def api_processes():
+            if (resp := require_token()) is not None:
+                return resp
             procs = []
             search_activity_map = fetch_search_activities()
 
@@ -728,11 +748,7 @@ class WebUI:
                     if title:
                         pieces.append(title)
                 cleaned = [str(part) for part in pieces if part]
-                return (
-                    " ÃƒÆ'Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ'Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ".join(cleaned)
-                    if cleaned
-                    else None
-                )
+                return " | ".join(cleaned) if cleaned else None
 
             def _collect_metrics(arr_obj):
                 metrics = {
@@ -903,7 +919,7 @@ class WebUI:
                         procs.append(payload)
             return jsonify({"processes": procs})
 
-        # Unauthenticated UI endpoints (mirror of /api/* for first-party WebUI)
+        # UI endpoints (mirror of /api/* for first-party WebUI clients)
         @app.get("/web/processes")
         def web_processes():
             return api_processes()
@@ -954,6 +970,8 @@ class WebUI:
 
         @app.post("/web/processes/<category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _restart_process(category, kind)
 
         @app.post("/api/processes/restart_all")
@@ -965,6 +983,8 @@ class WebUI:
 
         @app.post("/web/processes/restart_all")
         def web_restart_all():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -991,6 +1011,8 @@ class WebUI:
 
         @app.post("/web/loglevel")
         def web_loglevel():
+            if (resp := require_token()) is not None:
+                return resp
             body = request.get_json(silent=True) or {}
             level = str(body.get("level", "INFO")).upper()
             valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
@@ -1017,6 +1039,8 @@ class WebUI:
 
         @app.post("/web/arr/rebuild")
         def web_arr_rebuild():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -1033,20 +1057,16 @@ class WebUI:
 
         @app.get("/web/logs")
         def web_logs():
-            logs_dir = HOME_PATH.joinpath("logs")
-            files = []
-            if logs_dir.exists():
-                for f in logs_dir.glob("*.log*"):
-                    files.append(f.name)
-            return jsonify({"files": sorted(files)})
+            if (resp := require_token()) is not None:
+                return resp
+            return api_logs()
 
         @app.get("/api/logs/<name>")
         def api_log(name: str):
             if (resp := require_token()) is not None:
                 return resp
-            logs_dir = HOME_PATH.joinpath("logs")
-            file = logs_dir.joinpath(name)
-            if not file.exists():
+            file = _resolve_log_file(name)
+            if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
             # Return last 2000 lines
             try:
@@ -1058,9 +1078,10 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            logs_dir = HOME_PATH.joinpath("logs")
-            file = logs_dir.joinpath(name)
-            if not file.exists():
+            if (resp := require_token()) is not None:
+                return resp
+            file = _resolve_log_file(name)
+            if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
             try:
                 content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
@@ -1073,17 +1094,17 @@ class WebUI:
         def api_log_download(name: str):
             if (resp := require_token()) is not None:
                 return resp
-            logs_dir = HOME_PATH.joinpath("logs")
-            file = logs_dir.joinpath(name)
-            if not file.exists():
+            file = _resolve_log_file(name)
+            if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
             return send_file(file, as_attachment=True)
 
         @app.get("/web/logs/<name>/download")
         def web_log_download(name: str):
-            logs_dir = HOME_PATH.joinpath("logs")
-            file = logs_dir.joinpath(name)
-            if not file.exists():
+            if (resp := require_token()) is not None:
+                return resp
+            file = _resolve_log_file(name)
+            if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
             return send_file(file, as_attachment=True)
 
@@ -1103,7 +1124,8 @@ class WebUI:
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
-            # Mirror radarr movies without auth for UI
+            if (resp := require_token()) is not None:
+                return resp
             arr = self.manager.arr_manager.managed_objects.get(category)
             if arr is None or getattr(arr, "type", None) != "radarr":
                 return jsonify({"error": f"Unknown radarr category {category}"}), 404
@@ -1130,6 +1152,8 @@ class WebUI:
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             arr = self.manager.arr_manager.managed_objects.get(category)
             if arr is None or getattr(arr, "type", None) != "sonarr":
                 return jsonify({"error": f"Unknown sonarr category {category}"}), 404
@@ -1142,6 +1166,8 @@ class WebUI:
 
         @app.get("/api/arr")
         def api_arr_list():
+            if (resp := require_token()) is not None:
+                return resp
             items = []
             for k, arr in self.manager.arr_manager.managed_objects.items():
                 t = getattr(arr, "type", None)
@@ -1164,6 +1190,8 @@ class WebUI:
 
         @app.get("/web/meta")
         def web_meta():
+            if (resp := require_token()) is not None:
+                return resp
             force = self._safe_bool(request.args.get("force"))
             return jsonify(self._ensure_version_info(force=force))
 
@@ -1178,6 +1206,8 @@ class WebUI:
 
         @app.post("/web/update")
         def web_update():
+            if (resp := require_token()) is not None:
+                return resp
             ok, message = self._trigger_manual_update()
             if not ok:
                 return jsonify({"error": message}), 409
@@ -1185,6 +1215,8 @@ class WebUI:
 
         @app.get("/api/status")
         def api_status():
+            if (resp := require_token()) is not None:
+                return resp
             qb = {
                 "alive": bool(self.manager.is_alive),
                 "host": self.manager.qBit_Host,
@@ -1221,6 +1253,8 @@ class WebUI:
 
         @app.get("/api/token")
         def api_token():
+            if (resp := require_token()) is not None:
+                return resp
             # Expose token for API clients only; UI uses /web endpoints
             return jsonify({"token": self.token})
 
@@ -1264,6 +1298,8 @@ class WebUI:
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
+            if (resp := require_token()) is not None:
+                return resp
             if section not in self.manager.arr_manager.managed_objects:
                 return jsonify({"error": f"Unknown section {section}"}), 404
             arr = self.manager.arr_manager.managed_objects[section]
@@ -1314,6 +1350,8 @@ class WebUI:
 
         @app.get("/web/config")
         def web_get_config():
+            if (resp := require_token()) is not None:
+                return resp
             try:
                 try:
                     CONFIG.load()
@@ -1355,6 +1393,8 @@ class WebUI:
 
         @app.post("/web/config")
         def web_update_config():
+            if (resp := require_token()) is not None:
+                return resp
             body = request.get_json(silent=True) or {}
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):

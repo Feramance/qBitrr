@@ -108,7 +108,12 @@ class qBitManager:
             web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
         except Exception:
             web_port = 6969
-        web_host = CONFIG.get("Settings.WebUIHost", fallback="0.0.0.0") or "0.0.0.0"
+        web_host = CONFIG.get("Settings.WebUIHost", fallback="127.0.0.1") or "127.0.0.1"
+        if web_host in {"0.0.0.0", "::"}:
+            self.logger.warning(
+                "WebUI host configured for %s; ensure exposure is intentional and protected.",
+                web_host,
+            )
         self.webui = WebUI(self, host=web_host, port=web_port)
         self.webui.start()
         self.configure_auto_update()

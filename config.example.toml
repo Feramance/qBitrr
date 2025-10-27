@@ -60,8 +60,8 @@ AutoUpdateEnabled = false
 AutoUpdateCron = "0 3 * * 0"
 
 # WebUI listen port and host
-# Default listen host `0.0.0.0` binds on all interfaces
-WebUIHost = "0.0.0.0"
+# Default listen host `127.0.0.1` binds on all interfaces
+WebUIHost = "127.0.0.1"
 WebUIPort = 6969
 
 # Optional bearer token to secure the WebUI/API.
