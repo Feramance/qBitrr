@@ -643,6 +643,13 @@ class WebUI:
                 return None
             return candidate
 
+        def _managed_objects() -> dict[str, Any]:
+            arr_manager = getattr(self.manager, "arr_manager", None)
+            return getattr(arr_manager, "managed_objects", {}) if arr_manager else {}
+
+        def _ensure_arr_manager_ready() -> bool:
+            return getattr(self.manager, "arr_manager", None) is not None
+
         @app.get("/health")
         def health():
             return jsonify({"status": "ok"})
@@ -896,7 +903,7 @@ class WebUI:
                     if metric_type:
                         payload_dict["metricType"] = metric_type
 
-            for arr in self.manager.arr_manager.managed_objects.values():
+            for arr in _managed_objects().values():
                 name = getattr(arr, "_name", "unknown")
                 cat = getattr(arr, "category", name)
                 for kind in ("search", "torrent"):
@@ -940,7 +947,11 @@ class WebUI:
             kind_normalized = kind.lower()
             if kind_normalized not in ("search", "torrent", "all"):
                 return jsonify({"error": "kind must be search, torrent or all"}), 400
-            arr = self.manager.arr_manager.managed_objects.get(category)
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
             if arr is None:
                 return jsonify({"error": f"Unknown category {category}"}), 404
             restarted: list[str] = []
@@ -1110,7 +1121,11 @@ class WebUI:
         def api_radarr_movies(category: str):
             if (resp := require_token()) is not None:
                 return resp
-            arr = self.manager.arr_manager.managed_objects.get(category)
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
             if arr is None or getattr(arr, "type", None) != "radarr":
                 return jsonify({"error": f"Unknown radarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
@@ -1122,7 +1137,11 @@ class WebUI:
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
-            arr = self.manager.arr_manager.managed_objects.get(category)
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
             if arr is None or getattr(arr, "type", None) != "radarr":
                 return jsonify({"error": f"Unknown radarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
@@ -1136,7 +1155,11 @@ class WebUI:
         def api_sonarr_series(category: str):
             if (resp := require_token()) is not None:
                 return resp
-            arr = self.manager.arr_manager.managed_objects.get(category)
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
             if arr is None or getattr(arr, "type", None) != "sonarr":
                 return jsonify({"error": f"Unknown sonarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
@@ -1148,7 +1171,11 @@ class WebUI:
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
-            arr = self.manager.arr_manager.managed_objects.get(category)
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
             if arr is None or getattr(arr, "type", None) != "sonarr":
                 return jsonify({"error": f"Unknown sonarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
@@ -1160,13 +1187,13 @@ class WebUI:
 
         def _arr_list_payload() -> dict[str, Any]:
             items = []
-            for k, arr in self.manager.arr_manager.managed_objects.items():
+            for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
                 if t in ("radarr", "sonarr"):
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})
-            return {"arr": items}
+            return {"arr": items, "ready": _ensure_arr_manager_ready()}
 
         @app.get("/api/arr")
         def api_arr_list():
@@ -1218,7 +1245,7 @@ class WebUI:
                 ),
             }
             arrs = []
-            for k, arr in self.manager.arr_manager.managed_objects.items():
+            for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
                 if t in ("radarr", "sonarr"):
                     # Determine liveness based on child search/torrent processes
@@ -1235,7 +1262,7 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
-            return {"qbit": qb, "arrs": arrs}
+            return {"qbit": qb, "arrs": arrs, "ready": _ensure_arr_manager_ready()}
 
         @app.get("/api/status")
         def api_status():
@@ -1259,9 +1286,13 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             # Section is the category key in managed_objects
-            if section not in self.manager.arr_manager.managed_objects:
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            if section not in managed:
                 return jsonify({"error": f"Unknown section {section}"}), 404
-            arr = self.manager.arr_manager.managed_objects[section]
+            arr = managed[section]
             # Restart both loops for this arr
             restarted = []
             for k in ("search", "torrent"):
@@ -1294,9 +1325,13 @@ class WebUI:
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
-            if section not in self.manager.arr_manager.managed_objects:
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            if section not in managed:
                 return jsonify({"error": f"Unknown section {section}"}), 404
-            arr = self.manager.arr_manager.managed_objects[section]
+            arr = managed[section]
             restarted = []
             for k in ("search", "torrent"):
                 proc_attr = f"process_{k}_loop"

@@ -6,6 +6,10 @@ import itertools
 import logging
 import sys
 from multiprocessing import Event, freeze_support
+from queue import SimpleQueue
+from threading import Event as ThreadEvent
+from threading import Thread
+from time import monotonic
 
 import pathos
 import qbittorrentapi
@@ -91,8 +95,12 @@ class qBitManager:
         self.cache = {}
         self.name_cache = {}
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
-        self.child_processes = []
+        self.child_processes: list[pathos.helpers.mp.Process] = []
+        self._process_registry: dict[pathos.helpers.mp.Process, dict[str, str]] = {}
         self.auto_updater = None
+        self.arr_manager = None
+        self._bootstrap_ready = ThreadEvent()
+        self._startup_thread: Thread | None = None
         self.ffprobe_downloader = FFprobeDownloader()
         try:
             if not (QBIT_DISABLED or SEARCH_ONLY):
@@ -101,9 +109,7 @@ class qBitManager:
             self.logger.error(
                 "FFprobe manager error: %s while attempting to download/update FFprobe", e
             )
-        self.arr_manager = ArrManager(self).build_arr_instances()
-        run_logs(self.logger)
-        # Start WebUI
+        # Start WebUI as early as possible
         try:
             web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
         except Exception:
@@ -116,7 +122,12 @@ class qBitManager:
             )
         self.webui = WebUI(self, host=web_host, port=web_port)
         self.webui.start()
-        self.configure_auto_update()
+
+        # Finish bootstrap tasks (Arr manager, workers, auto-update) in the background
+        self._startup_thread = Thread(
+            target=self._complete_startup, name="qBitrr-Startup", daemon=True
+        )
+        self._startup_thread.start()
 
     def configure_auto_update(self) -> None:
         enabled, cron = get_auto_update_settings()
@@ -138,6 +149,81 @@ class qBitManager:
         self.logger.notice(
             "Auto update cycle complete. A restart may be required if files were updated."
         )
+
+    def _prepare_arr_processes(self, arr, timeout_seconds: int = 30) -> None:
+        timeout = max(
+            1, int(CONFIG.get("Settings.ProcessSpawnTimeoutSeconds", fallback=timeout_seconds))
+        )
+        result_queue: SimpleQueue = SimpleQueue()
+
+        def _stage():
+            try:
+                result_queue.put((True, arr.spawn_child_processes()))
+            except Exception as exc:  # pragma: no cover - defensive logging
+                result_queue.put((False, exc))
+
+        spawn_thread = Thread(
+            target=_stage,
+            name=f"spawn-{getattr(arr, 'category', getattr(arr, '_name', 'arr'))}",
+            daemon=True,
+        )
+        spawn_thread.start()
+        spawn_thread.join(timeout)
+        if spawn_thread.is_alive():
+            self.logger.error(
+                "Timed out initialising worker processes for %s after %ss; skipping this instance.",
+                getattr(arr, "_name", getattr(arr, "category", "unknown")),
+                timeout,
+            )
+            return
+        if result_queue.empty():
+            self.logger.error(
+                "No startup result returned for %s; skipping this instance.",
+                getattr(arr, "_name", getattr(arr, "category", "unknown")),
+            )
+            return
+        success, payload = result_queue.get()
+        if not success:
+            self.logger.exception(
+                "Failed to initialise worker processes for %s",
+                getattr(arr, "_name", getattr(arr, "category", "unknown")),
+                exc_info=payload,
+            )
+            return
+        worker_count, processes = payload
+        if not worker_count:
+            return
+        for proc in processes:
+            role = "search" if getattr(arr, "process_search_loop", None) is proc else "torrent"
+            self._process_registry[proc] = {
+                "category": getattr(arr, "category", ""),
+                "name": getattr(arr, "_name", getattr(arr, "category", "")),
+                "role": role or "worker",
+            }
+        self.logger.debug(
+            "Prepared %s worker(s) for %s",
+            worker_count,
+            getattr(arr, "_name", getattr(arr, "category", "unknown")),
+        )
+
+    def _complete_startup(self) -> None:
+        started_at = monotonic()
+        try:
+            arr_manager = ArrManager(self)
+            self.arr_manager = arr_manager
+            arr_manager.build_arr_instances()
+            run_logs(self.logger)
+            for arr in arr_manager.managed_objects.values():
+                self._prepare_arr_processes(arr)
+            self.configure_auto_update()
+            elapsed = monotonic() - started_at
+            self.logger.info("Background startup completed in %.1fs", elapsed)
+        except Exception:
+            self.logger.exception(
+                "Background startup encountered an error; continuing with partial functionality."
+            )
+        finally:
+            self._bootstrap_ready.set()
 
     def _version_validator(self):
         validated = False
@@ -200,26 +286,71 @@ class qBitManager:
         self.should_delay_torrent_scan = True
         return False
 
-    def get_child_processes(self) -> list[pathos.helpers.mp.Process]:
-        run_logs(self.logger)
-        self.logger.debug("Managing %s categories", len(self.arr_manager.managed_objects))
-        count = 0
-        for arr in self.arr_manager.managed_objects.values():
-            numb, processes = arr.spawn_child_processes()
-            count += numb
-        return self.child_processes
+    def get_child_processes(self, timeout: float = 60.0) -> list[pathos.helpers.mp.Process]:
+        if not self._bootstrap_ready.wait(timeout):
+            self.logger.warning(
+                "Background startup did not finish within %.1fs. Continuing with the services currently available.",
+                timeout,
+            )
+        return list(self.child_processes)
 
-    def run(self):
+    def run(self) -> None:
         try:
-            self.logger.debug("Starting %s child processes", len(self.child_processes))
-            [p.start() for p in self.child_processes]
-            [p.join() for p in self.child_processes]
+            if not self._bootstrap_ready.wait(60.0):
+                self.logger.warning(
+                    "Startup thread still running after 60s; managing available workers."
+                )
+            for proc in list(self.child_processes):
+                try:
+                    proc.start()
+                    meta = self._process_registry.get(proc, {})
+                    self.logger.debug(
+                        "Started %s worker for category '%s'",
+                        meta.get("role", "worker"),
+                        meta.get("category", "unknown"),
+                    )
+                except Exception as exc:
+                    self.logger.exception(
+                        "Failed to start worker process %s",
+                        getattr(proc, "name", repr(proc)),
+                        exc_info=exc,
+                    )
+            while not self.shutdown_event.is_set():
+                any_alive = False
+                for proc in list(self.child_processes):
+                    if proc.is_alive():
+                        any_alive = True
+                        continue
+                    exit_code = proc.exitcode
+                    if exit_code is None:
+                        continue
+                    meta = self._process_registry.pop(proc, {})
+                    with contextlib.suppress(ValueError):
+                        self.child_processes.remove(proc)
+                    self.logger.warning(
+                        "Worker process exited (role=%s, category=%s, code=%s)",
+                        meta.get("role", "unknown"),
+                        meta.get("category", "unknown"),
+                        exit_code,
+                    )
+                if not self.child_processes:
+                    if not any_alive:
+                        break
+                self.shutdown_event.wait(timeout=5)
+                if not any(proc.is_alive() for proc in self.child_processes):
+                    if self.child_processes:
+                        continue
+                    break
         except KeyboardInterrupt:
             self.logger.info("Detected Ctrl+C - Terminating process")
             sys.exit(0)
         except BaseException as e:
-            self.logger.info("Detected Ctrl+C - Terminating process: %r", e)
+            self.logger.info("Detected unexpected error, shutting down: %r", e)
             sys.exit(1)
+        finally:
+            for proc in list(self.child_processes):
+                if proc.is_alive():
+                    proc.join(timeout=1)
 
 
 def _report_config_issues():
