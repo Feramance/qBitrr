@@ -13,6 +13,36 @@ import type {
 
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
+const MAX_AUTH_RETRIES = 1;
+
+function promptForToken(): boolean {
+  const current = resolveToken();
+  const entered = window.prompt(
+    "Enter WebUI token",
+    current ?? ""
+  );
+  if (entered === null) {
+    return false;
+  }
+  const value = entered.trim();
+  if (!value) {
+    localStorage.removeItem("token");
+    try {
+      sessionStorage.removeItem("token");
+    } catch {
+      // ignore
+    }
+    return true;
+  }
+  localStorage.setItem("token", value);
+  try {
+    sessionStorage.setItem("token", value);
+  } catch {
+    // ignore
+  }
+  return true;
+}
+
 
 function resolveToken(): string | null {
   for (const key of TOKEN_STORAGE_KEYS) {
@@ -52,12 +82,27 @@ function buildInit(init?: RequestInit): RequestInit {
   };
 }
 
+async function fetchWithAuthRetry<T>(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  handler: (response: Response) => Promise<T>,
+  retries = MAX_AUTH_RETRIES
+): Promise<T> {
+  const response = await fetch(input, buildInit(init));
+  if (response.status === 401 && retries > 0) {
+    if (promptForToken()) {
+      return fetchWithAuthRetry(input, init, handler, retries - 1);
+    }
+  }
+  return handler(response);
+}
+
 async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
-  return handleJson<T>(await fetch(input, buildInit(init)));
+  return fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response));
 }
 
 async function fetchTextResponse(input: RequestInfo | URL, init?: RequestInit): Promise<string> {
-  return handleText(await fetch(input, buildInit(init)));
+  return fetchWithAuthRetry<string>(input, init, (response) => handleText(response));
 }
 
 async function handleJson<T>(res: Response): Promise<T> {

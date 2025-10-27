@@ -908,56 +908,53 @@ class WebUI:
         def web_processes():
             return api_processes()
 
-        @app.post("/api/processes/<category>/<kind>/restart")
-        def api_restart_process(category: str, kind: str):
-            if (resp := require_token()) is not None:
-                return resp
-            kind = kind.lower()
-            if kind not in ("search", "torrent", "all"):
+        def _restart_process(category: str, kind: str):
+            kind_normalized = kind.lower()
+            if kind_normalized not in ("search", "torrent", "all"):
                 return jsonify({"error": "kind must be search, torrent or all"}), 400
             arr = self.manager.arr_manager.managed_objects.get(category)
             if arr is None:
                 return jsonify({"error": f"Unknown category {category}"}), 404
-            restarted = []
-            for k in ("search", "torrent"):
-                if kind != "all" and k != kind:
+            restarted: list[str] = []
+            for loop_kind in ("search", "torrent"):
+                if kind_normalized != "all" and loop_kind != kind_normalized:
                     continue
-                proc_attr = f"process_{k}_loop"
-                p = getattr(arr, proc_attr, None)
-                if p is not None:
+                proc_attr = f"process_{loop_kind}_loop"
+                process = getattr(arr, proc_attr, None)
+                if process is not None:
                     try:
-                        p.kill()
+                        process.kill()
                     except Exception:
                         pass
                     try:
-                        p.terminate()
+                        process.terminate()
                     except Exception:
                         pass
                     try:
-                        self.manager.child_processes.remove(p)
+                        self.manager.child_processes.remove(process)
                     except Exception:
                         pass
-                # Start a fresh process for this loop
-                import pathos
-
-                target = getattr(arr, f"run_{k}_loop", None)
+                target = getattr(arr, f"run_{loop_kind}_loop", None)
                 if target is None:
                     continue
-                new_p = pathos.helpers.mp.Process(target=target, daemon=False)
-                setattr(arr, proc_attr, new_p)
-                self.manager.child_processes.append(new_p)
-                new_p.start()
-                restarted.append(k)
+                import pathos
+
+                new_process = pathos.helpers.mp.Process(target=target, daemon=False)
+                setattr(arr, proc_attr, new_process)
+                self.manager.child_processes.append(new_process)
+                new_process.start()
+                restarted.append(loop_kind)
             return jsonify({"status": "ok", "restarted": restarted})
+
+        @app.post("/api/processes/<category>/<kind>/restart")
+        def api_restart_process(category: str, kind: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _restart_process(category, kind)
 
         @app.post("/web/processes/<category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
-            # Mirror restart without auth for UI
-            return (
-                api_restart_process.__wrapped__(category, kind)
-                if hasattr(api_restart_process, "__wrapped__")
-                else api_restart_process(category, kind)
-            )
+            return _restart_process(category, kind)
 
         @app.post("/api/processes/restart_all")
         def api_restart_all():
