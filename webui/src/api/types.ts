@@ -26,6 +26,7 @@ export interface ArrInfo {
 
 export interface ArrListResponse {
   arr: ArrInfo[];
+  ready?: boolean;
 }
 
 export interface QbitStatus {
@@ -38,6 +39,7 @@ export interface QbitStatus {
 export interface StatusResponse {
   qbit: QbitStatus;
   arrs: ArrInfo[];
+  ready?: boolean;
 }
 
 export interface RestartResponse {

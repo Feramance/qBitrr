@@ -5,7 +5,7 @@ import { ArrView } from "./pages/ArrView";
 import { ConfigView } from "./pages/ConfigView";
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
-import { getMeta, triggerUpdate } from "./api/client";
+import { getMeta, getStatus, triggerUpdate } from "./api/client";
 import type { MetaResponse } from "./api/types";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
@@ -142,6 +142,9 @@ function AppShell(): JSX.Element {
   const [showChangelog, setShowChangelog] = useState(false);
   const [updateBusy, setUpdateBusy] = useState(false);
   const prevUpdateResult = useRef<string | null>(null);
+  const backendReadyRef = useRef(false);
+  const backendWarnedRef = useRef(false);
+  const backendTimerRef = useRef<number | null>(null);
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {
@@ -205,6 +208,70 @@ function AppShell(): JSX.Element {
     }
     prevUpdateResult.current = result;
   }, [meta?.update_state?.last_result, meta?.update_state?.last_error, push]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let attempts = 0;
+
+    const schedule = (delay: number) => {
+      if (backendTimerRef.current !== null) {
+        window.clearTimeout(backendTimerRef.current);
+      }
+      backendTimerRef.current = window.setTimeout(() => {
+        void poll();
+      }, delay);
+    };
+
+    const poll = async () => {
+      if (cancelled || backendReadyRef.current) {
+        return;
+      }
+      attempts += 1;
+      try {
+        const status = await getStatus();
+        if (cancelled) {
+          return;
+        }
+        const readyHint =
+          status.ready ?? (Array.isArray(status.arrs) && status.arrs.length > 0);
+        if (readyHint) {
+          backendReadyRef.current = true;
+          return;
+        }
+        if (status.ready === false && attempts >= 3 && !backendWarnedRef.current) {
+          backendWarnedRef.current = true;
+          push(
+            "qBitrr backend is still initialising. Check the logs if this persists.",
+            "warning"
+          );
+        }
+      } catch (error) {
+        if (!backendWarnedRef.current && attempts >= 3) {
+          backendWarnedRef.current = true;
+          const detail = error instanceof Error ? error.message : "Unknown backend error";
+          push(
+            `Unable to confirm qBitrr readiness (${detail}). Please inspect the logs.`,
+            "warning"
+          );
+        }
+      } finally {
+        if (!cancelled && !backendReadyRef.current) {
+          const delay = attempts < 3 ? 3000 : 10000;
+          schedule(delay);
+        }
+      }
+    };
+
+    schedule(0);
+
+    return () => {
+      cancelled = true;
+      if (backendTimerRef.current !== null) {
+        window.clearTimeout(backendTimerRef.current);
+        backendTimerRef.current = null;
+      }
+    };
+  }, [push]);
 
   const tabs = useMemo<NavTab[]>(
     () => [

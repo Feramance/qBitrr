@@ -96,6 +96,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const instanceKeyRef = useRef<string>("");
   const instancePagesRef = useRef<Record<number, RadarrMovie[]>>({});
   const globalSearchRef = useRef(globalSearch);
+  const backendReadyWarnedRef = useRef(false);
 
   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
@@ -111,6 +112,12 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const loadInstances = useCallback(async () => {
     try {
       const data = await getArrList();
+      if (data.ready === false && !backendReadyWarnedRef.current) {
+        backendReadyWarnedRef.current = true;
+        push("Radarr backend is still initialising. Check the logs if this persists.", "warning");
+      } else if (data.ready) {
+        backendReadyWarnedRef.current = true;
+      }
       const filtered = (data.arr || []).filter((arr) => arr.type === "radarr");
       setInstances(filtered);
       if (!filtered.length) {
@@ -852,6 +859,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceTotalPages, setInstanceTotalPages] = useState(1);
   const [instanceTotalItems, setInstanceTotalItems] = useState(0);
   const globalSearchRef = useRef(globalSearch);
+  const backendReadyWarnedRef = useRef(false);
 
   const [aggRows, setAggRows] = useState<SonarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
@@ -867,6 +875,12 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const loadInstances = useCallback(async () => {
     try {
       const data = await getArrList();
+      if (data.ready === false && !backendReadyWarnedRef.current) {
+        backendReadyWarnedRef.current = true;
+        push("Sonarr backend is still initialising. Check the logs if this persists.", "warning");
+      } else if (data.ready) {
+        backendReadyWarnedRef.current = true;
+      }
       const filtered = (data.arr || []).filter((arr) => arr.type === "sonarr");
       setInstances(filtered);
       if (!filtered.length) {
