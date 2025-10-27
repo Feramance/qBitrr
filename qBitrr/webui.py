@@ -814,100 +814,35 @@ class WebUI:
                     metrics = _collect_metrics(arr_obj)
                 metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
-                    attr_summary = getattr(arr_obj, "last_search_description", None)
-                    attr_timestamp = getattr(arr_obj, "last_search_timestamp", None)
-                    cached_summary = None
-                    cached_timestamp = None
-                    search_cache = None
                     category_key = getattr(arr_obj, "category", None)
+                    search_cache = None
                     try:
                         search_cache = getattr(
                             getattr(self.manager, "arr_manager", None), "search_activity", {}
                         )
                     except Exception:
                         search_cache = None
-                    if (
-                        isinstance(search_cache, dict)
-                        and category_key is not None
-                        and category_key in search_cache
-                    ):
+
+                    summary = None
+                    timestamp = None
+                    if isinstance(search_cache, dict) and category_key:
                         cached_entry = search_cache.get(category_key) or {}
                         if isinstance(cached_entry, dict):
-                            cached_summary = cached_entry.get("summary")
-                            cached_timestamp = cached_entry.get("timestamp")
+                            summary = cached_entry.get("summary")
+                            timestamp = cached_entry.get("timestamp")
+                    if summary is None:
+                        summary = getattr(arr_obj, "last_search_description", None)
+                        timestamp = getattr(arr_obj, "last_search_timestamp", None)
 
-                    def _iso_to_utc(value):
-                        if not value:
-                            return None
-                        if isinstance(value, datetime):
-                            return value.astimezone(timezone.utc)
-                        if isinstance(value, str):
-                            try:
-                                candidate = value.rstrip("Z")
-                                if candidate == value:
-                                    dt_value = datetime.fromisoformat(candidate)
-                                else:
-                                    dt_value = datetime.fromisoformat(candidate).replace(
-                                        tzinfo=timezone.utc
-                                    )
-                                if dt_value.tzinfo is None:
-                                    dt_value = dt_value.replace(tzinfo=timezone.utc)
-                                return dt_value.astimezone(timezone.utc)
-                            except Exception:
-                                return None
-                        return None
-
-                    now = datetime.now(timezone.utc)
-
-                    def _candidate(
-                        source: str, summary: str | None, raw_ts: datetime | str | None
-                    ):
-                        if not summary:
-                            return None
-                        dt_value = _iso_to_utc(raw_ts)
-                        if dt_value and now - dt_value > timedelta(minutes=30):
-                            return None
-                        return (source, summary, dt_value, raw_ts)
-
-                    candidates: list[tuple[str, str, datetime | None, datetime | str | None]] = []
-                    for candidate in (
-                        _candidate("attr", attr_summary, attr_timestamp),
-                        _candidate("cache", cached_summary, cached_timestamp),
-                    ):
-                        if candidate is not None:
-                            candidates.append(candidate)
-
-                    if not candidates and attr_summary:
-                        candidates.append(("attr", attr_summary, None, attr_timestamp))
-                    if not candidates and cached_summary:
-                        candidates.append(("cache", cached_summary, None, cached_timestamp))
-
-                    if candidates:
-
-                        def _sort_key(
-                            item: tuple[str, str, datetime | None, datetime | str | None],
-                        ):
-                            source, _, dt_value, _ = item
-                            has_dt = dt_value is not None
-                            return (
-                                1 if has_dt else 0,
-                                dt_value if dt_value is not None else datetime.min,
-                                {"cache": 2, "attr": 1}.get(source, 0),
-                            )
-
-                        _, selected_summary, selected_dt, selected_raw = max(
-                            candidates, key=_sort_key
-                        )
-                        if selected_summary:
-                            payload_dict["searchSummary"] = selected_summary
-                            if selected_dt is not None:
-                                payload_dict["searchTimestamp"] = selected_dt.isoformat()
-                            elif selected_raw:
-                                payload_dict["searchTimestamp"] = (
-                                    selected_raw.isoformat()
-                                    if isinstance(selected_raw, datetime)
-                                    else selected_raw
-                                )
+                    if summary:
+                        payload_dict["searchSummary"] = summary
+                        if timestamp:
+                            if isinstance(timestamp, datetime):
+                                payload_dict["searchTimestamp"] = timestamp.astimezone(
+                                    timezone.utc
+                                ).isoformat()
+                            else:
+                                payload_dict["searchTimestamp"] = str(timestamp)
                     elif (
                         isinstance(search_cache, dict)
                         and category_key is not None
