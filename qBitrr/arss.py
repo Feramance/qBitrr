@@ -52,6 +52,7 @@ from qBitrr.errors import (
     UnhandledError,
 )
 from qBitrr.logger import run_logs
+from qBitrr.search_activity_store import record_search_activity
 from qBitrr.tables import (
     EpisodeFilesModel,
     EpisodeQueueModel,

@@ -65,9 +65,12 @@ def fetch_search_activities() -> dict[str, dict[str, str | None]]:
     activities: dict[str, dict[str, str | None]] = {}
     db = _get_database()
     db.connect(reuse_if_open=True)
-    query = SearchActivity.select()
+    try:
+        query = SearchActivity.select()
+    except Exception:
+        return activities
     for row in query:
-        activities[row.category] = {
+        activities[str(row.category)] = {
             "summary": row.summary,
             "timestamp": row.timestamp,
         }
@@ -77,4 +80,5 @@ def fetch_search_activities() -> dict[str, dict[str, str | None]]:
 def clear_search_activity(category: str) -> None:
     if not category:
         return
-    SearchActivity.delete().where(SearchActivity.category == category).execute()
+    with _get_database().atomic():
+        SearchActivity.delete().where(SearchActivity.category == category).execute()
