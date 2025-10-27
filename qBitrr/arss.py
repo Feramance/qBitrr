@@ -574,10 +574,20 @@ class Arr:
             detail = "Searches completed, waiting till next loop"
         elif detail == "no-pending-searches":
             detail = "No pending searches"
-            self.last_search_description = detail
+            self.last_search_description = None if description is None else description
         segments = [
             segment for segment in (context, self.last_search_description, detail) if segment
         ]
+        if segments and segments.count("No pending searches") > 1:
+            seen = set()
+            deduped = []
+            for segment in segments:
+                key = segment.strip().lower()
+                if key == "no pending searches" and key in seen:
+                    continue
+                seen.add(key)
+                deduped.append(segment)
+            segments = deduped
         if not segments:
             return
         self.last_search_description = " · ".join(segments)
