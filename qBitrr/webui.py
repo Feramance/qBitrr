@@ -395,7 +395,11 @@ class WebUI:
             )
             available_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                .where(episodes_model.EpisodeFileId.is_null(False))
+                .where(
+                    (episodes_model.Monitored == True)  # noqa: E712
+                    & (episodes_model.EpisodeFileId.is_null(False))
+                    & (episodes_model.EpisodeFileId != 0)
+                )
                 .scalar()
                 or 0
             )
