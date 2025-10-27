@@ -791,16 +791,7 @@ class WebUI:
                 queue_count = len(records)
                 if queue_count:
                     metrics["queue"] = queue_count
-                    first = records[0]
-                    summary = _format_queue_summary(arr_obj, first)
-                    timestamp = (
-                        _parse_timestamp(first.get("created"))
-                        or _parse_timestamp(first.get("queued"))
-                        or _parse_timestamp(first.get("updated"))
-                        or _parse_timestamp(first.get("added"))
-                    )
-                    metrics["summary"] = summary or None
-                    metrics["timestamp"] = timestamp
+                    records[0]
                 if qbit_client and category:
                     try:
                         torrents = qbit_client.torrents_info(
@@ -823,8 +814,6 @@ class WebUI:
                     metrics = _collect_metrics(arr_obj)
                 metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
-                    queue_summary = metrics.get("summary")
-                    queue_timestamp = metrics.get("timestamp")
                     attr_summary = getattr(arr_obj, "last_search_description", None)
                     attr_timestamp = getattr(arr_obj, "last_search_timestamp", None)
                     cached_summary = None
@@ -882,15 +871,12 @@ class WebUI:
 
                     candidates: list[tuple[str, str, datetime | None, datetime | str | None]] = []
                     for candidate in (
-                        _candidate("queue", queue_summary, queue_timestamp),
                         _candidate("attr", attr_summary, attr_timestamp),
                         _candidate("cache", cached_summary, cached_timestamp),
                     ):
                         if candidate is not None:
                             candidates.append(candidate)
 
-                    if not candidates and queue_summary:
-                        candidates.append(("queue", queue_summary, None, queue_timestamp))
                     if not candidates and attr_summary:
                         candidates.append(("attr", attr_summary, None, attr_timestamp))
                     if not candidates and cached_summary:
@@ -906,7 +892,7 @@ class WebUI:
                             return (
                                 1 if has_dt else 0,
                                 dt_value if dt_value is not None else datetime.min,
-                                {"cache": 3, "attr": 2, "queue": 1}.get(source, 0),
+                                {"cache": 2, "attr": 1}.get(source, 0),
                             )
 
                         _, selected_summary, selected_dt, selected_raw = max(
