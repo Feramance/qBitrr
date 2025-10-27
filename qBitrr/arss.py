@@ -52,7 +52,11 @@ from qBitrr.errors import (
     UnhandledError,
 )
 from qBitrr.logger import run_logs
-from qBitrr.search_activity_store import record_search_activity
+from qBitrr.search_activity_store import (
+    clear_search_activity,
+    fetch_search_activities,
+    record_search_activity,
+)
 from qBitrr.tables import (
     EpisodeFilesModel,
     EpisodeQueueModel,
@@ -1861,133 +1865,150 @@ class Arr:
     def db_update(self):
         if not self.search_missing:
             return
-        self.db_update_todays_releases()
-        if self.db_update_processed and not self.search_by_year:
-            return
-        if self.search_by_year:
-            self.logger.info("Started updating database for %s", self.search_current_year)
-        else:
-            self.logger.info("Started updating database")
-        if self.type == "sonarr":
-            if not self.series_search:
-                while True:
-                    try:
-                        series = self.client.get_series()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
-                if self.search_by_year:
-                    for s in series:
-                        if isinstance(s, str):
-                            continue
-                        episodes = self.client.get_episode(s["id"], True)
-                        for e in episodes:
-                            if isinstance(e, str):
-                                continue
-                            if "airDateUtc" in e:
-                                if datetime.strptime(
-                                    e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                    continue
-                                if (
-                                    datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                    .replace(tzinfo=timezone.utc)
-                                    .date()
-                                    < datetime(
-                                        month=1, day=1, year=int(self.search_current_year)
-                                    ).date()
-                                ):
-                                    continue
-                                if (
-                                    datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                    .replace(tzinfo=timezone.utc)
-                                    .date()
-                                    > datetime(
-                                        month=12, day=31, year=int(self.search_current_year)
-                                    ).date()
-                                ):
-                                    continue
-                                if not self.search_specials and e["seasonNumber"] == 0:
-                                    continue
-                                self.db_update_single_series(db_entry=e)
-
-                else:
-                    for s in series:
-                        if isinstance(s, str):
-                            continue
-                        episodes = self.client.get_episode(s["id"], True)
-                        for e in episodes:
-                            if isinstance(e, str):
-                                continue
-                            if "airDateUtc" in e:
-                                if datetime.strptime(
-                                    e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                    continue
-                                if not self.search_specials and e["seasonNumber"] == 0:
-                                    continue
-                                self.db_update_single_series(db_entry=e)
-                self.db_update_processed = True
-            else:
-                while True:
-                    try:
-                        series = self.client.get_series()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
-                if self.search_by_year:
-                    for s in series:
-                        if isinstance(s, str):
-                            continue
-                        if s["year"] < self.search_current_year:
-                            continue
-                        if s["year"] > self.search_current_year:
-                            continue
-                        self.db_update_single_series(db_entry=s, series=True)
-                else:
-                    for s in series:
-                        if isinstance(s, str):
-                            continue
-                        self.db_update_single_series(db_entry=s, series=True)
-                self.db_update_processed = True
-        elif self.type == "radarr":
-            while True:
-                try:
-                    movies = self.client.get_movie()
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+        placeholder_summary = "Updating database"
+        placeholder_set = False
+        try:
+            try:
+                self._record_search_activity(placeholder_summary)
+                placeholder_set = True
+            except Exception:
+                pass
+            self.db_update_todays_releases()
+            if self.db_update_processed and not self.search_by_year:
+                return
             if self.search_by_year:
-                for m in movies:
-                    if isinstance(m, str):
-                        continue
-                    if m["year"] < self.search_current_year:
-                        continue
-                    if m["year"] > self.search_current_year:
-                        continue
-                    self.db_update_single_series(db_entry=m)
+                self.logger.info("Started updating database for %s", self.search_current_year)
             else:
-                for m in movies:
-                    if isinstance(m, str):
+                self.logger.info("Started updating database")
+            if self.type == "sonarr":
+                if not self.series_search:
+                    while True:
+                        try:
+                            series = self.client.get_series()
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+                    if self.search_by_year:
+                        for s in series:
+                            if isinstance(s, str):
+                                continue
+                            episodes = self.client.get_episode(s["id"], True)
+                            for e in episodes:
+                                if isinstance(e, str):
+                                    continue
+                                if "airDateUtc" in e:
+                                    if datetime.strptime(
+                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                        continue
+                                    if (
+                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                        .replace(tzinfo=timezone.utc)
+                                        .date()
+                                        < datetime(
+                                            month=1, day=1, year=int(self.search_current_year)
+                                        ).date()
+                                    ):
+                                        continue
+                                    if (
+                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
+                                        .replace(tzinfo=timezone.utc)
+                                        .date()
+                                        > datetime(
+                                            month=12, day=31, year=int(self.search_current_year)
+                                        ).date()
+                                    ):
+                                        continue
+                                    if not self.search_specials and e["seasonNumber"] == 0:
+                                        continue
+                                    self.db_update_single_series(db_entry=e)
+
+                    else:
+                        for s in series:
+                            if isinstance(s, str):
+                                continue
+                            episodes = self.client.get_episode(s["id"], True)
+                            for e in episodes:
+                                if isinstance(e, str):
+                                    continue
+                                if "airDateUtc" in e:
+                                    if datetime.strptime(
+                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                        continue
+                                    if not self.search_specials and e["seasonNumber"] == 0:
+                                        continue
+                                    self.db_update_single_series(db_entry=e)
+                    self.db_update_processed = True
+                else:
+                    while True:
+                        try:
+                            series = self.client.get_series()
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+                    if self.search_by_year:
+                        for s in series:
+                            if isinstance(s, str):
+                                continue
+                            if s["year"] < self.search_current_year:
+                                continue
+                            if s["year"] > self.search_current_year:
+                                continue
+                            self.db_update_single_series(db_entry=s, series=True)
+                    else:
+                        for s in series:
+                            if isinstance(s, str):
+                                continue
+                            self.db_update_single_series(db_entry=s, series=True)
+                    self.db_update_processed = True
+            elif self.type == "radarr":
+                while True:
+                    try:
+                        movies = self.client.get_movie()
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    ):
                         continue
-                    self.db_update_single_series(db_entry=m)
-            self.db_update_processed = True
-        self.logger.trace("Finished updating database")
+                if self.search_by_year:
+                    for m in movies:
+                        if isinstance(m, str):
+                            continue
+                        if m["year"] < self.search_current_year:
+                            continue
+                        if m["year"] > self.search_current_year:
+                            continue
+                        self.db_update_single_series(db_entry=m)
+                else:
+                    for m in movies:
+                        if isinstance(m, str):
+                            continue
+                        self.db_update_single_series(db_entry=m)
+                self.db_update_processed = True
+            self.logger.trace("Finished updating database")
+        finally:
+            if placeholder_set:
+                try:
+                    activities = fetch_search_activities()
+                    entry = activities.get(str(self.category))
+                    if entry and entry.get("summary") == placeholder_summary:
+                        clear_search_activity(str(self.category))
+                except Exception:
+                    pass
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
         inCinemas = (
