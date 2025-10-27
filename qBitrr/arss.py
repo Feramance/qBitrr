@@ -418,6 +418,7 @@ class Arr:
         self.cleaned_torrents = set()
         self.search_api_command = None
 
+        self._webui_db_loaded = False
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
 
@@ -1868,6 +1869,7 @@ class Arr:
         placeholder_summary = "Updating database"
         placeholder_set = False
         try:
+            self._webui_db_loaded = False
             try:
                 self._record_search_activity(placeholder_summary)
                 placeholder_set = True
@@ -2009,6 +2011,7 @@ class Arr:
                         clear_search_activity(str(self.category))
                 except Exception:
                     pass
+            self._webui_db_loaded = True
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
         inCinemas = (
