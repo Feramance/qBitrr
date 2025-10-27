@@ -42,15 +42,17 @@ class SearchActivity(BaseModel):
     timestamp = TextField(null=True)
 
 
-with _DB_LOCK:
+def _ensure_tables() -> None:
     db = _get_database()
-    db.connect(reuse_if_open=True)
-    db.create_tables([SearchActivity], safe=True)
+    with _DB_LOCK:
+        db.connect(reuse_if_open=True)
+        db.create_tables([SearchActivity], safe=True)
 
 
 def record_search_activity(category: str, summary: str | None, timestamp: str | None) -> None:
     if not category:
         return
+    _ensure_tables()
     if timestamp is not None and not isinstance(timestamp, str):
         timestamp = str(timestamp)
     data: dict[str, Any] = {"summary": summary, "timestamp": timestamp}
@@ -62,6 +64,7 @@ def record_search_activity(category: str, summary: str | None, timestamp: str | 
 
 
 def fetch_search_activities() -> dict[str, dict[str, str | None]]:
+    _ensure_tables()
     activities: dict[str, dict[str, str | None]] = {}
     db = _get_database()
     db.connect(reuse_if_open=True)
@@ -80,5 +83,6 @@ def fetch_search_activities() -> dict[str, dict[str, str | None]]:
 def clear_search_activity(category: str) -> None:
     if not category:
         return
+    _ensure_tables()
     with _get_database().atomic():
         SearchActivity.delete().where(SearchActivity.category == category).execute()
