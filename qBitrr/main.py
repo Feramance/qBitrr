@@ -96,6 +96,7 @@ class qBitManager:
         self._ipc_manager = Manager()
         atexit.register(self._ipc_manager.shutdown)
         self.shared_search_activity = self._ipc_manager.dict()
+        self.shared_search_queue = self._ipc_manager.Queue()
         self.ffprobe_downloader = FFprobeDownloader()
         try:
             if not (QBIT_DISABLED or SEARCH_ONLY):
@@ -105,7 +106,9 @@ class qBitManager:
                 "FFprobe manager error: %s while attempting to download/update FFprobe", e
             )
         self.arr_manager = ArrManager(
-            self, search_activity_store=self.shared_search_activity
+            self,
+            search_activity_store=self.shared_search_activity,
+            search_queue=self.shared_search_queue,
         ).build_arr_instances()
         run_logs(self.logger)
         # Start WebUI

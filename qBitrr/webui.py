@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
+import queue
 import re
 import secrets
 import threading
 from collections.abc import Mapping, MutableMapping
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -110,6 +113,8 @@ class WebUI:
             "completed_at": None,
         }
         self._update_thread: threading.Thread | None = None
+        self._search_activity_cache: dict[str, dict[str, str]] = {}
+        self._search_state_dir = Path(HOME_PATH).joinpath("webui_state")
         self._register_routes()
         self._thread: threading.Thread | None = None
 
@@ -259,6 +264,73 @@ class WebUI:
                 self._ensure_version_info(force=True)
             except Exception:
                 self.logger.debug("Version metadata refresh after update failed", exc_info=True)
+
+    def _ingest_search_updates(self) -> None:
+        queue_proxy = None
+        try:
+            queue_proxy = getattr(self.manager, "shared_search_queue", None)
+        except Exception:
+            queue_proxy = None
+        if queue_proxy is None:
+            try:
+                queue_proxy = getattr(self.manager.arr_manager, "shared_search_queue", None)
+            except Exception:
+                queue_proxy = None
+
+        stores: list[MutableMapping[str, dict[str, Any]]] = []
+        try:
+            shared_store = getattr(self.manager, "shared_search_activity", None)
+            if isinstance(shared_store, MutableMapping):
+                stores.append(shared_store)
+        except Exception:
+            pass
+        try:
+            arr_store = getattr(self.manager.arr_manager, "search_activity", None)
+            if isinstance(arr_store, MutableMapping):
+                stores.append(arr_store)
+        except Exception:
+            pass
+        stores.append(self._search_activity_cache)
+
+        if queue_proxy is not None:
+            while True:
+                try:
+                    payload = queue_proxy.get_nowait()
+                except queue.Empty:
+                    break
+                except Exception:
+                    break
+                if not isinstance(payload, (tuple, list)) or len(payload) != 3:
+                    continue
+                category, summary, timestamp = payload
+                key = str(category)
+                entry = {"summary": summary, "timestamp": timestamp}
+                for store in stores:
+                    try:
+                        store[key] = entry
+                    except Exception:
+                        pass
+
+        try:
+            if self._search_state_dir.exists():
+                for file_path in self._search_state_dir.glob("*.json"):
+                    key = file_path.stem
+                    try:
+                        data = json.loads(file_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        continue
+                    summary = data.get("summary")
+                    timestamp = data.get("timestamp")
+                    if summary:
+                        entry = {"summary": summary, "timestamp": timestamp}
+                        for store in stores:
+                            try:
+                                store[key] = entry
+                            except Exception:
+                                pass
+                        self._search_activity_cache[key] = entry
+        except Exception:
+            pass
 
     @staticmethod
     def _safe_str(value: Any) -> str:
@@ -649,6 +721,7 @@ class WebUI:
 
         @app.get("/api/processes")
         def api_processes():
+            self._ingest_search_updates()
             procs = []
 
             def _parse_timestamp(raw_value):
@@ -805,6 +878,34 @@ class WebUI:
                         )
                     except Exception:
                         pass
+                shared_sources: list[Mapping[str, Any]] = []
+                try:
+                    shared_store = getattr(self.manager, "shared_search_activity", None)
+                    if isinstance(shared_store, Mapping):
+                        shared_sources.append(shared_store)
+                except Exception:
+                    pass
+                try:
+                    arr_store = getattr(self.manager.arr_manager, "search_activity", None)
+                    if isinstance(arr_store, Mapping):
+                        shared_sources.append(arr_store)
+                except Exception:
+                    pass
+                shared_sources.append(self._search_activity_cache)
+                category_key = getattr(arr_obj, "category", None)
+                if category_key and shared_sources:
+                    key = str(category_key)
+                    for store in shared_sources:
+                        cached_entry = store.get(key) if store else None
+                        if isinstance(cached_entry, Mapping):
+                            summary = cached_entry.get("summary")
+                            timestamp = cached_entry.get("timestamp")
+                            if summary:
+                                metrics["summary"] = summary
+                            if timestamp:
+                                metrics["timestamp"] = timestamp
+                            if summary:
+                                break
                 return metrics
 
             metrics_cache: dict[int, dict[str, object]] = {}
@@ -816,30 +917,41 @@ class WebUI:
                 metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
                     category_key = getattr(arr_obj, "category", None)
-                    search_cache = None
+                    stores: list[Mapping[str, Any]] = []
                     try:
-                        search_cache = getattr(
+                        store = getattr(
                             getattr(self.manager, "arr_manager", None), "search_activity", {}
                         )
+                        if isinstance(store, Mapping):
+                            stores.append(store)
                     except Exception:
-                        search_cache = None
-                    if not isinstance(search_cache, Mapping):
-                        try:
-                            search_cache = getattr(
-                                getattr(self.manager, "qbit_manager", None),
-                                "shared_search_activity",
-                                {},
-                            )
-                        except Exception:
-                            search_cache = {}
+                        pass
+                    try:
+                        shared_store = getattr(
+                            getattr(self.manager, "qbit_manager", None),
+                            "shared_search_activity",
+                            {},
+                        )
+                        if isinstance(shared_store, Mapping):
+                            stores.append(shared_store)
+                    except Exception:
+                        pass
+                    stores.append(self._search_activity_cache)
 
                     summary = None
                     timestamp = None
-                    if isinstance(search_cache, Mapping) and category_key:
-                        cached_entry = search_cache.get(category_key) or {}
-                        if isinstance(cached_entry, Mapping):
-                            summary = cached_entry.get("summary")
-                            timestamp = cached_entry.get("timestamp")
+                    if category_key and stores:
+                        key = str(category_key)
+                        for store in stores:
+                            try:
+                                cached_entry = store.get(key)
+                            except Exception:
+                                cached_entry = None
+                            if isinstance(cached_entry, Mapping):
+                                summary = cached_entry.get("summary") or summary
+                                timestamp = cached_entry.get("timestamp") or timestamp
+                                if summary:
+                                    break
                     if summary is None:
                         summary = getattr(arr_obj, "last_search_description", None)
                         timestamp = getattr(arr_obj, "last_search_timestamp", None)
@@ -853,15 +965,14 @@ class WebUI:
                                 ).isoformat()
                             else:
                                 payload_dict["searchTimestamp"] = str(timestamp)
-                    elif (
-                        isinstance(search_cache, MutableMapping)
-                        and category_key is not None
-                        and category_key in search_cache
-                    ):
-                        try:
-                            search_cache.pop(category_key, None)
-                        except Exception:
-                            pass
+                    elif category_key and stores:
+                        key = str(category_key)
+                        for store in stores:
+                            if isinstance(store, MutableMapping):
+                                try:
+                                    store.pop(key, None)
+                                except Exception:
+                                    pass
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
                     if queue_count is None:
@@ -1406,8 +1517,11 @@ class WebUI:
                 shared_store.clear()
             except Exception:
                 pass
+        search_queue = getattr(self.manager, "shared_search_queue", None)
         self.manager.arr_manager = ArrManager(
-            self.manager, search_activity_store=shared_store
+            self.manager,
+            search_activity_store=shared_store,
+            search_queue=search_queue,
         ).build_arr_instances()
         self.manager.configure_auto_update()
         # Spawn and start new processes
