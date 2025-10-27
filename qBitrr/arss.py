@@ -3,7 +3,6 @@ from __future__ import annotations
 import atexit
 import contextlib
 import itertools
-import json
 import logging
 import pathlib
 import re
@@ -11,10 +10,9 @@ import shutil
 import sys
 import time
 from collections import defaultdict
-from collections.abc import MutableMapping
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, NoReturn
+from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
 
 import ffmpeg
 import pathos
@@ -77,9 +75,6 @@ def _mask_secret(secret: str | None) -> str:
     if not secret:
         return ""
     return "[redacted]"
-
-
-SEARCH_STATE_DIR = pathlib.Path(APPDATA_FOLDER).joinpath("webui_state")
 
 
 if TYPE_CHECKING:
@@ -572,38 +567,11 @@ class Arr:
             return
         self.last_search_description = " · ".join(segments)
         self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
-        search_state = getattr(self.manager, "search_activity", None)
-        if search_state is None:
-            qbm = getattr(self.manager, "qbit_manager", None)
-            if qbm is not None:
-                search_state = getattr(qbm, "shared_search_activity", None)
-        if isinstance(search_state, MutableMapping):
-            key = str(self.category)
-            search_state[key] = {
-                "summary": self.last_search_description,
-                "timestamp": self.last_search_timestamp,
-            }
-        queue_proxy = None
-        manager_ref = getattr(self.manager, "qbit_manager", None)
-        if manager_ref is not None:
-            queue_proxy = getattr(manager_ref, "shared_search_queue", None)
-        if queue_proxy is None:
-            queue_proxy = getattr(self.manager, "shared_search_queue", None)
-        if queue_proxy is not None and hasattr(queue_proxy, "put"):
-            try:
-                queue_proxy.put((key, self.last_search_description, self.last_search_timestamp))
-            except Exception:
-                pass
-        try:
-            SEARCH_STATE_DIR.mkdir(parents=True, exist_ok=True)
-            path = SEARCH_STATE_DIR.joinpath(f"{key}.json")
-            payload = {
-                "summary": self.last_search_description,
-                "timestamp": self.last_search_timestamp,
-            }
-            path.write_text(json.dumps(payload), encoding="utf-8")
-        except Exception:
-            pass
+        record_search_activity(
+            str(self.category),
+            self.last_search_description,
+            self.last_search_timestamp,
+        )
 
     @property
     def is_alive(self) -> bool:
@@ -5614,13 +5582,7 @@ class FreeSpaceManager(Arr):
 
 
 class ArrManager:
-    def __init__(
-        self,
-        qbitmanager: qBitManager,
-        *,
-        search_activity_store: MutableMapping[str, dict[str, object]] | None = None,
-        search_queue: Any | None = None,
-    ):
+    def __init__(self, qbitmanager: qBitManager):
         self.groups: set[str] = set()
         self.uris: set[str] = set()
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
@@ -5628,10 +5590,6 @@ class ArrManager:
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
-        if search_activity_store is None:
-            search_activity_store = {}
-        self.search_activity: MutableMapping[str, dict[str, object]] = search_activity_store
-        self.shared_search_queue = search_queue
         self.qbit: qbittorrentapi.Client = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()

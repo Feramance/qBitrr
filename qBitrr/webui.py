@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
-import queue
 import re
 import secrets
 import threading
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import Any
 
 import requests
@@ -21,6 +18,10 @@ from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
 from qBitrr.bundled_data import patched_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.logger import run_logs
+from qBitrr.search_activity_store import (
+    clear_search_activity,
+    fetch_search_activities,
+)
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
@@ -113,8 +114,6 @@ class WebUI:
             "completed_at": None,
         }
         self._update_thread: threading.Thread | None = None
-        self._search_activity_cache: dict[str, dict[str, str]] = {}
-        self._search_state_dir = Path(HOME_PATH).joinpath("webui_state")
         self._register_routes()
         self._thread: threading.Thread | None = None
 
@@ -264,73 +263,6 @@ class WebUI:
                 self._ensure_version_info(force=True)
             except Exception:
                 self.logger.debug("Version metadata refresh after update failed", exc_info=True)
-
-    def _ingest_search_updates(self) -> None:
-        queue_proxy = None
-        try:
-            queue_proxy = getattr(self.manager, "shared_search_queue", None)
-        except Exception:
-            queue_proxy = None
-        if queue_proxy is None:
-            try:
-                queue_proxy = getattr(self.manager.arr_manager, "shared_search_queue", None)
-            except Exception:
-                queue_proxy = None
-
-        stores: list[MutableMapping[str, dict[str, Any]]] = []
-        try:
-            shared_store = getattr(self.manager, "shared_search_activity", None)
-            if isinstance(shared_store, MutableMapping):
-                stores.append(shared_store)
-        except Exception:
-            pass
-        try:
-            arr_store = getattr(self.manager.arr_manager, "search_activity", None)
-            if isinstance(arr_store, MutableMapping):
-                stores.append(arr_store)
-        except Exception:
-            pass
-        stores.append(self._search_activity_cache)
-
-        if queue_proxy is not None:
-            while True:
-                try:
-                    payload = queue_proxy.get_nowait()
-                except queue.Empty:
-                    break
-                except Exception:
-                    break
-                if not isinstance(payload, (tuple, list)) or len(payload) != 3:
-                    continue
-                category, summary, timestamp = payload
-                key = str(category)
-                entry = {"summary": summary, "timestamp": timestamp}
-                for store in stores:
-                    try:
-                        store[key] = entry
-                    except Exception:
-                        pass
-
-        try:
-            if self._search_state_dir.exists():
-                for file_path in self._search_state_dir.glob("*.json"):
-                    key = file_path.stem
-                    try:
-                        data = json.loads(file_path.read_text(encoding="utf-8"))
-                    except Exception:
-                        continue
-                    summary = data.get("summary")
-                    timestamp = data.get("timestamp")
-                    if summary:
-                        entry = {"summary": summary, "timestamp": timestamp}
-                        for store in stores:
-                            try:
-                                store[key] = entry
-                            except Exception:
-                                pass
-                        self._search_activity_cache[key] = entry
-        except Exception:
-            pass
 
     @staticmethod
     def _safe_str(value: Any) -> str:
@@ -721,8 +653,8 @@ class WebUI:
 
         @app.get("/api/processes")
         def api_processes():
-            self._ingest_search_updates()
             procs = []
+            search_activity_map = fetch_search_activities()
 
             def _parse_timestamp(raw_value):
                 if not raw_value:
@@ -796,7 +728,11 @@ class WebUI:
                     if title:
                         pieces.append(title)
                 cleaned = [str(part) for part in pieces if part]
-                return " · ".join(cleaned) if cleaned else None
+                return (
+                    " ÃƒÆ'Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ'Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ".join(cleaned)
+                    if cleaned
+                    else None
+                )
 
             def _collect_metrics(arr_obj):
                 metrics = {
@@ -878,34 +814,16 @@ class WebUI:
                         )
                     except Exception:
                         pass
-                shared_sources: list[Mapping[str, Any]] = []
-                try:
-                    shared_store = getattr(self.manager, "shared_search_activity", None)
-                    if isinstance(shared_store, Mapping):
-                        shared_sources.append(shared_store)
-                except Exception:
-                    pass
-                try:
-                    arr_store = getattr(self.manager.arr_manager, "search_activity", None)
-                    if isinstance(arr_store, Mapping):
-                        shared_sources.append(arr_store)
-                except Exception:
-                    pass
-                shared_sources.append(self._search_activity_cache)
                 category_key = getattr(arr_obj, "category", None)
-                if category_key and shared_sources:
-                    key = str(category_key)
-                    for store in shared_sources:
-                        cached_entry = store.get(key) if store else None
-                        if isinstance(cached_entry, Mapping):
-                            summary = cached_entry.get("summary")
-                            timestamp = cached_entry.get("timestamp")
-                            if summary:
-                                metrics["summary"] = summary
-                            if timestamp:
-                                metrics["timestamp"] = timestamp
-                            if summary:
-                                break
+                if category_key:
+                    entry = search_activity_map.get(str(category_key))
+                    if isinstance(entry, Mapping):
+                        summary = entry.get("summary")
+                        timestamp = entry.get("timestamp")
+                        if summary:
+                            metrics["summary"] = summary
+                        if timestamp:
+                            metrics["timestamp"] = timestamp
                 return metrics
 
             metrics_cache: dict[int, dict[str, object]] = {}
@@ -917,45 +835,17 @@ class WebUI:
                 metrics_cache[id(arr_obj)] = metrics
                 if proc_kind == "search":
                     category_key = getattr(arr_obj, "category", None)
-                    stores: list[Mapping[str, Any]] = []
-                    try:
-                        store = getattr(
-                            getattr(self.manager, "arr_manager", None), "search_activity", {}
-                        )
-                        if isinstance(store, Mapping):
-                            stores.append(store)
-                    except Exception:
-                        pass
-                    try:
-                        shared_store = getattr(
-                            getattr(self.manager, "qbit_manager", None),
-                            "shared_search_activity",
-                            {},
-                        )
-                        if isinstance(shared_store, Mapping):
-                            stores.append(shared_store)
-                    except Exception:
-                        pass
-                    stores.append(self._search_activity_cache)
-
+                    entry = None
+                    if category_key:
+                        entry = search_activity_map.get(str(category_key))
                     summary = None
                     timestamp = None
-                    if category_key and stores:
-                        key = str(category_key)
-                        for store in stores:
-                            try:
-                                cached_entry = store.get(key)
-                            except Exception:
-                                cached_entry = None
-                            if isinstance(cached_entry, Mapping):
-                                summary = cached_entry.get("summary") or summary
-                                timestamp = cached_entry.get("timestamp") or timestamp
-                                if summary:
-                                    break
+                    if isinstance(entry, Mapping):
+                        summary = entry.get("summary")
+                        timestamp = entry.get("timestamp")
                     if summary is None:
                         summary = getattr(arr_obj, "last_search_description", None)
                         timestamp = getattr(arr_obj, "last_search_timestamp", None)
-
                     if summary:
                         payload_dict["searchSummary"] = summary
                         if timestamp:
@@ -965,14 +855,10 @@ class WebUI:
                                 ).isoformat()
                             else:
                                 payload_dict["searchTimestamp"] = str(timestamp)
-                    elif category_key and stores:
+                    elif category_key:
                         key = str(category_key)
-                        for store in stores:
-                            if isinstance(store, MutableMapping):
-                                try:
-                                    store.pop(key, None)
-                                except Exception:
-                                    pass
+                        clear_search_activity(key)
+                        search_activity_map.pop(key, None)
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
                     if queue_count is None:
@@ -1508,21 +1394,7 @@ class WebUI:
         # Rebuild arr manager from config and spawn fresh
         from qBitrr.arss import ArrManager
 
-        try:
-            shared_store = self.manager.shared_search_activity
-        except AttributeError:
-            shared_store = None
-        else:
-            try:
-                shared_store.clear()
-            except Exception:
-                pass
-        search_queue = getattr(self.manager, "shared_search_queue", None)
-        self.manager.arr_manager = ArrManager(
-            self.manager,
-            search_activity_store=shared_store,
-            search_queue=search_queue,
-        ).build_arr_instances()
+        self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
         self.manager.configure_auto_update()
         # Spawn and start new processes
         for arr in self.manager.arr_manager.managed_objects.values():

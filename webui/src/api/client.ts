@@ -11,14 +11,38 @@ import type {
   StatusResponse,
 } from "./types";
 
-const JSON_HEADERS = { "Content-Type": "application/json" };
+const JSON_HEADERS = { "Content-Type": "application/json" } as const;
+const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
+
+function resolveToken(): string | null {
+  for (const key of TOKEN_STORAGE_KEYS) {
+    const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+    if (value) {
+      if (key !== "token") {
+        localStorage.setItem("token", value);
+      }
+      return value;
+    }
+  }
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get("token");
+    if (fromQuery) {
+      localStorage.setItem("token", fromQuery);
+      return fromQuery;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 function buildInit(init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers || {});
   Object.entries(JSON_HEADERS).forEach(([key, value]) => {
     if (!headers.has(key)) headers.set(key, value);
   });
-  const token = localStorage.getItem("token");
+  const token = resolveToken();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -26,6 +50,14 @@ function buildInit(init?: RequestInit): RequestInit {
     ...init,
     headers,
   };
+}
+
+async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  return handleJson<T>(await fetch(input, buildInit(init)));
+}
+
+async function fetchTextResponse(input: RequestInfo | URL, init?: RequestInit): Promise<string> {
+  return handleText(await fetch(input, buildInit(init)));
 }
 
 async function handleJson<T>(res: Response): Promise<T> {
@@ -62,61 +94,50 @@ async function handleText(res: Response): Promise<string> {
 
 export async function getMeta(params?: { force?: boolean }): Promise<MetaResponse> {
   const query = params?.force ? "?force=1" : "";
-  return handleJson(await fetch(`/web/meta${query}`));
+  return fetchJson<MetaResponse>(`/web/meta${query}`);
 }
 
 export async function getStatus(): Promise<StatusResponse> {
-  return handleJson(await fetch("/web/status"));
+  return fetchJson<StatusResponse>("/web/status");
 }
 
 export async function getProcesses(): Promise<ProcessesResponse> {
-  return handleJson(await fetch("/web/processes"));
+  return fetchJson<ProcessesResponse>("/web/processes");
 }
 
 export async function restartProcess(
   category: string,
   kind: string
 ): Promise<RestartResponse> {
-  const res = await fetch(`/web/processes/${category}/${kind}/restart`, {
-    method: "POST",
-    ...buildInit(),
-  });
-  return handleJson(res);
+  const url = `/web/processes/${encodeURIComponent(
+    category
+  )}/${encodeURIComponent(kind)}/restart`;
+  return fetchJson<RestartResponse>(url, { method: "POST" });
 }
 
 export async function restartAllProcesses(): Promise<RestartResponse> {
-  const res = await fetch("/web/processes/restart_all", {
+  return fetchJson<RestartResponse>("/web/processes/restart_all", {
     method: "POST",
-    ...buildInit(),
   });
-  return handleJson(res);
 }
 
 export async function rebuildArrs(): Promise<RestartResponse> {
-  const res = await fetch("/web/arr/rebuild", {
-    method: "POST",
-    ...buildInit(),
-  });
-  return handleJson(res);
+  return fetchJson<RestartResponse>("/web/arr/rebuild", { method: "POST" });
 }
 
 export async function setLogLevel(level: string): Promise<void> {
-  const res = await fetch("/web/loglevel", {
+  await fetchJson<void>("/web/loglevel", {
     method: "POST",
-    ...buildInit({
-      body: JSON.stringify({ level }),
-    }),
+    body: JSON.stringify({ level }),
   });
-  await handleJson(res);
 }
 
 export async function getLogs(): Promise<LogsListResponse> {
-  return handleJson(await fetch("/web/logs"));
+  return fetchJson<LogsListResponse>("/web/logs");
 }
 
 export async function getLogTail(name: string): Promise<string> {
-  const res = await fetch(`/web/logs/${encodeURIComponent(name)}`);
-  return handleText(res);
+  return fetchTextResponse(`/web/logs/${encodeURIComponent(name)}`);
 }
 
 export function getLogDownloadUrl(name: string): string {
@@ -124,7 +145,7 @@ export function getLogDownloadUrl(name: string): string {
 }
 
 export async function getArrList(): Promise<ArrListResponse> {
-  return handleJson(await fetch("/web/arr"));
+  return fetchJson<ArrListResponse>("/web/arr");
 }
 
 export async function getRadarrMovies(
@@ -137,8 +158,8 @@ export async function getRadarrMovies(
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
   if (q) params.set("q", q);
-  return handleJson(
-    await fetch(`/web/radarr/${encodeURIComponent(category)}/movies?${params}`)
+  return fetchJson<RadarrMoviesResponse>(
+    `/web/radarr/${encodeURIComponent(category)}/movies?${params}`
   );
 }
 
@@ -152,39 +173,31 @@ export async function getSonarrSeries(
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
   if (q) params.set("q", q);
-  return handleJson(
-    await fetch(`/web/sonarr/${encodeURIComponent(category)}/series?${params}`)
+  return fetchJson<SonarrSeriesResponse>(
+    `/web/sonarr/${encodeURIComponent(category)}/series?${params}`
   );
 }
 
 export async function restartArr(category: string): Promise<void> {
-  const res = await fetch(`/web/arr/${encodeURIComponent(category)}/restart`, {
-    method: "POST",
-    ...buildInit(),
-  });
-  await handleJson(res);
+  await fetchJson<void>(
+    `/web/arr/${encodeURIComponent(category)}/restart`,
+    { method: "POST" }
+  );
 }
 
 export async function getConfig(): Promise<ConfigDocument> {
-  return handleJson(await fetch("/web/config"));
+  return fetchJson<ConfigDocument>("/web/config");
 }
 
 export async function updateConfig(
   payload: ConfigUpdatePayload
 ): Promise<void> {
-  const res = await fetch("/web/config", {
+  await fetchJson<void>("/web/config", {
     method: "POST",
-    ...buildInit({
-      body: JSON.stringify(payload),
-    }),
+    body: JSON.stringify(payload),
   });
-  await handleJson(res);
 }
 
 export async function triggerUpdate(): Promise<void> {
-  const res = await fetch("/web/update", {
-    method: "POST",
-    ...buildInit(),
-  });
-  await handleJson(res);
+  await fetchJson<void>("/web/update", { method: "POST" });
 }
