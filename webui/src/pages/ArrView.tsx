@@ -114,7 +114,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       const data = await getArrList();
       if (data.ready === false && !backendReadyWarnedRef.current) {
         backendReadyWarnedRef.current = true;
-        push("Radarr backend is still initialising. Check the logs if this persists.", "warning");
+        push("Radarr backend is still initialising. Check the logs if this persists.", "info");
       } else if (data.ready) {
         backendReadyWarnedRef.current = true;
       }
@@ -877,7 +877,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       const data = await getArrList();
       if (data.ready === false && !backendReadyWarnedRef.current) {
         backendReadyWarnedRef.current = true;
-        push("Sonarr backend is still initialising. Check the logs if this persists.", "warning");
+        push("Sonarr backend is still initialising. Check the logs if this persists.", "info");
       } else if (data.ready) {
         backendReadyWarnedRef.current = true;
       }
