@@ -23,6 +23,16 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const logRef = useRef<HTMLPreElement | null>(null);
   const { push } = useToast();
 
+  const describeError = useCallback((reason: unknown, context: string): string => {
+    if (reason instanceof Error && reason.message) {
+      return `${context}: ${reason.message}`;
+    }
+    if (typeof reason === "string" && reason.trim().length) {
+      return `${context}: ${reason}`;
+    }
+    return context;
+  }, []);
+
   const loadList = useCallback(async () => {
     setLoadingList(true);
     try {
@@ -42,14 +52,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         setSelected("");
       }
     } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to fetch logs",
-        "error"
-      );
+      push(describeError(error, "Failed to refresh log list"), "error");
     } finally {
       setLoadingList(false);
     }
-  }, [push]);
+  }, [describeError, push]);
 
   const loadTail = useCallback(
     async (name: string) => {
@@ -63,13 +70,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           }
         });
       } catch (error) {
-        push(
-          error instanceof Error ? error.message : `Failed to read ${name}`,
-          "error"
-        );
+        push(describeError(error, `Failed to read ${name}`), "error");
       }
     },
-    [push]
+    [describeError, push]
   );
 
   useEffect(() => {

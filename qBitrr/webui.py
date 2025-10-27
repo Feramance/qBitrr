@@ -837,6 +837,8 @@ class WebUI:
                             metrics["summary"] = summary
                         if timestamp:
                             metrics["timestamp"] = timestamp
+                if metrics["summary"] is None and not getattr(arr_obj, "_webui_db_loaded", True):
+                    metrics["summary"] = "Updating database"
                 return metrics
 
             metrics_cache: dict[int, dict[str, object]] = {}
@@ -859,6 +861,13 @@ class WebUI:
                     if summary is None:
                         summary = getattr(arr_obj, "last_search_description", None)
                         timestamp = getattr(arr_obj, "last_search_timestamp", None)
+                    if summary is None:
+                        metrics_summary = metrics.get("summary")
+                        if metrics_summary:
+                            summary = metrics_summary
+                            metrics_timestamp = metrics.get("timestamp")
+                            if metrics_timestamp:
+                                timestamp = metrics_timestamp
                     if summary:
                         payload_dict["searchSummary"] = summary
                         if timestamp:
