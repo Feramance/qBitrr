@@ -568,6 +568,10 @@ class Arr:
         self.last_search_description = " · ".join(segments)
         self.last_search_timestamp = datetime.now(timezone.utc).isoformat()
         search_state = getattr(self.manager, "search_activity", None)
+        if search_state is None:
+            qbm = getattr(self.manager, "qbit_manager", None)
+            if qbm is not None:
+                search_state = getattr(qbm, "shared_search_activity", None)
         if isinstance(search_state, dict):
             search_state[self.category] = {
                 "summary": self.last_search_description,

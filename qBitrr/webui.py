@@ -822,6 +822,15 @@ class WebUI:
                         )
                     except Exception:
                         search_cache = None
+                    if not isinstance(search_cache, dict):
+                        try:
+                            search_cache = getattr(
+                                getattr(self.manager, "qbit_manager", None),
+                                "shared_search_activity",
+                                {},
+                            )
+                        except Exception:
+                            search_cache = {}
 
                     summary = None
                     timestamp = None
