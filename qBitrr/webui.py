@@ -669,10 +669,7 @@ class WebUI:
             # Serve UI without requiring a token; API remains protected
             return redirect("/static/index.html")
 
-        @app.get("/api/processes")
-        def api_processes():
-            if (resp := require_token()) is not None:
-                return resp
+        def _processes_payload() -> dict[str, Any]:
             procs = []
             search_activity_map = fetch_search_activities()
 
@@ -917,12 +914,18 @@ class WebUI:
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
-            return jsonify({"processes": procs})
+            return {"processes": procs}
+
+        @app.get("/api/processes")
+        def api_processes():
+            if (resp := require_token()) is not None:
+                return resp
+            return jsonify(_processes_payload())
 
         # UI endpoints (mirror of /api/* for first-party WebUI clients)
         @app.get("/web/processes")
         def web_processes():
-            return api_processes()
+            return jsonify(_processes_payload())
 
         def _restart_process(category: str, kind: str):
             kind_normalized = kind.lower()
@@ -970,8 +973,6 @@ class WebUI:
 
         @app.post("/web/processes/<category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
-            if (resp := require_token()) is not None:
-                return resp
             return _restart_process(category, kind)
 
         @app.post("/api/processes/restart_all")
@@ -983,8 +984,6 @@ class WebUI:
 
         @app.post("/web/processes/restart_all")
         def web_restart_all():
-            if (resp := require_token()) is not None:
-                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -1011,8 +1010,6 @@ class WebUI:
 
         @app.post("/web/loglevel")
         def web_loglevel():
-            if (resp := require_token()) is not None:
-                return resp
             body = request.get_json(silent=True) or {}
             level = str(body.get("level", "INFO")).upper()
             valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
@@ -1039,27 +1036,23 @@ class WebUI:
 
         @app.post("/web/arr/rebuild")
         def web_arr_rebuild():
-            if (resp := require_token()) is not None:
-                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
+
+        def _list_logs() -> list[str]:
+            if not logs_root.exists():
+                return []
+            return sorted(f.name for f in logs_root.glob("*.log*"))
 
         @app.get("/api/logs")
         def api_logs():
             if (resp := require_token()) is not None:
                 return resp
-            logs_dir = HOME_PATH.joinpath("logs")
-            files = []
-            if logs_dir.exists():
-                for f in logs_dir.glob("*.log*"):
-                    files.append(f.name)
-            return jsonify({"files": sorted(files)})
+            return jsonify({"files": _list_logs()})
 
         @app.get("/web/logs")
         def web_logs():
-            if (resp := require_token()) is not None:
-                return resp
-            return api_logs()
+            return jsonify({"files": _list_logs()})
 
         @app.get("/api/logs/<name>")
         def api_log(name: str):
@@ -1078,8 +1071,6 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            if (resp := require_token()) is not None:
-                return resp
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -1101,8 +1092,6 @@ class WebUI:
 
         @app.get("/web/logs/<name>/download")
         def web_log_download(name: str):
-            if (resp := require_token()) is not None:
-                return resp
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -1124,8 +1113,6 @@ class WebUI:
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
-            if (resp := require_token()) is not None:
-                return resp
             arr = self.manager.arr_manager.managed_objects.get(category)
             if arr is None or getattr(arr, "type", None) != "radarr":
                 return jsonify({"error": f"Unknown radarr category {category}"}), 404
@@ -1152,8 +1139,6 @@ class WebUI:
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
-            if (resp := require_token()) is not None:
-                return resp
             arr = self.manager.arr_manager.managed_objects.get(category)
             if arr is None or getattr(arr, "type", None) != "sonarr":
                 return jsonify({"error": f"Unknown sonarr category {category}"}), 404
@@ -1164,10 +1149,7 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/arr")
-        def api_arr_list():
-            if (resp := require_token()) is not None:
-                return resp
+        def _arr_list_payload() -> dict[str, Any]:
             items = []
             for k, arr in self.manager.arr_manager.managed_objects.items():
                 t = getattr(arr, "type", None)
@@ -1175,11 +1157,17 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})
-            return jsonify({"arr": items})
+            return {"arr": items}
+
+        @app.get("/api/arr")
+        def api_arr_list():
+            if (resp := require_token()) is not None:
+                return resp
+            return jsonify(_arr_list_payload())
 
         @app.get("/web/arr")
         def web_arr_list():
-            return api_arr_list()
+            return jsonify(_arr_list_payload())
 
         @app.get("/api/meta")
         def api_meta():
@@ -1190,8 +1178,6 @@ class WebUI:
 
         @app.get("/web/meta")
         def web_meta():
-            if (resp := require_token()) is not None:
-                return resp
             force = self._safe_bool(request.args.get("force"))
             return jsonify(self._ensure_version_info(force=force))
 
@@ -1206,17 +1192,12 @@ class WebUI:
 
         @app.post("/web/update")
         def web_update():
-            if (resp := require_token()) is not None:
-                return resp
             ok, message = self._trigger_manual_update()
             if not ok:
                 return jsonify({"error": message}), 409
             return jsonify({"status": "started"})
 
-        @app.get("/api/status")
-        def api_status():
-            if (resp := require_token()) is not None:
-                return resp
+        def _status_payload() -> dict[str, Any]:
             qb = {
                 "alive": bool(self.manager.is_alive),
                 "host": self.manager.qBit_Host,
@@ -1245,11 +1226,17 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
-            return jsonify({"qbit": qb, "arrs": arrs})
+            return {"qbit": qb, "arrs": arrs}
+
+        @app.get("/api/status")
+        def api_status():
+            if (resp := require_token()) is not None:
+                return resp
+            return jsonify(_status_payload())
 
         @app.get("/web/status")
         def web_status():
-            return api_status()
+            return jsonify(_status_payload())
 
         @app.get("/api/token")
         def api_token():
@@ -1298,8 +1285,6 @@ class WebUI:
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
-            if (resp := require_token()) is not None:
-                return resp
             if section not in self.manager.arr_manager.managed_objects:
                 return jsonify({"error": f"Unknown section {section}"}), 404
             arr = self.manager.arr_manager.managed_objects[section]
@@ -1350,8 +1335,6 @@ class WebUI:
 
         @app.get("/web/config")
         def web_get_config():
-            if (resp := require_token()) is not None:
-                return resp
             try:
                 try:
                     CONFIG.load()
@@ -1393,8 +1376,6 @@ class WebUI:
 
         @app.post("/web/config")
         def web_update_config():
-            if (resp := require_token()) is not None:
-                return resp
             body = request.get_json(silent=True) or {}
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
