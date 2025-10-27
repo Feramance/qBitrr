@@ -2330,7 +2330,7 @@ class Arr:
                             episode["hasFile"]
                             and not (self.quality_unmet_search and QualityUnmet)
                             and not (
-                                self.custom_format_unmet_search and customFormat <= minCustomFormat
+                                self.custom_format_unmet_search and customFormat < minCustomFormat
                             )
                         ):
                             searched = True
@@ -2435,7 +2435,7 @@ class Arr:
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
                         else:
-                            reason = None
+                            reason = "Scheduled search"
 
                         to_update = {
                             self.model_file.Monitored: Monitored,
@@ -2699,7 +2699,7 @@ class Arr:
                         db_entry["hasFile"]
                         and not (self.quality_unmet_search and QualityUnmet)
                         and not (
-                            self.custom_format_unmet_search and customFormat <= minCustomFormat
+                            self.custom_format_unmet_search and customFormat < minCustomFormat
                         )
                     ):
                         searched = True
@@ -2774,7 +2774,7 @@ class Arr:
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
                     else:
-                        reason = None
+                        reason = "Scheduled search"
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
@@ -3098,7 +3098,7 @@ class Arr:
                 self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
-                reason_text = getattr(file_model, "Reason", None)
+                reason_text = getattr(file_model, "Reason", None) or "Scheduled search"
                 if reason_text:
                     self.logger.hnotice(
                         "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",
