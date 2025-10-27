@@ -10,6 +10,7 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from collections.abc import MutableMapping
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
@@ -572,7 +573,7 @@ class Arr:
             qbm = getattr(self.manager, "qbit_manager", None)
             if qbm is not None:
                 search_state = getattr(qbm, "shared_search_activity", None)
-        if isinstance(search_state, dict):
+        if isinstance(search_state, MutableMapping):
             search_state[self.category] = {
                 "summary": self.last_search_description,
                 "timestamp": self.last_search_timestamp,

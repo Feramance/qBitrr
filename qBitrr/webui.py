@@ -5,6 +5,7 @@ import logging
 import re
 import secrets
 import threading
+from collections.abc import Mapping, MutableMapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -822,7 +823,7 @@ class WebUI:
                         )
                     except Exception:
                         search_cache = None
-                    if not isinstance(search_cache, dict):
+                    if not isinstance(search_cache, Mapping):
                         try:
                             search_cache = getattr(
                                 getattr(self.manager, "qbit_manager", None),
@@ -834,9 +835,9 @@ class WebUI:
 
                     summary = None
                     timestamp = None
-                    if isinstance(search_cache, dict) and category_key:
+                    if isinstance(search_cache, Mapping) and category_key:
                         cached_entry = search_cache.get(category_key) or {}
-                        if isinstance(cached_entry, dict):
+                        if isinstance(cached_entry, Mapping):
                             summary = cached_entry.get("summary")
                             timestamp = cached_entry.get("timestamp")
                     if summary is None:
@@ -853,7 +854,7 @@ class WebUI:
                             else:
                                 payload_dict["searchTimestamp"] = str(timestamp)
                     elif (
-                        isinstance(search_cache, dict)
+                        isinstance(search_cache, MutableMapping)
                         and category_key is not None
                         and category_key in search_cache
                     ):
