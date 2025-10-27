@@ -5,7 +5,7 @@ import contextlib
 import itertools
 import logging
 import sys
-from multiprocessing import Event, freeze_support
+from multiprocessing import Event, Manager, freeze_support
 
 import pathos
 import qbittorrentapi
@@ -93,6 +93,9 @@ class qBitManager:
         self.should_delay_torrent_scan = False  # If true torrent scan is delayed by 5 minutes.
         self.child_processes = []
         self.auto_updater = None
+        self._ipc_manager = Manager()
+        atexit.register(self._ipc_manager.shutdown)
+        self.shared_search_activity = self._ipc_manager.dict()
         self.ffprobe_downloader = FFprobeDownloader()
         try:
             if not (QBIT_DISABLED or SEARCH_ONLY):
@@ -101,7 +104,9 @@ class qBitManager:
             self.logger.error(
                 "FFprobe manager error: %s while attempting to download/update FFprobe", e
             )
-        self.arr_manager = ArrManager(self).build_arr_instances()
+        self.arr_manager = ArrManager(
+            self, search_activity_store=self.shared_search_activity
+        ).build_arr_instances()
         run_logs(self.logger)
         # Start WebUI
         try:

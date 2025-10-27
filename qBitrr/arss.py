@@ -5583,7 +5583,12 @@ class FreeSpaceManager(Arr):
 
 
 class ArrManager:
-    def __init__(self, qbitmanager: qBitManager):
+    def __init__(
+        self,
+        qbitmanager: qBitManager,
+        *,
+        search_activity_store: dict[str, dict[str, object]] | None = None,
+    ):
         self.groups: set[str] = set()
         self.uris: set[str] = set()
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
@@ -5591,9 +5596,11 @@ class ArrManager:
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
+        if search_activity_store is None:
+            search_activity_store = {}
+        self.search_activity: dict[str, dict[str, object]] = search_activity_store
         self.qbit: qbittorrentapi.Client = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
-        self.search_activity: dict[str, dict[str, object]] = {}
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger("qBitrr.ArrManager")
         run_logs(self.logger)

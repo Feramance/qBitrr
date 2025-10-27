@@ -818,23 +818,23 @@ class WebUI:
                     attr_timestamp = getattr(arr_obj, "last_search_timestamp", None)
                     cached_summary = None
                     cached_timestamp = None
+                    search_cache = None
+                    category_key = getattr(arr_obj, "category", None)
                     try:
-                        category_key = getattr(arr_obj, "category", None)
                         search_cache = getattr(
                             getattr(self.manager, "arr_manager", None), "search_activity", {}
                         )
-                        if (
-                            isinstance(search_cache, dict)
-                            and category_key is not None
-                            and category_key in search_cache
-                        ):
-                            cached_entry = search_cache.get(category_key) or {}
-                            if isinstance(cached_entry, dict):
-                                cached_summary = cached_entry.get("summary")
-                                cached_timestamp = cached_entry.get("timestamp")
                     except Exception:
-                        cached_summary = None
-                        cached_timestamp = None
+                        search_cache = None
+                    if (
+                        isinstance(search_cache, dict)
+                        and category_key is not None
+                        and category_key in search_cache
+                    ):
+                        cached_entry = search_cache.get(category_key) or {}
+                        if isinstance(cached_entry, dict):
+                            cached_summary = cached_entry.get("summary")
+                            cached_timestamp = cached_entry.get("timestamp")
 
                     def _iso_to_utc(value):
                         if not value:
@@ -908,6 +908,15 @@ class WebUI:
                                     if isinstance(selected_raw, datetime)
                                     else selected_raw
                                 )
+                    elif (
+                        isinstance(search_cache, dict)
+                        and category_key is not None
+                        and category_key in search_cache
+                    ):
+                        try:
+                            search_cache.pop(category_key, None)
+                        except Exception:
+                            pass
                 elif proc_kind == "torrent":
                     queue_count = metrics.get("queue")
                     if queue_count is None:
@@ -1443,7 +1452,18 @@ class WebUI:
         # Rebuild arr manager from config and spawn fresh
         from qBitrr.arss import ArrManager
 
-        self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
+        try:
+            shared_store = self.manager.shared_search_activity
+        except AttributeError:
+            shared_store = None
+        else:
+            try:
+                shared_store.clear()
+            except Exception:
+                pass
+        self.manager.arr_manager = ArrManager(
+            self.manager, search_activity_store=shared_store
+        ).build_arr_instances()
         self.manager.configure_auto_update()
         # Spawn and start new processes
         for arr in self.manager.arr_manager.managed_objects.values():
