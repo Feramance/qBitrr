@@ -5015,6 +5015,7 @@ class Arr:
                             except Exception:
                                 pass
                             raise RestartLoopException
+                        any_commands = False
                         for (
                             entry,
                             todays,
@@ -5022,6 +5023,7 @@ class Arr:
                             series_search,
                             commands,
                         ) in self.db_get_files():
+                            any_commands = True
                             if totcommands == -1:
                                 totcommands = commands
                                 self.logger.info("Starting search for %s items", totcommands)
@@ -5056,6 +5058,12 @@ class Arr:
                                 self.logger.info(
                                     "Searches not completed, %s remaining", totcommands
                                 )
+                        if not any_commands:
+                            self.logger.debug("No pending searches for %s", self._name)
+                            try:
+                                self._record_search_activity(None, detail="no-pending-searches")
+                            except Exception:
+                                pass
                     except RestartLoopException:
                         self.loop_completed = True
                         self.db_update_processed = False
