@@ -1,14 +1,8 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
+import { IconDownload, IconPulse, IconRefresh } from "../components/Icons";
 
 interface LogsViewProps {
   active: boolean;
@@ -125,6 +119,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             <label>&nbsp;</label>
             <div className="row" style={{ alignItems: "center" }}>
               <button className="btn" onClick={() => void loadList()} disabled={loadingList}>
+                <IconRefresh />
                 Reload List
               </button>
               <button
@@ -134,6 +129,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 }
                 disabled={!selected}
               >
+                <IconDownload />
                 Download
               </button>
               <label className="hint inline" style={{ cursor: "pointer" }}>
@@ -142,7 +138,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                   checked={isLive}
                   onChange={(event) => setIsLive(event.target.checked)}
                 />
-                Live
+                <IconPulse />
+                <span>Live</span>
               </label>
             </div>
           </div>

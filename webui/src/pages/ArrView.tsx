@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type JSX,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import {
   getArrList,
   getRadarrMovies,
@@ -24,6 +17,12 @@ import type {
 import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useInterval } from "../hooks/useInterval";
+import {
+  IconFilter,
+  IconPulse,
+  IconRefresh,
+  IconRestart,
+} from "../components/Icons";
 
 interface ArrViewProps {
   type: "radarr" | "sonarr";
@@ -505,7 +504,8 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                   checked={onlyMissing}
                   onChange={(event) => setOnlyMissing(event.target.checked)}
                 />
-                Only Missing
+                <IconFilter />
+                <span>Only Missing</span>
               </label>
               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
@@ -514,7 +514,8 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                     checked={live}
                     onChange={(event) => setLive(event.target.checked)}
                   />
-                  Live
+                  <IconPulse />
+                  <span>Live</span>
                 </label>
               )}
             </div>
@@ -606,13 +607,14 @@ function RadarrAggregateView({
   );
 
   return (
-    <div className="stack">
+    <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
           Aggregated movies across all instances{" "}
           {lastUpdated ? `(updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
+          <IconRefresh />
           Refresh
         </button>
       </div>
@@ -622,28 +624,34 @@ function RadarrAggregateView({
         </div>
       ) : (
         <>
-          <table>
-            <thead>
-              <tr>
-                {renderHeader("__instance", "Instance")}
-                {renderHeader("title", "Title")}
-                {renderHeader("year", "Year")}
-                {renderHeader("monitored", "Monitored")}
-                {renderHeader("hasFile", "Has File")}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={`${row.__instance}-${row.id ?? idx}`}>
-                  <td>{row.__instance}</td>
-                  <td>{row.title ?? ""}</td>
-                  <td>{row.year ?? ""}</td>
-                  <td>{row.monitored ? "Yes" : "No"}</td>
-                  <td>{row.hasFile ? "Yes" : "No"}</td>
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  {renderHeader("__instance", "Instance")}
+                  {renderHeader("title", "Title")}
+                  {renderHeader("year", "Year")}
+                  {renderHeader("monitored", "Monitored")}
+                  {renderHeader("hasFile", "Has File")}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr key={`${row.__instance}-${row.id ?? idx}`}>
+                    <td data-label="Instance">{row.__instance}</td>
+                    <td data-label="Title">{row.title ?? ""}</td>
+                    <td data-label="Year">{row.year ?? ""}</td>
+                    <td data-label="Monitored">
+                      <span className="table-badge">{row.monitored ? "Yes" : "No"}</span>
+                    </td>
+                    <td data-label="Has File">
+                      <span className="table-badge">{row.hasFile ? "Yes" : "No"}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className="pagination">
             <div>
               Page {page + 1} of {totalPages} ({total} items)
@@ -782,7 +790,7 @@ function RadarrInstanceView({
   );
 
   return (
-    <div className="stack">
+    <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
@@ -792,29 +800,36 @@ function RadarrInstanceView({
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
+          <IconRestart />
           Restart Instance
         </button>
       </div>
-      <table>
-        <thead>
-          <tr>
-            {renderHeader("title", "Title")}
-            {renderHeader("year", "Year")}
-            {renderHeader("monitored", "Monitored")}
-            {renderHeader("hasFile", "Has File")}
-          </tr>
-        </thead>
-        <tbody>
-          {pageRows.map((movie) => (
-            <tr key={movie.id ?? `${movie.title}-${movie.year}`}>
-              <td>{movie.title ?? ""}</td>
-              <td>{movie.year ?? ""}</td>
-              <td>{movie.monitored ? "Yes" : "No"}</td>
-              <td>{movie.hasFile ? "Yes" : "No"}</td>
+      <div className="table-wrapper">
+        <table className="responsive-table">
+          <thead>
+            <tr>
+              {renderHeader("title", "Title")}
+              {renderHeader("year", "Year")}
+              {renderHeader("monitored", "Monitored")}
+              {renderHeader("hasFile", "Has File")}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageRows.map((movie) => (
+              <tr key={movie.id ?? `${movie.title}-${movie.year}`}>
+                <td data-label="Title">{movie.title ?? ""}</td>
+                <td data-label="Year">{movie.year ?? ""}</td>
+                <td data-label="Monitored">
+                  <span className="table-badge">{movie.monitored ? "Yes" : "No"}</span>
+                </td>
+                <td data-label="Has File">
+                  <span className="table-badge">{movie.hasFile ? "Yes" : "No"}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="pagination">
         <div>
           Page {safePage + 1} of {effectiveTotalPages} ({totalItems} items · page size{" "}
@@ -1259,7 +1274,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                   checked={onlyMissing}
                   onChange={(event) => setOnlyMissing(event.target.checked)}
                 />
-                Only Missing
+                <IconFilter />
+                <span>Only Missing</span>
               </label>
               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
@@ -1268,7 +1284,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                     checked={live}
                     onChange={(event) => setLive(event.target.checked)}
                   />
-                  Live
+                  <IconPulse />
+                  <span>Live</span>
                 </label>
               )}
             </div>
@@ -1363,12 +1380,13 @@ function SonarrAggregateView({
   );
 
   return (
-    <div className="stack">
+    <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
           Aggregated monitored episodes {lastUpdated ? `(updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
+          <IconRefresh />
           Refresh
         </button>
       </div>
@@ -1378,34 +1396,40 @@ function SonarrAggregateView({
         </div>
       ) : (
         <>
-          <table>
-            <thead>
-              <tr>
-                {renderHeader("__instance", "Instance")}
-                {renderHeader("series", "Series")}
-                {renderHeader("season", "Season")}
-                {renderHeader("episode", "Episode")}
-                {renderHeader("title", "Title")}
-                {renderHeader("monitored", "Monitored")}
-                {renderHeader("hasFile", "Has File")}
-                {renderHeader("airDate", "Air Date")}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={`${row.__instance}-${idx}`}>
-                  <td>{row.__instance}</td>
-                  <td>{row.series}</td>
-                  <td>{row.season}</td>
-                  <td>{row.episode}</td>
-                  <td>{row.title}</td>
-                  <td>{row.monitored ? "Yes" : "No"}</td>
-                  <td>{row.hasFile ? "Yes" : "No"}</td>
-                  <td>{row.airDate}</td>
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  {renderHeader("__instance", "Instance")}
+                  {renderHeader("series", "Series")}
+                  {renderHeader("season", "Season")}
+                  {renderHeader("episode", "Episode")}
+                  {renderHeader("title", "Title")}
+                  {renderHeader("monitored", "Monitored")}
+                  {renderHeader("hasFile", "Has File")}
+                  {renderHeader("airDate", "Air Date")}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row, idx) => (
+                  <tr key={`${row.__instance}-${idx}`}>
+                    <td data-label="Instance">{row.__instance}</td>
+                    <td data-label="Series">{row.series}</td>
+                    <td data-label="Season">{row.season}</td>
+                    <td data-label="Episode">{row.episode}</td>
+                    <td data-label="Title">{row.title}</td>
+                    <td data-label="Monitored">
+                      <span className="table-badge">{row.monitored ? "Yes" : "No"}</span>
+                    </td>
+                    <td data-label="Has File">
+                      <span className="table-badge">{row.hasFile ? "Yes" : "No"}</span>
+                    </td>
+                    <td data-label="Air Date">{row.airDate || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className="pagination">
             <div>
           Page {page + 1} of {totalPages} ({total} items)
@@ -1509,7 +1533,7 @@ function SonarrInstanceView({
   }, [safePage, page, onPageChange]);
 
   return (
-    <div className="stack">
+    <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
@@ -1528,6 +1552,7 @@ function SonarrInstanceView({
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
+          <IconRestart />
           Restart Instance
         </button>
       </div>
@@ -1575,28 +1600,34 @@ function SonarrInstanceView({
                           {season.available})
                         </span>
                       </summary>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Episode</th>
-                            <th>Title</th>
-                            <th>Monitored</th>
-                            <th>Has File</th>
-                            <th>Air Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(season.episodes ?? []).map((ep, epIdx) => (
-                            <tr key={ep.id ?? epIdx}>
-                              <td>{ep.episodeNumber ?? ""}</td>
-                              <td>{ep.title ?? ""}</td>
-                              <td>{ep.monitored ? "Yes" : "No"}</td>
-                              <td>{ep.hasFile ? "Yes" : "No"}</td>
-                              <td>{ep.airDateUtc ?? ""}</td>
+                      <div className="table-wrapper">
+                        <table className="responsive-table">
+                          <thead>
+                            <tr>
+                              <th>Episode</th>
+                              <th>Title</th>
+                              <th>Monitored</th>
+                              <th>Has File</th>
+                              <th>Air Date</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {(season.episodes ?? []).map((ep, epIdx) => (
+                              <tr key={ep.id ?? epIdx}>
+                                <td data-label="Episode">{ep.episodeNumber ?? ""}</td>
+                                <td data-label="Title">{ep.title ?? ""}</td>
+                                <td data-label="Monitored">
+                                  <span className="table-badge">{ep.monitored ? "Yes" : "No"}</span>
+                                </td>
+                                <td data-label="Has File">
+                                  <span className="table-badge">{ep.hasFile ? "Yes" : "No"}</span>
+                                </td>
+                                <td data-label="Air Date">{ep.airDateUtc ?? ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </details>
                   )
                 )}

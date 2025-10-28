@@ -8,6 +8,7 @@ import {
 import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
+import { IconHammer, IconRefresh, IconRestart } from "../components/Icons";
 
 const RELEASE_TOKEN_REGEX =
   /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
@@ -359,7 +360,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                           const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
                           return (
                             <div className="process-chip__detail">
-                              {`Torrents in queue ${queueLabel} / category ${categoryLabel}`}
+                              {`Torrents in queue ${queueLabel} / total ${categoryLabel}`}
                             </div>
                           );
                         }
@@ -389,6 +390,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                         className="btn ghost"
                         onClick={() => handleRestart(item.category, item.kind)}
                       >
+                        <IconRestart />
                         Restart
                       </button>
                     </div>
@@ -400,6 +402,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   className="btn ghost"
                   onClick={() => void handleRestartGroup(items)}
                 >
+                  <IconRestart />
                   Restart All
                 </button>
               </div>
@@ -416,12 +419,15 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
         <div className="row">
           <div className="col inline">
             <button className="btn" onClick={() => void load()} disabled={loading}>
+              <IconRefresh />
               Refresh
             </button>
             <button className="btn" onClick={() => void handleRestartAll()}>
+              <IconRestart />
               Restart All
             </button>
             <button className="btn" onClick={() => void handleRebuildArrs()}>
+              <IconHammer />
               Rebuild Arrs
             </button>
           </div>

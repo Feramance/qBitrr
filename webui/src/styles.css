@@ -395,6 +395,67 @@ pre {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    height: 1.1em;
+}
+
+.btn .icon {
+    margin-right: 6px;
+    transition: transform 0.2s ease;
+}
+
+.btn:hover .icon {
+    transform: translateY(-1px);
+}
+
+.responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+    transition: box-shadow 0.2s ease;
+}
+
+.responsive-table tbody tr {
+    animation: fadeInUp 0.25s ease;
+}
+
+.responsive-table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.responsive-table td,
+.responsive-table th {
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 12px;
+}
+
+.table-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+}
+
+.animate-fade-in {
+    animation: fadeInUp 0.3s ease;
+}
+
+.table-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
 .inline {
     display: inline-flex;
     align-items: center;
@@ -409,6 +470,73 @@ pre {
 }
 .text-danger {
     color: var(--danger);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 900px) {
+    .split {
+        flex-direction: column;
+    }
+    .split .pane.sidebar {
+        flex: none;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+    .split .pane.sidebar .btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 720px) {
+    .responsive-table thead {
+        display: none;
+    }
+    .responsive-table,
+    .responsive-table tbody,
+    .responsive-table tr,
+    .responsive-table td {
+        display: block;
+        width: 100%;
+    }
+    .responsive-table tbody tr {
+        background: rgba(18, 21, 26, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+    .responsive-table td {
+        padding: 6px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        border: none;
+    }
+    .responsive-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    .table-wrapper {
+        overflow: visible;
+    }
 }
 
 

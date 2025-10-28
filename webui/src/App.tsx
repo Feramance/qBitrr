@@ -7,6 +7,12 @@ import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
 import type { MetaResponse } from "./api/types";
+import {
+  IconClose,
+  IconExternal,
+  IconRefresh,
+  IconUpdate,
+} from "./components/Icons";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
 
@@ -83,6 +89,7 @@ function ChangelogModal({
         <div className="modal-header">
           <h2 id="changelog-title">Update Available</h2>
           <button className="btn ghost" type="button" onClick={onClose}>
+            <IconClose />
             Close
           </button>
         </div>
@@ -109,12 +116,14 @@ function ChangelogModal({
                 target="_blank"
                 rel="noreferrer"
               >
+                <IconExternal />
                 View on GitHub
               </a>
             )}
           </div>
           <div className="changelog-buttons">
             <button className="btn ghost" type="button" onClick={onClose}>
+              <IconClose />
               Close
             </button>
             <button
@@ -123,6 +132,7 @@ function ChangelogModal({
               onClick={onUpdate}
               disabled={updateDisabled}
             >
+              <IconUpdate />
               {updateDisabled ? "Updating..." : "Update Now"}
             </button>
           </div>
@@ -351,6 +361,7 @@ function AppShell(): JSX.Element {
               disabled={updateBusy || Boolean(updateState?.in_progress)}
             >
               <span className="appbar__update-indicator" aria-hidden="true" />
+              <IconUpdate />
               Update available
             </button>
           ) : null}
@@ -362,6 +373,7 @@ function AppShell(): JSX.Element {
             onClick={handleCheckUpdates}
             disabled={metaLoading}
           >
+            <IconRefresh />
             {metaLoading ? "Checking..." : "Check Updates"}
           </button>
           <a
@@ -370,6 +382,7 @@ function AppShell(): JSX.Element {
             rel="noreferrer"
             className="btn small ghost"
           >
+            <IconExternal />
             GitHub
           </a>
         </div>
