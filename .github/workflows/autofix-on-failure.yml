@@ -2,6 +2,12 @@ name: Autofix Failed Workflows
 
 on:
   workflow_run:
+    workflows:
+    - PR Build Checks
+    - Create a Release
+    - Nightly
+    - pre-commit
+    - CodeQL
     types:
     - completed
 
@@ -17,7 +23,7 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GITHUB_TOKEN: ${{ secrets.PAT }}
       AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL || 'gpt-4.1-mini' }}
-      AUTOFIX_BASE_BRANCH: ${{ vars.AUTOFIX_BASE_BRANCH || 'auto-fixes' }}
+      AUTOFIX_BASE_BRANCH: auto-fixes
     steps:
     - uses: actions/checkout@v4
       with:
