@@ -3,16 +3,14 @@ import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { getTooltip } from "../config/tooltips";
-import {
-  IconCheck,
-  IconClose,
-  IconCog,
-  IconEye,
-  IconEyeOff,
-  IconPlus,
-  IconRefresh,
-  IconTrash,
-} from "../components/Icons";
+import { IconImage } from "../components/IconImage";
+import ConfigureIcon from "../icons/cockpit.svg";
+import ShowIcon from "../icons/motioneye.svg";
+import RefreshIcon from "../icons/ddns-updater.svg";
+import AddIcon from "../icons/openwebrx-plus.svg";
+import SaveIcon from "../icons/healthchecks.svg";
+import DeleteIcon from "../icons/immich-power-tools.svg";
+import CloseIcon from "../icons/enclosed.svg";
 
 type FieldType = "text" | "number" | "checkbox" | "password" | "select";
 
@@ -1575,7 +1573,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                                     type="button"
                                     onClick={() => deleteArrInstance(key)}
                                   >
-                                    <IconTrash />
+                                    <IconImage src={DeleteIcon} />
                                     Delete
                                   </button>
                                 ) : null}
@@ -1584,7 +1582,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                                   type="button"
                                   onClick={() => setActiveArrKey(key)}
                                 >
-                                  <IconCog />
+                                  <IconImage src={ConfigureIcon} />
                                   Configure
                                 </button>
                               </div>
@@ -1605,7 +1603,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                 type="button"
                 onClick={() => addArrInstance("radarr")}
               >
-                <IconPlus />
+                <IconImage src={AddIcon} />
                 Add Radarr Instance
               </button>
               <button
@@ -1613,7 +1611,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                 type="button"
                 onClick={() => addArrInstance("sonarr")}
               >
-                <IconPlus />
+                <IconImage src={AddIcon} />
                 Add Sonarr Instance
               </button>
             </div>
@@ -1622,7 +1620,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               onClick={() => void handleSubmit()}
               disabled={saving}
             >
-              <IconCheck />
+              <IconImage src={SaveIcon} />
               Save + Live Reload
             </button>
           </div>
@@ -1679,7 +1677,7 @@ function ConfigSummaryCard({
         <p>{description}</p>
         <div className="config-arr-actions">
           <button className="btn primary" type="button" onClick={onConfigure}>
-            <IconCog />
+            <IconImage src={ConfigureIcon} />
             Configure
           </button>
         </div>
@@ -1996,12 +1994,12 @@ function SecureField({
             className="btn ghost"
             onClick={() => setRevealed((prev) => !prev)}
           >
-            {revealed ? <IconEyeOff /> : <IconEye />}
+            {revealed ? <IconImage src={ShowIcon} className="icon-rotate" /> : <IconImage src={ShowIcon} />}
             <span>{revealed ? "Hide" : "Show"}</span>
           </button>
           {canRefresh ? (
             <button type="button" className="btn ghost" onClick={handleRefresh}>
-              <IconRefresh />
+              <IconImage src={RefreshIcon} />
               Refresh
             </button>
           ) : null}
@@ -2041,7 +2039,7 @@ function ArrInstanceModal({
         <div className="modal-header">
           <h2 id="arr-config-title">Configure {keyName}</h2>
           <button className="btn ghost" type="button" onClick={onClose}>
-            <IconClose />
+            <IconImage src={CloseIcon} />
             Close
           </button>
         </div>
@@ -2102,7 +2100,7 @@ function ArrInstanceModal({
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
-            <IconCheck />
+            <IconImage src={SaveIcon} />
             Done
           </button>
         </div>
@@ -2141,7 +2139,7 @@ function SimpleConfigModal({
         <div className="modal-header">
           <h2 id={`${title}-modal-title`}>{title}</h2>
           <button className="btn ghost" type="button" onClick={onClose}>
-            <IconClose />
+            <IconImage src={CloseIcon} />
             Close
           </button>
         </div>
@@ -2157,7 +2155,7 @@ function SimpleConfigModal({
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
-            <IconCheck />
+            <IconImage src={SaveIcon} />
             Done
           </button>
         </div>

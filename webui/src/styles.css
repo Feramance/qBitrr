@@ -102,9 +102,18 @@ body {
     background: transparent;
     border: 1px solid var(--border);
     padding: 8px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border-radius: 6px;
     cursor: pointer;
 }
+
+.nav button .icon {
+    width: 1.4em;
+    height: 1.4em;
+}
+
 .nav button.active,
 .nav button:hover {
     color: var(--on-surface);
@@ -138,6 +147,9 @@ body {
     border-radius: 8px;
     cursor: pointer;
     transition: 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .btn.primary {
     border-color: var(--primary-variant);
@@ -396,17 +408,23 @@ pre {
 }
 
 .icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.1em;
-    height: 1.1em;
+    display: inline-block;
+    width: 1.3em;
+    height: 1.3em;
+    vertical-align: middle;
+    object-fit: contain;
 }
 
 .btn .icon {
-    margin-right: 6px;
+    margin: 0;
     transition: transform 0.2s ease;
 }
+
+.icon-rotate {
+    transform: scaleX(-1);
+    transform-origin: center;
+}
+
 
 .btn:hover .icon {
     transform: translateY(-1px);

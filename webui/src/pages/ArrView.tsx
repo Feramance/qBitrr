@@ -17,12 +17,11 @@ import type {
 import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useInterval } from "../hooks/useInterval";
-import {
-  IconFilter,
-  IconPulse,
-  IconRefresh,
-  IconRestart,
-} from "../components/Icons";
+import { IconImage } from "../components/IconImage";
+import RefreshIcon from "../icons/ddns-updater.svg";
+import RestartIcon from "../icons/resiliosync.svg";
+import FilterIcon from "../icons/elasticsearch.svg";
+import LiveIcon from "../icons/pulse.svg";
 
 interface ArrViewProps {
   type: "radarr" | "sonarr";
@@ -345,6 +344,10 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   useInterval(
     () => {
       if (selection && selection !== "aggregate") {
+        const activeFilter = globalSearchRef.current?.trim?.() || "";
+        if (activeFilter) {
+          return;
+        }
         void fetchInstance(selection, instancePage, instanceQuery, {
           preloadAll: false,
           showLoading: false,
@@ -504,7 +507,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                   checked={onlyMissing}
                   onChange={(event) => setOnlyMissing(event.target.checked)}
                 />
-                <IconFilter />
+                <IconImage src={FilterIcon} />
                 <span>Only Missing</span>
               </label>
               {!isAggregate && (
@@ -514,7 +517,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                     checked={live}
                     onChange={(event) => setLive(event.target.checked)}
                   />
-                  <IconPulse />
+                  <IconImage src={LiveIcon} />
                   <span>Live</span>
                 </label>
               )}
@@ -614,7 +617,7 @@ function RadarrAggregateView({
           {lastUpdated ? `(updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
-          <IconRefresh />
+          <IconImage src={RefreshIcon} />
           Refresh
         </button>
       </div>
@@ -800,7 +803,7 @@ function RadarrInstanceView({
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
-          <IconRestart />
+          <IconImage src={RestartIcon} />
           Restart Instance
         </button>
       </div>
@@ -1130,6 +1133,10 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   useInterval(
     () => {
       if (selection && selection !== "aggregate") {
+        const activeFilter = globalSearchRef.current?.trim?.() || "";
+        if (activeFilter) {
+          return;
+        }
         void fetchInstance(selection, instancePage, instanceQuery, {
           preloadAll: false,
           showLoading: false,
@@ -1274,7 +1281,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                   checked={onlyMissing}
                   onChange={(event) => setOnlyMissing(event.target.checked)}
                 />
-                <IconFilter />
+                <IconImage src={FilterIcon} />
                 <span>Only Missing</span>
               </label>
               {!isAggregate && (
@@ -1284,7 +1291,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                     checked={live}
                     onChange={(event) => setLive(event.target.checked)}
                   />
-                  <IconPulse />
+                  <IconImage src={LiveIcon} />
                   <span>Live</span>
                 </label>
               )}
@@ -1386,7 +1393,7 @@ function SonarrAggregateView({
           Aggregated monitored episodes {lastUpdated ? `(updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
-          <IconRefresh />
+          <IconImage src={RefreshIcon} />
           Refresh
         </button>
       </div>
@@ -1552,7 +1559,7 @@ function SonarrInstanceView({
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
         <button className="btn ghost" onClick={onRestart}>
-          <IconRestart />
+          <IconImage src={RestartIcon} />
           Restart Instance
         </button>
       </div>

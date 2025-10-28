@@ -7,18 +7,23 @@ import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
 import type { MetaResponse } from "./api/types";
-import {
-  IconClose,
-  IconExternal,
-  IconRefresh,
-  IconUpdate,
-} from "./components/Icons";
+import { IconImage } from "./components/IconImage";
+import CloseIcon from "./icons/enclosed.svg";
+import ExternalIcon from "./icons/github.svg";
+import RefreshIcon from "./icons/ddns-updater.svg";
+import UpdateIcon from "./icons/overseerr.svg";
+import ProcessesIcon from "./icons/uptime-kuma.svg";
+import LogsIcon from "./icons/graylog.svg";
+import RadarrIcon from "./icons/radarr.svg";
+import SonarrIcon from "./icons/sonarr.svg";
+import ConfigIcon from "./icons/cockpit.svg";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
 
 interface NavTab {
   id: Tab;
   label: string;
+  icon: string;
 }
 
 function formatVersionLabel(value: string | null | undefined): string {
@@ -89,7 +94,7 @@ function ChangelogModal({
         <div className="modal-header">
           <h2 id="changelog-title">Update Available</h2>
           <button className="btn ghost" type="button" onClick={onClose}>
-            <IconClose />
+            <IconImage src={CloseIcon} />
             Close
           </button>
         </div>
@@ -116,14 +121,14 @@ function ChangelogModal({
                 target="_blank"
                 rel="noreferrer"
               >
-                <IconExternal />
+                <IconImage src={ExternalIcon} />
                 View on GitHub
               </a>
             )}
           </div>
           <div className="changelog-buttons">
             <button className="btn ghost" type="button" onClick={onClose}>
-              <IconClose />
+              <IconImage src={CloseIcon} />
               Close
             </button>
             <button
@@ -132,7 +137,7 @@ function ChangelogModal({
               onClick={onUpdate}
               disabled={updateDisabled}
             >
-              <IconUpdate />
+              <IconImage src={UpdateIcon} />
               {updateDisabled ? "Updating..." : "Update Now"}
             </button>
           </div>
@@ -285,11 +290,11 @@ function AppShell(): JSX.Element {
 
   const tabs = useMemo<NavTab[]>(
     () => [
-      { id: "processes", label: "Processes" },
-      { id: "logs", label: "Logs" },
-      { id: "radarr", label: "Radarr" },
-      { id: "sonarr", label: "Sonarr" },
-      { id: "config", label: "Config" },
+      { id: "processes", label: "Processes", icon: ProcessesIcon },
+      { id: "logs", label: "Logs", icon: LogsIcon },
+      { id: "radarr", label: "Radarr", icon: RadarrIcon },
+      { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
+      { id: "config", label: "Config", icon: ConfigIcon },
     ],
     []
   );
@@ -361,7 +366,7 @@ function AppShell(): JSX.Element {
               disabled={updateBusy || Boolean(updateState?.in_progress)}
             >
               <span className="appbar__update-indicator" aria-hidden="true" />
-              <IconUpdate />
+              <IconImage src={UpdateIcon} />
               Update available
             </button>
           ) : null}
@@ -373,7 +378,7 @@ function AppShell(): JSX.Element {
             onClick={handleCheckUpdates}
             disabled={metaLoading}
           >
-            <IconRefresh />
+            <IconImage src={RefreshIcon} />
             {metaLoading ? "Checking..." : "Check Updates"}
           </button>
           <a
@@ -382,7 +387,7 @@ function AppShell(): JSX.Element {
             rel="noreferrer"
             className="btn small ghost"
           >
-            <IconExternal />
+            <IconImage src={ExternalIcon} />
             GitHub
           </a>
         </div>
@@ -391,6 +396,7 @@ function AppShell(): JSX.Element {
         <nav className="nav">
           {tabs.map((tab) => (
             <button
+              type="button"
               key={tab.id}
               className={activeTab === tab.id ? "active" : ""}
               onClick={() => {
@@ -406,7 +412,8 @@ function AppShell(): JSX.Element {
                 setSearchValue("");
               }}
             >
-              {tab.label}
+              <IconImage src={tab.icon} />
+              <span>{tab.label}</span>
             </button>
           ))}
         </nav>
