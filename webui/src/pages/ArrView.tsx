@@ -18,10 +18,10 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import RefreshIcon from "../icons/ddns-updater.svg";
-import RestartIcon from "../icons/resiliosync.svg";
-import FilterIcon from "../icons/elasticsearch.svg";
-import LiveIcon from "../icons/pulse.svg";
+import RefreshIcon from "../icons/refresh-arrow.svg";
+import RestartIcon from "../icons/refresh-arrow.svg";
+import FilterIcon from "../icons/problem-solving.svg";
+import LiveIcon from "../icons/live-streaming.svg";
 
 interface ArrViewProps {
   type: "radarr" | "sonarr";
@@ -61,6 +61,31 @@ const RADARR_AGG_FETCH_SIZE = 500;
 const SONARR_PAGE_SIZE = 25;
 const SONARR_AGG_PAGE_SIZE = 50;
 const SONARR_AGG_FETCH_SIZE = 200;
+
+function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): SonarrSeriesEntry[] {
+  if (!onlyMissing) return seriesEntries;
+  const result: SonarrSeriesEntry[] = [];
+  for (const entry of seriesEntries) {
+    const seasons = entry.seasons ?? {};
+    const filteredSeasons: Record<string, SonarrSeason> = {};
+    for (const [seasonNumber, season] of Object.entries(seasons)) {
+      const episodes = (season.episodes ?? []).filter((episode) => !episode.hasFile);
+      if (!episodes.length) continue;
+      filteredSeasons[seasonNumber] = { ...season, episodes };
+    }
+    if (Object.keys(filteredSeasons).length === 0) continue;
+    result.push({
+      ...entry,
+      seasons: filteredSeasons,
+    });
+  }
+  return result;
+}
+
+function createFilteredSignature(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): string {
+  return JSON.stringify(filterSeriesEntriesForMissing(seriesEntries, onlyMissing));
+}
+
 
 export function ArrView({ type, active }: ArrViewProps): JSX.Element {
   if (type === "radarr") {
@@ -881,6 +906,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     Record<number, SonarrSeriesEntry[]>
   >({});
   const instancePagesRef = useRef<Record<number, SonarrSeriesEntry[]>>({});
+  const instanceDataRef = useRef<SonarrSeriesResponse | null>(null);
   const instanceKeyRef = useRef<string>("");
   const [instancePageSize, setInstancePageSize] = useState(SONARR_PAGE_SIZE);
   const [instanceTotalPages, setInstanceTotalPages] = useState(1);
@@ -964,30 +990,56 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
           query,
           { missingOnly: useMissing }
         );
-        setInstanceData(response);
         const resolvedPage = response.page ?? page;
-        setInstancePage(resolvedPage);
-        setInstanceQuery(query);
-        setLastUpdated(new Date().toLocaleTimeString());
         const pageSize = response.page_size ?? SONARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.series ?? []).length;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
-        setInstancePageSize(pageSize);
-        setInstanceTotalPages(totalPages);
-        setInstanceTotalItems(totalItems);
         const series = response.series ?? [];
-        const existingPages = keyChanged ? {} : instancePagesRef.current;
-        setInstancePages((prev) => {
-          const base = keyChanged ? {} : prev;
-          const next = { ...base, [resolvedPage]: series };
-          instancePagesRef.current = next;
-          return next;
+
+        const prevPages = keyChanged ? {} : instancePagesRef.current;
+        const nextPages = { ...prevPages, [resolvedPage]: series };
+        const prevSignature = createFilteredSignature(prevPages[resolvedPage] ?? [], useMissing);
+        const nextSignature = createFilteredSignature(series, useMissing);
+        const shouldUpdateCurrentPage = keyChanged || prevSignature !== nextSignature;
+
+        instancePagesRef.current = nextPages;
+        if (shouldUpdateCurrentPage) {
+          setInstancePages(nextPages);
+        }
+
+        setInstanceData((prev) => {
+          const prevCounts = prev?.counts ?? null;
+          const nextCounts = response.counts ?? null;
+          const countsChanged =
+            !prev ||
+            prev.total !== response.total ||
+            prev.page !== response.page ||
+            prev.page_size !== response.page_size ||
+            (prevCounts?.available ?? null) !== (nextCounts?.available ?? null) ||
+            (prevCounts?.monitored ?? null) !== (nextCounts?.monitored ?? null) ||
+            ((prevCounts as any)?.missing ?? null) !== ((nextCounts as any)?.missing ?? null);
+          if (countsChanged || shouldUpdateCurrentPage) {
+            instanceDataRef.current = response;
+            return response;
+          }
+          return prev;
         });
+
+        setInstancePage((prev) => (prev === resolvedPage ? prev : resolvedPage));
+        setInstanceQuery((prev) => (prev === query ? prev : query));
+        setInstancePageSize((prev) => (prev === pageSize ? prev : pageSize));
+        setInstanceTotalPages((prev) => (prev === totalPages ? prev : totalPages));
+        setInstanceTotalItems((prev) => (prev === totalItems ? prev : totalItems));
+
+        if (shouldUpdateCurrentPage) {
+          setLastUpdated(new Date().toLocaleTimeString());
+        }
+
         if (preloadAll) {
           const pagesToFetch: number[] = [];
           for (let i = 0; i < totalPages; i += 1) {
             if (i === resolvedPage) continue;
-            if (!existingPages[i]) {
+            if (!nextPages[i]) {
               pagesToFetch.push(i);
             }
           }
@@ -1005,10 +1057,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
               }
               const pageIndex = res.page ?? targetPage;
               const pageSeries = res.series ?? [];
+              const currentPages = instancePagesRef.current;
+              const prevSnapshot = createFilteredSignature(currentPages[pageIndex] ?? [], useMissing);
+              const nextSnapshot = createFilteredSignature(pageSeries, useMissing);
+              if (prevSnapshot === nextSnapshot) {
+                instancePagesRef.current = { ...currentPages, [pageIndex]: pageSeries };
+                continue;
+              }
               setInstancePages((prev) => {
-                const snapshot = { ...prev, [pageIndex]: pageSeries };
-                instancePagesRef.current = snapshot;
-                return snapshot;
+                const updated = { ...prev, [pageIndex]: pageSeries };
+                instancePagesRef.current = updated;
+                return updated;
               });
             } catch {
               break;
@@ -1494,25 +1553,7 @@ function SonarrInstanceView({
   lastUpdated,
 }: SonarrInstanceViewProps): JSX.Element {
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
-  const filteredSeries = useMemo(() => {
-    if (!onlyMissing) return seriesEntries;
-    const result: SonarrSeriesEntry[] = [];
-    for (const entry of seriesEntries) {
-      const seasons = entry.seasons ?? {};
-      const filteredSeasons: Record<string, SonarrSeason> = {};
-      for (const [seasonNumber, season] of Object.entries(seasons)) {
-        const episodes = season.episodes ?? [];
-        if (!episodes.length) continue;
-        filteredSeasons[seasonNumber] = season;
-      }
-      if (Object.keys(filteredSeasons).length === 0) continue;
-      result.push({
-        ...entry,
-        seasons: filteredSeasons,
-      });
-    }
-    return result;
-  }, [seriesEntries, onlyMissing]);
+  const filteredSeries = useMemo(() => filterSeriesEntriesForMissing(seriesEntries, onlyMissing), [seriesEntries, onlyMissing]);
   const missingCount = useMemo(() => {
     if (counts?.missing !== undefined) {
       return counts.missing;

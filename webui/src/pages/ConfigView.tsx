@@ -4,13 +4,13 @@ import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
-import ConfigureIcon from "../icons/cockpit.svg";
-import ShowIcon from "../icons/motioneye.svg";
-import RefreshIcon from "../icons/ddns-updater.svg";
-import AddIcon from "../icons/openwebrx-plus.svg";
-import SaveIcon from "../icons/healthchecks.svg";
-import DeleteIcon from "../icons/immich-power-tools.svg";
-import CloseIcon from "../icons/enclosed.svg";
+import ConfigureIcon from "../icons/gear.svg";
+import ShowIcon from "../icons/visibility.svg";
+import RefreshIcon from "../icons/refresh-arrow.svg";
+import AddIcon from "../icons/plus.svg";
+import SaveIcon from "../icons/check-mark.svg";
+import DeleteIcon from "../icons/trash.svg";
+import CloseIcon from "../icons/close.svg";
 
 type FieldType = "text" | "number" | "checkbox" | "password" | "select";
 

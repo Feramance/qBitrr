@@ -3,9 +3,9 @@ import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import RefreshIcon from "../icons/ddns-updater.svg";
-import DownloadIcon from "../icons/nextcloud-ncdownloader.svg";
-import LiveIcon from "../icons/pulse.svg";
+import RefreshIcon from "../icons/refresh-arrow.svg";
+import DownloadIcon from "../icons/download.svg";
+import LiveIcon from "../icons/live-streaming.svg";
 
 interface LogsViewProps {
   active: boolean;

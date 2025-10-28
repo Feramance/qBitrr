@@ -8,15 +8,15 @@ import { SearchProvider, useSearch } from "./context/SearchContext";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
 import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
-import CloseIcon from "./icons/enclosed.svg";
+import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
-import RefreshIcon from "./icons/ddns-updater.svg";
+import RefreshIcon from "./icons/refresh-arrow.svg";
 import UpdateIcon from "./icons/overseerr.svg";
-import ProcessesIcon from "./icons/uptime-kuma.svg";
-import LogsIcon from "./icons/graylog.svg";
+import ProcessesIcon from "./icons/process.svg";
+import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
-import ConfigIcon from "./icons/cockpit.svg";
+import ConfigIcon from "./icons/gear.svg";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
 

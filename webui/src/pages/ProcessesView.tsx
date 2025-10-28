@@ -9,9 +9,9 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import RefreshIcon from "../icons/ddns-updater.svg";
-import RestartIcon from "../icons/resiliosync.svg";
-import ToolsIcon from "../icons/immich-power-tools.svg";
+import RefreshIcon from "../icons/refresh-arrow.svg";
+import RestartIcon from "../icons/refresh-arrow.svg";
+import ToolsIcon from "../icons/build.svg";
 
 const RELEASE_TOKEN_REGEX =
   /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
