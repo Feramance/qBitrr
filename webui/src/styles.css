@@ -153,8 +153,8 @@ body {
 }
 .btn.primary {
     border-color: var(--primary-variant);
-    background: var(--primary);
-    color: #0a0a0a;
+    background: rgba(122, 162, 247, 0.12);
+    color: var(--primary-variant);
 }
 .btn.danger {
     border-color: var(--danger);
@@ -165,6 +165,11 @@ body {
     background: var(--danger);
     color: #0a0a0a;
     border-color: var(--danger);
+}
+.btn.primary:hover:not(:disabled) {
+    background: var(--primary);
+    color: #0a0a0a;
+    border-color: var(--primary-variant);
 }
 .btn.ghost {
     background: transparent;

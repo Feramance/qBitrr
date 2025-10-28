@@ -18,6 +18,7 @@ known_third_party = [
     "requests",
     "tomlkit",
     "ujson",
+    "waitress",
 ]
 known_local_folder = ["qBitrr"]
 

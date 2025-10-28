@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import re
 import secrets
 import threading
@@ -121,7 +122,14 @@ class WebUI:
         }
         self._update_thread: threading.Thread | None = None
         self._register_routes()
+        static_root = Path(__file__).with_name("static")
+        if not (static_root / "index.html").exists():
+            self.logger.warning(
+                "WebUI static bundle is missing. Install npm and run "
+                "'npm ci && npm run build' inside the 'webui' folder before packaging."
+            )
         self._thread: threading.Thread | None = None
+        self._use_dev_server: bool | None = None
 
     @staticmethod
     def _normalize_version(value: str | None) -> str | None:
@@ -1555,12 +1563,41 @@ class WebUI:
             self.logger.debug("WebUI already running on %s:%s", self.host, self.port)
             return
         self.logger.notice("Starting WebUI on %s:%s", self.host, self.port)
-        self._thread = threading.Thread(
-            target=lambda: self.app.run(
-                host=self.host, port=self.port, debug=False, use_reloader=False
-            ),
-            name="WebUI",
-            daemon=True,
-        )
+        self._thread = threading.Thread(target=self._serve, name="WebUI", daemon=True)
         self._thread.start()
         self.logger.success("WebUI thread started (name=%s)", self._thread.name)
+
+    def _serve(self):
+        try:
+            if self._should_use_dev_server():
+                self.logger.info("Using Flask development server for WebUI")
+                self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+                return
+            try:
+                from waitress import serve as waitress_serve
+            except Exception:
+                self.logger.warning(
+                    "Waitress is unavailable; falling back to Flask development server. "
+                    "Install the 'waitress' extra or set QBITRR_USE_DEV_SERVER=1 to silence this message."
+                )
+                self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+                return
+            self.logger.info("Using Waitress WSGI server for WebUI")
+            waitress_serve(
+                self.app,
+                host=self.host,
+                port=self.port,
+                ident="qBitrr-WebUI",
+            )
+        except Exception:  # pragma: no cover - defensive logging
+            self.logger.exception("WebUI server terminated unexpectedly")
+
+    def _should_use_dev_server(self) -> bool:
+        if self._use_dev_server is not None:
+            return self._use_dev_server
+        override = os.environ.get("QBITRR_USE_DEV_SERVER", "")
+        if override:
+            self._use_dev_server = override.strip().lower() not in {"0", "false", "no", "off"}
+            return self._use_dev_server
+        self._use_dev_server = False
+        return self._use_dev_server
