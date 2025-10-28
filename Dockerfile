@@ -1,5 +1,5 @@
 # Frontend build stage
-FROM node:20-bookworm AS webui-build
+FROM node:25-bookworm AS webui-build
 WORKDIR /src
 COPY webui/package*.json webui/
 RUN cd webui && npm ci
