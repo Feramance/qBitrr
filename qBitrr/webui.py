@@ -362,11 +362,17 @@ class WebUI:
         }
 
     def _sonarr_series_from_db(
-        self, arr, search: str | None, page: int, page_size: int
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        *,
+        missing_only: bool = False,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
             return {
-                "counts": {"available": 0, "monitored": 0},
+                "counts": {"available": 0, "monitored": 0, "missing": 0},
                 "total": 0,
                 "page": max(page, 0),
                 "page_size": max(page_size, 1),
@@ -377,7 +383,7 @@ class WebUI:
         db = getattr(arr, "db", None)
         if episodes_model is None or db is None:
             return {
-                "counts": {"available": 0, "monitored": 0},
+                "counts": {"available": 0, "monitored": 0, "missing": 0},
                 "total": 0,
                 "page": max(page, 0),
                 "page_size": max(page_size, 1),
@@ -386,6 +392,9 @@ class WebUI:
         page = max(page, 0)
         page_size = max(page_size, 1)
         resolved_page = page
+        missing_condition = episodes_model.EpisodeFileId.is_null(True) | (
+            episodes_model.EpisodeFileId == 0
+        )
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -403,6 +412,28 @@ class WebUI:
                 .scalar()
                 or 0
             )
+            missing_count = max(monitored_count - available_count, 0)
+            missing_series_ids: list[int] = []
+            if missing_only:
+                missing_series_ids = [
+                    row.SeriesId
+                    for row in episodes_model.select(episodes_model.SeriesId)
+                    .where((episodes_model.Monitored == True) & missing_condition)  # noqa: E712
+                    .distinct()
+                    if getattr(row, "SeriesId", None) is not None
+                ]
+                if not missing_series_ids:
+                    return {
+                        "counts": {
+                            "available": available_count,
+                            "monitored": monitored_count,
+                            "missing": missing_count,
+                        },
+                        "total": 0,
+                        "page": resolved_page,
+                        "page_size": page_size,
+                        "series": [],
+                    }
             payload: list[dict[str, Any]] = []
             total_series = 0
 
@@ -410,6 +441,8 @@ class WebUI:
                 series_query = series_model.select()
                 if search:
                     series_query = series_query.where(series_model.Title.contains(search))
+                if missing_only and missing_series_ids:
+                    series_query = series_query.where(series_model.EntryId.in_(missing_series_ids))
                 total_series = series_query.count()
                 if total_series:
                     max_pages = (total_series + page_size - 1) // page_size
@@ -422,15 +455,16 @@ class WebUI:
                         .iterator()
                     )
                     for series in series_rows:
-                        episodes = (
-                            episodes_model.select()
-                            .where(episodes_model.SeriesId == series.EntryId)
-                            .order_by(
-                                episodes_model.SeasonNumber.asc(),
-                                episodes_model.EpisodeNumber.asc(),
-                            )
-                            .iterator()
+                        episodes_query = episodes_model.select().where(
+                            episodes_model.SeriesId == series.EntryId
                         )
+                        if missing_only:
+                            episodes_query = episodes_query.where(missing_condition)
+                        episodes_query = episodes_query.order_by(
+                            episodes_model.SeasonNumber.asc(),
+                            episodes_model.EpisodeNumber.asc(),
+                        )
+                        episodes = episodes_query.iterator()
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
                         series_available = 0
@@ -462,15 +496,29 @@ class WebUI:
                                 air_value = air_date
                             else:
                                 air_value = ""
-                            season_bucket["episodes"].append(
-                                {
-                                    "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                                    "title": getattr(ep, "Title", "") or "",
-                                    "monitored": is_monitored,
-                                    "hasFile": has_file,
-                                    "airDateUtc": air_value,
-                                }
+                            if (not missing_only) or (not has_file):
+                                season_bucket["episodes"].append(
+                                    {
+                                        "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                                        "title": getattr(ep, "Title", "") or "",
+                                        "monitored": is_monitored,
+                                        "hasFile": has_file,
+                                        "airDateUtc": air_value,
+                                    }
+                                )
+                        for bucket in seasons.values():
+                            monitored_eps = int(bucket.get("monitored", 0) or 0)
+                            available_eps = int(bucket.get("available", 0) or 0)
+                            bucket["missing"] = max(
+                                monitored_eps - min(available_eps, monitored_eps), 0
                             )
+                        series_missing = max(series_monitored - series_available, 0)
+                        if missing_only:
+                            seasons = {
+                                key: data for key, data in seasons.items() if data["episodes"]
+                            }
+                            if not seasons:
+                                continue
                         payload.append(
                             {
                                 "series": {
@@ -480,6 +528,7 @@ class WebUI:
                                 "totals": {
                                     "available": series_available,
                                     "monitored": series_monitored,
+                                    "missing": series_missing,
                                 },
                                 "seasons": seasons,
                             }
@@ -497,6 +546,8 @@ class WebUI:
                     for extra in search_filters[1:]:
                         expr |= extra
                     base_episode_query = base_episode_query.where(expr)
+                if missing_only:
+                    base_episode_query = base_episode_query.where(missing_condition)
 
                 series_id_field = (
                     getattr(episodes_model, "SeriesId", None)
@@ -560,6 +611,8 @@ class WebUI:
                         for extra in episode_conditions[1:]:
                             condition &= extra
                         episodes_query = episodes_query.where(condition)
+                    if missing_only:
+                        episodes_query = episodes_query.where(missing_condition)
                     episodes_query = episodes_query.order_by(
                         episodes_model.SeasonNumber.asc(),
                         episodes_model.EpisodeNumber.asc(),
@@ -602,6 +655,17 @@ class WebUI:
                                 "airDateUtc": air_value,
                             }
                         )
+                    for bucket in seasons.values():
+                        monitored_eps = int(bucket.get("monitored", 0) or 0)
+                        available_eps = int(bucket.get("available", 0) or 0)
+                        bucket["missing"] = max(
+                            monitored_eps - min(available_eps, monitored_eps), 0
+                        )
+                    series_missing = max(series_monitored - series_available, 0)
+                    if missing_only:
+                        seasons = {key: data for key, data in seasons.items() if data["episodes"]}
+                        if not seasons:
+                            continue
                     payload.append(
                         {
                             "series": {
@@ -618,13 +682,18 @@ class WebUI:
                             "totals": {
                                 "available": series_available,
                                 "monitored": series_monitored,
+                                "missing": series_missing,
                             },
                             "seasons": seasons,
                         }
                     )
 
         return {
-            "counts": {"available": available_count, "monitored": monitored_count},
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+            },
             "total": total_series,
             "page": resolved_page,
             "page_size": page_size,
@@ -1169,7 +1238,12 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=25, type=int)
-            payload = self._sonarr_series_from_db(arr, q, page, page_size)
+            missing_only = self._safe_bool(
+                request.args.get("missing") or request.args.get("only_missing")
+            )
+            payload = self._sonarr_series_from_db(
+                arr, q, page, page_size, missing_only=missing_only
+            )
             payload["category"] = category
             return jsonify(payload)
 
@@ -1185,7 +1259,12 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=25, type=int)
-            payload = self._sonarr_series_from_db(arr, q, page, page_size)
+            missing_only = self._safe_bool(
+                request.args.get("missing") or request.args.get("only_missing")
+            )
+            payload = self._sonarr_series_from_db(
+                arr, q, page, page_size, missing_only=missing_only
+            )
             payload["category"] = category
             return jsonify(payload)
 

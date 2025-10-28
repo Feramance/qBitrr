@@ -15,35 +15,6 @@ const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
 const MAX_AUTH_RETRIES = 1;
 
-function promptForToken(): boolean {
-  const current = resolveToken();
-  const entered = window.prompt(
-    "Enter WebUI token",
-    current ?? ""
-  );
-  if (entered === null) {
-    return false;
-  }
-  const value = entered.trim();
-  if (!value) {
-    localStorage.removeItem("token");
-    try {
-      sessionStorage.removeItem("token");
-    } catch {
-      // ignore
-    }
-    return true;
-  }
-  localStorage.setItem("token", value);
-  try {
-    sessionStorage.setItem("token", value);
-  } catch {
-    // ignore
-  }
-  return true;
-}
-
-
 function resolveToken(): string | null {
   for (const key of TOKEN_STORAGE_KEYS) {
     const value = localStorage.getItem(key) || sessionStorage.getItem(key);
@@ -67,12 +38,24 @@ function resolveToken(): string | null {
   return null;
 }
 
-function buildInit(init?: RequestInit): RequestInit {
+function clearStoredToken(): void {
+  for (const key of TOKEN_STORAGE_KEYS) {
+    localStorage.removeItem(key);
+  }
+  try {
+    for (const key of TOKEN_STORAGE_KEYS) {
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    // ignore session storage errors
+  }
+}
+
+function buildInit(init: RequestInit | undefined, token: string | null): RequestInit {
   const headers = new Headers(init?.headers || {});
   Object.entries(JSON_HEADERS).forEach(([key, value]) => {
     if (!headers.has(key)) headers.set(key, value);
   });
-  const token = resolveToken();
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -88,11 +71,11 @@ async function fetchWithAuthRetry<T>(
   handler: (response: Response) => Promise<T>,
   retries = MAX_AUTH_RETRIES
 ): Promise<T> {
-  const response = await fetch(input, buildInit(init));
-  if (response.status === 401 && retries > 0) {
-    if (promptForToken()) {
-      return fetchWithAuthRetry(input, init, handler, retries - 1);
-    }
+  const token = resolveToken();
+  const response = await fetch(input, buildInit(init, token));
+  if (response.status === 401 && retries > 0 && token) {
+    clearStoredToken();
+    return fetchWithAuthRetry(input, init, handler, retries - 1);
   }
   return handler(response);
 }
@@ -212,12 +195,16 @@ export async function getSonarrSeries(
   category: string,
   page: number,
   pageSize: number,
-  q: string
+  q: string,
+  options?: { missingOnly?: boolean }
 ): Promise<SonarrSeriesResponse> {
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("page_size", String(pageSize));
   if (q) params.set("q", q);
+  if (options?.missingOnly) {
+    params.set("missing", "1");
+  }
   return fetchJson<SonarrSeriesResponse>(
     `/web/sonarr/${encodeURIComponent(category)}/series?${params}`
   );

@@ -272,7 +272,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
             inst.category,
             page,
             RADARR_AGG_FETCH_SIZE,
-            ""
+            "",
           );
           const movies = res.movies ?? [];
           movies.forEach((movie) => {
@@ -296,7 +296,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push]);
+  }, [instances, globalSearch, push, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -306,10 +306,16 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
+    instancePagesRef.current = {};
+    setInstancePages({});
+    setInstanceTotalPages(1);
     setInstancePage(0);
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, { preloadAll: true });
-  }, [active, selection, fetchInstance]);
+    void fetchInstance(selection, 0, query, {
+      preloadAll: true,
+      showLoading: true,
+    });
+  }, [active, selection, fetchInstance, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -325,7 +331,10 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term, { preloadAll: true });
+        void fetchInstance(selection, 0, term, {
+          preloadAll: true,
+          showLoading: true,
+        });
       }
     };
     register(handler);
@@ -436,19 +445,6 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       }
     });
     return rows;
-  }, [instancePages]);
-
-  const allInstanceSeries = useMemo(() => {
-    const accumulator = new Map<string, SonarrSeriesEntry>();
-    Object.values(instancePagesRef.current).forEach((entries) => {
-      (entries ?? []).forEach((entry) => {
-        const seriesMeta = entry.series ?? {};
-        const key =
-          String(seriesMeta["id"] ?? seriesMeta["title"] ?? Math.random().toString(36));
-        accumulator.set(key, entry);
-      });
-    });
-    return Array.from(accumulator.values());
   }, [instancePages]);
 
   const handleRestart = useCallback(async () => {
@@ -924,14 +920,15 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       category: string,
       page: number,
       query: string,
-      options: { preloadAll?: boolean; showLoading?: boolean } = {}
+      options: { preloadAll?: boolean; showLoading?: boolean; missingOnly?: boolean } = {}
     ) => {
-      const { preloadAll = true, showLoading = true } = options;
+      const { preloadAll = true, showLoading = true, missingOnly } = options;
+      const useMissing = missingOnly ?? onlyMissing;
       if (showLoading) {
         setInstanceLoading(true);
       }
       try {
-        const key = `${category}::${query}`;
+        const key = `${category}::${query}::${useMissing ? "missing" : "all"}`;
         const keyChanged = instanceKeyRef.current !== key;
         if (keyChanged) {
           instanceKeyRef.current = key;
@@ -946,7 +943,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
           category,
           page,
           SONARR_PAGE_SIZE,
-          query
+          query,
+          { missingOnly: useMissing }
         );
         setInstanceData(response);
         const resolvedPage = response.page ?? page;
@@ -981,7 +979,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                 category,
                 targetPage,
                 pageSize,
-                query
+                query,
+                { missingOnly: useMissing }
               );
               if (instanceKeyRef.current !== key) {
                 break;
@@ -1011,7 +1010,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
     },
-    [push]
+    [push, onlyMissing]
   );
 
   const loadAggregate = useCallback(async () => {
@@ -1027,7 +1026,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             inst.category,
             page,
             SONARR_AGG_FETCH_SIZE,
-            ""
+            "",
+            { missingOnly: onlyMissing }
           );
           const series = res.series ?? [];
           series.forEach((entry: SonarrSeriesEntry) => {
@@ -1068,7 +1068,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push]);
+  }, [instances, globalSearch, push, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -1080,7 +1080,11 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     if (!selection || selection === "aggregate") return;
     setInstancePage(0);
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, { preloadAll: true, showLoading: true });
+    void fetchInstance(selection, 0, query, {
+      preloadAll: true,
+      showLoading: true,
+      missingOnly: onlyMissing,
+    });
   }, [active, selection, fetchInstance]);
 
   useEffect(() => {
@@ -1097,7 +1101,11 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term, { preloadAll: true, showLoading: true });
+    void fetchInstance(selection, 0, term, {
+      preloadAll: true,
+      showLoading: true,
+      missingOnly: onlyMissing,
+    });
       }
     };
     register(handler);
@@ -1110,6 +1118,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         void fetchInstance(selection, instancePage, instanceQuery, {
           preloadAll: false,
           showLoading: false,
+          missingOnly: onlyMissing,
         });
       }
     },
@@ -1138,11 +1147,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         );
       });
     }
-    if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
-    }
     return rows;
-  }, [aggRows, aggFilter, onlyMissing]);
+  }, [aggRows, aggFilter]);
 
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
@@ -1294,7 +1300,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
               <SonarrInstanceView
                 loading={instanceLoading}
                 counts={instanceData?.counts ?? null}
-                series={allInstanceSeries}
+                series={currentSeries}
                 page={instancePage}
                 pageSize={instancePageSize}
                 totalPages={instanceTotalPages}
@@ -1302,10 +1308,11 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                 onlyMissing={onlyMissing}
                 onPageChange={(page) => {
                   setInstancePage(page);
-                  void fetchInstance(selection as string, page, instanceQuery, {
-                    preloadAll: false,
-                    showLoading: true,
-                  });
+                void fetchInstance(selection as string, page, instanceQuery, {
+                  preloadAll: false,
+                  showLoading: true,
+                  missingOnly: onlyMissing,
+                });
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
@@ -1430,7 +1437,7 @@ function SonarrAggregateView({
 
 interface SonarrInstanceViewProps {
   loading: boolean;
-  counts: { available: number; monitored: number } | null;
+  counts: { available: number; monitored: number; missing?: number } | null;
   series: SonarrSeriesEntry[];
   page: number;
   pageSize: number;
@@ -1463,9 +1470,9 @@ function SonarrInstanceView({
       const seasons = entry.seasons ?? {};
       const filteredSeasons: Record<string, SonarrSeason> = {};
       for (const [seasonNumber, season] of Object.entries(seasons)) {
-        const episodes = (season.episodes ?? []).filter((episode) => !episode.hasFile);
+        const episodes = season.episodes ?? [];
         if (!episodes.length) continue;
-        filteredSeasons[seasonNumber] = { ...season, episodes };
+        filteredSeasons[seasonNumber] = season;
       }
       if (Object.keys(filteredSeasons).length === 0) continue;
       result.push({
@@ -1475,13 +1482,20 @@ function SonarrInstanceView({
     }
     return result;
   }, [seriesEntries, onlyMissing]);
+  const missingCount = useMemo(() => {
+    if (counts?.missing !== undefined) {
+      return counts.missing;
+    }
+    const monitored = counts?.monitored ?? 0;
+    const available = counts?.available ?? 0;
+    return Math.max(monitored - available, 0);
+  }, [counts]);
   const totalItemsDisplay = onlyMissing
     ? filteredSeries.length
     : totalItems || seriesEntries.length;
-  const effectiveTotalPages = Math.max(
-    1,
-    Math.ceil(Math.max(totalItemsDisplay, 1) / pageSize)
-  );
+  const effectiveTotalPages = onlyMissing
+    ? Math.max(1, Math.ceil(Math.max(totalItemsDisplay, 1) / pageSize))
+    : totalPages;
   const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
   const pageRows = useMemo(() => {
     const start = safePage * pageSize;
@@ -1499,8 +1513,17 @@ function SonarrInstanceView({
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="inline hint">
           <span className="badge">
-            Available: {counts?.available ?? 0} / Monitored:{" "}
-            {counts?.monitored ?? 0}
+            {onlyMissing ? (
+              <>
+                Missing: {missingCount} / Monitored:{" "}
+                {counts?.monitored ?? 0}
+              </>
+            ) : (
+              <>
+                Available: {counts?.available ?? 0} / Monitored:{" "}
+                {counts?.monitored ?? 0}
+              </>
+            )}
           </span>
           {refreshLabel ? <span>{refreshLabel}</span> : null}
         </div>
@@ -1523,8 +1546,23 @@ function SonarrInstanceView({
                 <summary>
                   {title}{" "}
                   <span className="hint">
-                    (Monitored {entry.totals?.monitored ?? 0} / Available{" "}
-                    {entry.totals?.available ?? 0})
+                    {onlyMissing ? (
+                      <>
+                        (Missing{" "}
+                        {entry.totals?.missing ??
+                          Math.max(
+                            (entry.totals?.monitored ?? 0) -
+                              (entry.totals?.available ?? 0),
+                            0
+                          )}{" "}
+                        / Monitored {entry.totals?.monitored ?? 0})
+                      </>
+                    ) : (
+                      <>
+                        (Monitored {entry.totals?.monitored ?? 0} / Available{" "}
+                        {entry.totals?.available ?? 0})
+                      </>
+                    )}
                   </span>
                 </summary>
                 {Object.entries(entry.seasons ?? {}).map(

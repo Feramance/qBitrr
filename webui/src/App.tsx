@@ -242,7 +242,7 @@ function AppShell(): JSX.Element {
           backendWarnedRef.current = true;
           push(
             "qBitrr backend is still initialising. Check the logs if this persists.",
-            "info"
+            "warning"
           );
         }
       } catch (error) {
@@ -251,7 +251,7 @@ function AppShell(): JSX.Element {
           const detail = error instanceof Error ? error.message : "Unknown backend error";
           push(
             `Unable to confirm qBitrr readiness (${detail}). Please inspect the logs.`,
-            "info"
+            "warning"
           );
         }
       } finally {

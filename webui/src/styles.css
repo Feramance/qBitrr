@@ -7,6 +7,7 @@
     --primary-variant: #3b82f6;
     --success: #22c55e;
     --danger: #ef4444;
+    --warning: #facc15;
     --border: #2a2f36;
     --elev: 8px;
 }
@@ -321,6 +322,9 @@ pre {
 }
 .toast.success {
     border-left-color: var(--success);
+}
+.toast.warning {
+    border-left-color: var(--warning);
 }
 .toast.error {
     border-left-color: var(--danger);

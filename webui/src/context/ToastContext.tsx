@@ -9,7 +9,7 @@ import {
   type JSX,
 } from "react";
 
-export type ToastKind = "info" | "success" | "error";
+export type ToastKind = "info" | "success" | "warning" | "error";
 
 export interface Toast {
   id: number;

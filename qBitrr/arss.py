@@ -2290,35 +2290,57 @@ class Arr:
                     if episode["monitored"] or self.search_unmonitored:
                         while True:
                             try:
-                                if episodeData:
-                                    if not episodeData.MinCustomFormatScore:
-                                        minCustomFormat = self.client.get_quality_profile(
-                                            episode["series"]["qualityProfileId"]
-                                        )["minFormatScore"]
-                                    else:
-                                        minCustomFormat = episodeData.MinCustomFormatScore
-                                    if episode["hasFile"]:
-                                        if (
-                                            episode["episodeFile"]["id"]
-                                            != episodeData.EpisodeFileId
-                                        ):
-                                            customFormat = self.client.get_episode_file(
-                                                episode["episodeFile"]["id"]
-                                            )["customFormatScore"]
-                                        else:
-                                            customFormat = episodeData.CustomFormatScore
-                                    else:
-                                        customFormat = 0
+                                series_info = episode.get("series") or {}
+                                if isinstance(series_info, dict):
+                                    quality_profile_id = series_info.get("qualityProfileId")
                                 else:
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        episode["series"]["qualityProfileId"]
-                                    )["minFormatScore"]
-                                    if episode["hasFile"]:
-                                        customFormat = self.client.get_episode_file(
-                                            episode["episodeFile"]["id"]
-                                        )["customFormatScore"]
+                                    quality_profile_id = getattr(
+                                        series_info, "qualityProfileId", None
+                                    )
+                                if not quality_profile_id:
+                                    quality_profile_id = db_entry.get("qualityProfileId")
+                                minCustomFormat = (
+                                    getattr(episodeData, "MinCustomFormatScore", 0)
+                                    if episodeData
+                                    else 0
+                                )
+                                if not minCustomFormat:
+                                    if quality_profile_id:
+                                        profile = (
+                                            self.client.get_quality_profile(quality_profile_id)
+                                            or {}
+                                        )
+                                        minCustomFormat = profile.get("minFormatScore") or 0
                                     else:
-                                        customFormat = 0
+                                        self.logger.warning(
+                                            "Episode %s missing qualityProfileId; defaulting custom format threshold to 0",
+                                            episode.get("id"),
+                                        )
+                                        minCustomFormat = 0
+                                episode_file = episode.get("episodeFile") or {}
+                                if isinstance(episode_file, dict):
+                                    episode_file_id = episode_file.get("id")
+                                else:
+                                    episode_file_id = getattr(episode_file, "id", None)
+                                has_file = bool(episode.get("hasFile"))
+                                episode_data_file_id = (
+                                    getattr(episodeData, "EpisodeFileId", None)
+                                    if episodeData
+                                    else None
+                                )
+                                if has_file and episode_file_id:
+                                    if (
+                                        episode_data_file_id
+                                        and episode_file_id == episode_data_file_id
+                                    ):
+                                        customFormat = getattr(episodeData, "CustomFormatScore", 0)
+                                    else:
+                                        file_info = (
+                                            self.client.get_episode_file(episode_file_id) or {}
+                                        )
+                                        customFormat = file_info.get("customFormatScore") or 0
+                                else:
+                                    customFormat = 0
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -2326,9 +2348,6 @@ class Arr:
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                continue
-                            except KeyError:
-                                self.logger.warning("Key Error [%s]", db_entry["id"])
                                 continue
 
                         QualityUnmet = (
@@ -2350,56 +2369,46 @@ class Arr:
 
                         if self.use_temp_for_missing:
                             data = None
-                            try:
-                                self.logger.trace(
-                                    "Temp quality profile [%s][%s]",
-                                    searched,
-                                    db_entry["qualityProfileId"],
+                            quality_profile_id = db_entry.get("qualityProfileId")
+                            self.logger.trace(
+                                "Temp quality profile [%s][%s]",
+                                searched,
+                                quality_profile_id,
+                            )
+                            if (
+                                searched
+                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and not self.keep_temp_profile
+                            ):
+                                data: JsonObject = {
+                                    "qualityProfileId": list(self.temp_quality_profile_ids.keys())[
+                                        list(self.temp_quality_profile_ids.values()).index(
+                                            quality_profile_id
+                                        )
+                                    ]
+                                }
+                                self.logger.debug(
+                                    "Upgrading quality profile for %s to %s",
+                                    db_entry["title"],
+                                    list(self.temp_quality_profile_ids.keys())[
+                                        list(self.temp_quality_profile_ids.values()).index(
+                                            db_entry["qualityProfileId"]
+                                        )
+                                    ],
                                 )
-                                if (
-                                    searched
-                                    and db_entry["qualityProfileId"]
-                                    in self.temp_quality_profile_ids.values()
-                                    and not self.keep_temp_profile
-                                ):
-                                    data: JsonObject = {
-                                        "qualityProfileId": list(
-                                            self.temp_quality_profile_ids.keys()
-                                        )[
-                                            list(self.temp_quality_profile_ids.values()).index(
-                                                db_entry["qualityProfileId"]
-                                            )
-                                        ]
-                                    }
-                                    self.logger.debug(
-                                        "Upgrading quality profile for %s to %s",
-                                        db_entry["title"],
-                                        list(self.temp_quality_profile_ids.keys())[
-                                            list(self.temp_quality_profile_ids.values()).index(
-                                                db_entry["qualityProfileId"]
-                                            )
-                                        ],
-                                    )
-                                elif (
-                                    not searched
-                                    and db_entry["qualityProfileId"]
-                                    in self.temp_quality_profile_ids.keys()
-                                ):
-                                    data: JsonObject = {
-                                        "qualityProfileId": self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
-                                        ]
-                                    }
-                                    self.logger.debug(
-                                        "Downgrading quality profile for %s to %s",
-                                        db_entry["title"],
-                                        self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
-                                        ],
-                                    )
-                            except KeyError:
-                                self.logger.warning(
-                                    "Check quality profile settings for %s", db_entry["title"]
+                            elif (
+                                not searched
+                                and quality_profile_id in self.temp_quality_profile_ids.keys()
+                            ):
+                                data: JsonObject = {
+                                    "qualityProfileId": self.temp_quality_profile_ids[
+                                        quality_profile_id
+                                    ]
+                                }
+                                self.logger.debug(
+                                    "Downgrading quality profile for %s to %s",
+                                    db_entry["title"],
+                                    self.temp_quality_profile_ids[quality_profile_id],
                                 )
                             if data:
                                 while True:
@@ -2517,13 +2526,33 @@ class Arr:
                     if db_entry["monitored"] or self.search_unmonitored:
                         while True:
                             try:
-                                seriesMetadata = self.client.get_series(id_=EntryId)
-                                if not seriesData:
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        seriesMetadata["qualityProfileId"]
-                                    )["minFormatScore"]
+                                seriesMetadata = self.client.get_series(id_=EntryId) or {}
+                                quality_profile_id = None
+                                if isinstance(seriesMetadata, dict):
+                                    quality_profile_id = seriesMetadata.get("qualityProfileId")
                                 else:
-                                    minCustomFormat = seriesData.MinCustomFormatScore
+                                    quality_profile_id = getattr(
+                                        seriesMetadata, "qualityProfileId", None
+                                    )
+                                if not seriesData:
+                                    if quality_profile_id:
+                                        profile = (
+                                            self.client.get_quality_profile(quality_profile_id)
+                                            or {}
+                                        )
+                                        minCustomFormat = profile.get("minFormatScore") or 0
+                                    else:
+                                        self.logger.warning(
+                                            "Series %s (%s) missing qualityProfileId; "
+                                            "defaulting custom format score to 0",
+                                            db_entry.get("title"),
+                                            EntryId,
+                                        )
+                                        minCustomFormat = 0
+                                else:
+                                    minCustomFormat = getattr(
+                                        seriesData, "MinCustomFormatScore", 0
+                                    )
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -2531,11 +2560,6 @@ class Arr:
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
                             ):
-                                continue
-                            except KeyError:
-                                self.logger.warning(
-                                    "Key Error [%s][%s]", db_entry["id"], seriesMetadata
-                                )
                                 continue
                         episodeCount = 0
                         episodeFileCount = 0
@@ -2570,9 +2594,10 @@ class Arr:
                             searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
                         if self.use_temp_for_missing:
                             try:
+                                quality_profile_id = db_entry.get("qualityProfileId")
                                 if (
                                     searched
-                                    and db_entry["qualityProfileId"]
+                                    and quality_profile_id
                                     in self.temp_quality_profile_ids.values()
                                     and not self.keep_temp_profile
                                 ):
@@ -2580,7 +2605,7 @@ class Arr:
                                         self.temp_quality_profile_ids.keys()
                                     )[
                                         list(self.temp_quality_profile_ids.values()).index(
-                                            db_entry["qualityProfileId"]
+                                            quality_profile_id
                                         )
                                     ]
                                     self.logger.debug(
@@ -2590,11 +2615,10 @@ class Arr:
                                     )
                                 elif (
                                     not searched
-                                    and db_entry["qualityProfileId"]
-                                    in self.temp_quality_profile_ids.keys()
+                                    and quality_profile_id in self.temp_quality_profile_ids.keys()
                                 ):
                                     db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                        db_entry["qualityProfileId"]
+                                        quality_profile_id
                                     ]
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
@@ -2695,11 +2719,8 @@ class Arr:
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
-                            KeyError,
                         ):
                             continue
-                        # except KeyError:
-                        #     self.logger.warning("Key Error [%s]", db_entry["id"])
                     QualityUnmet = (
                         db_entry["movieFile"]["qualityCutoffNotMet"]
                         if "movieFile" in db_entry
@@ -2718,41 +2739,35 @@ class Arr:
                         ).execute()
 
                     if self.use_temp_for_missing:
-                        try:
-                            if (
-                                searched
-                                and db_entry["qualityProfileId"]
-                                in self.temp_quality_profile_ids.values()
-                                and not self.keep_temp_profile
-                            ):
-                                db_entry["qualityProfileId"] = list(
-                                    self.temp_quality_profile_ids.keys()
-                                )[
-                                    list(self.temp_quality_profile_ids.values()).index(
-                                        db_entry["qualityProfileId"]
-                                    )
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    db_entry["qualityProfileId"],
+                        quality_profile_id = db_entry.get("qualityProfileId")
+                        if (
+                            searched
+                            and quality_profile_id in self.temp_quality_profile_ids.values()
+                            and not self.keep_temp_profile
+                        ):
+                            db_entry["qualityProfileId"] = list(
+                                self.temp_quality_profile_ids.keys()
+                            )[
+                                list(self.temp_quality_profile_ids.values()).index(
+                                    quality_profile_id
                                 )
-                            elif (
-                                not searched
-                                and db_entry["qualityProfileId"]
-                                in self.temp_quality_profile_ids.keys()
-                            ):
-                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                    db_entry["qualityProfileId"]
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
-                                )
-                        except KeyError:
-                            self.logger.warning(
-                                "Check quality profile settings for %s", db_entry["title"]
+                            ]
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                db_entry["qualityProfileId"],
+                            )
+                        elif (
+                            not searched
+                            and quality_profile_id in self.temp_quality_profile_ids.keys()
+                        ):
+                            db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                quality_profile_id
+                            ]
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
                             )
                         while True:
                             try:

@@ -88,6 +88,7 @@ export interface SonarrEpisode {
 export interface SonarrSeason {
   monitored: number;
   available: number;
+  missing?: number;
   episodes: SonarrEpisode[];
 }
 
@@ -96,6 +97,7 @@ export interface SonarrSeriesEntry {
   totals: {
     available: number;
     monitored: number;
+    missing?: number;
   };
   seasons: Record<string, SonarrSeason>;
 }
@@ -108,6 +110,7 @@ export interface SonarrSeriesResponse {
   counts: {
     available: number;
     monitored: number;
+    missing?: number;
   };
   series: SonarrSeriesEntry[];
 }
