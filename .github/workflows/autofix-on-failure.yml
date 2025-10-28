@@ -2,8 +2,6 @@ name: Autofix Failed Workflows
 
 on:
   workflow_run:
-    workflows:
-    - CI
     types:
     - completed
 
@@ -19,7 +17,7 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GITHUB_TOKEN: ${{ secrets.PAT }}
       AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL || 'gpt-4.1-mini' }}
-      AUTOFIX_BASE_BRANCH: ${{ vars.AUTOFIX_BASE_BRANCH || '' }}
+      AUTOFIX_BASE_BRANCH: ${{ vars.AUTOFIX_BASE_BRANCH || 'auto-fixes' }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -27,7 +25,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.12'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip

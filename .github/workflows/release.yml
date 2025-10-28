@@ -81,7 +81,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.x
+        python-version: '3.12'
 
     - name: Install release tooling
       run: |
@@ -245,24 +245,19 @@ jobs:
       fail-fast: false
       matrix:
         python:
-        - 3.10.11
+        - 3.12.2
         os:
         - windows-latest
         - macOS-latest
         - ubuntu-latest
         arch:
-        - x86
         - x64
         - arm64
         exclude:
         - os: ubuntu-latest
-          arch: x86
-        - os: ubuntu-latest
           arch: arm64
         - os: macOS-latest
           arch: x64
-        - os: macOS-latest
-          arch: x86
         - os: windows-latest
           arch: arm64
     steps:
@@ -383,7 +378,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.x
+        python-version: '3.12'
 
     - name: Install build dependencies
       run: |
@@ -418,7 +413,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: 3.x
+        python-version: '3.12'
 
     - uses: actions/setup-node@v4
       with:

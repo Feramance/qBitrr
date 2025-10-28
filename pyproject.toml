@@ -1,7 +1,7 @@
 [tool.isort]
 profile = "black"
 line_length = 99
-py_version = 38
+py_version = 312
 known_third_party = [
     "cachetools",
     "colorama",
@@ -24,7 +24,7 @@ known_local_folder = ["qBitrr"]
 
 [tool.black]
 line-length = 99
-target-version = ['py38']
+target-version = ['py312']
 
 [tool.poetry]
 name = "pypi-public"

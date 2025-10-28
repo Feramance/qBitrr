@@ -42,7 +42,7 @@ qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent fo
 The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
 
 ## ⚡ Quickstart
-qBitrr supports Python 3.8+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
+qBitrr supports Python 3.12+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
 
 ### Install with pip
 ```bash

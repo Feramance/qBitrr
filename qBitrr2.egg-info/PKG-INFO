@@ -17,15 +17,13 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.8.3
+Requires-Python: <4,>=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cachetools
@@ -43,6 +41,7 @@ Requires-Dist: pyarr
 Requires-Dist: qbittorrent-api
 Requires-Dist: requests
 Requires-Dist: tomlkit
+Requires-Dist: waitress
 Requires-Dist: croniter
 Provides-Extra: dev
 Requires-Dist: black==24.3.0; extra == "dev"
@@ -115,7 +114,7 @@ qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent fo
 The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
 
 ## ⚡ Quickstart
-qBitrr supports Python 3.8+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
+qBitrr supports Python 3.12+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
 
 ### Install with pip
 ```bash
