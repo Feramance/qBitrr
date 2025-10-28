@@ -1,7 +1,7 @@
-exclude: ^(CHANGELOG.md|bundled_data.py|.bumpversion.cfg|Dockerfile|setup.cfg|.github/FUNDING.yml)
+exclude: ^(CHANGELOG\.md|bundled_data\.py|\.bumpversion\.cfg|Dockerfile|setup\.cfg|\.github/FUNDING\.yml|qBitrr/static/.*)
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v6.0.0
   hooks:
   - id: check-yaml
   - id: end-of-file-fixer
@@ -15,34 +15,30 @@ repos:
   - id: pretty-format-json
     args: [--autofix, --indent, '2']
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.10.1
+  rev: v3.21.0
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
 - repo: https://github.com/pycqa/isort
-  rev: 5.12.0
+  rev: 7.0.0
   hooks:
   - id: isort
 - repo: https://github.com/psf/black
-  rev: 23.7.0
+  rev: 25.9.0
   hooks:
   - id: black
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.10.0
+  rev: v2.15.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2']
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.5.0
+  rev: 0.7.1
   hooks:
   - id: fix-smartquotes
   - id: fix-ligatures
-# - repo: https://github.com/pre-commit/mirrors-autopep8
-#   rev: v2.0.4   # Use the sha / tag you want to point at
-#   hooks:
-#   - id: autopep8
 - repo: https://github.com/PyCQA/autoflake
-  rev: v2.2.1
+  rev: v2.3.1
   hooks:
   - id: autoflake
     args: [--remove-all-unused-imports, --recursive, --in-place, --remove-unused-variables, --ignore-init-module-imports, --remove-duplicate-keys]

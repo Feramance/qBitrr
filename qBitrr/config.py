@@ -84,8 +84,8 @@ elif (not CONFIG_FILE.exists()) and (not CONFIG_PATH.exists()):
     print(f"{file} has not been found")
 
     CONFIG_FILE = _write_config_file(docker=True)
-    print(f"'{CONFIG_FILE.name}' has been generated")
-    print('Rename it to "config.toml" then edit it and restart the container')
+    print(f'"{CONFIG_FILE.name}" has been generated with default values.')
+    print("Update the file to match your environment, then restart the container.")
 
     CONFIG_EXISTS = False
 
@@ -173,3 +173,16 @@ if SEARCH_ONLY and QBIT_DISABLED is False:
 # Settings Config Values
 FF_VERSION = APPDATA_FOLDER.joinpath("ffprobe_info.json")
 FF_PROBE = APPDATA_FOLDER.joinpath("ffprobe")
+
+
+def get_auto_update_settings() -> tuple[bool, str]:
+    enabled_env = ENVIRO_CONFIG.settings.auto_update_enabled
+    cron_env = ENVIRO_CONFIG.settings.auto_update_cron
+    enabled = (
+        enabled_env
+        if enabled_env is not None
+        else CONFIG.get("Settings.AutoUpdateEnabled", fallback=False)
+    )
+    cron = cron_env or CONFIG.get("Settings.AutoUpdateCron", fallback="0 3 * * 0")
+    cron = str(cron or "0 3 * * 0")
+    return bool(enabled), cron

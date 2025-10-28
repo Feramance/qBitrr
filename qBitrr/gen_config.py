@@ -129,6 +129,49 @@ def _add_settings_section(config: TOMLDocument):
         "FFprobeAutoUpdate",
         True if ENVIRO_CONFIG.settings.ping_urls is None else ENVIRO_CONFIG.settings.ping_urls,
     )
+    _gen_default_line(
+        settings,
+        [
+            "Automatically attempt to update qBitrr on a schedule",
+            "Set to true to enable the auto-update worker.",
+        ],
+        "AutoUpdateEnabled",
+        (
+            ENVIRO_CONFIG.settings.auto_update_enabled
+            if ENVIRO_CONFIG.settings.auto_update_enabled is not None
+            else False
+        ),
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Cron expression describing when to check for updates",
+            "Default is weekly Sunday at 03:00 (0 3 * * 0).",
+        ],
+        "AutoUpdateCron",
+        ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
+    )
+    _gen_default_line(
+        settings,
+        "WebUI listen port (default 6969)",
+        "WebUIPort",
+        6969,
+    )
+    _gen_default_line(
+        settings,
+        "WebUI listen host (default 127.0.0.1)",
+        "WebUIHost",
+        "127.0.0.1",
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Optional bearer token to secure WebUI/API.",
+            "Set a non-empty value to require Authorization: Bearer <token>.",
+        ],
+        "WebUIToken",
+        "",
+    )
     config.add("Settings", settings)
 
 
@@ -770,11 +813,14 @@ class MyConfig:
         return values if values is not ... else default
 
 
-def _write_config_file(docker=False) -> pathlib.Path:
+def _write_config_file(docker: bool = False) -> pathlib.Path:
     doc = generate_doc()
-    file_name = "config.rename_me.toml" if docker else "config.toml"
-    config_file = HOME_PATH.joinpath(file_name)
-    if config_file.exists() and not docker:
+    config_file = HOME_PATH.joinpath("config.toml")
+    if docker:
+        if config_file.exists():
+            print(f"{config_file} already exists, keeping current configuration.")
+            return config_file
+    elif config_file.exists():
         print(f"{config_file} already exists, File is not being replaced.")
         config_file = pathlib.Path.cwd().joinpath("config_new.toml")
     config = MyConfig(config_file, config=doc)

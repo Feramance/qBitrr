@@ -1,6 +1,7 @@
 cachetools
 colorama
 coloredlogs
+flask
 environ-config
 ffmpeg-python
 jaraco.docker
@@ -12,6 +13,7 @@ pyarr
 qbittorrent-api
 requests
 tomlkit
+croniter
 
 [all]
 black==24.3.0

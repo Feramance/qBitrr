@@ -9,6 +9,9 @@ on:
 defaults:
   run:
     shell: bash
+
+permissions:
+  contents: write
 env:
   project-name: qBitrr
 
@@ -20,24 +23,19 @@ jobs:
       fail-fast: false
       matrix:
         python:
-        - '3.10'
+        - 3.12.2
         os:
         - windows-latest
         - macOS-latest
         - ubuntu-latest
         arch:
-        - x86
         - x64
         - arm64
         exclude:
         - os: ubuntu-latest
-          arch: x86
-        - os: ubuntu-latest
           arch: arm64
         - os: macOS-latest
           arch: x64
-        - os: macOS-latest
-          arch: x86
         - os: windows-latest
           arch: arm64
     steps:
@@ -45,7 +43,11 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        ref: ${{ github.event.pull_request.head.sha }}
+        ref: ${{ github.event.pull_request.head.ref }}
+    - name: Install Homebrew dependencies
+      if: runner.os == 'macOS'
+      run: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v5
       with:
@@ -68,19 +70,49 @@ jobs:
         echo "NAME=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
       id: archieve
     - name: Update git hash
+      env:
+        RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
       run: |
-        sed -i -e 's/git_hash = \".*\"/git_hash = \"${{ steps.git_hash.outputs.HASH }}\"/g' ./qBitrr/bundled_data.py
+        python - <<'PY'
+        import os
+        from pathlib import Path
+        import re
+
+        release_hash = os.environ["RELEASE_HASH"]
+        path = Path("qBitrr/bundled_data.py")
+        content = path.read_text()
+        updated = re.sub(r'git_hash = ".*"', f'git_hash = "{release_hash}"', content)
+        path.write_text(updated)
+        PY
     - name: Retrieve current version
       run: |
         echo "Current version: $(python setup.py --version)"
         echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Build web UI assets
+      run: |
+        cd webui
+        npm ci
+        npm run build
+    - name: Copy web UI assets into package
+      run: |
+        if [ -d webui/dist ]; then
+          rm -rf qBitrr/static/*
+          mkdir -p qBitrr/static
+          cp -a webui/dist/. qBitrr/static/
+        else
+          echo "webui/dist not found; assuming assets already built into qBitrr/static"
+        fi
     - name: Install Python dependencies
       run: |
         python -m pip install -U pip
         python -m pip install -U setuptools==69.5.1
         python -m pip install -U wheel
-        python -m pip install -r requirements.dev.txt
+        python -m pip install -e '.[dev]'
     - name: Run PyInstaller
       env:
         PYTHONOPTIMIZE: 1     # Enable optimizations as if the -O flag is given.

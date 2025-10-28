@@ -21,3 +21,5 @@ venv/
 .venv/
 .sourcery.yaml
 test.py
+webui/node_modules/
+webui/dist/

@@ -7,7 +7,17 @@ updates:
   schedule:
     interval: daily
 
-- package-ecosystem: pip-compile
+- package-ecosystem: pip
+  directory: /
+  schedule:
+    interval: daily
+
+- package-ecosystem: npm
+  directory: /webui
+  schedule:
+    interval: weekly
+
+- package-ecosystem: docker
   directory: /
   schedule:
     interval: daily

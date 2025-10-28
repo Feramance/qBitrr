@@ -1,21 +1,32 @@
-from distutils.util import strtobool
-from typing import Optional
+from __future__ import annotations
 
 import environ
 
 
+def _strtobool(value: str) -> int:
+    """Return 1 for truthy strings and 0 for falsy strings, mirroring distutils.util.strtobool."""
+    if value is None:
+        raise ValueError("Boolean value must be a string")
+    normalized = value.strip().lower()
+    if normalized in {"y", "yes", "t", "true", "on", "1"}:
+        return 1
+    if normalized in {"n", "no", "f", "false", "off", "0"}:
+        return 0
+    raise ValueError(f"Invalid truth value {value!r}")
+
+
 class Converter:
     @staticmethod
-    def int(value: Optional[str]) -> Optional[int]:
+    def int(value: str | None) -> int | None:
         return None if value is None else int(value)
 
     @staticmethod
-    def list(value: Optional[str], delimiter=",", converter=str) -> Optional[list]:
+    def list(value: str | None, delimiter=",", converter=str) -> list | None:
         return None if value is None else list(map(converter, value.split(delimiter)))
 
     @staticmethod
-    def bool(value: Optional[str]) -> Optional[bool]:
-        return None if value is None else strtobool(value) == 1
+    def bool(value: str | None) -> bool | None:
+        return None if value is None else _strtobool(value) == 1
 
 
 @environ.config(prefix="QBITRR", frozen=True)
@@ -43,6 +54,8 @@ class AppConfig:
         ignore_torrents_younger_than = environ.var(None, converter=Converter.int)
         ping_urls = environ.var(None, converter=Converter.list)
         ffprobe_auto_update = environ.var(None, converter=Converter.bool)
+        auto_update_enabled = environ.var(None, converter=Converter.bool)
+        auto_update_cron = environ.var(None)
 
     @environ.config(prefix="QBIT", frozen=True)
     class qBit:

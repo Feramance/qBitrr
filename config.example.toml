@@ -54,6 +54,21 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 # By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
 
+# Automatically attempt to update qBitrr on a schedule
+AutoUpdateEnabled = false
+# Cron expression describing when to check for updates (default weekly at 03:00 on Sunday)
+AutoUpdateCron = "0 3 * * 0"
+
+# WebUI listen port and host
+# Default listen host `127.0.0.1` binds on all interfaces
+WebUIHost = "127.0.0.1"
+WebUIPort = 6969
+
+# Optional bearer token to secure the WebUI/API.
+# Set a non-empty value to require Authorization: Bearer <token>
+# Leave empty to disable authentication (not recommended on public networks)
+WebUIToken = ""
+
 
 [qBit]
 # If this is enabled qBitrr can run in headless mode where it will only process searches.

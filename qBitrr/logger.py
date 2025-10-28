@@ -36,7 +36,7 @@ SUCCESS = 25
 
 
 class VerboseLogger(Logger):
-    def _init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.name.startswith("qBitrr"):
             self.set_config_level()
