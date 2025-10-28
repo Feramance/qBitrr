@@ -112,7 +112,7 @@ jobs:
         git_tag_gpgsign: true
 
     - name: Commit version bump
-      uses: stefanzweifel/git-auto-commit-action@v5.0.1
+      uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Bump version to v${{ steps.version.outputs.value }}'
         tagging_message: v${{ steps.version.outputs.value }}
@@ -145,7 +145,7 @@ jobs:
         PY
 
     - name: Commit bundled hash update
-      uses: stefanzweifel/git-auto-commit-action@v5.0.1
+      uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Update bundled git hash for v${{ steps.version.outputs.value }}'
         commit_options: -S
@@ -438,7 +438,7 @@ jobs:
         git_tag_gpgsign: true
 
     - name: Commit changelog updates
-      uses: stefanzweifel/git-auto-commit-action@v5.0.1
+      uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Update changelog for v${{ needs.prepare_release.outputs.new_version }}'
         commit_options: -S

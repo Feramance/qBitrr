@@ -51,7 +51,7 @@ jobs:
 
     - name: Commit PKG-INFO update
       if: steps.sync-pkg-info.outputs.changed == 'true'
-      uses: stefanzweifel/git-auto-commit-action@v5
+      uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: 'docs: sync PKG-INFO description'
         file_pattern: qBitrr2.egg-info/PKG-INFO
