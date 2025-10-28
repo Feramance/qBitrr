@@ -23,7 +23,6 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       GITHUB_TOKEN: ${{ secrets.PAT }}
       AUTOFIX_MODEL: ${{ vars.AUTOFIX_MODEL || 'gpt-4.1-mini' }}
-      AUTOFIX_BASE_BRANCH: auto-fixes
     steps:
     - uses: actions/checkout@v4
       with:
