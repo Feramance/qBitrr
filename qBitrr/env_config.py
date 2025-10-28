@@ -1,7 +1,7 @@
-from distutils.util import strtobool
 from typing import Optional
 
 import environ
+from distutils.util import strtobool
 
 
 class Converter:
