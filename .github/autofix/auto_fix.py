@@ -74,7 +74,7 @@ def ensure_checkout(head_sha: str, default_branch: str) -> None:
     if current == head_sha:
         debug("Already on failing commit")
         return
-    run_cmd(["git", "fetch", "origin", head_sha, default_branch])
+    run_cmd(["git", "fetch", "origin", head_sha])
     run_cmd(["git", "checkout", head_sha])
 
 
