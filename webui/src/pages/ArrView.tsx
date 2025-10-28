@@ -438,6 +438,19 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [instancePages]);
 
+  const allInstanceSeries = useMemo(() => {
+    const accumulator = new Map<string, SonarrSeriesEntry>();
+    Object.values(instancePagesRef.current).forEach((entries) => {
+      (entries ?? []).forEach((entry) => {
+        const seriesMeta = entry.series ?? {};
+        const key =
+          String(seriesMeta["id"] ?? seriesMeta["title"] ?? Math.random().toString(36));
+        accumulator.set(key, entry);
+      });
+    });
+    return Array.from(accumulator.values());
+  }, [instancePages]);
+
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
     try {
@@ -1281,7 +1294,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
               <SonarrInstanceView
                 loading={instanceLoading}
                 counts={instanceData?.counts ?? null}
-                series={currentSeries}
+                series={allInstanceSeries}
                 page={instancePage}
                 pageSize={instancePageSize}
                 totalPages={instanceTotalPages}
@@ -1449,28 +1462,37 @@ function SonarrInstanceView({
     for (const entry of seriesEntries) {
       const seasons = entry.seasons ?? {};
       const filteredSeasons: Record<string, SonarrSeason> = {};
-      let hasMissingEpisodes = false;
       for (const [seasonNumber, season] of Object.entries(seasons)) {
         const episodes = (season.episodes ?? []).filter((episode) => !episode.hasFile);
         if (!episodes.length) continue;
         filteredSeasons[seasonNumber] = { ...season, episodes };
-        hasMissingEpisodes = true;
       }
-      const totals = entry.totals ?? {};
-      const hasMissingByTotals =
-        (totals.monitored ?? 0) > (totals.available ?? 0);
-      if (hasMissingEpisodes) {
-        result.push({
-          ...entry,
-          seasons: filteredSeasons,
-        });
-      } else if (hasMissingByTotals) {
-        result.push(entry);
-      }
+      if (Object.keys(filteredSeasons).length === 0) continue;
+      result.push({
+        ...entry,
+        seasons: filteredSeasons,
+      });
     }
     return result;
   }, [seriesEntries, onlyMissing]);
-  const totalItemsDisplay = onlyMissing ? filteredSeries.length : totalItems;
+  const totalItemsDisplay = onlyMissing
+    ? filteredSeries.length
+    : totalItems || seriesEntries.length;
+  const effectiveTotalPages = Math.max(
+    1,
+    Math.ceil(Math.max(totalItemsDisplay, 1) / pageSize)
+  );
+  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
+  const pageRows = useMemo(() => {
+    const start = safePage * pageSize;
+    return filteredSeries.slice(start, start + pageSize);
+  }, [filteredSeries, safePage, pageSize]);
+
+  useEffect(() => {
+    if (safePage !== page) {
+      onPageChange(safePage);
+    }
+  }, [safePage, page, onPageChange]);
 
   return (
     <div className="stack">
@@ -1491,8 +1513,8 @@ function SonarrInstanceView({
           <div className="loading">
             <span className="spinner" /> Loading Sonarr library…
           </div>
-        ) : filteredSeries.length ? (
-          filteredSeries.map((entry, idx) => {
+        ) : pageRows.length ? (
+          pageRows.map((entry, idx) => {
             const title =
               (entry.series?.["title"] as string | undefined) ||
               `Series ${idx + 1}`;
@@ -1549,23 +1571,21 @@ function SonarrInstanceView({
       </div>
       <div className="pagination">
         <div>
-          Page {page + 1} of {totalPages} ({totalItemsDisplay} items · page size{" "}
-          {pageSize})
+          Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items ·
+          page size {pageSize})
         </div>
         <div className="inline">
           <button
             className="btn"
-            onClick={() => onPageChange(Math.max(0, page - 1))}
-            disabled={page === 0 || loading}
+            onClick={() => onPageChange(Math.max(0, safePage - 1))}
+            disabled={safePage === 0 || loading}
           >
             Prev
           </button>
           <button
             className="btn"
-            onClick={() =>
-              onPageChange(Math.min(totalPages - 1, page + 1))
-            }
-            disabled={page >= totalPages - 1 || loading}
+            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+            disabled={safePage >= effectiveTotalPages - 1 || loading}
           >
             Next
           </button>
