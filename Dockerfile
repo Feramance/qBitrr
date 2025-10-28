@@ -7,7 +7,7 @@ COPY webui webui
 RUN mkdir -p qBitrr/static && cd webui && npm run build
 
 # Pin Python to the latest supported version we support in production
-FROM python:3.12
+FROM python:3.14
 
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
