@@ -20,7 +20,7 @@ import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
-import FilterIcon from "../icons/problem-solving.svg";
+import FilterIcon from "../icons/alert.svg";
 import LiveIcon from "../icons/live-streaming.svg";
 
 interface ArrViewProps {
