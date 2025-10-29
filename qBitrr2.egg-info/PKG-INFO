@@ -146,7 +146,7 @@ docker run -d \
 feramance/qbitrr:latest
 ```
 
-The container binds the WebUI to `0.0.0.0`; mapping `6969` exposes the dashboard at `http://<host>:6969/ui`.
+The container automatically binds its WebUI to `0.0.0.0`; exposing `6969` makes the dashboard reachable at `http://<host>:6969/ui`.
 
 Compose example with a little more structure:
 ```yaml
