@@ -40,7 +40,7 @@ jobs:
           arch: arm64
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT || github.token }}
@@ -91,7 +91,7 @@ jobs:
         echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '20'
     - name: Build web UI assets
@@ -137,7 +137,7 @@ jobs:
         Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
@@ -154,7 +154,7 @@ jobs:
       with:
         string: ${{ github.repository }}
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.event.pull_request.head.ref }}
         repository: ${{ github.event.pull_request.head.repo.full_name }}
@@ -207,7 +207,7 @@ jobs:
       with:
         string: ${{ github.repository }}
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ github.event.pull_request.head.ref }}
         repository: ${{ github.event.pull_request.head.repo.full_name }}
