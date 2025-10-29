@@ -221,19 +221,33 @@ class Arr:
         self.seeding_mode_global_bad_tracker_msg = CONFIG.get(
             f"{name}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
         )
+        if isinstance(self.seeding_mode_global_bad_tracker_msg, str):
+            self.seeding_mode_global_bad_tracker_msg = [self.seeding_mode_global_bad_tracker_msg]
+        else:
+            self.seeding_mode_global_bad_tracker_msg = list(
+                self.seeding_mode_global_bad_tracker_msg
+            )
 
         self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self._remove_trackers_if_exists: set[str] = {
-            i.get("URI") for i in self.monitored_trackers if i.get("RemoveIfExists") is True
+            uri
+            for i in self.monitored_trackers
+            if i.get("RemoveIfExists") is True and (uri := (i.get("URI") or "").strip())
         }
         self._monitored_tracker_urls: set[str] = {
-            r
+            uri
             for i in self.monitored_trackers
-            if (r := i.get("URI")) not in self._remove_trackers_if_exists
+            if (uri := (i.get("URI") or "").strip()) and uri not in self._remove_trackers_if_exists
         }
         self._add_trackers_if_missing: set[str] = {
-            i.get("URI") for i in self.monitored_trackers if i.get("AddTrackerIfMissing") is True
+            uri
+            for i in self.monitored_trackers
+            if i.get("AddTrackerIfMissing") is True and (uri := (i.get("URI") or "").strip())
         }
+        self._normalized_bad_tracker_msgs: set[str] = {
+            msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
+        }
+
         if (
             self.auto_delete is True
             and not self.completed_folder.parent.exists()
@@ -4187,13 +4201,19 @@ class Arr:
             torrent.add_trackers(need_to_be_added)
         with contextlib.suppress(BaseException):
             for tracker in torrent.trackers:
-                if (
+                tracker_url = getattr(tracker, "url", None)
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                remove_for_message = (
                     self.remove_dead_trackers
-                    and (
-                        any(tracker.msg == m for m in self.seeding_mode_global_bad_tracker_msg)
-                    )  # TODO: Add more messages
-                ) or tracker.url in self._remove_trackers_if_exists:
-                    _remove_urls.add(tracker.url)
+                    and self._normalized_bad_tracker_msgs
+                    and any(
+                        keyword in message_text for keyword in self._normalized_bad_tracker_msgs
+                    )
+                )
+                if not tracker_url:
+                    continue
+                if remove_for_message or tracker_url in self._remove_trackers_if_exists:
+                    _remove_urls.add(tracker_url)
         if _remove_urls:
             self.logger.trace(
                 "Removing trackers from torrent: %s (%s) - %s",
