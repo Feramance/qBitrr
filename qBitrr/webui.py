@@ -11,9 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 from flask import Flask, jsonify, redirect, request, send_file
-from packaging import version as version_parser
 from peewee import fn
 
 from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
@@ -24,6 +22,7 @@ from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
 )
+from qBitrr.versioning import fetch_latest_release
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
@@ -131,58 +130,17 @@ class WebUI:
         self._thread: threading.Thread | None = None
         self._use_dev_server: bool | None = None
 
-    @staticmethod
-    def _normalize_version(value: str | None) -> str | None:
-        if not value:
-            return None
-        cleaned = value.strip()
-        if not cleaned:
-            return None
-        if cleaned[0] in {"v", "V"}:
-            cleaned = cleaned[1:]
-        if "-" in cleaned:
-            cleaned = cleaned.split("-", 1)[0]
-        return cleaned or None
-
-    def _is_newer_version(self, candidate: str | None) -> bool:
-        if not candidate:
-            return False
-        current_norm = self._normalize_version(patched_version)
-        if not current_norm:
-            return True
-        try:
-            latest_version = version_parser.parse(candidate)
-            current_version = version_parser.parse(current_norm)
-            return latest_version > current_version
-        except Exception:
-            return candidate != current_norm
-
     def _fetch_version_info(self) -> dict[str, Any]:
-        repo = self._github_repo
-        url = f"https://api.github.com/repos/{repo}/releases/latest"
-        headers = {"Accept": "application/vnd.github+json"}
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            payload = response.json()
-        except Exception as exc:
-            message = str(exc)
-            if len(message) > 200:
-                message = f"{message[:197]}..."
-            self.logger.debug("Failed to fetch latest release information: %s", exc)
-            return {"error": message}
-
-        raw_tag = (payload.get("tag_name") or payload.get("name") or "").strip()
-        normalized_latest = self._normalize_version(raw_tag)
-        latest_display = raw_tag or normalized_latest
-        changelog = payload.get("body") or ""
-        changelog_url = payload.get("html_url") or f"https://github.com/{repo}/releases"
-        update_available = self._is_newer_version(normalized_latest)
+        info = fetch_latest_release(self._github_repo)
+        if info.get("error"):
+            self.logger.debug("Failed to fetch latest release information: %s", info["error"])
+            return {"error": info["error"]}
+        latest_display = info.get("raw_tag") or info.get("normalized")
         return {
             "latest_version": latest_display,
-            "update_available": update_available,
-            "changelog": changelog,
-            "changelog_url": changelog_url,
+            "update_available": bool(info.get("update_available")),
+            "changelog": info.get("changelog") or "",
+            "changelog_url": info.get("changelog_url"),
             "error": None,
         }
 
@@ -251,7 +209,8 @@ class WebUI:
             except AttributeError:
                 from qBitrr.auto_update import perform_self_update
 
-                perform_self_update(self.manager.logger)
+                if not perform_self_update(self.manager.logger):
+                    raise RuntimeError("pip upgrade did not complete successfully")
         except Exception as exc:
             result = "error"
             error_message = str(exc)

@@ -5,6 +5,7 @@ import contextlib
 import logging
 import os
 import sys
+import time
 from multiprocessing import Event, freeze_support
 from queue import SimpleQueue
 from threading import Event as ThreadEvent
@@ -33,6 +34,7 @@ from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
 from qBitrr.tables import ensure_core_tables, get_database
 from qBitrr.utils import ExpiringSet
+from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
 if CONFIG_EXISTS:
@@ -101,6 +103,8 @@ class qBitManager:
         self.arr_manager = None
         self._bootstrap_ready = ThreadEvent()
         self._startup_thread: Thread | None = None
+        self._restart_requested = False
+        self._restart_thread: Thread | None = None
         self.ffprobe_downloader = FFprobeDownloader()
         try:
             if not (QBIT_DISABLED or SEARCH_ONLY):
@@ -114,9 +118,9 @@ class qBitManager:
             web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
         except Exception:
             web_port = 6969
-        web_host = CONFIG.get("Settings.WebUIHost", fallback="0.0.0.0") or "0.0.0.0"
+        web_host = CONFIG.get("Settings.WebUIHost", fallback="127.0.0.1") or "127.0.0.1"
         if os.environ.get("QBITRR_DOCKER_RUNNING") == "69420" and web_host in {
-            "0.0.0.0",
+            "127.0.0.1",
             "localhost",
         }:
             web_host = "0.0.0.0"
@@ -149,11 +153,55 @@ class qBitManager:
             self.logger.error("Auto update could not be scheduled; leaving it disabled")
 
     def _perform_auto_update(self) -> None:
-        self.logger.notice("Performing auto update...")
-        perform_self_update(self.logger)
-        self.logger.notice(
-            "Auto update cycle complete. A restart may be required if files were updated."
-        )
+        self.logger.notice("Checking for updates...")
+        release_info = fetch_latest_release()
+        if release_info.get("error"):
+            self.logger.error("Auto update skipped: %s", release_info["error"])
+            return
+        target_version = release_info.get("raw_tag") or release_info.get("normalized")
+        if not release_info.get("update_available"):
+            if target_version:
+                self.logger.info(
+                    "Auto update skipped: already running the latest release (%s).",
+                    target_version,
+                )
+            else:
+                self.logger.info("Auto update skipped: no new release detected.")
+            return
+
+        self.logger.notice("Updating from %s to %s", patched_version, target_version or "latest")
+        updated = perform_self_update(self.logger)
+        if not updated:
+            self.logger.error("Auto update failed; manual intervention may be required.")
+            return
+        self.logger.notice("Update applied successfully; restarting to load the new version.")
+        self.request_restart()
+
+    def request_restart(self, delay: float = 3.0) -> None:
+        if self._restart_requested:
+            return
+        self._restart_requested = True
+
+        def _restart():
+            if delay > 0:
+                time.sleep(delay)
+            self.logger.notice("Exiting to complete restart.")
+            try:
+                self.shutdown_event.set()
+            except Exception:
+                pass
+            for proc in list(self.child_processes):
+                with contextlib.suppress(Exception):
+                    proc.join(timeout=5)
+            for proc in list(self.child_processes):
+                with contextlib.suppress(Exception):
+                    proc.kill()
+                with contextlib.suppress(Exception):
+                    proc.terminate()
+            os._exit(0)
+
+        self._restart_thread = Thread(target=_restart, name="qBitrr-Restart", daemon=True)
+        self._restart_thread.start()
 
     def _prepare_arr_processes(self, arr, timeout_seconds: int = 30) -> None:
         timeout = max(
