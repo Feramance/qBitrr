@@ -119,6 +119,7 @@ def run_logs(logger: Logger, _name: str = None) -> None:
         },
         reconfigure=True,
     )
+    logger.propagate = False
     if ENABLE_LOGS and _name:
         logs_folder = HOME_PATH.joinpath("logs")
         logs_folder.mkdir(parents=True, exist_ok=True)
