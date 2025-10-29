@@ -1,5 +1,14 @@
 # Changelog
 
+## v5.1.0 (29/10/2025)
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/3c3cb98c13ca6e0aea892f1b1f1e3ac7f373c1ce) - @Feramance
+- [[minor] Combined databases rather than having multiple, fixed mobile UI and added tracker configs to web ui (#187)](https://github.com/Feramance/qBitrr/commit/44c938ac2ef308d80eceec2d5c9adf6adf5f44dd) - @Feramance
+- [Bump actions/upload-artifact from 4 to 5 (#183)](https://github.com/Feramance/qBitrr/commit/1ff2635b45e0eab033c7c37fb5238d84c9e09521) - @dependabot[bot]
+- [Bump actions/setup-node from 4 to 6 (#184)](https://github.com/Feramance/qBitrr/commit/749e38079527b139d37ea6e620724e120bbf4b6f) - @dependabot[bot]
+- [Bump actions/checkout from 4 to 5 (#185)](https://github.com/Feramance/qBitrr/commit/1329d25c490608713564d92bce898c9b62ee620a) - @dependabot[bot]
+
+---
+
 ## v5.0.2 (29/10/2025)
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/4774b40b96dca128e36d558a85130af471496e9b) - @Feramance
 - [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/604a1e39b4f87127a22d418f09c1585f4d5e2e8d) - @Feramance
@@ -336,8 +345,3 @@
 - [[patch] Minor changes to better handle temp profile config edge cases](https://github.com/Feramance/qBitrr/commit/b4f58311406d797956c3fa8aecc88b7ac18bdd09) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/6a8c6224cd0b68a4c82ec87e773477bd071b601a) - @Feramance
 - [[patch] Hotfix 3](https://github.com/Feramance/qBitrr/commit/fefb8dab5335af88992f0d50c8d7a9ba8b1bb2ea) - @Feramance
-
----
-
-## v4.10.2 (04/12/2024)
-- [[patch] Hotfix bad variable](https://github.com/Feramance/qBitrr/commit/e880563a91ca6a5f681bb66a49a6f247f42d3124) - @Feramance
