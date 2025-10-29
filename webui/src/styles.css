@@ -104,6 +104,8 @@ body {
 .nav {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
 }
 .nav button {
     color: var(--muted);
@@ -543,6 +545,19 @@ pre {
     }
     .appbar__title {
         gap: 8px;
+    }
+    .nav {
+        gap: 6px;
+    }
+    .nav button {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+    }
+}
+
+@media (max-width: 420px) {
+    .nav button {
+        flex-basis: 100%;
     }
 }
 

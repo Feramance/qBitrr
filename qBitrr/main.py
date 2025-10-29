@@ -32,7 +32,7 @@ from qBitrr.config import (
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
-from qBitrr.tables import DATABASE_FILE, ensure_core_tables, get_database
+from qBitrr.tables import ensure_core_tables, get_database, purge_database_files
 from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
@@ -492,29 +492,7 @@ def run():
 
 def initialize_database() -> None:
     try:
-        DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        removed = []
-        database_artifacts = (
-            DATABASE_FILE,
-            DATABASE_FILE.with_name(f"{DATABASE_FILE.name}-wal"),
-            DATABASE_FILE.with_name(f"{DATABASE_FILE.name}-shm"),
-        )
-        for candidate in database_artifacts:
-            try:
-                candidate.unlink()
-                removed.append(candidate)
-            except FileNotFoundError:
-                continue
-            except OSError:
-                logger.warning(
-                    "Unable to remove database artifact during startup cleanup: %s",
-                    candidate,
-                )
-        if removed:
-            logger.info(
-                "Removed existing database artifacts during startup: %s",
-                ", ".join(str(path) for path in removed),
-            )
+        purge_database_files()
         get_database()
         ensure_core_tables()
     except Exception:

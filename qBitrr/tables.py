@@ -3,11 +3,13 @@ from __future__ import annotations
 import logging
 import re
 from functools import lru_cache
+from pathlib import Path
 from typing import NamedTuple
 
 from peewee import (
     BooleanField,
     CharField,
+    DatabaseError,
     DatabaseProxy,
     DateTimeField,
     IntegerField,
@@ -17,6 +19,7 @@ from peewee import (
     TextField,
 )
 
+from qBitrr.db_lock import database_lock
 from qBitrr.home_path import APPDATA_FOLDER
 
 logger = logging.getLogger("qBitrr.Database")
@@ -24,6 +27,60 @@ logger = logging.getLogger("qBitrr.Database")
 DATABASE_FILE = APPDATA_FOLDER.joinpath("qbitrr.db")
 _database_proxy: DatabaseProxy = DatabaseProxy()
 _DATABASE: SqliteDatabase | None = None
+_DB_ARTIFACT_SUFFIXES: tuple[str, ...] = ("", "-wal", "-shm")
+
+
+class LockedSqliteDatabase(SqliteDatabase):
+    def connect(self, **kwargs):
+        with database_lock():
+            return super().connect(**kwargs)
+
+    def close(self):
+        with database_lock():
+            return super().close()
+
+    def execute_sql(self, *args, **kwargs):
+        with database_lock():
+            return super().execute_sql(*args, **kwargs)
+
+
+def _database_artifact_paths() -> tuple[Path, ...]:
+    return tuple(
+        DATABASE_FILE if suffix == "" else DATABASE_FILE.with_name(f"{DATABASE_FILE.name}{suffix}")
+        for suffix in _DB_ARTIFACT_SUFFIXES
+    )
+
+
+def purge_database_files() -> list[Path]:
+    removed: list[Path] = []
+    with database_lock():
+        for candidate in _database_artifact_paths():
+            try:
+                candidate.unlink()
+                removed.append(candidate)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                logger.warning("Unable to remove database artifact '%s': %s", candidate, exc)
+    if removed:
+        logger.info(
+            "Removed database artifacts: %s",
+            ", ".join(str(path) for path in removed),
+        )
+    return removed
+
+
+def _reset_database(exc: BaseException) -> None:
+    global _DATABASE
+    logger.warning("Database reset triggered after failure: %s", exc)
+    with database_lock():
+        try:
+            if _DATABASE is not None and not _DATABASE.is_closed():
+                _DATABASE.close()
+        except Exception as close_error:  # pragma: no cover - best effort cleanup
+            logger.debug("Error closing database while resetting: %s", close_error)
+        _DATABASE = None
+        purge_database_files()
 
 
 class BaseModel(Model):
@@ -31,24 +88,33 @@ class BaseModel(Model):
         database = _database_proxy
 
 
-def get_database() -> SqliteDatabase:
+def get_database(*, _retry: bool = True) -> SqliteDatabase:
     global _DATABASE
     if _DATABASE is None:
         DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _DATABASE = SqliteDatabase(
+        _DATABASE = LockedSqliteDatabase(
             str(DATABASE_FILE),
             pragmas={
                 "journal_mode": "wal",
                 "cache_size": -64_000,
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
-                "synchronous": 0,
+                "synchronous": "NORMAL",
+                "busy_timeout": 60_000,
             },
             timeout=15,
             check_same_thread=False,
+            max_connections=1,
+            autocommit=True,
         )
         _database_proxy.initialize(_DATABASE)
-    _DATABASE.connect(reuse_if_open=True)
+    try:
+        _DATABASE.connect(reuse_if_open=True)
+    except DatabaseError as exc:
+        if not _retry:
+            raise
+        _reset_database(exc)
+        return get_database(_retry=False)
     return _DATABASE
 
 
