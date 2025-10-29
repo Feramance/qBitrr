@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import contextlib
-import itertools
 import logging
 import sys
 from multiprocessing import Event, freeze_support
@@ -21,7 +20,6 @@ from qbittorrentapi import APINames
 from qBitrr.auto_update import AutoUpdater, perform_self_update
 from qBitrr.bundled_data import patched_version
 from qBitrr.config import (
-    APPDATA_FOLDER,
     CONFIG,
     CONFIG_EXISTS,
     QBIT_DISABLED,
@@ -32,7 +30,8 @@ from qBitrr.config import (
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
-from qBitrr.utils import ExpiringSet, absolute_file_paths
+from qBitrr.tables import ensure_core_tables, get_database
+from qBitrr.utils import ExpiringSet
 from qBitrr.webui import WebUI
 
 if CONFIG_EXISTS:
@@ -437,15 +436,16 @@ def run():
             child.kill()
 
 
-def file_cleanup():
-    extensions = [".db", ".db-shm", ".db-wal"]
-    all_files_in_folder = list(absolute_file_paths(APPDATA_FOLDER))
-    for file, ext in itertools.product(all_files_in_folder, extensions):
-        if file.name.endswith(ext):
-            file.unlink(missing_ok=True)
+def initialize_database() -> None:
+    try:
+        get_database()
+        ensure_core_tables()
+    except Exception:
+        logger.exception("Failed to initialize database schema")
+        raise
 
 
 if __name__ == "__main__":
     freeze_support()
-    file_cleanup()
+    initialize_database()
     run()
