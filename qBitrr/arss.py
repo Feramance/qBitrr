@@ -82,6 +82,36 @@ def _mask_secret(secret: str | None) -> str:
     return "[redacted]"
 
 
+def _normalize_media_status(value: int | str | None) -> str:
+    """Normalise Overseerr media status values across API versions."""
+    int_mapping = {
+        1: "UNKNOWN",
+        2: "PENDING",
+        3: "PROCESSING",
+        4: "PARTIALLY_AVAILABLE",
+        5: "AVAILABLE",
+        6: "DELETED",
+    }
+    if value is None:
+        return "UNKNOWN"
+    if isinstance(value, str):
+        token = value.strip().upper().replace("-", "_").replace(" ", "_")
+        # Newer Overseerr builds can return strings such as "PARTIALLY_AVAILABLE"
+        return token or "UNKNOWN"
+    try:
+        return int_mapping.get(int(value), "UNKNOWN")
+    except (TypeError, ValueError):
+        return "UNKNOWN"
+
+
+def _is_media_available(status: str) -> bool:
+    return status in {"AVAILABLE", "DELETED"}
+
+
+def _is_media_processing(status: str) -> bool:
+    return status in {"PROCESSING", "PARTIALLY_AVAILABLE"}
+
+
 if TYPE_CHECKING:
     from qBitrr.main import qBitManager
 
@@ -828,81 +858,104 @@ class Arr:
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
-            key = "approved" if self.overseerr_approved_only else "unavailable"
             data = defaultdict(set)
-            response = self.session.get(
-                url=f"{self.overseerr_uri}/api/v1/request",
-                headers={"X-Api-Key": self.overseerr_api_key},
-                params={"take": 100, "skip": 0, "sort": "added", "filter": key},
-                timeout=2,
-            )
-            response = response.json().get("results", [])
+            key = "approved" if self.overseerr_approved_only else "unavailable"
+            take = 100
+            skip = 0
             type_ = None
             if self.type == "radarr":
                 type_ = "movie"
             elif self.type == "sonarr":
                 type_ = "tv"
             _now = datetime.now()
-            for entry in response:
-                type__ = entry.get("type")
-                if type__ == "movie":
-                    id__ = entry.get("media", {}).get("tmdbId")
-                elif type__ == "tv":
-                    id__ = entry.get("media", {}).get("tvdbId")
-                if type_ != type__:
-                    continue
-                if self.overseerr_is_4k and entry.get("is4k"):
-                    if self.overseerr_approved_only:
-                        if entry.get("media", {}).get("status4k") != 3:
-                            continue
-                    elif entry.get("media", {}).get("status4k") == 5:
+            while True:
+                response = self.session.get(
+                    url=f"{self.overseerr_uri}/api/v1/request",
+                    headers={"X-Api-Key": self.overseerr_api_key},
+                    params={"take": take, "skip": skip, "sort": "added", "filter": key},
+                    timeout=5,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                results = []
+                if isinstance(payload, list):
+                    results = payload
+                elif isinstance(payload, dict):
+                    if isinstance(payload.get("results"), list):
+                        results = payload["results"]
+                    elif isinstance(payload.get("data"), list):
+                        results = payload["data"]
+                if not results:
+                    break
+                for entry in results:
+                    type__ = entry.get("type")
+                    if type__ == "movie":
+                        id__ = entry.get("media", {}).get("tmdbId")
+                    elif type__ == "tv":
+                        id__ = entry.get("media", {}).get("tvdbId")
+                    else:
+                        id__ = None
+                    if not id__ or type_ != type__:
                         continue
-                elif not self.overseerr_is_4k and not entry.get("is4k"):
-                    if self.overseerr_approved_only:
-                        if entry.get("media", {}).get("status") != 3:
+                    media = entry.get("media") or {}
+                    status_key = "status4k" if entry.get("is4k") else "status"
+                    status_value = _normalize_media_status(media.get(status_key))
+                    if entry.get("is4k"):
+                        if not self.overseerr_is_4k:
                             continue
-                    elif entry.get("media", {}).get("status") == 5:
+                    elif self.overseerr_is_4k:
                         continue
-                else:
-                    continue
-                if id__ in self.overseerr_requests_release_cache:
-                    date = self.overseerr_requests_release_cache[id__]
-                else:
-                    date = datetime(day=1, month=1, year=1970)
-                    date_string_backup = f"{_now.year}-{_now.month:02}-{_now.day:02}"
-                    date_string = None
-                    try:
-                        if type_ == "movie":
-                            _entry_data = self.session.get(
-                                url=f"{self.overseerr_uri}/api/v1/movies/{id__}",
-                                headers={"X-Api-Key": self.overseerr_api_key},
-                                timeout=2,
-                            )
-                            date_string = _entry_data.json().get("releaseDate")
-                        elif type__ == "tv":
-                            _entry_data = self.session.get(
-                                url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
-                                headers={"X-Api-Key": self.overseerr_api_key},
-                                timeout=2,
-                            )
-                            # We don't do granular (episode/season) searched here so no need to
-                            # suppose them
-                            date_string = _entry_data.json().get("firstAirDate")
-                        if not date_string:
-                            date_string = date_string_backup
-                        date = datetime.strptime(date_string, "%Y-%m-%d")
-                        if date > _now:
+                    if self.overseerr_approved_only:
+                        if not _is_media_processing(status_value):
                             continue
-                        self.overseerr_requests_release_cache[id__] = date
-                    except Exception as e:
-                        self.logger.warning("Failed to query release date from Overseerr: %s", e)
-                if media := entry.get("media"):
-                    if imdbId := media.get("imdbId"):
-                        data["ImdbId"].add(imdbId)
-                    if self.type == "sonarr" and (tvdbId := media.get("tvdbId")):
-                        data["TvdbId"].add(tvdbId)
-                    elif self.type == "radarr" and (tmdbId := media.get("tmdbId")):
-                        data["TmdbId"].add(tmdbId)
+                    else:
+                        if _is_media_available(status_value):
+                            continue
+                    if id__ in self.overseerr_requests_release_cache:
+                        date = self.overseerr_requests_release_cache[id__]
+                    else:
+                        date = datetime(day=1, month=1, year=1970)
+                        date_string_backup = f"{_now.year}-{_now.month:02}-{_now.day:02}"
+                        date_string = None
+                        try:
+                            if type_ == "movie":
+                                _entry = self.session.get(
+                                    url=f"{self.overseerr_uri}/api/v1/movies/{id__}",
+                                    headers={"X-Api-Key": self.overseerr_api_key},
+                                    timeout=5,
+                                )
+                                _entry.raise_for_status()
+                                date_string = _entry.json().get("releaseDate")
+                            elif type__ == "tv":
+                                _entry = self.session.get(
+                                    url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
+                                    headers={"X-Api-Key": self.overseerr_api_key},
+                                    timeout=5,
+                                )
+                                _entry.raise_for_status()
+                                # We don't do granular (episode/season) searched here so no need to
+                                # suppose them
+                                date_string = _entry.json().get("firstAirDate")
+                            if not date_string:
+                                date_string = date_string_backup
+                            date = datetime.strptime(date_string[:10], "%Y-%m-%d")
+                            if date > _now:
+                                continue
+                            self.overseerr_requests_release_cache[id__] = date
+                        except Exception as e:
+                            self.logger.warning(
+                                "Failed to query release date from Overseerr: %s", e
+                            )
+                    if media:
+                        if imdbId := media.get("imdbId"):
+                            data["ImdbId"].add(imdbId)
+                        if self.type == "sonarr" and (tvdbId := media.get("tvdbId")):
+                            data["TvdbId"].add(tvdbId)
+                        elif self.type == "radarr" and (tmdbId := media.get("tmdbId")):
+                            data["TmdbId"].add(tmdbId)
+                if len(results) < take:
+                    break
+                skip += take
             self._temp_overseer_request_cache = data
         except requests.exceptions.ConnectionError:
             self.logger.warning("Couldn't connect to Overseerr")
@@ -940,15 +993,24 @@ class Arr:
             extras = "/api/v1/Request/movie/total"
         else:
             raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
+        total = 0
         try:
             response = self.session.get(
-                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}
+                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}, timeout=5
             )
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, dict):
+                for key in ("total", "count", "totalCount", "totalRecords", "pending", "value"):
+                    value = payload.get(key)
+                    if isinstance(value, int):
+                        total = value
+                        break
+            elif isinstance(payload, list):
+                total = len(payload)
         except Exception as e:
             self.logger.exception(e, exc_info=sys.exc_info())
-            return 0
-        else:
-            return response.json()
+        return total
 
     def _get_ombi_requests(self) -> list[dict]:
         if self.type == "sonarr":
@@ -959,9 +1021,18 @@ class Arr:
             raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
         try:
             response = self.session.get(
-                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}
+                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}, timeout=5
             )
-            return response.json()
+            response.raise_for_status()
+            payload = response.json()
+            if isinstance(payload, list):
+                return payload
+            if isinstance(payload, dict):
+                for key in ("result", "results", "requests", "data", "items"):
+                    value = payload.get(key)
+                    if isinstance(value, list):
+                        return value
+            return []
         except Exception as e:
             self.logger.exception(e, exc_info=sys.exc_info())
             return []
@@ -1390,7 +1461,7 @@ class Arr:
 
     def arr_db_query_commands_count(self) -> int:
         search_commands = 0
-        if not self.search_missing:
+        if not (self.search_missing or self.do_upgrade_search):
             return 0
         while True:
             try:
@@ -1537,7 +1608,7 @@ class Arr:
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
         entries = []
-        if not self.search_missing:
+        if not (self.search_missing or self.do_upgrade_search):
             return None
         elif not self.series_search:
             return None
@@ -1603,7 +1674,7 @@ class Arr:
 
     def db_get_files_episodes(self) -> list[list[EpisodeFilesModel, bool, bool]] | None:
         entries = []
-        if not self.search_missing:
+        if not (self.search_missing or self.do_upgrade_search):
             return None
         elif self.type == "sonarr":
             condition = self.model_file.AirDateUtc.is_null(False)
@@ -1668,7 +1739,7 @@ class Arr:
 
     def db_get_files_movies(self) -> list[list[MoviesFilesModel, bool, bool]] | None:
         entries = []
-        if not self.search_missing:
+        if not (self.search_missing or self.do_upgrade_search):
             return None
         if self.type == "radarr":
             condition = self.model_file.Year.is_null(False)
@@ -1882,7 +1953,12 @@ class Arr:
                 self.logger.debug("No episode releases found for today")
 
     def db_update(self):
-        if not self.search_missing:
+        if not (
+            self.search_missing
+            or self.do_upgrade_search
+            or self.quality_unmet_search
+            or self.custom_format_unmet_search
+        ):
             return
         placeholder_summary = "Updating database"
         placeholder_set = False
@@ -2266,7 +2342,12 @@ class Arr:
     def db_update_single_series(
         self, db_entry: JsonObject = None, request: bool = False, series: bool = False
     ):
-        if not self.search_missing:
+        if not (
+            self.search_missing
+            or self.do_upgrade_search
+            or self.quality_unmet_search
+            or self.custom_format_unmet_search
+        ):
             return
         try:
             searched = False
@@ -3049,7 +3130,17 @@ class Arr:
         self.refresh_download_queue()
         if request or todays:
             bypass_limit = True
-        if (not self.search_missing) or (file_model is None):
+        if file_model is None:
+            return None
+        features_enabled = (
+            self.search_missing
+            or self.do_upgrade_search
+            or self.quality_unmet_search
+            or self.custom_format_unmet_search
+            or self.ombi_search_requests
+            or self.overseerr_requests
+        )
+        if not features_enabled and not (request or todays):
             return None
         elif not self.is_alive:
             raise NoConnectionrException(f"Could not connect to {self.uri}", type="arr")
@@ -4737,7 +4828,14 @@ class Arr:
 
         # If searches are disabled, we still want the torrent tag-emulation DB in TAGLESS mode,
         # but can skip the per-entry search database setup.
-        if not self.search_missing:
+        if not (
+            self.search_missing
+            or self.do_upgrade_search
+            or self.quality_unmet_search
+            or self.custom_format_unmet_search
+            or self.ombi_search_requests
+            or self.overseerr_requests
+        ):
             if db4 and getattr(self, "torrents", None) is None:
                 self.torrent_db = SqliteDatabase(None)
                 self.torrent_db.init(
@@ -4991,7 +5089,14 @@ class Arr:
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
         try:
-            if not self.search_missing:
+            if not (
+                self.search_missing
+                or self.do_upgrade_search
+                or self.quality_unmet_search
+                or self.custom_format_unmet_search
+                or self.ombi_search_requests
+                or self.overseerr_requests
+            ):
                 return None
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
