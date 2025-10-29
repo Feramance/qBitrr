@@ -154,6 +154,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: Europe/London
+    ports:
+      - "6969:6969"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /path/to/appdata/qbitrr:/config
