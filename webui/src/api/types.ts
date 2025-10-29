@@ -26,6 +26,14 @@ export interface ArrInfo {
 
 export interface ArrListResponse {
   arr: ArrInfo[];
+  counts?: {
+    radarr?: RadarrCounts;
+    sonarr?: {
+      available: number;
+      monitored: number;
+      missing?: number;
+    };
+  };
   ready?: boolean;
 }
 

@@ -46,6 +46,7 @@ body {
     justify-content: space-between;
     gap: 16px;
     padding: 0 16px;
+    flex-wrap: wrap;
 }
 .appbar__title {
     display: flex;
@@ -526,6 +527,22 @@ pre {
     .field.mobile-instance-select {
         display: grid;
         margin-bottom: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .appbar__inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 0;
+    }
+    .appbar__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .appbar__title {
+        gap: 8px;
     }
 }
 

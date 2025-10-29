@@ -112,7 +112,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   } = useSearch();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "aggregate">("");
+  const [selection, setSelection] = useState<string | "aggregate">("aggregate");
   const [instanceData, setInstanceData] = useState<RadarrMoviesResponse | null>(
     null
   );
@@ -139,6 +139,11 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     direction: "asc" | "desc";
   }>({ key: "__instance", direction: "asc" });
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [aggSummary, setAggSummary] = useState<{
+    available: number;
+    monitored: number;
+    total: number;
+  }>({ available: 0, monitored: 0, total: 0 });
 
   const loadInstances = useCallback(async () => {
     try {
@@ -152,15 +157,17 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       const filtered = (data.arr || []).filter((arr) => arr.type === "radarr");
       setInstances(filtered);
       if (!filtered.length) {
-        setSelection("");
+        setSelection("aggregate");
         setInstanceData(null);
         setAggRows([]);
+        setAggSummary({ available: 0, monitored: 0, total: 0 });
         return;
       }
-      if (
-        !selection ||
-        (selection !== "aggregate" &&
-          !filtered.some((arr) => arr.category === selection))
+      if (selection === "") {
+        setSelection("aggregate");
+      } else if (
+        selection !== "aggregate" &&
+        !filtered.some((arr) => arr.category === selection)
       ) {
         setSelection(filtered[0].category);
       }
@@ -291,20 +298,35 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   );
 
   const loadAggregate = useCallback(async () => {
-    if (!instances.length) return;
+    if (!instances.length) {
+      setAggRows([]);
+      setAggSummary({ available: 0, monitored: 0, total: 0 });
+      return;
+    }
     setAggLoading(true);
     try {
       const aggregated: RadarrAggRow[] = [];
+      let totalAvailable = 0;
+      let totalMonitored = 0;
       for (const inst of instances) {
         let page = 0;
+        let counted = false;
         const label = inst.name || inst.category;
         while (page < 100) {
           const res = await getRadarrMovies(
             inst.category,
             page,
             RADARR_AGG_FETCH_SIZE,
-            "",
+            ""
           );
+          if (!counted) {
+            const counts = res.counts;
+            if (counts) {
+              totalAvailable += counts.available ?? 0;
+              totalMonitored += counts.monitored ?? 0;
+            }
+            counted = true;
+          }
           const movies = res.movies ?? [];
           movies.forEach((movie) => {
             aggregated.push({ ...movie, __instance: label });
@@ -314,10 +336,17 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
       setAggRows(aggregated);
+      setAggSummary({
+        available: totalAvailable,
+        monitored: totalMonitored,
+        total: aggregated.length,
+      });
       setAggPage(0);
       setAggFilter(globalSearch);
       setAggUpdated(new Date().toLocaleTimeString());
     } catch (error) {
+      setAggRows([]);
+      setAggSummary({ available: 0, monitored: 0, total: 0 });
       push(
         error instanceof Error
           ? error.message
@@ -604,6 +633,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                       : { key, direction: "asc" }
                   )
                 }
+                summary={aggSummary}
               />
             ) : (
               <RadarrInstanceView
@@ -642,6 +672,7 @@ interface RadarrAggregateViewProps {
   lastUpdated: string | null;
   sort: { key: RadarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: RadarrAggSortKey) => void;
+  summary: { available: number; monitored: number; total: number };
 }
 
 function RadarrAggregateView({
@@ -655,6 +686,7 @@ function RadarrAggregateView({
   lastUpdated,
   sort,
   onSort,
+  summary,
 }: RadarrAggregateViewProps): JSX.Element {
   const renderIndicator = (key: RadarrAggSortKey) =>
     sort.key === key ? (
@@ -674,6 +706,19 @@ function RadarrAggregateView({
         <div className="hint">
           Aggregated movies across all instances{" "}
           {lastUpdated ? `(updated ${lastUpdated})` : ""}
+          <br />
+          <strong>Available:</strong>{" "}
+          {summary.available.toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          })}{" "}
+          • <strong>Monitored:</strong>{" "}
+          {summary.monitored.toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          })}{" "}
+          • <strong>Total:</strong>{" "}
+          {summary.total.toLocaleString(undefined, {
+            maximumFractionDigits: 0,
+          })}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -928,7 +973,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   } = useSearch();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "aggregate">("");
+  const [selection, setSelection] = useState<string | "aggregate">("aggregate");
   const [instanceData, setInstanceData] =
     useState<SonarrSeriesResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
@@ -958,6 +1003,12 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     direction: "asc" | "desc";
   }>({ key: "__instance", direction: "asc" });
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [aggSummary, setAggSummary] = useState<{
+    available: number;
+    monitored: number;
+    missing: number;
+    total: number;
+  }>({ available: 0, monitored: 0, missing: 0, total: 0 });
 
   const loadInstances = useCallback(async () => {
     try {
@@ -971,15 +1022,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       const filtered = (data.arr || []).filter((arr) => arr.type === "sonarr");
       setInstances(filtered);
       if (!filtered.length) {
-        setSelection("");
+        setSelection("aggregate");
         setInstanceData(null);
         setAggRows([]);
+        setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
         return;
       }
-      if (
-        !selection ||
-        (selection !== "aggregate" &&
-          !filtered.some((arr) => arr.category === selection))
+      if (selection === "") {
+        setSelection("aggregate");
+      } else if (
+        selection !== "aggregate" &&
+        !filtered.some((arr) => arr.category === selection)
       ) {
         setSelection(filtered[0].category);
       }
@@ -1125,12 +1178,20 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   );
 
   const loadAggregate = useCallback(async () => {
-    if (!instances.length) return;
+    if (!instances.length) {
+      setAggRows([]);
+      setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
+      return;
+    }
     setAggLoading(true);
     try {
       const aggregated: SonarrAggRow[] = [];
+      let totalAvailable = 0;
+      let totalMonitored = 0;
+      let totalMissing = 0;
       for (const inst of instances) {
         let page = 0;
+        let counted = false;
         const label = inst.name || inst.category;
         while (page < 200) {
           const res = await getSonarrSeries(
@@ -1140,6 +1201,15 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             "",
             { missingOnly: onlyMissing }
           );
+          if (!counted) {
+            const counts = res.counts;
+            if (counts) {
+              totalAvailable += counts.available ?? 0;
+              totalMonitored += counts.monitored ?? 0;
+              totalMissing += counts.missing ?? 0;
+            }
+            counted = true;
+          }
           const series = res.series ?? [];
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
@@ -1166,10 +1236,18 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
       setAggRows(aggregated);
+      setAggSummary({
+        available: totalAvailable,
+        monitored: totalMonitored,
+        missing: totalMissing,
+        total: aggregated.length,
+      });
       setAggPage(0);
       setAggFilter(globalSearch);
       setAggUpdated(new Date().toLocaleTimeString());
     } catch (error) {
+      setAggRows([]);
+      setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       push(
         error instanceof Error
           ? error.message
@@ -1438,6 +1516,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                       : { key, direction: "asc" }
                   )
                 }
+                summary={aggSummary}
               />
             ) : (
               <SonarrInstanceView
@@ -1479,6 +1558,7 @@ interface SonarrAggregateViewProps {
   lastUpdated: string | null;
   sort: { key: SonarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: SonarrAggSortKey) => void;
+  summary: { available: number; monitored: number; missing: number; total: number };
 }
 
 function SonarrAggregateView({
@@ -1492,6 +1572,7 @@ function SonarrAggregateView({
   lastUpdated,
   sort,
   onSort,
+  summary,
 }: SonarrAggregateViewProps): JSX.Element {
   const renderIndicator = (key: SonarrAggSortKey) =>
     sort.key === key ? (
@@ -1509,7 +1590,17 @@ function SonarrAggregateView({
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
-          Aggregated monitored episodes {lastUpdated ? `(updated ${lastUpdated})` : ""}
+          Aggregated episodes across all instances{" "}
+          {lastUpdated ? `(updated ${lastUpdated})` : ""}
+          <br />
+          <strong>Available:</strong>{" "}
+          {summary.available.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+          <strong>Monitored:</strong>{" "}
+          {summary.monitored.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+          <strong>Missing:</strong>{" "}
+          {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+          <strong>Total Episodes:</strong>{" "}
+          {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
