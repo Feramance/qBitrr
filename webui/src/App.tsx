@@ -349,47 +349,49 @@ function AppShell(): JSX.Element {
   return (
     <>
       <header className="appbar">
-        <div className="appbar__title">
-          <h1>qBitrr</h1>
-          <span className="appbar__version" title={versionTitle}>
-            {displayVersion}
-          </span>
-          {metaLoading ? <span className="spinner" aria-hidden="true" /> : null}
-          {updateState?.in_progress ? (
-            <span className="appbar__status text-info">Updating...</span>
-          ) : null}
-          {updateAvailable ? (
+        <div className="appbar__inner">
+          <div className="appbar__title">
+            <h1>qBitrr</h1>
+            <span className="appbar__version" title={versionTitle}>
+              {displayVersion}
+            </span>
+            {metaLoading ? <span className="spinner" aria-hidden="true" /> : null}
+            {updateState?.in_progress ? (
+              <span className="appbar__status text-info">Updating...</span>
+            ) : null}
+            {updateAvailable ? (
+              <button
+                type="button"
+                className="btn small primary appbar__update"
+                onClick={handleOpenChangelog}
+                disabled={updateBusy || Boolean(updateState?.in_progress)}
+              >
+                <span className="appbar__update-indicator" aria-hidden="true" />
+                <IconImage src={UpdateIcon} />
+                Update available
+              </button>
+            ) : null}
+          </div>
+          <div className="appbar__actions">
             <button
               type="button"
-              className="btn small primary appbar__update"
-              onClick={handleOpenChangelog}
-              disabled={updateBusy || Boolean(updateState?.in_progress)}
+              className="btn small ghost"
+              onClick={handleCheckUpdates}
+              disabled={metaLoading}
             >
-              <span className="appbar__update-indicator" aria-hidden="true" />
-              <IconImage src={UpdateIcon} />
-              Update available
+              <IconImage src={RefreshIcon} />
+              {metaLoading ? "Checking..." : "Check Updates"}
             </button>
-          ) : null}
-        </div>
-        <div className="appbar__actions">
-          <button
-            type="button"
-            className="btn small ghost"
-            onClick={handleCheckUpdates}
-            disabled={metaLoading}
-          >
-            <IconImage src={RefreshIcon} />
-            {metaLoading ? "Checking..." : "Check Updates"}
-          </button>
-          <a
-            href={repositoryUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn small ghost"
-          >
-            <IconImage src={ExternalIcon} />
-            GitHub
-          </a>
+            <a
+              href={repositoryUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn small ghost"
+            >
+              <IconImage src={ExternalIcon} />
+              GitHub
+            </a>
+          </div>
         </div>
       </header>
       <main className="container">

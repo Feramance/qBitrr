@@ -10,6 +10,7 @@
     --warning: #facc15;
     --border: #2a2f36;
     --elev: 8px;
+    --layout-max-width: 1200px;
 }
 
 * {
@@ -32,13 +33,19 @@ body {
     top: 0;
     z-index: 100;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    justify-content: center;
     padding: 12px 16px;
     background: #0b0c0f;
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.appbar__inner {
+    width: 100%;
+    max-width: var(--layout-max-width);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
 }
 .appbar__title {
     display: flex;
@@ -83,6 +90,9 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
+    width: 100%;
+    max-width: var(--layout-max-width);
+    margin: 0 auto;
 }
 
 .toolbar {
