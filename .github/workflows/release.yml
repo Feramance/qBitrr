@@ -41,7 +41,7 @@ jobs:
       release_hash: ${{ steps.release_hash.outputs.value }}
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
@@ -161,7 +161,7 @@ jobs:
     - prepare_release
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: master
@@ -190,7 +190,7 @@ jobs:
       with:
         string: ${{ github.repository }}
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: master
@@ -263,7 +263,7 @@ jobs:
           arch: arm64
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: master
         fetch-depth: 0
@@ -371,7 +371,7 @@ jobs:
     - package_binaries
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: master
@@ -406,7 +406,7 @@ jobs:
     - package_binaries
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: master
