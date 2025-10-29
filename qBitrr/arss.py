@@ -5456,6 +5456,7 @@ class PlaceHolderArr(Arr):
 class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
+        self.type = "FreeSpaceManager"
         self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
