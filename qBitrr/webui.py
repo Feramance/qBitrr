@@ -211,6 +211,12 @@ class WebUI:
 
                 if not perform_self_update(self.manager.logger):
                     raise RuntimeError("pip upgrade did not complete successfully")
+                try:
+                    self.manager.request_restart()
+                except Exception:
+                    self.logger.warning(
+                        "Update applied but restart request failed; exiting manually."
+                    )
         except Exception as exc:
             result = "error"
             error_message = str(exc)

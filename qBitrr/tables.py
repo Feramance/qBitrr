@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from functools import lru_cache
 from typing import NamedTuple
@@ -11,11 +12,14 @@ from peewee import (
     DateTimeField,
     IntegerField,
     Model,
+    OperationalError,
     SqliteDatabase,
     TextField,
 )
 
 from qBitrr.home_path import APPDATA_FOLDER
+
+logger = logging.getLogger("qBitrr.Database")
 
 DATABASE_FILE = APPDATA_FOLDER.joinpath("qbitrr.db")
 _database_proxy: DatabaseProxy = DatabaseProxy()
@@ -54,10 +58,95 @@ def ensure_table_schema(model: type[BaseModel]) -> None:
     with database:
         database.create_tables([model], safe=True)
         existing_columns = {column.name for column in database.get_columns(table_name)}
+        try:
+            primary_keys = {column.lower() for column in database.get_primary_keys(table_name)}
+        except OperationalError:
+            primary_keys = set()
+        try:
+            index_metadata = database.get_indexes(table_name)
+        except OperationalError:
+            index_metadata = []
+
+        def _refresh_indexes() -> None:
+            nonlocal index_metadata
+            try:
+                index_metadata = database.get_indexes(table_name)
+            except OperationalError:
+                index_metadata = []
+
+        def _has_unique(column: str) -> bool:
+            lower_column = column.lower()
+            for index in index_metadata:
+                if not index.unique:
+                    continue
+                normalized = tuple(col.lower() for col in index.columns or ())
+                if normalized == (lower_column,):
+                    return True
+            return False
+
+        def _deduplicate(column: str) -> None:
+            try:
+                duplicates = database.execute_sql(
+                    f"""
+                    SELECT {column}, MIN(rowid) AS keep_rowid
+                    FROM {table_name}
+                    WHERE {column} IS NOT NULL
+                    GROUP BY {column}
+                    HAVING COUNT(*) > 1
+                    """
+                ).fetchall()
+            except OperationalError:
+                return
+            if not duplicates:
+                return
+            for value, keep_rowid in duplicates:
+                try:
+                    database.execute_sql(
+                        f"""
+                        DELETE FROM {table_name}
+                        WHERE {column} = ?
+                        AND rowid != ?
+                        """,
+                        (value, keep_rowid),
+                    )
+                except OperationalError:
+                    logger.warning(
+                        "Failed to deduplicate rows on %s.%s for value %s",
+                        table_name,
+                        column,
+                        value,
+                    )
+            if duplicates:
+                logger.info(
+                    "Deduplicated %s entries on %s.%s to restore unique constraint",
+                    len(duplicates),
+                    table_name,
+                    column,
+                )
+
+        def _ensure_unique(column: str) -> None:
+            if _has_unique(column):
+                return
+            _deduplicate(column)
+            try:
+                database.create_index(table_name, [column], unique=True)
+            except OperationalError:
+                logger.warning(
+                    "Unable to create unique index on %s.%s; uniqueness guarantees may be missing",
+                    table_name,
+                    column,
+                )
+                return
+            _refresh_indexes()
+
         for field in model._meta.sorted_fields:
             column_name = field.column_name
             if column_name not in existing_columns:
                 database.add_column(table_name, column_name, field)
+            if field.primary_key and column_name.lower() not in primary_keys:
+                _ensure_unique(column_name)
+            elif field.unique:
+                _ensure_unique(column_name)
 
 
 class FilesQueued(BaseModel):
