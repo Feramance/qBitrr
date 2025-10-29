@@ -3,6 +3,7 @@ from __future__ import annotations
 import atexit
 import contextlib
 import logging
+import os
 import sys
 from multiprocessing import Event, freeze_support
 from queue import SimpleQueue
@@ -113,7 +114,12 @@ class qBitManager:
             web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
         except Exception:
             web_port = 6969
-        web_host = CONFIG.get("Settings.WebUIHost", fallback="127.0.0.1") or "127.0.0.1"
+        web_host = CONFIG.get("Settings.WebUIHost", fallback="0.0.0.0") or "0.0.0.0"
+        if os.environ.get("QBITRR_DOCKER_RUNNING") == "69420" and web_host in {
+            "0.0.0.0",
+            "localhost",
+        }:
+            web_host = "0.0.0.0"
         if web_host in {"0.0.0.0", "::"}:
             self.logger.warning(
                 "WebUI host configured for %s; ensure exposure is intentional and protected.",

@@ -29,4 +29,6 @@ RUN pip install --quiet ".[fast]"
 
 WORKDIR /config
 
+EXPOSE 6969
+
 ENTRYPOINT ["python", "-m", "qBitrr.main"]

@@ -69,7 +69,7 @@ def _toml_to_jsonable(obj: Any) -> Any:
 
 
 class WebUI:
-    def __init__(self, manager, host: str = "127.0.0.1", port: int = 6969):
+    def __init__(self, manager, host: str = "0.0.0.0", port: int = 6969):
         self.manager = manager
         self.host = host
         self.port = port
