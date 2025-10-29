@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.0.2 (29/10/2025)
+- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/4774b40b96dca128e36d558a85130af471496e9b) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/604a1e39b4f87127a22d418f09c1585f4d5e2e8d) - @Feramance
+- [Update docker compose](https://github.com/Feramance/qBitrr/commit/5e8c09083a7b47b94c3f22fddc34f0ac08f6880c) - @Feramance
+- [Update dependabot auto merge](https://github.com/Feramance/qBitrr/commit/683f06971962c54a61eedc8864eaba44b8bdbdc1) - @Feramance
+
+---
+
 ## v5.0.1 (29/10/2025)
 - [[patch] Request fixes (#186)](https://github.com/Feramance/qBitrr/commit/7d3ba50a164f8ac41f215e39cb1c2b28bc9c05a3) - @Feramance
 - [Bump stefanzweifel/git-auto-commit-action from 5 to 7 (#172)](https://github.com/Feramance/qBitrr/commit/a023cd376739a4aacfc3fea3debe8d283173c250) - @dependabot[bot]
@@ -333,8 +341,3 @@
 
 ## v4.10.2 (04/12/2024)
 - [[patch] Hotfix bad variable](https://github.com/Feramance/qBitrr/commit/e880563a91ca6a5f681bb66a49a6f247f42d3124) - @Feramance
-
----
-
-## v4.10.1 (04/12/2024)
-- [[patch] Hotfix backwards compatibility for temp profile configs](https://github.com/Feramance/qBitrr/commit/4ac7c016e7470b168005d0f468535ab4a0abb67e) - @Feramance
