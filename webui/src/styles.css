@@ -41,11 +41,11 @@ body {
 }
 .appbar__inner {
     width: 100%;
-    max-width: var(--layout-max-width);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    padding: 0 16px;
 }
 .appbar__title {
     display: flex;
@@ -90,9 +90,6 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
-    width: 100%;
-    max-width: var(--layout-max-width);
-    margin: 0 auto;
 }
 
 .toolbar {
