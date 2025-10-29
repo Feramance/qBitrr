@@ -887,6 +887,97 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
   },
 ];
 
+const ARR_TRACKER_FIELDS: FieldDefinition[] = [
+  { label: "Name", path: ["Name"], type: "text", required: true },
+  { label: "URI", path: ["URI"], type: "text", required: true },
+  {
+    label: "Priority",
+    path: ["Priority"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Priority must be a non-negative number.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Maximum ETA",
+    path: ["MaximumETA"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Maximum ETA must be -1 or a non-negative number.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Download Rate Limit",
+    path: ["DownloadRateLimit"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Download Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Upload Rate Limit",
+    path: ["UploadRateLimit"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Upload Rate Limit must be -1 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Max Upload Ratio",
+    path: ["MaxUploadRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Max Upload Ratio must be -1 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Max Seeding Time",
+    path: ["MaxSeedingTime"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Max Seeding Time must be -1 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Add Tracker If Missing",
+    path: ["AddTrackerIfMissing"],
+    type: "checkbox",
+  },
+  { label: "Remove If Exists", path: ["RemoveIfExists"], type: "checkbox" },
+  { label: "Super Seed Mode", path: ["SuperSeedMode"], type: "checkbox" },
+  {
+    label: "Add Tags",
+    path: ["AddTags"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
+];
+
 function getArrFieldSets(arrKey: string) {
   const lower = arrKey.toLowerCase();
   const isSonarr = lower.includes("sonarr");
@@ -911,6 +1002,7 @@ function getArrFieldSets(arrKey: string) {
   const entryOverseerrFields = [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
   const torrentFields = [...ARR_TORRENT_FIELDS];
   const seedingFields = [...ARR_SEEDING_FIELDS];
+  const trackerFields = [...ARR_TRACKER_FIELDS];
   return {
     generalFields,
     entryFields,
@@ -918,6 +1010,7 @@ function getArrFieldSets(arrKey: string) {
     entryOverseerrFields,
     torrentFields,
     seedingFields,
+    trackerFields,
   };
 }
 
@@ -1719,6 +1812,61 @@ function FieldGroup({
   defaultOpen = false,
 }: FieldGroupProps): JSX.Element {
   const sectionName = basePath[0] ?? "";
+
+  if (title === "Trackers") {
+    const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
+    const handleAddTracker = () => {
+      const nextTrackers = [
+        ...trackers,
+        {
+          Name: "New Tracker",
+          URI: "",
+          Priority: (trackers.length || 0) + 1,
+          MaximumETA: -1,
+          DownloadRateLimit: -1,
+          UploadRateLimit: -1,
+          MaxUploadRatio: -1,
+          MaxSeedingTime: -1,
+          AddTrackerIfMissing: false,
+          RemoveIfExists: false,
+          SuperSeedMode: false,
+          AddTags: [],
+        },
+      ];
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+    };
+    const handleDeleteTracker = (index: number) => {
+      const nextTrackers = [...trackers];
+      nextTrackers.splice(index, 1);
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+    };
+    return (
+      <details className="config-section" open={defaultOpen}>
+        <summary>{title}</summary>
+        <div className="config-section__body">
+          <div className="tracker-grid">
+            {trackers.map((tracker, index) => (
+              <TrackerCard
+                key={index}
+                fields={fields}
+                state={tracker}
+                basePath={[...basePath, "Torrent", "Trackers", String(index)]}
+                onChange={onChange}
+                onDelete={() => handleDeleteTracker(index)}
+              />
+            ))}
+          </div>
+          <div className="config-actions">
+            <button className="btn" type="button" onClick={handleAddTracker}>
+              <IconImage src={AddIcon} />
+              Add Tracker
+            </button>
+          </div>
+        </div>
+      </details>
+    );
+  }
+
   const renderedFields = fields.map((field) => {
     if (field.sectionName) {
       if (!sectionName) {
@@ -1862,6 +2010,35 @@ function FieldGroup({
   }
 
   return <div className="field-grid">{renderedFields}</div>;
+}
+
+function TrackerCard({
+  fields,
+  state,
+  basePath,
+  onChange,
+  onDelete,
+}: {
+  fields: FieldDefinition[];
+  state: ConfigDocument | null;
+  basePath: string[];
+  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onDelete: () => void;
+}): JSX.Element {
+  const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
+  return (
+    <details className="card tracker-card" open>
+      <summary className="card-header">
+        <span>{trackerName}</span>
+        <button className="btn danger ghost" type="button" onClick={onDelete}>
+          <IconImage src={DeleteIcon} />
+        </button>
+      </summary>
+      <div className="card-body">
+        <FieldGroup title={null} fields={fields} state={state} basePath={basePath} onChange={onChange} />
+      </div>
+    </details>
+  );
 }
 
 interface SectionNameFieldProps {
@@ -2023,86 +2200,70 @@ function ArrInstanceModal({
   onChange,
   onRename,
   onClose,
-}: ArrInstanceModalProps): JSX.Element | null {
-  if (!state) return null;
-  const fieldSets = getArrFieldSets(keyName);
-
+}: ArrInstanceModalProps): JSX.Element {
+  const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
+    getArrFieldSets(keyName);
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="arr-config-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="modal-header">
-          <h2 id="arr-config-title">Configure {keyName}</h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>n        <div className="modal-header">
+          <h2>
+            Configure <code>{keyName}</code>
+          </h2>
+          <button className="btn ghost" onClick={onClose}>
             <IconImage src={CloseIcon} />
-            Close
           </button>
         </div>
         <div className="modal-body">
           <FieldGroup
-            title="General"
-            fields={fieldSets.generalFields}
+            title={null}
+            fields={generalFields}
             state={state}
             basePath={[keyName]}
             onChange={onChange}
             onRenameSection={onRename}
-            defaultOpen
           />
           <FieldGroup
             title="Entry Search"
-            fields={fieldSets.entryFields}
+            fields={entryFields}
             state={state}
             basePath={[keyName]}
             onChange={onChange}
-            defaultOpen
-          />
-          {fieldSets.entryOmbiFields.length ? (
-            <FieldGroup
-              title="Entry Search - Ombi"
-              fields={fieldSets.entryOmbiFields}
-              state={state}
-              basePath={[keyName]}
-              onChange={onChange}
-              defaultOpen
-            />
-          ) : null}
-          {fieldSets.entryOverseerrFields.length ? (
-            <FieldGroup
-              title="Entry Search - Overseerr"
-              fields={fieldSets.entryOverseerrFields}
-              state={state}
-              basePath={[keyName]}
-              onChange={onChange}
-              defaultOpen
-            />
-          ) : null}
-          <FieldGroup
-            title="Torrent"
-            fields={fieldSets.torrentFields}
-            state={state}
-            basePath={[keyName]}
-            onChange={onChange}
-            defaultOpen
           />
           <FieldGroup
-            title="Seeding Mode"
-            fields={fieldSets.seedingFields}
+            title="Ombi Integration"
+            fields={entryOmbiFields}
             state={state}
             basePath={[keyName]}
             onChange={onChange}
-            defaultOpen
           />
-        </div>
-        <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={onClose}>
-            <IconImage src={SaveIcon} />
-            Done
-          </button>
+          <FieldGroup
+            title="Overseerr Integration"
+            fields={entryOverseerrFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+          />
+          <FieldGroup
+            title="Torrent Handling"
+            fields={torrentFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+          />
+          <FieldGroup
+            title="Seeding"
+            fields={seedingFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+          />
+          <FieldGroup
+            title="Trackers"
+            fields={trackerFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+          />
         </div>
       </div>
     </div>

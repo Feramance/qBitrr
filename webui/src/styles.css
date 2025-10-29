@@ -1123,3 +1123,27 @@ pre {
     align-items: center;
     gap: 8px;
 }
+
+.tracker-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.tracker-card.card {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.tracker-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: var(--on-surface);
+}
+.tracker-card .card-body {
+    padding-top: 0;
+}
+.tracker-card .field-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
