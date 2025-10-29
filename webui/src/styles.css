@@ -10,6 +10,7 @@
     --warning: #facc15;
     --border: #2a2f36;
     --elev: 8px;
+    --layout-max-width: 1200px;
 }
 
 * {
@@ -32,13 +33,20 @@ body {
     top: 0;
     z-index: 100;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    justify-content: center;
     padding: 12px 16px;
     background: #0b0c0f;
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.appbar__inner {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 16px;
+    flex-wrap: wrap;
 }
 .appbar__title {
     display: flex;
@@ -96,6 +104,8 @@ body {
 .nav {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
 }
 .nav button {
     color: var(--muted);
@@ -208,6 +218,9 @@ body {
 }
 .field input[type="checkbox"] {
     width: auto;
+}
+.field.mobile-instance-select {
+    display: none;
 }
 .field-description,
 .field-hint {
@@ -511,15 +524,40 @@ pre {
         flex-direction: column;
     }
     .split .pane.sidebar {
-        flex: none;
-        display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        padding-bottom: 8px;
+        display: none;
     }
-    .split .pane.sidebar .btn {
-        flex: 0 0 auto;
-        white-space: nowrap;
+    .field.mobile-instance-select {
+        display: grid;
+        margin-bottom: 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .appbar__inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 0;
+    }
+    .appbar__actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .appbar__title {
+        gap: 8px;
+    }
+    .nav {
+        gap: 6px;
+    }
+    .nav button {
+        flex: 1 1 calc(50% - 6px);
+        justify-content: center;
+    }
+}
+
+@media (max-width: 420px) {
+    .nav button {
+        flex-basis: 100%;
     }
 }
 
@@ -1084,4 +1122,28 @@ pre {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.tracker-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+.tracker-card.card {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.tracker-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: var(--on-surface);
+}
+.tracker-card .card-body {
+    padding-top: 0;
+}
+.tracker-card .field-grid {
+    grid-template-columns: minmax(0, 1fr);
 }

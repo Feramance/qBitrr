@@ -159,9 +159,9 @@ def _add_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         settings,
-        "WebUI listen host (default 127.0.0.1)",
+        "WebUI listen host (default 0.0.0.0)",
         "WebUIHost",
-        "127.0.0.1",
+        "0.0.0.0",
     )
     _gen_default_line(
         settings,

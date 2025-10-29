@@ -82,8 +82,11 @@ class AutoUpdater:
             self._logger.info("Auto update completed")
 
 
-def perform_self_update(logger: logging.Logger) -> None:
-    """Attempt to update qBitrr in-place using git or pip."""
+def perform_self_update(logger: logging.Logger) -> bool:
+    """Attempt to update qBitrr in-place using git or pip.
+
+    Returns True when the update command completed successfully, False otherwise.
+    """
 
     repo_root = Path(__file__).resolve().parent.parent
     git_dir = repo_root / ".git"
@@ -100,10 +103,11 @@ def perform_self_update(logger: logging.Logger) -> None:
             stdout = (result.stdout or "").strip()
             if stdout:
                 logger.info("git pull output:\n%s", stdout)
+            return True
         except subprocess.CalledProcessError as exc:
             stderr = (exc.stderr or "").strip()
             logger.error("Failed to update repository via git: %s", stderr or exc)
-        return
+            return False
 
     package = "qBitrr2"
     logger.debug("Fallback to pip upgrade for package %s", package)
@@ -117,6 +121,8 @@ def perform_self_update(logger: logging.Logger) -> None:
         stdout = (result.stdout or "").strip()
         if stdout:
             logger.info("pip upgrade output:\n%s", stdout)
+        return True
     except subprocess.CalledProcessError as exc:
         stderr = (exc.stderr or "").strip()
         logger.error("Failed to upgrade package via pip: %s", stderr or exc)
+        return False

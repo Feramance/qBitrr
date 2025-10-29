@@ -3,60 +3,34 @@ from __future__ import annotations
 from threading import RLock
 from typing import Any
 
-from peewee import Model, SqliteDatabase, TextField
+from peewee import SqliteDatabase
 
-from qBitrr.home_path import APPDATA_FOLDER
+from qBitrr.tables import SearchActivity, ensure_table_schema, get_database
 
 _DB_LOCK = RLock()
-_DB_INSTANCE: SqliteDatabase | None = None
+_TABLE_READY = False
 
 
-def _get_database() -> SqliteDatabase:
-    global _DB_INSTANCE
-    if _DB_INSTANCE is None:
-        path = APPDATA_FOLDER.joinpath("webui_activity.db")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        _DB_INSTANCE = SqliteDatabase(
-            str(path),
-            pragmas={
-                "journal_mode": "wal",
-                "cache_size": -64_000,
-                "foreign_keys": 1,
-                "ignore_check_constraints": 0,
-                "synchronous": 0,
-            },
-            timeout=15,
-            check_same_thread=False,
-        )
-    return _DB_INSTANCE
-
-
-class BaseModel(Model):
-    class Meta:
-        database = _get_database()
-
-
-class SearchActivity(BaseModel):
-    category = TextField(primary_key=True)
-    summary = TextField(null=True)
-    timestamp = TextField(null=True)
-
-
-def _ensure_tables() -> None:
-    db = _get_database()
+def _ensure_ready() -> SqliteDatabase:
+    global _TABLE_READY
+    db = get_database()
+    if _TABLE_READY:
+        return db
     with _DB_LOCK:
-        db.connect(reuse_if_open=True)
-        db.create_tables([SearchActivity], safe=True)
+        if not _TABLE_READY:
+            ensure_table_schema(SearchActivity)
+            _TABLE_READY = True
+    return db
 
 
 def record_search_activity(category: str, summary: str | None, timestamp: str | None) -> None:
     if not category:
         return
-    _ensure_tables()
+    db = _ensure_ready()
     if timestamp is not None and not isinstance(timestamp, str):
         timestamp = str(timestamp)
     data: dict[str, Any] = {"summary": summary, "timestamp": timestamp}
-    with _get_database().atomic():
+    with db.atomic():
         SearchActivity.insert(category=category, **data).on_conflict(
             conflict_target=[SearchActivity.category],
             update=data,
@@ -64,9 +38,8 @@ def record_search_activity(category: str, summary: str | None, timestamp: str | 
 
 
 def fetch_search_activities() -> dict[str, dict[str, str | None]]:
-    _ensure_tables()
+    db = _ensure_ready()
     activities: dict[str, dict[str, str | None]] = {}
-    db = _get_database()
     db.connect(reuse_if_open=True)
     try:
         query = SearchActivity.select()
@@ -83,6 +56,6 @@ def fetch_search_activities() -> dict[str, dict[str, str | None]]:
 def clear_search_activity(category: str) -> None:
     if not category:
         return
-    _ensure_tables()
-    with _get_database().atomic():
+    db = _ensure_ready()
+    with db.atomic():
         SearchActivity.delete().where(SearchActivity.category == category).execute()

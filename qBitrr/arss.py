@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 import contextlib
 import itertools
 import logging
@@ -20,7 +19,7 @@ import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
 from packaging import version as version_parser
-from peewee import SqliteDatabase
+from peewee import Model
 from pyarr import RadarrAPI, SonarrAPI
 from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
@@ -28,7 +27,6 @@ from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
 from qBitrr.config import (
-    APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
@@ -57,15 +55,7 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
     record_search_activity,
 )
-from qBitrr.tables import (
-    EpisodeFilesModel,
-    EpisodeQueueModel,
-    FilesQueued,
-    MovieQueueModel,
-    MoviesFilesModel,
-    SeriesFilesModel,
-    TorrentLibrary,
-)
+from qBitrr.tables import TorrentLibrary, create_arr_tables, ensure_table_schema, get_database
 from qBitrr.utils import (
     ExpiringSet,
     absolute_file_paths,
@@ -302,8 +292,6 @@ class Arr:
             self._delta = 1
         else:
             self._delta = -1
-        self._app_data_folder = APPDATA_FOLDER
-        self.search_db_file = self._app_data_folder.joinpath(f"{self._name}.db")
 
         self.ombi_search_requests = CONFIG.get(
             f"{name}.EntrySearch.Ombi.SearchOmbiRequests", fallback=False
@@ -566,28 +554,14 @@ class Arr:
         elif not QBIT_DISABLED and TAGLESS:
             self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-ignored"])
         self.search_setup_completed = False
-        self.model_file: EpisodeFilesModel | MoviesFilesModel = None
-        self.series_file_model: SeriesFilesModel = None
-        self.model_queue: EpisodeQueueModel | MovieQueueModel = None
-        self.persistent_queue: FilesQueued = None
+        self.model_file: Model | None = None
+        self.series_file_model: Model | None = None
+        self.model_queue: Model | None = None
+        self.persistent_queue: Model | None = None
         self.torrents: TorrentLibrary | None = None
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
-        # Ensure DBs are closed on process exit
-        atexit.register(
-            lambda: (
-                hasattr(self, "db") and self.db and not self.db.is_closed() and self.db.close()
-            )
-        )
-        atexit.register(
-            lambda: (
-                hasattr(self, "torrent_db")
-                and self.torrent_db
-                and not self.torrent_db.is_closed()
-                and self.torrent_db.close()
-            )
-        )
         self.logger.hnotice("Starting %s monitor", self._name)
 
     @staticmethod
@@ -847,28 +821,6 @@ class Arr:
                         requests.exceptions.RequestException,
                     ),
                 )
-
-    def _get_models(
-        self,
-    ) -> tuple[
-        type[EpisodeFilesModel] | type[MoviesFilesModel],
-        type[EpisodeQueueModel] | type[MovieQueueModel],
-        type[SeriesFilesModel] | None,
-        type[TorrentLibrary] | None,
-    ]:
-        if self.type == "sonarr":
-            if self.series_search:
-                return (
-                    EpisodeFilesModel,
-                    EpisodeQueueModel,
-                    SeriesFilesModel,
-                    TorrentLibrary if TAGLESS else None,
-                )
-            return EpisodeFilesModel, EpisodeQueueModel, None, TorrentLibrary if TAGLESS else None
-        elif self.type == "radarr":
-            return MoviesFilesModel, MovieQueueModel, None, TorrentLibrary if TAGLESS else None
-        else:
-            raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
@@ -4843,107 +4795,44 @@ class Arr:
         if self.search_setup_completed:
             return
 
-        # Determine which models we need in this mode (including TorrentLibrary when TAGLESS)
-        db1, db2, db3, db4 = self._get_models()
-
-        # If searches are disabled, we still want the torrent tag-emulation DB in TAGLESS mode,
-        # but can skip the per-entry search database setup.
-        if not (
-            self.search_missing
-            or self.do_upgrade_search
-            or self.quality_unmet_search
-            or self.custom_format_unmet_search
-            or self.ombi_search_requests
-            or self.overseerr_requests
-        ):
-            if db4 and getattr(self, "torrents", None) is None:
-                self.torrent_db = SqliteDatabase(None)
-                self.torrent_db.init(
-                    str(self._app_data_folder.joinpath("Torrents.db")),
-                    pragmas={
-                        "journal_mode": "wal",
-                        "cache_size": -1 * 64000,  # 64MB
-                        "foreign_keys": 1,
-                        "ignore_check_constraints": 0,
-                        "synchronous": 0,
-                    },
-                    timeout=15,
-                )
-
-                class Torrents(db4):
-                    class Meta:
-                        database = self.torrent_db
-
-                self.torrent_db.connect()
-                self.torrent_db.create_tables([Torrents])
-                self.torrents = Torrents
-            self.search_setup_completed = True
-            return
-
-        self.db = SqliteDatabase(None)
-        self.db.init(
-            str(self.search_db_file),
-            pragmas={
-                "journal_mode": "wal",
-                "cache_size": -1 * 64000,  # 64MB
-                "foreign_keys": 1,
-                "ignore_check_constraints": 0,
-                "synchronous": 0,
-            },
-            timeout=15,
-        )
-
-        class Files(db1):
-            class Meta:
-                database = self.db
-
-        class Queue(db2):
-            class Meta:
-                database = self.db
-
-        class PersistingQueue(FilesQueued):
-            class Meta:
-                database = self.db
-
-        self.db.connect()
-        if db3:
-
-            class Series(db3):
-                class Meta:
-                    database = self.db
-
-            self.db.create_tables([Files, Queue, PersistingQueue, Series])
-            self.series_file_model = Series
-        else:
-            self.db.create_tables([Files, Queue, PersistingQueue])
-
-        if db4:
-            self.torrent_db = SqliteDatabase(None)
-            self.torrent_db.init(
-                str(self._app_data_folder.joinpath("Torrents.db")),
-                pragmas={
-                    "journal_mode": "wal",
-                    "cache_size": -1 * 64000,  # 64MB
-                    "foreign_keys": 1,
-                    "ignore_check_constraints": 0,
-                    "synchronous": 0,
-                },
-                timeout=15,
+        include_search_tables = any(
+            (
+                self.search_missing,
+                self.do_upgrade_search,
+                self.quality_unmet_search,
+                self.custom_format_unmet_search,
+                self.ombi_search_requests,
+                self.overseerr_requests,
             )
+        )
+        include_series = self.type == "sonarr" and self.series_search
+        include_torrents = TAGLESS
 
-            class Torrents(db4):
-                class Meta:
-                    database = self.torrent_db
+        self.db = get_database()
 
-            self.torrent_db.connect()
-            self.torrent_db.create_tables([Torrents])
-            self.torrents = Torrents
+        if include_search_tables:
+            tables = create_arr_tables(
+                self._name,
+                self.type,
+                include_series=include_series,
+                include_torrents=include_torrents,
+            )
+            self.model_file = tables.files
+            self.model_queue = tables.queue
+            self.persistent_queue = tables.persisting_queue
+            self.series_file_model = tables.series
+            self.torrents = tables.torrents
         else:
-            self.torrents: TorrentLibrary = None
+            self.model_file = None
+            self.model_queue = None
+            self.persistent_queue = None
+            self.series_file_model = None
+            if include_torrents:
+                ensure_table_schema(TorrentLibrary)
+                self.torrents = TorrentLibrary
+            else:
+                self.torrents = None
 
-        self.model_file = Files
-        self.model_queue = Queue
-        self.persistent_queue = PersistingQueue
         self.search_setup_completed = True
 
     def run_request_search(self):
@@ -5567,6 +5456,7 @@ class PlaceHolderArr(Arr):
 class FreeSpaceManager(Arr):
     def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "FreeSpaceManager"
+        self.type = "FreeSpaceManager"
         self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
@@ -5581,8 +5471,6 @@ class FreeSpaceManager(Arr):
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
-        # Needed by register_search_mode for torrent DB pathing
-        self._app_data_folder = APPDATA_FOLDER
         # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
         if FREE_SPACE_FOLDER == "CHANGE_ME":
@@ -5608,8 +5496,7 @@ class FreeSpaceManager(Arr):
         self.ombi_search_requests = False
         self.overseerr_requests = False
         self.session = None
-        # Reuse Arr's search-mode initializer to set up the torrent tag-emulation DB
-        # without needing Arr type, by overriding _get_models below.
+        # Ensure torrent tag-emulation tables exist when needed.
         self.torrents = None
         self.last_search_description: str | None = None
         self.last_search_timestamp: str | None = None
@@ -5618,28 +5505,6 @@ class FreeSpaceManager(Arr):
         self.free_space_tagged_count: int = 0
         self.register_search_mode()
         self.logger.hnotice("Starting %s monitor", self._name)
-        # Ensure DB is closed when process exits (guard attribute existence)
-        atexit.register(
-            lambda: (
-                hasattr(self, "torrent_db")
-                and self.torrent_db
-                and not self.torrent_db.is_closed()
-                and self.torrent_db.close()
-            )
-        )
-
-    def _get_models(
-        self,
-    ) -> tuple[
-        None,
-        None,
-        None,
-        type[TorrentLibrary] | None,
-    ]:
-        # FreeSpaceManager should never create the per-entry search database.
-        # Return None for file and queue models so only the torrent DB (TAGLESS)
-        # can be initialized by register_search_mode.
-        return None, None, None, (TorrentLibrary if TAGLESS else None)
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
