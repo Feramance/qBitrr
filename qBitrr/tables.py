@@ -104,7 +104,6 @@ def get_database(*, _retry: bool = True) -> SqliteDatabase:
             },
             timeout=15,
             check_same_thread=False,
-            max_connections=1,
             autocommit=True,
         )
         _database_proxy.initialize(_DATABASE)
