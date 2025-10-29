@@ -1,5 +1,22 @@
 # Changelog
 
+## v5.0.1 (29/10/2025)
+- [[patch] Request fixes (#186)](https://github.com/Feramance/qBitrr/commit/7d3ba50a164f8ac41f215e39cb1c2b28bc9c05a3) - @Feramance
+- [Bump stefanzweifel/git-auto-commit-action from 5 to 7 (#172)](https://github.com/Feramance/qBitrr/commit/a023cd376739a4aacfc3fea3debe8d283173c250) - @dependabot[bot]
+- [Bump peter-evans/dockerhub-description from 4 to 5 (#173)](https://github.com/Feramance/qBitrr/commit/f4d2e1d5b70552ee30a8f3651259625237bf71ab) - @dependabot[bot]
+- [Bump python from 3.12 to 3.14 (#174)](https://github.com/Feramance/qBitrr/commit/c0948886a2188792f04f101a663ca118f2b2dbaa) - @dependabot[bot]
+- [Bump node from 20-bookworm to 25-bookworm (#177)](https://github.com/Feramance/qBitrr/commit/061804cf633009a4026f47b8e13b9e1d725dfc1e) - @dependabot[bot]
+- [Bump crazy-max/ghaction-import-gpg from 6.2.0 to 6.3.0 (#175)](https://github.com/Feramance/qBitrr/commit/338a220dcb6ababd5411663f2c9f0110e75c9439) - @dependabot[bot]
+- [Bump github/codeql-action from 3 to 4 (#176)](https://github.com/Feramance/qBitrr/commit/6406cd782f299e0d1c7e851615466c91d25603ef) - @dependabot[bot]
+- [Bump actions/setup-python from 5 to 6 (#178)](https://github.com/Feramance/qBitrr/commit/d25b3fd6fe94120cd241e5374d46fac2dd801f8a) - @dependabot[bot]
+- [autofix workflow fixes](https://github.com/Feramance/qBitrr/commit/7ba97dc5706e0cae68819ead5c5e5dafaf5a13c2) - @Feramance
+- [fix pr build checks](https://github.com/Feramance/qBitrr/commit/cf7118d261836fbf177edce8db151993960cba5d) - @Feramance
+- [Bump @types/node from 24.9.1 to 24.9.2 in /webui (#180)](https://github.com/Feramance/qBitrr/commit/030ea6c4ecdf12832d928ffdfca4d303addf45cb) - @dependabot[bot]
+- [Bump eslint-plugin-react-hooks from 5.2.0 to 7.0.1 in /webui (#181)](https://github.com/Feramance/qBitrr/commit/098c00a226ee5e3212c547fc651d2bc8c69ad77d) - @dependabot[bot]
+- [Bump @vitejs/plugin-react from 5.0.4 to 5.1.0 in /webui (#182)](https://github.com/Feramance/qBitrr/commit/255f4596ab4cc006cc5a45a481c31031fe45a213) - @dependabot[bot]
+
+---
+
 ## v5.0.0 (28/10/2025)
 - [[major] Prepare for major release](https://github.com/Feramance/qBitrr/commit/ad15112d36cc92ebb5032e8fefe6dd06e015fb5c) - @Feramance
 - [Bump vite from 7.1.11 to 7.1.12 in /webui (#179)](https://github.com/Feramance/qBitrr/commit/990fa34e6899293818aab27857925a996a19d0f2) - @dependabot[bot]
@@ -321,21 +338,3 @@
 
 ## v4.10.1 (04/12/2024)
 - [[patch] Hotfix backwards compatibility for temp profile configs](https://github.com/Feramance/qBitrr/commit/4ac7c016e7470b168005d0f468535ab4a0abb67e) - @Feramance
-
----
-
-## v4.10.0 (04/12/2024)
-- [[minor] Merge pull request #140 from Feramance:128-multiple-fixes-and-temp-profile-changes](https://github.com/Feramance/qBitrr/commit/5792f12c8bfbf31748b3a6aee6a7db9f5469f6a5) - @Feramance
-- [Config description updates](https://github.com/Feramance/qBitrr/commit/41b7b306e2db0e01254b6c701f1aa6f0b92df73d) - @Feramance
-- [Logging fixes](https://github.com/Feramance/qBitrr/commit/e362672313d6eb7a6615efd0b6a007328fa5f35f) - @Feramance
-- [Multiple temp profiles changes](https://github.com/Feramance/qBitrr/commit/ec9338c527aeee9bbfb81a106b717c2746664d6a) - @Feramance
-- [Hotfix](https://github.com/Feramance/qBitrr/commit/0b88fcfa4029eb144926728cc4a7e69087d585ce) - @Feramance
-- [Multiple temporary profiles rework](https://github.com/Feramance/qBitrr/commit/6a9eb81b8c68294357be01038501a22b933dc9db) - @Feramance
-- [Further unmonitord feature change](https://github.com/Feramance/qBitrr/commit/bdaf792527fc0bfee95fa86d21fda1d47334d8d8) - @Feramance
-- [EntryId fix](https://github.com/Feramance/qBitrr/commit/97af33713120b199e07572b1c7f88c5631624240) - @Feramance
-- [Fix qbittorrent client parameter](https://github.com/Feramance/qBitrr/commit/6602c35514c0194534f792cffea42446f0a7f2c2) - @Feramance
-- [Added profiles fallback](https://github.com/Feramance/qBitrr/commit/0a558d4244993f79271805ed35ccffb77202d831) - @Feramance
-- [Logging profiles](https://github.com/Feramance/qBitrr/commit/17ba6e1f2dea931084458144f920adc735d0b101) - @Feramance
-- [Unmonitored search updates and initial test of mutliple temp profiles](https://github.com/Feramance/qBitrr/commit/feb54476d0f7f8d7ea74b884aeacff99c3a75686) - @Feramance
-- [Unmonitored config option implementation](https://github.com/Feramance/qBitrr/commit/ce52dc6c9e401c940f8bcb8eb06df83a33b9a116) - @Feramance
-- [has internet changes](https://github.com/Feramance/qBitrr/commit/8665d44c63cb165227ff0535f60f1f601143be12) - @Feramance

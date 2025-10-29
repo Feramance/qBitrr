@@ -21,11 +21,14 @@ jobs:
       id: metadata
       uses: dependabot/fetch-metadata@v2
       with:
-        github-token: ${{ secrets.PAT }}
+        github-token: ${{ secrets.PAT || github.token }}
     - name: Enable auto-merge for patch updates
-      if: contains(steps.metadata.outputs.update-type, 'semver-patch')
+      if: >
+        contains(steps.metadata.outputs.update-type, 'semver-patch') ||
+        contains(steps.metadata.outputs.update-type, 'semver-minor') ||
+        contains(steps.metadata.outputs.update-type, 'security')
       uses: peter-evans/enable-pull-request-automerge@v3
       with:
-        token: ${{ secrets.PAT }}
+        token: ${{ secrets.PAT || github.token }}
         pull-request-number: ${{ github.event.pull_request.number }}
         merge-method: squash
