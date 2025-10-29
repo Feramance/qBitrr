@@ -209,6 +209,9 @@ body {
 .field input[type="checkbox"] {
     width: auto;
 }
+.field.mobile-instance-select {
+    display: none;
+}
 .field-description,
 .field-hint {
     display: block;
@@ -511,15 +514,11 @@ pre {
         flex-direction: column;
     }
     .split .pane.sidebar {
-        flex: none;
-        display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        padding-bottom: 8px;
+        display: none;
     }
-    .split .pane.sidebar .btn {
-        flex: 0 0 auto;
-        white-space: nowrap;
+    .field.mobile-instance-select {
+        display: grid;
+        margin-bottom: 12px;
     }
 }
 

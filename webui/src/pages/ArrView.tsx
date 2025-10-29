@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type JSX,
+} from "react";
 import {
   getArrList,
   getRadarrMovies,
@@ -487,6 +495,17 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     }
   }, [selection, push]);
 
+  const handleInstanceSelection = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const next = (event.target.value || "aggregate") as string | "aggregate";
+      setSelection(next);
+      if (next !== "aggregate") {
+        setGlobalSearch("");
+      }
+    },
+    [setSelection, setGlobalSearch]
+  );
+
   const isAggregate = selection === "aggregate";
 
   return (
@@ -517,6 +536,21 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
             ))}
           </aside>
           <div className="pane">
+            <div className="field mobile-instance-select">
+              <label>Instance</label>
+              <select
+                value={selection || "aggregate"}
+                onChange={handleInstanceSelection}
+                disabled={!instances.length}
+              >
+                <option value="aggregate">All Radarr</option>
+                {instances.map((inst) => (
+                  <option key={inst.category} value={inst.category}>
+                    {inst.name || inst.category}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="row" style={{ alignItems: "flex-end" }}>
               <div className="col field">
                 <label>Search</label>
@@ -1295,6 +1329,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     }
   }, [selection, push]);
 
+  const handleInstanceSelection = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const next = (event.target.value || "aggregate") as string | "aggregate";
+      setSelection(next);
+      if (next !== "aggregate") {
+        setGlobalSearch("");
+      }
+    },
+    [setSelection, setGlobalSearch]
+  );
+
   const isAggregate = selection === "aggregate";
 
   return (
@@ -1325,6 +1370,21 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             ))}
           </aside>
           <div className="pane">
+            <div className="field mobile-instance-select">
+              <label>Instance</label>
+              <select
+                value={selection || "aggregate"}
+                onChange={handleInstanceSelection}
+                disabled={!instances.length}
+              >
+                <option value="aggregate">All Sonarr</option>
+                {instances.map((inst) => (
+                  <option key={inst.category} value={inst.category}>
+                    {inst.name || inst.category}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="row" style={{ alignItems: "flex-end" }}>
               <div className="col field">
                 <label>Search</label>

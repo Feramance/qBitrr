@@ -129,7 +129,12 @@ def ensure_table_schema(model: type[BaseModel]) -> None:
                 return
             _deduplicate(column)
             try:
-                database.create_index(table_name, [column], unique=True)
+                index_name = f"{table_name}_{column}_uniq".replace(".", "_")
+                database.execute_sql(
+                    f'CREATE UNIQUE INDEX IF NOT EXISTS "{index_name}" '
+                    f'ON "{table_name}" ("{column}")'
+                )
+                _refresh_indexes()
             except OperationalError:
                 logger.warning(
                     "Unable to create unique index on %s.%s; uniqueness guarantees may be missing",
@@ -240,17 +245,17 @@ class ArrTables(NamedTuple):
     torrents: type[BaseModel] | None
 
 
-_SAFE_IDENTIFIER = re.compile(r"[^a-z0-9_]+")
+_SAFE_IDENTIFIER = re.compile(r"[^0-9A-Za-z_]+")
 
 
 def _sanitize_identifier(name: str) -> str:
-    token = name.strip().lower().replace(" ", "_")
+    token = name.strip().replace(" ", "_")
     token = _SAFE_IDENTIFIER.sub("_", token)
     token = token.strip("_")
     if not token:
-        token = "arr"
+        token = "Arr"
     if token[0].isdigit():
-        token = f"arr_{token}"
+        token = f"Arr_{token}"
     return token
 
 
