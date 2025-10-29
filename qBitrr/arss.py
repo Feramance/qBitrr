@@ -5602,6 +5602,11 @@ class FreeSpaceManager(Arr):
         self.logger.trace("Current free space: %s", self.current_free_space)
         self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
+        self.do_upgrade_search = False
+        self.quality_unmet_search = False
+        self.custom_format_unmet_search = False
+        self.ombi_search_requests = False
+        self.overseerr_requests = False
         self.session = None
         # Reuse Arr's search-mode initializer to set up the torrent tag-emulation DB
         # without needing Arr type, by overriding _get_models below.
