@@ -197,6 +197,22 @@ body {
     font-size: 12px;
 }
 
+.btn.outline {
+    background: transparent;
+    border-color: var(--border);
+}
+
+.btn.outline:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--primary-variant);
+}
+
+.btn.active {
+    background: var(--primary);
+    color: #0a0a0a;
+    border-color: var(--primary);
+}
+
 
 .field {
     display: grid;
@@ -427,10 +443,20 @@ pre {
 
 .icon {
     display: inline-block;
-    width: 1.5em;
-    height: 1.5em;
+    width: 1.4em;
+    height: 1.4em;
     vertical-align: middle;
     object-fit: contain;
+}
+
+.icon--small {
+    width: 1.2em;
+    height: 1.2em;
+}
+
+.icon--large {
+    width: 1.6em;
+    height: 1.6em;
 }
 
 .btn .icon {

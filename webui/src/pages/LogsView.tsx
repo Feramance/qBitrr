@@ -117,7 +117,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           <div className="col field">
             <label>&nbsp;</label>
             <div className="row" style={{ alignItems: "center" }}>
-              <button className="btn" onClick={() => void loadList()} disabled={loadingList}>
+              <button className="btn ghost" onClick={() => void loadList()} disabled={loadingList}>
                 <IconImage src={RefreshIcon} />
                 Reload List
               </button>

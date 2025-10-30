@@ -9,7 +9,7 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import { Card, Button, Badge, Group, Text } from "@mantine/core";
+
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
@@ -305,38 +305,31 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             kind ? kind.charAt(0).toUpperCase() + kind.slice(1) : kind;
 
           return (
-            <Card shadow="sm" padding="lg" radius="md" withBorder key={name}>
-              <Group justify="space-between" mb="xs">
-                <div>
-                  <Text fw={500}>{displayName}</Text>
-                  <Text size="sm" c="dimmed">{summaryLabel}</Text>
+            <div className="process-card" key={name}>
+              <div className="process-card__header">
+                <div className="process-card__title">
+                  <div className="process-card__name">{displayName}</div>
+                  <div className="process-card__summary">{summaryLabel}</div>
                   {filteredKinds.length ? (
-                    <Group gap="xs" mt="xs">
+                    <div className="process-card__badges">
                       {filteredKinds.map((kind) => (
-                        <Badge key={`${name}:${kind}:badge`} variant="light">
+                        <span key={`${name}:${kind}:badge`} className="process-card__badge">
                           {formatKind(kind)}
-                        </Badge>
+                        </span>
                       ))}
-                    </Group>
+                    </div>
                   ) : null}
                 </div>
-                <Badge
-                  color={tone === "status-indicator--ok" ? "green" : tone === "status-indicator--bad" ? "red" : "gray"}
-                  variant="filled"
-                >
-                  {statusLabel}
-                </Badge>
-              </Group>
-              <div>
+                <div className={statusClass.join(" ")} title={statusLabel} />
+              </div>
+              <div className="process-card__list">
                 {items.map((item) => (
-                  <Group justify="space-between" key={`${item.category}:${item.kind}`} mb="xs">
-                    <Group>
-                      <Text>{formatKind(item.kind)}</Text>
-                      <Badge color={item.alive ? "green" : "red"} variant="dot">
-                        {item.alive ? "Running" : "Stopped"}
-                      </Badge>
-                    </Group>
-                    <Text size="sm" c="dimmed">
+                  <div className="process-chip" key={`${item.category}:${item.kind}`}>
+                    <div className="process-chip__top">
+                      <div className="process-chip__name">{formatKind(item.kind)}</div>
+                      <div className={`status-pill__dot ${item.alive ? "text-success" : "text-danger"}`} />
+                    </div>
+                    <div className="process-chip__detail">
                       {(() => {
                         const kindLower = item.kind.toLowerCase();
                         if (kindLower === "search") {
@@ -368,26 +361,27 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                         }
                         return "";
                       })()}
-                    </Text>
-                    <Button
-                      variant="light"
-                      size="xs"
-                      onClick={() => handleRestart(item.category, item.kind)}
-                    >
-                      Restart
-                    </Button>
-                  </Group>
+                    </div>
+                    <div className="process-chip__actions">
+                      <button
+                        className="btn small"
+                        onClick={() => handleRestart(item.category, item.kind)}
+                      >
+                        Restart
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
-              <Button
-                variant="outline"
-                fullWidth
-                mt="md"
-                onClick={() => void handleRestartGroup(items)}
-              >
-                Restart All
-              </Button>
-            </Card>
+              <div className="process-card__footer">
+                <button
+                  className="btn small outline"
+                  onClick={() => void handleRestartGroup(items)}
+                >
+                  Restart All
+                </button>
+              </div>
+            </div>
           );
         });
         return { app, cards };
@@ -399,7 +393,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       <div className="card-body stack">
         <div className="row">
           <div className="col inline">
-            <button className="btn" onClick={() => void load()} disabled={loading}>
+            <button className="btn ghost" onClick={() => void load()} disabled={loading}>
               <IconImage src={RefreshIcon} />
               Refresh
             </button>

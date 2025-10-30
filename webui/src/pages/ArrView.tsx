@@ -147,7 +147,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
      direction: "asc" | "desc";
     }>({ key: "__instance", direction: "asc" });
     const [onlyMissing, setOnlyMissing] = useState(false);
-    const [liveAgg, setLiveAgg] = useState(false);
+    const [liveAgg, setLiveAgg] = useState(true);
    const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
@@ -615,6 +615,17 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                 <IconImage src={FilterIcon} />
                 <span>Only Missing</span>
               </label>
+              {isAggregate && (
+                <label className="hint inline" style={{ marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={liveAgg}
+                    onChange={(event) => setLiveAgg(event.target.checked)}
+                  />
+                  <IconImage src={LiveIcon} />
+                  <span>Live</span>
+                </label>
+              )}
               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
