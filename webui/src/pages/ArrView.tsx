@@ -145,10 +145,10 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
    const [aggSort, setAggSort] = useState<{
      key: RadarrAggSortKey;
      direction: "asc" | "desc";
-   }>({ key: "__instance", direction: "asc" });
-   const [onlyMissing, setOnlyMissing] = useState(false);
-   const [liveAgg, setLiveAgg] = useState(false);
-  const [aggSummary, setAggSummary] = useState<{
+    }>({ key: "__instance", direction: "asc" });
+    const [onlyMissing, setOnlyMissing] = useState(false);
+    const [liveAgg, setLiveAgg] = useState(false);
+   const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
     missing: number;
