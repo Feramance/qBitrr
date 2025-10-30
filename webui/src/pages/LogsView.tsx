@@ -185,7 +185,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
 
   return (
-    <section className="card" style={{ height: '100vh', display: 'flex', flexDirection: 'column', margin: 0, padding: 0 }}>
+    <section className="card" style={{ height: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column', margin: 0, padding: 0 }}>
       <div className="card-header" style={{ flexShrink: 0 }}>Logs</div>
       <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
         <div className="row" style={{ flexShrink: 0, marginBottom: '12px' }}>

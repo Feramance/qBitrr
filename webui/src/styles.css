@@ -1221,7 +1221,8 @@ svg[height] {
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -1229,45 +1230,70 @@ svg[height] {
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 120;
+    animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 .modal {
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
     width: min(840px, calc(100% - 48px));
     max-height: min(92vh, calc(100vh - 80px));
     display: flex;
     flex-direction: column;
     margin: 40px auto;
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    animation: modalSlideIn 0.3s ease;
+}
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
 }
 .modal-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 16px 16px 0 0;
 }
 .modal-header h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     color: var(--on-surface);
+    letter-spacing: -0.01em;
 }
 .modal-body {
-    padding: 16px 20px 20px;
+    padding: 24px;
     overflow-y: auto;
     overflow-x: hidden;
     display: grid;
-    gap: 16px;
+    gap: 20px;
 }
 .modal-footer {
-    padding: 12px 20px 16px;
-    border-top: 1px solid var(--border);
+    padding: 16px 24px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+    background: rgba(255, 255, 255, 0.01);
+    border-radius: 0 0 16px 16px;
 }
 .changelog-modal__body {
     gap: 12px;
