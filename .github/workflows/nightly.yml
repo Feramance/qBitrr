@@ -1,9 +1,12 @@
 name: Nightly
 
 on:
-  push:
-    branches:
-    - master
+   push:
+     branches:
+     - master
+     paths-ignore:
+     - '**.md'
+     - '.github/FUNDING.yml'
 
 defaults:
   run:
@@ -13,14 +16,17 @@ env:
   project-name: qBitrr
 
 jobs:
-  docker_image:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
-    steps:
+   docker_image:
+     name: Build Docker Images
+     runs-on: ubuntu-latest
+     permissions:
+       packages: write
+       contents: read
+     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
+     strategy:
+       matrix:
+         platform: [amd64, arm64]
+     steps:
     - id: string
       uses: ASzc/change-string-case-action@v6
       with:
@@ -44,24 +50,24 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.REG_TOKEN }}
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          feramance/qbitrr
-          ghcr.io/${{ steps.string.outputs.lowercase }}
-        tags: |
-          type=edge
-    - name: Build and push Docker images
-      env:
-        DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        platforms: linux/amd64
-        push: true
-        tags: feramance/qbitrr:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:nightly
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+     - name: Extract metadata (tags, labels) for Docker
+       id: meta
+       uses: docker/metadata-action@v5
+       with:
+         images: |
+           feramance/qbitrr
+           ghcr.io/${{ steps.string.outputs.lowercase }}
+         tags: |
+           type=edge${{ matrix.platform == 'arm64' && ',suffix=-arm' || '' }}
+     - name: Build and push Docker images
+       env:
+         DOCKER_BUILDKIT: 1
+       uses: docker/build-push-action@v6
+       with:
+         context: .
+         platforms: linux/${{ matrix.platform }}
+         push: true
+         tags: ${{ matrix.platform == 'amd64' && format('feramance/qbitrr:nightly,ghcr.io/{0}:nightly', steps.string.outputs.lowercase) || format('feramance/qbitrr:nightly-arm,ghcr.io/{0}:nightly-arm', steps.string.outputs.lowercase) }}
+         labels: ${{ steps.meta.outputs.labels }}
+         cache-from: type=gha
+         cache-to: type=gha,mode=max

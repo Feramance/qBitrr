@@ -49,11 +49,12 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    - name: Set up Python ${{ matrix.python }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python}}
-        architecture: ${{ matrix.arch }}
+     - name: Set up Python ${{ matrix.python }}
+       uses: actions/setup-python@v6
+       with:
+         python-version: ${{ matrix.python}}
+         architecture: ${{ matrix.arch }}
+         cache: 'pip'
     - name: Install APT dependencies
       if: runner.os == 'Linux'
       run: |
@@ -90,11 +91,13 @@ jobs:
         echo "Current version: $(python setup.py --version)"
         echo "VERSION=$(python setup.py --version)" >> $GITHUB_OUTPUT
       id: current_version
-    - name: Set up Node.js
-      uses: actions/setup-node@v6
-      with:
-        node-version: '20'
-    - name: Build web UI assets
+     - name: Set up Node.js
+       uses: actions/setup-node@v6
+       with:
+         node-version: '20'
+         cache: 'npm'
+         cache-dependency-path: 'webui/package-lock.json'
+     - name: Build web UI assets
       run: |
         cd webui
         npm ci
@@ -136,115 +139,66 @@ jobs:
       run: |
         Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip
       # Upload archives as artifacts, these can be downloaded from the GitHub actions page.
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v5
-      with:
-        name: automated-build-${{ steps.archieve.outputs.NAME }}
-        path: ${{ steps.archieve.outputs.NAME }}.*
-        if-no-files-found: error
-  docker_image:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    steps:
-    - id: string
-      uses: ASzc/change-string-case-action@v6
-      with:
-        string: ${{ github.repository }}
-    - name: Checkout
-      uses: actions/checkout@v5
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        token: ${{ secrets.PAT || github.token }}
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Login to DockerHub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    - name: Login to Container registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.REG_TOKEN }}
-    - name: Extract metadata (tags, labels) for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          feramance/qbitrr
-          ghcr.io/${{ steps.string.outputs.lowercase }}
-        tags: |
-          type=ref,event=pr
-    - name: Build and push Docker images
-      env:
-        DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        platforms: linux/amd64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-  docker_image_arm:
-    name: Build ARM Docker Image
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    steps:
-    - id: string
-      uses: ASzc/change-string-case-action@v6
-      with:
-        string: ${{ github.repository }}
-    - name: Checkout
-      uses: actions/checkout@v5
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
-        token: ${{ secrets.PAT || github.token }}
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Login to DockerHub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    - name: Login to Container registry
-      uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.REG_TOKEN }}
-    - name: Extract metadata (tags, labels) for ARM Docker
-      id: meta-arm
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          feramance/qbitrr
-          ghcr.io/${{ steps.string.outputs.lowercase }}
-        tags: |
-          type=ref,event=pr,suffix=-arm
-    - name: Build and push ARM Docker images
-      env:
-        DOCKER_BUILDKIT: 1
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        platforms: linux/arm64
-        push: true
-        tags: ${{ steps.meta-arm.outputs.tags }}
-        labels: ${{ steps.meta-arm.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+     - name: Upload Artifact
+       uses: actions/upload-artifact@v5
+       with:
+         name: automated-build-${{ steps.archieve.outputs.NAME }}
+         path: ${{ steps.archieve.outputs.NAME }}.*
+         retention-days: 5
+         if-no-files-found: error
+   docker_image:
+     name: Build Docker Images
+     runs-on: ubuntu-latest
+     permissions:
+       packages: write
+       contents: read
+     strategy:
+       matrix:
+         platform: [amd64, arm64]
+     steps:
+     - id: string
+       uses: ASzc/change-string-case-action@v6
+       with:
+         string: ${{ github.repository }}
+     - name: Checkout
+       uses: actions/checkout@v5
+       with:
+         ref: ${{ github.event.pull_request.head.ref }}
+         repository: ${{ github.event.pull_request.head.repo.full_name }}
+         token: ${{ secrets.PAT || github.token }}
+     - name: Set up QEMU
+       uses: docker/setup-qemu-action@v3
+     - name: Set up Docker Buildx
+       uses: docker/setup-buildx-action@v3
+     - name: Login to DockerHub
+       uses: docker/login-action@v3
+       with:
+         username: ${{ secrets.DOCKERHUB_USERNAME }}
+         password: ${{ secrets.DOCKERHUB_TOKEN }}
+     - name: Login to Container registry
+       uses: docker/login-action@v3
+       with:
+         registry: ghcr.io
+         username: ${{ github.actor }}
+         password: ${{ secrets.REG_TOKEN }}
+     - name: Extract metadata (tags, labels) for Docker
+       id: meta
+       uses: docker/metadata-action@v5
+       with:
+         images: |
+           feramance/qbitrr
+           ghcr.io/${{ steps.string.outputs.lowercase }}
+         tags: |
+           type=ref,event=pr${{ matrix.platform == 'arm64' && ',suffix=-arm' || '' }}
+     - name: Build and push Docker images
+       env:
+         DOCKER_BUILDKIT: 1
+       uses: docker/build-push-action@v6
+       with:
+         context: .
+         platforms: linux/${{ matrix.platform }}
+         push: true
+         tags: ${{ steps.meta.outputs.tags }}
+         labels: ${{ steps.meta.outputs.labels }}
+         cache-from: type=gha
+         cache-to: type=gha,mode=max
