@@ -2017,13 +2017,21 @@ function ArrInstanceModal({
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>n        <div className="modal-header">
-          <h2>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="arr-instance-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="arr-instance-modal-title">
             Configure <code>{keyName}</code>
           </h2>
-          <button className="btn ghost" onClick={onClose}>
+          <button className="btn ghost" type="button" onClick={onClose}>
             <IconImage src={CloseIcon} />
+            Close
           </button>
         </div>
         <div className="modal-body">
@@ -2034,6 +2042,7 @@ function ArrInstanceModal({
             basePath={[keyName]}
             onChange={onChange}
             onRenameSection={onRename}
+            defaultOpen
           />
           <FieldGroup
             title="Entry Search"
@@ -2041,6 +2050,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[keyName]}
             onChange={onChange}
+            defaultOpen
           />
           <FieldGroup
             title="Ombi Integration"
@@ -2077,6 +2087,12 @@ function ArrInstanceModal({
             basePath={[keyName]}
             onChange={onChange}
           />
+        </div>
+        <div className="modal-footer">
+          <button className="btn primary" type="button" onClick={onClose}>
+            <IconImage src={SaveIcon} />
+            Done
+          </button>
         </div>
       </div>
     </div>
