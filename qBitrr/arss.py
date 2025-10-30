@@ -2842,7 +2842,7 @@ class Arr:
                             self.logger.debug(
                                 "Updating quality profile for %s to %s",
                                 db_entry["title"],
-                                self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
+                                db_entry["qualityProfileId"],
                             )
                         while True:
                             try:
