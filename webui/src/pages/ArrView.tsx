@@ -18,7 +18,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getPaginationRowModel,
-  getExpandedRowModel,
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
@@ -1622,69 +1621,48 @@ function SonarrAggregateView({
    lastUpdated,
    summary,
 }: SonarrAggregateViewProps): JSX.Element {
-  // Group rows by series and season
-  const tableData = useMemo(() => {
-    const map = new Map<string, Map<string, SonarrAggRow[]>>();
-    rows.forEach(row => {
-      const seriesKey = `${row.__instance}-${row.series}`;
-      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
-      const seasons = map.get(seriesKey)!;
-      const seasonKey = String(row.season);
-      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
-      seasons.get(seasonKey)!.push(row);
-    });
-    return Array.from(map.entries()).map(([seriesKey, seasons]) => {
-      const [instance, series] = seriesKey.split('-', 2);
-      return {
-        series,
-        instance,
-        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
-          seasonNumber,
-          isSeason: true,
-          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
-        }))
-      };
-    });
-  }, [rows]);
+  const tableData = rows;
 
    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo<ColumnDef<any>[]>(() => [
-     {
-       accessorKey: "title",
-       header: "Title",
-       cell: ({ row }) => {
-         if (row.original.isEpisode) return row.original.title;
-         if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-         return row.original.series;
-       }
-     },
+    {
+      accessorKey: "__instance",
+      header: "Instance",
+    },
+    {
+      accessorKey: "series",
+      header: "Series",
+    },
+    {
+      accessorKey: "season",
+      header: "Season",
+    },
+    {
+      accessorKey: "episode",
+      header: "Episode",
+    },
+    {
+      accessorKey: "title",
+      header: "Title",
+    },
     {
       accessorKey: "monitored",
       header: "Monitored",
-      cell: ({ row }) => {
-        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
-      }
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
     },
     {
       accessorKey: "hasFile",
       header: "Has File",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
-        }
-        return null;
-      }
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
     },
     {
       accessorKey: "airDate",
       header: "Air Date",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return row.original.airDate || "—";
-        }
-        return null;
-      }
+      cell: ({ getValue }) => getValue() || "—",
     },
   ], []);
 
@@ -1693,7 +1671,16 @@ function SonarrAggregateView({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      pagination: {
+        pageIndex: page,
+        pageSize: 50,
+      },
+    },
+    manualPagination: true,
+    pageCount: totalPages,
   });
 
   return (
@@ -1727,10 +1714,26 @@ function SonarrAggregateView({
             <table className="responsive-table">
               <thead>
                 <tr>
-                  <th></th>
                   {table.getFlatHeaders().map(header => (
-                    <th key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      className={header.column.getCanSort() ? "sortable" : ""}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      {header.column.getCanSort() && (
+                        <span className="sort-arrow">
+                          {{
+                            asc: "▲",
+                            desc: "▼",
+                          }[header.column.getIsSorted() as string] ?? null}
+                        </span>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -1738,15 +1741,8 @@ function SonarrAggregateView({
               <tbody>
                 {table.getRowModel().rows.map(row => (
                   <tr key={row.id}>
-                    <td>
-                      {row.getCanExpand() && (
-                        <button onClick={row.getToggleExpandedHandler()}>
-                          {row.getIsExpanded() ? '▼' : '▶'}
-                        </button>
-                      )}
-                    </td>
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id}>
+                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -1831,54 +1827,48 @@ function SonarrInstanceView({
     return filteredSeries.slice(start, start + pageSize);
   }, [filteredSeries, safePage, pageSize]);
 
-  const tableData = useMemo(() => pageRows.flatMap(series => [
-    series,
-    ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
-      { seasonNumber, ...season, isSeason: true },
-      ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
-    ])
-  ]), [pageRows]);
+  const flatData = useMemo(() => pageRows.flatMap(series => Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => season.episodes?.map(episode => ({ series: series.series?.title || "", season: seasonNumber, episode: episode.episodeNumber, title: episode.title, monitored: episode.monitored, hasFile: episode.hasFile, airDate: episode.airDateUtc })) || [])), [pageRows]);
+
+  const tableData = flatData;
 
 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
+      accessorKey: "series",
+      header: "Series",
+    },
+    {
+      accessorKey: "season",
+      header: "Season",
+    },
+    {
+      accessorKey: "episode",
+      header: "Episode",
+    },
+    {
       accessorKey: "title",
       header: "Title",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) return `  ${row.original.title}`;
-        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series?.title || "Unknown";
-      }
     },
     {
       accessorKey: "monitored",
       header: "Monitored",
-      cell: ({ row }) => {
-        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
-      }
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
     },
     {
       accessorKey: "hasFile",
       header: "Has File",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
-        }
-        return null;
-      }
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
     },
     {
       accessorKey: "airDate",
       header: "Air Date",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return row.original.airDate || "—";
-        }
-        return null;
-      }
+      cell: ({ getValue }) => getValue() || "—",
     },
   ], []);
 
@@ -1887,6 +1877,7 @@ function SonarrInstanceView({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   useEffect(() => {
@@ -1919,8 +1910,25 @@ function SonarrInstanceView({
               <thead>
                 <tr>
                   {table.getFlatHeaders().map(header => (
-                    <th key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    <th
+                      key={header.id}
+                      className={header.column.getCanSort() ? "sortable" : ""}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      {header.column.getCanSort() && (
+                        <span className="sort-arrow">
+                          {{
+                            asc: "▲",
+                            desc: "▼",
+                          }[header.column.getIsSorted() as string] ?? null}
+                        </span>
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -1929,7 +1937,7 @@ function SonarrInstanceView({
                 {table.getRowModel().rows.map(row => (
                   <tr key={row.id}>
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id}>
+                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
