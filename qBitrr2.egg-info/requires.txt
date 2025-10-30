@@ -13,6 +13,7 @@ pyarr
 qbittorrent-api
 requests
 tomlkit
+waitress
 croniter
 
 [all]

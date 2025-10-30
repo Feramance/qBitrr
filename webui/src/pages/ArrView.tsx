@@ -801,8 +801,8 @@ function RadarrAggregateView({
         </div>
       ) : (
         <>
-           <div className="table-wrapper">
-             <table className="responsive-table">
+          <div className="table-wrapper">
+            <table className="responsive-table">
               <thead>
                 <tr>
                   {table.getFlatHeaders().map(header => (
@@ -840,9 +840,9 @@ function RadarrAggregateView({
                   </tr>
                 ))}
               </tbody>
-             </table>
-           </div>
-           <div className="pagination">
+            </table>
+          </div>
+          <div className="pagination">
              <div>
                Page {page + 1} of {totalPages} ({total} items)
              </div>
@@ -882,6 +882,21 @@ interface RadarrInstanceViewProps {
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
+}
+
+interface SonarrInstanceViewProps {
+  loading: boolean;
+  counts: { available: number; monitored: number; missing?: number } | null;
+  series: SonarrSeriesEntry[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalItems: number;
+  onlyMissing: boolean;
+  onPageChange: (page: number) => void;
+  onRestart: () => void;
+  lastUpdated: string | null;
+  groupSonarr: boolean;
 }
 
 function RadarrInstanceView({
@@ -1046,6 +1061,91 @@ function RadarrInstanceView({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function SonarrInstanceView({
+  loading,
+  counts,
+  series,
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onlyMissing,
+  onPageChange,
+}: SonarrInstanceViewProps): JSX.Element {
+  const safePage = Math.min(page, Math.max(0, totalPages - 1));
+
+  return (
+    <div className="stack animate-fade-in">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <div className="hint">
+          {counts ? (
+            <>
+              <strong>Available:</strong> {counts.available.toLocaleString()} •{" "}
+              <strong>Monitored:</strong> {counts.monitored.toLocaleString()} •{" "}
+              <strong>Missing:</strong> {counts.missing?.toLocaleString() ?? 0}
+            </>
+          ) : (
+            "Loading series information..."
+          )}
+        </div>
+      </div>
+      {loading ? (
+        <div className="loading">
+          <span className="spinner" /> Loading series…
+        </div>
+      ) : series.length ? (
+        <>
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  <th>Series</th>
+                  <th>Seasons</th>
+                  <th>Episodes</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {series.map((seriesItem) => (
+                  <tr key={seriesItem.series["title"] as string}>
+                    <td>{seriesItem.series["title"] as string}</td>
+                    <td>{Object.keys(seriesItem.seasons ?? {}).length}</td>
+                    <td>{Object.values(seriesItem.seasons ?? {}).reduce((sum, season) => sum + season.episodes.length, 0)}</td>
+                    <td>Managed</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="pagination">
+            <div>
+              Page {safePage + 1} of {totalPages} ({totalItems.toLocaleString()} items · page size {pageSize})
+            </div>
+            <div className="inline">
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.max(0, safePage - 1))}
+                disabled={safePage === 0 || loading}
+              >
+                Prev
+              </button>
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.min(totalPages - 1, safePage + 1))}
+                disabled={safePage >= totalPages - 1 || loading}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="hint">No series found.</div>
+      )}
     </div>
   );
 }
@@ -1779,6 +1879,11 @@ function SonarrAggregateView({
 
   const table = groupSonarr ? groupedTable : flatTable;
 
+  const effectiveTotalPages = Math.ceil(total / 50);
+  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
+  const totalItemsDisplay = total.toLocaleString();
+  const pageSize = 50;
+
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -1804,341 +1909,122 @@ function SonarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Sonarr library…
         </div>
-      ) : (
-        <>
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  {table.getFlatHeaders().map(header => (
-                    <th
-                      key={header.id}
-                      className={header.column.getCanSort() ? "sortable" : ""}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                      {header.column.getCanSort() && (
-                        <span className="sort-arrow">
-                          {{
-                            asc: "▲",
-                            desc: "▼",
-                          }[header.column.getIsSorted() as string] ?? null}
-                        </span>
-                      )}
-                    </th>
+      ) : groupSonarr ? (
+        <div className="sonarr-hierarchical-view">
+          {groupedTableData.map((series, seriesIndex) => (
+            <details key={`${series.series}-${series.instance}-${seriesIndex}`} className="series-details">
+              <summary className="series-summary">
+                <span className="series-title">{series.series}</span>
+                <span className="series-instance">({series.instance})</span>
+              </summary>
+              <div className="series-content">
+                {series.subRows.map((season, seasonIndex) => (
+                  <details key={`${series.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
+                    <summary className="season-summary">
+                      <span className="season-title">Season {season.seasonNumber}</span>
+                      <span className="season-count">({season.subRows.length} episodes)</span>
+                    </summary>
+                    <div className="season-content">
+                      <div className="episodes-table-wrapper">
+                        <table className="episodes-table">
+                          <thead>
+                            <tr>
+                              <th>Episode</th>
+                              <th>Title</th>
+                              <th>Monitored</th>
+                              <th>Has File</th>
+                              <th>Air Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {season.subRows.map((episode, episodeIndex) => (
+                              <tr key={`${episode.episode}-${episode.title}-${episodeIndex}`}>
+                                <td>{episode.episode}</td>
+                                <td>{episode.title}</td>
+                                <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
+                                <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                                <td>{episode.airDate || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : tableData.length ? (
+        <div className="table-wrapper">
+          <table className="responsive-table">
+            <thead>
+              <tr>
+                {table.getFlatHeaders().map(header => (
+                  <th
+                    key={header.id}
+                    className={header.column.getCanSort() ? "sortable" : ""}
+                    onClick={header.column.getToggleSortingHandler()}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                    {header.column.getCanSort() && (
+                      <span className="sort-arrow">
+                        {{
+                          asc: "▲",
+                          desc: "▼",
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map(row => (
+                <tr key={row.id}>
+                  {row.getVisibleCells().map(cell => (
+                    <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <div>
-              Page {page + 1} of {totalPages} ({total} items)
-            </div>
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, page - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="hint">No series found.</div>
       )}
-    </div>
-  );
-}
-
-interface SonarrInstanceViewProps {
-  loading: boolean;
-  counts: { available: number; monitored: number; missing?: number } | null;
-  series: SonarrSeriesEntry[];
-  page: number;
-  pageSize: number;
-  totalPages: number;
-  totalItems: number;
-  onlyMissing: boolean;
-  onPageChange: (page: number) => void;
-  onRestart: () => void;
-  lastUpdated: string | null;
-  groupSonarr: boolean;
-}
-
-function SonarrInstanceView({
-  loading,
-  counts,
-  series: seriesEntries,
-  page,
-  pageSize,
-  totalPages,
-  totalItems,
-  onlyMissing,
-  onPageChange,
-  onRestart,
-  lastUpdated,
-  groupSonarr,
-}: SonarrInstanceViewProps): JSX.Element {
-  const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
-  const filteredSeries = useMemo(() => filterSeriesEntriesForMissing(seriesEntries, onlyMissing), [seriesEntries, onlyMissing]);
-  const missingCount = useMemo(() => {
-    if (counts?.missing !== undefined) {
-      return counts.missing;
-    }
-    const monitored = counts?.monitored ?? 0;
-    const available = counts?.available ?? 0;
-    return Math.max(monitored - available, 0);
-  }, [counts]);
-  const totalItemsDisplay = onlyMissing
-    ? filteredSeries.length
-    : totalItems || seriesEntries.length;
-  const effectiveTotalPages = onlyMissing
-    ? Math.max(1, Math.ceil(Math.max(totalItemsDisplay, 1) / pageSize))
-    : totalPages;
-  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
-  const pageRows = useMemo(() => {
-    const start = safePage * pageSize;
-    return filteredSeries.slice(start, start + pageSize);
-  }, [filteredSeries, safePage, pageSize]);
-
-  const nestedTableData = useMemo(() => pageRows.flatMap(series => [
-    series,
-    ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
-      { seasonNumber, ...season, isSeason: true },
-      ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
-    ])
-  ]), [pageRows]);
-
-  const flatData = useMemo(() => pageRows.flatMap(series => Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => season.episodes?.map(episode => ({ series: series.series?.title || "", season: seasonNumber, episode: episode.episodeNumber, title: episode.title, monitored: episode.monitored, hasFile: episode.hasFile, airDate: episode.airDateUtc })) || [])), [pageRows]);
-
-  const tableData = groupSonarr ? nestedTableData : flatData;
-
-
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nestedColumns = useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) return `  ${row.original.title}`;
-        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series?.title || "Unknown";
-      }
-    },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: ({ row }) => {
-        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
-      }
-    },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
-        }
-        return null;
-      }
-    },
-    {
-      accessorKey: "airDate",
-      header: "Air Date",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return row.original.airDate || "—";
-        }
-        return null;
-      }
-    },
-  ], []);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const flatColumns = useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: "series",
-      header: "Series",
-    },
-    {
-      accessorKey: "season",
-      header: "Season",
-    },
-    {
-      accessorKey: "episode",
-      header: "Episode",
-    },
-    {
-      accessorKey: "title",
-      header: "Title",
-    },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
-    },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
-    },
-    {
-      accessorKey: "airDate",
-      header: "Air Date",
-      cell: ({ getValue }) => getValue() || "—",
-    },
-  ], []);
-
-  const columns = groupSonarr ? nestedColumns : flatColumns;
-
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const nestedTable = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
-  const flatTable = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
-  const table = groupSonarr ? nestedTable : flatTable;
-
-  useEffect(() => {
-    if (safePage !== page) {
-      onPageChange(safePage);
-    }
-  }, [safePage, page, onPageChange]);
-
-  return (
-    <div className="stack animate-fade-in">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="hint">
-          {refreshLabel ? <span>{refreshLabel}</span> : null}
-          <br />
-          <strong>Available:</strong> {counts?.available ?? 0} • <strong>Monitored:</strong> {counts?.monitored ?? 0} • <strong>Missing:</strong> {missingCount}
-        </div>
-        <button className="btn ghost" onClick={onRestart}>
-          <IconImage src={RestartIcon} />
-          Restart Instance
-        </button>
-      </div>
-      <div className="stack">
-        {loading ? (
-          <div className="loading">
-            <span className="spinner" /> Loading Sonarr library…
+      {!groupSonarr && (
+        <div className="pagination">
+          <div>
+            Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items ·
+            page size {pageSize})
           </div>
-         ) : tableData.length ? (
-           <div className="table-wrapper">
-             <table className="responsive-table">
-               <thead>
-                 <tr>
-                   {groupSonarr && <th></th>}
-                   {table.getFlatHeaders().map(header => (
-                     <th
-                       key={header.id}
-                       className={!groupSonarr && header.column.getCanSort() ? "sortable" : ""}
-                       onClick={!groupSonarr ? header.column.getToggleSortingHandler() : undefined}
-                     >
-                       {header.isPlaceholder
-                         ? null
-                         : flexRender(
-                             header.column.columnDef.header,
-                             header.getContext()
-                           )}
-                       {!groupSonarr && header.column.getCanSort() && (
-                         <span className="sort-arrow">
-                           {{
-                             asc: "▲",
-                             desc: "▼",
-                           }[header.column.getIsSorted() as string] ?? null}
-                         </span>
-                       )}
-                     </th>
-                   ))}
-                 </tr>
-                </thead>
-               <tbody>
-                 {table.getRowModel().rows.map(row => (
-                   <tr key={row.id}>
-                     {groupSonarr && (
-                       <td>
-                         {row.getCanExpand() && (
-                           <button onClick={row.getToggleExpandedHandler()}>
-                             {row.getIsExpanded() ? '▼' : '▶'}
-                           </button>
-                         )}
-                       </td>
-                     )}
-                     {row.getVisibleCells().map(cell => (
-                       <td key={cell.id} data-label={cell.column.columnDef.header as string}>
-                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                       </td>
-                     ))}
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           </div>
-         ) : (
-           <div className="hint">No series found.</div>
-         )}
-      </div>
-      <div className="pagination">
-        <div>
-          Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items ·
-          page size {pageSize})
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.max(0, safePage - 1))}
+              disabled={safePage === 0 || loading}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+              disabled={safePage >= effectiveTotalPages - 1 || loading}
+            >
+              Next
+            </button>
+          </div>
         </div>
-        <div className="inline">
-          <button
-            className="btn"
-            onClick={() => onPageChange(Math.max(0, safePage - 1))}
-            disabled={safePage === 0 || loading}
-          >
-            Prev
-          </button>
-          <button
-            className="btn"
-            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
-            disabled={safePage >= effectiveTotalPages - 1 || loading}
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -37,6 +37,7 @@ interface FieldDefinition {
   secure?: boolean;
   required?: boolean;
   validate?: FieldValidator;
+  fullWidth?: boolean;
 }
 
 interface ValidationError {
@@ -254,6 +255,7 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["WebUI", "Token"],
     type: "password",
     secure: true,
+    fullWidth: true,
   },
   { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
   { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
@@ -1738,6 +1740,7 @@ function FieldGroup({
 
     const isArrInstance = basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "");
     const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
+    const fieldClassName = field.fullWidth ? "field field--full-width" : "field";
 
     if (field.secure) {
       return (
@@ -1773,7 +1776,7 @@ function FieldGroup({
     }
     if (field.type === "select") {
       return (
-        <div key={key} className="field">
+        <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
@@ -1793,7 +1796,7 @@ function FieldGroup({
     }
     if (field.type === "number") {
       return (
-        <div key={key} className="field">
+        <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <input
             type="number"
@@ -1807,7 +1810,7 @@ function FieldGroup({
     }
     if (field.type === "password") {
       return (
-        <div key={key} className="field">
+        <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <input
             type="password"
@@ -1820,7 +1823,7 @@ function FieldGroup({
       );
     }
     return (
-      <div key={key} className="field">
+      <div key={key} className={fieldClassName}>
         <label title={tooltip}>{field.label}</label>
         <input
           type="text"
