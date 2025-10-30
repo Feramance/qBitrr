@@ -837,6 +837,153 @@ class MyConfig:
         return values if values is not ... else default
 
 
+def _migrate_webui_config(config: MyConfig) -> bool:
+    """
+    Migrate WebUI configuration from old location (Settings section) to new location (WebUI section).
+    Returns True if any migration was performed, False otherwise.
+    """
+    migrated = False
+
+    # Check if WebUI section exists, if not create it
+    if "WebUI" not in config.config:
+        config.config["WebUI"] = table()
+
+    webui_section = config.config.get("WebUI", {})
+
+    # Migrate Host from Settings to WebUI
+    if "Host" not in webui_section:
+        old_host = config.get("Settings.Host", fallback=None)
+        if old_host is not None:
+            webui_section["Host"] = old_host
+            migrated = True
+            print(f"Migrated WebUI Host from Settings to WebUI section: {old_host}")
+
+    # Migrate Port from Settings to WebUI
+    if "Port" not in webui_section:
+        old_port = config.get("Settings.Port", fallback=None)
+        if old_port is not None:
+            webui_section["Port"] = old_port
+            migrated = True
+            print(f"Migrated WebUI Port from Settings to WebUI section: {old_port}")
+
+    # Migrate Token from Settings to WebUI
+    if "Token" not in webui_section:
+        old_token = config.get("Settings.Token", fallback=None)
+        if old_token is not None:
+            webui_section["Token"] = old_token
+            migrated = True
+            print(f"Migrated WebUI Token from Settings to WebUI section")
+
+    return migrated
+
+
+def _validate_and_fill_config(config: MyConfig) -> bool:
+    """
+    Validate configuration and fill in missing values with defaults.
+    Returns True if any changes were made, False otherwise.
+    """
+    changed = False
+    defaults = config.defaults_config
+
+    # Helper function to ensure a config section exists
+    def ensure_section(section_name: str) -> None:
+        """Ensure a config section exists."""
+        if section_name not in config.config:
+            config.config[section_name] = table()
+
+    # Helper function to check and fill config values
+    def ensure_value(config_section: str, key: str, default_value: Any) -> bool:
+        """Ensure a config value exists, setting to default if missing."""
+        ensure_section(config_section)
+        section = config.config[config_section]
+
+        if key not in section or section[key] is None:
+            # Get the value from defaults if available
+            default_section = defaults.get(config_section, {})
+            if default_section and key in default_section:
+                default = default_section[key]
+            else:
+                default = default_value
+            section[key] = default
+            return True
+        return False
+
+    # Validate Settings section
+    settings_defaults = [
+        ("ConsoleLevel", "INFO"),
+        ("Logging", True),
+        ("CompletedDownloadFolder", "CHANGE_ME"),
+        ("FreeSpace", "-1"),
+        ("FreeSpaceFolder", "CHANGE_ME"),
+        ("AutoPauseResume", True),
+        ("NoInternetSleepTimer", 15),
+        ("LoopSleepTimer", 5),
+        ("SearchLoopDelay", -1),
+        ("FailedCategory", "failed"),
+        ("RecheckCategory", "recheck"),
+        ("Tagless", False),
+        ("IgnoreTorrentsYoungerThan", 600),
+        ("PingURLS", ["one.one.one.one", "dns.google.com"]),
+        ("FFprobeAutoUpdate", True),
+        ("AutoUpdateEnabled", False),
+        ("AutoUpdateCron", "0 3 * * 0"),
+    ]
+
+    for key, default in settings_defaults:
+        if ensure_value("Settings", key, default):
+            changed = True
+
+    # Validate WebUI section
+    webui_defaults = [
+        ("Host", "0.0.0.0"),
+        ("Port", 6969),
+        ("Token", ""),
+        ("LiveArr", True),
+        ("GroupSonarr", True),
+        ("Theme", "dark"),
+    ]
+
+    for key, default in webui_defaults:
+        if ensure_value("WebUI", key, default):
+            changed = True
+
+    # Validate qBit section
+    qbit_defaults = [
+        ("Disabled", False),
+        ("Host", "localhost"),
+        ("Port", 8105),
+        ("UserName", ""),
+        ("Password", ""),
+    ]
+
+    for key, default in qbit_defaults:
+        if ensure_value("qBit", key, default):
+            changed = True
+
+    return changed
+
+
+def apply_config_migrations(config: MyConfig) -> None:
+    """
+    Apply all configuration migrations and validations.
+    Saves the config if any changes were made.
+    """
+    changes_made = False
+
+    # Apply migrations
+    if _migrate_webui_config(config):
+        changes_made = True
+
+    # Validate and fill config
+    if _validate_and_fill_config(config):
+        changes_made = True
+
+    # Save if changes were made
+    if changes_made:
+        config.save()
+        print("Configuration has been updated with migrations and defaults.")
+
+
 def _write_config_file(docker: bool = False) -> pathlib.Path:
     doc = generate_doc()
     config_file = HOME_PATH.joinpath("config.toml")

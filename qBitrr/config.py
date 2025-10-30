@@ -8,7 +8,7 @@ import sys
 
 from qBitrr.bundled_data import license_text, patched_version
 from qBitrr.env_config import ENVIRO_CONFIG
-from qBitrr.gen_config import MyConfig, _write_config_file, generate_doc
+from qBitrr.gen_config import MyConfig, _write_config_file, apply_config_migrations, generate_doc
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
 
@@ -104,6 +104,10 @@ if COPIED_TO_NEW_DIR is not None:
     print("STARTING QBITRR")
 else:
     print(f"STARTING QBITRR |  CONFIG_FILE={CONFIG_FILE} | CONFIG_PATH={CONFIG_PATH}")
+
+# Apply configuration migrations and validations
+if CONFIG_EXISTS:
+    apply_config_migrations(CONFIG)
 
 FFPROBE_AUTO_UPDATE = (
     CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
