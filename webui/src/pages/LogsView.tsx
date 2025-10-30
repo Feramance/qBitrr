@@ -4,7 +4,37 @@ import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import Select from "react-select";
-import AnsiToHtml from "ansi-to-html";
+
+function ansiToHtml(text: string): string {
+  // Simple ANSI to HTML converter for common colors
+  const colorMap: Record<string, string> = {
+    '30': 'black',
+    '31': 'red',
+    '32': 'green',
+    '33': 'yellow',
+    '34': 'blue',
+    '35': 'magenta',
+    '36': 'cyan',
+    '37': 'white',
+    '90': 'gray',
+    '91': 'red',
+    '92': 'green',
+    '93': 'yellow',
+    '94': 'blue',
+    '95': 'magenta',
+    '96': 'cyan',
+    '97': 'white',
+  };
+
+  return text
+    .replace(/\u001b\[0m/g, '</span>')
+    .replace(/\u001b\[(\d+)m/g, (match, code) => {
+      const color = colorMap[code];
+      return color ? `<span style="color:${color}">` : '';
+    })
+    .replace(/\u001b\[39m/g, '</span>') // reset to default
+    .replace(/\n/g, '<br>');
+}
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
@@ -22,7 +52,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingList, setLoadingList] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
-  const ansiToHtml = new AnsiToHtml();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
     if (reason instanceof Error && reason.message) {
@@ -157,7 +186,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         </div>
         <div ref={logRef} style={{ flex: 1, overflow: 'auto' }}>
           {content ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }} dangerouslySetInnerHTML={{ __html: ansiToHtml.toHtml(content) }}>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
             </pre>
           ) : (
             "Select a log file to view its tail..."

@@ -114,10 +114,10 @@ class qBitManager:
             )
         # Start WebUI as early as possible
         try:
-            web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
+            web_port = int(CONFIG.get("WebUI.Port", fallback=6969) or 6969)
         except Exception:
             web_port = 6969
-        web_host = CONFIG.get("Settings.WebUIHost", fallback="127.0.0.1") or "127.0.0.1"
+        web_host = CONFIG.get("WebUI.Host", fallback="127.0.0.1") or "127.0.0.1"
         if os.environ.get("QBITRR_DOCKER_RUNNING") == "69420" and web_host in {
             "127.0.0.1",
             "localhost",
@@ -420,7 +420,7 @@ def _report_config_issues():
         for key in CONFIG.sections():
             import re
 
-            m = re.match(r"(rad|son|anim)arr.*", key, re.IGNORECASE)
+            m = re.match(r"radarr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)

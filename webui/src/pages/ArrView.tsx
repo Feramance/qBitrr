@@ -77,7 +77,7 @@ const RADARR_AGG_PAGE_SIZE = 50;
 const RADARR_AGG_FETCH_SIZE = 500;
 const SONARR_PAGE_SIZE = 25;
 const SONARR_AGG_PAGE_SIZE = 50;
-const SONARR_AGG_FETCH_SIZE = 200;
+const SONARR_AGG_FETCH_SIZE = 500;
 
 function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): SonarrSeriesEntry[] {
   if (!onlyMissing) return seriesEntries;
@@ -148,15 +148,15 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
      direction: "asc" | "desc";
     }>({ key: "__instance", direction: "asc" });
     const [onlyMissing, setOnlyMissing] = useState(false);
-    const [liveAgg, setLiveAgg] = useState(true);
-   const [aggSummary, setAggSummary] = useState<{
+     const [liveAgg, setLiveAgg] = useState(true);
+  const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
     missing: number;
     total: number;
   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
 
-  const loadInstances = useCallback(async () => {
+   const loadInstances = useCallback(async () => {
     try {
       const data = await getArrList();
       if (data.ready === false && !backendReadyWarnedRef.current) {
@@ -443,11 +443,6 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   }, [onlyMissing]);
 
   useEffect(() => {
-    setAggPage(0);
-    setInstancePage(0);
-  }, [onlyMissing]);
-
-  useEffect(() => {
     globalSearchRef.current = globalSearch;
   }, [globalSearch]);
 
@@ -607,15 +602,16 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                   onChange={(event) => setGlobalSearch(event.target.value)}
                 />
               </div>
-              <label className="hint inline" style={{ marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={onlyMissing}
-                  onChange={(event) => setOnlyMissing(event.target.checked)}
-                />
-                <IconImage src={FilterIcon} />
-                <span>Only Missing</span>
-              </label>
+                <label className="hint inline" style={{ marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={onlyMissing}
+                    onChange={(event) => setOnlyMissing(event.target.checked)}
+                  />
+                  <IconImage src={FilterIcon} />
+                  <span>Only Missing</span>
+                </label>
+
               {isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
@@ -967,7 +963,7 @@ function RadarrInstanceView({
     [sortedMovies, safePage, pageSize]
   );
 
-  const tableData = useMemo(() => pageRows.map(movie => ({ ...movie })), [pageRows]);
+
 
   const columns = useMemo<ColumnDef<RadarrMovie>[]>(() => [
     {
@@ -994,13 +990,7 @@ function RadarrInstanceView({
     },
   ], []);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+
 
   const handleSort = (key: RadarrSortKey) => {
     setSort((prev) =>
@@ -1124,13 +1114,14 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     direction: "asc" | "desc";
    }>({ key: "__instance", direction: "asc" });
    const [onlyMissing, setOnlyMissing] = useState(false);
-   const [liveAgg, setLiveAgg] = useState(false);
-   const [aggSummary, setAggSummary] = useState<{
+    const [liveAgg, setLiveAgg] = useState(true);
+  const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
     missing: number;
     total: number;
   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
+  const [groupBySeries, setGroupBySeries] = useState(true);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -1315,7 +1306,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
         let page = 0;
         let counted = false;
         const label = inst.name || inst.category;
-        while (page < 200) {
+        const maxPages = 1000;
+        while (page < maxPages) {
           const res = await getSonarrSeries(
             inst.category,
             page,
@@ -1600,37 +1592,45 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                    onChange={(event) => setGlobalSearch(event.target.value)}
                  />
                </div>
-               <label className="hint inline" style={{ marginBottom: 8 }}>
-                 <input
-                   type="checkbox"
-                   checked={onlyMissing}
-                   onChange={(event) => setOnlyMissing(event.target.checked)}
-                 />
-                 <IconImage src={FilterIcon} />
-                 <span>Only Missing</span>
-               </label>
-               {isAggregate && (
+                <label className="hint inline" style={{ marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={onlyMissing}
+                    onChange={(event) => setOnlyMissing(event.target.checked)}
+                  />
+                  <IconImage src={FilterIcon} />
+                  <span>Only Missing</span>
+                </label>
+                <label className="hint inline" style={{ marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={groupBySeries}
+                    onChange={(event) => setGroupBySeries(event.target.checked)}
+                  />
+                  <span>Group by Series</span>
+                </label>
+                {isAggregate && (
+                  <label className="hint inline" style={{ marginBottom: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={liveAgg}
+                      onChange={(event) => setLiveAgg(event.target.checked)}
+                    />
+                    <IconImage src={LiveIcon} />
+                    <span>Live</span>
+                  </label>
+                )}
+                {!isAggregate && (
                  <label className="hint inline" style={{ marginBottom: 8 }}>
                    <input
                      type="checkbox"
-                     checked={liveAgg}
-                     onChange={(event) => setLiveAgg(event.target.checked)}
+                     checked={live}
+                     onChange={(event) => setLive(event.target.checked)}
                    />
                    <IconImage src={LiveIcon} />
                    <span>Live</span>
                  </label>
                )}
-               {!isAggregate && (
-                <label className="hint inline" style={{ marginBottom: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={live}
-                    onChange={(event) => setLive(event.target.checked)}
-                  />
-                  <IconImage src={LiveIcon} />
-                  <span>Live</span>
-                </label>
-              )}
             </div>
 
             {isAggregate ? (
@@ -1656,6 +1656,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                   )
                 }
                 summary={aggSummary}
+                groupBySeries={groupBySeries}
               />
             ) : (
               <SonarrInstanceView
@@ -1677,6 +1678,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
+                groupBySeries={groupBySeries}
               />
             )}
           </div>
@@ -1698,6 +1700,7 @@ interface SonarrAggregateViewProps {
   sort: { key: SonarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: SonarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
+  groupBySeries: boolean;
 }
 
 function SonarrAggregateView({
@@ -1712,164 +1715,330 @@ function SonarrAggregateView({
   sort,
   onSort,
   summary,
+  groupBySeries,
 }: SonarrAggregateViewProps): JSX.Element {
-  // Group rows by series and season
   const tableData = useMemo(() => {
-    const map = new Map<string, Map<string, SonarrAggRow[]>>();
-    rows.forEach(row => {
-      const seriesKey = `${row.__instance}-${row.series}`;
-      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
-      const seasons = map.get(seriesKey)!;
-      const seasonKey = String(row.season);
-      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
-      seasons.get(seasonKey)!.push(row);
-    });
-    return Array.from(map.entries()).map(([seriesKey, seasons]) => {
-      const [instance, series] = seriesKey.split('-', 2);
-      return {
-        series,
-        instance,
-        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
-          seasonNumber,
-          isSeason: true,
-          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
-        }))
-      };
-    });
-  }, [rows]);
+    if (groupBySeries) {
+      const map = new Map<string, Map<string, SonarrAggRow[]>>();
+      rows.forEach(row => {
+        const seriesKey = `${row.__instance}-${row.series}`;
+        if (!map.has(seriesKey)) map.set(seriesKey, new Map());
+        const seasons = map.get(seriesKey)!;
+        const seasonKey = String(row.season);
+        if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
+        seasons.get(seasonKey)!.push(row);
+      });
+      return Array.from(map.entries()).map(([seriesKey, seasons]) => {
+        const [instance, series] = seriesKey.split('-', 2);
+        return {
+          series,
+          instance,
+          subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
+            seasonNumber,
+            isSeason: true,
+            subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+          }))
+        };
+      });
+    } else {
+      return rows;
+    }
+  }, [rows, groupBySeries]);
 
-  const columns = useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) return row.original.title;
-        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series;
-      }
-    },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: ({ row }) => {
-        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
-      }
-    },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
-        }
-        return null;
-      }
-    },
-    {
-      accessorKey: "airDate",
-      header: "Air Date",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return row.original.airDate || "—";
-        }
-        return null;
-      }
-    },
-  ], []);
+  const columns = useMemo<ColumnDef<unknown>[]>(() => {
+    if (groupBySeries) {
+      return [
+        {
+          accessorKey: "title",
+          header: "Title",
+          cell: ({ row }) => {
+            if (row.original.isEpisode) return row.original.title;
+            if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+            return row.original.series;
+          }
+        },
+        {
+          accessorKey: "monitored",
+          header: "Monitored",
+          cell: ({ row }) => {
+            const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+            return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+          }
+        },
+        {
+          accessorKey: "hasFile",
+          header: "Has File",
+          cell: ({ row }) => {
+            if (row.original.isEpisode) {
+              return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+            }
+            return null;
+          }
+        },
+        {
+          accessorKey: "airDate",
+          header: "Air Date",
+          cell: ({ row }) => {
+            if (row.original.isEpisode) {
+              return row.original.airDate || "—";
+            }
+            return null;
+          }
+        },
+      ];
+    } else {
+      return [
+        {
+          accessorKey: "__instance",
+          header: "Instance",
+        },
+        {
+          accessorKey: "series",
+          header: "Series",
+        },
+        {
+          accessorKey: "season",
+          header: "Season",
+        },
+        {
+          accessorKey: "episode",
+          header: "Episode",
+        },
+        {
+          accessorKey: "title",
+          header: "Title",
+        },
+        {
+          accessorKey: "monitored",
+          header: "Monitored",
+          cell: ({ getValue }) => (
+            <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+          ),
+        },
+        {
+          accessorKey: "hasFile",
+          header: "Has File",
+          cell: ({ getValue }) => (
+            <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+          ),
+        },
+        {
+          accessorKey: "airDate",
+          header: "Air Date",
+          cell: ({ getValue }) => getValue() || "—",
+        },
+      ];
+    }
+  }, [groupBySeries]);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
+    ...(groupBySeries ? { getExpandedRowModel: getExpandedRowModel() } : {
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      state: {
+        sorting: [{ id: sort.key, desc: sort.direction === "desc" }],
+        pagination: {
+          pageIndex: page,
+          pageSize: 50,
+        },
+      },
+      onSortingChange: (updater) => {
+        const newSorting = typeof updater === "function" ? updater(table.getState().sorting) : updater;
+        if (newSorting.length > 0) {
+          const { id } = newSorting[0];
+          onSort(id as SonarrAggSortKey);
+        }
+      },
+      manualSorting: true,
+      manualPagination: true,
+      pageCount: totalPages,
+    }),
   });
 
-  return (
-    <div className="stack animate-fade-in">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="hint">
-          Aggregated episodes across all instances{" "}
-          {lastUpdated ? `(updated ${lastUpdated})` : ""}
-          <br />
-          <strong>Available:</strong>{" "}
-          {summary.available.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
-          <strong>Monitored:</strong>{" "}
-          {summary.monitored.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
-          <strong>Missing:</strong>{" "}
-          {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
-          <strong>Total Episodes:</strong>{" "}
-          {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+  if (groupBySeries) {
+    return (
+      <div className="stack animate-fade-in">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div className="hint">
+            Aggregated episodes across all instances{" "}
+            {lastUpdated ? `(updated ${lastUpdated})` : ""}
+            <br />
+            <strong>Available:</strong>{" "}
+            {summary.available.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Monitored:</strong>{" "}
+            {summary.monitored.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Missing:</strong>{" "}
+            {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Total Episodes:</strong>{" "}
+            {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </div>
+          <button className="btn ghost" onClick={onRefresh} disabled={loading}>
+            <IconImage src={RefreshIcon} />
+            Refresh
+          </button>
         </div>
-        <button className="btn ghost" onClick={onRefresh} disabled={loading}>
-          <IconImage src={RefreshIcon} />
-          Refresh
-        </button>
-      </div>
-      {loading ? (
-        <div className="loading">
-          <span className="spinner" /> Loading Sonarr library…
-        </div>
-      ) : (
-        <>
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  <th></th>
-                  {table.getFlatHeaders().map(header => (
-                    <th key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr key={row.id}>
-                    <td>
-                      {row.getCanExpand() && (
-                        <button onClick={row.getToggleExpandedHandler()}>
-                          {row.getIsExpanded() ? '▼' : '▶'}
-                        </button>
-                      )}
-                    </td>
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+        {loading ? (
+          <div className="loading">
+            <span className="spinner" /> Loading Sonarr library…
+          </div>
+        ) : (
+          <>
+            <div className="table-wrapper">
+              <table className="responsive-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {table.getFlatHeaders().map(header => (
+                      <th key={header.id}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <div>
-              Page {page + 1} of {totalPages} ({total} items)
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      <td>
+                        {row.getCanExpand() && (
+                          <button onClick={row.getToggleExpandedHandler()}>
+                            {row.getIsExpanded() ? '▼' : '▶'}
+                          </button>
+                        )}
+                      </td>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, page - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </button>
+            <div className="pagination">
+              <div>
+                Page {page + 1} of {totalPages} ({total} items)
+              </div>
+              <div className="inline">
+                <button
+                  className="btn"
+                  onClick={() => onPageChange(Math.max(0, page - 1))}
+                  disabled={page === 0}
+                >
+                  Prev
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  Next
+                </button>
+              </div>
             </div>
+          </>
+        )}
+      </div>
+    );
+  } else {
+    return (
+      <div className="stack animate-fade-in">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div className="hint">
+            Aggregated episodes across all instances{" "}
+            {lastUpdated ? `(updated ${lastUpdated})` : ""}
+            <br />
+            <strong>Available:</strong>{" "}
+            {summary.available.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Monitored:</strong>{" "}
+            {summary.monitored.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Missing:</strong>{" "}
+            {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+            <strong>Total Episodes:</strong>{" "}
+            {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </div>
-        </>
-      )}
-    </div>
-  );
+          <button className="btn ghost" onClick={onRefresh} disabled={loading}>
+            <IconImage src={RefreshIcon} />
+            Refresh
+          </button>
+        </div>
+        {loading ? (
+          <div className="loading">
+            <span className="spinner" /> Loading Sonarr library…
+          </div>
+        ) : (
+          <>
+            <div className="table-wrapper">
+              <table className="responsive-table">
+                <thead>
+                  <tr>
+                    {table.getFlatHeaders().map((header) => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? "sortable" : ""}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        {header.column.getCanSort() && (
+                          <span className="sort-arrow">
+                            {{
+                              asc: "▲",
+                              desc: "▼",
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="pagination">
+              <div>
+                Page {page + 1} of {totalPages} ({total} items)
+              </div>
+              <div className="inline">
+                <button
+                  className="btn"
+                  onClick={() => onPageChange(Math.max(0, page - 1))}
+                  disabled={page === 0}
+                >
+                  Prev
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 }
 
 interface SonarrInstanceViewProps {
@@ -1884,6 +2053,7 @@ interface SonarrInstanceViewProps {
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
+  groupBySeries: boolean;
 }
 
 function SonarrInstanceView({
@@ -1898,6 +2068,7 @@ function SonarrInstanceView({
   onPageChange,
   onRestart,
   lastUpdated,
+  groupBySeries,
 }: SonarrInstanceViewProps): JSX.Element {
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   const filteredSeries = useMemo(() => filterSeriesEntriesForMissing(seriesEntries, onlyMissing), [seriesEntries, onlyMissing]);
@@ -1921,136 +2092,290 @@ function SonarrInstanceView({
     return filteredSeries.slice(start, start + pageSize);
   }, [filteredSeries, safePage, pageSize]);
 
-  const tableData = useMemo(() => pageRows.flatMap(series => [
-    series,
-    ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
-      { seasonNumber, ...season, isSeason: true },
-      ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
-    ])
-  ]), [pageRows]);
-
-  const columns = useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) return `  ${row.original.title}`;
-        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series?.title || "Unknown";
-      }
-    },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: ({ row }) => {
-        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
-      }
-    },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
-        }
-        return null;
-      }
-    },
-    {
-      accessorKey: "airDate",
-      header: "Air Date",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) {
-          return row.original.airDate || "—";
-        }
-        return null;
-      }
-    },
-  ], []);
-
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   useEffect(() => {
     if (safePage !== page) {
       onPageChange(safePage);
     }
   }, [safePage, page, onPageChange]);
 
-  return (
-    <div className="stack animate-fade-in">
-      <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="hint">
-          {refreshLabel ? <span>{refreshLabel}</span> : null}
-          <br />
-          <strong>Available:</strong> {counts?.available ?? 0} • <strong>Monitored:</strong> {counts?.monitored ?? 0} • <strong>Missing:</strong> {missingCount}
-        </div>
-        <button className="btn ghost" onClick={onRestart}>
-          <IconImage src={RestartIcon} />
-          Restart Instance
-        </button>
-      </div>
-      <div className="stack">
-        {loading ? (
-          <div className="loading">
-            <span className="spinner" /> Loading Sonarr library…
+  if (groupBySeries) {
+    const tableData = useMemo(() => pageRows.flatMap(series => [
+      series,
+      ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
+        { seasonNumber, ...season, isSeason: true },
+        ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
+      ])
+    ]), [pageRows]);
+
+    const columns = useMemo<ColumnDef<any>[]>(() => [
+      {
+        accessorKey: "title",
+        header: "Title",
+        cell: ({ row }) => {
+          if (row.original.isEpisode) return `  ${row.original.title}`;
+          if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+          return row.original.series?.title || "Unknown";
+        }
+      },
+      {
+        accessorKey: "monitored",
+        header: "Monitored",
+        cell: ({ row }) => {
+          const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+          return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+        }
+      },
+      {
+        accessorKey: "hasFile",
+        header: "Has File",
+        cell: ({ row }) => {
+          if (row.original.isEpisode) {
+            return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+          }
+          return null;
+        }
+      },
+      {
+        accessorKey: "airDate",
+        header: "Air Date",
+        cell: ({ row }) => {
+          if (row.original.isEpisode) {
+            return row.original.airDate || "—";
+          }
+          return null;
+        }
+      },
+    ], []);
+
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const table = useReactTable({
+      data: tableData,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      getExpandedRowModel: getExpandedRowModel(),
+    });
+
+    return (
+      <div className="stack animate-fade-in">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div className="inline hint">
+            <span className="badge">
+              {onlyMissing ? (
+                <>
+                  Missing: {missingCount} / Monitored:{" "}
+                  {counts?.monitored ?? 0}
+                </>
+              ) : (
+                <>
+                  Available: {counts?.available ?? 0} / Monitored:{" "}
+                  {counts?.monitored ?? 0}
+                </>
+              )}
+            </span>
+            {refreshLabel ? <span>{refreshLabel}</span> : null}
           </div>
-        ) : tableData.length ? (
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  {table.getFlatHeaders().map(header => (
-                    <th key={header.id}>
-                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
+          <button className="btn ghost" onClick={onRestart}>
+            <IconImage src={RestartIcon} />
+            Restart Instance
+          </button>
+        </div>
+        <div className="stack">
+          {loading ? (
+            <div className="loading">
+              <span className="spinner" /> Loading Sonarr library…
+            </div>
+          ) : tableData.length ? (
+            <div className="table-wrapper">
+              <table className="responsive-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {table.getFlatHeaders().map(header => (
+                      <th key={header.id}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      <td>
+                        {row.getCanExpand() && (
+                          <button onClick={row.getToggleExpandedHandler()}>
+                            {row.getIsExpanded() ? '▼' : '▶'}
+                          </button>
+                        )}
+                      </td>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="hint">No series found.</div>
+          )}
+        </div>
+        <div className="pagination">
+          <div>
+            Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items · page size{" "}
+            {pageSize})
           </div>
-        ) : (
-          <div className="hint">No series found.</div>
-        )}
-      </div>
-      <div className="pagination">
-        <div>
-          Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items ·
-          page size {pageSize})
-        </div>
-        <div className="inline">
-          <button
-            className="btn"
-            onClick={() => onPageChange(Math.max(0, safePage - 1))}
-            disabled={safePage === 0 || loading}
-          >
-            Prev
-          </button>
-          <button
-            className="btn"
-            onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
-            disabled={safePage >= effectiveTotalPages - 1 || loading}
-          >
-            Next
-          </button>
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.max(0, safePage - 1))}
+              disabled={safePage === 0 || loading}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+              disabled={safePage >= effectiveTotalPages - 1 || loading}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  } else {
+    // Flat view
+    const flatData = useMemo(() => pageRows.flatMap(series =>
+      Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) =>
+        season.episodes?.map(episode => ({
+          series: series.series?.title || "",
+          season: seasonNumber,
+          episode: episode.episodeNumber,
+          title: episode.title,
+          monitored: episode.monitored,
+          hasFile: episode.hasFile,
+          airDate: episode.airDateUtc,
+        })) || []
+      )
+    ), [pageRows]);
+
+    const columns = useMemo<ColumnDef<any>[]>(() => [
+      {
+        accessorKey: "series",
+        header: "Series",
+      },
+      {
+        accessorKey: "season",
+        header: "Season",
+      },
+      {
+        accessorKey: "episode",
+        header: "Episode",
+      },
+      {
+        accessorKey: "title",
+        header: "Title",
+      },
+      {
+        accessorKey: "monitored",
+        header: "Monitored",
+        cell: ({ getValue }) => (
+          <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+        ),
+      },
+      {
+        accessorKey: "hasFile",
+        header: "Has File",
+        cell: ({ getValue }) => (
+          <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+        ),
+      },
+      {
+        accessorKey: "airDate",
+        header: "Air Date",
+        cell: ({ getValue }) => getValue() || "—",
+      },
+    ], []);
+
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const table = useReactTable({
+      data: flatData,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+    });
+
+    return (
+      <div className="stack animate-fade-in">
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <div className="hint">
+            {refreshLabel ? <span>{refreshLabel}</span> : null}
+            <br />
+            <strong>Available:</strong> {counts?.available ?? 0} • <strong>Monitored:</strong> {counts?.monitored ?? 0} • <strong>Missing:</strong> {missingCount}
+          </div>
+          <button className="btn ghost" onClick={onRestart}>
+            <IconImage src={RestartIcon} />
+            Restart Instance
+          </button>
+        </div>
+        <div className="stack">
+          {loading ? (
+            <div className="loading">
+              <span className="spinner" /> Loading Sonarr library…
+            </div>
+          ) : flatData.length ? (
+            <div className="table-wrapper">
+              <table className="responsive-table">
+                <thead>
+                  <tr>
+                    {table.getFlatHeaders().map(header => (
+                      <th key={header.id}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="hint">No series found.</div>
+          )}
+        </div>
+        <div className="pagination">
+          <div>
+            Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items · page size{" "}
+            {pageSize})
+          </div>
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.max(0, safePage - 1))}
+              disabled={safePage === 0 || loading}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => onPageChange(Math.min(effectiveTotalPages - 1, safePage + 1))}
+              disabled={safePage >= effectiveTotalPages - 1 || loading}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }

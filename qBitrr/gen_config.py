@@ -14,6 +14,50 @@ from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 T = TypeVar("T")
 
 
+def _add_web_settings_section(config: TOMLDocument):
+    web_settings = table()
+    _gen_default_line(
+        web_settings,
+        "WebUI listen host (default 0.0.0.0)",
+        "Host",
+        "0.0.0.0",
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI listen port (default 6969)",
+        "Port",
+        6969,
+    )
+    _gen_default_line(
+        web_settings,
+        [
+            "Optional bearer token to secure WebUI/API.",
+            "Set a non-empty value to require Authorization: Bearer <token>.",
+        ],
+        "Token",
+        "",
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable live updates for Arr views",
+        "LiveArr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "Group Sonarr episodes by series in views",
+        "GroupSonarr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI theme (light or dark)",
+        "Theme",
+        "dark",
+    )
+    config.add("WebUI", web_settings)
+
+
 def generate_doc() -> TOMLDocument:
     config = document()
     config.add(
@@ -25,6 +69,7 @@ def generate_doc() -> TOMLDocument:
     config.add(comment('This is a config file should be moved to "' f'{HOME_PATH}".'))
     config.add(nl())
     _add_settings_section(config)
+    _add_web_settings_section(config)
     _add_qbit_section(config)
     _add_category_sections(config)
     return config
@@ -150,27 +195,6 @@ def _add_settings_section(config: TOMLDocument):
         ],
         "AutoUpdateCron",
         ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
-    )
-    _gen_default_line(
-        settings,
-        "WebUI listen port (default 6969)",
-        "WebUIPort",
-        6969,
-    )
-    _gen_default_line(
-        settings,
-        "WebUI listen host (default 0.0.0.0)",
-        "WebUIHost",
-        "0.0.0.0",
-    )
-    _gen_default_line(
-        settings,
-        [
-            "Optional bearer token to secure WebUI/API.",
-            "Set a non-empty value to require Authorization: Bearer <token>.",
-        ],
-        "WebUIToken",
-        "",
     )
     config.add("Settings", settings)
 

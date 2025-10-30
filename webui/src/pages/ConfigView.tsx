@@ -220,9 +220,13 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
+
+];
+
+const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
   {
     label: "WebUI Host",
-    path: ["Settings", "WebUIHost"],
+    path: ["WebUI", "Host"],
     type: "text",
     required: true,
     validate: (value) => {
@@ -234,7 +238,7 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   },
   {
     label: "WebUI Port",
-    path: ["Settings", "WebUIPort"],
+    path: ["WebUI", "Port"],
     type: "number",
     validate: (value) => {
       const port = typeof value === "number" ? value : Number(value);
@@ -246,10 +250,13 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   },
   {
     label: "WebUI Token",
-    path: ["Settings", "WebUIToken"],
+    path: ["WebUI", "Token"],
     type: "password",
     secure: true,
   },
+  { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
+  { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
+  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["light", "dark"] },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -938,6 +945,7 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   const errors: ValidationError[] = [];
   const rootContext: ValidationContext = { root: formState };
   validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
+  validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
   validateFieldGroup(errors, QBIT_FIELDS, formState, [], rootContext);
   for (const [key, value] of Object.entries(formState)) {
     if (!SERVARR_SECTION_REGEX.test(key) || !value || typeof value !== "object") {
@@ -1209,6 +1217,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [arrSections]);
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
   const [isQbitOpen, setQbitOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
@@ -1266,7 +1275,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isQbitOpen);
+    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isWebSettingsOpen || isQbitOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1283,7 +1292,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, isSettingsOpen, isQbitOpen]);
+  }, [activeArrKey, isSettingsOpen, isWebSettingsOpen, isQbitOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -1446,6 +1455,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               onConfigure={() => setSettingsOpen(true)}
             />
             <ConfigSummaryCard
+              title="Web Settings"
+              description="Web UI configuration"
+              onConfigure={() => setWebSettingsOpen(true)}
+            />
+            <ConfigSummaryCard
               title="qBit"
               description="qBittorrent connection details"
               onConfigure={() => setQbitOpen(true)}
@@ -1557,6 +1571,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+      {isWebSettingsOpen ? (
+        <SimpleConfigModal
+          title="Web Settings"
+          fields={WEB_SETTINGS_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setWebSettingsOpen(false)}
         />
       ) : null}
       {isQbitOpen ? (

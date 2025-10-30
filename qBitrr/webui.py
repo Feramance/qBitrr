@@ -89,11 +89,11 @@ class WebUI:
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
         # Security token (optional) - auto-generate and persist if empty
-        self.token = CONFIG.get("Settings.WebUIToken", fallback=None)
+        self.token = CONFIG.get("WebUI.Token", fallback=None)
         if not self.token:
             self.token = secrets.token_hex(32)
             try:
-                _toml_set(CONFIG.config, "Settings.WebUIToken", self.token)
+                _toml_set(CONFIG.config, "WebUI.Token", self.token)
                 CONFIG.save()
             except Exception:
                 pass
@@ -1457,11 +1457,11 @@ class WebUI:
             for key, val in changes.items():
                 if val is None:
                     _toml_delete(CONFIG.config, key)
-                    if key == "Settings.WebUIToken":
+                    if key == "WebUI.Token":
                         self.token = ""
                     continue
                 _toml_set(CONFIG.config, key, val)
-                if key == "Settings.WebUIToken":
+                if key == "WebUI.Token":
                     # Update in-memory token immediately
                     self.token = str(val) if val is not None else ""
             # Persist
@@ -1483,11 +1483,11 @@ class WebUI:
             for key, val in changes.items():
                 if val is None:
                     _toml_delete(CONFIG.config, key)
-                    if key == "Settings.WebUIToken":
+                    if key == "WebUI.Token":
                         self.token = ""
                     continue
                 _toml_set(CONFIG.config, key, val)
-                if key == "Settings.WebUIToken":
+                if key == "WebUI.Token":
                     self.token = str(val) if val is not None else ""
             CONFIG.save()
             try:
