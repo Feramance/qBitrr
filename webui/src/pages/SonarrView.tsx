@@ -341,6 +341,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             counted = true;
           }
           const series = res.series ?? [];
+          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total so far: ${aggregated.length}`);
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
@@ -361,18 +362,24 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               }
             );
           });
-          if (!series.length || series.length < SONARR_AGG_FETCH_SIZE) break;
+          if (!series.length || series.length < SONARR_AGG_FETCH_SIZE) {
+            console.log(`[Sonarr Aggregate] Breaking pagination for ${label} - series.length=${series.length}`);
+            break;
+          }
           page += 1;
         }
       }
 
       // Smart diffing: only update if data actually changed
+      console.log(`[Sonarr Aggregate] Total aggregated episodes: ${aggregated.length}`);
       setAggRows((prev) => {
         const prevJson = JSON.stringify(prev);
         const nextJson = JSON.stringify(aggregated);
         if (prevJson === nextJson) {
+          console.log(`[Sonarr Aggregate] Data unchanged, skipping update`);
           return prev;
         }
+        console.log(`[Sonarr Aggregate] Data changed, updating from ${prev.length} to ${aggregated.length} episodes`);
         return aggregated;
       });
 
