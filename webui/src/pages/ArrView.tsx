@@ -39,7 +39,6 @@ import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 import FilterIcon from "../icons/alert.svg";
-import LiveIcon from "../icons/live-streaming.svg";
 
 interface ArrViewProps {
   type: "radarr" | "sonarr";
@@ -120,30 +119,29 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceData, setInstanceData] = useState<RadarrMoviesResponse | null>(
     null
   );
-  const [instancePage, setInstancePage] = useState(0);
-  const [instanceQuery, setInstanceQuery] = useState("");
-  const [instanceLoading, setInstanceLoading] = useState(false);
-  const [live, setLive] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [instancePages, setInstancePages] = useState<Record<number, RadarrMovie[]>>({});
-  const [instancePageSize, setInstancePageSize] = useState(RADARR_PAGE_SIZE);
-  const [instanceTotalPages, setInstanceTotalPages] = useState(1);
-  const instanceKeyRef = useRef<string>("");
-  const instancePagesRef = useRef<Record<number, RadarrMovie[]>>({});
-  const globalSearchRef = useRef(globalSearch);
-  const backendReadyWarnedRef = useRef(false);
+   const [instancePage, setInstancePage] = useState(0);
+   const [instanceQuery, setInstanceQuery] = useState("");
+   const [instanceLoading, setInstanceLoading] = useState(false);
+   const [liveArr, setLiveArr] = useState(true);
+   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+   const [instancePages, setInstancePages] = useState<Record<number, RadarrMovie[]>>({});
+   const [instancePageSize, setInstancePageSize] = useState(RADARR_PAGE_SIZE);
+   const [instanceTotalPages, setInstanceTotalPages] = useState(1);
+   const instanceKeyRef = useRef<string>("");
+   const instancePagesRef = useRef<Record<number, RadarrMovie[]>>({});
+   const globalSearchRef = useRef(globalSearch);
+   const backendReadyWarnedRef = useRef(false);
 
-  const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
-  const [aggLoading, setAggLoading] = useState(false);
-  const [aggPage, setAggPage] = useState(0);
-  const [aggFilter, setAggFilter] = useState("");
-  const [aggUpdated, setAggUpdated] = useState<string | null>(null);
-   const [aggSort, setAggSort] = useState<{
-     key: RadarrAggSortKey;
-     direction: "asc" | "desc";
-    }>({ key: "__instance", direction: "asc" });
-    const [onlyMissing, setOnlyMissing] = useState(false);
-    const [liveAgg, setLiveAgg] = useState(true);
+   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
+   const [aggLoading, setAggLoading] = useState(false);
+   const [aggPage, setAggPage] = useState(0);
+   const [aggFilter, setAggFilter] = useState("");
+   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+    const [aggSort, setAggSort] = useState<{
+      key: RadarrAggSortKey;
+      direction: "asc" | "desc";
+     }>({ key: "__instance", direction: "asc" });
+     const [onlyMissing, setOnlyMissing] = useState(false);
    const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
@@ -363,12 +361,25 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
      } finally {
        setAggLoading(false);
      }
-   }, [instances, globalSearch, push]);
+     }, [instances, globalSearch, push]);
 
-  useEffect(() => {
-    if (!active) return;
-    void loadInstances();
-  }, [active, loadInstances]);
+   useEffect(() => {
+     const loadConfig = async () => {
+       try {
+         const config = await getConfig();
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         setLiveArr((config as any).WebUI?.LiveArr ?? true);
+       } catch (error) {
+         console.error('Failed to load config', error);
+       }
+     };
+     void loadConfig();
+   }, []);
+
+   useEffect(() => {
+     if (!active) return;
+     void loadInstances();
+   }, [active, loadInstances]);
 
   useEffect(() => {
     if (!active) return;
@@ -390,15 +401,15 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     void loadAggregate();
    }, [active, selection, loadAggregate]);
 
-   useInterval(() => {
-     if (selection === "aggregate" && liveAgg) {
-       void loadAggregate();
-     }
-   }, selection === "aggregate" && liveAgg ? 10000 : null);
+    useInterval(() => {
+      if (selection === "aggregate" && liveArr) {
+        void loadAggregate();
+      }
+    }, selection === "aggregate" && liveArr ? 10000 : null);
 
-   useEffect(() => {
-     if (!active) return;
-     const handler = (term: string) => {
+    useEffect(() => {
+      if (!active) return;
+      const handler = (term: string) => {
        if (selection === "aggregate") {
          setAggFilter(term);
          setAggPage(0);
@@ -416,26 +427,26 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     };
   }, [active, selection, register, clearHandler, fetchInstance]);
 
-  useInterval(
-    () => {
-      if (selection && selection !== "aggregate") {
-        const activeFilter = globalSearchRef.current?.trim?.() || "";
-        if (activeFilter) {
-          return;
-        }
-        void fetchInstance(selection, instancePage, instanceQuery, {
-          preloadAll: false,
-          showLoading: false,
-        });
-      }
-    },
-    active && selection && selection !== "aggregate" && live ? 1000 : null
-  );
+   useInterval(
+     () => {
+       if (selection && selection !== "aggregate") {
+         const activeFilter = globalSearchRef.current?.trim?.() || "";
+         if (activeFilter) {
+           return;
+         }
+         void fetchInstance(selection, instancePage, instanceQuery, {
+           preloadAll: false,
+           showLoading: false,
+         });
+       }
+     },
+     active && selection && selection !== "aggregate" && liveArr ? 1000 : null
+   );
 
-  useEffect(() => {
-    setAggPage(0);
-    setInstancePage(0);
-  }, [onlyMissing]);
+   useEffect(() => {
+     setAggPage(0);
+     setInstancePage(0);
+   }, [onlyMissing]);
 
   useEffect(() => {
     setAggPage(0);
@@ -602,37 +613,15 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
                   onChange={(event) => setGlobalSearch(event.target.value)}
                 />
               </div>
-              <label className="hint inline" style={{ marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={onlyMissing}
-                  onChange={(event) => setOnlyMissing(event.target.checked)}
-                />
-                <IconImage src={FilterIcon} />
-                <span>Only Missing</span>
-              </label>
-              {isAggregate && (
-                <label className="hint inline" style={{ marginBottom: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={liveAgg}
-                    onChange={(event) => setLiveAgg(event.target.checked)}
-                  />
-                  <IconImage src={LiveIcon} />
-                  <span>Live</span>
-                </label>
-              )}
-              {!isAggregate && (
-                <label className="hint inline" style={{ marginBottom: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={live}
-                    onChange={(event) => setLive(event.target.checked)}
-                  />
-                  <IconImage src={LiveIcon} />
-                  <span>Live</span>
-                </label>
-              )}
+               <label className="hint inline" style={{ marginBottom: 8 }}>
+                 <input
+                   type="checkbox"
+                   checked={onlyMissing}
+                   onChange={(event) => setOnlyMissing(event.target.checked)}
+                 />
+                 <IconImage src={FilterIcon} />
+                 <span>Only Missing</span>
+               </label>
             </div>
 
             {isAggregate ? (
@@ -1258,10 +1247,10 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceData, setInstanceData] =
     useState<SonarrSeriesResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
-  const [instanceQuery, setInstanceQuery] = useState("");
-  const [instanceLoading, setInstanceLoading] = useState(false);
-  const [live, setLive] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+   const [instanceQuery, setInstanceQuery] = useState("");
+   const [instanceLoading, setInstanceLoading] = useState(false);
+   const [liveArr, setLiveArr] = useState(true);
+   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [instancePages, setInstancePages] = useState<
     Record<number, SonarrSeriesEntry[]>
   >({});
@@ -1280,9 +1269,8 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
 
-   const [onlyMissing, setOnlyMissing] = useState(false);
-   const [liveAgg, setLiveAgg] = useState(false);
-   const [aggSummary, setAggSummary] = useState<{
+    const [onlyMissing, setOnlyMissing] = useState(false);
+    const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
     missing: number;
@@ -1291,18 +1279,20 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
 
   const [groupSonarr, setGroupSonarr] = useState(false);
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const config = await getConfig();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setGroupSonarr((config as any).WebUI?.GroupSonarr ?? false);
-      } catch (error) {
-        console.error('Failed to load config', error);
-      }
-    };
-    void loadConfig();
-  }, []);
+   useEffect(() => {
+     const loadConfig = async () => {
+       try {
+         const config = await getConfig();
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         const webUI = (config as any).WebUI ?? {};
+         setGroupSonarr(webUI.GroupSonarr ?? false);
+         setLiveArr(webUI.LiveArr ?? true);
+       } catch (error) {
+         console.error('Failed to load config', error);
+       }
+     };
+     void loadConfig();
+   }, []);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -1576,16 +1566,16 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     void loadAggregate();
    }, [active, selection, loadAggregate]);
 
-   useInterval(() => {
-     if (selection === "aggregate" && liveAgg) {
-       void loadAggregate();
-     }
-   }, selection === "aggregate" && liveAgg ? 10000 : null);
+    useInterval(() => {
+      if (selection === "aggregate" && liveArr) {
+        void loadAggregate();
+      }
+    }, selection === "aggregate" && liveArr ? 10000 : null);
 
-   useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (selection === "aggregate") {
+    useEffect(() => {
+     if (!active) return;
+     const handler = (term: string) => {
+       if (selection === "aggregate") {
         setAggFilter(term);
         setAggPage(0);
       } else if (selection) {
@@ -1601,26 +1591,26 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     return () => clearHandler(handler);
   }, [active, selection, register, clearHandler, fetchInstance, onlyMissing]);
 
-  useInterval(
-    () => {
-      if (selection && selection !== "aggregate") {
-        const activeFilter = globalSearchRef.current?.trim?.() || "";
-        if (activeFilter) {
-          return;
-        }
-        void fetchInstance(selection, instancePage, instanceQuery, {
-          preloadAll: false,
-          showLoading: false,
-          missingOnly: onlyMissing,
-        });
-      }
-    },
-    active && selection && selection !== "aggregate" && live ? 1000 : null
-  );
+   useInterval(
+     () => {
+       if (selection && selection !== "aggregate") {
+         const activeFilter = globalSearchRef.current?.trim?.() || "";
+         if (activeFilter) {
+           return;
+         }
+         void fetchInstance(selection, instancePage, instanceQuery, {
+           preloadAll: false,
+           showLoading: false,
+           missingOnly: onlyMissing,
+         });
+       }
+     },
+     active && selection && selection !== "aggregate" && liveArr ? 1000 : null
+   );
 
-  useEffect(() => {
-    globalSearchRef.current = globalSearch;
-  }, [globalSearch]);
+   useEffect(() => {
+     globalSearchRef.current = globalSearch;
+   }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -1734,37 +1724,15 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                    onChange={(event) => setGlobalSearch(event.target.value)}
                  />
                </div>
-               <label className="hint inline" style={{ marginBottom: 8 }}>
-                 <input
-                   type="checkbox"
-                   checked={onlyMissing}
-                   onChange={(event) => setOnlyMissing(event.target.checked)}
-                 />
-                 <IconImage src={FilterIcon} />
-                 <span>Only Missing</span>
-               </label>
-               {isAggregate && (
-                 <label className="hint inline" style={{ marginBottom: 8 }}>
-                   <input
-                     type="checkbox"
-                     checked={liveAgg}
-                     onChange={(event) => setLiveAgg(event.target.checked)}
-                   />
-                   <IconImage src={LiveIcon} />
-                   <span>Live</span>
-                 </label>
-               )}
-               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
                     type="checkbox"
-                    checked={live}
-                    onChange={(event) => setLive(event.target.checked)}
+                    checked={onlyMissing}
+                    onChange={(event) => setOnlyMissing(event.target.checked)}
                   />
-                  <IconImage src={LiveIcon} />
-                  <span>Live</span>
+                  <IconImage src={FilterIcon} />
+                  <span>Only Missing</span>
                 </label>
-              )}
             </div>
 
             {isAggregate ? (
