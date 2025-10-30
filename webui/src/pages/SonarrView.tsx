@@ -313,6 +313,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
+    console.log(`[Sonarr Aggregate] Starting aggregation for ${instances.length} instances`);
     setAggLoading(true);
     try {
       const aggregated: SonarrAggRow[] = [];
@@ -323,6 +324,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         let page = 0;
         let counted = false;
         const label = inst.name || inst.category;
+        console.log(`[Sonarr Aggregate] Processing instance: ${label}`);
         while (page < 200) {
           const res = await getSonarrSeries(
             inst.category,
@@ -331,6 +333,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             "",
             { missingOnly: onlyMissing }
           );
+          console.log(`[Sonarr Aggregate] Response for ${label} page ${page}:`, {
+            total: res.total,
+            page: res.page,
+            page_size: res.page_size,
+            series_count: res.series?.length ?? 0,
+            counts: res.counts
+          });
           if (!counted) {
             const counts = res.counts;
             if (counts) {
@@ -341,7 +350,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             counted = true;
           }
           const series = res.series ?? [];
-          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total so far: ${aggregated.length}`);
+          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total episodes so far: ${aggregated.length}`);
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
@@ -371,7 +380,12 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       }
 
       // Smart diffing: only update if data actually changed
-      console.log(`[Sonarr Aggregate] Total aggregated episodes: ${aggregated.length}`);
+      const uniqueSeries = new Set(aggregated.map(ep => `${ep.__instance}::${ep.series}`)).size;
+      console.log(`[Sonarr Aggregate] Aggregation complete:`, {
+        totalEpisodes: aggregated.length,
+        uniqueSeries: uniqueSeries,
+        instances: instances.length
+      });
       setAggRows((prev) => {
         const prevJson = JSON.stringify(prev);
         const nextJson = JSON.stringify(aggregated);
