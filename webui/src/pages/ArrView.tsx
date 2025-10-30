@@ -1072,11 +1072,55 @@ function SonarrInstanceView({
   page,
   pageSize,
   totalPages,
-  totalItems,
-  onlyMissing,
+
   onPageChange,
+  groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
+
+  // Transform series to SonarrAggRow[]
+  const episodeRows = useMemo(() => {
+    const rows: SonarrAggRow[] = [];
+    for (const entry of series) {
+      const title = (entry.series?.["title"] as string | undefined) || "";
+      Object.entries(entry.seasons ?? {}).forEach(([seasonNumber, season]) => {
+        (season.episodes ?? []).forEach((episode) => {
+          rows.push({
+            __instance: "Instance", // For instance view, can use a placeholder or pass instance name if available
+            series: title,
+            season: seasonNumber,
+            episode: episode.episodeNumber ?? "",
+            title: episode.title ?? "",
+            monitored: !!episode.monitored,
+            hasFile: !!episode.hasFile,
+            airDate: episode.airDateUtc ?? "",
+          });
+        });
+      });
+    }
+    return rows;
+  }, [series]);
+
+  // Group for hierarchical view
+  const groupedTableData = useMemo(() => {
+    const map = new Map<string, Map<string, SonarrAggRow[]>>();
+    episodeRows.forEach(row => {
+      const seriesKey = row.series;
+      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
+      const seasons = map.get(seriesKey)!;
+      const seasonKey = String(row.season);
+      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
+      seasons.get(seasonKey)!.push(row);
+    });
+    return Array.from(map.entries()).map(([series, seasons]) => ({
+      series,
+      subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
+        seasonNumber,
+        isSeason: true,
+        subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+      }))
+    }));
+  }, [episodeRows]);
 
   return (
     <div className="stack animate-fade-in">
@@ -1097,33 +1141,83 @@ function SonarrInstanceView({
         <div className="loading">
           <span className="spinner" /> Loading series…
         </div>
-      ) : series.length ? (
-        <>
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  <th>Series</th>
-                  <th>Seasons</th>
-                  <th>Episodes</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {series.map((seriesItem) => (
-                  <tr key={seriesItem.series["title"] as string}>
-                    <td>{seriesItem.series["title"] as string}</td>
-                    <td>{Object.keys(seriesItem.seasons ?? {}).length}</td>
-                    <td>{Object.values(seriesItem.seasons ?? {}).reduce((sum, season) => sum + season.episodes.length, 0)}</td>
-                    <td>Managed</td>
-                  </tr>
+      ) : groupSonarr ? (
+        <div className="sonarr-hierarchical-view">
+          {groupedTableData.map((series, seriesIndex) => (
+            <details key={`${series.series}-${seriesIndex}`} className="series-details">
+              <summary className="series-summary">
+                <span className="series-title">{series.series}</span>
+              </summary>
+              <div className="series-content">
+                {series.subRows.map((season, seasonIndex) => (
+                  <details key={`${series.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
+                    <summary className="season-summary">
+                      <span className="season-title">Season {season.seasonNumber}</span>
+                      <span className="season-count">({season.subRows.length} episodes)</span>
+                    </summary>
+                    <div className="season-content">
+                      <div className="episodes-table-wrapper">
+                        <table className="episodes-table">
+                          <thead>
+                            <tr>
+                              <th>Episode</th>
+                              <th>Title</th>
+                              <th>Monitored</th>
+                              <th>Has File</th>
+                              <th>Air Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {season.subRows.map((episode, episodeIndex) => (
+                              <tr key={`${episode.episode}-${episode.title}-${episodeIndex}`}>
+                                <td>{episode.episode}</td>
+                                <td>{episode.title}</td>
+                                <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
+                                <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                                <td>{episode.airDate || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </details>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </details>
+          ))}
+        </div>
+      ) : episodeRows.length ? (
+        <div className="table-wrapper">
+          <table className="responsive-table">
+            <thead>
+              <tr>
+                <th>Series</th>
+                <th>Season</th>
+                <th>Episode</th>
+                <th>Title</th>
+                <th>Monitored</th>
+                <th>Has File</th>
+                <th>Air Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {episodeRows.slice(safePage * pageSize, safePage * pageSize + pageSize).map((row, idx) => (
+                <tr key={`${row.series}-${row.season}-${row.episode}-${idx}`}>
+                  <td>{row.series}</td>
+                  <td>{row.season}</td>
+                  <td>{row.episode}</td>
+                  <td>{row.title}</td>
+                  <td><span className="table-badge">{row.monitored ? "Yes" : "No"}</span></td>
+                  <td><span className="table-badge">{row.hasFile ? "Yes" : "No"}</span></td>
+                  <td>{row.airDate || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <div className="pagination">
             <div>
-              Page {safePage + 1} of {totalPages} ({totalItems.toLocaleString()} items · page size {pageSize})
+              Page {safePage + 1} of {totalPages} ({episodeRows.length.toLocaleString()} items · page size {pageSize})
             </div>
             <div className="inline">
               <button
@@ -1142,7 +1236,7 @@ function SonarrInstanceView({
               </button>
             </div>
           </div>
-        </>
+        </div>
       ) : (
         <div className="hint">No series found.</div>
       )}
