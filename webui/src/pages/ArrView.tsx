@@ -1835,31 +1835,66 @@ function SonarrAggregateView({
   groupSonarr,
   summary,
 }: SonarrAggregateViewProps): JSX.Element {
-  const groupedTableData = useMemo(() => {
-    const map = new Map<string, Map<string, SonarrAggRow[]>>();
+  // Create fully grouped data from all rows
+  const allGroupedData = useMemo(() => {
+    const instanceMap = new Map<string, Map<string, Map<string, SonarrAggRow[]>>>();
+
     rows.forEach(row => {
-      const seriesKey = `${row.__instance}-${row.series}`;
-      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
-      const seasons = map.get(seriesKey)!;
-      const seasonKey = String(row.season);
-      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
-      seasons.get(seasonKey)!.push(row);
+      const instance = row.__instance;
+      const series = row.series;
+      const season = String(row.season);
+
+      if (!instanceMap.has(instance)) {
+        instanceMap.set(instance, new Map());
+      }
+      const instanceSeriesMap = instanceMap.get(instance)!;
+
+      if (!instanceSeriesMap.has(series)) {
+        instanceSeriesMap.set(series, new Map());
+      }
+      const seasonMap = instanceSeriesMap.get(series)!;
+
+      if (!seasonMap.has(season)) {
+        seasonMap.set(season, []);
+      }
+      seasonMap.get(season)!.push(row);
     });
-    return Array.from(map.entries()).map(([seriesKey, seasons]) => {
-      const [instance, series] = seriesKey.split('-', 2);
-      return {
-        series,
-        instance,
-        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
-          seasonNumber,
-          isSeason: true,
-          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
-        }))
-      };
+
+    const result: Array<{
+      instance: string;
+      series: string;
+      subRows: Array<{
+        seasonNumber: string;
+        isSeason: boolean;
+        subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
+      }>;
+    }> = [];
+
+    instanceMap.forEach((seriesMap, instance) => {
+      seriesMap.forEach((seasonMap, series) => {
+        result.push({
+          instance,
+          series,
+          subRows: Array.from(seasonMap.entries()).map(([seasonNumber, episodes]) => ({
+            seasonNumber,
+            isSeason: true,
+            subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+          }))
+        });
+      });
     });
+
+    return result;
   }, [rows]);
 
-  const tableData = groupSonarr ? groupedTableData : rows;
+  // For grouped view, paginate the series groups (not individual episodes)
+  // For flat view, use the already-paginated rows
+  const groupedPageRows = useMemo(() => {
+    const pageSize = 50;
+    return allGroupedData.slice(page * pageSize, (page + 1) * pageSize);
+  }, [allGroupedData, page]);
+
+  const tableData = groupSonarr ? groupedPageRows : rows;
 
    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groupedColumns = useMemo<ColumnDef<any>[]>(() => [
@@ -1973,10 +2008,15 @@ function SonarrAggregateView({
 
   const table = groupSonarr ? groupedTable : flatTable;
 
-  const effectiveTotalPages = Math.ceil(total / 50);
-  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
-  const totalItemsDisplay = total.toLocaleString();
   const pageSize = 50;
+  // For grouped view, paginate by series groups; for flat view, paginate by rows
+  const effectiveTotalPages = groupSonarr
+    ? Math.ceil(allGroupedData.length / pageSize)
+    : Math.ceil(total / pageSize);
+  const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
+  const totalItemsDisplay = groupSonarr
+    ? `${allGroupedData.length} series`
+    : total.toLocaleString();
 
   return (
     <div className="stack animate-fade-in">
@@ -2003,54 +2043,54 @@ function SonarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Sonarr library…
         </div>
-      ) : groupSonarr ? (
-        <div className="sonarr-hierarchical-view">
-          {groupedTableData.map((series, seriesIndex) => (
-            <details key={`${series.series}-${series.instance}-${seriesIndex}`} className="series-details">
-              <summary className="series-summary">
-                <span className="series-title">{series.series}</span>
-                <span className="series-instance">({series.instance})</span>
-              </summary>
-              <div className="series-content">
-                {series.subRows.map((season, seasonIndex) => (
-                  <details key={`${series.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
-                    <summary className="season-summary">
-                      <span className="season-title">Season {season.seasonNumber}</span>
-                      <span className="season-count">({season.subRows.length} episodes)</span>
-                    </summary>
-                    <div className="season-content">
-                      <div className="episodes-table-wrapper">
-                        <table className="episodes-table">
-                          <thead>
-                            <tr>
-                              <th>Episode</th>
-                              <th>Title</th>
-                              <th>Monitored</th>
-                              <th>Has File</th>
-                              <th>Air Date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {season.subRows.map((episode, episodeIndex) => (
-                              <tr key={`${episode.episode}-${episode.title}-${episodeIndex}`}>
-                                <td>{episode.episode}</td>
-                                <td>{episode.title}</td>
-                                <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
-                                <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
-                                <td>{episode.airDate || "—"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      ) : tableData.length ? (
+       ) : groupSonarr ? (
+         <div className="sonarr-hierarchical-view">
+           {groupedTableData.map((seriesGroup, seriesIndex) => (
+             <details key={`${seriesGroup.instance}-${seriesGroup.series}-${seriesIndex}`} className="series-details">
+               <summary className="series-summary">
+                 <span className="series-title">{seriesGroup.series}</span>
+                 <span className="series-instance">({seriesGroup.instance})</span>
+               </summary>
+               <div className="series-content">
+                 {seriesGroup.subRows.map((season, seasonIndex) => (
+                   <details key={`${seriesGroup.instance}-${seriesGroup.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
+                     <summary className="season-summary">
+                       <span className="season-title">Season {season.seasonNumber}</span>
+                       <span className="season-count">({season.subRows.length} episodes)</span>
+                     </summary>
+                     <div className="season-content">
+                       <div className="episodes-table-wrapper">
+                         <table className="episodes-table">
+                           <thead>
+                             <tr>
+                               <th>Episode</th>
+                               <th>Title</th>
+                               <th>Monitored</th>
+                               <th>Has File</th>
+                               <th>Air Date</th>
+                             </tr>
+                           </thead>
+                           <tbody>
+                             {season.subRows.map((episode, episodeIndex) => (
+                               <tr key={`${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}-${episodeIndex}`}>
+                                 <td>{episode.episode}</td>
+                                 <td>{episode.title}</td>
+                                 <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
+                                 <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                                 <td>{episode.airDate || "—"}</td>
+                               </tr>
+                             ))}
+                           </tbody>
+                         </table>
+                       </div>
+                     </div>
+                   </details>
+                 ))}
+               </div>
+             </details>
+           ))}
+         </div>
+       ) : tableData.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
