@@ -162,6 +162,7 @@ function AppShell(): JSX.Element {
   const backendReadyRef = useRef(false);
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {
@@ -197,6 +198,21 @@ function AppShell(): JSX.Element {
       void refreshMeta();
     }, 5 * 60 * 1000);
     return () => window.clearInterval(id);
+  }, [refreshMeta]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Force reload all data by incrementing the reload key
+        setReloadKey((prev) => prev + 1);
+        void refreshMeta({ force: true });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [refreshMeta]);
 
   useEffect(() => {
@@ -447,11 +463,11 @@ function AppShell(): JSX.Element {
           ))}
         </nav>
         <Suspense fallback={<div className="loading">Loading...</div>}>
-          {activeTab === "processes" && <ProcessesView active />}
-          {activeTab === "logs" && <LogsView active />}
-          {activeTab === "radarr" && <ArrView type="radarr" active />}
-          {activeTab === "sonarr" && <ArrView type="sonarr" active />}
-          {activeTab === "config" && <ConfigView onDirtyChange={setConfigDirty} />}
+          {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
+          {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
+          {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
+          {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+          {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
         </Suspense>
       </main>
       {showChangelog && meta ? (

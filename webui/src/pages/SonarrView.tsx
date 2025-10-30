@@ -34,7 +34,6 @@ import { useSearch } from "../context/SearchContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import RestartIcon from "../icons/refresh-arrow.svg";
 import FilterIcon from "../icons/alert.svg";
 
 interface SonarrViewProps {
@@ -860,7 +859,7 @@ function SonarrAggregateView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {allGroupedData.map((seriesGroup: typeof allGroupedData[number], seriesIndex: number) => (
+          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number], seriesIndex: number) => (
             <details key={`${seriesGroup.instance}-${seriesGroup.series}-${seriesIndex}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
@@ -950,7 +949,7 @@ function SonarrAggregateView({
       ) : (
         <div className="hint">No series found.</div>
       )}
-      {!groupSonarr && (
+      {tableData.length > 0 && (
         <div className="pagination">
           <div>
             Page {safePage + 1} of {effectiveTotalPages} ({totalItemsDisplay} items ·
