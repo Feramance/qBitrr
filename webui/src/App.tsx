@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
-import { ProcessesView } from "./pages/ProcessesView";
-import { LogsView } from "./pages/LogsView";
-import { ArrView } from "./pages/ArrView";
-import { ConfigView } from "./pages/ConfigView";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Suspense } from "react";
+const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
+const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
+const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
+const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
@@ -446,11 +446,13 @@ function AppShell(): JSX.Element {
             </button>
           ))}
         </nav>
-        {activeTab === "processes" && <ProcessesView active />}
-        {activeTab === "logs" && <LogsView active />}
-        {activeTab === "radarr" && <ArrView type="radarr" active />}
-        {activeTab === "sonarr" && <ArrView type="sonarr" active />}
-        {activeTab === "config" && <ConfigView onDirtyChange={setConfigDirty} />}
+        <Suspense fallback={<div className="loading">Loading...</div>}>
+          {activeTab === "processes" && <ProcessesView active />}
+          {activeTab === "logs" && <LogsView active />}
+          {activeTab === "radarr" && <ArrView type="radarr" active />}
+          {activeTab === "sonarr" && <ArrView type="sonarr" active />}
+          {activeTab === "config" && <ConfigView onDirtyChange={setConfigDirty} />}
+        </Suspense>
       </main>
       {showChangelog && meta ? (
         <ChangelogModal
