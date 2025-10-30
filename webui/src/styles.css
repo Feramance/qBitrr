@@ -460,13 +460,54 @@ pre {
 }
 
 /* Override Mantine component icon sizes */
-[data-mantine-color-scheme] .mantine-Select-chevron,
-[data-mantine-color-scheme] .mantine-Select-rightSection svg,
-[data-mantine-color-scheme] .mantine-TextInput-rightSection svg,
-[data-mantine-color-scheme] .mantine-PasswordInput-rightSection svg,
-[data-mantine-color-scheme] .mantine-NumberInput-rightSection svg {
+.mantine-Select-chevron,
+.mantine-Select-rightSection svg,
+.mantine-TextInput-rightSection svg,
+.mantine-PasswordInput-rightSection svg,
+.mantine-NumberInput-control svg {
     width: 1.4em !important;
     height: 1.4em !important;
+}
+.mantine-NumberInput-control {
+    width: 1.4em !important;
+    height: 1.4em !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Mantine dark theme overrides */
+.mantine-TextInput-input,
+.mantine-NumberInput-input,
+.mantine-Select-input,
+.mantine-PasswordInput-input {
+    background: var(--surface) !important;
+    color: var(--on-surface) !important;
+    border-color: var(--border) !important;
+}
+.mantine-TextInput-input:focus,
+.mantine-NumberInput-input:focus,
+.mantine-Select-input:focus,
+.mantine-PasswordInput-input:focus {
+    border-color: var(--primary) !important;
+}
+.mantine-Select-dropdown {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+.mantine-Select-item {
+    color: var(--on-surface) !important;
+}
+.mantine-Select-item:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+.mantine-Checkbox-input {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+.mantine-Checkbox-input:checked {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
 }
 
 /* General SVG size constraints to prevent oversized icons */

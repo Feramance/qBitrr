@@ -32,6 +32,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     return context;
   }, []);
 
+
+
   const loadList = useCallback(async () => {
     setLoadingList(true);
     try {
@@ -144,7 +146,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         </div>
         <div ref={logRef} style={{ height: '400px', overflow: 'auto' }}>
           {content ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: '#282c34', color: '#abb2bf', padding: '10px', borderRadius: '4px' }}>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }}>
               {content}
             </pre>
           ) : (
