@@ -18,6 +18,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getPaginationRowModel,
+  getExpandedRowModel,
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
@@ -807,34 +808,32 @@ function RadarrAggregateView({
         <>
            <div className="table-wrapper">
              <table className="responsive-table">
-               <thead>
-                 {table.getHeaderGroups().map((headerGroup) => (
-                   <tr key={headerGroup.id}>
-                     {headerGroup.headers.map((header) => (
-                       <th
-                         key={header.id}
-                         className={header.column.getCanSort() ? "sortable" : ""}
-                         onClick={header.column.getToggleSortingHandler()}
-                       >
-                         {header.isPlaceholder
-                           ? null
-                           : flexRender(
-                               header.column.columnDef.header,
-                               header.getContext()
-                             )}
-                         {header.column.getCanSort() && (
-                           <span className="sort-arrow">
-                             {{
-                               asc: "▲",
-                               desc: "▼",
-                             }[header.column.getIsSorted() as string] ?? null}
-                           </span>
-                         )}
-                       </th>
-                     ))}
-                   </tr>
-                 ))}
-               </thead>
+                <thead>
+                  <tr>
+                    {table.getFlatHeaders().map((header) => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? "sortable" : ""}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                        {header.column.getCanSort() && (
+                          <span className="sort-arrow">
+                            {{
+                              asc: "▲",
+                              desc: "▼",
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </span>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                <tbody>
                  {table.getRowModel().rows.map((row) => (
                    <tr key={row.id}>
@@ -968,6 +967,41 @@ function RadarrInstanceView({
     [sortedMovies, safePage, pageSize]
   );
 
+  const tableData = useMemo(() => pageRows.map(movie => ({ ...movie })), [pageRows]);
+
+  const columns = useMemo<ColumnDef<RadarrMovie>[]>(() => [
+    {
+      accessorKey: "title",
+      header: "Title",
+    },
+    {
+      accessorKey: "year",
+      header: "Year",
+    },
+    {
+      accessorKey: "monitored",
+      header: "Monitored",
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
+    },
+    {
+      accessorKey: "hasFile",
+      header: "Has File",
+      cell: ({ getValue }) => (
+        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+      ),
+    },
+  ], []);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   const handleSort = (key: RadarrSortKey) => {
     setSort((prev) =>
       prev.key === key
@@ -988,12 +1022,10 @@ function RadarrInstanceView({
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="inline hint">
-          <span className="badge">
-            Available: {counts?.available ?? 0} / Monitored:{" "}
-            {counts?.monitored ?? 0}
-          </span>
+        <div className="hint">
           {refreshLabel ? <span>{refreshLabel}</span> : null}
+          <br />
+          <strong>Available:</strong> {counts?.available ?? 0} • <strong>Monitored:</strong> {counts?.monitored ?? 0} • <strong>Missing:</strong> {(counts?.monitored ?? 0) - (counts?.available ?? 0)}
         </div>
         <button className="btn ghost" onClick={onRestart}>
           <IconImage src={RestartIcon} />
@@ -1681,17 +1713,78 @@ function SonarrAggregateView({
   onSort,
   summary,
 }: SonarrAggregateViewProps): JSX.Element {
-  const renderIndicator = (key: SonarrAggSortKey) =>
-    sort.key === key ? (
-      <span className="sort-arrow">{sort.direction === "asc" ? "▲" : "▼"}</span>
-    ) : null;
+  // Group rows by series and season
+  const tableData = useMemo(() => {
+    const map = new Map<string, Map<string, SonarrAggRow[]>>();
+    rows.forEach(row => {
+      const seriesKey = `${row.__instance}-${row.series}`;
+      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
+      const seasons = map.get(seriesKey)!;
+      const seasonKey = String(row.season);
+      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
+      seasons.get(seasonKey)!.push(row);
+    });
+    return Array.from(map.entries()).map(([seriesKey, seasons]) => {
+      const [instance, series] = seriesKey.split('-', 2);
+      return {
+        series,
+        instance,
+        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
+          seasonNumber,
+          isSeason: true,
+          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+        }))
+      };
+    });
+  }, [rows]);
 
-  const renderHeader = (key: SonarrAggSortKey, label: string) => (
-    <th className="sortable" onClick={() => onSort(key)}>
-      {label}
-      {renderIndicator(key)}
-    </th>
-  );
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) return row.original.title;
+        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+        return row.original.series;
+      }
+    },
+    {
+      accessorKey: "monitored",
+      header: "Monitored",
+      cell: ({ row }) => {
+        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+      }
+    },
+    {
+      accessorKey: "hasFile",
+      header: "Has File",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+        }
+        return null;
+      }
+    },
+    {
+      accessorKey: "airDate",
+      header: "Air Date",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return row.original.airDate || "—";
+        }
+        return null;
+      }
+    },
+  ], []);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+  });
 
   return (
     <div className="stack animate-fade-in">
@@ -1724,31 +1817,29 @@ function SonarrAggregateView({
             <table className="responsive-table">
               <thead>
                 <tr>
-                  {renderHeader("__instance", "Instance")}
-                  {renderHeader("series", "Series")}
-                  {renderHeader("season", "Season")}
-                  {renderHeader("episode", "Episode")}
-                  {renderHeader("title", "Title")}
-                  {renderHeader("monitored", "Monitored")}
-                  {renderHeader("hasFile", "Has File")}
-                  {renderHeader("airDate", "Air Date")}
+                  <th></th>
+                  {table.getFlatHeaders().map(header => (
+                    <th key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, idx) => (
-                  <tr key={`${row.__instance}-${idx}`}>
-                    <td data-label="Instance">{row.__instance}</td>
-                    <td data-label="Series">{row.series}</td>
-                    <td data-label="Season">{row.season}</td>
-                    <td data-label="Episode">{row.episode}</td>
-                    <td data-label="Title">{row.title}</td>
-                    <td data-label="Monitored">
-                      <span className="table-badge">{row.monitored ? "Yes" : "No"}</span>
+                {table.getRowModel().rows.map(row => (
+                  <tr key={row.id}>
+                    <td>
+                      {row.getCanExpand() && (
+                        <button onClick={row.getToggleExpandedHandler()}>
+                          {row.getIsExpanded() ? '▼' : '▶'}
+                        </button>
+                      )}
                     </td>
-                    <td data-label="Has File">
-                      <span className="table-badge">{row.hasFile ? "Yes" : "No"}</span>
-                    </td>
-                    <td data-label="Air Date">{row.airDate || "—"}</td>
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
@@ -1756,25 +1847,23 @@ function SonarrAggregateView({
           </div>
           <div className="pagination">
             <div>
-          Page {page + 1} of {totalPages} ({total} items)
-        </div>
-        <div className="inline">
-          <button
-            className="btn"
-            onClick={() => onPageChange(Math.max(0, page - 1))}
-            disabled={page === 0}
-          >
-            Prev
-          </button>
-          <button
-            className="btn"
-            onClick={() =>
-              onPageChange(Math.min(totalPages - 1, page + 1))
-            }
-            disabled={page >= totalPages - 1}
-          >
-            Next
-          </button>
+              Page {page + 1} of {totalPages} ({total} items)
+            </div>
+            <div className="inline">
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.max(0, page - 1))}
+                disabled={page === 0}
+              >
+                Prev
+              </button>
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+                disabled={page >= totalPages - 1}
+              >
+                Next
+              </button>
             </div>
           </div>
         </>
@@ -1832,6 +1921,61 @@ function SonarrInstanceView({
     return filteredSeries.slice(start, start + pageSize);
   }, [filteredSeries, safePage, pageSize]);
 
+  const tableData = useMemo(() => pageRows.flatMap(series => [
+    series,
+    ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
+      { seasonNumber, ...season, isSeason: true },
+      ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
+    ])
+  ]), [pageRows]);
+
+  const columns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) return `  ${row.original.title}`;
+        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+        return row.original.series?.title || "Unknown";
+      }
+    },
+    {
+      accessorKey: "monitored",
+      header: "Monitored",
+      cell: ({ row }) => {
+        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+      }
+    },
+    {
+      accessorKey: "hasFile",
+      header: "Has File",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+        }
+        return null;
+      }
+    },
+    {
+      accessorKey: "airDate",
+      header: "Air Date",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return row.original.airDate || "—";
+        }
+        return null;
+      }
+    },
+  ], []);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
   useEffect(() => {
     if (safePage !== page) {
       onPageChange(safePage);
@@ -1841,21 +1985,10 @@ function SonarrInstanceView({
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
-        <div className="inline hint">
-          <span className="badge">
-            {onlyMissing ? (
-              <>
-                Missing: {missingCount} / Monitored:{" "}
-                {counts?.monitored ?? 0}
-              </>
-            ) : (
-              <>
-                Available: {counts?.available ?? 0} / Monitored:{" "}
-                {counts?.monitored ?? 0}
-              </>
-            )}
-          </span>
+        <div className="hint">
           {refreshLabel ? <span>{refreshLabel}</span> : null}
+          <br />
+          <strong>Available:</strong> {counts?.available ?? 0} • <strong>Monitored:</strong> {counts?.monitored ?? 0} • <strong>Missing:</strong> {missingCount}
         </div>
         <button className="btn ghost" onClick={onRestart}>
           <IconImage src={RestartIcon} />
@@ -1867,79 +2000,31 @@ function SonarrInstanceView({
           <div className="loading">
             <span className="spinner" /> Loading Sonarr library…
           </div>
-        ) : pageRows.length ? (
-          pageRows.map((entry, idx) => {
-            const title =
-              (entry.series?.["title"] as string | undefined) ||
-              `Series ${idx + 1}`;
-            return (
-              <details key={idx}>
-                <summary>
-                  {title}{" "}
-                  <span className="hint">
-                    {onlyMissing ? (
-                      <>
-                        (Missing{" "}
-                        {entry.totals?.missing ??
-                          Math.max(
-                            (entry.totals?.monitored ?? 0) -
-                              (entry.totals?.available ?? 0),
-                            0
-                          )}{" "}
-                        / Monitored {entry.totals?.monitored ?? 0})
-                      </>
-                    ) : (
-                      <>
-                        (Monitored {entry.totals?.monitored ?? 0} / Available{" "}
-                        {entry.totals?.available ?? 0})
-                      </>
-                    )}
-                  </span>
-                </summary>
-                {Object.entries(entry.seasons ?? {}).map(
-                  ([seasonNumber, season]) => (
-                    <details key={seasonNumber}>
-                      <summary>
-                        Season {seasonNumber}{" "}
-                        <span className="hint">
-                          (Monitored {season.monitored} / Available{" "}
-                          {season.available})
-                        </span>
-                      </summary>
-                      <div className="table-wrapper">
-                        <table className="responsive-table">
-                          <thead>
-                            <tr>
-                              <th>Episode</th>
-                              <th>Title</th>
-                              <th>Monitored</th>
-                              <th>Has File</th>
-                              <th>Air Date</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(season.episodes ?? []).map((ep, epIdx) => (
-                              <tr key={ep.id ?? epIdx}>
-                                <td data-label="Episode">{ep.episodeNumber ?? ""}</td>
-                                <td data-label="Title">{ep.title ?? ""}</td>
-                                <td data-label="Monitored">
-                                  <span className="table-badge">{ep.monitored ? "Yes" : "No"}</span>
-                                </td>
-                                <td data-label="Has File">
-                                  <span className="table-badge">{ep.hasFile ? "Yes" : "No"}</span>
-                                </td>
-                                <td data-label="Air Date">{ep.airDateUtc ?? ""}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </details>
-                  )
-                )}
-              </details>
-            );
-          })
+        ) : tableData.length ? (
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  {table.getFlatHeaders().map(header => (
+                    <th key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map(row => (
+                  <tr key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="hint">No series found.</div>
         )}
