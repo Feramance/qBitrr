@@ -13,6 +13,14 @@ import {
   getSonarrSeries,
   restartArr,
 } from "../api/client";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  flexRender,
+  type ColumnDef,
+} from "@tanstack/react-table";
 import type {
   ArrInfo,
   RadarrMovie,
@@ -134,16 +142,18 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
-  const [aggSort, setAggSort] = useState<{
-    key: RadarrAggSortKey;
-    direction: "asc" | "desc";
-  }>({ key: "__instance", direction: "asc" });
-  const [onlyMissing, setOnlyMissing] = useState(false);
+   const [aggSort, setAggSort] = useState<{
+     key: RadarrAggSortKey;
+     direction: "asc" | "desc";
+   }>({ key: "__instance", direction: "asc" });
+   const [onlyMissing, setOnlyMissing] = useState(false);
+   const [liveAgg, setLiveAgg] = useState(false);
   const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
+    missing: number;
     total: number;
-  }>({ available: 0, monitored: 0, total: 0 });
+  }>({ available: 0, monitored: 0, missing: 0, total: 0 });
 
   const loadInstances = useCallback(async () => {
     try {
@@ -160,7 +170,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
         setSelection("aggregate");
         setInstanceData(null);
         setAggRows([]);
-        setAggSummary({ available: 0, monitored: 0, total: 0 });
+      setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
         return;
       }
       if (selection === "") {
@@ -300,7 +310,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
   const loadAggregate = useCallback(async () => {
     if (!instances.length) {
       setAggRows([]);
-      setAggSummary({ available: 0, monitored: 0, total: 0 });
+      setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
     setAggLoading(true);
@@ -339,6 +349,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       setAggSummary({
         available: totalAvailable,
         monitored: totalMonitored,
+        missing: aggregated.length - totalAvailable,
         total: aggregated.length,
       });
       setAggPage(0);
@@ -346,7 +357,7 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
       setAggUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       setAggRows([]);
-      setAggSummary({ available: 0, monitored: 0, total: 0 });
+      setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       push(
         error instanceof Error
           ? error.message
@@ -381,21 +392,27 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     if (!active) return;
     if (selection !== "aggregate") return;
     void loadAggregate();
-  }, [active, selection, loadAggregate]);
+   }, [active, selection, loadAggregate]);
 
-  useEffect(() => {
-    if (!active) return;
-    const handler = (term: string) => {
-      if (selection === "aggregate") {
-        setAggFilter(term);
-        setAggPage(0);
-      } else if (selection) {
-        setInstancePage(0);
-        void fetchInstance(selection, 0, term, {
-          preloadAll: true,
-          showLoading: true,
-        });
-      }
+   useInterval(() => {
+     if (selection === "aggregate" && liveAgg) {
+       void loadAggregate();
+     }
+   }, selection === "aggregate" && liveAgg ? 10000 : null);
+
+   useEffect(() => {
+     if (!active) return;
+     const handler = (term: string) => {
+       if (selection === "aggregate") {
+         setAggFilter(term);
+         setAggPage(0);
+       } else if (selection) {
+         setInstancePage(0);
+         void fetchInstance(selection, 0, term, {
+           preloadAll: true,
+           showLoading: true,
+         });
+       }
     };
     register(handler);
     return () => {
@@ -672,7 +689,7 @@ interface RadarrAggregateViewProps {
   lastUpdated: string | null;
   sort: { key: RadarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: RadarrAggSortKey) => void;
-  summary: { available: number; monitored: number; total: number };
+  summary: { available: number; monitored: number; missing: number; total: number };
 }
 
 function RadarrAggregateView({
@@ -688,17 +705,62 @@ function RadarrAggregateView({
   onSort,
   summary,
 }: RadarrAggregateViewProps): JSX.Element {
-  const renderIndicator = (key: RadarrAggSortKey) =>
-    sort.key === key ? (
-      <span className="sort-arrow">{sort.direction === "asc" ? "▲" : "▼"}</span>
-    ) : null;
-
-  const renderHeader = (key: RadarrAggSortKey, label: string) => (
-    <th className="sortable" onClick={() => onSort(key)}>
-      {label}
-      {renderIndicator(key)}
-    </th>
+  const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
+    () => [
+      {
+        accessorKey: "__instance",
+        header: "Instance",
+      },
+      {
+        accessorKey: "title",
+        header: "Title",
+      },
+      {
+        accessorKey: "year",
+        header: "Year",
+      },
+      {
+        accessorKey: "monitored",
+        header: "Monitored",
+        cell: ({ getValue }) => (
+          <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+        ),
+      },
+      {
+        accessorKey: "hasFile",
+        header: "Has File",
+        cell: ({ getValue }) => (
+          <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
+        ),
+      },
+    ],
+    []
   );
+
+  const table = useReactTable({
+    data: rows,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    state: {
+      sorting: [{ id: sort.key, desc: sort.direction === "desc" }],
+      pagination: {
+        pageIndex: page,
+        pageSize: 50,
+      },
+    },
+    onSortingChange: (updater) => {
+      const newSorting = typeof updater === "function" ? updater(table.getState().sorting) : updater;
+      if (newSorting.length > 0) {
+        const { id } = newSorting[0];
+        onSort(id as RadarrAggSortKey);
+      }
+    },
+    manualSorting: true,
+    manualPagination: true,
+    pageCount: totalPages,
+  });
 
   return (
     <div className="stack animate-fade-in">
@@ -707,18 +769,18 @@ function RadarrAggregateView({
           Aggregated movies across all instances{" "}
           {lastUpdated ? `(updated ${lastUpdated})` : ""}
           <br />
-          <strong>Available:</strong>{" "}
-          {summary.available.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}{" "}
-          • <strong>Monitored:</strong>{" "}
-          {summary.monitored.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}{" "}
-          • <strong>Total:</strong>{" "}
-          {summary.total.toLocaleString(undefined, {
-            maximumFractionDigits: 0,
-          })}
+           <strong>Available:</strong>{" "}
+           {summary.available.toLocaleString(undefined, {
+             maximumFractionDigits: 0,
+           })}{" "}
+           • <strong>Monitored:</strong>{" "}
+           {summary.monitored.toLocaleString(undefined, {
+             maximumFractionDigits: 0,
+           })}{" "}
+           • <strong>Missing:</strong>{" "}
+           {summary.missing.toLocaleString(undefined, {
+             maximumFractionDigits: 0,
+           })}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -731,58 +793,73 @@ function RadarrAggregateView({
         </div>
       ) : (
         <>
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  {renderHeader("__instance", "Instance")}
-                  {renderHeader("title", "Title")}
-                  {renderHeader("year", "Year")}
-                  {renderHeader("monitored", "Monitored")}
-                  {renderHeader("hasFile", "Has File")}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => (
-                  <tr key={`${row.__instance}-${row.id ?? idx}`}>
-                    <td data-label="Instance">{row.__instance}</td>
-                    <td data-label="Title">{row.title ?? ""}</td>
-                    <td data-label="Year">{row.year ?? ""}</td>
-                    <td data-label="Monitored">
-                      <span className="table-badge">{row.monitored ? "Yes" : "No"}</span>
-                    </td>
-                    <td data-label="Has File">
-                      <span className="table-badge">{row.hasFile ? "Yes" : "No"}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pagination">
-            <div>
-              Page {page + 1} of {totalPages} ({total} items)
-            </div>
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, page - 1))}
-                disabled={page === 0}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() =>
-                  onPageChange(Math.min(totalPages - 1, page + 1))
-                }
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </>
+           <div className="table-wrapper">
+             <table className="responsive-table">
+               <thead>
+                 {table.getHeaderGroups().map((headerGroup) => (
+                   <tr key={headerGroup.id}>
+                     {headerGroup.headers.map((header) => (
+                       <th
+                         key={header.id}
+                         className={header.column.getCanSort() ? "sortable" : ""}
+                         onClick={header.column.getToggleSortingHandler()}
+                       >
+                         {header.isPlaceholder
+                           ? null
+                           : flexRender(
+                               header.column.columnDef.header,
+                               header.getContext()
+                             )}
+                         {header.column.getCanSort() && (
+                           <span className="sort-arrow">
+                             {{
+                               asc: "▲",
+                               desc: "▼",
+                             }[header.column.getIsSorted() as string] ?? null}
+                           </span>
+                         )}
+                       </th>
+                     ))}
+                   </tr>
+                 ))}
+               </thead>
+               <tbody>
+                 {table.getRowModel().rows.map((row) => (
+                   <tr key={row.id}>
+                     {row.getVisibleCells().map((cell) => (
+                       <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                       </td>
+                     ))}
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+           <div className="pagination">
+             <div>
+               Page {page + 1} of {totalPages} ({total} items)
+             </div>
+             <div className="inline">
+               <button
+                 className="btn"
+                 onClick={() => onPageChange(Math.max(0, page - 1))}
+                 disabled={page === 0}
+               >
+                 Prev
+               </button>
+               <button
+                 className="btn"
+                 onClick={() =>
+                   onPageChange(Math.min(totalPages - 1, page + 1))
+                 }
+                 disabled={page >= totalPages - 1}
+               >
+                 Next
+               </button>
+             </div>
+           </div>
+         </>
       )}
     </div>
   );
@@ -1001,9 +1078,10 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [aggSort, setAggSort] = useState<{
     key: SonarrAggSortKey;
     direction: "asc" | "desc";
-  }>({ key: "__instance", direction: "asc" });
-  const [onlyMissing, setOnlyMissing] = useState(false);
-  const [aggSummary, setAggSummary] = useState<{
+   }>({ key: "__instance", direction: "asc" });
+   const [onlyMissing, setOnlyMissing] = useState(false);
+   const [liveAgg, setLiveAgg] = useState(false);
+   const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
     missing: number;
@@ -1280,9 +1358,15 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     if (!active) return;
     if (selection !== "aggregate") return;
     void loadAggregate();
-  }, [active, selection, loadAggregate]);
+   }, [active, selection, loadAggregate]);
 
-  useEffect(() => {
+   useInterval(() => {
+     if (selection === "aggregate" && liveAgg) {
+       void loadAggregate();
+     }
+   }, selection === "aggregate" && liveAgg ? 10000 : null);
+
+   useEffect(() => {
     if (!active) return;
     const handler = (term: string) => {
       if (selection === "aggregate") {
@@ -1467,21 +1551,32 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
               <div className="col field">
                 <label>Search</label>
                 <input
-                  placeholder="Filter series or episodes"
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                />
-              </div>
-              <label className="hint inline" style={{ marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={onlyMissing}
-                  onChange={(event) => setOnlyMissing(event.target.checked)}
-                />
-                <IconImage src={FilterIcon} />
-                <span>Only Missing</span>
-              </label>
-              {!isAggregate && (
+                   placeholder="Filter series or episodes"
+                   value={globalSearch}
+                   onChange={(event) => setGlobalSearch(event.target.value)}
+                 />
+               </div>
+               <label className="hint inline" style={{ marginBottom: 8 }}>
+                 <input
+                   type="checkbox"
+                   checked={onlyMissing}
+                   onChange={(event) => setOnlyMissing(event.target.checked)}
+                 />
+                 <IconImage src={FilterIcon} />
+                 <span>Only Missing</span>
+               </label>
+               {isAggregate && (
+                 <label className="hint inline" style={{ marginBottom: 8 }}>
+                   <input
+                     type="checkbox"
+                     checked={liveAgg}
+                     onChange={(event) => setLiveAgg(event.target.checked)}
+                   />
+                   <IconImage src={LiveIcon} />
+                   <span>Live</span>
+                 </label>
+               )}
+               {!isAggregate && (
                 <label className="hint inline" style={{ marginBottom: 8 }}>
                   <input
                     type="checkbox"

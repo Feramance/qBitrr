@@ -9,6 +9,7 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
+import { Card, Button, Badge, Group, Text } from "@mantine/core";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
@@ -304,112 +305,89 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
             kind ? kind.charAt(0).toUpperCase() + kind.slice(1) : kind;
 
           return (
-            <div className="process-card" key={name}>
-              <div className="process-card__header">
-                <div className="process-card__title">
-                  <div className="process-card__name">{displayName}</div>
-                  <div className="process-card__summary">{summaryLabel}</div>
+            <Card shadow="sm" padding="lg" radius="md" withBorder key={name}>
+              <Group justify="space-between" mb="xs">
+                <div>
+                  <Text fw={500}>{displayName}</Text>
+                  <Text size="sm" c="dimmed">{summaryLabel}</Text>
                   {filteredKinds.length ? (
-                    <div className="process-card__badges">
+                    <Group gap="xs" mt="xs">
                       {filteredKinds.map((kind) => (
-                        <span
-                          className="process-card__badge"
-                          key={`${name}:${kind}:badge`}
-                        >
+                        <Badge key={`${name}:${kind}:badge`} variant="light">
                           {formatKind(kind)}
-                        </span>
+                        </Badge>
                       ))}
-                    </div>
+                    </Group>
                   ) : null}
                 </div>
-                <span
-                  className={statusClass.join(" ")}
-                  title={statusLabel}
-                  aria-label={statusLabel}
-                  role="img"
-                />
-              </div>
-              <div className="process-card__list">
+                <Badge
+                  color={tone === "status-indicator--ok" ? "green" : tone === "status-indicator--bad" ? "red" : "gray"}
+                  variant="filled"
+                >
+                  {statusLabel}
+                </Badge>
+              </Group>
+              <div>
                 {items.map((item) => (
-                  <div className="process-chip" key={`${item.category}:${item.kind}`}>
-                    <div className="process-chip__top">
-                      <span className="process-chip__name">{formatKind(item.kind)}</span>
-                      <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
-                        <span className="status-pill__dot" />
+                  <Group justify="space-between" key={`${item.category}:${item.kind}`} mb="xs">
+                    <Group>
+                      <Text>{formatKind(item.kind)}</Text>
+                      <Badge color={item.alive ? "green" : "red"} variant="dot">
                         {item.alive ? "Running" : "Stopped"}
-                      </span>
-                    </div>
-                    {(() => {
-                      const kindLower = item.kind.toLowerCase();
-                      if (kindLower === "search") {
-                        const summary = item.searchSummary ?? "";
-                        let content: JSX.Element | string;
-                        if (summary) {
-                          content = summary;
-                        } else {
-                          content = "No searches recorded";
+                      </Badge>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      {(() => {
+                        const kindLower = item.kind.toLowerCase();
+                        if (kindLower === "search") {
+                          const summary = item.searchSummary ?? "";
+                          return summary || "No searches recorded";
                         }
-                        return <div className="process-chip__detail">{content}</div>;
-                      }
-                      if (kindLower === "torrent") {
-                        const metricType = item.metricType?.toLowerCase();
-                        const categoryTotal =
-                          typeof item.categoryCount === "number" ? item.categoryCount : null;
-                        const queueTotal =
-                          typeof item.queueCount === "number" ? item.queueCount : null;
+                        if (kindLower === "torrent") {
+                          const metricType = item.metricType?.toLowerCase();
+                          const categoryTotal =
+                            typeof item.categoryCount === "number" ? item.categoryCount : null;
+                          const queueTotal =
+                            typeof item.queueCount === "number" ? item.queueCount : null;
 
-                        if (!metricType) {
-                          const queueLabel = queueTotal !== null ? queueTotal : "?";
-                          const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrents in queue ${queueLabel} / total ${categoryLabel}`}
-                            </div>
-                          );
+                          if (!metricType) {
+                            const queueLabel = queueTotal !== null ? queueTotal : "?";
+                            const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
+                            return `Torrents in queue ${queueLabel} / total ${categoryLabel}`;
+                          }
+
+                          if (metricType === "category" && categoryTotal !== null) {
+                            return `Torrent count ${categoryTotal}`;
+                          }
+
+                          if (metricType === "free-space" && queueTotal !== null) {
+                            return `Torrent count ${queueTotal}`;
+                          }
+
+                          return "Torrent count unavailable";
                         }
-
-                        if (metricType === "category" && categoryTotal !== null) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrent count ${categoryTotal}`}
-                            </div>
-                          );
-                        }
-
-                        if (metricType === "free-space" && queueTotal !== null) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrent count ${queueTotal}`}
-                            </div>
-                          );
-                        }
-
-                        return <div className="process-chip__detail">Torrent count unavailable</div>;
-                      }
-                      return null;
-                    })()}
-                    <div className="process-chip__actions">
-                      <button
-                        className="btn ghost"
-                        onClick={() => handleRestart(item.category, item.kind)}
-                      >
-                        <IconImage src={RestartIcon} />
-                        Restart
-                      </button>
-                    </div>
-                  </div>
+                        return "";
+                      })()}
+                    </Text>
+                    <Button
+                      variant="light"
+                      size="xs"
+                      onClick={() => handleRestart(item.category, item.kind)}
+                    >
+                      Restart
+                    </Button>
+                  </Group>
                 ))}
               </div>
-              <div className="process-card__footer">
-                <button
-                  className="btn ghost"
-                  onClick={() => void handleRestartGroup(items)}
-                >
-                  <IconImage src={RestartIcon} />
-                  Restart All
-                </button>
-              </div>
-            </div>
+              <Button
+                variant="outline"
+                fullWidth
+                mt="md"
+                onClick={() => void handleRestartGroup(items)}
+              >
+                Restart All
+              </Button>
+            </Card>
           );
         });
         return { app, cards };

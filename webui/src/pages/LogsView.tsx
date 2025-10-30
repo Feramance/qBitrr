@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
+import { Select } from "@mantine/core";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
 import LiveIcon from "../icons/live-streaming.svg";
@@ -17,7 +20,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [content, setContent] = useState("");
   const [isLive, setIsLive] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
-  const logRef = useRef<HTMLPreElement | null>(null);
+  const logRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -60,9 +63,12 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       if (!name) return;
       try {
         const text = await getLogTail(name);
+        const wasAtBottom = logRef.current
+          ? logRef.current.scrollTop + logRef.current.clientHeight >= logRef.current.scrollHeight - 50
+          : true;
         setContent(text);
         window.requestAnimationFrame(() => {
-          if (logRef.current) {
+          if (logRef.current && wasAtBottom) {
             logRef.current.scrollTop = logRef.current.scrollHeight;
           }
         });
@@ -92,15 +98,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     active && isLive ? 2000 : null
   );
 
-  const options = useMemo(
-    () =>
-      files.map((file) => (
-        <option key={file} value={file}>
-          {file}
-        </option>
-      )),
-    [files]
-  );
+
 
   return (
     <section className="card">
@@ -108,15 +106,13 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       <div className="card-body stack">
         <div className="row">
           <div className="col field">
-            <label htmlFor="logSelect">Log File</label>
-            <select
-              id="logSelect"
+            <Select
+              label="Log File"
+              data={files}
               value={selected}
-              onChange={(event) => setSelected(event.target.value)}
+              onChange={(value) => setSelected(value || "")}
               disabled={!files.length}
-            >
-              {options}
-            </select>
+            />
           </div>
           <div className="col field">
             <label>&nbsp;</label>
@@ -147,7 +143,15 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <pre ref={logRef}>{content || "Select a log file to view its tail..."}</pre>
+        <div ref={logRef} style={{ height: '400px', overflow: 'auto' }}>
+          {content ? (
+            <SyntaxHighlighter language="log" style={oneDark}>
+              {content}
+            </SyntaxHighlighter>
+          ) : (
+            "Select a log file to view its tail..."
+          )}
+        </div>
       </div>
     </section>
   );
