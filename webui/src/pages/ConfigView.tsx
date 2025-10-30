@@ -259,7 +259,7 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
   },
   { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
   { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
-  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["light", "dark"] },
+  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["Light", "Dark"] },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [

@@ -5,7 +5,8 @@ const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: 
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
-import { getMeta, getStatus, triggerUpdate } from "./api/client";
+import { WebUIProvider } from "./context/WebUIContext";
+import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
 import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
@@ -163,6 +164,30 @@ function AppShell(): JSX.Element {
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Load and apply theme
+  useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const config = await getConfig();
+        const webui = config?.WebUI as Record<string, unknown> | undefined;
+        const theme = webui?.Theme as string | undefined;
+
+        if (theme) {
+          const normalizedTheme = theme.toLowerCase();
+          document.documentElement.setAttribute('data-theme', normalizedTheme);
+        } else {
+          // Default to dark theme
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      } catch (error) {
+        // Silently fail and use default dark theme
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    };
+
+    void loadTheme();
+  }, [reloadKey]); // Reload theme when app reloads
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {
@@ -491,8 +516,10 @@ export default function App(): JSX.Element {
   return (
     <ToastProvider>
       <SearchProvider>
-        <AppShell />
-        <ToastViewport />
+        <WebUIProvider>
+          <AppShell />
+          <ToastViewport />
+        </WebUIProvider>
       </SearchProvider>
     </ToastProvider>
   );

@@ -257,7 +257,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               fontSize: '13px',
               lineHeight: '1.5',
               color: '#e5e5e5',
-              tabSize: 4
+              tabSize: 4,
+              minHeight: '100%'
             }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
             </pre>
           ) : (

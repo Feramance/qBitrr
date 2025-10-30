@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   getArrList,
-  getConfig,
   getRadarrMovies,
   restartArr,
 } from "../api/client";
@@ -28,6 +27,7 @@ import type {
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
+import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -387,6 +387,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
+  const { liveArr, setLiveArr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "aggregate">("aggregate");
@@ -394,7 +395,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [instancePage, setInstancePage] = useState(0);
   const [instanceQuery, setInstanceQuery] = useState("");
   const [instanceLoading, setInstanceLoading] = useState(false);
-  const [liveArr, setLiveArr] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [instancePages, setInstancePages] = useState<Record<number, RadarrMovie[]>>({});
   const [instancePageSize, setInstancePageSize] = useState(RADARR_PAGE_SIZE);
@@ -676,18 +676,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     }
   }, [instances, globalSearch, push]);
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const config = await getConfig();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setLiveArr((config as any).WebUI?.LiveArr ?? true);
-      } catch (error) {
-        console.error("Failed to load config", error);
-      }
-    };
-    void loadConfig();
-  }, []);
+  // LiveArr is now loaded via WebUIContext, no need to load config here
 
   useEffect(() => {
     if (!active) return;

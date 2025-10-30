@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   getArrList,
-  getConfig,
   getSonarrSeries,
   restartArr,
 } from "../api/client";
@@ -31,6 +30,7 @@ import type {
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
+import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -87,6 +87,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
+  const { liveArr, setLiveArr, groupSonarr, setGroupSonarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "aggregate">("aggregate");
@@ -95,7 +96,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [instancePage, setInstancePage] = useState(0);
   const [instanceQuery, setInstanceQuery] = useState("");
   const [instanceLoading, setInstanceLoading] = useState(false);
-  const [liveArr, setLiveArr] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [instancePages, setInstancePages] = useState<
     Record<number, SonarrSeriesEntry[]>
@@ -123,22 +123,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     total: number;
   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
 
-  const [groupSonarr, setGroupSonarr] = useState(false);
-
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const config = await getConfig();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const webUI = (config as any).WebUI ?? {};
-        setGroupSonarr(webUI.GroupSonarr ?? false);
-        setLiveArr(webUI.LiveArr ?? true);
-      } catch (error) {
-        console.error('Failed to load config', error);
-      }
-    };
-    void loadConfig();
-  }, []);
+  // LiveArr and GroupSonarr are now loaded via WebUIContext, no need to load config here
 
   const loadInstances = useCallback(async () => {
     try {
