@@ -72,9 +72,8 @@ function RadarrAggregateView({
   onSort,
   summary,
 }: RadarrAggregateViewProps): JSX.Element {
-  const table = useReactTable({
-    data: rows,
-    columns: [
+  const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
+    () => [
       {
         accessorKey: "__instance",
         header: "Instance",
@@ -104,7 +103,13 @@ function RadarrAggregateView({
           (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
         size: 100,
       },
-    ] as ColumnDef<RadarrAggRow>[],
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: rows,
+    columns,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -161,18 +166,22 @@ function RadarrAggregateView({
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {table.getRowModel().rows.map((row) => {
+                const movie = row.original;
+                const stableKey = `${movie.__instance}-${movie.title}-${movie.year}`;
+                return (
+                  <tr key={stableKey}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -241,9 +250,8 @@ function RadarrInstanceView({
     return movies;
   }, [allMovies, onlyMissing]);
 
-  const table = useReactTable({
-    data: filteredMovies.slice(page * pageSize, page * pageSize + pageSize),
-    columns: [
+  const columns = useMemo<ColumnDef<RadarrMovie>[]>(
+    () => [
       {
         accessorKey: "title",
         header: "Title",
@@ -268,7 +276,13 @@ function RadarrInstanceView({
           (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
         size: 100,
       },
-    ] as ColumnDef<RadarrMovie>[],
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: filteredMovies.slice(page * pageSize, page * pageSize + pageSize),
+    columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
@@ -314,18 +328,22 @@ function RadarrInstanceView({
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {table.getRowModel().rows.map((row) => {
+                const movie = row.original;
+                const stableKey = `${movie.title}-${movie.year}`;
+                return (
+                  <tr key={stableKey}>
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -459,13 +477,20 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           }
         }
         if (instanceKeyRef.current !== key) return;
+
+        // Smart diffing: only update pages that actually changed
         setInstancePages((prev) => {
           const next = { ...prev };
+          let hasChanges = false;
           for (const { page, movies } of results) {
-            next[page] = movies;
+            const existingMovies = prev[page] ?? [];
+            if (JSON.stringify(existingMovies) !== JSON.stringify(movies)) {
+              next[page] = movies;
+              hasChanges = true;
+            }
           }
           instancePagesRef.current = next;
-          return next;
+          return hasChanges ? next : prev;
         });
       } catch (error) {
         push(
@@ -511,7 +536,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         const resolvedPage = response.page ?? page;
         setInstancePage(resolvedPage);
         setInstanceQuery(query);
-        setLastUpdated(new Date().toLocaleTimeString());
         const pageSize = response.page_size ?? RADARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.movies ?? []).length;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
@@ -519,12 +543,21 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         setInstanceTotalPages(totalPages);
         const movies = response.movies ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
-        setInstancePages((prev) => {
-          const base = keyChanged ? {} : prev;
-          const next = { ...base, [resolvedPage]: movies };
-          instancePagesRef.current = next;
-          return next;
-        });
+
+        // Smart diffing: only update if data actually changed
+        const existingMovies = instancePagesRef.current[resolvedPage] ?? [];
+        const moviesChanged = JSON.stringify(existingMovies) !== JSON.stringify(movies);
+
+        if (keyChanged || moviesChanged) {
+          setInstancePages((prev) => {
+            const base = keyChanged ? {} : prev;
+            const next = { ...base, [resolvedPage]: movies };
+            instancePagesRef.current = next;
+            return next;
+          });
+          setLastUpdated(new Date().toLocaleTimeString());
+        }
+
         if (preloadAll) {
           const pagesToFetch: number[] = [];
           for (let i = 0; i < totalPages; i += 1) {
@@ -593,15 +626,41 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           page += 1;
         }
       }
-      setAggRows(aggregated);
-      setAggSummary({
+
+      // Smart diffing: only update if data actually changed
+      setAggRows((prev) => {
+        const prevJson = JSON.stringify(prev);
+        const nextJson = JSON.stringify(aggregated);
+        if (prevJson === nextJson) {
+          return prev;
+        }
+        return aggregated;
+      });
+
+      const newSummary = {
         available: totalAvailable,
         monitored: totalMonitored,
         missing: aggregated.length - totalAvailable,
         total: aggregated.length,
+      };
+
+      setAggSummary((prev) => {
+        if (
+          prev.available === newSummary.available &&
+          prev.monitored === newSummary.monitored &&
+          prev.missing === newSummary.missing &&
+          prev.total === newSummary.total
+        ) {
+          return prev;
+        }
+        return newSummary;
       });
-      setAggPage(0);
-      setAggFilter(globalSearch);
+
+      // Only reset page if filter changed, not on refresh
+      if (aggFilter !== globalSearch) {
+        setAggPage(0);
+        setAggFilter(globalSearch);
+      }
       setAggUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       setAggRows([]);

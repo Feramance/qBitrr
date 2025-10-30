@@ -365,15 +365,41 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           page += 1;
         }
       }
-      setAggRows(aggregated);
-      setAggSummary({
+
+      // Smart diffing: only update if data actually changed
+      setAggRows((prev) => {
+        const prevJson = JSON.stringify(prev);
+        const nextJson = JSON.stringify(aggregated);
+        if (prevJson === nextJson) {
+          return prev;
+        }
+        return aggregated;
+      });
+
+      const newSummary = {
         available: totalAvailable,
         monitored: totalMonitored,
         missing: totalMissing,
         total: aggregated.length,
+      };
+
+      setAggSummary((prev) => {
+        if (
+          prev.available === newSummary.available &&
+          prev.monitored === newSummary.monitored &&
+          prev.missing === newSummary.missing &&
+          prev.total === newSummary.total
+        ) {
+          return prev;
+        }
+        return newSummary;
       });
-      setAggPage(0);
-      setAggFilter(globalSearch);
+
+      // Only reset page if filter changed, not on refresh
+      if (aggFilter !== globalSearch) {
+        setAggPage(0);
+        setAggFilter(globalSearch);
+      }
       setAggUpdated(new Date().toLocaleTimeString());
     } catch (error) {
       setAggRows([]);
@@ -859,15 +885,15 @@ function SonarrAggregateView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number], seriesIndex: number) => (
-            <details key={`${seriesGroup.instance}-${seriesGroup.series}-${seriesIndex}`} className="series-details">
+          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number]) => (
+            <details key={`${seriesGroup.instance}-${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
                 <span className="series-instance">({seriesGroup.instance})</span>
               </summary>
               <div className="series-content">
-                {seriesGroup.subRows.map((season: typeof seriesGroup.subRows[number], seasonIndex: number) => (
-                  <details key={`${seriesGroup.instance}-${seriesGroup.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
+                {seriesGroup.subRows.map((season: typeof seriesGroup.subRows[number]) => (
+                  <details key={`${seriesGroup.instance}-${seriesGroup.series}-${season.seasonNumber}`} className="season-details">
                     <summary className="season-summary">
                       <span className="season-title">Season {season.seasonNumber}</span>
                       <span className="season-count">({season.subRows.length} episodes)</span>
@@ -885,8 +911,8 @@ function SonarrAggregateView({
                             </tr>
                           </thead>
                           <tbody>
-                            {season.subRows.map((episode, episodeIndex) => (
-                              <tr key={`${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}-${episodeIndex}`}>
+                            {season.subRows.map((episode) => (
+                              <tr key={`${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}`}>
                                 <td>{episode.episode}</td>
                                 <td>{episode.title}</td>
                                 <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
@@ -934,15 +960,19 @@ function SonarrAggregateView({
               </tr>
             </thead>
             <tbody>
-              {table.getRowModel().rows.map(row => (
-                <tr key={row.id}>
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} data-label={cell.column.columnDef.header as string}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+              {table.getRowModel().rows.map(row => {
+                const episode = row.original;
+                const stableKey = `${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}`;
+                return (
+                  <tr key={stableKey}>
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1070,14 +1100,14 @@ function SonarrInstanceView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedTableData.map((series, seriesIndex) => (
-            <details key={`${series.series}-${seriesIndex}`} className="series-details">
+          {groupedTableData.map((series) => (
+            <details key={`${series.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{series.series}</span>
               </summary>
               <div className="series-content">
-                {series.subRows.map((season, seasonIndex) => (
-                  <details key={`${series.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
+                {series.subRows.map((season) => (
+                  <details key={`${series.series}-${season.seasonNumber}`} className="season-details">
                     <summary className="season-summary">
                       <span className="season-title">Season {season.seasonNumber}</span>
                       <span className="season-count">({season.subRows.length} episodes)</span>
@@ -1095,8 +1125,8 @@ function SonarrInstanceView({
                             </tr>
                           </thead>
                           <tbody>
-                            {season.subRows.map((episode: typeof season.subRows[number], episodeIndex: number) => (
-                            <tr key={`${episode.episode}-${episode.title}-${episodeIndex}`}>
+                            {season.subRows.map((episode: typeof season.subRows[number]) => (
+                            <tr key={`${episode.series}-${episode.season}-${episode.episode}`}>
                               <td>{episode.episode}</td>
                               <td>{episode.title}</td>
                               <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
