@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.1.1 (30/10/2025)
+- [[patch] Fixed database issues](https://github.com/Feramance/qBitrr/commit/8ca7e3b277e4f7320d10233eb1559ad4d0915eda) - @Feramance
+- [CHange update icon and undid database merging](https://github.com/Feramance/qBitrr/commit/ca5652cebd4eb660cccea6bd7ddee764d6e4bd51) - @Feramance
+- [Database hotfix](https://github.com/Feramance/qBitrr/commit/7a587f05004a3388ae0ecfb3bbaef205cecf8951) - @Feramance
+
+---
+
 ## v5.1.0 (29/10/2025)
 - [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/3c3cb98c13ca6e0aea892f1b1f1e3ac7f373c1ce) - @Feramance
 - [[minor] Combined databases rather than having multiple, fixed mobile UI and added tracker configs to web ui (#187)](https://github.com/Feramance/qBitrr/commit/44c938ac2ef308d80eceec2d5c9adf6adf5f44dd) - @Feramance
@@ -338,10 +345,3 @@
 
 ## v4.10.4 (05/12/2024)
 - [[patch] Quality profile change error handling when defined incorrectly](https://github.com/Feramance/qBitrr/commit/bc2666214800f87d229f90317eb07097e55e403d) - @Feramance
-
----
-
-## v4.10.3 (05/12/2024)
-- [[patch] Minor changes to better handle temp profile config edge cases](https://github.com/Feramance/qBitrr/commit/b4f58311406d797956c3fa8aecc88b7ac18bdd09) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/6a8c6224cd0b68a4c82ec87e773477bd071b601a) - @Feramance
-- [[patch] Hotfix 3](https://github.com/Feramance/qBitrr/commit/fefb8dab5335af88992f0d50c8d7a9ba8b1bb2ea) - @Feramance
