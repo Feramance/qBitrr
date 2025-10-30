@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   getArrList,
-  getConfig,
   getRadarrMovies,
   getSonarrSeries,
   restartArr,
@@ -61,17 +60,11 @@ interface SonarrAggRow {
   airDate: string;
 }
 
+
+
 type RadarrSortKey = "title" | "year" | "monitored" | "hasFile";
 type RadarrAggSortKey = "__instance" | RadarrSortKey;
-type SonarrAggSortKey =
-  | "__instance"
-  | "series"
-  | "season"
-  | "episode"
-  | "title"
-  | "monitored"
-  | "hasFile"
-  | "airDate";
+
 
 const RADARR_PAGE_SIZE = 50;
 const RADARR_AGG_PAGE_SIZE = 50;
@@ -968,47 +961,11 @@ function RadarrInstanceView({
     [sortedMovies, safePage, pageSize]
   );
 
-  const tableData = useMemo(() => pageRows.map(movie => ({ ...movie })), [pageRows]);
 
-  const columns = useMemo<ColumnDef<RadarrMovie>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-    },
-    {
-      accessorKey: "year",
-      header: "Year",
-    },
-    {
-      accessorKey: "monitored",
-      header: "Monitored",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
-    },
-    {
-      accessorKey: "hasFile",
-      header: "Has File",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
-    },
-  ], []);
 
-    // eslint-disable-next-line react-hooks/incompatible-library
-    const table = useReactTable({
-      data: flatData,
-      columns,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      initialState: {
-        sorting: [
-          { id: 'series', desc: false },
-          { id: 'season', desc: false },
-          { id: 'episode', desc: false },
-        ],
-      },
-    });
+
+
+
 
   const handleSort = (key: RadarrSortKey) => {
     setSort((prev) =>
@@ -1127,10 +1084,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
-  const [aggSort, setAggSort] = useState<{
-    key: SonarrAggSortKey;
-    direction: "asc" | "desc";
-   }>({ key: "__instance", direction: "asc" });
+
    const [onlyMissing, setOnlyMissing] = useState(false);
    const [liveAgg, setLiveAgg] = useState(false);
    const [aggSummary, setAggSummary] = useState<{
@@ -1479,45 +1433,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [aggRows, aggFilter]);
 
-  const sortedAggRows = useMemo(() => {
-    const list = [...filteredAggRows];
-    const getValue = (row: SonarrAggRow, key: SonarrAggSortKey) => {
-      switch (key) {
-        case "__instance":
-          return row.__instance.toLowerCase();
-        case "series":
-          return row.series.toLowerCase();
-        case "season":
-          return Number(row.season) || 0;
-        case "episode":
-          return Number(row.episode) || 0;
-        case "title":
-          return row.title.toLowerCase();
-        case "monitored":
-          return row.monitored ? 1 : 0;
-        case "hasFile":
-          return row.hasFile ? 1 : 0;
-        case "airDate":
-          return row.airDate || "";
-        default:
-          return "";
-      }
-    };
-    list.sort((a, b) => {
-      const valueA = getValue(a, aggSort.key);
-      const valueB = getValue(b, aggSort.key);
-      let comparison = 0;
-      if (typeof valueA === "number" && typeof valueB === "number") {
-        comparison = valueA - valueB;
-      } else if (typeof valueA === "string" && typeof valueB === "string") {
-        comparison = valueA.localeCompare(valueB);
-      } else {
-        comparison = String(valueA).localeCompare(String(valueB));
-      }
-      return aggSort.direction === "asc" ? comparison : -comparison;
-    });
-    return list;
-  }, [filteredAggRows, aggSort]);
+  const sortedAggRows = filteredAggRows;
 
   const aggPages = Math.max(
     1,
@@ -1642,29 +1558,17 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             </div>
 
             {isAggregate ? (
-              <SonarrAggregateView
-                loading={aggLoading}
-                rows={aggPageRows}
-                total={sortedAggRows.length}
-                page={aggPage}
-                totalPages={aggPages}
-                onPageChange={setAggPage}
-                onRefresh={() => void loadAggregate()}
-                lastUpdated={aggUpdated}
-                sort={aggSort}
-                onSort={(key) =>
-                  setAggSort((prev) =>
-                    prev.key === key
-                      ? {
-                          key,
-                          direction:
-                            prev.direction === "asc" ? "desc" : "asc",
-                        }
-                      : { key, direction: "asc" }
-                  )
-                }
-                summary={aggSummary}
-              />
+               <SonarrAggregateView
+                 loading={aggLoading}
+                 rows={aggPageRows}
+                 total={sortedAggRows.length}
+                 page={aggPage}
+                 totalPages={aggPages}
+                 onPageChange={setAggPage}
+                 onRefresh={() => void loadAggregate()}
+                 lastUpdated={aggUpdated}
+                 summary={aggSummary}
+               />
             ) : (
               <SonarrInstanceView
                 loading={instanceLoading}
@@ -1703,23 +1607,20 @@ interface SonarrAggregateViewProps {
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   lastUpdated: string | null;
-  sort: { key: SonarrAggSortKey; direction: "asc" | "desc" };
-  onSort: (key: SonarrAggSortKey) => void;
+
   summary: { available: number; monitored: number; missing: number; total: number };
 }
 
 function SonarrAggregateView({
-  loading,
-  rows,
-  total,
-  page,
-  totalPages,
-  onPageChange,
-  onRefresh,
-  lastUpdated,
-  sort,
-  onSort,
-  summary,
+   loading,
+   rows,
+   total,
+   page,
+   totalPages,
+   onPageChange,
+   onRefresh,
+   lastUpdated,
+   summary,
 }: SonarrAggregateViewProps): JSX.Element {
   // Group rows by series and season
   const tableData = useMemo(() => {
@@ -1746,16 +1647,17 @@ function SonarrAggregateView({
     });
   }, [rows]);
 
+   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: "title",
-      header: "Title",
-      cell: ({ row }) => {
-        if (row.original.isEpisode) return row.original.title;
-        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series;
-      }
-    },
+     {
+       accessorKey: "title",
+       header: "Title",
+       cell: ({ row }) => {
+         if (row.original.isEpisode) return row.original.title;
+         if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+         return row.original.series;
+       }
+     },
     {
       accessorKey: "monitored",
       header: "Monitored",
@@ -1937,6 +1839,9 @@ function SonarrInstanceView({
     ])
   ]), [pageRows]);
 
+
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const columns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: "title",

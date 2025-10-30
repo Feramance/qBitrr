@@ -8,6 +8,7 @@ import Select from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
+import VisibilityIcon from "../icons/visibility.svg";
 import AddIcon from "../icons/plus.svg";
 import SaveIcon from "../icons/check-mark.svg";
 import DeleteIcon from "../icons/trash.svg";
@@ -1950,6 +1951,8 @@ function SecureField({
   canRefresh = true,
   onChange,
 }: SecureFieldProps): JSX.Element {
+  const [showValue, setShowValue] = useState(false);
+
   const handleRefresh = () => {
     let newKey = "";
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -1967,11 +1970,14 @@ function SecureField({
       <label title={tooltip}>{label}</label>
       <div className="secure-field__input-group">
         <input
-          type="password"
+          type={showValue ? "text" : "password"}
           value={value}
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
         />
+        <button type="button" className="btn ghost" onClick={() => setShowValue(!showValue)}>
+          <IconImage src={VisibilityIcon} />
+        </button>
         {canRefresh && (
           <button type="button" className="btn ghost" onClick={handleRefresh}>
             <IconImage src={RefreshIcon} />
