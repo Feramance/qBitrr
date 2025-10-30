@@ -6,37 +6,85 @@ import { IconImage } from "../components/IconImage";
 import Select from "react-select";
 
 function ansiToHtml(text: string): string {
-  // Simple ANSI to HTML converter for common colors
-  const colorMap: Record<string, string> = {
-    '30': 'black',
-    '31': 'red',
-    '32': 'green',
-    '33': 'yellow',
-    '34': 'blue',
-    '35': 'magenta',
-    '36': 'cyan',
-    '37': 'white',
-    '90': 'gray',
-    '91': 'red',
-    '92': 'green',
-    '93': 'yellow',
-    '94': 'blue',
-    '95': 'magenta',
-    '96': 'cyan',
-    '97': 'white',
+  // Enhanced ANSI to HTML converter with full TTY support
+  const fgColorMap: Record<string, string> = {
+    '30': '#000000', '31': '#cd3131', '32': '#0dbc79', '33': '#e5e510',
+    '34': '#2472c8', '35': '#bc3fbc', '36': '#11a8cd', '37': '#e5e5e5',
+    '90': '#666666', '91': '#f14c4c', '92': '#23d18b', '93': '#f5f543',
+    '94': '#3b8eea', '95': '#d670d6', '96': '#29b8db', '97': '#ffffff',
   };
 
-  return text
-    // eslint-disable-next-line no-control-regex
-    .replace(/\u001b\[0m/g, '</span>')
-    // eslint-disable-next-line no-control-regex
-    .replace(/\u001b\[(\d+)m/g, (match, code) => {
-      const color = colorMap[code];
-      return color ? `<span style="color:${color}">` : '';
-    })
-    // eslint-disable-next-line no-control-regex
-    .replace(/\u001b\[39m/g, '</span>') // reset to default
-    .replace(/\n/g, '<br>');
+  const bgColorMap: Record<string, string> = {
+    '40': '#000000', '41': '#cd3131', '42': '#0dbc79', '43': '#e5e510',
+    '44': '#2472c8', '45': '#bc3fbc', '46': '#11a8cd', '47': '#e5e5e5',
+    '100': '#666666', '101': '#f14c4c', '102': '#23d18b', '103': '#f5f543',
+    '104': '#3b8eea', '105': '#d670d6', '106': '#29b8db', '107': '#ffffff',
+  };
+
+  let result = text;
+  let styles: string[] = [];
+
+  // Replace ANSI sequences with HTML
+  // eslint-disable-next-line no-control-regex
+  result = result.replace(/\u001b\[([0-9;]+)m/g, (match, codes) => {
+    const codeList = codes.split(';');
+    let html = '';
+
+    for (const code of codeList) {
+      if (code === '0' || code === '') {
+        // Reset all styles
+        html += '</span>'.repeat(styles.length);
+        styles = [];
+      } else if (code === '1') {
+        // Bold
+        styles.push('font-weight:bold');
+        html += `<span style="${styles.join(';')}">`;
+      } else if (code === '3') {
+        // Italic
+        styles.push('font-style:italic');
+        html += `<span style="${styles.join(';')}">`;
+      } else if (code === '4') {
+        // Underline
+        styles.push('text-decoration:underline');
+        html += `<span style="${styles.join(';')}">`;
+      } else if (code === '22') {
+        // Normal intensity
+        styles = styles.filter(s => !s.includes('font-weight'));
+      } else if (code === '23') {
+        // Not italic
+        styles = styles.filter(s => !s.includes('font-style'));
+      } else if (code === '24') {
+        // Not underlined
+        styles = styles.filter(s => !s.includes('text-decoration'));
+      } else if (fgColorMap[code]) {
+        // Foreground color
+        styles = styles.filter(s => !s.startsWith('color:'));
+        styles.push(`color:${fgColorMap[code]}`);
+        html += `<span style="${styles.join(';')}">`;
+      } else if (bgColorMap[code]) {
+        // Background color
+        styles = styles.filter(s => !s.startsWith('background-color:'));
+        styles.push(`background-color:${bgColorMap[code]}`);
+        html += `<span style="${styles.join(';')}">`;
+      } else if (code === '39') {
+        // Default foreground color
+        styles = styles.filter(s => !s.startsWith('color:'));
+      } else if (code === '49') {
+        // Default background color
+        styles = styles.filter(s => !s.startsWith('background-color:'));
+      }
+    }
+
+    return html;
+  });
+
+  // Close any remaining open spans
+  result += '</span>'.repeat(styles.length);
+
+  // Convert newlines to <br> tags
+  result = result.replace(/\n/g, '<br>');
+
+  return result;
 }
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -187,12 +235,23 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <div ref={logRef} style={{ flex: 1, overflow: 'auto' }}>
+        <div ref={logRef} style={{ flex: 1, overflow: 'auto', backgroundColor: '#0a0e14', borderRadius: '4px' }}>
           {content ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
+            <pre style={{
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
+              fontSize: '13px',
+              lineHeight: '1.5',
+              backgroundColor: '#0a0e14',
+              color: '#e5e5e5',
+              padding: '16px',
+              borderRadius: '4px',
+              tabSize: 4
+            }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
             </pre>
           ) : (
-            "Select a log file to view its tail..."
+            <div style={{ padding: '16px', color: '#666' }}>Select a log file to view its tail...</div>
           )}
         </div>
       </div>
