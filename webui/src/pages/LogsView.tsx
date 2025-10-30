@@ -4,6 +4,7 @@ import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import Select from "react-select";
+import AnsiToHtml from "ansi-to-html";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
@@ -21,6 +22,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingList, setLoadingList] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
+  const ansiToHtml = new AnsiToHtml();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
     if (reason instanceof Error && reason.message) {
@@ -102,9 +104,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
 
   return (
-    <section className="card">
+    <section className="card" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <div className="card-header">Logs</div>
-      <div className="card-body stack">
+      <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div className="row">
           <div className="col field">
             <div className="field">
@@ -153,10 +155,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <div ref={logRef} style={{ height: '400px', overflow: 'auto' }}>
+        <div ref={logRef} style={{ flex: 1, overflow: 'auto' }}>
           {content ? (
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }}>
-              {content}
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: 'var(--surface)', color: 'var(--on-surface)', padding: '10px', borderRadius: '4px' }} dangerouslySetInnerHTML={{ __html: ansiToHtml.toHtml(content) }}>
             </pre>
           ) : (
             "Select a log file to view its tail..."

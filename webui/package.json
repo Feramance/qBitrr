@@ -4,6 +4,7 @@
     "@mantine/dates": "^8.3.6",
     "@mantine/hooks": "^8.3.6",
     "@tanstack/react-table": "^8.21.3",
+    "ansi-to-html": "^0.7.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.65.0",
