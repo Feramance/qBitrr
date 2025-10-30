@@ -25,7 +25,11 @@ jobs:
   prepare_release:
     name: Prepare release metadata
     runs-on: ubuntu-latest
-    if: "github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message || '', '[patch]') || startsWith(github.event.head_commit.message || '', '[minor]') || startsWith(github.event.head_commit.message || '', '[major]')\n"
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.head_commit.message || '', '[patch]') ||
+      startsWith(github.event.head_commit.message || '', '[minor]') ||
+      startsWith(github.event.head_commit.message || '', '[major]')
     outputs:
       release_type: ${{ steps.release_type.outputs.value }}
       new_version: ${{ steps.version.outputs.value }}
@@ -238,7 +242,6 @@ jobs:
       with:
         name: automated-build-${{ steps.archive.outputs.NAME }}
         path: ${{ steps.archive.outputs.NAME }}.*
-        retention-days: 7
         if-no-files-found: error
     - name: Upload release assets
       uses: svenstaro/upload-release-action@v2
