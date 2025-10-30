@@ -99,7 +99,6 @@ jobs:
         name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
         if-no-files-found: error
-      retention-days: 5
   docker_image:
     name: Build Docker Images
     runs-on: ubuntu-latest
