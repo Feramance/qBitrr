@@ -181,10 +181,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
 
   return (
-    <section className="card" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div className="card-header">Logs</div>
-      <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div className="row">
+    <section className="card" style={{ height: '100vh', display: 'flex', flexDirection: 'column', margin: 0, padding: 0 }}>
+      <div className="card-header" style={{ flexShrink: 0 }}>Logs</div>
+      <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '12px' }}>
+        <div className="row" style={{ flexShrink: 0, marginBottom: '12px' }}>
           <div className="col field">
             <div className="field">
               <label>Log File</label>
@@ -232,7 +232,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <div ref={logRef} style={{ flex: 1, overflow: 'auto', backgroundColor: '#0a0e14', borderRadius: '4px' }}>
+        <div ref={logRef} style={{ flex: 1, minHeight: 0, overflow: 'auto', backgroundColor: '#0a0e14', borderRadius: '4px' }}>
           {content ? (
             <pre style={{
               margin: 0,
