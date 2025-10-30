@@ -88,9 +88,14 @@ class BaseModel(Model):
         database = _database_proxy
 
 
+_TRACKED_MODELS: set[type[BaseModel]] = set()
+
+
 def get_database(*, _retry: bool = True) -> SqliteDatabase:
     global _DATABASE
+    database_created = False
     if _DATABASE is None:
+        database_created = True
         DATABASE_FILE.parent.mkdir(parents=True, exist_ok=True)
         _DATABASE = LockedSqliteDatabase(
             str(DATABASE_FILE),
@@ -114,11 +119,20 @@ def get_database(*, _retry: bool = True) -> SqliteDatabase:
             raise
         _reset_database(exc)
         return get_database(_retry=False)
+    if database_created and _TRACKED_MODELS:
+        for model in list(_TRACKED_MODELS):
+            try:
+                _ensure_schema_for_model(model, _DATABASE)
+            except Exception as ensure_error:
+                logger.error(
+                    "Failed to ensure schema for '%s' after database reset: %s",
+                    model._meta.table_name,
+                    ensure_error,
+                )
     return _DATABASE
 
 
-def ensure_table_schema(model: type[BaseModel]) -> None:
-    database = get_database()
+def _ensure_schema_for_model(model: type[BaseModel], database: SqliteDatabase) -> None:
     table_name = model._meta.table_name
     with database:
         database.create_tables([model], safe=True)
@@ -217,6 +231,12 @@ def ensure_table_schema(model: type[BaseModel]) -> None:
                 _ensure_unique(column_name)
             elif field.unique:
                 _ensure_unique(column_name)
+    _TRACKED_MODELS.add(model)
+
+
+def ensure_table_schema(model: type[BaseModel]) -> None:
+    database = get_database()
+    _ensure_schema_for_model(model, database)
 
 
 class FilesQueued(BaseModel):
