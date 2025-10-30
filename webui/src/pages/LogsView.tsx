@@ -101,6 +101,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [content, setContent] = useState("");
   const [autoScroll, setAutoScroll] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
 
@@ -142,8 +143,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   }, [describeError, push]);
 
   const loadTail = useCallback(
-    async (name: string, shouldAutoScroll: boolean) => {
+    async (name: string, shouldAutoScroll: boolean, showLoading: boolean = false) => {
       if (!name) return;
+      if (showLoading) setLoadingContent(true);
       try {
         const text = await getLogTail(name);
         setContent(text);
@@ -154,6 +156,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         });
       } catch (error) {
         push(describeError(error, `Failed to read ${name}`), "error");
+      } finally {
+        if (showLoading) setLoadingContent(false);
       }
     },
     [describeError, push]
@@ -165,7 +169,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   useEffect(() => {
     if (selected) {
-      void loadTail(selected, autoScroll);
+      void loadTail(selected, autoScroll, true);
     }
   }, [selected, loadTail, autoScroll]);
 
@@ -232,23 +236,32 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <div ref={logRef} style={{ flex: 1, minHeight: 0, overflow: 'auto', backgroundColor: '#0a0e14', borderRadius: '4px' }}>
-          {content ? (
+        <div ref={logRef} style={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'auto',
+          backgroundColor: '#0a0e14',
+          borderRadius: '4px',
+          padding: '16px'
+        }}>
+          {loadingContent ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
+              <span className="spinner" style={{ marginRight: '8px' }} />
+              Loading logs...
+            </div>
+          ) : content ? (
             <pre style={{
               margin: 0,
               whiteSpace: 'pre-wrap',
               fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
               fontSize: '13px',
               lineHeight: '1.5',
-              backgroundColor: '#0a0e14',
               color: '#e5e5e5',
-              padding: '16px',
-              borderRadius: '4px',
               tabSize: 4
             }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
             </pre>
           ) : (
-            <div style={{ padding: '16px', color: '#666' }}>Select a log file to view its tail...</div>
+            <div style={{ color: '#666' }}>Select a log file to view its tail...</div>
           )}
         </div>
       </div>
