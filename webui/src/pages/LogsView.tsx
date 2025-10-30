@@ -3,7 +3,7 @@ import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import { Select } from "@mantine/core";
+import Select from "react-select";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
@@ -107,13 +107,22 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       <div className="card-body stack">
         <div className="row">
           <div className="col field">
-            <Select
-              label="Log File"
-              data={files}
-              value={selected}
-              onChange={(value) => setSelected(value || "")}
-              disabled={!files.length}
-            />
+            <div className="field">
+              <label>Log File</label>
+              <Select
+                options={files.map(f => ({ value: f, label: f }))}
+                value={selected ? { value: selected, label: selected } : null}
+                onChange={(option) => setSelected(option?.value || "")}
+                isDisabled={!files.length}
+                styles={{
+                  control: (base) => ({ ...base, background: '#0f131a', color: '#eaeef2', borderColor: '#2a2f36' }),
+                  menu: (base) => ({ ...base, background: '#0f131a', borderColor: '#2a2f36' }),
+                  option: (base, state) => ({ ...base, background: state.isFocused ? 'rgba(255,255,255,0.05)' : '#0f131a', color: '#eaeef2' }),
+                  singleValue: (base) => ({ ...base, color: '#eaeef2' }),
+                  input: (base) => ({ ...base, color: '#eaeef2' }),
+                }}
+              />
+            </div>
           </div>
           <div className="col field">
             <label>&nbsp;</label>

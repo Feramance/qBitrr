@@ -4,7 +4,7 @@ import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
-import { TextInput, NumberInput, Checkbox, Select, PasswordInput } from "@mantine/core";
+import Select from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -1726,63 +1726,78 @@ function FieldGroup({
 
     if (field.type === "checkbox") {
       return (
-        <Checkbox
-          key={key}
-          label={field.label}
-          checked={Boolean(formatted)}
-          onChange={(event) => onChange(path, field, event.target.checked)}
-          description={description}
-          title={tooltip}
-        />
+        <div key={key} className="checkbox-field">
+          <label title={tooltip}>
+            <input
+              type="checkbox"
+              checked={Boolean(formatted)}
+              onChange={(event) => onChange(path, field, event.target.checked)}
+            />
+            {field.label}
+          </label>
+          {description && <div className="field-description">{description}</div>}
+        </div>
       );
     }
     if (field.type === "select") {
       return (
-        <Select
-          key={key}
-          label={field.label}
-          data={field.options ?? []}
-          value={String(formatted)}
-          onChange={(value) => onChange(path, field, value || "")}
-          description={description}
-          title={tooltip}
-        />
+        <div key={key} className="field">
+          <label title={tooltip}>{field.label}</label>
+          <Select
+            options={(field.options ?? []).map(o => ({ value: o, label: o }))}
+            value={formatted ? { value: formatted, label: formatted } : null}
+            onChange={(option) => onChange(path, field, option?.value || "")}
+            styles={{
+              control: (base) => ({ ...base, background: '#0f131a', color: '#eaeef2', borderColor: '#2a2f36' }),
+              menu: (base) => ({ ...base, background: '#0f131a', borderColor: '#2a2f36' }),
+              option: (base, state) => ({ ...base, background: state.isFocused ? 'rgba(255,255,255,0.05)' : '#0f131a', color: '#eaeef2' }),
+              singleValue: (base) => ({ ...base, color: '#eaeef2' }),
+              input: (base) => ({ ...base, color: '#eaeef2' }),
+            }}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
       );
     }
     if (field.type === "number") {
       return (
-        <NumberInput
-          key={key}
-          label={field.label}
-          value={Number(formatted) || 0}
-          onChange={(value) => onChange(path, field, String(value))}
-          description={description}
-          title={tooltip}
-        />
+        <div key={key} className="field">
+          <label title={tooltip}>{field.label}</label>
+          <input
+            type="number"
+            value={Number(formatted) || 0}
+            onChange={(event) => onChange(path, field, String(event.target.value))}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
       );
     }
     if (field.type === "password") {
       return (
-        <PasswordInput
-          key={key}
-          label={field.label}
-          value={String(formatted)}
-          onChange={(event) => onChange(path, field, event.target.value)}
-          description={description}
-          title={tooltip}
-        />
+        <div key={key} className="field">
+          <label title={tooltip}>{field.label}</label>
+          <input
+            type="password"
+            value={String(formatted)}
+            onChange={(event) => onChange(path, field, event.target.value)}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
       );
     }
     return (
-      <TextInput
-        key={key}
-        label={field.label}
-        value={String(formatted)}
-        placeholder={field.placeholder}
-        onChange={(event) => onChange(path, field, event.target.value)}
-        description={description}
-        title={tooltip}
-      />
+      <div key={key} className="field">
+        <label title={tooltip}>{field.label}</label>
+        <input
+          type="text"
+          value={String(formatted)}
+          onChange={(event) => onChange(path, field, event.target.value)}
+          placeholder={field.placeholder}
+        />
+        {description && <div className="field-description">{description}</div>}
+      </div>
     );
   });
 
@@ -1925,22 +1940,21 @@ function SecureField({
 
   return (
     <div className="field secure-field">
-      <PasswordInput
-        label={label}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        description={description}
-        title={tooltip}
-        rightSection={
-          canRefresh ? (
-            <button type="button" className="btn ghost" onClick={handleRefresh}>
-              <IconImage src={RefreshIcon} />
-              Refresh
-            </button>
-          ) : null
-        }
-      />
+      <label title={tooltip}>{label}</label>
+      <div className="secure-field__input-group">
+        <input
+          type="password"
+          value={value}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {canRefresh && (
+          <button type="button" className="btn ghost" onClick={handleRefresh}>
+            <IconImage src={RefreshIcon} />
+          </button>
+        )}
+      </div>
+      {description && <div className="field-description">{description}</div>}
     </div>
   );
 }
