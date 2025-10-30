@@ -358,16 +358,16 @@ function RadarrView({ active }: { active: boolean }): JSX.Element {
     } catch (error) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
-      push(
-        error instanceof Error
-          ? error.message
-          : "Failed to load aggregated Radarr data",
-        "error"
-      );
-    } finally {
-      setAggLoading(false);
-    }
-  }, [instances, globalSearch, push, onlyMissing]);
+       push(
+         error instanceof Error
+           ? error.message
+           : "Failed to load aggregated Radarr data",
+         "error"
+       );
+     } finally {
+       setAggLoading(false);
+     }
+   }, [instances, globalSearch, push]);
 
   useEffect(() => {
     if (!active) return;
@@ -748,6 +748,7 @@ function RadarrAggregateView({
     []
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: rows,
     columns,
@@ -1337,16 +1338,16 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     } catch (error) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
-      push(
-        error instanceof Error
-          ? error.message
-          : "Failed to load aggregated Sonarr data",
-        "error"
-      );
-    } finally {
-      setAggLoading(false);
-    }
-  }, [instances, globalSearch, push, onlyMissing]);
+       push(
+         error instanceof Error
+           ? error.message
+           : "Failed to load aggregated Sonarr data",
+         "error"
+       );
+     } finally {
+       setAggLoading(false);
+     }
+   }, [instances, globalSearch, push, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -1363,7 +1364,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
       showLoading: true,
       missingOnly: onlyMissing,
     });
-  }, [active, selection, fetchInstance]);
+  }, [active, selection, fetchInstance, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -1394,7 +1395,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     };
     register(handler);
     return () => clearHandler(handler);
-  }, [active, selection, register, clearHandler, fetchInstance]);
+  }, [active, selection, register, clearHandler, fetchInstance, onlyMissing]);
 
   useInterval(
     () => {

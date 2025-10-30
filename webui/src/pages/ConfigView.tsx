@@ -1151,11 +1151,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [loadConfig]);
 
   const handleFieldChange = useCallback(
-    (path: string[], def: FieldDefinition, raw: string | boolean) => {
+    (path: string[], def: FieldDefinition, raw: unknown) => {
       if (!formState) return;
       const next = cloneConfig(formState) ?? {};
       const parsed =
-        def.parse?.(raw) ??
+        def.parse?.(raw as string | boolean) ??
         (def.type === "number"
           ? Number(raw) || 0
           : def.type === "checkbox"
@@ -1607,7 +1607,7 @@ interface FieldGroupProps {
   fields: FieldDefinition[];
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
 }
@@ -1635,12 +1635,12 @@ function FieldGroup({
           AddTags: [],
         },
       ];
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
     };
     const handleDeleteTracker = (index: number) => {
       const nextTrackers = [...trackers];
       nextTrackers.splice(index, 1);
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
     };
     return (
       <details className="config-section" open={defaultOpen}>
@@ -1808,7 +1808,7 @@ function TrackerCard({
   fields: FieldDefinition[];
   state: ConfigDocument | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onDelete: () => void;
 }): JSX.Element {
   const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
@@ -1948,7 +1948,7 @@ function SecureField({
 interface ArrInstanceModalProps {
   keyName: string;
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
 }
@@ -2034,7 +2034,7 @@ interface SimpleConfigModalProps {
   fields: FieldDefinition[];
   state: ConfigDocument | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
 }
 

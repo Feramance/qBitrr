@@ -26,7 +26,6 @@ export default defineConfig({
         },
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          mantine: ['@mantine/core', '@mantine/hooks', '@mantine/dates'],
           table: ['@tanstack/react-table'],
         },
       },

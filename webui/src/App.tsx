@@ -247,7 +247,7 @@ function AppShell(): JSX.Element {
       }
     }
     prevUpdateResult.current = result;
-  }, [meta?.update_state?.last_result, meta?.update_state?.last_error, push]);
+  }, [meta?.update_state, push]);
 
   useEffect(() => {
     let cancelled = false;
