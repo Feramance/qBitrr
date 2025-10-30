@@ -1,6 +1,5 @@
 name: Create a Release
-
-on:
+true:
   push:
     branches:
     - master
@@ -14,31 +13,19 @@ on:
         - patch
         - minor
         - major
-
 defaults:
   run:
     shell: bash
-
 permissions:
-   contents: write
-
-concurrency:
-   group: release
-   cancel-in-progress: false
-
+  contents: write
 env:
   project-name: qBitrr
   GREN_GITHUB_TOKEN: ${{ secrets.PAT }}
-
 jobs:
   prepare_release:
     name: Prepare release metadata
     runs-on: ubuntu-latest
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.head_commit.message || '', '[patch]') ||
-      startsWith(github.event.head_commit.message || '', '[minor]') ||
-      startsWith(github.event.head_commit.message || '', '[major]')
+    if: "github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message || '', '[patch]') || startsWith(github.event.head_commit.message || '', '[minor]') || startsWith(github.event.head_commit.message || '', '[major]')\n"
     outputs:
       release_type: ${{ steps.release_type.outputs.value }}
       new_version: ${{ steps.version.outputs.value }}
@@ -50,63 +37,27 @@ jobs:
         fetch-depth: 0
         token: ${{ secrets.PAT }}
         ref: master
-
     - name: Determine release type
       id: release_type
       env:
         EVENT_NAME: ${{ github.event_name }}
         COMMIT_MESSAGE: ${{ github.event.head_commit.message || '' }}
         INPUT_RELEASE_TYPE: ${{ github.event.inputs.release_type || '' }}
-      run: |
-        if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-          type="${INPUT_RELEASE_TYPE:-patch}"
-          echo "value=${type}" >> "${GITHUB_OUTPUT}"
-          exit 0
-        fi
-
-        case "${COMMIT_MESSAGE}" in
-          "[patch]"*)
-            type="patch"
-            ;;
-          "[minor]"*)
-            type="minor"
-            ;;
-          "[major]"*)
-            type="major"
-            ;;
-          *)
-            echo "Commit message must begin with [patch], [minor], or [major]." >&2
-            exit 1
-            ;;
-        esac
-
-        echo "value=${type}" >> "${GITHUB_OUTPUT}"
-
-     - name: Set up Python
-       uses: actions/setup-python@v6
-       with:
-         python-version: '3.12'
-         cache: 'pip'
-
-     - name: Install release tooling
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install --upgrade setuptools wheel
-        python -m pip install bump2version build twine
-
+      run: "if [[ \"${EVENT_NAME}\" == \"workflow_dispatch\" ]]; then\n  type=\"${INPUT_RELEASE_TYPE:-patch}\"\n  echo \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n  exit 0\nfi\n\ncase \"${COMMIT_MESSAGE}\" in\n  \"[patch]\"*)\n    type=\"patch\"\n    ;;\n  \"[minor]\"*)\n    type=\"minor\"\n    ;;\n  \"[major]\"*)\n    type=\"major\"\n    ;;\n  *)\n    echo \"Commit message must begin with [patch], [minor], or [major].\" >&2\n    exit 1\n    ;;\nesac\n\necho \"value=${type}\" >> \"${GITHUB_OUTPUT}\"\n"
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+      cache: pip
+    - name: Install release tooling
+      run: "python -m pip install --upgrade pip\npython -m pip install --upgrade setuptools wheel\npython -m pip install bump2version build twine\n"
     - name: Bump project version
       env:
         RELEASE_TYPE: ${{ steps.release_type.outputs.value }}
-      run: |
-        bump2version "${RELEASE_TYPE}"
-
+      run: "bump2version \"${RELEASE_TYPE}\"\n"
     - name: Capture new version
       id: version
-      run: |
-        VERSION=$(python setup.py --version)
-        echo "value=${VERSION}" >> "${GITHUB_OUTPUT}"
-        echo "New version: ${VERSION}"
-
+      run: "VERSION=$(python setup.py --version)\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
     - name: Import GPG key
       id: import_gpg
       uses: crazy-max/ghaction-import-gpg@v6.3.0
@@ -116,7 +67,6 @@ jobs:
         git_user_signingkey: true
         git_commit_gpgsign: true
         git_tag_gpgsign: true
-
     - name: Commit version bump
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
@@ -126,30 +76,13 @@ jobs:
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
-
     - name: Capture release hash
       id: release_hash
-      run: |
-        HASH=$(git rev-parse --short HEAD)
-        echo "value=${HASH}" >> "${GITHUB_OUTPUT}"
-        echo "Release hash: ${HASH}"
-
+      run: "HASH=$(git rev-parse --short HEAD)\necho \"value=${HASH}\" >> \"${GITHUB_OUTPUT}\"\necho \"Release hash: ${HASH}\"\n"
     - name: Update bundled git hash
       env:
         RELEASE_HASH: ${{ steps.release_hash.outputs.value }}
-      run: |
-        python - <<'PY'
-        import os
-        from pathlib import Path
-        import re
-
-        release_hash = os.environ["RELEASE_HASH"]
-        path = Path("qBitrr/bundled_data.py")
-        content = path.read_text()
-        updated = re.sub(r'git_hash = ".*"', f'git_hash = "{release_hash}"', content)
-        path.write_text(updated)
-        PY
-
+      run: "python - <<'PY'\nimport os\nfrom pathlib import Path\nimport re\n\nrelease_hash = os.environ[\"RELEASE_HASH\"]\npath = Path(\"qBitrr/bundled_data.py\")\ncontent = path.read_text()\nupdated = re.sub(r'git_hash = \".*\"', f'git_hash = \"{release_hash}\"', content)\npath.write_text(updated)\nPY\n"
     - name: Commit bundled hash update
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
@@ -158,7 +91,6 @@ jobs:
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
-
   create_release:
     name: Create GitHub release
     runs-on: ubuntu-latest
@@ -171,7 +103,6 @@ jobs:
         fetch-depth: 0
         ref: master
         token: ${{ secrets.PAT }}
-
     - name: Create release
       uses: softprops/action-gh-release@v2
       with:
@@ -180,7 +111,6 @@ jobs:
         name: v${{ needs.prepare_release.outputs.new_version }}
         draft: false
         prerelease: false
-
   docker_images:
     name: Publish Docker images
     runs-on: ubuntu-latest
@@ -194,41 +124,29 @@ jobs:
       uses: ASzc/change-string-case-action@v6
       with:
         string: ${{ github.repository }}
-
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0
         ref: master
-
     - uses: docker/setup-qemu-action@v3
-
     - uses: docker/setup-buildx-action@v3
-
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
-
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.REG_TOKEN }}
-
     - name: Extract Docker metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: |
-          feramance/qbitrr
-          ghcr.io/${{ steps.repo.outputs.lowercase }}
-        tags: |
-          type=raw,value=latest
-          type=raw,value=nightly
-          type=raw,value=v${{ env.VERSION }}
-
+        images: "feramance/qbitrr\nghcr.io/${{ steps.repo.outputs.lowercase }}\n"
+        tags: "type=raw,value=latest\ntype=raw,value=nightly\ntype=raw,value=v${{ env.VERSION }}\n"
     - name: Build and push Docker images
       uses: docker/build-push-action@v6
       with:
@@ -239,7 +157,6 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-
   package_binaries:
     name: Build release binaries
     runs-on: ${{ matrix.os }}
@@ -272,82 +189,50 @@ jobs:
       with:
         ref: master
         fetch-depth: 0
-
-     - name: Set up Python ${{ matrix.python }}
-       uses: actions/setup-python@v6
-       with:
-         python-version: ${{ matrix.python }}
-         architecture: ${{ matrix.arch }}
-         cache: 'pip'
-
+    - name: Install Homebrew dependencies
+      if: runner.os == 'macOS'
+      run: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n"
+    - name: Set up Python ${{ matrix.python }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python }}
+        architecture: ${{ matrix.arch }}
+      cache: pip
     - name: Install APT dependencies
       if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install libsdl2-dev
-
+      run: "sudo apt-get update\nsudo apt-get install libsdl2-dev\n"
     - name: Set archive name
       id: archive
       env:
         RELEASE_HASH: ${{ needs.prepare_release.outputs.release_hash }}
-      run: |
-        ARCHIVE_NAME="${{ env.project-name }}-${RELEASE_HASH}-${{ matrix.os }}-${{ matrix.arch }}"
-        echo "Archive name set to: ${ARCHIVE_NAME}"
-        echo "NAME=${ARCHIVE_NAME}" >> "${GITHUB_OUTPUT}"
-
-     - name: Set up Node.js
-       uses: actions/setup-node@v6
-       with:
-         node-version: '20'
-         cache: 'npm'
-         cache-dependency-path: 'webui/package-lock.json'
-
-     - name: Build web UI assets
-      run: |
-        cd webui
-        npm ci
-        npm run build
-
+      run: "ARCHIVE_NAME=\"${{ env.project-name }}-${RELEASE_HASH}-${{ matrix.os }}-${{ matrix.arch }}\"\necho \"Archive name set to: ${ARCHIVE_NAME}\"\necho \"NAME=${ARCHIVE_NAME}\" >> \"${GITHUB_OUTPUT}\"\n"
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '20'
+      cache: npm
+      cache-dependency-path: webui/package-lock.json
+    - name: Build web UI assets
+      run: "cd webui\nnpm ci\nnpm run build\n"
     - name: Copy web UI assets into package
-      run: |
-        if [ -d webui/dist ]; then
-          rm -rf qBitrr/static/*
-          mkdir -p qBitrr/static
-          cp -a webui/dist/. qBitrr/static/
-        else
-          echo "webui/dist not found; assuming assets already built into qBitrr/static"
-        fi
-
+      run: "if [ -d webui/dist ]; then\n  rm -rf qBitrr/static/*\n  mkdir -p qBitrr/static\n  cp -a webui/dist/. qBitrr/static/\nelse\n  echo \"webui/dist not found; assuming assets already built into qBitrr/static\"\nfi\n"
     - name: Install Python dependencies
-      run: |
-        python -m pip install -U pip
-        python -m pip install -U setuptools==69.5.1
-        python -m pip install -U wheel
-        python -m pip install -e '.[dev]'
-
+      run: "python -m pip install -U pip\npython -m pip install -U setuptools==69.5.1\npython -m pip install -U wheel\npython -m pip install -e '.[dev]'\n"
     - name: Run PyInstaller
       env:
         PYTHONOPTIMIZE: 1
         PYTHONHASHSEED: 42
         PYTHONUNBUFFERED: 1
-      run: |
-        pyinstaller build.spec
-
+      run: "pyinstaller build.spec\n"
     - name: List distribution files
-      run: |
-        find dist
-
+      run: "find dist\n"
     - name: Tar files
       if: runner.os != 'Windows'
-      run: |
-        tar --format=ustar -czvf ${{ steps.archive.outputs.NAME }}.tar.gz dist/
-
+      run: "tar --format=ustar -czvf ${{ steps.archive.outputs.NAME }}.tar.gz dist/\n"
     - name: Archive files
       if: runner.os == 'Windows'
       shell: pwsh
-      run: |
-        Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip
-
+      run: "Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip\n"
     - name: Upload Artifact
       uses: actions/upload-artifact@v5
       with:
@@ -355,7 +240,6 @@ jobs:
         path: ${{ steps.archive.outputs.NAME }}.*
         retention-days: 7
         if-no-files-found: error
-
     - name: Upload release assets
       uses: svenstaro/upload-release-action@v2
       with:
@@ -364,7 +248,6 @@ jobs:
         file_glob: true
         tag: v${{ needs.prepare_release.outputs.new_version }}
         overwrite: true
-
   publish_pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
@@ -378,27 +261,20 @@ jobs:
       with:
         fetch-depth: 0
         ref: master
-
-     - name: Set up Python
-       uses: actions/setup-python@v6
-       with:
-         python-version: '3.12'
-         cache: 'pip'
-
-     - name: Install build dependencies
-       run: |
-         python -m pip install --upgrade pip
-         pip install build wheel
-
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+      cache: pip
+    - name: Install build dependencies
+      run: "python -m pip install --upgrade pip\npip install build wheel\n"
     - name: Build package
       run: python -m build
-
     - name: Publish package
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
-
   changelog:
     name: Generate changelog and release notes
     runs-on: ubuntu-latest
@@ -414,26 +290,20 @@ jobs:
       with:
         fetch-depth: 0
         ref: master
-
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
         python-version: '3.12'
-
-     - uses: actions/setup-node@v6
-       with:
-         node-version: latest
-         cache: 'npm'
-         cache-dependency-path: 'webui/package-lock.json'
-
-     - name: Install release notes tooling
+      cache: pip
+    - uses: actions/setup-node@v6
+      with:
+        node-version: latest
+      cache: npm
+      cache-dependency-path: webui/package-lock.json
+    - name: Install release notes tooling
       run: npm install github-release-notes -g
-
     - name: Generate release notes and changelog
-      run: |
-        gren release
-        gren changelog
-
+      run: "gren release\ngren changelog\n"
     - name: Import GPG key
       id: changelog_gpg
       uses: crazy-max/ghaction-import-gpg@v6.3.0
@@ -443,7 +313,6 @@ jobs:
         git_user_signingkey: true
         git_commit_gpgsign: true
         git_tag_gpgsign: true
-
     - name: Commit changelog updates
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
@@ -452,3 +321,6 @@ jobs:
         commit_user_name: ${{ steps.changelog_gpg.outputs.name }}
         commit_user_email: ${{ steps.changelog_gpg.outputs.email }}
         commit_author: ${{ steps.changelog_gpg.outputs.name }} <${{ steps.changelog_gpg.outputs.email }}>
+concurrency:
+  group: release
+  cancel-in-progress: false
