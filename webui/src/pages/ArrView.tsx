@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   getArrList,
+  getConfig,
   getRadarrMovies,
   getSonarrSeries,
   restartArr,
@@ -18,6 +19,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getPaginationRowModel,
+  getExpandedRowModel,
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
@@ -801,43 +803,43 @@ function RadarrAggregateView({
         <>
            <div className="table-wrapper">
              <table className="responsive-table">
-                <thead>
-                  <tr>
-                    {table.getFlatHeaders().map((header) => (
-                      <th
-                        key={header.id}
-                        className={header.column.getCanSort() ? "sortable" : ""}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                        {header.column.getCanSort() && (
-                          <span className="sort-arrow">
-                            {{
-                              asc: "▲",
-                              desc: "▼",
-                            }[header.column.getIsSorted() as string] ?? null}
-                          </span>
-                        )}
-                      </th>
+              <thead>
+                <tr>
+                  {table.getFlatHeaders().map(header => (
+                    <th
+                      key={header.id}
+                      className={header.column.getCanSort() ? "sortable" : ""}
+                      onClick={header.column.getToggleSortingHandler()}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      {header.column.getCanSort() && (
+                        <span className="sort-arrow">
+                          {{
+                            asc: "▲",
+                            desc: "▼",
+                          }[header.column.getIsSorted() as string] ?? null}
+                        </span>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map(row => (
+                  <tr key={row.id}>
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
                     ))}
                   </tr>
-                </thead>
-               <tbody>
-                 {table.getRowModel().rows.map((row) => (
-                   <tr key={row.id}>
-                     {row.getVisibleCells().map((cell) => (
-                       <td key={cell.id} data-label={cell.column.columnDef.header as string}>
-                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                       </td>
-                     ))}
-                   </tr>
-                 ))}
-               </tbody>
+                ))}
+              </tbody>
              </table>
            </div>
            <div className="pagination">
@@ -1091,7 +1093,22 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
     monitored: number;
     missing: number;
     total: number;
-  }>({ available: 0, monitored: 0, missing: 0, total: 0 });
+   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
+
+  const [groupSonarr, setGroupSonarr] = useState(false);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await getConfig();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setGroupSonarr((config as any).WebUI?.GroupSonarr ?? false);
+      } catch (error) {
+        console.error('Failed to load config', error);
+      }
+    };
+    void loadConfig();
+  }, []);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -1566,29 +1583,31 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
                  onPageChange={setAggPage}
                  onRefresh={() => void loadAggregate()}
                  lastUpdated={aggUpdated}
+                 groupSonarr={groupSonarr}
                  summary={aggSummary}
                />
             ) : (
-              <SonarrInstanceView
-                loading={instanceLoading}
-                counts={instanceData?.counts ?? null}
-                series={currentSeries}
-                page={instancePage}
-                pageSize={instancePageSize}
-                totalPages={instanceTotalPages}
-                totalItems={instanceTotalItems}
-                onlyMissing={onlyMissing}
-                onPageChange={(page) => {
-                  setInstancePage(page);
-                void fetchInstance(selection as string, page, instanceQuery, {
-                  preloadAll: false,
-                  showLoading: true,
-                  missingOnly: onlyMissing,
-                });
-                }}
-                onRestart={() => void handleRestart()}
-                lastUpdated={lastUpdated}
-              />
+               <SonarrInstanceView
+                 loading={instanceLoading}
+                 counts={instanceData?.counts ?? null}
+                 series={currentSeries}
+                 page={instancePage}
+                 pageSize={instancePageSize}
+                 totalPages={instanceTotalPages}
+                 totalItems={instanceTotalItems}
+                 onlyMissing={onlyMissing}
+                 onPageChange={(page) => {
+                   setInstancePage(page);
+                 void fetchInstance(selection as string, page, instanceQuery, {
+                   preloadAll: false,
+                   showLoading: true,
+                   missingOnly: onlyMissing,
+                 });
+                 }}
+                 onRestart={() => void handleRestart()}
+                 lastUpdated={lastUpdated}
+                 groupSonarr={groupSonarr}
+               />
             )}
           </div>
         </div>
@@ -1606,25 +1625,91 @@ interface SonarrAggregateViewProps {
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   lastUpdated: string | null;
-
+  groupSonarr: boolean;
   summary: { available: number; monitored: number; missing: number; total: number };
 }
 
 function SonarrAggregateView({
-   loading,
-   rows,
-   total,
-   page,
-   totalPages,
-   onPageChange,
-   onRefresh,
-   lastUpdated,
-   summary,
+  loading,
+  rows,
+  total,
+  page,
+  totalPages,
+  onPageChange,
+  onRefresh,
+  lastUpdated,
+  groupSonarr,
+  summary,
 }: SonarrAggregateViewProps): JSX.Element {
-  const tableData = rows;
+  const groupedTableData = useMemo(() => {
+    const map = new Map<string, Map<string, SonarrAggRow[]>>();
+    rows.forEach(row => {
+      const seriesKey = `${row.__instance}-${row.series}`;
+      if (!map.has(seriesKey)) map.set(seriesKey, new Map());
+      const seasons = map.get(seriesKey)!;
+      const seasonKey = String(row.season);
+      if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
+      seasons.get(seasonKey)!.push(row);
+    });
+    return Array.from(map.entries()).map(([seriesKey, seasons]) => {
+      const [instance, series] = seriesKey.split('-', 2);
+      return {
+        series,
+        instance,
+        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
+          seasonNumber,
+          isSeason: true,
+          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+        }))
+      };
+    });
+  }, [rows]);
+
+  const tableData = groupSonarr ? groupedTableData : rows;
 
    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const columns = useMemo<ColumnDef<any>[]>(() => [
+  const groupedColumns = useMemo<ColumnDef<any>[]>(() => [
+     {
+       accessorKey: "title",
+       header: "Title",
+       cell: ({ row }) => {
+         if (row.original.isEpisode) return row.original.title;
+         if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+         return row.original.series;
+       }
+     },
+    {
+      accessorKey: "monitored",
+      header: "Monitored",
+      cell: ({ row }) => {
+        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+      }
+    },
+    {
+      accessorKey: "hasFile",
+      header: "Has File",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+        }
+        return null;
+      }
+    },
+    {
+      accessorKey: "airDate",
+      header: "Air Date",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return row.original.airDate || "—";
+        }
+        return null;
+      }
+    },
+  ], []);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const flatColumns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: "__instance",
       header: "Instance",
@@ -1666,8 +1751,17 @@ function SonarrAggregateView({
     },
   ], []);
 
+  const columns = groupSonarr ? groupedColumns : flatColumns;
+
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
+  const groupedTable = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+  });
+
+  const flatTable = useReactTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
@@ -1682,6 +1776,8 @@ function SonarrAggregateView({
     manualPagination: true,
     pageCount: totalPages,
   });
+
+  const table = groupSonarr ? groupedTable : flatTable;
 
   return (
     <div className="stack animate-fade-in">
@@ -1790,6 +1886,7 @@ interface SonarrInstanceViewProps {
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
+  groupSonarr: boolean;
 }
 
 function SonarrInstanceView({
@@ -1804,6 +1901,7 @@ function SonarrInstanceView({
   onPageChange,
   onRestart,
   lastUpdated,
+  groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {
   const refreshLabel = lastUpdated ? `Last updated ${lastUpdated}` : null;
   const filteredSeries = useMemo(() => filterSeriesEntriesForMissing(seriesEntries, onlyMissing), [seriesEntries, onlyMissing]);
@@ -1827,14 +1925,63 @@ function SonarrInstanceView({
     return filteredSeries.slice(start, start + pageSize);
   }, [filteredSeries, safePage, pageSize]);
 
+  const nestedTableData = useMemo(() => pageRows.flatMap(series => [
+    series,
+    ...Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => [
+      { seasonNumber, ...season, isSeason: true },
+      ...(season.episodes?.map(episode => ({ ...episode, isEpisode: true })) || [])
+    ])
+  ]), [pageRows]);
+
   const flatData = useMemo(() => pageRows.flatMap(series => Object.entries(series.seasons ?? {}).flatMap(([seasonNumber, season]) => season.episodes?.map(episode => ({ series: series.series?.title || "", season: seasonNumber, episode: episode.episodeNumber, title: episode.title, monitored: episode.monitored, hasFile: episode.hasFile, airDate: episode.airDateUtc })) || [])), [pageRows]);
 
-  const tableData = flatData;
+  const tableData = groupSonarr ? nestedTableData : flatData;
 
 
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const columns = useMemo<ColumnDef<any>[]>(() => [
+  const nestedColumns = useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) return `  ${row.original.title}`;
+        if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
+        return row.original.series?.title || "Unknown";
+      }
+    },
+    {
+      accessorKey: "monitored",
+      header: "Monitored",
+      cell: ({ row }) => {
+        const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
+        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+      }
+    },
+    {
+      accessorKey: "hasFile",
+      header: "Has File",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+        }
+        return null;
+      }
+    },
+    {
+      accessorKey: "airDate",
+      header: "Air Date",
+      cell: ({ row }) => {
+        if (row.original.isEpisode) {
+          return row.original.airDate || "—";
+        }
+        return null;
+      }
+    },
+  ], []);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const flatColumns = useMemo<ColumnDef<any>[]>(() => [
     {
       accessorKey: "series",
       header: "Series",
@@ -1872,13 +2019,23 @@ function SonarrInstanceView({
     },
   ], []);
 
+  const columns = groupSonarr ? nestedColumns : flatColumns;
+
   // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
+  const nestedTable = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+  });
+
+  const flatTable = useReactTable({
     data: tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
+
+  const table = groupSonarr ? nestedTable : flatTable;
 
   useEffect(() => {
     if (safePage !== page) {
@@ -1904,51 +2061,61 @@ function SonarrInstanceView({
           <div className="loading">
             <span className="spinner" /> Loading Sonarr library…
           </div>
-        ) : tableData.length ? (
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                <tr>
-                  {table.getFlatHeaders().map(header => (
-                    <th
-                      key={header.id}
-                      className={header.column.getCanSort() ? "sortable" : ""}
-                      onClick={header.column.getToggleSortingHandler()}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                      {header.column.getCanSort() && (
-                        <span className="sort-arrow">
-                          {{
-                            asc: "▲",
-                            desc: "▼",
-                          }[header.column.getIsSorted() as string] ?? null}
-                        </span>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map(row => (
-                  <tr key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} data-label={cell.column.columnDef.header as string}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="hint">No series found.</div>
-        )}
+         ) : tableData.length ? (
+           <div className="table-wrapper">
+             <table className="responsive-table">
+               <thead>
+                 <tr>
+                   {groupSonarr && <th></th>}
+                   {table.getFlatHeaders().map(header => (
+                     <th
+                       key={header.id}
+                       className={!groupSonarr && header.column.getCanSort() ? "sortable" : ""}
+                       onClick={!groupSonarr ? header.column.getToggleSortingHandler() : undefined}
+                     >
+                       {header.isPlaceholder
+                         ? null
+                         : flexRender(
+                             header.column.columnDef.header,
+                             header.getContext()
+                           )}
+                       {!groupSonarr && header.column.getCanSort() && (
+                         <span className="sort-arrow">
+                           {{
+                             asc: "▲",
+                             desc: "▼",
+                           }[header.column.getIsSorted() as string] ?? null}
+                         </span>
+                       )}
+                     </th>
+                   ))}
+                 </tr>
+                </thead>
+               <tbody>
+                 {table.getRowModel().rows.map(row => (
+                   <tr key={row.id}>
+                     {groupSonarr && (
+                       <td>
+                         {row.getCanExpand() && (
+                           <button onClick={row.getToggleExpandedHandler()}>
+                             {row.getIsExpanded() ? '▼' : '▶'}
+                           </button>
+                         )}
+                       </td>
+                     )}
+                     {row.getVisibleCells().map(cell => (
+                       <td key={cell.id} data-label={cell.column.columnDef.header as string}>
+                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                       </td>
+                     ))}
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+         ) : (
+           <div className="hint">No series found.</div>
+         )}
       </div>
       <div className="pagination">
         <div>
