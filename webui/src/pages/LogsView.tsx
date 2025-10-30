@@ -27,11 +27,14 @@ function ansiToHtml(text: string): string {
   };
 
   return text
+    // eslint-disable-next-line no-control-regex
     .replace(/\u001b\[0m/g, '</span>')
+    // eslint-disable-next-line no-control-regex
     .replace(/\u001b\[(\d+)m/g, (match, code) => {
       const color = colorMap[code];
       return color ? `<span style="color:${color}">` : '';
     })
+    // eslint-disable-next-line no-control-regex
     .replace(/\u001b\[39m/g, '</span>') // reset to default
     .replace(/\n/g, '<br>');
 }
