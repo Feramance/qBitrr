@@ -213,7 +213,7 @@ function AppShell(): JSX.Element {
           window.location.reload();
         }
         restartPollCount.current = 0;
-      } catch (error) {
+      } catch {
         restartPollCount.current += 1;
         if (restartPollCount.current > 20) { // 60 seconds
           setBackendRestarting(false);

@@ -459,6 +459,29 @@ pre {
     height: 1.6em;
 }
 
+/* Override Mantine component icon sizes */
+[data-mantine-color-scheme] .mantine-Select-chevron,
+[data-mantine-color-scheme] .mantine-Select-rightSection svg,
+[data-mantine-color-scheme] .mantine-TextInput-rightSection svg,
+[data-mantine-color-scheme] .mantine-PasswordInput-rightSection svg,
+[data-mantine-color-scheme] .mantine-NumberInput-rightSection svg {
+    width: 1.4em !important;
+    height: 1.4em !important;
+}
+
+/* General SVG size constraints to prevent oversized icons */
+svg {
+    max-width: 2em;
+    max-height: 2em;
+}
+
+/* Override SVG width/height attributes to prevent oversized icons */
+svg[width],
+svg[height] {
+    width: 1.4em !important;
+    height: 1.4em !important;
+}
+
 .btn .icon {
     margin: 0;
     transition: transform 0.2s ease;

@@ -1193,7 +1193,7 @@ function SonarrView({ active }: { active: boolean }): JSX.Element {
             prev.page_size !== response.page_size ||
             (prevCounts?.available ?? null) !== (nextCounts?.available ?? null) ||
             (prevCounts?.monitored ?? null) !== (nextCounts?.monitored ?? null) ||
-            ((prevCounts as any)?.missing ?? null) !== ((nextCounts as any)?.missing ?? null);
+            (prevCounts?.missing ?? null) !== (nextCounts?.missing ?? null);
           if (countsChanged || shouldUpdateCurrentPage) {
             instanceDataRef.current = response;
             return response;

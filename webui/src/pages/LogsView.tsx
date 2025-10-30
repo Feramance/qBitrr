@@ -4,8 +4,7 @@ import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import { Select } from "@mantine/core";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import DownloadIcon from "../icons/download.svg";
 import LiveIcon from "../icons/live-streaming.svg";
@@ -145,9 +144,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         </div>
         <div ref={logRef} style={{ height: '400px', overflow: 'auto' }}>
           {content ? (
-            <SyntaxHighlighter language="log" style={oneDark}>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'monospace', backgroundColor: '#282c34', color: '#abb2bf', padding: '10px', borderRadius: '4px' }}>
               {content}
-            </SyntaxHighlighter>
+            </pre>
           ) : (
             "Select a log file to view its tail..."
           )}

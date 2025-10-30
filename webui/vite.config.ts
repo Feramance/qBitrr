@@ -28,7 +28,6 @@ export default defineConfig({
           vendor: ['react', 'react-dom'],
           mantine: ['@mantine/core', '@mantine/hooks', '@mantine/dates'],
           table: ['@tanstack/react-table'],
-          syntax: ['react-syntax-highlighter'],
         },
       },
     },

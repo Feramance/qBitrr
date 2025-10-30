@@ -1456,12 +1456,22 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               {groupedArrSections.map((group) => (
                 <section className="config-arr-group" key={group.type}>
                   <details className="config-arr-group__details" open>
-                    <summary>
-                      <span>{group.label}</span>
-                      <span className="config-arr-group__count">
-                        {group.items.length}
-                      </span>
-                    </summary>
+                     <summary>
+                       <span>{group.label}</span>
+                       <span className="config-arr-group__count">
+                         {group.items.length}
+                       </span>
+                       {(group.type === "radarr" || group.type === "sonarr") && (
+                         <button
+                           className="btn small"
+                           type="button"
+                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
+                         >
+                           <IconImage src={AddIcon} />
+                           Add Instance
+                         </button>
+                       )}
+                     </summary>
                     <div className="config-arr-grid">
                       {group.items.map(([key, value]) => {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
@@ -1519,24 +1529,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
             </div>
           ) : null}
           <div className="config-footer">
-            <div className="config-actions">
-              <button
-                className="btn"
-                type="button"
-                onClick={() => addArrInstance("radarr")}
-              >
-                <IconImage src={AddIcon} />
-                Add Radarr Instance
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => addArrInstance("sonarr")}
-              >
-                <IconImage src={AddIcon} />
-                Add Sonarr Instance
-              </button>
-            </div>
             <button
               className="btn primary"
               onClick={() => void handleSubmit()}
@@ -1637,15 +1629,7 @@ function FieldGroup({
       const nextTrackers = [
         ...trackers,
         {
-          Name: "New Tracker",
-          URI: "",
-          Priority: (trackers.length || 0) + 1,
-          MaximumETA: -1,
-          DownloadRateLimit: -1,
-          UploadRateLimit: -1,
-          MaxUploadRatio: -1,
-          MaxSeedingTime: -1,
-          AddTrackerIfMissing: false,
+          Url: "",
           RemoveIfExists: false,
           SuperSeedMode: false,
           AddTags: [],
