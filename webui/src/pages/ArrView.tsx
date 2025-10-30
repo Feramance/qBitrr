@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   getArrList,
+  getConfig,
   getRadarrMovies,
   getSonarrSeries,
   restartArr,
@@ -994,13 +995,20 @@ function RadarrInstanceView({
     },
   ], []);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: tableData,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const table = useReactTable({
+      data: flatData,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      initialState: {
+        sorting: [
+          { id: 'series', desc: false },
+          { id: 'season', desc: false },
+          { id: 'episode', desc: false },
+        ],
+      },
+    });
 
   const handleSort = (key: RadarrSortKey) => {
     setSort((prev) =>
