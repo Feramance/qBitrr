@@ -1449,23 +1449,30 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       <section className="card">
         <div className="card-header">Config</div>
         <div className="card-body config-layout">
-          <div className="config-grid">
-            <ConfigSummaryCard
-              title="Settings"
-              description="Core application configuration"
-              onConfigure={() => setSettingsOpen(true)}
-            />
-            <ConfigSummaryCard
-              title="Web Settings"
-              description="Web UI configuration"
-              onConfigure={() => setWebSettingsOpen(true)}
-            />
-            <ConfigSummaryCard
-              title="qBit"
-              description="qBittorrent connection details"
-              onConfigure={() => setQbitOpen(true)}
-            />
-          </div>
+          <section className="config-arr-group">
+            <details className="config-arr-group__details" open>
+              <summary>
+                <span>Core Configuration</span>
+              </summary>
+              <div className="config-grid">
+                <ConfigSummaryCard
+                  title="Settings"
+                  description="Core application configuration"
+                  onConfigure={() => setSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="Web Settings"
+                  description="Web UI configuration"
+                  onConfigure={() => setWebSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="qBit"
+                  description="qBittorrent connection details"
+                  onConfigure={() => setQbitOpen(true)}
+                />
+              </div>
+            </details>
+          </section>
           {groupedArrSections.length ? (
             <div className="config-arr-groups">
               {groupedArrSections.map((group) => (

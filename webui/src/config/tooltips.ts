@@ -34,7 +34,9 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "WebUI.Port": "Port number for the built-in WebUI.",
   "WebUI.Token":
     "Optional bearer token required by the WebUI/API. Leave empty to disable authentication.",
-  "WebUI.LiveArr": "Enable live updates for Arr views.",
+   "WebUI.LiveArr": "Enable live updates for Arr views.",
+   "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
+   "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
 
   "qBit.Disabled":
     "Disable qBitrr's direct qBittorrent integration (headless mode for search-only setups).",
