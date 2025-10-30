@@ -156,6 +156,8 @@ function AppShell(): JSX.Element {
   const [metaLoading, setMetaLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [updateBusy, setUpdateBusy] = useState(false);
+  const [backendRestarting, setBackendRestarting] = useState(false);
+  const restartPollCount = useRef(0);
   const prevUpdateResult = useRef<string | null>(null);
   const backendReadyRef = useRef(false);
   const backendWarnedRef = useRef(false);
@@ -198,14 +200,35 @@ function AppShell(): JSX.Element {
   }, [refreshMeta]);
 
   useEffect(() => {
-    if (!meta?.update_state?.in_progress) {
+    if (!meta?.update_state?.in_progress && !backendRestarting) {
+      restartPollCount.current = 0;
       return;
     }
-    const id = window.setInterval(() => {
-      void refreshMeta({ force: true, silent: true });
+    const id = window.setInterval(async () => {
+      try {
+        const data = await getMeta({ force: true });
+        setMeta(data);
+        if (backendRestarting) {
+          // Backend came back after restart
+          window.location.reload();
+        }
+        restartPollCount.current = 0;
+      } catch (error) {
+        restartPollCount.current += 1;
+        if (restartPollCount.current > 20) { // 60 seconds
+          setBackendRestarting(false);
+          restartPollCount.current = 0;
+          push("Update completed but backend restart timed out. Please refresh the page manually.", "warning");
+          return;
+        }
+        if (meta?.update_state?.in_progress) {
+          // Failed while update in progress, likely restarting
+          setBackendRestarting(true);
+        }
+      }
     }, 3000);
     return () => window.clearInterval(id);
-  }, [meta?.update_state?.in_progress, refreshMeta]);
+  }, [meta?.update_state?.in_progress, backendRestarting, meta, push]);
 
   useEffect(() => {
     const state = meta?.update_state;
@@ -216,7 +239,9 @@ function AppShell(): JSX.Element {
     const result = state.last_result ?? null;
     if (result && result !== prevUpdateResult.current) {
       if (result === "success") {
-        push("Update completed successfully. A restart may be required.", "success");
+        push("Update completed successfully. Restarting...", "success");
+        setBackendRestarting(true);
+        restartPollCount.current = 0;
       } else if (result === "error") {
         push(state.last_error || "Update failed.", "error");
       }
@@ -334,6 +359,8 @@ function AppShell(): JSX.Element {
 
   const handleTriggerUpdate = useCallback(async () => {
     setUpdateBusy(true);
+    setBackendRestarting(false);
+    restartPollCount.current = 0;
     try {
       await triggerUpdate();
       push("Update started in the background.", "info");
