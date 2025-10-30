@@ -963,6 +963,11 @@ svg[height] {
     flex-direction: column;
     gap: 12px;
     min-height: 160px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.config-summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 .config-summary-card p {
     margin: 0;
@@ -981,7 +986,7 @@ svg[height] {
 }
 .config-grid {
     display: grid;
-    gap: 16px;
+    gap: 20px;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 .config-arr-groups {
@@ -995,10 +1000,11 @@ svg[height] {
     gap: 12px;
 }
 .config-arr-group__details {
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    padding: 12px 14px;
-    background: rgba(255, 255, 255, 0.02);
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 .config-arr-group__details summary {
     display: flex;
@@ -1007,25 +1013,33 @@ svg[height] {
     gap: 12px;
     cursor: pointer;
     font-weight: 600;
-    color: var(--muted);
+    font-size: 15px;
+    color: var(--on-surface);
     list-style: none;
+    transition: color 0.2s ease;
+}
+.config-arr-group__details summary:hover {
+    color: var(--primary);
 }
 .config-arr-group__details summary::-webkit-details-marker {
     display: none;
 }
 .config-arr-group__details[open] summary {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .config-arr-group__count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px 8px;
+    padding: 4px 10px;
     border-radius: 999px;
     font-size: 12px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: var(--muted);
+    font-weight: 600;
+    background: rgba(122, 162, 247, 0.15);
+    border: 1px solid rgba(122, 162, 247, 0.3);
+    color: var(--primary);
 }
 .config-arr-group__title {
     margin: 0;
@@ -1037,7 +1051,7 @@ svg[height] {
 }
 .config-arr-grid {
     display: grid;
-    gap: 16px;
+    gap: 18px;
     grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
     margin-top: 4px;
 }
@@ -1048,6 +1062,11 @@ svg[height] {
 }
 .config-arr-card {
     min-height: 220px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.config-arr-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 .config-arr-summary {
     display: grid;
