@@ -1156,8 +1156,8 @@ function SonarrInstanceView({
                               <th>Air Date</th>
                             </tr>
                           </thead>
-                          <tbody>
-                            {season.subRows.map((episode, episodeIndex) => (
+                            <tbody>
+                              {season.subRows.map((episode: typeof season.subRows[number], episodeIndex: number) => (
                               <tr key={`${episode.episode}-${episode.title}-${episodeIndex}`}>
                                 <td>{episode.episode}</td>
                                 <td>{episode.title}</td>
@@ -2011,16 +2011,16 @@ function SonarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Sonarr library…
         </div>
-       ) : groupSonarr ? (
-         <div className="sonarr-hierarchical-view">
-           {groupedTableData.map((seriesGroup, seriesIndex) => (
-             <details key={`${seriesGroup.instance}-${seriesGroup.series}-${seriesIndex}`} className="series-details">
-               <summary className="series-summary">
-                 <span className="series-title">{seriesGroup.series}</span>
-                 <span className="series-instance">({seriesGroup.instance})</span>
-               </summary>
-               <div className="series-content">
-                 {seriesGroup.subRows.map((season, seasonIndex) => (
+        ) : groupSonarr ? (
+          <div className="sonarr-hierarchical-view">
+            {allGroupedData.map((seriesGroup: typeof allGroupedData[number], seriesIndex: number) => (
+              <details key={`${seriesGroup.instance}-${seriesGroup.series}-${seriesIndex}`} className="series-details">
+                <summary className="series-summary">
+                  <span className="series-title">{seriesGroup.series}</span>
+                  <span className="series-instance">({seriesGroup.instance})</span>
+                </summary>
+                <div className="series-content">
+                  {seriesGroup.subRows.map((season: typeof seriesGroup.subRows[number], seasonIndex: number) => (
                    <details key={`${seriesGroup.instance}-${seriesGroup.series}-${season.seasonNumber}-${seasonIndex}`} className="season-details">
                      <summary className="season-summary">
                        <span className="season-title">Season {season.seasonNumber}</span>
