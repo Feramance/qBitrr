@@ -99,7 +99,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("Main.log");
   const [content, setContent] = useState("");
-  const [isLive, setIsLive] = useState(true);
+  const [autoScroll, setAutoScroll] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
@@ -142,16 +142,13 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   }, [describeError, push]);
 
   const loadTail = useCallback(
-    async (name: string) => {
+    async (name: string, shouldAutoScroll: boolean) => {
       if (!name) return;
       try {
         const text = await getLogTail(name);
-        const wasAtBottom = logRef.current
-          ? logRef.current.scrollTop + logRef.current.clientHeight >= logRef.current.scrollHeight - 50
-          : true;
         setContent(text);
         window.requestAnimationFrame(() => {
-          if (logRef.current && wasAtBottom) {
+          if (logRef.current && shouldAutoScroll) {
             logRef.current.scrollTop = logRef.current.scrollHeight;
           }
         });
@@ -168,17 +165,17 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   useEffect(() => {
     if (selected) {
-      void loadTail(selected);
+      void loadTail(selected, autoScroll);
     }
-  }, [selected, loadTail]);
+  }, [selected, loadTail, autoScroll]);
 
   useInterval(
     () => {
       if (selected) {
-        void loadTail(selected);
+        void loadTail(selected, autoScroll);
       }
     },
-    active && isLive ? 2000 : null
+    active && autoScroll ? 2000 : null
   );
 
 
@@ -226,11 +223,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               <label className="hint inline" style={{ cursor: "pointer" }}>
                 <input
                   type="checkbox"
-                  checked={isLive}
-                  onChange={(event) => setIsLive(event.target.checked)}
+                  checked={autoScroll}
+                  onChange={(event) => setAutoScroll(event.target.checked)}
                 />
                 <IconImage src={LiveIcon} />
-                <span>Live</span>
+                <span>Auto-scroll</span>
               </label>
             </div>
           </div>
