@@ -631,7 +631,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             {isAggregate ? (
               <SonarrAggregateView
                 loading={aggLoading}
-                rows={aggPageRows}
+                rows={sortedAggRows}
                 total={sortedAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
@@ -749,13 +749,18 @@ function SonarrAggregateView({
   }, [rows]);
 
   // For grouped view, paginate the series groups (not individual episodes)
-  // For flat view, use the already-paginated rows
+  // For flat view, paginate the episode rows
   const groupedPageRows = useMemo(() => {
     const pageSize = 50;
     return allGroupedData.slice(page * pageSize, (page + 1) * pageSize);
   }, [allGroupedData, page]);
 
-  const tableData = groupSonarr ? groupedPageRows : rows;
+  const flatPageRows = useMemo(() => {
+    const pageSize = 50;
+    return rows.slice(page * pageSize, (page + 1) * pageSize);
+  }, [rows, page]);
+
+  const tableData = groupSonarr ? groupedPageRows : flatPageRows;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const groupedColumns = useMemo<ColumnDef<any>[]>(() => [
@@ -873,11 +878,11 @@ function SonarrAggregateView({
   // For grouped view, paginate by series groups; for flat view, paginate by rows
   const effectiveTotalPages = groupSonarr
     ? Math.ceil(allGroupedData.length / pageSize)
-    : Math.ceil(total / pageSize);
+    : Math.ceil(rows.length / pageSize);
   const safePage = Math.min(page, Math.max(0, effectiveTotalPages - 1));
   const totalItemsDisplay = groupSonarr
     ? `${allGroupedData.length} series`
-    : total.toLocaleString();
+    : rows.length.toLocaleString();
 
   return (
     <div className="stack animate-fade-in">
