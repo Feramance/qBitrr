@@ -32,7 +32,6 @@ from qBitrr.config import (
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.logger import run_logs
-from qBitrr.tables import ensure_core_tables, get_database, purge_database_files
 from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
@@ -490,17 +489,6 @@ def run():
             child.kill()
 
 
-def initialize_database() -> None:
-    try:
-        purge_database_files()
-        get_database()
-        ensure_core_tables()
-    except Exception:
-        logger.exception("Failed to initialize database schema")
-        raise
-
-
 if __name__ == "__main__":
     freeze_support()
-    initialize_database()
     run()

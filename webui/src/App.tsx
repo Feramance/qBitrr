@@ -11,7 +11,7 @@ import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
 import RefreshIcon from "./icons/refresh-arrow.svg";
-import UpdateIcon from "./icons/overseerr.svg";
+import UpdateIcon from "./icons/up-arrow.svg";
 import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
