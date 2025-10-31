@@ -47,6 +47,56 @@ interface ValidationError {
 
 const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
 
+// Helper function for react-select theme-aware styles
+const getSelectStyles = () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    control: (base: any) => ({
+      ...base,
+      background: isDark ? '#0f131a' : '#ffffff',
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
+      minHeight: '38px',
+      boxShadow: 'none',
+      '&:hover': {
+        borderColor: isDark ? '#3a4149' : '#b8b8bd',
+      }
+    }),
+    menu: (base: any) => ({
+      ...base,
+      background: isDark ? '#0f131a' : '#ffffff',
+      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
+      border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      background: state.isFocused
+        ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
+        : (isDark ? '#0f131a' : '#ffffff'),
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+      '&:active': {
+        background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: isDark ? '#9aa3ac' : '#6e6e73',
+    }),
+    menuList: (base: any) => ({
+      ...base,
+      padding: '4px',
+    }),
+  };
+};
+
 const parseList = (value: string | boolean): string[] =>
   String(value)
     .split(",")
@@ -1795,13 +1845,7 @@ function FieldGroup({
                 localStorage.setItem("theme", theme);
               }
             }}
-            styles={{
-              control: (base) => ({ ...base, background: '#0f131a', color: '#eaeef2', borderColor: '#2a2f36' }),
-              menu: (base) => ({ ...base, background: '#0f131a', borderColor: '#2a2f36' }),
-              option: (base, state) => ({ ...base, background: state.isFocused ? 'rgba(255,255,255,0.05)' : '#0f131a', color: '#eaeef2' }),
-              singleValue: (base) => ({ ...base, color: '#eaeef2' }),
-              input: (base) => ({ ...base, color: '#eaeef2' }),
-            }}
+            styles={getSelectStyles()}
           />
           {description && <div className="field-description">{description}</div>}
           {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}

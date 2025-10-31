@@ -2901,8 +2901,12 @@ svg[height] {
 }
 
 [data-density="compact"] .appbar__inner {
-    padding: 0 12px !important;
-    gap: 12px !important;
+    padding: 0 8px !important;
+    gap: 10px !important;
+}
+
+[data-density="compact"] .appbar__title {
+    gap: 8px !important;
 }
 
 [data-density="compact"] .appbar__title h1 {
@@ -2920,15 +2924,32 @@ svg[height] {
 }
 
 [data-density="compact"] .appbar__update {
-    padding: 4px 10px !important;
+    padding: 5px 10px !important;
     font-size: 11px !important;
+    gap: 4px !important;
+}
+
+[data-density="compact"] .appbar__update-indicator {
+    width: 6px !important;
+    height: 6px !important;
 }
 
 [data-density="compact"] .appbar__actions {
-    gap: 8px !important;
+    gap: 6px !important;
 }
 
 [data-density="compact"] .appbar__actions button {
-    padding: 4px 10px !important;
+    padding: 5px 10px !important;
     font-size: 11px !important;
+}
+
+[data-density="compact"] .appbar__actions .badge {
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+}
+
+[data-density="compact"] .spinner {
+    width: 12px !important;
+    height: 12px !important;
+    border-width: 2px !important;
 }
