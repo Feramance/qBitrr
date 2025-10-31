@@ -704,9 +704,13 @@ def _gen_default_search_table(category: str, cat_default: Table):
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
-            "Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)",
+            [
+                "Search mode: true (always series search), false (always episode search), or 'smart' (automatic)",
+                "Smart mode: uses series search for entire seasons/series, episode search for single episodes",
+                "(Series search ignores QualityUnmetSearch and CustomFormatUnmetSearch settings)",
+            ],
             "SearchBySeries",
-            True,
+            "smart",
         )
         _gen_default_line(
             search_table,
