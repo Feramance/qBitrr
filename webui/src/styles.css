@@ -2287,6 +2287,455 @@ svg[height] {
     gap: 8px;
 }
 
+/* Process View Compact Styles */
+[data-density="compact"] .process-grid {
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+[data-density="compact"] .process-section {
+    gap: 8px;
+}
+
+[data-density="compact"] .process-section + .process-section {
+    margin-top: 8px;
+}
+
+[data-density="compact"] .process-section__title {
+    font-size: 11px;
+    padding: 0 2px;
+    gap: 6px;
+}
+
+[data-density="compact"] .process-section__title::before {
+    width: 3px;
+    height: 14px;
+}
+
+[data-density="compact"] .process-card {
+    padding: 10px;
+    gap: 8px;
+    border-radius: 10px;
+}
+
+[data-density="compact"] .process-card__header {
+    padding-right: 14px;
+    gap: 6px;
+}
+
+[data-density="compact"] .process-card__name {
+    font-size: 14px;
+}
+
+[data-density="compact"] .process-card__summary {
+    font-size: 11px;
+}
+
+[data-density="compact"] .process-card__badges {
+    gap: 4px;
+    margin-top: 2px;
+}
+
+[data-density="compact"] .process-card__badge {
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
+[data-density="compact"] .process-card__list {
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+[data-density="compact"] .process-chip {
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 8px;
+}
+
+[data-density="compact"] .process-chip__top {
+    gap: 6px;
+}
+
+[data-density="compact"] .process-chip__name {
+    font-size: 12px;
+}
+
+[data-density="compact"] .process-chip__detail {
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+[data-density="compact"] .process-chip .btn {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+[data-density="compact"] .status-indicator {
+    width: 10px;
+    height: 10px;
+}
+
+[data-density="compact"] .status-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 4px;
+}
+
+[data-density="compact"] .status-pill__dot {
+    width: 5px;
+    height: 5px;
+    margin-right: 4px;
+}
+
+/* Config View Compact Styles */
+[data-density="compact"] .config-card {
+    border-radius: 10px;
+}
+
+[data-density="compact"] .config-card summary {
+    padding: 8px 10px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .config-card summary::before {
+    margin-right: 6px;
+}
+
+[data-density="compact"] .config-card > .card-body {
+    gap: 8px;
+}
+
+[data-density="compact"] .config-summary-card {
+    gap: 8px;
+    min-height: 120px;
+}
+
+[data-density="compact"] .config-summary-card p {
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+[data-density="compact"] .config-layout {
+    gap: 10px;
+}
+
+[data-density="compact"] .config-actions {
+    gap: 6px;
+}
+
+[data-density="compact"] .config-grid {
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+[data-density="compact"] .config-arr-groups {
+    gap: 16px;
+}
+
+[data-density="compact"] .config-arr-group {
+    gap: 8px;
+}
+
+[data-density="compact"] .config-arr-group__details {
+    padding: 10px 12px;
+    border-radius: 10px;
+}
+
+[data-density="compact"] .config-arr-group__details summary {
+    gap: 8px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .config-arr-group__details[open] summary {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}
+
+[data-density="compact"] .config-arr-group__count {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+[data-density="compact"] .config-arr-group__title {
+    font-size: 12px;
+}
+
+[data-density="compact"] .config-arr-grid {
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    margin-top: 2px;
+}
+
+[data-density="compact"] .config-arr-grid .card-body {
+    gap: 8px;
+}
+
+[data-density="compact"] .config-arr-card {
+    min-height: 160px;
+}
+
+[data-density="compact"] .config-arr-summary {
+    gap: 6px;
+}
+
+[data-density="compact"] .config-arr-summary__item {
+    gap: 1px;
+}
+
+[data-density="compact"] .config-arr-summary__item dt {
+    font-size: 10px;
+}
+
+[data-density="compact"] .config-arr-summary__item dd {
+    font-size: 12px;
+}
+
+[data-density="compact"] .config-arr-actions {
+    gap: 6px;
+}
+
+[data-density="compact"] .config-footer {
+    gap: 8px;
+}
+
+[data-density="compact"] .config-section {
+    padding: 6px 10px;
+    border-radius: 8px;
+}
+
+[data-density="compact"] .config-section summary {
+    font-size: 13px;
+}
+
+[data-density="compact"] .config-section summary::before {
+    margin-right: 6px;
+}
+
+[data-density="compact"] .config-section__body {
+    margin-top: 8px;
+}
+
+/* Field Compact Styles */
+[data-density="compact"] .field-description,
+[data-density="compact"] .field-hint {
+    font-size: 11px;
+    line-height: 1.3;
+    margin-top: 2px;
+}
+
+[data-density="compact"] .field-description {
+    margin-top: 1px;
+}
+
+[data-density="compact"] .field-hint {
+    margin-top: 3px;
+}
+
+[data-density="compact"] .field-label {
+    gap: 4px;
+    font-size: 11px;
+}
+
+[data-density="compact"] .checkbox-field {
+    gap: 4px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .checkbox-field label {
+    gap: 6px;
+}
+
+[data-density="compact"] .checkbox-field__content {
+    gap: 4px;
+}
+
+[data-density="compact"] .checkbox-field__text {
+    gap: 4px;
+    line-height: 1.3;
+    font-size: 12px;
+}
+
+[data-density="compact"] .secure-field {
+    gap: 6px;
+}
+
+[data-density="compact"] .secure-field__input-group {
+    gap: 6px;
+}
+
+[data-density="compact"] .secure-field__controls {
+    gap: 4px;
+}
+
+[data-density="compact"] .secure-field__controls .btn {
+    padding: 4px 8px;
+}
+
+[data-density="compact"] .help-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+}
+
+/* Badge & Status Compact Styles */
+[data-density="compact"] .badge {
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 10px;
+}
+
+[data-density="compact"] .empty-state {
+    padding: 24px 20px;
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+/* Tracker & Modal Additional Compact Styles */
+[data-density="compact"] .tracker-grid {
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+[data-density="compact"] .tracker-card .card-header {
+    gap: 8px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .tracker-card .card-body {
+    padding-top: 0;
+}
+
+[data-density="compact"] .keyboard-hint {
+    gap: 3px;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 9px;
+}
+
+[data-density="compact"] .changelog-modal__body {
+    gap: 8px;
+}
+
+[data-density="compact"] .changelog-meta {
+    gap: 4px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .changelog-body {
+    padding: 10px;
+    max-height: 280px;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+[data-density="compact"] .changelog-links {
+    gap: 6px;
+}
+
+[data-density="compact"] .changelog-buttons {
+    gap: 6px;
+}
+
+/* Details/Summary Compact Styles */
+[data-density="compact"] details {
+    margin: 4px 0;
+}
+
+[data-density="compact"] details summary {
+    padding: 3px;
+    border-radius: 5px;
+}
+
+[data-density="compact"] .series-details,
+[data-density="compact"] .season-details {
+    border-radius: 5px;
+}
+
+[data-density="compact"] .series-summary,
+[data-density="compact"] .season-summary {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 5px 5px 0 0;
+}
+
+[data-density="compact"] .series-title {
+    font-size: 1em;
+}
+
+[data-density="compact"] .series-instance {
+    font-size: 0.85em;
+}
+
+[data-density="compact"] .season-title {
+    font-size: 0.95em;
+}
+
+[data-density="compact"] .season-count {
+    font-size: 0.85em;
+}
+
+[data-density="compact"] .series-content,
+[data-density="compact"] .season-content {
+    padding: 6px;
+}
+
+/* Pre & Code Compact Styles */
+[data-density="compact"] pre {
+    padding: 10px;
+    max-height: 320px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+/* Icon Compact Styles */
+[data-density="compact"] .icon {
+    width: 1.2em;
+    height: 1.2em;
+}
+
+[data-density="compact"] .icon--small {
+    width: 1em;
+    height: 1em;
+}
+
+[data-density="compact"] .icon--large {
+    width: 1.4em;
+    height: 1.4em;
+}
+
+[data-density="compact"] svg[width],
+[data-density="compact"] svg[height] {
+    width: 1.2em !important;
+    height: 1.2em !important;
+}
+
+/* Spinner Compact Styles */
+[data-density="compact"] .spinner {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+}
+
+[data-density="compact"] .loading {
+    gap: 6px;
+    font-size: 12px;
+}
+
+/* Toast Compact Styles */
+[data-density="compact"] .toasts {
+    gap: 8px;
+    right: 12px;
+    bottom: 12px;
+}
+
+[data-density="compact"] .toast {
+    padding: 8px 12px;
+    border-radius: 8px;
+    min-width: 220px;
+    font-size: 12px;
+}
+
 /* Comfortable is the default, no changes needed */
 [data-density="comfortable"] .responsive-table td,
 [data-density="comfortable"] .responsive-table th {
