@@ -2853,46 +2853,91 @@ svg[height] {
 }
 
 /* React-Select Compact Mode Styles */
+/* Control (outer container) */
 [data-density="compact"] .css-13cymwt-control,
 [data-density="compact"] .css-t3ipsp-control,
 [data-density="compact"] .css-15evc9m-control,
+[data-density="compact"] .css-hlgwow,
 [data-density="compact"] [class*="-control"] {
     min-height: 32px !important;
     height: 32px !important;
     font-size: 12px !important;
 }
 
-[data-density="compact"] .css-1dimb5e-singleValue,
-[data-density="compact"] .css-1dimb5e-singleValue,
-[data-density="compact"] [class*="-singleValue"] {
+/* Value container */
+[data-density="compact"] .css-hlgwow,
+[data-density="compact"] [class*="-ValueContainer"] {
+    padding: 2px 8px !important;
     font-size: 12px !important;
 }
 
+/* Single value */
+[data-density="compact"] .css-1dimb5e-singleValue,
+[data-density="compact"] .css-1jxntwc-singleValue,
+[data-density="compact"] [class*="-singleValue"] {
+    font-size: 12px !important;
+    line-height: 1.4 !important;
+}
+
+/* Input container */
+[data-density="compact"] .css-1u3zge7,
+[data-density="compact"] [class*="-Input"] {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Input element */
+[data-density="compact"] .css-1u3zge7 input,
+[data-density="compact"] [class*="-Input"] input {
+    font-size: 12px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Menu */
 [data-density="compact"] .css-1nmdiq5-menu,
 [data-density="compact"] [class*="-menu"] {
     font-size: 12px !important;
 }
 
+/* Menu list */
 [data-density="compact"] .css-1n6sfyn-MenuList,
 [data-density="compact"] [class*="-MenuList"] {
     padding: 4px !important;
 }
 
+/* Options */
 [data-density="compact"] .css-10wo9uf-option,
 [data-density="compact"] [class*="-option"] {
     padding: 6px 10px !important;
     font-size: 12px !important;
 }
 
+/* Indicators container */
+[data-density="compact"] .css-1wy0on6,
+[data-density="compact"] [class*="-indicatorsContainer"] {
+    padding: 0 4px !important;
+}
+
+/* Indicator separator */
+[data-density="compact"] .css-1u9des2-indicatorSeparator,
+[data-density="compact"] [class*="-indicatorSeparator"] {
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+}
+
+/* Indicator container (dropdown arrow) */
 [data-density="compact"] .css-1hwfws3,
-[data-density="compact"] [class*="indicatorContainer"] {
+[data-density="compact"] .css-1xc3v61-indicatorContainer,
+[data-density="compact"] [class*="-indicatorContainer"] {
     padding: 4px !important;
 }
 
-[data-density="compact"] .css-1wy0on6,
-[data-density="compact"] [class*="-indicatorSeparator"] {
-    margin-top: 4px !important;
-    margin-bottom: 4px !important;
+/* Dropdown arrow SVG */
+[data-density="compact"] .css-1xc3v61-indicatorContainer svg,
+[data-density="compact"] [class*="-indicatorContainer"] svg {
+    width: 16px !important;
+    height: 16px !important;
 }
 
 /* Enhanced Appbar Compact Mode */
