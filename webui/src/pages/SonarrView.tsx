@@ -593,14 +593,37 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 ))}
               </select>
             </div>
-            <div className="row" style={{ alignItems: "flex-end" }}>
-              <div className="col field">
+            <div className="row" style={{ alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+              <div className="col field" style={{ flex: "1 1 200px" }}>
                 <label>Search</label>
                 <input
                   placeholder="Filter series or episodes"
                   value={globalSearch}
                   onChange={(event) => setGlobalSearch(event.target.value)}
                 />
+              </div>
+              <div className="field" style={{ flex: "0 0 auto", minWidth: "140px" }}>
+                <label>Quick Filter</label>
+                <select
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "missing") {
+                      setOnlyMissing(true);
+                      setGlobalSearch("");
+                    } else if (value === "monitored") {
+                      setOnlyMissing(false);
+                      setGlobalSearch("");
+                    } else if (value === "all") {
+                      setOnlyMissing(false);
+                      setGlobalSearch("");
+                    }
+                  }}
+                  value={onlyMissing ? "missing" : "all"}
+                >
+                  <option value="all">All Episodes</option>
+                  <option value="missing">Missing Only</option>
+                  <option value="monitored">Monitored</option>
+                </select>
               </div>
               <label className="hint inline" style={{ marginBottom: 8 }}>
                 <input

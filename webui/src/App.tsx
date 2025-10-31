@@ -5,7 +5,7 @@ const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: 
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
-import { WebUIProvider } from "./context/WebUIContext";
+import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
 import type { MetaResponse } from "./api/types";
@@ -152,8 +152,9 @@ function ChangelogModal({
 function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
   const [configDirty, setConfigDirty] = useState(false);
-  const { setValue: setSearchValue } = useSearch();
   const { push } = useToast();
+  const { value: searchValue, setValue: setSearchValue } = useSearch();
+  const { viewDensity, setViewDensity } = useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
@@ -505,6 +506,24 @@ function AppShell(): JSX.Element {
                 Offline
               </span>
             )}
+            <div className="view-density-toggle">
+              <button
+                type="button"
+                className={viewDensity === "comfortable" ? "active" : ""}
+                onClick={() => setViewDensity("comfortable")}
+                title="Comfortable view"
+              >
+                Comfortable
+              </button>
+              <button
+                type="button"
+                className={viewDensity === "compact" ? "active" : ""}
+                onClick={() => setViewDensity("compact")}
+                title="Compact view"
+              >
+                Compact
+              </button>
+            </div>
             <button
               type="button"
               className="btn small ghost"
@@ -526,7 +545,7 @@ function AppShell(): JSX.Element {
           </div>
         </div>
       </header>
-      <main className="container">
+      <main className="container" data-density={viewDensity}>
         <nav className="nav">
           {tabs.map((tab) => (
             <button

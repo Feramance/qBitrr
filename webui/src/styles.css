@@ -2109,3 +2109,94 @@ svg[height] {
     flex-direction: column;
     gap: 12px;
 }
+
+/* View Density Modes */
+[data-density="compact"] .responsive-table td,
+[data-density="compact"] .responsive-table th {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .card {
+    padding: 16px;
+}
+
+[data-density="compact"] .card-header {
+    font-size: 18px;
+    padding: 12px 16px;
+}
+
+[data-density="compact"] .card-body {
+    padding: 12px 16px;
+}
+
+[data-density="compact"] .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .field label {
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+[data-density="compact"] .field input,
+[data-density="compact"] .field select,
+[data-density="compact"] .field textarea {
+    padding: 6px 10px;
+    font-size: 13px;
+}
+
+[data-density="compact"] .hint {
+    font-size: 12px;
+}
+
+[data-density="compact"] .stack {
+    gap: 12px;
+}
+
+[data-density="compact"] .row {
+    gap: 8px;
+}
+
+[data-density="compact"] .table-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
+/* Comfortable is the default, no changes needed */
+[data-density="comfortable"] .responsive-table td,
+[data-density="comfortable"] .responsive-table th {
+    padding: 12px 16px;
+}
+
+.view-density-toggle {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.view-density-toggle button {
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.view-density-toggle button:hover {
+    color: var(--on-surface);
+    background: rgba(122, 162, 247, 0.1);
+}
+
+.view-density-toggle button.active {
+    background: var(--primary);
+    color: white;
+}
