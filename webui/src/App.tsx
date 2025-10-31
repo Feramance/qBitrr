@@ -471,7 +471,7 @@ function AppShell(): JSX.Element {
   }, [push, refreshMeta]);
 
   return (
-    <>
+    <div data-density={viewDensity}>
       <header className="appbar">
         <div className="appbar__inner">
           <div className="appbar__title">
@@ -541,7 +541,7 @@ function AppShell(): JSX.Element {
           </div>
         </div>
       </header>
-      <main className="container" data-density={viewDensity}>
+      <main className="container">
         <nav className="nav">
           {tabs.map((tab) => (
             <button
@@ -587,7 +587,7 @@ function AppShell(): JSX.Element {
           onUpdate={handleTriggerUpdate}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 

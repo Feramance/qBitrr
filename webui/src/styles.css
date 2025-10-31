@@ -2213,17 +2213,7 @@ svg[height] {
     padding: 12px;
 }
 
-[data-density="compact"] .appbar {
-    padding: 10px 16px;
-}
-
-[data-density="compact"] .appbar__title h1 {
-    font-size: 18px;
-}
-
-[data-density="compact"] .appbar__version {
-    font-size: 11px;
-}
+/* Removed - using enhanced compact mode styles further down with !important */
 
 [data-density="compact"] .nav {
     gap: 4px;
@@ -2770,45 +2760,7 @@ svg[height] {
     line-height: 1.4;
 }
 
-/* Appbar Additional Compact Styles */
-[data-density="compact"] .appbar__actions {
-    gap: 6px;
-}
-
-[data-density="compact"] .appbar__actions .btn {
-    padding: 4px 10px;
-    font-size: 12px;
-}
-
-[data-density="compact"] .appbar__actions .btn.small {
-    padding: 3px 8px;
-    font-size: 11px;
-}
-
-[data-density="compact"] .appbar__update {
-    padding: 4px 10px;
-    font-size: 12px;
-    gap: 4px;
-}
-
-[data-density="compact"] .appbar__update-indicator {
-    width: 6px;
-    height: 6px;
-}
-
-[data-density="compact"] .view-density-toggle {
-    padding: 3px;
-    gap: 3px;
-}
-
-[data-density="compact"] .view-density-toggle button {
-    padding: 4px 10px;
-    font-size: 12px;
-}
-
-[data-density="compact"] .appbar__status {
-    font-size: 11px;
-}
+/* Removed - using enhanced compact mode styles further down with !important */
 
 [data-density="compact"] .badge {
     padding: 2px 6px;
