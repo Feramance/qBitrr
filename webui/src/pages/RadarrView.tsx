@@ -102,6 +102,16 @@ function RadarrAggregateView({
           (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
         size: 100,
       },
+      {
+        accessorKey: "reason",
+        header: "Reason",
+        cell: (info) => {
+          const reason = info.getValue() as string | null;
+          if (!reason) return <span className="hint">—</span>;
+          return <span className="table-badge table-badge-reason">{reason}</span>;
+        },
+        size: 120,
+      },
     ],
     []
   );
@@ -224,6 +234,7 @@ interface RadarrInstanceViewProps {
   pageSize: number;
   allMovies: RadarrMovie[];
   onlyMissing: boolean;
+  reasonFilter: string;
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -237,6 +248,7 @@ function RadarrInstanceView({
   pageSize,
   allMovies,
   onlyMissing,
+  reasonFilter,
   onPageChange,
   onRestart,
   lastUpdated,
@@ -248,6 +260,14 @@ function RadarrInstanceView({
     }
     return movies;
   }, [allMovies, onlyMissing]);
+
+  const reasonFilteredMovies = useMemo(() => {
+    if (reasonFilter === "all") return filteredMovies;
+    if (reasonFilter === "none") {
+      return filteredMovies.filter((m) => !m.reason);
+    }
+    return filteredMovies.filter((m) => m.reason === reasonFilter);
+  }, [filteredMovies, reasonFilter]);
 
   const columns = useMemo<ColumnDef<RadarrMovie>[]>(
     () => [
@@ -275,12 +295,22 @@ function RadarrInstanceView({
           (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
         size: 100,
       },
+      {
+        accessorKey: "reason",
+        header: "Reason",
+        cell: (info) => {
+          const reason = info.getValue() as string | null;
+          if (!reason) return <span className="hint">—</span>;
+          return <span className="table-badge table-badge-reason">{reason}</span>;
+        },
+        size: 120,
+      },
     ],
     []
   );
 
   const table = useReactTable({
-    data: filteredMovies.slice(page * pageSize, page * pageSize + pageSize),
+    data: reasonFilteredMovies.slice(page * pageSize, page * pageSize + pageSize),
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -350,10 +380,10 @@ function RadarrInstanceView({
         <div className="hint">No movies found.</div>
       )}
 
-      {allMovies.length > pageSize && (
+      {reasonFilteredMovies.length > pageSize && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({filteredMovies.length.toLocaleString()} items · page size{" "}
+            Page {page + 1} of {totalPages} ({reasonFilteredMovies.length.toLocaleString()} items · page size{" "}
             {pageSize})
           </div>
           <div className="inline">
@@ -413,6 +443,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     direction: "asc" | "desc";
   }>({ key: "__instance", direction: "asc" });
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
@@ -769,8 +800,15 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     if (onlyMissing) {
       rows = rows.filter((row) => !row.hasFile);
     }
+    if (reasonFilter !== "all") {
+      if (reasonFilter === "none") {
+        rows = rows.filter((row) => !row.reason);
+      } else {
+        rows = rows.filter((row) => row.reason === reasonFilter);
+      }
+    }
     return rows;
-  }, [aggRows, aggFilter, onlyMissing]);
+  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
@@ -907,7 +945,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 />
               </div>
               <div className="field" style={{ flex: "0 0 auto", minWidth: "140px" }}>
-                <label>Quick Filter</label>
+                <label>Status</label>
                 <select
                   onChange={(event) => {
                     const value = event.target.value;
@@ -917,6 +955,21 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 >
                   <option value="all">All Movies</option>
                   <option value="missing">Missing Only</option>
+                </select>
+              </div>
+              <div className="field" style={{ flex: "0 0 auto", minWidth: "140px" }}>
+                <label>Search Reason</label>
+                <select
+                  onChange={(event) => setReasonFilter(event.target.value)}
+                  value={reasonFilter}
+                >
+                  <option value="all">All Reasons</option>
+                  <option value="none">Not Being Searched</option>
+                  <option value="Missing">Missing</option>
+                  <option value="Quality">Quality</option>
+                  <option value="CustomFormat">Custom Format</option>
+                  <option value="Upgrade">Upgrade</option>
+                  <option value="Scheduled search">Scheduled Search</option>
                 </select>
               </div>
             </div>
@@ -954,6 +1007,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 pageSize={instancePageSize}
                 allMovies={allInstanceMovies}
                 onlyMissing={onlyMissing}
+                reasonFilter={reasonFilter}
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstance(selection as string, page, instanceQuery, {

@@ -48,6 +48,7 @@ interface SonarrAggRow {
   monitored: boolean;
   hasFile: boolean;
   airDate: string;
+  reason?: string | null;
 }
 
 const SONARR_PAGE_SIZE = 25;
@@ -115,6 +116,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
 
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [aggSummary, setAggSummary] = useState<{
     available: number;
     monitored: number;
@@ -507,8 +509,15 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         );
       });
     }
+    if (reasonFilter !== "all") {
+      if (reasonFilter === "none") {
+        rows = rows.filter((row) => !row.reason);
+      } else {
+        rows = rows.filter((row) => row.reason === reasonFilter);
+      }
+    }
     return rows;
-  }, [aggRows, aggFilter]);
+  }, [aggRows, aggFilter, reasonFilter]);
 
   const sortedAggRows = filteredAggRows;
 
@@ -602,7 +611,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 />
               </div>
               <div className="field" style={{ flex: "0 0 auto", minWidth: "140px" }}>
-                <label>Quick Filter</label>
+                <label>Status</label>
                 <select
                   onChange={(event) => {
                     const value = event.target.value;
@@ -621,6 +630,21 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 >
                   <option value="all">All Episodes</option>
                   <option value="missing">Missing Only</option>
+                </select>
+              </div>
+              <div className="field" style={{ flex: "0 0 auto", minWidth: "140px" }}>
+                <label>Search Reason</label>
+                <select
+                  onChange={(event) => setReasonFilter(event.target.value)}
+                  value={reasonFilter}
+                >
+                  <option value="all">All Reasons</option>
+                  <option value="none">Not Being Searched</option>
+                  <option value="Missing">Missing</option>
+                  <option value="Quality">Quality</option>
+                  <option value="CustomFormat">Custom Format</option>
+                  <option value="Upgrade">Upgrade</option>
+                  <option value="Scheduled search">Scheduled Search</option>
                 </select>
               </div>
             </div>
@@ -931,6 +955,7 @@ function SonarrAggregateView({
                               <th>Monitored</th>
                               <th>Has File</th>
                               <th>Air Date</th>
+                              <th>Reason</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -941,6 +966,7 @@ function SonarrAggregateView({
                                 <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
                                 <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
                                 <td>{episode.airDate || "—"}</td>
+                                <td>{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1145,6 +1171,7 @@ function SonarrInstanceView({
                               <th>Monitored</th>
                               <th>Has File</th>
                               <th>Air Date</th>
+                              <th>Reason</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1155,6 +1182,7 @@ function SonarrInstanceView({
                               <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
                               <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
                               <td>{episode.airDate || "—"}</td>
+                              <td>{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
                             </tr>
                           ))}
                           </tbody>
@@ -1179,6 +1207,7 @@ function SonarrInstanceView({
                 <th>Monitored</th>
                 <th>Has File</th>
                 <th>Air Date</th>
+                <th>Reason</th>
               </tr>
             </thead>
             <tbody>
@@ -1191,6 +1220,7 @@ function SonarrInstanceView({
                   <td><span className="table-badge">{row.monitored ? "Yes" : "No"}</span></td>
                   <td><span className="table-badge">{row.hasFile ? "Yes" : "No"}</span></td>
                   <td>{row.airDate || "—"}</td>
+                  <td>{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="hint">—</span>}</td>
                 </tr>
               ))}
             </tbody>

@@ -556,6 +556,21 @@ body {
     border-color: rgba(239, 68, 68, 0.3);
     color: var(--danger);
 }
+
+.table-badge-reason {
+    background: rgba(250, 204, 21, 0.15);
+    border-color: rgba(250, 204, 21, 0.3);
+    color: var(--warning);
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+[data-theme="light"] .table-badge-reason {
+    background: rgba(255, 149, 0, 0.1);
+    border-color: rgba(255, 149, 0, 0.3);
+}
+
 .field label {
     color: var(--muted);
     font-size: 12px;
