@@ -2971,3 +2971,123 @@ svg[height] {
     font-size: 10px !important;
     border-radius: 4px !important;
 }
+
+/* Enhanced Update Modal Styling */
+.version-comparison {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(122, 162, 247, 0.05);
+    border: 1px solid rgba(122, 162, 247, 0.2);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.version-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.version-arrow {
+    color: var(--primary);
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.version-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.version-current {
+    background: rgba(154, 163, 172, 0.15);
+    border: 1px solid rgba(154, 163, 172, 0.3);
+    color: var(--muted);
+}
+
+.version-latest {
+    background: rgba(122, 162, 247, 0.15);
+    border: 1px solid rgba(122, 162, 247, 0.3);
+    color: var(--primary);
+}
+
+.update-status {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.update-status.text-info {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+}
+
+.update-status.text-success {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #22c55e;
+}
+
+.update-status.text-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.changelog-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.changelog-section h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--on-surface);
+}
+
+[data-theme="light"] .version-comparison {
+    background: rgba(0, 113, 227, 0.05);
+    border-color: rgba(0, 113, 227, 0.15);
+}
+
+[data-theme="light"] .version-latest {
+    background: rgba(0, 113, 227, 0.1);
+    border-color: rgba(0, 113, 227, 0.25);
+}
+
+/* Compact mode for update modal */
+[data-density="compact"] .version-comparison {
+    padding: 8px;
+    gap: 8px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .version-badge {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+[data-density="compact"] .version-arrow {
+    font-size: 14px;
+}
+
+[data-density="compact"] .update-status {
+    padding: 8px 12px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .changelog-section h3 {
+    font-size: 13px;
+}

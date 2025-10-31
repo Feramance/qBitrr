@@ -62,26 +62,49 @@ function ChangelogModal({
   onClose,
   onUpdate,
 }: ChangelogModalProps): JSX.Element {
+  const [countdown, setCountdown] = useState<number | null>(null);
   const updateDisabled = updating || Boolean(updateState?.in_progress);
   const completedLabel = updateState?.completed_at
     ? new Date(updateState.completed_at).toLocaleString()
     : null;
 
+  // Start countdown when update completes successfully
+  useEffect(() => {
+    if (updateState?.last_result === "success" && updateState?.completed_at) {
+      setCountdown(10);
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            clearInterval(timer);
+            window.location.reload();
+            return null;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [updateState?.last_result, updateState?.completed_at]);
+
   let statusClass = "";
   let statusMessage: string | null = null;
   if (updateState?.in_progress) {
     statusClass = "text-info";
-    statusMessage = "Update in progress...";
+    statusMessage = "⏳ Update in progress...";
   } else if (updateState?.last_result === "success") {
     statusClass = "text-success";
-    statusMessage = "Update completed successfully";
-    if (completedLabel) {
-      statusMessage = `${statusMessage} (${completedLabel})`;
+    if (countdown !== null) {
+      statusMessage = `✓ Update completed! Reloading in ${countdown}s...`;
+    } else {
+      statusMessage = "✓ Update completed successfully";
+      if (completedLabel) {
+        statusMessage = `${statusMessage} (${completedLabel})`;
+      }
     }
   } else if (updateState?.last_result === "error") {
     statusClass = "text-danger";
     const detail = updateState.last_error ? updateState.last_error.trim() : "";
-    statusMessage = detail ? `Last update failed: ${detail}` : "Last update failed.";
+    statusMessage = detail ? `✗ Update failed: ${detail}` : "✗ Update failed";
   }
 
   return (
@@ -94,25 +117,41 @@ function ChangelogModal({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-header">
-          <h2 id="changelog-title">Update Available</h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
+          <h2 id="changelog-title">
+            {updateState?.in_progress ? "⚙️ Updating..." : "🚀 Update Available"}
+          </h2>
+          <button className="btn ghost" type="button" onClick={onClose} disabled={updateState?.in_progress}>
             <IconImage src={CloseIcon} />
             Close
           </button>
         </div>
         <div className="modal-body changelog-modal__body">
           <div className="changelog-meta">
-            <span>
-              <strong>Current:</strong> {formatVersionLabel(currentVersion)}
-            </span>
-            <span>
-              <strong>Latest:</strong> {latestVersion ? formatVersionLabel(latestVersion) : "Unknown"}
-            </span>
-            {statusMessage ? <span className={statusClass}>{statusMessage}</span> : null}
+            <div className="version-comparison">
+              <span className="version-item">
+                <strong>Current:</strong>{" "}
+                <span className="version-badge version-current">{formatVersionLabel(currentVersion)}</span>
+              </span>
+              <span className="version-arrow">→</span>
+              <span className="version-item">
+                <strong>Latest:</strong>{" "}
+                <span className="version-badge version-latest">
+                  {latestVersion ? formatVersionLabel(latestVersion) : "Unknown"}
+                </span>
+              </span>
+            </div>
+            {statusMessage ? (
+              <div className={`update-status ${statusClass}`}>
+                {statusMessage}
+              </div>
+            ) : null}
           </div>
-          <pre className="changelog-body">
-            {changelog?.trim() ? changelog.trim() : "No changelog provided."}
-          </pre>
+          <div className="changelog-section">
+            <h3>What's New</h3>
+            <pre className="changelog-body">
+              {changelog?.trim() ? changelog.trim() : "No changelog provided."}
+            </pre>
+          </div>
         </div>
         <div className="modal-footer">
           <div className="changelog-links">
