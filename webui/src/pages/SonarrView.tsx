@@ -34,7 +34,6 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import FilterIcon from "../icons/alert.svg";
 
 interface SonarrViewProps {
   active: boolean;
@@ -436,7 +435,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       showLoading: true,
       missingOnly: onlyMissing,
     });
-  }, [active, selection, fetchInstance, onlyMissing]);
+  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
 
   useEffect(() => {
     if (!active) return;
@@ -607,33 +606,23 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 <select
                   onChange={(event) => {
                     const value = event.target.value;
-                    if (value === "missing") {
-                      setOnlyMissing(true);
-                      setGlobalSearch("");
-                    } else if (value === "monitored") {
-                      setOnlyMissing(false);
-                      setGlobalSearch("");
-                    } else if (value === "all") {
-                      setOnlyMissing(false);
-                      setGlobalSearch("");
+                    const newMissingState = value === "missing";
+                    setOnlyMissing(newMissingState);
+                    // Trigger refetch when filter changes for instance views
+                    if (selection && selection !== "aggregate") {
+                      void fetchInstance(selection, 0, globalSearchRef.current || "", {
+                        preloadAll: true,
+                        showLoading: true,
+                        missingOnly: newMissingState,
+                      });
                     }
                   }}
                   value={onlyMissing ? "missing" : "all"}
                 >
                   <option value="all">All Episodes</option>
                   <option value="missing">Missing Only</option>
-                  <option value="monitored">Monitored</option>
                 </select>
               </div>
-              <label className="hint inline" style={{ marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={onlyMissing}
-                  onChange={(event) => setOnlyMissing(event.target.checked)}
-                />
-                <IconImage src={FilterIcon} />
-                <span>Only Missing</span>
-              </label>
             </div>
 
             {isAggregate ? (

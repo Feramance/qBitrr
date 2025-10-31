@@ -32,7 +32,6 @@ import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
-import FilterIcon from "../icons/alert.svg";
 
 interface RadarrAggRow extends RadarrMovie {
   __instance: string;
@@ -695,7 +694,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       preloadAll: true,
       showLoading: true,
     });
-  }, [active, selection, fetchInstance, onlyMissing]);
+  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
 
   useEffect(() => {
     if (!active) return;
@@ -745,10 +744,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     active && selection && selection !== "aggregate" && liveArr ? 1000 : null
   );
 
-  useEffect(() => {
-    setAggPage(0);
-    setInstancePage(0);
-  }, [onlyMissing]);
+  // Removed: Don't reset page when filter changes - preserve scroll position
 
   useEffect(() => {
     globalSearchRef.current = globalSearch;
@@ -915,33 +911,14 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 <select
                   onChange={(event) => {
                     const value = event.target.value;
-                    if (value === "missing") {
-                      setOnlyMissing(true);
-                      setGlobalSearch("");
-                    } else if (value === "monitored") {
-                      setOnlyMissing(false);
-                      setGlobalSearch("");
-                    } else if (value === "all") {
-                      setOnlyMissing(false);
-                      setGlobalSearch("");
-                    }
+                    setOnlyMissing(value === "missing");
                   }}
                   value={onlyMissing ? "missing" : "all"}
                 >
                   <option value="all">All Movies</option>
                   <option value="missing">Missing Only</option>
-                  <option value="monitored">Monitored</option>
                 </select>
               </div>
-              <label className="hint inline" style={{ marginBottom: 8 }}>
-                <input
-                  type="checkbox"
-                  checked={onlyMissing}
-                  onChange={(event) => setOnlyMissing(event.target.checked)}
-                />
-                <IconImage src={FilterIcon} />
-                <span>Only Missing</span>
-              </label>
             </div>
 
             {isAggregate ? (
