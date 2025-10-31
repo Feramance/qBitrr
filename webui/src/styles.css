@@ -2851,3 +2851,84 @@ svg[height] {
     background: var(--primary);
     color: white;
 }
+
+/* React-Select Compact Mode Styles */
+[data-density="compact"] .css-13cymwt-control,
+[data-density="compact"] .css-t3ipsp-control,
+[data-density="compact"] .css-15evc9m-control,
+[data-density="compact"] [class*="-control"] {
+    min-height: 32px !important;
+    height: 32px !important;
+    font-size: 12px !important;
+}
+
+[data-density="compact"] .css-1dimb5e-singleValue,
+[data-density="compact"] .css-1dimb5e-singleValue,
+[data-density="compact"] [class*="-singleValue"] {
+    font-size: 12px !important;
+}
+
+[data-density="compact"] .css-1nmdiq5-menu,
+[data-density="compact"] [class*="-menu"] {
+    font-size: 12px !important;
+}
+
+[data-density="compact"] .css-1n6sfyn-MenuList,
+[data-density="compact"] [class*="-MenuList"] {
+    padding: 4px !important;
+}
+
+[data-density="compact"] .css-10wo9uf-option,
+[data-density="compact"] [class*="-option"] {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+}
+
+[data-density="compact"] .css-1hwfws3,
+[data-density="compact"] [class*="indicatorContainer"] {
+    padding: 4px !important;
+}
+
+[data-density="compact"] .css-1wy0on6,
+[data-density="compact"] [class*="-indicatorSeparator"] {
+    margin-top: 4px !important;
+    margin-bottom: 4px !important;
+}
+
+/* Enhanced Appbar Compact Mode */
+[data-density="compact"] .appbar {
+    padding: 8px 16px !important;
+}
+
+[data-density="compact"] .appbar__inner {
+    padding: 0 12px !important;
+    gap: 12px !important;
+}
+
+[data-density="compact"] .appbar__title h1 {
+    font-size: 16px !important;
+    margin: 0 !important;
+}
+
+[data-density="compact"] .appbar__version {
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+}
+
+[data-density="compact"] .appbar__status {
+    font-size: 11px !important;
+}
+
+[data-density="compact"] .appbar__update {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+}
+
+[data-density="compact"] .appbar__actions {
+    gap: 8px !important;
+}
+
+[data-density="compact"] .appbar__actions button {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+}
