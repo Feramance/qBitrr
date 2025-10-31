@@ -1789,7 +1789,7 @@ function FieldGroup({
               onChange(path, field, newValue);
 
               // If this is the theme field, apply immediately
-              if (isThemeField && newValue) {
+              if (isThemeField && typeof newValue === "string" && newValue) {
                 const theme = newValue.toLowerCase() as "light" | "dark";
                 document.documentElement.setAttribute('data-theme', theme);
                 localStorage.setItem("theme", theme);

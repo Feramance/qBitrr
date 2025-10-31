@@ -69,7 +69,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, []);
 
   // Auto-save settings to backend
-  const saveSettings = useCallback(async (key: string, value: boolean) => {
+  const saveSettings = useCallback(async (key: string, value: boolean | string) => {
     try {
       const changes: Record<string, unknown> = {
         WebUI: {
