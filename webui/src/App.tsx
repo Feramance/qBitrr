@@ -168,29 +168,7 @@ function AppShell(): JSX.Element {
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Load and apply theme
-  useEffect(() => {
-    const loadTheme = async () => {
-      try {
-        const config = await getConfig();
-        const webui = config?.WebUI as Record<string, unknown> | undefined;
-        const theme = webui?.Theme as string | undefined;
-
-        if (theme) {
-          const normalizedTheme = theme.toLowerCase();
-          document.documentElement.setAttribute('data-theme', normalizedTheme);
-        } else {
-          // Default to dark theme
-          document.documentElement.setAttribute('data-theme', 'dark');
-        }
-      } catch (error) {
-        // Silently fail and use default dark theme
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    };
-
-    void loadTheme();
-  }, [reloadKey]); // Reload theme when app reloads
+  // Theme is now managed by WebUIContext and applied automatically
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {

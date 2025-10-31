@@ -2736,6 +2736,85 @@ svg[height] {
     font-size: 12px;
 }
 
+/* Logs View Compact Styles */
+[data-density="compact"] .logs-container {
+    height: calc(100vh - 110px);
+}
+
+[data-density="compact"] .logs-toolbar {
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+[data-density="compact"] .logs-toolbar .field {
+    margin-bottom: 0;
+}
+
+[data-density="compact"] .logs-toolbar label {
+    font-size: 11px;
+    margin-bottom: 2px;
+}
+
+[data-density="compact"] .logs-toolbar .btn {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .logs-content {
+    padding: 10px;
+    border-radius: 8px;
+}
+
+[data-density="compact"] .logs-content pre {
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/* Appbar Additional Compact Styles */
+[data-density="compact"] .appbar__actions {
+    gap: 6px;
+}
+
+[data-density="compact"] .appbar__actions .btn {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .appbar__actions .btn.small {
+    padding: 3px 8px;
+    font-size: 11px;
+}
+
+[data-density="compact"] .appbar__update {
+    padding: 4px 10px;
+    font-size: 12px;
+    gap: 4px;
+}
+
+[data-density="compact"] .appbar__update-indicator {
+    width: 6px;
+    height: 6px;
+}
+
+[data-density="compact"] .view-density-toggle {
+    padding: 3px;
+    gap: 3px;
+}
+
+[data-density="compact"] .view-density-toggle button {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
+[data-density="compact"] .appbar__status {
+    font-size: 11px;
+}
+
+[data-density="compact"] .badge {
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
 /* Comfortable is the default, no changes needed */
 [data-density="comfortable"] .responsive-table td,
 [data-density="comfortable"] .responsive-table th {

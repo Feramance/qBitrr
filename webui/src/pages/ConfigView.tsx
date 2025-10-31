@@ -1775,13 +1775,26 @@ function FieldGroup({
       );
     }
     if (field.type === "select") {
+      // Special handling for Theme field - apply immediately without save
+      const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
+
       return (
         <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
             value={formatted ? { value: formatted, label: formatted } : null}
-            onChange={(option) => onChange(path, field, option?.value || "")}
+            onChange={(option) => {
+              const newValue = option?.value || "";
+              onChange(path, field, newValue);
+
+              // If this is the theme field, apply immediately
+              if (isThemeField && newValue) {
+                const theme = newValue.toLowerCase() as "light" | "dark";
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem("theme", theme);
+              }
+            }}
             styles={{
               control: (base) => ({ ...base, background: '#0f131a', color: '#eaeef2', borderColor: '#2a2f36' }),
               menu: (base) => ({ ...base, background: '#0f131a', borderColor: '#2a2f36' }),
@@ -1791,6 +1804,7 @@ function FieldGroup({
             }}
           />
           {description && <div className="field-description">{description}</div>}
+          {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}
         </div>
       );
     }
