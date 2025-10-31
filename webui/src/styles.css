@@ -1679,15 +1679,24 @@ svg[height] {
     color: var(--muted);
 }
 .checkbox-field {
-    display: inline-flex;
-    align-items: flex-start;
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     font-size: 13px;
     color: var(--muted);
 }
+.checkbox-field label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--on-surface);
+}
 .checkbox-field input {
-    margin: 3px 0 0;
+    margin: 0;
     flex-shrink: 0;
+    cursor: pointer;
 }
 .checkbox-field__content {
     display: flex;
@@ -1950,4 +1959,18 @@ svg[height] {
 }
 .tracker-card .field-grid {
     grid-template-columns: minmax(0, 1fr);
+}
+
+.keyboard-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--muted);
+    font-family: monospace;
 }

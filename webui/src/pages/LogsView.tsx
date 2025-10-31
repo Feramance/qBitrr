@@ -103,6 +103,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
+  const isUserScrollingRef = useRef(false);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -150,7 +151,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         const text = await getLogTail(name);
         setContent(text);
         window.requestAnimationFrame(() => {
-          if (logRef.current && shouldAutoScroll) {
+          if (logRef.current && shouldAutoScroll && !isUserScrollingRef.current) {
             logRef.current.scrollTop = logRef.current.scrollHeight;
           }
         });
@@ -162,6 +163,39 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     },
     [describeError, push]
   );
+
+  // Handle user scroll - disable autoscroll if user scrolls up
+  useEffect(() => {
+    const logElement = logRef.current;
+    if (!logElement) return;
+
+    const handleScroll = () => {
+      if (!autoScroll) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = logElement;
+      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+
+      // If user scrolled away from bottom, disable autoscroll
+      if (!isAtBottom && !isUserScrollingRef.current) {
+        isUserScrollingRef.current = true;
+        setAutoScroll(false);
+      }
+    };
+
+    logElement.addEventListener('scroll', handleScroll);
+    return () => logElement.removeEventListener('scroll', handleScroll);
+  }, [autoScroll]);
+
+  // Reset user scrolling flag when autoscroll is re-enabled
+  useEffect(() => {
+    if (autoScroll) {
+      isUserScrollingRef.current = false;
+      // Immediately scroll to bottom when enabled
+      if (logRef.current) {
+        logRef.current.scrollTop = logRef.current.scrollHeight;
+      }
+    }
+  }, [autoScroll]);
 
   useEffect(() => {
     void loadList();

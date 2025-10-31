@@ -9,6 +9,7 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
@@ -95,6 +96,13 @@ interface ProcessesViewProps {
 export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [restartingAll, setRestartingAll] = useState(false);
+  const [rebuildingArrs, setRebuildingArrs] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   const { push } = useToast();
   const isFetching = useRef(false);
 
@@ -170,29 +178,49 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   const handleRestartAll = useCallback(async () => {
-    try {
-      await restartAllProcesses();
-      push("Restarted all processes", "success");
-      void load();
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to restart all",
-        "error"
-      );
-    }
+    setConfirmAction({
+      title: "Restart All Processes",
+      message: "Are you sure you want to restart all processes? This will temporarily interrupt all operations.",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setRestartingAll(true);
+        try {
+          await restartAllProcesses();
+          push("Restarted all processes", "success");
+          void load();
+        } catch (error) {
+          push(
+            error instanceof Error ? error.message : "Failed to restart all",
+            "error"
+          );
+        } finally {
+          setRestartingAll(false);
+        }
+      }
+    });
   }, [load, push]);
 
   const handleRebuildArrs = useCallback(async () => {
-    try {
-      await rebuildArrs();
-      push("Requested Arr rebuild", "success");
-      void load();
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to rebuild Arrs",
-        "error"
-      );
-    }
+    setConfirmAction({
+      title: "Rebuild Arrs",
+      message: "Are you sure you want to rebuild all Arr instances? This will refresh all connections and may take some time.",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setRebuildingArrs(true);
+        try {
+          await rebuildArrs();
+          push("Requested Arr rebuild", "success");
+          void load();
+        } catch (error) {
+          push(
+            error instanceof Error ? error.message : "Failed to rebuild Arrs",
+            "error"
+          );
+        } finally {
+          setRebuildingArrs(false);
+        }
+      }
+    });
   }, [load, push]);
 
   const groupedProcesses = useMemo(() => {
@@ -388,36 +416,52 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       });
 
   return (
-    <section className="card">
-      <div className="card-header">Processes</div>
-      <div className="card-body stack">
-        <div className="row">
-          <div className="col inline">
-            <button className="btn ghost" onClick={() => void load()} disabled={loading}>
-              <IconImage src={RefreshIcon} />
-              Refresh
-            </button>
-            <button className="btn" onClick={() => void handleRestartAll()}>
-              <IconImage src={RestartIcon} />
-              Restart All
-            </button>
-            <button className="btn" onClick={() => void handleRebuildArrs()}>
-              <IconImage src={ToolsIcon} />
-              Rebuild Arrs
-            </button>
-          </div>
-        </div>
-        {cardsByApp.length ? (
-          cardsByApp.map(({ app, cards }) => (
-            <div className="process-section" key={app}>
-              <div className="process-section__title">{app}</div>
-              <div className="process-grid">{cards}</div>
+    <>
+      <section className="card">
+        <div className="card-header">Processes</div>
+        <div className="card-body stack">
+          <div className="row">
+            <div className="col inline">
+              <button className="btn ghost" onClick={() => void load()} disabled={loading}>
+                {loading && <span className="spinner" />}
+                <IconImage src={RefreshIcon} />
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button className="btn" onClick={() => void handleRestartAll()} disabled={restartingAll}>
+                {restartingAll && <span className="spinner" />}
+                <IconImage src={RestartIcon} />
+                {restartingAll ? 'Restarting...' : 'Restart All'}
+              </button>
+              <button className="btn" onClick={() => void handleRebuildArrs()} disabled={rebuildingArrs}>
+                {rebuildingArrs && <span className="spinner" />}
+                <IconImage src={ToolsIcon} />
+                {rebuildingArrs ? 'Rebuilding...' : 'Rebuild Arrs'}
+              </button>
             </div>
-          ))
-        ) : (
-          <div className="empty-state">No processes available.</div>
-        )}
-      </div>
-    </section>
+          </div>
+          {cardsByApp.length ? (
+            cardsByApp.map(({ app, cards }) => (
+              <div className="process-section" key={app}>
+                <div className="process-section__title">{app}</div>
+                <div className="process-grid">{cards}</div>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state">No processes available.</div>
+          )}
+        </div>
+      </section>
+      {confirmAction && (
+        <ConfirmDialog
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel="Confirm"
+          cancelLabel="Cancel"
+          danger={true}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+    </>
   );
 }

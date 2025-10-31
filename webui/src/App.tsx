@@ -6,6 +6,7 @@ const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ def
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider } from "./context/WebUIContext";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
 import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
@@ -153,6 +154,7 @@ function AppShell(): JSX.Element {
   const [configDirty, setConfigDirty] = useState(false);
   const { setValue: setSearchValue } = useSearch();
   const { push } = useToast();
+  const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -217,6 +219,63 @@ function AppShell(): JSX.Element {
   useEffect(() => {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
+
+  // Network status notifications
+  useEffect(() => {
+    if (!isOnline) {
+      push("You are offline. Some features may not work.", "warning");
+    }
+  }, [isOnline, push]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      const isMod = event.ctrlKey || event.metaKey;
+
+      // Ctrl/Cmd + K - Focus search
+      if (isMod && event.key === 'k') {
+        event.preventDefault();
+        const searchInput = document.querySelector('input[type="text"][placeholder*="Search"]') as HTMLInputElement;
+        searchInput?.focus();
+        return;
+      }
+
+      // R - Refresh current view
+      if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        setReloadKey(prev => prev + 1);
+        push('Refreshed', 'success');
+        return;
+      }
+
+      // ESC - Clear search
+      if (event.key === 'Escape') {
+        setSearchValue('');
+        return;
+      }
+
+      // Number keys 1-5 for tab switching
+      if (event.key >= '1' && event.key <= '5' && !isMod) {
+        event.preventDefault();
+        const tabIndex = parseInt(event.key) - 1;
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'config'];
+        if (tabIndex < tabIds.length) {
+          setActiveTab(tabIds[tabIndex]);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setSearchValue, push]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -441,6 +500,11 @@ function AppShell(): JSX.Element {
             ) : null}
           </div>
           <div className="appbar__actions">
+            {!isOnline && (
+              <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)' }}>
+                Offline
+              </span>
+            )}
             <button
               type="button"
               className="btn small ghost"
