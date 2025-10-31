@@ -1,5 +1,11 @@
 # Changelog
 
+## v5.2.0 (31/10/2025)
+- [[minor] UI Updates (#188)](https://github.com/Feramance/qBitrr/commit/e02b5745050d81828fcbb68052b895abdd07d649) - @Feramance
+- [Fix update flow](https://github.com/Feramance/qBitrr/commit/4f797617f61557ea41770e772b732381a1d63781) - @Feramance
+
+---
+
 ## v5.1.1 (30/10/2025)
 - [[patch] Fixed database issues](https://github.com/Feramance/qBitrr/commit/8ca7e3b277e4f7320d10233eb1559ad4d0915eda) - @Feramance
 - [CHange update icon and undid database merging](https://github.com/Feramance/qBitrr/commit/ca5652cebd4eb660cccea6bd7ddee764d6e4bd51) - @Feramance
@@ -340,8 +346,3 @@
 - [Timing updates for request search](https://github.com/Feramance/qBitrr/commit/b519e3e97b9a8e83efed53e894b7df0d13669d68) - @Feramance
 - [Get request files changes](https://github.com/Feramance/qBitrr/commit/c382304e46c9da5edcad78028f2aeb157b3e456e) - @Feramance
 - [Request search loop overhaul](https://github.com/Feramance/qBitrr/commit/c2d77b75e77540a01d2a3e63007cf9a722f88850) - @Feramance
-
----
-
-## v4.10.4 (05/12/2024)
-- [[patch] Quality profile change error handling when defined incorrectly](https://github.com/Feramance/qBitrr/commit/bc2666214800f87d229f90317eb07097e55e403d) - @Feramance
