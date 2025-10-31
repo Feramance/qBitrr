@@ -1,6 +1,8 @@
 // qBitrr Service Worker
-const CACHE_NAME = 'qbitrr-v1';
-const RUNTIME_CACHE = 'qbitrr-runtime';
+// Update cache version on every deployment to force refresh
+const CACHE_VERSION = Date.now();
+const CACHE_NAME = `qbitrr-v${CACHE_VERSION}`;
+const RUNTIME_CACHE = `qbitrr-runtime-v${CACHE_VERSION}`;
 
 // Assets to cache on install
 const PRECACHE_URLS = [

@@ -2942,59 +2942,80 @@ svg[height] {
 
 /* Enhanced Appbar Compact Mode */
 [data-density="compact"] .appbar {
-    padding: 8px 16px !important;
+    padding: 6px 12px !important;
 }
 
 [data-density="compact"] .appbar__inner {
-    padding: 0 8px !important;
-    gap: 10px !important;
-}
-
-[data-density="compact"] .appbar__title {
+    padding: 0 6px !important;
     gap: 8px !important;
 }
 
+[data-density="compact"] .appbar__title {
+    gap: 6px !important;
+}
+
 [data-density="compact"] .appbar__title h1 {
-    font-size: 16px !important;
+    font-size: 15px !important;
     margin: 0 !important;
 }
 
 [data-density="compact"] .appbar__version {
-    font-size: 10px !important;
-    padding: 2px 6px !important;
+    font-size: 9px !important;
+    padding: 2px 5px !important;
+    letter-spacing: 0.3px !important;
 }
 
 [data-density="compact"] .appbar__status {
-    font-size: 11px !important;
+    font-size: 10px !important;
 }
 
 [data-density="compact"] .appbar__update {
-    padding: 5px 10px !important;
-    font-size: 11px !important;
-    gap: 4px !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    gap: 3px !important;
 }
 
 [data-density="compact"] .appbar__update-indicator {
-    width: 6px !important;
-    height: 6px !important;
+    width: 5px !important;
+    height: 5px !important;
 }
 
 [data-density="compact"] .appbar__actions {
     gap: 6px !important;
 }
 
-[data-density="compact"] .appbar__actions button {
-    padding: 5px 10px !important;
-    font-size: 11px !important;
+[data-density="compact"] .appbar__actions button,
+[data-density="compact"] .appbar__actions a.btn {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    gap: 4px !important;
+}
+
+[data-density="compact"] .appbar__actions .icon {
+    width: 14px !important;
+    height: 14px !important;
 }
 
 [data-density="compact"] .appbar__actions .badge {
-    padding: 3px 8px !important;
-    font-size: 10px !important;
+    padding: 2px 6px !important;
+    font-size: 9px !important;
 }
 
 [data-density="compact"] .spinner {
-    width: 12px !important;
-    height: 12px !important;
+    width: 11px !important;
+    height: 11px !important;
     border-width: 2px !important;
+}
+
+/* View Density Toggle Compact Mode */
+[data-density="compact"] .view-density-toggle {
+    padding: 2px !important;
+    gap: 2px !important;
+    border-radius: 6px !important;
+}
+
+[data-density="compact"] .view-density-toggle button {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+    border-radius: 4px !important;
 }

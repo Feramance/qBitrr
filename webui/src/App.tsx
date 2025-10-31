@@ -170,6 +170,24 @@ function AppShell(): JSX.Element {
 
   // Theme is now managed by WebUIContext and applied automatically
 
+  // Clear cache on every page load to ensure fresh content
+  useEffect(() => {
+    const clearCache = async () => {
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('Cache cleared on page load');
+        } catch (error) {
+          console.error('Failed to clear cache:', error);
+        }
+      }
+    };
+    clearCache();
+  }, []);
+
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {
       const force = options?.force ?? false;
