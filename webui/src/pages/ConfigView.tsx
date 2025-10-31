@@ -536,7 +536,24 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
   {
     label: "Search By Series",
     path: ["EntrySearch", "SearchBySeries"],
-    type: "checkbox",
+    type: "select",
+    options: ["smart", "true", "false"],
+    description: "smart = auto (series search for multiple episodes, episode search for single), true = always series search, false = always episode search",
+    format: (value: unknown) => {
+      // Convert boolean or string to string for display
+      if (typeof value === "boolean") {
+        return value ? "true" : "false";
+      }
+      return String(value || "smart");
+    },
+    parse: (value: string | boolean) => {
+      // Keep as string for config - backend will handle parsing
+      const str = String(value);
+      if (str === "true" || str === "false") {
+        return str;
+      }
+      return "smart";
+    },
   },
   {
     label: "Prioritize Today's Releases",
@@ -1099,7 +1116,7 @@ function ensureArrDefaults(type: string): ConfigDocument {
 
   if (isSonarr) {
     entrySearch.AlsoSearchSpecials = false;
-    entrySearch.SearchBySeries = true;
+    entrySearch.SearchBySeries = "smart";
     entrySearch.PrioritizeTodaysReleases = true;
   }
 
