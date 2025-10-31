@@ -14,6 +14,50 @@ from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 T = TypeVar("T")
 
 
+def _add_web_settings_section(config: TOMLDocument):
+    web_settings = table()
+    _gen_default_line(
+        web_settings,
+        "WebUI listen host (default 0.0.0.0)",
+        "Host",
+        "0.0.0.0",
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI listen port (default 6969)",
+        "Port",
+        6969,
+    )
+    _gen_default_line(
+        web_settings,
+        [
+            "Optional bearer token to secure WebUI/API.",
+            "Set a non-empty value to require Authorization: Bearer <token>.",
+        ],
+        "Token",
+        "",
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable live updates for Arr views",
+        "LiveArr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "Group Sonarr episodes by series in views",
+        "GroupSonarr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI theme (light or dark)",
+        "Theme",
+        "dark",
+    )
+    config.add("WebUI", web_settings)
+
+
 def generate_doc() -> TOMLDocument:
     config = document()
     config.add(
@@ -25,6 +69,7 @@ def generate_doc() -> TOMLDocument:
     config.add(comment('This is a config file should be moved to "' f'{HOME_PATH}".'))
     config.add(nl())
     _add_settings_section(config)
+    _add_web_settings_section(config)
     _add_qbit_section(config)
     _add_category_sections(config)
     return config
@@ -150,27 +195,6 @@ def _add_settings_section(config: TOMLDocument):
         ],
         "AutoUpdateCron",
         ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
-    )
-    _gen_default_line(
-        settings,
-        "WebUI listen port (default 6969)",
-        "WebUIPort",
-        6969,
-    )
-    _gen_default_line(
-        settings,
-        "WebUI listen host (default 0.0.0.0)",
-        "WebUIHost",
-        "0.0.0.0",
-    )
-    _gen_default_line(
-        settings,
-        [
-            "Optional bearer token to secure WebUI/API.",
-            "Set a non-empty value to require Authorization: Bearer <token>.",
-        ],
-        "WebUIToken",
-        "",
     )
     config.add("Settings", settings)
 
@@ -680,9 +704,13 @@ def _gen_default_search_table(category: str, cat_default: Table):
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
-            "Search by series instead of by episode (This ignored the QualityUnmetSearch and CustomFormatUnmetSearch setting)",
+            [
+                "Search mode: true (always series search), false (always episode search), or 'smart' (automatic)",
+                "Smart mode: uses series search for entire seasons/series, episode search for single episodes",
+                "(Series search ignores QualityUnmetSearch and CustomFormatUnmetSearch settings)",
+            ],
             "SearchBySeries",
-            True,
+            "smart",
         )
         _gen_default_line(
             search_table,
@@ -811,6 +839,153 @@ class MyConfig:
         )
 
         return values if values is not ... else default
+
+
+def _migrate_webui_config(config: MyConfig) -> bool:
+    """
+    Migrate WebUI configuration from old location (Settings section) to new location (WebUI section).
+    Returns True if any migration was performed, False otherwise.
+    """
+    migrated = False
+
+    # Check if WebUI section exists, if not create it
+    if "WebUI" not in config.config:
+        config.config["WebUI"] = table()
+
+    webui_section = config.config.get("WebUI", {})
+
+    # Migrate Host from Settings to WebUI
+    if "Host" not in webui_section:
+        old_host = config.get("Settings.Host", fallback=None)
+        if old_host is not None:
+            webui_section["Host"] = old_host
+            migrated = True
+            print(f"Migrated WebUI Host from Settings to WebUI section: {old_host}")
+
+    # Migrate Port from Settings to WebUI
+    if "Port" not in webui_section:
+        old_port = config.get("Settings.Port", fallback=None)
+        if old_port is not None:
+            webui_section["Port"] = old_port
+            migrated = True
+            print(f"Migrated WebUI Port from Settings to WebUI section: {old_port}")
+
+    # Migrate Token from Settings to WebUI
+    if "Token" not in webui_section:
+        old_token = config.get("Settings.Token", fallback=None)
+        if old_token is not None:
+            webui_section["Token"] = old_token
+            migrated = True
+            print(f"Migrated WebUI Token from Settings to WebUI section")
+
+    return migrated
+
+
+def _validate_and_fill_config(config: MyConfig) -> bool:
+    """
+    Validate configuration and fill in missing values with defaults.
+    Returns True if any changes were made, False otherwise.
+    """
+    changed = False
+    defaults = config.defaults_config
+
+    # Helper function to ensure a config section exists
+    def ensure_section(section_name: str) -> None:
+        """Ensure a config section exists."""
+        if section_name not in config.config:
+            config.config[section_name] = table()
+
+    # Helper function to check and fill config values
+    def ensure_value(config_section: str, key: str, default_value: Any) -> bool:
+        """Ensure a config value exists, setting to default if missing."""
+        ensure_section(config_section)
+        section = config.config[config_section]
+
+        if key not in section or section[key] is None:
+            # Get the value from defaults if available
+            default_section = defaults.get(config_section, {})
+            if default_section and key in default_section:
+                default = default_section[key]
+            else:
+                default = default_value
+            section[key] = default
+            return True
+        return False
+
+    # Validate Settings section
+    settings_defaults = [
+        ("ConsoleLevel", "INFO"),
+        ("Logging", True),
+        ("CompletedDownloadFolder", "CHANGE_ME"),
+        ("FreeSpace", "-1"),
+        ("FreeSpaceFolder", "CHANGE_ME"),
+        ("AutoPauseResume", True),
+        ("NoInternetSleepTimer", 15),
+        ("LoopSleepTimer", 5),
+        ("SearchLoopDelay", -1),
+        ("FailedCategory", "failed"),
+        ("RecheckCategory", "recheck"),
+        ("Tagless", False),
+        ("IgnoreTorrentsYoungerThan", 600),
+        ("PingURLS", ["one.one.one.one", "dns.google.com"]),
+        ("FFprobeAutoUpdate", True),
+        ("AutoUpdateEnabled", False),
+        ("AutoUpdateCron", "0 3 * * 0"),
+    ]
+
+    for key, default in settings_defaults:
+        if ensure_value("Settings", key, default):
+            changed = True
+
+    # Validate WebUI section
+    webui_defaults = [
+        ("Host", "0.0.0.0"),
+        ("Port", 6969),
+        ("Token", ""),
+        ("LiveArr", True),
+        ("GroupSonarr", True),
+        ("Theme", "dark"),
+    ]
+
+    for key, default in webui_defaults:
+        if ensure_value("WebUI", key, default):
+            changed = True
+
+    # Validate qBit section
+    qbit_defaults = [
+        ("Disabled", False),
+        ("Host", "localhost"),
+        ("Port", 8105),
+        ("UserName", ""),
+        ("Password", ""),
+    ]
+
+    for key, default in qbit_defaults:
+        if ensure_value("qBit", key, default):
+            changed = True
+
+    return changed
+
+
+def apply_config_migrations(config: MyConfig) -> None:
+    """
+    Apply all configuration migrations and validations.
+    Saves the config if any changes were made.
+    """
+    changes_made = False
+
+    # Apply migrations
+    if _migrate_webui_config(config):
+        changes_made = True
+
+    # Validate and fill config
+    if _validate_and_fill_config(config):
+        changes_made = True
+
+    # Save if changes were made
+    if changes_made:
+        config.save()
+        print("Configuration has been updated with migrations and defaults.")
 
 
 def _write_config_file(docker: bool = False) -> pathlib.Path:

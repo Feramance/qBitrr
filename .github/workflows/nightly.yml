@@ -4,6 +4,9 @@ on:
   push:
     branches:
     - master
+    paths-ignore:
+    - \'**.md\'
+    - \'.github/FUNDING.yml\'
 
 defaults:
   run:
@@ -14,12 +17,15 @@ env:
 
 jobs:
   docker_image:
-    name: Build Docker Image
+    name: Build Docker Images
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
+    strategy:
+      matrix:
+        platform: [amd64, arm64]
     steps:
     - id: string
       uses: ASzc/change-string-case-action@v6

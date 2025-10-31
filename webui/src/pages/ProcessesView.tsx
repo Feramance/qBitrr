@@ -9,6 +9,8 @@ import type { ProcessInfo } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
@@ -94,6 +96,13 @@ interface ProcessesViewProps {
 export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [restartingAll, setRestartingAll] = useState(false);
+  const [rebuildingArrs, setRebuildingArrs] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
   const { push } = useToast();
   const isFetching = useRef(false);
 
@@ -169,29 +178,49 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   const handleRestartAll = useCallback(async () => {
-    try {
-      await restartAllProcesses();
-      push("Restarted all processes", "success");
-      void load();
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to restart all",
-        "error"
-      );
-    }
+    setConfirmAction({
+      title: "Restart All Processes",
+      message: "Are you sure you want to restart all processes? This will temporarily interrupt all operations.",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setRestartingAll(true);
+        try {
+          await restartAllProcesses();
+          push("Restarted all processes", "success");
+          void load();
+        } catch (error) {
+          push(
+            error instanceof Error ? error.message : "Failed to restart all",
+            "error"
+          );
+        } finally {
+          setRestartingAll(false);
+        }
+      }
+    });
   }, [load, push]);
 
   const handleRebuildArrs = useCallback(async () => {
-    try {
-      await rebuildArrs();
-      push("Requested Arr rebuild", "success");
-      void load();
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : "Failed to rebuild Arrs",
-        "error"
-      );
-    }
+    setConfirmAction({
+      title: "Rebuild Arrs",
+      message: "Are you sure you want to rebuild all Arr instances? This will refresh all connections and may take some time.",
+      onConfirm: async () => {
+        setConfirmAction(null);
+        setRebuildingArrs(true);
+        try {
+          await rebuildArrs();
+          push("Requested Arr rebuild", "success");
+          void load();
+        } catch (error) {
+          push(
+            error instanceof Error ? error.message : "Failed to rebuild Arrs",
+            "error"
+          );
+        } finally {
+          setRebuildingArrs(false);
+        }
+      }
+    });
   }, [load, push]);
 
   const groupedProcesses = useMemo(() => {
@@ -312,88 +341,60 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   {filteredKinds.length ? (
                     <div className="process-card__badges">
                       {filteredKinds.map((kind) => (
-                        <span
-                          className="process-card__badge"
-                          key={`${name}:${kind}:badge`}
-                        >
+                        <span key={`${name}:${kind}:badge`} className="process-card__badge">
                           {formatKind(kind)}
                         </span>
                       ))}
                     </div>
                   ) : null}
                 </div>
-                <span
-                  className={statusClass.join(" ")}
-                  title={statusLabel}
-                  aria-label={statusLabel}
-                  role="img"
-                />
+                <div className={statusClass.join(" ")} title={statusLabel} />
               </div>
               <div className="process-card__list">
                 {items.map((item) => (
                   <div className="process-chip" key={`${item.category}:${item.kind}`}>
                     <div className="process-chip__top">
-                      <span className="process-chip__name">{formatKind(item.kind)}</span>
-                      <span className={item.alive ? "status-pill status-pill--ok" : "status-pill status-pill--bad"}>
-                        <span className="status-pill__dot" />
-                        {item.alive ? "Running" : "Stopped"}
-                      </span>
+                      <div className="process-chip__name">{formatKind(item.kind)}</div>
+                      <div className={`status-pill__dot ${item.alive ? "text-success" : "text-danger"}`} />
                     </div>
-                    {(() => {
-                      const kindLower = item.kind.toLowerCase();
-                      if (kindLower === "search") {
-                        const summary = item.searchSummary ?? "";
-                        let content: JSX.Element | string;
-                        if (summary) {
-                          content = summary;
-                        } else {
-                          content = "No searches recorded";
+                    <div className="process-chip__detail">
+                      {(() => {
+                        const kindLower = item.kind.toLowerCase();
+                        if (kindLower === "search") {
+                          const summary = item.searchSummary ?? "";
+                          return summary || "No searches recorded";
                         }
-                        return <div className="process-chip__detail">{content}</div>;
-                      }
-                      if (kindLower === "torrent") {
-                        const metricType = item.metricType?.toLowerCase();
-                        const categoryTotal =
-                          typeof item.categoryCount === "number" ? item.categoryCount : null;
-                        const queueTotal =
-                          typeof item.queueCount === "number" ? item.queueCount : null;
+                        if (kindLower === "torrent") {
+                          const metricType = item.metricType?.toLowerCase();
+                          const categoryTotal =
+                            typeof item.categoryCount === "number" ? item.categoryCount : null;
+                          const queueTotal =
+                            typeof item.queueCount === "number" ? item.queueCount : null;
 
-                        if (!metricType) {
-                          const queueLabel = queueTotal !== null ? queueTotal : "?";
-                          const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrents in queue ${queueLabel} / total ${categoryLabel}`}
-                            </div>
-                          );
+                          if (!metricType) {
+                            const queueLabel = queueTotal !== null ? queueTotal : "?";
+                            const categoryLabel = categoryTotal !== null ? categoryTotal : "?";
+                            return `Torrents in queue ${queueLabel} / total ${categoryLabel}`;
+                          }
+
+                          if (metricType === "category" && categoryTotal !== null) {
+                            return `Torrent count ${categoryTotal}`;
+                          }
+
+                          if (metricType === "free-space" && queueTotal !== null) {
+                            return `Torrent count ${queueTotal}`;
+                          }
+
+                          return "Torrent count unavailable";
                         }
-
-                        if (metricType === "category" && categoryTotal !== null) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrent count ${categoryTotal}`}
-                            </div>
-                          );
-                        }
-
-                        if (metricType === "free-space" && queueTotal !== null) {
-                          return (
-                            <div className="process-chip__detail">
-                              {`Torrent count ${queueTotal}`}
-                            </div>
-                          );
-                        }
-
-                        return <div className="process-chip__detail">Torrent count unavailable</div>;
-                      }
-                      return null;
-                    })()}
+                        return "";
+                      })()}
+                    </div>
                     <div className="process-chip__actions">
                       <button
-                        className="btn ghost"
+                        className="btn small"
                         onClick={() => handleRestart(item.category, item.kind)}
                       >
-                        <IconImage src={RestartIcon} />
                         Restart
                       </button>
                     </div>
@@ -402,10 +403,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               </div>
               <div className="process-card__footer">
                 <button
-                  className="btn ghost"
+                  className="btn small outline"
                   onClick={() => void handleRestartGroup(items)}
                 >
-                  <IconImage src={RestartIcon} />
                   Restart All
                 </button>
               </div>
@@ -416,36 +416,52 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       });
 
   return (
-    <section className="card">
-      <div className="card-header">Processes</div>
-      <div className="card-body stack">
-        <div className="row">
-          <div className="col inline">
-            <button className="btn" onClick={() => void load()} disabled={loading}>
-              <IconImage src={RefreshIcon} />
-              Refresh
-            </button>
-            <button className="btn" onClick={() => void handleRestartAll()}>
-              <IconImage src={RestartIcon} />
-              Restart All
-            </button>
-            <button className="btn" onClick={() => void handleRebuildArrs()}>
-              <IconImage src={ToolsIcon} />
-              Rebuild Arrs
-            </button>
-          </div>
-        </div>
-        {cardsByApp.length ? (
-          cardsByApp.map(({ app, cards }) => (
-            <div className="process-section" key={app}>
-              <div className="process-section__title">{app}</div>
-              <div className="process-grid">{cards}</div>
+    <>
+      <section className="card">
+        <div className="card-header">Processes</div>
+        <div className="card-body stack">
+          <div className="row">
+            <div className="col inline">
+              <button className="btn ghost" onClick={() => void load()} disabled={loading}>
+                {loading && <span className="spinner" />}
+                <IconImage src={RefreshIcon} />
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button className="btn" onClick={() => void handleRestartAll()} disabled={restartingAll}>
+                {restartingAll && <span className="spinner" />}
+                <IconImage src={RestartIcon} />
+                {restartingAll ? 'Restarting...' : 'Restart All'}
+              </button>
+              <button className="btn" onClick={() => void handleRebuildArrs()} disabled={rebuildingArrs}>
+                {rebuildingArrs && <span className="spinner" />}
+                <IconImage src={ToolsIcon} />
+                {rebuildingArrs ? 'Rebuilding...' : 'Rebuild Arrs'}
+              </button>
             </div>
-          ))
-        ) : (
-          <div className="empty-state">No processes available.</div>
-        )}
-      </div>
-    </section>
+          </div>
+          {cardsByApp.length ? (
+            cardsByApp.map(({ app, cards }) => (
+              <div className="process-section" key={app}>
+                <div className="process-section__title">{app}</div>
+                <div className="process-grid">{cards}</div>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state">No processes available.</div>
+          )}
+        </div>
+      </section>
+      {confirmAction && (
+        <ConfirmDialog
+          title={confirmAction.title}
+          message={confirmAction.message}
+          confirmLabel="Confirm"
+          cancelLabel="Cancel"
+          danger={true}
+          onConfirm={confirmAction.onConfirm}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+    </>
   );
 }

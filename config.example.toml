@@ -59,15 +59,28 @@ AutoUpdateEnabled = false
 # Cron expression describing when to check for updates (default weekly at 03:00 on Sunday)
 AutoUpdateCron = "0 3 * * 0"
 
-# WebUI listen port and host
-# Default listen host `0.0.0.0` binds on all interfaces
-WebUIHost = "0.0.0.0"
-WebUIPort = 6969
 
-# Optional bearer token to secure the WebUI/API.
-# Set a non-empty value to require Authorization: Bearer <token>
-# Leave empty to disable authentication (not recommended on public networks)
-WebUIToken = ""
+
+
+[WebUI]
+# WebUI listen host (default 0.0.0.0)
+Host = "0.0.0.0"
+
+# WebUI listen port (default 6969)
+Port = 6969
+
+# Optional bearer token to secure WebUI/API.
+# Set a non-empty value to require Authorization: Bearer <token>.
+Token = ""
+
+# Enable live updates for Arr views
+LiveArr = true
+
+# Group Sonarr episodes by series in views
+GroupSonarr = true
+
+# WebUI theme (light or dark)
+Theme = "dark"
 
 
 [qBit]

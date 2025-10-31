@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
-import { ProcessesView } from "./pages/ProcessesView";
-import { LogsView } from "./pages/LogsView";
-import { ArrView } from "./pages/ArrView";
-import { ConfigView } from "./pages/ConfigView";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Suspense } from "react";
+const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
+const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
+const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
+const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
-import { getMeta, getStatus, triggerUpdate } from "./api/client";
+import { WebUIProvider, useWebUI } from "./context/WebUIContext";
+import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
 import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
@@ -150,8 +152,10 @@ function ChangelogModal({
 function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
   const [configDirty, setConfigDirty] = useState(false);
-  const { setValue: setSearchValue } = useSearch();
   const { push } = useToast();
+  const { value: searchValue, setValue: setSearchValue } = useSearch();
+  const { viewDensity, setViewDensity } = useWebUI();
+  const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
@@ -162,6 +166,27 @@ function AppShell(): JSX.Element {
   const backendReadyRef = useRef(false);
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Theme is now managed by WebUIContext and applied automatically
+
+  // Clear cache on every page load to ensure fresh content
+  useEffect(() => {
+    const clearCache = async () => {
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('Cache cleared on page load');
+        } catch (error) {
+          console.error('Failed to clear cache:', error);
+        }
+      }
+    };
+    clearCache();
+  }, []);
 
   const refreshMeta = useCallback(
     async (options?: { force?: boolean; silent?: boolean }) => {
@@ -192,11 +217,83 @@ function AppShell(): JSX.Element {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
 
+  // Network status notifications
+  useEffect(() => {
+    if (!isOnline) {
+      push("You are offline. Some features may not work.", "warning");
+    }
+  }, [isOnline, push]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (event.target instanceof HTMLInputElement ||
+          event.target instanceof HTMLTextAreaElement ||
+          event.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      const isMod = event.ctrlKey || event.metaKey;
+
+      // Ctrl/Cmd + K - Focus search
+      if (isMod && event.key === 'k') {
+        event.preventDefault();
+        const searchInput = document.querySelector('input[type="text"][placeholder*="Search"]') as HTMLInputElement;
+        searchInput?.focus();
+        return;
+      }
+
+      // R - Refresh current view
+      if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        setReloadKey(prev => prev + 1);
+        push('Refreshed', 'success');
+        return;
+      }
+
+      // ESC - Clear search
+      if (event.key === 'Escape') {
+        setSearchValue('');
+        return;
+      }
+
+      // Number keys 1-5 for tab switching
+      if (event.key >= '1' && event.key <= '5' && !isMod) {
+        event.preventDefault();
+        const tabIndex = parseInt(event.key) - 1;
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'config'];
+        if (tabIndex < tabIds.length) {
+          setActiveTab(tabIds[tabIndex]);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setSearchValue, push]);
+
   useEffect(() => {
     const id = window.setInterval(() => {
       void refreshMeta();
     }, 5 * 60 * 1000);
     return () => window.clearInterval(id);
+  }, [refreshMeta]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        // Force reload all data by incrementing the reload key
+        setReloadKey((prev) => prev + 1);
+        void refreshMeta({ force: true });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [refreshMeta]);
 
   useEffect(() => {
@@ -213,7 +310,7 @@ function AppShell(): JSX.Element {
           window.location.reload();
         }
         restartPollCount.current = 0;
-      } catch (error) {
+      } catch {
         restartPollCount.current += 1;
         if (restartPollCount.current > 20) { // 60 seconds
           setBackendRestarting(false);
@@ -247,7 +344,7 @@ function AppShell(): JSX.Element {
       }
     }
     prevUpdateResult.current = result;
-  }, [meta?.update_state?.last_result, meta?.update_state?.last_error, push]);
+  }, [meta?.update_state, push]);
 
   useEffect(() => {
     let cancelled = false;
@@ -374,7 +471,7 @@ function AppShell(): JSX.Element {
   }, [push, refreshMeta]);
 
   return (
-    <>
+    <div data-density={viewDensity}>
       <header className="appbar">
         <div className="appbar__inner">
           <div className="appbar__title">
@@ -400,6 +497,29 @@ function AppShell(): JSX.Element {
             ) : null}
           </div>
           <div className="appbar__actions">
+            {!isOnline && (
+              <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)', color: 'var(--danger)' }}>
+                Offline
+              </span>
+            )}
+            <div className="view-density-toggle">
+              <button
+                type="button"
+                className={viewDensity === "comfortable" ? "active" : ""}
+                onClick={() => setViewDensity("comfortable")}
+                title="Comfortable view"
+              >
+                Comfortable
+              </button>
+              <button
+                type="button"
+                className={viewDensity === "compact" ? "active" : ""}
+                onClick={() => setViewDensity("compact")}
+                title="Compact view"
+              >
+                Compact
+              </button>
+            </div>
             <button
               type="button"
               className="btn small ghost"
@@ -446,11 +566,13 @@ function AppShell(): JSX.Element {
             </button>
           ))}
         </nav>
-        {activeTab === "processes" && <ProcessesView active />}
-        {activeTab === "logs" && <LogsView active />}
-        {activeTab === "radarr" && <ArrView type="radarr" active />}
-        {activeTab === "sonarr" && <ArrView type="sonarr" active />}
-        {activeTab === "config" && <ConfigView onDirtyChange={setConfigDirty} />}
+        <Suspense fallback={<div className="loading">Loading...</div>}>
+          {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
+          {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
+          {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
+          {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+          {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
+        </Suspense>
       </main>
       {showChangelog && meta ? (
         <ChangelogModal
@@ -465,7 +587,7 @@ function AppShell(): JSX.Element {
           onUpdate={handleTriggerUpdate}
         />
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -473,8 +595,10 @@ export default function App(): JSX.Element {
   return (
     <ToastProvider>
       <SearchProvider>
-        <AppShell />
-        <ToastViewport />
+        <WebUIProvider>
+          <AppShell />
+          <ToastViewport />
+        </WebUIProvider>
       </SearchProvider>
     </ToastProvider>
   );

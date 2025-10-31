@@ -4,9 +4,11 @@ import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
+import Select from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
-import ShowIcon from "../icons/visibility.svg";
+
 import RefreshIcon from "../icons/refresh-arrow.svg";
+import VisibilityIcon from "../icons/visibility.svg";
 import AddIcon from "../icons/plus.svg";
 import SaveIcon from "../icons/check-mark.svg";
 import DeleteIcon from "../icons/trash.svg";
@@ -35,6 +37,7 @@ interface FieldDefinition {
   secure?: boolean;
   required?: boolean;
   validate?: FieldValidator;
+  fullWidth?: boolean;
 }
 
 interface ValidationError {
@@ -43,6 +46,56 @@ interface ValidationError {
 }
 
 const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
+
+// Helper function for react-select theme-aware styles
+const getSelectStyles = () => {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    control: (base: any) => ({
+      ...base,
+      background: isDark ? '#0f131a' : '#ffffff',
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
+      minHeight: '38px',
+      boxShadow: 'none',
+      '&:hover': {
+        borderColor: isDark ? '#3a4149' : '#b8b8bd',
+      }
+    }),
+    menu: (base: any) => ({
+      ...base,
+      background: isDark ? '#0f131a' : '#ffffff',
+      borderColor: isDark ? '#2a2f36' : '#d2d2d7',
+      border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
+    }),
+    option: (base: any, state: any) => ({
+      ...base,
+      background: state.isFocused
+        ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
+        : (isDark ? '#0f131a' : '#ffffff'),
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+      '&:active': {
+        background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+    }),
+    input: (base: any) => ({
+      ...base,
+      color: isDark ? '#eaeef2' : '#1d1d1f',
+    }),
+    placeholder: (base: any) => ({
+      ...base,
+      color: isDark ? '#9aa3ac' : '#6e6e73',
+    }),
+    menuList: (base: any) => ({
+      ...base,
+      padding: '4px',
+    }),
+  };
+};
 
 const parseList = (value: string | boolean): string[] =>
   String(value)
@@ -55,41 +108,11 @@ const formatList = (value: unknown): string =>
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
 
-const DAY_NAMES = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
-type CronFieldType = "minute" | "hour" | "dayOfMonth" | "month" | "dayOfWeek" | "year";
 
-const CRON_FIELD_LABELS: Record<CronFieldType, { singular: string; plural: string }> = {
-  minute: { singular: "minute", plural: "minutes" },
-  hour: { singular: "hour", plural: "hours" },
-  dayOfMonth: { singular: "day", plural: "days" },
-  month: { singular: "month", plural: "months" },
-  dayOfWeek: { singular: "day", plural: "days" },
-  year: { singular: "year", plural: "years" },
-};
+
+
 
 const SENTENCE_END = /(.+?[.!?])(\s|$)/;
 
@@ -102,151 +125,9 @@ function extractTooltipSummary(tooltip?: string): string | undefined {
   return sentence.length > 160 ? `${sentence.slice(0, 157)}…` : sentence;
 }
 
-function padTwo(value: number): string {
-  return value.toString().padStart(2, "0");
-}
 
-function isNumeric(value: string): boolean {
-  return /^-?\d+$/.test(value);
-}
 
-function formatOrdinal(value: string): string {
-  if (!isNumeric(value)) return value;
-  const num = Number(value);
-  const abs = Math.abs(num);
-  const mod100 = abs % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
-  switch (abs % 10) {
-    case 1:
-      return `${value}st`;
-    case 2:
-      return `${value}nd`;
-    case 3:
-      return `${value}rd`;
-    default:
-      return `${value}th`;
-  }
-}
 
-function formatCronToken(token: string, type: CronFieldType): string {
-  const trimmed = token.trim();
-  if (!trimmed) return "*";
-  if (/^[A-Za-z#LW?]+$/.test(trimmed)) return trimmed;
-  if (type === "month" && isNumeric(trimmed)) {
-    const monthIndex = Number(trimmed);
-    if (monthIndex >= 1 && monthIndex <= 12) {
-      return MONTH_NAMES[monthIndex - 1];
-    }
-  }
-  if (type === "dayOfWeek" && isNumeric(trimmed)) {
-    const dayIndex = Number(trimmed) % 7;
-    if (dayIndex >= 0 && dayIndex <= 6) {
-      return DAY_NAMES[dayIndex];
-    }
-  }
-  if (type === "dayOfMonth") {
-    return formatOrdinal(trimmed);
-  }
-  return trimmed;
-}
-
-function describeCronField(value: string, type: CronFieldType): string {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "*") {
-    return `every ${CRON_FIELD_LABELS[type].plural}`;
-  }
-  if (trimmed === "?") {
-    return `any ${CRON_FIELD_LABELS[type].singular}`;
-  }
-  if (trimmed.startsWith("*/")) {
-    const step = trimmed.slice(2);
-    return `every ${step} ${Number(step) === 1 ? CRON_FIELD_LABELS[type].singular : CRON_FIELD_LABELS[type].plural}`;
-  }
-  if (trimmed.includes("/")) {
-    const [base, step] = trimmed.split("/");
-    const baseDescription =
-      !base || base === "*" ? `every ${CRON_FIELD_LABELS[type].plural}` : describeCronField(base, type);
-    const stepSize = Number(step);
-    const cadence =
-      Number.isFinite(stepSize) && stepSize > 0
-        ? `every ${step} ${stepSize === 1 ? CRON_FIELD_LABELS[type].singular : CRON_FIELD_LABELS[type].plural}`
-        : `every ${step} units`;
-    return `${baseDescription} (${cadence})`;
-  }
-  if (trimmed.includes(",")) {
-    return trimmed
-      .split(",")
-      .map((part) => formatCronToken(part, type))
-      .join(", ");
-  }
-  if (trimmed.includes("-")) {
-    const [start, end] = trimmed.split("-");
-    return `${formatCronToken(start, type)} to ${formatCronToken(end, type)}`;
-  }
-  return formatCronToken(trimmed, type);
-}
-
-function describeCronTime(minuteField: string, hourField: string): string {
-  const minuteTrimmed = minuteField.trim();
-  const hourTrimmed = hourField.trim();
-  if ((minuteTrimmed === "*" || minuteTrimmed === "*/1") && hourTrimmed === "*") {
-    return "Runs every minute";
-  }
-  if (hourTrimmed === "*" && minuteTrimmed.startsWith("*/")) {
-    const step = minuteTrimmed.slice(2);
-    return `Runs every ${step} minutes`;
-  }
-  if (hourTrimmed === "*" && isNumeric(minuteTrimmed)) {
-    return `Runs at minute ${Number(minuteTrimmed)} each hour`;
-  }
-  if (isNumeric(hourTrimmed) && isNumeric(minuteTrimmed)) {
-    return `Runs at ${padTwo(Number(hourTrimmed))}:${padTwo(Number(minuteTrimmed))}`;
-  }
-  const minuteDescription = describeCronField(minuteTrimmed, "minute");
-  const hourDescription = describeCronField(hourTrimmed, "hour");
-  return `Minutes: ${minuteDescription}; Hours: ${hourDescription}`;
-}
-
-function describeCronDay(dayOfMonthField: string, dayOfWeekField: string): string {
-  const dom = dayOfMonthField.trim();
-  const dow = dayOfWeekField.trim();
-  const domWildcard = dom === "*" || dom === "?";
-  const dowWildcard = dow === "*" || dow === "?";
-  if (domWildcard && dowWildcard) {
-    return "Every day";
-  }
-  const segments: string[] = [];
-  if (!domWildcard) {
-    segments.push(`Days of month: ${describeCronField(dom, "dayOfMonth")}`);
-  }
-  if (!dowWildcard) {
-    segments.push(`Weekdays: ${describeCronField(dow, "dayOfWeek")}`);
-  }
-  return segments.join("; ");
-}
-
-function describeCron(expression: string): string {
-  const parts = expression.trim().split(/\s+/).filter(Boolean);
-  if (parts.length < 5 || parts.length > 6) {
-    return "Enter 5 or 6 cron fields (minute hour day month weekday [year]).";
-  }
-  const [minute, hour, dayOfMonth, month, dayOfWeek, year] = [
-    parts[0] ?? "*",
-    parts[1] ?? "*",
-    parts[2] ?? "*",
-    parts[3] ?? "*",
-    parts[4] ?? "*",
-    parts[5],
-  ];
-  const timeDescription = describeCronTime(minute, hour);
-  const dayDescription = describeCronDay(dayOfMonth, dayOfWeek);
-  const monthDescription = month.trim() === "*" ? "Every month" : `Months: ${describeCronField(month, "month")}`;
-  const pieces = [timeDescription, dayDescription, monthDescription];
-  if (year) {
-    pieces.push(`Years: ${describeCronField(year, "year")}`);
-  }
-  return pieces.join(" · ");
-}
 
 const SETTINGS_FIELDS: FieldDefinition[] = [
   {
@@ -391,9 +272,13 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
+
+];
+
+const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
   {
     label: "WebUI Host",
-    path: ["Settings", "WebUIHost"],
+    path: ["WebUI", "Host"],
     type: "text",
     required: true,
     validate: (value) => {
@@ -405,7 +290,7 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   },
   {
     label: "WebUI Port",
-    path: ["Settings", "WebUIPort"],
+    path: ["WebUI", "Port"],
     type: "number",
     validate: (value) => {
       const port = typeof value === "number" ? value : Number(value);
@@ -417,10 +302,14 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   },
   {
     label: "WebUI Token",
-    path: ["Settings", "WebUIToken"],
+    path: ["WebUI", "Token"],
     type: "password",
     secure: true,
+    fullWidth: true,
   },
+  { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
+  { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
+  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["Light", "Dark"] },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -1109,6 +998,7 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   const errors: ValidationError[] = [];
   const rootContext: ValidationContext = { root: formState };
   validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
+  validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
   validateFieldGroup(errors, QBIT_FIELDS, formState, [], rootContext);
   for (const [key, value] of Object.entries(formState)) {
     if (!SERVARR_SECTION_REGEX.test(key) || !value || typeof value !== "object") {
@@ -1322,11 +1212,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [loadConfig]);
 
   const handleFieldChange = useCallback(
-    (path: string[], def: FieldDefinition, raw: string | boolean) => {
+    (path: string[], def: FieldDefinition, raw: unknown) => {
       if (!formState) return;
       const next = cloneConfig(formState) ?? {};
       const parsed =
-        def.parse?.(raw) ??
+        def.parse?.(raw as string | boolean) ??
         (def.type === "number"
           ? Number(raw) || 0
           : def.type === "checkbox"
@@ -1380,6 +1270,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [arrSections]);
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
+  const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
   const [isQbitOpen, setQbitOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
@@ -1437,7 +1328,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isQbitOpen);
+    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isWebSettingsOpen || isQbitOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1454,7 +1345,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, isSettingsOpen, isQbitOpen]);
+  }, [activeArrKey, isSettingsOpen, isWebSettingsOpen, isQbitOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -1610,29 +1501,51 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       <section className="card">
         <div className="card-header">Config</div>
         <div className="card-body config-layout">
-          <div className="config-grid">
-            <ConfigSummaryCard
-              title="Settings"
-              description="Core application configuration"
-              onConfigure={() => setSettingsOpen(true)}
-            />
-            <ConfigSummaryCard
-              title="qBit"
-              description="qBittorrent connection details"
-              onConfigure={() => setQbitOpen(true)}
-            />
-          </div>
+          <section className="config-arr-group">
+            <details className="config-arr-group__details" open>
+              <summary>
+                <span>Core Configuration</span>
+              </summary>
+              <div className="config-grid">
+                <ConfigSummaryCard
+                  title="Settings"
+                  description="Core application configuration"
+                  onConfigure={() => setSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="Web Settings"
+                  description="Web UI configuration"
+                  onConfigure={() => setWebSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="qBit"
+                  description="qBittorrent connection details"
+                  onConfigure={() => setQbitOpen(true)}
+                />
+              </div>
+            </details>
+          </section>
           {groupedArrSections.length ? (
             <div className="config-arr-groups">
               {groupedArrSections.map((group) => (
                 <section className="config-arr-group" key={group.type}>
                   <details className="config-arr-group__details" open>
-                    <summary>
-                      <span>{group.label}</span>
-                      <span className="config-arr-group__count">
-                        {group.items.length}
-                      </span>
-                    </summary>
+                     <summary>
+                       <span>{group.label}</span>
+                       <span className="config-arr-group__count">
+                         {group.items.length}
+                       </span>
+                       {(group.type === "radarr" || group.type === "sonarr") && (
+                         <button
+                           className="btn small"
+                           type="button"
+                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
+                         >
+                           <IconImage src={AddIcon} />
+                           Add Instance
+                         </button>
+                       )}
+                     </summary>
                     <div className="config-arr-grid">
                       {group.items.map(([key, value]) => {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
@@ -1690,24 +1603,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
             </div>
           ) : null}
           <div className="config-footer">
-            <div className="config-actions">
-              <button
-                className="btn"
-                type="button"
-                onClick={() => addArrInstance("radarr")}
-              >
-                <IconImage src={AddIcon} />
-                Add Radarr Instance
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => addArrInstance("sonarr")}
-              >
-                <IconImage src={AddIcon} />
-                Add Sonarr Instance
-              </button>
-            </div>
             <button
               className="btn primary"
               onClick={() => void handleSubmit()}
@@ -1736,6 +1631,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+      {isWebSettingsOpen ? (
+        <SimpleConfigModal
+          title="Web Settings"
+          fields={WEB_SETTINGS_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setWebSettingsOpen(false)}
         />
       ) : null}
       {isQbitOpen ? (
@@ -1779,25 +1684,14 @@ function ConfigSummaryCard({
   );
 }
 
-interface CronDescriptorProps {
-  expression: string;
-}
 
-function CronDescriptor({ expression }: CronDescriptorProps): JSX.Element {
-  const readable = useMemo(() => describeCron(expression), [expression]);
-  return (
-    <p className="field-hint" role="status" aria-live="polite">
-      {readable}
-    </p>
-  );
-}
 
 interface FieldGroupProps {
   title: string | null;
   fields: FieldDefinition[];
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
 }
@@ -1819,26 +1713,18 @@ function FieldGroup({
       const nextTrackers = [
         ...trackers,
         {
-          Name: "New Tracker",
-          URI: "",
-          Priority: (trackers.length || 0) + 1,
-          MaximumETA: -1,
-          DownloadRateLimit: -1,
-          UploadRateLimit: -1,
-          MaxUploadRatio: -1,
-          MaxSeedingTime: -1,
-          AddTrackerIfMissing: false,
+          Url: "",
           RemoveIfExists: false,
           SuperSeedMode: false,
           AddTags: [],
         },
       ];
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
     };
     const handleDeleteTracker = (index: number) => {
       const nextTrackers = [...trackers];
       nextTrackers.splice(index, 1);
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers as any);
+      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
     };
     return (
       <details className="config-section" open={defaultOpen}>
@@ -1904,6 +1790,7 @@ function FieldGroup({
 
     const isArrInstance = basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "");
     const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
+    const fieldClassName = field.fullWidth ? "field field--full-width" : "field";
 
     if (field.secure) {
       return (
@@ -1920,82 +1807,89 @@ function FieldGroup({
       );
     }
 
-    const descriptionNode = description ? (
-      <p className="field-description">{description}</p>
-    ) : null;
-    const cronDescriptorNode =
-      key === 'Settings.AutoUpdateCron' ? (
-        <CronDescriptor expression={String(formatted)} />
-      ) : null;
+
 
     if (field.type === "checkbox") {
       return (
-        <label className="checkbox-field" key={key}>
-          <input
-            type="checkbox"
-            checked={Boolean(formatted)}
-            onChange={(event) => onChange(path, field, event.target.checked)}
-          />
-          <span className="checkbox-field__content">
-            <span className="checkbox-field__text">
-              {field.label}
-              {tooltip ? (
-                <span className="help-icon" title={tooltip} aria-label={tooltip}>
-                  ?
-                </span>
-              ) : null}
-            </span>
-            {description ? (
-              <span className="field-description">{description}</span>
-            ) : null}
-          </span>
-        </label>
+        <div key={key} className="checkbox-field">
+          <label title={tooltip}>
+            <input
+              type="checkbox"
+              checked={Boolean(formatted)}
+              onChange={(event) => onChange(path, field, event.target.checked)}
+            />
+            {field.label}
+          </label>
+          {description && <div className="field-description">{description}</div>}
+        </div>
       );
     }
     if (field.type === "select") {
+      // Special handling for Theme field - apply immediately without save
+      const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
+
       return (
-        <div className="field" key={key}>
-          <label className="field-label">
-            <span>{field.label}</span>
-            {tooltip ? (
-              <span className="help-icon" title={tooltip} aria-label={tooltip}>
-                ?
-              </span>
-            ) : null}
-          </label>
-          {descriptionNode}
-          <select
+        <div key={key} className={fieldClassName}>
+          <label title={tooltip}>{field.label}</label>
+          <Select
+            options={(field.options ?? []).map(o => ({ value: o, label: o }))}
+            value={formatted ? { value: formatted, label: formatted } : null}
+            onChange={(option) => {
+              const newValue = option?.value || "";
+              onChange(path, field, newValue);
+
+              // If this is the theme field, apply immediately
+              if (isThemeField && typeof newValue === "string" && newValue) {
+                const theme = newValue.toLowerCase() as "light" | "dark";
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem("theme", theme);
+              }
+            }}
+            styles={getSelectStyles()}
+          />
+          {description && <div className="field-description">{description}</div>}
+          {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}
+        </div>
+      );
+    }
+    if (field.type === "number") {
+      return (
+        <div key={key} className={fieldClassName}>
+          <label title={tooltip}>{field.label}</label>
+          <input
+            type="number"
+            value={Number(formatted) || 0}
+            onChange={(event) => onChange(path, field, String(event.target.value))}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
+      );
+    }
+    if (field.type === "password") {
+      return (
+        <div key={key} className={fieldClassName}>
+          <label title={tooltip}>{field.label}</label>
+          <input
+            type="password"
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
-          >
-            {(field.options ?? []).map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-          {cronDescriptorNode}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
         </div>
       );
     }
     return (
-      <div className="field" key={key}>
-        <label className="field-label">
-          <span>{field.label}</span>
-          {tooltip ? (
-            <span className="help-icon" title={tooltip} aria-label={tooltip}>
-              ?
-            </span>
-          ) : null}
-        </label>
-        {descriptionNode}
+      <div key={key} className={fieldClassName}>
+        <label title={tooltip}>{field.label}</label>
         <input
-          type={field.type === "number" ? "number" : field.type}
+          type="text"
           value={String(formatted)}
-          placeholder={field.placeholder}
           onChange={(event) => onChange(path, field, event.target.value)}
+          placeholder={field.placeholder}
         />
-        {cronDescriptorNode}
+        {description && <div className="field-description">{description}</div>}
       </div>
     );
   });
@@ -2022,7 +1916,7 @@ function TrackerCard({
   fields: FieldDefinition[];
   state: ConfigDocument | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onDelete: () => void;
 }): JSX.Element {
   const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
@@ -2125,13 +2019,7 @@ function SecureField({
   canRefresh = true,
   onChange,
 }: SecureFieldProps): JSX.Element {
-  const [revealed, setRevealed] = useState(false);
-
-  const maskedValue =
-    value && !revealed
-      ? "*".repeat(Math.min(Math.max(value.length, 8), 16))
-      : "";
-  const displayValue = revealed ? value : value ? maskedValue : "";
+  const [showValue, setShowValue] = useState(false);
 
   const handleRefresh = () => {
     let newKey = "";
@@ -2142,46 +2030,29 @@ function SecureField({
         Math.floor(Math.random() * 16).toString(16)
       ).join("");
     }
-    setRevealed(true);
     onChange(newKey);
   };
 
   return (
     <div className="field secure-field">
-      <label className="field-label">
-        <span>{label}</span>
-        {tooltip ? (
-          <span className="help-icon" title={tooltip} aria-label={tooltip}>
-            ?
-          </span>
-        ) : null}
-      </label>
-      {description ? <p className="field-description">{description}</p> : null}
+      <label title={tooltip}>{label}</label>
       <div className="secure-field__input-group">
         <input
-          type={revealed ? "text" : "password"}
-          value={revealed ? value : displayValue}
+          type={showValue ? "text" : "password"}
+          value={value}
           placeholder={placeholder}
-          readOnly={!revealed}
           onChange={(event) => onChange(event.target.value)}
         />
-        <div className="secure-field__controls">
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => setRevealed((prev) => !prev)}
-          >
-            {revealed ? <IconImage src={ShowIcon} className="icon-rotate" /> : <IconImage src={ShowIcon} />}
-            <span>{revealed ? "Hide" : "Show"}</span>
+        <button type="button" className="btn ghost" onClick={() => setShowValue(!showValue)}>
+          <IconImage src={VisibilityIcon} />
+        </button>
+        {canRefresh && (
+          <button type="button" className="btn ghost" onClick={handleRefresh}>
+            <IconImage src={RefreshIcon} />
           </button>
-          {canRefresh ? (
-            <button type="button" className="btn ghost" onClick={handleRefresh}>
-              <IconImage src={RefreshIcon} />
-              Refresh
-            </button>
-          ) : null}
-        </div>
+        )}
       </div>
+      {description && <div className="field-description">{description}</div>}
     </div>
   );
 }
@@ -2189,7 +2060,7 @@ function SecureField({
 interface ArrInstanceModalProps {
   keyName: string;
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
 }
@@ -2204,13 +2075,21 @@ function ArrInstanceModal({
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>n        <div className="modal-header">
-          <h2>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="arr-instance-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="arr-instance-modal-title">
             Configure <code>{keyName}</code>
           </h2>
-          <button className="btn ghost" onClick={onClose}>
+          <button className="btn ghost" type="button" onClick={onClose}>
             <IconImage src={CloseIcon} />
+            Close
           </button>
         </div>
         <div className="modal-body">
@@ -2221,6 +2100,7 @@ function ArrInstanceModal({
             basePath={[keyName]}
             onChange={onChange}
             onRenameSection={onRename}
+            defaultOpen
           />
           <FieldGroup
             title="Entry Search"
@@ -2228,6 +2108,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[keyName]}
             onChange={onChange}
+            defaultOpen
           />
           <FieldGroup
             title="Ombi Integration"
@@ -2265,6 +2146,12 @@ function ArrInstanceModal({
             onChange={onChange}
           />
         </div>
+        <div className="modal-footer">
+          <button className="btn primary" type="button" onClick={onClose}>
+            <IconImage src={SaveIcon} />
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2275,7 +2162,7 @@ interface SimpleConfigModalProps {
   fields: FieldDefinition[];
   state: ConfigDocument | null;
   basePath: string[];
-  onChange: (path: string[], def: FieldDefinition, value: string | boolean) => void;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
 }
 

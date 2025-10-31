@@ -312,7 +312,14 @@ class Arr:
         self.overseerr_requests = CONFIG.get(
             f"{name}.EntrySearch.Overseerr.SearchOverseerrRequests", fallback=False
         )
-        self.series_search = CONFIG.get(f"{name}.EntrySearch.SearchBySeries", fallback=False)
+        # SearchBySeries can be: True (always series), False (always episode), or "smart" (automatic)
+        series_search_config = CONFIG.get(f"{name}.EntrySearch.SearchBySeries", fallback=False)
+        if isinstance(series_search_config, str) and series_search_config.lower() == "smart":
+            self.series_search = "smart"
+        elif series_search_config in (True, "true", "True", "TRUE", 1):
+            self.series_search = True
+        else:
+            self.series_search = False
         if self.ombi_search_requests:
             self.ombi_uri = CONFIG.get_or_raise(f"{name}.EntrySearch.Ombi.OmbiURI")
             self.ombi_api_key = CONFIG.get_or_raise(f"{name}.EntrySearch.Ombi.OmbiAPIKey")
@@ -549,9 +556,12 @@ class Arr:
                 self.quality_unmet_search
                 or self.do_upgrade_search
                 or self.custom_format_unmet_search
-                or self.series_search
+                or self.series_search == True
             ):
                 self.search_api_command = "SeriesSearch"
+            elif self.series_search == "smart":
+                # In smart mode, the command will be determined dynamically
+                self.search_api_command = "SeriesSearch"  # Default, will be overridden per search
             else:
                 self.search_api_command = "MissingEpisodeSearch"
 
@@ -1499,11 +1509,55 @@ class Arr:
     ) -> Iterable[
         tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
     ]:
-        if self.type == "sonarr" and self.series_search:
+        if self.type == "sonarr" and self.series_search == True:
             serieslist = self.db_get_files_series()
             for series in serieslist:
                 yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
-        elif self.type == "sonarr" and not self.series_search:
+        elif self.type == "sonarr" and self.series_search == "smart":
+            # Smart mode: decide dynamically based on what needs to be searched
+            episodelist = self.db_get_files_episodes()
+            if episodelist:
+                # Group episodes by series to determine if we should search by series or episode
+                series_episodes_map = {}
+                for episode_entry in episodelist:
+                    episode = episode_entry[0]
+                    series_id = episode.SeriesId
+                    if series_id not in series_episodes_map:
+                        series_episodes_map[series_id] = []
+                    series_episodes_map[series_id].append(episode_entry)
+
+                # Process each series
+                for series_id, episodes in series_episodes_map.items():
+                    if len(episodes) > 1:
+                        # Multiple episodes from same series - use series search (smart decision)
+                        self.logger.info(
+                            "[SMART MODE] Using series search for %s episodes from series ID %s",
+                            len(episodes),
+                            series_id,
+                        )
+                        # Create a series entry for searching
+                        series_model = (
+                            self.series_file_model.select()
+                            .where(self.series_file_model.EntryId == series_id)
+                            .first()
+                        )
+                        if series_model:
+                            yield series_model, episodes[0][1], episodes[0][2], True, len(
+                                episodelist
+                            )
+                    else:
+                        # Single episode - use episode search (smart decision)
+                        episode = episodes[0][0]
+                        self.logger.info(
+                            "[SMART MODE] Using episode search for single episode: %s S%02dE%03d",
+                            episode.SeriesTitle,
+                            episode.SeasonNumber,
+                            episode.EpisodeNumber,
+                        )
+                        yield episodes[0][0], episodes[0][1], episodes[0][2], False, len(
+                            episodelist
+                        )
+        elif self.type == "sonarr" and self.series_search == False:
             episodelist = self.db_get_files_episodes()
             for episodes in episodelist:
                 yield episodes[0], episodes[1], episodes[2], False, len(episodelist)
@@ -2842,7 +2896,7 @@ class Arr:
                             self.logger.debug(
                                 "Updating quality profile for %s to %s",
                                 db_entry["title"],
-                                self.temp_quality_profile_ids[db_entry["qualityProfileId"]],
+                                db_entry["qualityProfileId"],
                             )
                         while True:
                             try:

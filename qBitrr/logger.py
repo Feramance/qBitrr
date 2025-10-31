@@ -131,9 +131,29 @@ def run_logs(logger: Logger, _name: str = None) -> None:
                 logold.unlink()
             logfile.rename(logold)
         fh = logging.FileHandler(logfile)
+        # Use ColoredFormatter for file output to include ANSI colors in log files
         fh.setFormatter(
-            logging.Formatter(
-                fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s"
+            coloredlogs.ColoredFormatter(
+                fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
+                level_styles={
+                    "trace": {"color": "black", "bold": True},
+                    "debug": {"color": "magenta", "bold": True},
+                    "verbose": {"color": "blue", "bold": True},
+                    "info": {"color": "white"},
+                    "notice": {"color": "cyan"},
+                    "hnotice": {"color": "cyan", "bold": True},
+                    "warning": {"color": "yellow", "bold": True},
+                    "success": {"color": "green", "bold": True},
+                    "error": {"color": "red"},
+                    "critical": {"color": "red", "bold": True},
+                },
+                field_styles={
+                    "asctime": {"color": "green"},
+                    "process": {"color": "magenta"},
+                    "levelname": {"color": "red", "bold": True},
+                    "name": {"color": "blue", "bold": True},
+                    "thread": {"color": "cyan"},
+                },
             )
         )
         logger.addHandler(fh)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import glob
 import logging
 import os
 import sys
@@ -31,6 +32,7 @@ from qBitrr.config import (
 )
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
+from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
@@ -47,6 +49,32 @@ run_logs(logger, "Main")
 
 def _mask_secret(value: str | None) -> str:
     return "[redacted]" if value else ""
+
+
+def _delete_all_databases() -> None:
+    """
+    Delete all database files from the APPDATA_FOLDER on startup.
+
+    This includes:
+    - All .db files (SQLite databases)
+    - All .db-wal files (Write-Ahead Log files)
+    - All .db-shm files (Shared Memory files)
+    """
+    db_patterns = ["*.db", "*.db-wal", "*.db-shm"]
+    deleted_files = []
+
+    for pattern in db_patterns:
+        for db_file in glob.glob(str(APPDATA_FOLDER.joinpath(pattern))):
+            try:
+                os.remove(db_file)
+                deleted_files.append(os.path.basename(db_file))
+            except Exception as e:
+                logger.error("Failed to delete database file %s: %s", db_file, e)
+
+    if deleted_files:
+        logger.info("Deleted database files on startup: %s", ", ".join(deleted_files))
+    else:
+        logger.debug("No database files found to delete on startup")
 
 
 class qBitManager:
@@ -114,10 +142,10 @@ class qBitManager:
             )
         # Start WebUI as early as possible
         try:
-            web_port = int(CONFIG.get("Settings.WebUIPort", fallback=6969) or 6969)
+            web_port = int(CONFIG.get("WebUI.Port", fallback=6969) or 6969)
         except Exception:
             web_port = 6969
-        web_host = CONFIG.get("Settings.WebUIHost", fallback="127.0.0.1") or "127.0.0.1"
+        web_host = CONFIG.get("WebUI.Host", fallback="127.0.0.1") or "127.0.0.1"
         if os.environ.get("QBITRR_DOCKER_RUNNING") == "69420" and web_host in {
             "127.0.0.1",
             "localhost",
@@ -420,7 +448,7 @@ def _report_config_issues():
         for key in CONFIG.sections():
             import re
 
-            m = re.match(r"(rad|son|anim)arr.*", key, re.IGNORECASE)
+            m = re.match(r"radarr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)
@@ -445,6 +473,10 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
+
+    # Delete all databases on startup
+    _delete_all_databases()
+
     try:
         manager = qBitManager()
     except NameError:

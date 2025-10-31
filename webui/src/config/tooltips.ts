@@ -29,11 +29,14 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Enable the background worker that periodically checks for qBitrr updates.",
   "Settings.AutoUpdateCron":
     "Cron expression describing when to check for updates (default weekly Sunday at 03:00).",
-  "Settings.WebUIHost":
+  "WebUI.Host":
     "Interface address for the built-in WebUI. 0.0.0.0 binds on all interfaces.",
-  "Settings.WebUIPort": "Port number for the built-in WebUI.",
-  "Settings.WebUIToken":
+  "WebUI.Port": "Port number for the built-in WebUI.",
+  "WebUI.Token":
     "Optional bearer token required by the WebUI/API. Leave empty to disable authentication.",
+   "WebUI.LiveArr": "Enable live updates for Arr views.",
+   "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
+   "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
 
   "qBit.Disabled":
     "Disable qBitrr's direct qBittorrent integration (headless mode for search-only setups).",

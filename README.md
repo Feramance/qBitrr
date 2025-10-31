@@ -65,13 +65,14 @@ Minimal setup:
 ```bash
 docker run -d \
   --name qbitrr \
+  --tty \
   -e TZ=Europe/London \
   -p 6969:6969 \
   -v /etc/localtime:/etc/localtime:ro \
   -v /path/to/appdata/qbitrr:/config \
   -v /path/to/completed/downloads:/completed_downloads:rw \
   --restart unless-stopped \
-feramance/qbitrr:latest
+  feramance/qbitrr:latest
 ```
 
 The container automatically binds its WebUI to `0.0.0.0`; exposing `6969` makes the dashboard reachable at `http://<host>:6969/ui`.
@@ -83,6 +84,7 @@ services:
     image: feramance/qbitrr:latest
     user: 1000:1000
     restart: unless-stopped
+    tty: true
     environment:
       TZ: Europe/London
     ports:
