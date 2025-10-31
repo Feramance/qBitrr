@@ -270,11 +270,27 @@ class WebUI:
         return bool(value) and str(value).lower() not in {"0", "false", "none"}
 
     def _radarr_movies_from_db(
-        self, arr, search: str | None, page: int, page_size: int
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        year_min: int | None = None,
+        year_max: int | None = None,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+        quality_met: bool | None = None,
+        is_request: bool | None = None,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
             return {
-                "counts": {"available": 0, "monitored": 0},
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
                 "total": 0,
                 "page": max(page, 0),
                 "page_size": max(page_size, 1),
@@ -284,7 +300,13 @@ class WebUI:
         db = getattr(arr, "db", None)
         if model is None or db is None:
             return {
-                "counts": {"available": 0, "monitored": 0},
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
                 "total": 0,
                 "page": max(page, 0),
                 "page_size": max(page_size, 1),
@@ -294,6 +316,8 @@ class WebUI:
         page_size = max(page_size, 1)
         with db.connection_context():
             base_query = model.select()
+
+            # Calculate counts
             monitored_count = (
                 model.select(fn.COUNT(model.EntryId))
                 .where(model.Monitored == True)  # noqa: E712
@@ -310,9 +334,44 @@ class WebUI:
                 .scalar()
                 or 0
             )
+            missing_count = max(monitored_count - available_count, 0)
+            quality_met_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.QualityMet == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            request_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.IsRequest == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+
+            # Build filtered query
             query = base_query
             if search:
                 query = query.where(model.Title.contains(search))
+            if year_min is not None:
+                query = query.where(model.Year >= year_min)
+            if year_max is not None:
+                query = query.where(model.Year <= year_max)
+            if monitored is not None:
+                query = query.where(model.Monitored == monitored)
+            if has_file is not None:
+                if has_file:
+                    query = query.where(
+                        (model.MovieFileId.is_null(False)) & (model.MovieFileId != 0)
+                    )
+                else:
+                    query = query.where(
+                        (model.MovieFileId.is_null(True)) | (model.MovieFileId == 0)
+                    )
+            if quality_met is not None:
+                query = query.where(model.QualityMet == quality_met)
+            if is_request is not None:
+                query = query.where(model.IsRequest == is_request)
+
             total = query.count()
             page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
             movies = []
@@ -324,10 +383,23 @@ class WebUI:
                         "year": movie.Year,
                         "monitored": self._safe_bool(movie.Monitored),
                         "hasFile": self._safe_bool(movie.MovieFileId),
+                        "qualityMet": self._safe_bool(movie.QualityMet),
+                        "isRequest": self._safe_bool(movie.IsRequest),
+                        "upgrade": self._safe_bool(movie.Upgrade),
+                        "customFormatScore": movie.CustomFormatScore,
+                        "minCustomFormatScore": movie.MinCustomFormatScore,
+                        "customFormatMet": self._safe_bool(movie.CustomFormatMet),
+                        "reason": movie.Reason,
                     }
                 )
         return {
-            "counts": {"available": available_count, "monitored": monitored_count},
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+                "quality_met": quality_met_count,
+                "requests": request_count,
+            },
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -1177,7 +1249,40 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=50, type=int)
-            payload = self._radarr_movies_from_db(arr, q, page, page_size)
+            year_min = request.args.get("year_min", default=None, type=int)
+            year_max = request.args.get("year_max", default=None, type=int)
+            monitored = (
+                self._safe_bool(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            has_file = (
+                self._safe_bool(request.args.get("has_file"))
+                if "has_file" in request.args
+                else None
+            )
+            quality_met = (
+                self._safe_bool(request.args.get("quality_met"))
+                if "quality_met" in request.args
+                else None
+            )
+            is_request = (
+                self._safe_bool(request.args.get("is_request"))
+                if "is_request" in request.args
+                else None
+            )
+            payload = self._radarr_movies_from_db(
+                arr,
+                q,
+                page,
+                page_size,
+                year_min=year_min,
+                year_max=year_max,
+                monitored=monitored,
+                has_file=has_file,
+                quality_met=quality_met,
+                is_request=is_request,
+            )
             payload["category"] = category
             return jsonify(payload)
 
@@ -1193,7 +1298,40 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=50, type=int)
-            payload = self._radarr_movies_from_db(arr, q, page, page_size)
+            year_min = request.args.get("year_min", default=None, type=int)
+            year_max = request.args.get("year_max", default=None, type=int)
+            monitored = (
+                self._safe_bool(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            has_file = (
+                self._safe_bool(request.args.get("has_file"))
+                if "has_file" in request.args
+                else None
+            )
+            quality_met = (
+                self._safe_bool(request.args.get("quality_met"))
+                if "quality_met" in request.args
+                else None
+            )
+            is_request = (
+                self._safe_bool(request.args.get("is_request"))
+                if "is_request" in request.args
+                else None
+            )
+            payload = self._radarr_movies_from_db(
+                arr,
+                q,
+                page,
+                page_size,
+                year_min=year_min,
+                year_max=year_max,
+                monitored=monitored,
+                has_file=has_file,
+                quality_met=quality_met,
+                is_request=is_request,
+            )
             payload["category"] = category
             return jsonify(payload)
 
