@@ -923,9 +923,62 @@ pre::-webkit-scrollbar-thumb:hover {
 
 .pagination {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 16px;
+    padding: 12px 0;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.pagination .inline {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.pagination .btn {
+    min-width: 70px;
+    padding: 8px 12px;
+}
+
+.pagination-jump {
+    width: 80px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--on-surface);
+    font-size: 14px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.pagination-jump:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.1);
+}
+
+.pagination-jump:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Remove spinner arrows from number input */
+.pagination-jump::-webkit-inner-spin-button,
+.pagination-jump::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.pagination-jump[type="number"] {
+    -moz-appearance: textfield;
 }
 
 .badge {
