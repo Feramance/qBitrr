@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import contextlib
+import glob
 import logging
 import os
 import sys
@@ -31,6 +32,7 @@ from qBitrr.config import (
 )
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
+from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
@@ -47,6 +49,32 @@ run_logs(logger, "Main")
 
 def _mask_secret(value: str | None) -> str:
     return "[redacted]" if value else ""
+
+
+def _delete_all_databases() -> None:
+    """
+    Delete all database files from the APPDATA_FOLDER on startup.
+
+    This includes:
+    - All .db files (SQLite databases)
+    - All .db-wal files (Write-Ahead Log files)
+    - All .db-shm files (Shared Memory files)
+    """
+    db_patterns = ["*.db", "*.db-wal", "*.db-shm"]
+    deleted_files = []
+
+    for pattern in db_patterns:
+        for db_file in glob.glob(str(APPDATA_FOLDER.joinpath(pattern))):
+            try:
+                os.remove(db_file)
+                deleted_files.append(os.path.basename(db_file))
+            except Exception as e:
+                logger.error("Failed to delete database file %s: %s", db_file, e)
+
+    if deleted_files:
+        logger.info("Deleted database files on startup: %s", ", ".join(deleted_files))
+    else:
+        logger.debug("No database files found to delete on startup")
 
 
 class qBitManager:
@@ -445,6 +473,10 @@ def run():
     if early_exit is True:
         sys.exit(0)
     logger.info("Starting qBitrr: Version: %s.", patched_version)
+
+    # Delete all databases on startup
+    _delete_all_databases()
+
     try:
         manager = qBitManager()
     except NameError:
