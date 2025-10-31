@@ -1974,3 +1974,85 @@ svg[height] {
     color: var(--muted);
     font-family: monospace;
 }
+
+/* Skeleton Loading States */
+.skeleton {
+    background: linear-gradient(90deg, var(--surface) 0%, rgba(122, 162, 247, 0.1) 50%, var(--surface) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.skeleton-table {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+}
+
+.skeleton-table-header {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.skeleton-header {
+    height: 24px;
+}
+
+.skeleton-table-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.skeleton-cell {
+    height: 20px;
+}
+
+.skeleton-card {
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.skeleton-title {
+    height: 28px;
+    width: 60%;
+    margin-bottom: 16px;
+}
+
+.skeleton-text {
+    height: 16px;
+    margin-bottom: 12px;
+}
+
+.skeleton-text:last-of-type {
+    width: 80%;
+}
+
+.skeleton-button {
+    height: 40px;
+    width: 120px;
+    margin-top: 16px;
+    border-radius: 8px;
+}
+
+.skeleton-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
