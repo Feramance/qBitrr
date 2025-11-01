@@ -832,10 +832,10 @@ function SonarrAggregateView({
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flatColumns = useMemo<ColumnDef<any>[]>(() => [
-    {
+    ...(instanceCount > 1 ? [{
       accessorKey: "__instance",
       header: "Instance",
-    },
+    }] : []),
     {
       accessorKey: "series",
       header: "Series",
@@ -871,7 +871,7 @@ function SonarrAggregateView({
       header: "Air Date",
       cell: ({ getValue }) => getValue() || "—",
     },
-  ], []);
+  ], [instanceCount]);
 
   const columns = groupSonarr ? groupedColumns : flatColumns;
 
