@@ -2144,20 +2144,24 @@ function ArrInstanceModal({
             onChange={onChange}
             defaultOpen
           />
-          <FieldGroup
-            title="Ombi Integration"
-            fields={entryOmbiFields}
-            state={state}
-            basePath={[keyName]}
-            onChange={onChange}
-          />
-          <FieldGroup
-            title="Overseerr Integration"
-            fields={entryOverseerrFields}
-            state={state}
-            basePath={[keyName]}
-            onChange={onChange}
-          />
+          {entryOmbiFields.length > 0 && (
+            <FieldGroup
+              title="Ombi Integration"
+              fields={entryOmbiFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+            />
+          )}
+          {entryOverseerrFields.length > 0 && (
+            <FieldGroup
+              title="Overseerr Integration"
+              fields={entryOverseerrFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+            />
+          )}
           <FieldGroup
             title="Torrent Handling"
             fields={torrentFields}
