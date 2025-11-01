@@ -2983,6 +2983,25 @@ class Arr:
                             conflict_target=[self.series_file_model.EntryId], update=to_update
                         )
                         db_commands.execute()
+
+                        # Also populate individual episodes for WebUI display
+                        try:
+                            episodes = self.client.get_episode(EntryId, True)
+                            for e in episodes:
+                                if isinstance(e, str):
+                                    continue
+                                if "airDateUtc" in e:
+                                    if datetime.strptime(
+                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
+                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
+                                        continue
+                                    if not self.search_specials and e["seasonNumber"] == 0:
+                                        continue
+                                    # Call the episode update logic (not series)
+                                    self.db_update_single_series(db_entry=e, series=False)
+                        except Exception:
+                            # Don't fail series update if episode sync fails
+                            pass
                     else:
                         db_commands = self.series_file_model.delete().where(
                             self.series_file_model.EntryId == EntryId
