@@ -8,6 +8,7 @@ import type {
   RadarrMoviesResponse,
   RestartResponse,
   SonarrSeriesResponse,
+  LidarrAlbumsResponse,
   StatusResponse,
 } from "./types";
 
@@ -207,6 +208,21 @@ export async function getSonarrSeries(
   }
   return fetchJson<SonarrSeriesResponse>(
     `/web/sonarr/${encodeURIComponent(category)}/series?${params}`
+  );
+}
+
+export async function getLidarrAlbums(
+  category: string,
+  page: number,
+  pageSize: number,
+  q: string
+): Promise<LidarrAlbumsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("page_size", String(pageSize));
+  if (q) params.set("q", q);
+  return fetchJson<LidarrAlbumsResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
   );
 }
 

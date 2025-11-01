@@ -90,7 +90,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const { liveArr, setLiveArr, groupSonarr, setGroupSonarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "aggregate">("aggregate");
+  const [selection, setSelection] = useState<string | "">("aggregate");
   const [instanceData, setInstanceData] =
     useState<SonarrSeriesResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
@@ -145,7 +145,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         return;
       }
       if (selection === "") {
-        setSelection("aggregate");
+        // If only 1 instance, select it directly; otherwise use aggregate
+        setSelection(filtered.length === 1 ? filtered[0].category : "aggregate");
       } else if (
         selection !== "aggregate" &&
         !filtered.some((arr) => arr.category === selection)
@@ -564,12 +565,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       <div className="card-body">
         <div className="split">
           <aside className="pane sidebar">
-            <button
-              className={`btn ${isAggregate ? "active" : ""}`}
-              onClick={() => setSelection("aggregate")}
-            >
-              All Sonarr
-            </button>
+            {instances.length > 1 && (
+              <button
+                className={`btn ${isAggregate ? "active" : ""}`}
+                onClick={() => setSelection("aggregate")}
+              >
+                All Sonarr
+              </button>
+            )}
             {instances.map((inst) => (
               <button
                 key={inst.category}
@@ -593,7 +596,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 onChange={handleInstanceSelection}
                 disabled={!instances.length}
               >
-                <option value="aggregate">All Sonarr</option>
+                {instances.length > 1 && <option value="aggregate">All Sonarr</option>}
                 {instances.map((inst) => (
                   <option key={inst.category} value={inst.category}>
                     {inst.name || inst.category}

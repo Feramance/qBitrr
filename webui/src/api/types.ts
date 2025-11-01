@@ -1,4 +1,4 @@
-export type ArrType = "radarr" | "sonarr" | string;
+export type ArrType = "radarr" | "sonarr" | "lidarr" | string;
 
 export interface ProcessInfo {
   category: string;
@@ -33,6 +33,7 @@ export interface ArrListResponse {
       monitored: number;
       missing?: number;
     };
+    lidarr?: LidarrCounts;
   };
   ready?: boolean;
 }
@@ -121,6 +122,31 @@ export interface SonarrSeriesResponse {
     missing?: number;
   };
   series: SonarrSeriesEntry[];
+}
+
+export interface LidarrCounts {
+  available: number;
+  monitored: number;
+}
+
+export interface LidarrAlbum {
+  id?: number;
+  title?: string;
+  artistId?: number;
+  artistName?: string;
+  releaseDate?: string;
+  monitored?: boolean;
+  hasFile?: boolean;
+  [key: string]: unknown;
+}
+
+export interface LidarrAlbumsResponse {
+  category: string;
+  counts: LidarrCounts;
+  total: number;
+  page: number;
+  page_size: number;
+  albums: LidarrAlbum[];
 }
 
 export type ConfigDocument = Record<string, unknown>;
