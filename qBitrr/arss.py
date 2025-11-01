@@ -72,6 +72,7 @@ from qBitrr.tables import (
 from qBitrr.utils import (
     ExpiringSet,
     absolute_file_paths,
+    format_bytes,
     has_internet,
     parse_size,
     validate_and_return_torrent_file,
@@ -6163,7 +6164,11 @@ class FreeSpaceManager(Arr):
         self.current_free_space = (
             shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
         )
-        self.logger.trace("Current free space: %s", self.current_free_space)
+        self.logger.trace(
+            "Free space monitor initialized | Available: %s | Threshold: %s",
+            format_bytes(self.current_free_space + self._min_free_space_bytes),
+            format_bytes(self._min_free_space_bytes),
+        )
         self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
         self.do_upgrade_search = False
@@ -6203,19 +6208,16 @@ class FreeSpaceManager(Arr):
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
-            "Pausing torrent for disk space: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
+            "Pausing torrent due to insufficient disk space | "
+            "Name: %s | Progress: %s%% | Size remaining: %s | "
+            "Availability: %s%% | ETA: %s | State: %s | Hash: %s",
+            torrent.name,
             round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
+            format_bytes(torrent.amount_left),
             round(torrent.availability * 100, 2),
             timedelta(seconds=torrent.eta),
-            datetime.fromtimestamp(torrent.last_activity),
             torrent.state_enum,
-            torrent.name,
-            torrent.hash,
+            torrent.hash[:8],  # Shortened hash for readability
         )
         self.pause.add(torrent.hash)
 
@@ -6224,45 +6226,48 @@ class FreeSpaceManager(Arr):
             free_space_test = self.current_free_space
             free_space_test -= torrent["amount_left"]
             self.logger.trace(
-                "Result [%s]: Free space %s -> %s",
+                "Evaluating torrent: %s | Current space: %s | Space after download: %s | Remaining: %s",
                 torrent.name,
-                self.current_free_space,
-                free_space_test,
+                format_bytes(self.current_free_space + self._min_free_space_bytes),
+                format_bytes(free_space_test + self._min_free_space_bytes),
+                format_bytes(torrent.amount_left),
             )
             if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
-                    "Pause download [%s]: Free space %s -> %s",
+                    "Pausing download (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
                     torrent.name,
-                    self.current_free_space,
-                    free_space_test,
+                    format_bytes(self.current_free_space + self._min_free_space_bytes),
+                    format_bytes(torrent.amount_left),
+                    format_bytes(-free_space_test),
                 )
                 self.add_tags(torrent, ["qBitrr-free_space_paused"])
                 self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
                 self._process_single_torrent_pause_disk_space(torrent)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
                 self.logger.info(
-                    "Leave paused [%s]: Free space %s -> %s",
+                    "Keeping paused (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
                     torrent.name,
-                    self.current_free_space,
-                    free_space_test,
+                    format_bytes(self.current_free_space + self._min_free_space_bytes),
+                    format_bytes(torrent.amount_left),
+                    format_bytes(-free_space_test),
                 )
                 self.add_tags(torrent, ["qBitrr-free_space_paused"])
                 self.remove_tags(torrent, ["qBitrr-allowed_seeding"])
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
-                    "Continue downloading [%s]: Free space %s -> %s",
+                    "Continuing download (sufficient space) | Torrent: %s | Available: %s | Space after: %s",
                     torrent.name,
-                    self.current_free_space,
-                    free_space_test,
+                    format_bytes(self.current_free_space + self._min_free_space_bytes),
+                    format_bytes(free_space_test + self._min_free_space_bytes),
                 )
                 self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"])
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
-                    "Unpause download [%s]: Free space %s -> %s",
+                    "Resuming download (space available) | Torrent: %s | Available: %s | Space after: %s",
                     torrent.name,
-                    self.current_free_space,
-                    free_space_test,
+                    format_bytes(self.current_free_space + self._min_free_space_bytes),
+                    format_bytes(free_space_test + self._min_free_space_bytes),
                 )
                 self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"])
@@ -6270,10 +6275,9 @@ class FreeSpaceManager(Arr):
             torrent, "qBitrr-free_space_paused"
         ):
             self.logger.info(
-                "Removing tag [%s] for completed torrent[%s]: Free space %s",
-                "qBitrr-free_space_paused",
+                "Torrent completed, removing free space tag | Torrent: %s | Available: %s",
                 torrent.name,
-                self.current_free_space,
+                format_bytes(self.current_free_space + self._min_free_space_bytes),
             )
             self.remove_tags(torrent, ["qBitrr-free_space_paused"])
 
@@ -6317,7 +6321,14 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = (
                     shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
                 )
-                self.logger.trace("Current free space: %s", self.current_free_space)
+                self.logger.trace(
+                    "Processing torrents | Available: %s | Threshold: %s | Usable: %s | Torrents: %d | Paused for space: %d",
+                    format_bytes(self.current_free_space + self._min_free_space_bytes),
+                    format_bytes(self._min_free_space_bytes),
+                    format_bytes(self.current_free_space),
+                    self.category_torrent_count,
+                    self.free_space_tagged_count,
+                )
                 sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
                 for torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):

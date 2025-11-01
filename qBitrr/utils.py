@@ -179,6 +179,35 @@ def parse_size(size):
     return val
 
 
+def format_bytes(bytes_value: int | float) -> str:
+    """Format bytes into human-readable format (e.g., '1.5 GB', '256 MB').
+
+    Args:
+        bytes_value: Number of bytes to format
+
+    Returns:
+        Human-readable string representation of the byte value
+    """
+    if bytes_value < 0:
+        return f"-{format_bytes(-bytes_value)}"
+
+    if bytes_value == 0:
+        return "0 B"
+
+    units = [("B", 1), ("KB", 1024), ("MB", 1048576), ("GB", 1073741824), ("TB", 1099511627776)]
+
+    for unit_name, unit_value in reversed(units):
+        if bytes_value >= unit_value:
+            value = bytes_value / unit_value
+            # Show 2 decimal places for values < 10, 1 decimal place for values >= 10
+            if value < 10:
+                return f"{value:.2f} {unit_name}"
+            else:
+                return f"{value:.1f} {unit_name}"
+
+    return f"{bytes_value} B"
+
+
 class ExpiringSet:
     def __init__(self, *args: list, **kwargs):
         max_age_seconds = kwargs.get("max_age_seconds", 0)
