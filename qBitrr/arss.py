@@ -3167,9 +3167,17 @@ class Arr:
                         try:
                             if albumData:
                                 if not albumData.MinCustomFormatScore:
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        db_entry["profileId"]
-                                    )["minFormatScore"]
+                                    try:
+                                        minCustomFormat = self.client.get_quality_profile(
+                                            db_entry["profileId"]
+                                        )["minFormatScore"]
+                                    except PyarrResourceNotFound:
+                                        self.logger.warning(
+                                            "Quality profile %s not found for album %s, defaulting to 0",
+                                            db_entry.get("profileId"),
+                                            db_entry.get("title", "Unknown"),
+                                        )
+                                        minCustomFormat = 0
                                 else:
                                     minCustomFormat = albumData.MinCustomFormatScore
                                 if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
@@ -3185,9 +3193,17 @@ class Arr:
                                 else:
                                     customFormat = 0
                             else:
-                                minCustomFormat = self.client.get_quality_profile(
-                                    db_entry["profileId"]
-                                )["minFormatScore"]
+                                try:
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        db_entry["profileId"]
+                                    )["minFormatScore"]
+                                except PyarrResourceNotFound:
+                                    self.logger.warning(
+                                        "Quality profile %s not found for album %s, defaulting to 0",
+                                        db_entry.get("profileId"),
+                                        db_entry.get("title", "Unknown"),
+                                    )
+                                    minCustomFormat = 0
                                 if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
                                     customFormat = 0  # Lidarr may not have customFormatScore
                                 else:
