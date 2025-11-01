@@ -10,10 +10,16 @@ const PRECACHE_URLS = [];
 
 // Install event - precache essential assets
 self.addEventListener('install', (event) => {
+  // Force immediate activation, don't wait for caching
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         // Try to cache each URL individually, don't fail if one fails
+        if (PRECACHE_URLS.length === 0) {
+          return Promise.resolve();
+        }
         return Promise.allSettled(
           PRECACHE_URLS.map((url) =>
             cache.add(url).catch((err) => {
@@ -23,11 +29,10 @@ self.addEventListener('install', (event) => {
           )
         );
       })
-      .then(() => self.skipWaiting())
       .catch((err) => {
         console.error('ServiceWorker install failed:', err);
-        // Still skip waiting even if caching fails
-        return self.skipWaiting();
+        // Don't throw - allow installation to complete
+        return Promise.resolve();
       })
   );
 });
