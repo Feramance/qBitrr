@@ -1386,7 +1386,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [activeArrKey, arrSections]);
 
   const addArrInstance = useCallback(
-    (type: "radarr" | "sonarr") => {
+    (type: "radarr" | "sonarr" | "lidarr") => {
       if (!formState) return;
       const prefix = type.charAt(0).toUpperCase() + type.slice(1);
       let index = 1;
@@ -1409,7 +1409,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     (key: string) => {
       if (!formState) return;
       const keyLower = key.toLowerCase();
-      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr")) {
+      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr") && !keyLower.startsWith("lidarr")) {
         return;
       }
       const confirmed = window.confirm(
@@ -1567,14 +1567,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                          {group.items.length}
                        </span>
                        {(group.type === "radarr" || group.type === "sonarr") && (
-                         <button
-                           className="btn small"
-                           type="button"
-                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
-                         >
-                           <IconImage src={AddIcon} />
-                           Add Instance
-                         </button>
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr")}
+                          >
+                            <IconImage src={AddIcon} />
+                            Add Instance
+                          </button>
                        )}
                      </summary>
                     <div className="config-arr-grid">
@@ -1582,7 +1582,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
                         const category = getValue(value as ConfigDocument, ["Category"]);
                         const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        const canDelete = group.type === "radarr" || group.type === "sonarr";
+                        const canDelete = group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr";
                         return (
                           <div className="card config-card config-arr-card" key={key}>
                             <div className="card-header">{key}</div>
