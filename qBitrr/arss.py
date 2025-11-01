@@ -3253,7 +3253,9 @@ class Arr:
                     title = db_entry["title"]
                     monitored = db_entry["monitored"]
                     artistName = db_entry.get("artist", {}).get("artistName", "")
+                    artistId = db_entry.get("artistId", 0)
                     foreignAlbumId = db_entry.get("foreignAlbumId", "")
+                    releaseDate = db_entry.get("releaseDate")
                     entryId = db_entry["id"]
                     albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
                     qualityMet = not QualityUnmet if hasAllTracks else False
@@ -3280,8 +3282,10 @@ class Arr:
                         self.model_file.CustomFormatScore: customFormat,
                         self.model_file.CustomFormatMet: customFormatMet,
                         self.model_file.Reason: reason,
-                        self.model_file.ArtistName: artistName,
+                        self.model_file.ArtistTitle: artistName,
+                        self.model_file.ArtistId: artistId,
                         self.model_file.ForeignAlbumId: foreignAlbumId,
+                        self.model_file.ReleaseDate: releaseDate,
                     }
 
                     if request:
@@ -3300,8 +3304,10 @@ class Arr:
                     db_commands = self.model_file.insert(
                         Title=title,
                         Monitored=monitored,
-                        ArtistName=artistName,
+                        ArtistTitle=artistName,
+                        ArtistId=artistId,
                         ForeignAlbumId=foreignAlbumId,
+                        ReleaseDate=releaseDate,
                         EntryId=entryId,
                         Searched=searched,
                         AlbumFileId=albumFileId,
