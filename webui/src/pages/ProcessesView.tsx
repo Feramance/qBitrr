@@ -115,8 +115,11 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     isFetching.current = true;
     setLoading((prev) => (prev ? prev : true));
     try {
-      const data = await getProcesses();
-      const next = (data.processes ?? []).map((process) => {
+      const [processData, status] = await Promise.all([
+        getProcesses(),
+        getStatus(),
+      ]);
+      const next = (processData.processes ?? []).map((process) => {
         if (typeof process.searchSummary === "string") {
           const sanitized = sanitizeSearchSummary(process.searchSummary);
           return {
@@ -129,6 +132,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       setProcesses((prev) =>
         areProcessListsEqual(prev, next) ? prev : next
       );
+      setStatusData(status);
     } catch (error) {
       push(
         error instanceof Error

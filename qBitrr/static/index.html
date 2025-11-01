@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/static/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A Radarr and Sonarr companion app for managing torrents" />
+    <meta name="theme-color" content="#7aa2f7" />
+    <link rel="manifest" href="/static/manifest.json" />
+    <title>qBitrr</title>
+    <script type="module" crossorigin src="/static/assets/app.js"></script>
+    <link rel="modulepreload" crossorigin href="/static/assets/vendor.js">
+    <link rel="modulepreload" crossorigin href="/static/assets/table.js">
+    <link rel="stylesheet" crossorigin href="/static/assets/app.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Register service worker for PWA support
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('ServiceWorker registered:', registration);
+            })
+            .catch((error) => {
+              console.log('ServiceWorker registration failed:', error);
+            });
+        });
+      }
+    </script>
+  </body>
+</html>
