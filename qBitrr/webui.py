@@ -1622,7 +1622,7 @@ class WebUI:
             arrs = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     # Determine liveness based on child search/torrent processes
                     alive = False
                     for loop in ("search", "torrent"):
