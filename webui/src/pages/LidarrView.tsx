@@ -1004,7 +1004,6 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 onPageChange={setAggPage}
                 onRefresh={() => void loadAggregate()}
                 lastUpdated={aggUpdated}
-                sort={aggSort}
                 onSort={(key) =>
                   setAggSort((prev) =>
                     prev.key === key
