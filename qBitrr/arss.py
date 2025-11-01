@@ -400,6 +400,16 @@ class Arr:
         elif isinstance(self.client, LidarrAPI):
             self.type = "lidarr"
 
+        # Disable unsupported features for Lidarr
+        if self.type == "lidarr":
+            self.search_by_year = False
+            self.ombi_search_requests = False
+            self.overseerr_requests = False
+            self.ombi_uri = None
+            self.ombi_api_key = None
+            self.overseerr_uri = None
+            self.overseerr_api_key = None
+
         try:
             version_info = self.client.get_update()
             self.version = version_parser.parse(version_info[0].get("version"))
