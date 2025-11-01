@@ -967,12 +967,12 @@ function SonarrAggregateView({
                           <tbody>
                             {season.subRows.map((episode) => (
                               <tr key={`${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}`}>
-                                <td>{episode.episode}</td>
-                                <td>{episode.title}</td>
-                                <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
-                                <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
-                                <td>{episode.airDate || "—"}</td>
-                                <td>{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
+                                <td data-label="Episode">{episode.episode}</td>
+                                <td data-label="Title">{episode.title}</td>
+                                <td data-label="Monitored"><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
+                                <td data-label="Has File"><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                                <td data-label="Air Date">{episode.airDate || "—"}</td>
+                                <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1183,12 +1183,12 @@ function SonarrInstanceView({
                           <tbody>
                             {season.subRows.map((episode: typeof season.subRows[number]) => (
                             <tr key={`${episode.series}-${episode.season}-${episode.episode}`}>
-                              <td>{episode.episode}</td>
-                              <td>{episode.title}</td>
-                              <td><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
-                              <td><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
-                              <td>{episode.airDate || "—"}</td>
-                              <td>{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
+                              <td data-label="Episode">{episode.episode}</td>
+                              <td data-label="Title">{episode.title}</td>
+                              <td data-label="Monitored"><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
+                              <td data-label="Has File"><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                              <td data-label="Air Date">{episode.airDate || "—"}</td>
+                              <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
                             </tr>
                           ))}
                           </tbody>
@@ -1219,14 +1219,14 @@ function SonarrInstanceView({
             <tbody>
               {episodeRows.slice(safePage * pageSize, safePage * pageSize + pageSize).map((row, idx) => (
                 <tr key={`${row.series}-${row.season}-${row.episode}-${idx}`}>
-                  <td>{row.series}</td>
-                  <td>{row.season}</td>
-                  <td>{row.episode}</td>
-                  <td>{row.title}</td>
-                  <td><span className="table-badge">{row.monitored ? "Yes" : "No"}</span></td>
-                  <td><span className="table-badge">{row.hasFile ? "Yes" : "No"}</span></td>
-                  <td>{row.airDate || "—"}</td>
-                  <td>{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="hint">—</span>}</td>
+                  <td data-label="Series">{row.series}</td>
+                  <td data-label="Season">{row.season}</td>
+                  <td data-label="Episode">{row.episode}</td>
+                  <td data-label="Title">{row.title}</td>
+                  <td data-label="Monitored"><span className="table-badge">{row.monitored ? "Yes" : "No"}</span></td>
+                  <td data-label="Has File"><span className="table-badge">{row.hasFile ? "Yes" : "No"}</span></td>
+                  <td data-label="Air Date">{row.airDate || "—"}</td>
+                  <td data-label="Reason">{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="hint">—</span>}</td>
                 </tr>
               ))}
             </tbody>
