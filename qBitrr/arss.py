@@ -3168,7 +3168,7 @@ class Arr:
                             if albumData:
                                 if not albumData.MinCustomFormatScore:
                                     minCustomFormat = self.client.get_quality_profile(
-                                        db_entry["qualityProfileId"]
+                                        db_entry["profileId"]
                                     )["minFormatScore"]
                                 else:
                                     minCustomFormat = albumData.MinCustomFormatScore
@@ -3186,7 +3186,7 @@ class Arr:
                                     customFormat = 0
                             else:
                                 minCustomFormat = self.client.get_quality_profile(
-                                    db_entry["qualityProfileId"]
+                                    db_entry["profileId"]
                                 )["minFormatScore"]
                                 if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
                                     customFormat = 0  # Lidarr may not have customFormatScore
