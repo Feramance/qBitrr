@@ -1285,15 +1285,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         others.push(entry);
       }
     }
-    if (radarr.length) {
-      groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
-    }
-    if (sonarr.length) {
-      groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
-    }
-    if (lidarr.length) {
-      groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
-    }
+    // Always show Radarr, Sonarr, and Lidarr sections even if empty
+    groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
+    groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
+    groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
     if (others.length) {
       groups.push({ label: "Other Instances", type: "other", items: others });
     }
@@ -1566,7 +1561,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        <span className="config-arr-group__count">
                          {group.items.length}
                        </span>
-                       {(group.type === "radarr" || group.type === "sonarr") && (
+                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr") && (
                           <button
                             className="btn small"
                             type="button"
