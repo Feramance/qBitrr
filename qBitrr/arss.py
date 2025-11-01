@@ -6317,7 +6317,7 @@ class ArrManager:
 
     def build_arr_instances(self):
         for key in CONFIG.sections():
-            if search := re.match("(rad|son|anim)arr.*", key, re.IGNORECASE):
+            if search := re.match("(rad|son|anim|lid)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
                 match = search.group(1)
                 if match.lower() == "son":
@@ -6326,6 +6326,8 @@ class ArrManager:
                     call_cls = SonarrAPI
                 elif match.lower() == "rad":
                     call_cls = RadarrAPI
+                elif match.lower() == "lid":
+                    call_cls = LidarrAPI
                 else:
                     call_cls = None
                 try:
