@@ -3813,7 +3813,7 @@ class Arr:
                 self.logger.debug(
                     "%sSkipping: Already Searched: %s - %s (%s)",
                     request_tag,
-                    file_model.ArtistName,
+                    file_model.ArtistTitle,
                     file_model.Title,
                     file_model.EntryId,
                 )
@@ -3826,7 +3826,7 @@ class Arr:
             if not bypass_limit and active_commands >= self.search_command_limit:
                 self.logger.trace(
                     "Idle: Too many commands in queue: %s - %s | [id=%s]",
-                    file_model.ArtistName,
+                    file_model.ArtistTitle,
                     file_model.Title,
                     file_model.EntryId,
                 )
@@ -3856,7 +3856,7 @@ class Arr:
                 self.logger.hnotice(
                     "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s][%s]",
                     request_tag,
-                    file_model.ArtistName,
+                    file_model.ArtistTitle,
                     file_model.Title,
                     file_model.ForeignAlbumId,
                     file_model.EntryId,
@@ -3866,13 +3866,13 @@ class Arr:
                 self.logger.hnotice(
                     "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s]",
                     request_tag,
-                    file_model.ArtistName,
+                    file_model.ArtistTitle,
                     file_model.Title,
                     file_model.ForeignAlbumId,
                     file_model.EntryId,
                 )
             context_label = self._humanize_request_tag(request_tag)
-            description = f"{file_model.ArtistName} - {file_model.Title}"
+            description = f"{file_model.ArtistTitle} - {file_model.Title}"
             self._record_search_activity(
                 description,
                 context=context_label,
