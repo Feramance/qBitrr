@@ -517,7 +517,9 @@ class WebUI:
                         "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
                         "foreignAlbumId": album.ForeignAlbumId,
                         "releaseDate": (
-                            album.ReleaseDate.isoformat() if album.ReleaseDate else None
+                            album.ReleaseDate.isoformat()
+                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
                         ),
                         "qualityMet": self._safe_bool(album.QualityMet),
                         "isRequest": self._safe_bool(album.IsRequest),
