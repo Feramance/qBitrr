@@ -194,6 +194,19 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           query,
           { missingOnly: useMissing }
         );
+        console.log(`[Sonarr Instance] Response for ${category} page ${page}:`, {
+          total: response.total,
+          page: response.page,
+          page_size: response.page_size,
+          series_count: response.series?.length ?? 0,
+          counts: response.counts,
+          missingOnly: useMissing,
+          firstSeries: response.series?.[0] ? {
+            title: response.series[0].series?.title,
+            seasonsCount: Object.keys(response.series[0].seasons ?? {}).length,
+            firstSeasonEpisodes: Object.values(response.series[0].seasons ?? {})[0]?.episodes?.length ?? 0
+          } : null
+        });
         const resolvedPage = response.page ?? page;
         const pageSize = response.page_size ?? SONARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.series ?? []).length;
@@ -325,7 +338,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             page: res.page,
             page_size: res.page_size,
             series_count: res.series?.length ?? 0,
-            counts: res.counts
+            counts: res.counts,
+            missingOnly: onlyMissing,
+            firstSeries: res.series?.[0] ? {
+              title: res.series[0].series?.title,
+              seasonsCount: Object.keys(res.series[0].seasons ?? {}).length,
+              firstSeasonEpisodes: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.length ?? 0
+            } : null
           });
           if (!counted) {
             const counts = res.counts;
@@ -336,8 +355,17 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             }
             counted = true;
           }
-          const series = res.series ?? [];
-          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total episodes so far: ${aggregated.length}`);
+           const series = res.series ?? [];
+          let episodeCount = 0;
+          series.forEach((entry: SonarrSeriesEntry) => {
+            const seasonCount = Object.keys(entry.seasons ?? {}).length;
+            let entryEpisodeCount = 0;
+            Object.values(entry.seasons ?? {}).forEach(season => {
+              entryEpisodeCount += (season.episodes ?? []).length;
+            });
+            episodeCount += entryEpisodeCount;
+          });
+          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total episodes so far: ${aggregated.length}, Episodes in this response: ${episodeCount}`);
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
@@ -368,10 +396,15 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
       // Smart diffing: only update if data actually changed
       const uniqueSeries = new Set(aggregated.map(ep => `${ep.__instance}::${ep.series}`)).size;
+      const totalSeriesReturned = instances.reduce((sum, inst) => {
+        // This is an approximation based on what we fetched
+        return sum;
+      }, 0);
       console.log(`[Sonarr Aggregate] Aggregation complete:`, {
         totalEpisodes: aggregated.length,
         uniqueSeries: uniqueSeries,
-        instances: instances.length
+        instances: instances.length,
+        note: aggregated.length === 0 ? "No episodes found - backend may still be initializing" : ""
       });
       setAggRows((prev) => {
         const prevJson = JSON.stringify(prev);
@@ -985,6 +1018,11 @@ function SonarrAggregateView({
             </details>
           ))}
         </div>
+      ) : !loading && summary.total === 0 && instanceCount > 0 ? (
+        <div className="hint">
+          <p>No episodes found in the database.</p>
+          <p>The backend may still be initializing and syncing data from your Sonarr instances. Please check the logs or wait a few moments and refresh.</p>
+        </div>
       ) : tableData.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
@@ -1200,6 +1238,11 @@ function SonarrInstanceView({
               </div>
             </details>
           ))}
+        </div>
+      ) : !loading && series.length > 0 && episodeRows.length === 0 ? (
+        <div className="hint">
+          <p>No episodes found for these series.</p>
+          <p>The backend may still be syncing episode data from Sonarr. Please check the logs or wait a few moments and refresh.</p>
         </div>
       ) : episodeRows.length ? (
         <div className="table-wrapper">

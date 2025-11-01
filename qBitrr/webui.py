@@ -648,10 +648,14 @@ class WebUI:
                             episodes_model.EpisodeNumber.asc(),
                         )
                         episodes = episodes_query.iterator()
+                        episodes_list = list(episodes)
+                        self.logger.debug(
+                            f"[Sonarr Series] Series {getattr(series, 'Title', 'unknown')} (ID {getattr(series, 'EntryId', '?')}) has {len(episodes_list)} episodes (missing_only={missing_only})"
+                        )
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
                         series_available = 0
-                        for ep in episodes:
+                        for ep in episodes_list:
                             season_value = getattr(ep, "SeasonNumber", None)
                             season_key = (
                                 str(season_value) if season_value is not None else "unknown"
@@ -871,17 +875,30 @@ class WebUI:
                         }
                     )
 
-        return {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": missing_count,
-            },
-            "total": total_series,
-            "page": resolved_page,
-            "page_size": page_size,
-            "series": payload,
-        }
+            result = {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total_series,
+                "page": resolved_page,
+                "page_size": page_size,
+                "series": payload,
+            }
+            if payload:
+                first_series = payload[0]
+                first_seasons = first_series.get("seasons", {})
+                total_episodes_in_response = sum(
+                    len(season.get("episodes", [])) for season in first_seasons.values()
+                )
+                self.logger.info(
+                    f"[Sonarr API] Returning {len(payload)} series, "
+                    f"first series '{first_series.get('series', {}).get('title', '?')}' has "
+                    f"{len(first_seasons)} seasons, {total_episodes_in_response} episodes "
+                    f"(missing_only={missing_only})"
+                )
+            return result
 
     # Routes
     def _register_routes(self):
