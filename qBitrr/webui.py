@@ -406,6 +406,142 @@ class WebUI:
             "movies": movies,
         }
 
+    def _lidarr_albums_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+        quality_met: bool | None = None,
+        is_request: bool | None = None,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        model = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
+        if model is None or db is None:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        with db.connection_context():
+            base_query = model.select()
+
+            # Calculate counts
+            monitored_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.Monitored == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            available_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(
+                    (model.Monitored == True)  # noqa: E712
+                    & (model.AlbumFileId.is_null(False))
+                    & (model.AlbumFileId != 0)
+                )
+                .scalar()
+                or 0
+            )
+            missing_count = max(monitored_count - available_count, 0)
+            quality_met_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.QualityMet == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            request_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.IsRequest == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+
+            # Build filtered query
+            query = base_query
+            if search:
+                query = query.where(model.Title.contains(search))
+            if monitored is not None:
+                query = query.where(model.Monitored == monitored)
+            if has_file is not None:
+                if has_file:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(False)) & (model.AlbumFileId != 0)
+                    )
+                else:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(True)) | (model.AlbumFileId == 0)
+                    )
+            if quality_met is not None:
+                query = query.where(model.QualityMet == quality_met)
+            if is_request is not None:
+                query = query.where(model.IsRequest == is_request)
+
+            total = query.count()
+            query = query.order_by(model.Title).paginate(page + 1, page_size)
+            albums = []
+            for album in query:
+                albums.append(
+                    {
+                        "id": album.EntryId,
+                        "title": album.Title,
+                        "artistId": album.ArtistId,
+                        "artistName": album.ArtistTitle,
+                        "monitored": self._safe_bool(album.Monitored),
+                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                        "foreignAlbumId": album.ForeignAlbumId,
+                        "releaseDate": (
+                            album.ReleaseDate.isoformat() if album.ReleaseDate else None
+                        ),
+                        "qualityMet": self._safe_bool(album.QualityMet),
+                        "isRequest": self._safe_bool(album.IsRequest),
+                        "upgrade": self._safe_bool(album.Upgrade),
+                        "customFormatScore": album.CustomFormatScore,
+                        "minCustomFormatScore": album.MinCustomFormatScore,
+                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                        "reason": album.Reason,
+                    }
+                )
+        return {
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+                "quality_met": quality_met_count,
+                "requests": request_count,
+            },
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "albums": albums,
+        }
+
     def _sonarr_series_from_db(
         self,
         arr,
@@ -1379,11 +1515,56 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
+        @app.get("/web/lidarr/<category>/albums")
+        def web_lidarr_albums(category: str):
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != "lidarr":
+                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = request.args.get("page_size", default=50, type=int)
+            monitored = (
+                self._safe_bool(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            has_file = (
+                self._safe_bool(request.args.get("has_file"))
+                if "has_file" in request.args
+                else None
+            )
+            quality_met = (
+                self._safe_bool(request.args.get("quality_met"))
+                if "quality_met" in request.args
+                else None
+            )
+            is_request = (
+                self._safe_bool(request.args.get("is_request"))
+                if "is_request" in request.args
+                else None
+            )
+            payload = self._lidarr_albums_from_db(
+                arr,
+                q,
+                page,
+                page_size,
+                monitored=monitored,
+                has_file=has_file,
+                quality_met=quality_met,
+                is_request=is_request,
+            )
+            payload["category"] = category
+            return jsonify(payload)
+
         def _arr_list_payload() -> dict[str, Any]:
             items = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})

@@ -239,7 +239,7 @@ def _add_qbit_section(config: TOMLDocument):
 
 
 def _add_category_sections(config: TOMLDocument):
-    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K"]:
+    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K", "Lidarr-Music"]:
         _gen_default_cat(c, config)
 
 
@@ -303,6 +303,14 @@ def _gen_default_cat(category: str, config: TOMLDocument):
             [
                 "Not a preferred word upgrade for existing episode file(s)",
                 "Not an upgrade for existing episode file(s)",
+                "Unable to determine if file is a sample",
+            ]
+        )
+    elif "lidarr" in category.lower():
+        messages.extend(
+            [
+                "Not a preferred word upgrade for existing track file(s)",
+                "Not an upgrade for existing track file(s)",
                 "Unable to determine if file is a sample",
             ]
         )

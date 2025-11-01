@@ -21,7 +21,7 @@ import qbittorrentapi.exceptions
 import requests
 from packaging import version as version_parser
 from peewee import Model, SqliteDatabase
-from pyarr import RadarrAPI, SonarrAPI
+from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
 from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
@@ -58,6 +58,9 @@ from qBitrr.search_activity_store import (
     record_search_activity,
 )
 from qBitrr.tables import (
+    AlbumFilesModel,
+    AlbumQueueModel,
+    ArtistFilesModel,
     EpisodeFilesModel,
     EpisodeQueueModel,
     FilesQueued,
@@ -118,7 +121,10 @@ if TYPE_CHECKING:
 
 class Arr:
     def __init__(
-        self, name: str, manager: ArrManager, client_cls: type[Callable | RadarrAPI | SonarrAPI]
+        self,
+        name: str,
+        manager: ArrManager,
+        client_cls: type[Callable | RadarrAPI | SonarrAPI | LidarrAPI],
     ):
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
@@ -391,6 +397,8 @@ class Arr:
             self.type = "sonarr"
         elif isinstance(self.client, RadarrAPI):
             self.type = "radarr"
+        elif isinstance(self.client, LidarrAPI):
+            self.type = "lidarr"
 
         try:
             version_info = self.client.get_update()
@@ -1143,6 +1151,26 @@ class Arr:
                             ),
                         )
                         self.logger.success("DownloadedMoviesScan: %s", path)
+                    elif self.type == "lidarr":
+                        with_retry(
+                            lambda: self.client.post_command(
+                                "DownloadedAlbumsScan",
+                                path=str(path),
+                                downloadClientId=torrent.hash.upper(),
+                                importMode=self.import_mode,
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                                requests.exceptions.RequestException,
+                            ),
+                        )
+                        self.logger.success("DownloadedAlbumsScan: %s", path)
                 except Exception as ex:
                     self.logger.error(
                         "Downloaded scan error: [%s][%s][%s][%s]",
@@ -1312,6 +1340,48 @@ class Arr:
                 while True:
                     try:
                         self.client.post_command("MoviesSearch", movieIds=[object_id])
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    ):
+                        continue
+                if self.persistent_queue:
+                    self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+            elif self.type == "lidarr":
+                self.logger.trace("Requeue cache entry: %s", object_id)
+                while True:
+                    try:
+                        data = self.client.get_album(object_id)
+                        name = data.get("title")
+                        if name:
+                            artist_title = data.get("artist", {}).get("artistName", "")
+                            foreign_album_id = data.get("foreignAlbumId", "")
+                            self.logger.notice(
+                                "Re-Searching album: %s - %s | [foreignAlbumId=%s|id=%s]",
+                                artist_title,
+                                name,
+                                foreign_album_id,
+                                object_id,
+                            )
+                        else:
+                            self.logger.notice("Re-Searching album: %s", object_id)
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                        AttributeError,
+                    ):
+                        continue
+                if object_id in self.queue_file_ids:
+                    self.queue_file_ids.remove(object_id)
+                while True:
+                    try:
+                        self.client.post_command("AlbumSearch", albumIds=[object_id])
                         break
                     except (
                         requests.exceptions.ChunkedEncodingError,
@@ -1565,6 +1635,10 @@ class Arr:
             movielist = self.db_get_files_movies()
             for movies in movielist:
                 yield movies[0], movies[1], movies[2], False, len(movielist)
+        elif self.type == "lidarr":
+            albumlist = self.db_get_files_movies()  # This calls the lidarr section we added
+            for albums in albumlist:
+                yield albums[0], albums[1], albums[2], False, len(albumlist)
 
     def db_maybe_reset_entry_searched_state(self):
         if self.type == "sonarr":
@@ -1572,6 +1646,8 @@ class Arr:
             self.db_reset__episode_searched_state()
         elif self.type == "radarr":
             self.db_reset__movie_searched_state()
+        elif self.type == "lidarr":
+            self.db_reset__album_searched_state()
         self.loop_completed = False
 
     def db_reset__series_searched_state(self):
@@ -1643,6 +1719,33 @@ class Arr:
                     movies = self.client.get_movie()
                     for m in movies:
                         ids.append(m["id"])
+                    break
+                except (
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                ):
+                    continue
+            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.loop_completed = False
+
+    def db_reset__album_searched_state(self):
+        ids = []
+        self.model_file: AlbumFilesModel
+        if (
+            self.loop_completed is True and self.reset_on_completion
+        ):  # Only wipe if a loop completed was tagged
+            self.model_file.update(Searched=False, Upgrade=False).where(
+                self.model_file.Searched == True
+            ).execute()
+            while True:
+                try:
+                    artists = self.client.get_artist()
+                    for artist in artists:
+                        albums = self.client.get_album(artist["id"])
+                        for album in albums:
+                            ids.append(album["id"])
                     break
                 except (
                     requests.exceptions.ChunkedEncodingError,
@@ -1817,6 +1920,36 @@ class Arr:
                 self.model_file.select()
                 .where(condition)
                 .order_by(self.model_file.MovieFileId.asc())
+                .execute()
+            ):
+                entries.append([entry, False, False])
+            return entries
+        elif self.type == "lidarr":
+            condition = True  # Placeholder, will be refined
+            if self.do_upgrade_search:
+                condition &= self.model_file.Upgrade == False
+            else:
+                if self.quality_unmet_search and not self.custom_format_unmet_search:
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.QualityMet == False
+                    )
+                elif not self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (self.model_file.Searched == False) | (
+                        self.model_file.CustomFormatMet == False
+                    )
+                elif self.quality_unmet_search and self.custom_format_unmet_search:
+                    condition &= (
+                        (self.model_file.Searched == False)
+                        | (self.model_file.QualityMet == False)
+                        | (self.model_file.CustomFormatMet == False)
+                    )
+                else:
+                    condition &= self.model_file.AlbumFileId == 0
+                    condition &= self.model_file.Searched == False
+            for entry in (
+                self.model_file.select()
+                .where(condition)
+                .order_by(self.model_file.AlbumFileId.asc())
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -2142,6 +2275,45 @@ class Arr:
                         if isinstance(m, str):
                             continue
                         self.db_update_single_series(db_entry=m)
+                self.db_update_processed = True
+            elif self.type == "lidarr":
+                while True:
+                    try:
+                        artists = self.client.get_artist()
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    ):
+                        continue
+                for artist in artists:
+                    if isinstance(artist, str):
+                        continue
+                    while True:
+                        try:
+                            albums = self.client.get_album(artist["id"])
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+                    for album in albums:
+                        if isinstance(album, str):
+                            continue
+                        # For Lidarr, we don't have a specific releaseDate field
+                        # Check if album has been released
+                        if "releaseDate" in album:
+                            release_date = datetime.strptime(
+                                album["releaseDate"], "%Y-%m-%dT%H:%M:%SZ"
+                            )
+                            if release_date > datetime.now():
+                                continue
+                        self.db_update_single_series(db_entry=album)
                 self.db_update_processed = True
             self.logger.trace("Finished updating database")
         finally:
@@ -2976,6 +3148,177 @@ class Arr:
                         self.model_file.EntryId == db_entry["id"]
                     )
                     db_commands.execute()
+            elif self.type == "lidarr":
+                self.model_file: AlbumFilesModel
+                searched = False
+                albumData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
+                if db_entry["monitored"] or self.search_unmonitored:
+                    while True:
+                        try:
+                            if albumData:
+                                if not albumData.MinCustomFormatScore:
+                                    minCustomFormat = self.client.get_quality_profile(
+                                        db_entry["qualityProfileId"]
+                                    )["minFormatScore"]
+                                else:
+                                    minCustomFormat = albumData.MinCustomFormatScore
+                                if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
+                                    # Album has files
+                                    albumFileId = db_entry.get("statistics", {}).get(
+                                        "sizeOnDisk", 0
+                                    )
+                                    if albumFileId != albumData.AlbumFileId:
+                                        # Get custom format score from album files
+                                        customFormat = 0  # Lidarr may not have customFormatScore
+                                    else:
+                                        customFormat = albumData.CustomFormatScore
+                                else:
+                                    customFormat = 0
+                            else:
+                                minCustomFormat = self.client.get_quality_profile(
+                                    db_entry["qualityProfileId"]
+                                )["minFormatScore"]
+                                if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
+                                    customFormat = 0  # Lidarr may not have customFormatScore
+                                else:
+                                    customFormat = 0
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+
+                    # Determine if album has all tracks
+                    hasAllTracks = db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100
+                    QualityUnmet = False  # Lidarr doesn't have qualityCutoffNotMet in the same way
+
+                    if (
+                        hasAllTracks
+                        and not (self.quality_unmet_search and QualityUnmet)
+                        and not (
+                            self.custom_format_unmet_search and customFormat < minCustomFormat
+                        )
+                    ):
+                        searched = True
+                        self.model_queue.update(Completed=True).where(
+                            self.model_queue.EntryId == db_entry["id"]
+                        ).execute()
+
+                    if self.use_temp_for_missing:
+                        quality_profile_id = db_entry.get("qualityProfileId")
+                        if (
+                            searched
+                            and quality_profile_id in self.temp_quality_profile_ids.values()
+                            and not self.keep_temp_profile
+                        ):
+                            db_entry["qualityProfileId"] = list(
+                                self.temp_quality_profile_ids.keys()
+                            )[
+                                list(self.temp_quality_profile_ids.values()).index(
+                                    quality_profile_id
+                                )
+                            ]
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                db_entry["qualityProfileId"],
+                            )
+                        elif (
+                            not searched
+                            and quality_profile_id in self.temp_quality_profile_ids.keys()
+                        ):
+                            db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                quality_profile_id
+                            ]
+                            self.logger.debug(
+                                "Updating quality profile for %s to %s",
+                                db_entry["title"],
+                                db_entry["qualityProfileId"],
+                            )
+                        while True:
+                            try:
+                                self.client.upd_album(db_entry)
+                                break
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ):
+                                continue
+
+                    title = db_entry["title"]
+                    monitored = db_entry["monitored"]
+                    artistName = db_entry.get("artist", {}).get("artistName", "")
+                    foreignAlbumId = db_entry.get("foreignAlbumId", "")
+                    entryId = db_entry["id"]
+                    albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
+                    qualityMet = not QualityUnmet if hasAllTracks else False
+                    customFormatMet = customFormat >= minCustomFormat
+
+                    if not hasAllTracks:
+                        reason = "Missing"
+                    elif self.quality_unmet_search and QualityUnmet:
+                        reason = "Quality"
+                    elif self.custom_format_unmet_search and not customFormatMet:
+                        reason = "CustomFormat"
+                    elif self.do_upgrade_search:
+                        reason = "Upgrade"
+                    else:
+                        reason = "Scheduled search"
+
+                    to_update = {
+                        self.model_file.AlbumFileId: albumFileId,
+                        self.model_file.Monitored: monitored,
+                        self.model_file.QualityMet: qualityMet,
+                        self.model_file.Searched: searched,
+                        self.model_file.Upgrade: False,
+                        self.model_file.MinCustomFormatScore: minCustomFormat,
+                        self.model_file.CustomFormatScore: customFormat,
+                        self.model_file.CustomFormatMet: customFormatMet,
+                        self.model_file.Reason: reason,
+                        self.model_file.ArtistName: artistName,
+                        self.model_file.ForeignAlbumId: foreignAlbumId,
+                    }
+
+                    if request:
+                        to_update[self.model_file.IsRequest] = request
+
+                    self.logger.debug(
+                        "Updating database entry | %s - %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                        artistName.ljust(30, "."),
+                        title.ljust(30, "."),
+                        str(searched).ljust(5),
+                        str(False).ljust(5),
+                        str(qualityMet).ljust(5),
+                        str(customFormatMet).ljust(5),
+                    )
+
+                    db_commands = self.model_file.insert(
+                        Title=title,
+                        Monitored=monitored,
+                        ArtistName=artistName,
+                        ForeignAlbumId=foreignAlbumId,
+                        EntryId=entryId,
+                        Searched=searched,
+                        AlbumFileId=albumFileId,
+                        IsRequest=request,
+                        QualityMet=qualityMet,
+                        Upgrade=False,
+                        MinCustomFormatScore=minCustomFormat,
+                        CustomFormatScore=customFormat,
+                        CustomFormatMet=customFormatMet,
+                        Reason=reason,
+                    ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
+                    db_commands.execute()
+                else:
+                    db_commands = self.model_file.delete().where(
+                        self.model_file.EntryId == db_entry["id"]
+                    )
+                    db_commands.execute()
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
@@ -3429,6 +3772,86 @@ class Arr:
                 if getattr(file_model, "Year", None)
                 else f"{file_model.Title}"
             )
+            self._record_search_activity(
+                description,
+                context=context_label,
+                detail=str(reason_text) if reason_text else None,
+            )
+            return True
+        elif self.type == "lidarr":
+            file_model: AlbumFilesModel
+            if not (request or todays):
+                (
+                    self.model_queue.select(self.model_queue.Completed)
+                    .where(self.model_queue.EntryId == file_model.EntryId)
+                    .execute()
+                )
+            else:
+                pass
+            if file_model.EntryId in self.queue_file_ids:
+                self.logger.debug(
+                    "%sSkipping: Already Searched: %s - %s (%s)",
+                    request_tag,
+                    file_model.ArtistName,
+                    file_model.Title,
+                    file_model.EntryId,
+                )
+                self.model_file.update(Searched=True, Upgrade=True).where(
+                    file_model.EntryId == file_model.EntryId
+                ).execute()
+                return True
+            active_commands = self.arr_db_query_commands_count()
+            self.logger.info("%s active search commands, %s remaining", active_commands, commands)
+            if not bypass_limit and active_commands >= self.search_command_limit:
+                self.logger.trace(
+                    "Idle: Too many commands in queue: %s - %s | [id=%s]",
+                    file_model.ArtistName,
+                    file_model.Title,
+                    file_model.EntryId,
+                )
+                return False
+            self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
+
+            self.model_queue.insert(
+                Completed=False, EntryId=file_model.EntryId
+            ).on_conflict_replace().execute()
+            if file_model.EntryId:
+                while True:
+                    try:
+                        self.client.post_command("AlbumSearch", albumIds=[file_model.EntryId])
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    ):
+                        continue
+            self.model_file.update(Searched=True, Upgrade=True).where(
+                file_model.EntryId == file_model.EntryId
+            ).execute()
+            reason_text = getattr(file_model, "Reason", None)
+            if reason_text:
+                self.logger.hnotice(
+                    "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s][%s]",
+                    request_tag,
+                    file_model.ArtistName,
+                    file_model.Title,
+                    file_model.ForeignAlbumId,
+                    file_model.EntryId,
+                    reason_text,
+                )
+            else:
+                self.logger.hnotice(
+                    "%sSearching for: %s - %s [foreignAlbumId=%s|id=%s]",
+                    request_tag,
+                    file_model.ArtistName,
+                    file_model.Title,
+                    file_model.ForeignAlbumId,
+                    file_model.EntryId,
+                )
+            context_label = self._humanize_request_tag(request_tag)
+            description = f"{file_model.ArtistName} - {file_model.Title}"
             self._record_search_activity(
                 description,
                 context=context_label,
@@ -4672,6 +5095,9 @@ class Arr:
             elif self.type == "radarr":
                 entry_id_field = "movieId"
                 file_id_field = "MovieFileId"
+            elif self.type == "lidarr":
+                entry_id_field = "albumId"
+                file_id_field = "AlbumFileId"
             else:
                 return False  # Unknown type
 
@@ -4769,6 +5195,17 @@ class Arr:
                 }
                 self.queue_file_ids = {
                     entry["movieId"] for entry in self.queue if entry.get("movieId")
+                }
+                if self.model_queue:
+                    self.model_queue.delete().where(
+                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
+                    ).execute()
+            elif self.type == "lidarr":
+                self.requeue_cache = {
+                    entry["id"]: entry["albumId"] for entry in self.queue if entry.get("albumId")
+                }
+                self.queue_file_ids = {
+                    entry["albumId"] for entry in self.queue if entry.get("albumId")
                 }
                 if self.model_queue:
                     self.model_queue.delete().where(
@@ -4982,9 +5419,9 @@ class Arr:
     def _get_models(
         self,
     ) -> tuple[
-        type[EpisodeFilesModel] | type[MoviesFilesModel],
-        type[EpisodeQueueModel] | type[MovieQueueModel],
-        type[SeriesFilesModel] | None,
+        type[EpisodeFilesModel] | type[MoviesFilesModel] | type[AlbumFilesModel],
+        type[EpisodeQueueModel] | type[MovieQueueModel] | type[AlbumQueueModel],
+        type[SeriesFilesModel] | type[ArtistFilesModel] | None,
         type[TorrentLibrary] | None,
     ]:
         if self.type == "sonarr":
@@ -5006,6 +5443,13 @@ class Arr:
                 MoviesFilesModel,
                 MovieQueueModel,
                 None,
+                TorrentLibrary if TAGLESS else None,
+            )
+        if self.type == "lidarr":
+            return (
+                AlbumFilesModel,
+                AlbumQueueModel,
+                ArtistFilesModel,
                 TorrentLibrary if TAGLESS else None,
             )
         raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")

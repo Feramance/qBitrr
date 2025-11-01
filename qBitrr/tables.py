@@ -63,6 +63,39 @@ class EpisodeQueueModel(Model):
     Completed = BooleanField(default=False)
 
 
+class AlbumFilesModel(Model):
+    Title = CharField()
+    Monitored = BooleanField()
+    ForeignAlbumId = CharField()
+    ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    EntryId = IntegerField(unique=True)
+    Searched = BooleanField(default=False)
+    AlbumFileId = IntegerField()
+    IsRequest = BooleanField(default=False)
+    QualityMet = BooleanField(default=False)
+    Upgrade = BooleanField(default=False)
+    CustomFormatScore = IntegerField(null=True)
+    MinCustomFormatScore = IntegerField(null=True)
+    CustomFormatMet = BooleanField(default=False)
+    Reason = TextField(null=True)
+    ArtistId = IntegerField(null=False)
+    ArtistTitle = TextField(null=True)
+
+
+class ArtistFilesModel(Model):
+    EntryId = IntegerField(primary_key=True)
+    Title = TextField(null=True)
+    Monitored = BooleanField(null=True)
+    Searched = BooleanField(default=False)
+    Upgrade = BooleanField(default=False)
+    MinCustomFormatScore = IntegerField(null=True)
+
+
+class AlbumQueueModel(Model):
+    EntryId = IntegerField(unique=True)
+    Completed = BooleanField(default=False)
+
+
 class TorrentLibrary(Model):
     Hash = TextField(null=False)
     Category = TextField(null=False)
