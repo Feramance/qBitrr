@@ -648,12 +648,14 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "SearchLimit",
             5,
         )
-    _gen_default_line(
-        search_table,
-        "It will order searches by the year the EPISODE was first aired",
-        "SearchByYear",
-        True,
-    )
+    # SearchByYear doesn't apply to Lidarr (music albums)
+    if "lidarr" not in category.lower():
+        _gen_default_line(
+            search_table,
+            "It will order searches by the year the EPISODE was first aired",
+            "SearchByYear",
+            True,
+        )
     _gen_default_line(
         search_table,
         "Reverse search order (Start searching oldest to newest)",
@@ -727,8 +729,10 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "PrioritizeTodaysReleases",
             True,
         )
-    _gen_default_ombi_table(category, search_table)
-    _gen_default_overseerr_table(category, search_table)
+    # Ombi and Overseerr don't support music requests
+    if "lidarr" not in category.lower():
+        _gen_default_ombi_table(category, search_table)
+        _gen_default_overseerr_table(category, search_table)
     cat_default.add("EntrySearch", search_table)
 
 

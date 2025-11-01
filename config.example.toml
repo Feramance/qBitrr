@@ -1000,10 +1000,6 @@ Unmonitored = false
 # Lidarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them.
 SearchLimit = 5
 
-# It will order searches by the year the ALBUM was released
-# NOTE: This feature is automatically disabled for Lidarr instances
-SearchByYear = true
-
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
@@ -1036,40 +1032,6 @@ MainQualityProfile = []
 
 # Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
 TempQualityProfile = []
-
-
-[Lidarr-Music.EntrySearch.Ombi]
-# NOTE: Ombi integration is automatically disabled for Lidarr instances (music requests not supported)
-# Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
-SearchOmbiRequests = false
-
-# Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)
-OmbiURI = "CHANGE_ME"
-
-# Ombi's API Key
-OmbiAPIKey = "CHANGE_ME"
-
-# Only process approved requests
-ApprovedOnly = true
-
-
-[Lidarr-Music.EntrySearch.Overseerr]
-# NOTE: Overseerr integration is automatically disabled for Lidarr instances (music requests not supported)
-# Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
-# If this and Ombi are both enable, Ombi will be ignored
-SearchOverseerrRequests = false
-
-# Overseerr's URI eg. http://ip:port
-OverseerrURI = "CHANGE_ME"
-
-# Overseerr's API Key
-OverseerrAPIKey = "CHANGE_ME"
-
-# Only process approved requests
-ApprovedOnly = true
-
-# Only for 4K Instances
-Is4K = false
 
 
 [Lidarr-Music.Torrent]

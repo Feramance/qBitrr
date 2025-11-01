@@ -887,6 +887,7 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
 function getArrFieldSets(arrKey: string) {
   const lower = arrKey.toLowerCase();
   const isSonarr = lower.includes("sonarr");
+  const isLidarr = lower.includes("lidarr");
   const generalFields = [...ARR_GENERAL_FIELDS];
   const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
     if (!field.path) {
@@ -902,10 +903,17 @@ function getArrFieldSets(arrKey: string) {
         return false;
       }
     }
+    if (isLidarr) {
+      // Lidarr doesn't support SearchByYear (music albums don't have the same year-based search)
+      if (joined === "EntrySearch.SearchByYear") {
+        return false;
+      }
+    }
     return true;
   });
-  const entryOmbiFields = [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
-  const entryOverseerrFields = [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
+  // Ombi and Overseerr don't support music requests, so hide them for Lidarr
+  const entryOmbiFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
+  const entryOverseerrFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
   const torrentFields = [...ARR_TORRENT_FIELDS];
   const seedingFields = [...ARR_SEEDING_FIELDS];
   const trackerFields = [...ARR_TRACKER_FIELDS];
