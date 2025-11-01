@@ -1001,6 +1001,7 @@ Unmonitored = false
 SearchLimit = 5
 
 # It will order searches by the year the ALBUM was released
+# NOTE: This feature is automatically disabled for Lidarr instances
 SearchByYear = true
 
 # Reverse search order (Start searching oldest to newest)
@@ -1038,6 +1039,7 @@ TempQualityProfile = []
 
 
 [Lidarr-Music.EntrySearch.Ombi]
+# NOTE: Ombi integration is automatically disabled for Lidarr instances (music requests not supported)
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
 SearchOmbiRequests = false
 
@@ -1052,6 +1054,7 @@ ApprovedOnly = true
 
 
 [Lidarr-Music.EntrySearch.Overseerr]
+# NOTE: Overseerr integration is automatically disabled for Lidarr instances (music requests not supported)
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
 # If this and Ombi are both enable, Ombi will be ignored
 SearchOverseerrRequests = false
