@@ -3260,13 +3260,18 @@ class Arr:
                             ):
                                 continue
 
-                    title = db_entry["title"]
-                    monitored = db_entry["monitored"]
-                    artistName = db_entry.get("artist", {}).get("artistName", "")
+                    title = db_entry.get("title", "Unknown Album")
+                    monitored = db_entry.get("monitored", False)
+                    # Handle artist field which can be an object or might not exist
+                    artist_obj = db_entry.get("artist", {})
+                    if isinstance(artist_obj, dict):
+                        artistName = artist_obj.get("artistName", "Unknown Artist")
+                    else:
+                        artistName = "Unknown Artist"
                     artistId = db_entry.get("artistId", 0)
                     foreignAlbumId = db_entry.get("foreignAlbumId", "")
                     releaseDate = db_entry.get("releaseDate")
-                    entryId = db_entry["id"]
+                    entryId = db_entry.get("id", 0)
                     albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
                     qualityMet = not QualityUnmet if hasAllTracks else False
                     customFormatMet = customFormat >= minCustomFormat
