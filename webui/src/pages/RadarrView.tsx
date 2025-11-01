@@ -183,7 +183,7 @@ function RadarrAggregateView({
                 return (
                   <tr key={stableKey}>
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
+                      <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -365,7 +365,7 @@ function RadarrInstanceView({
                 return (
                   <tr key={stableKey}>
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
+                      <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
