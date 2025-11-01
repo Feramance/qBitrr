@@ -5,17 +5,30 @@ const CACHE_NAME = `qbitrr-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `qbitrr-runtime-v${CACHE_VERSION}`;
 
 // Assets to cache on install
-const PRECACHE_URLS = [
-  '/',
-  '/index.html',
-];
+// Keep this empty to avoid installation failures in various deployment scenarios
+const PRECACHE_URLS = [];
 
 // Install event - precache essential assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then((cache) => {
+        // Try to cache each URL individually, don't fail if one fails
+        return Promise.allSettled(
+          PRECACHE_URLS.map((url) =>
+            cache.add(url).catch((err) => {
+              console.warn(`Failed to cache ${url}:`, err);
+              return null;
+            })
+          )
+        );
+      })
       .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.error('ServiceWorker install failed:', err);
+        // Still skip waiting even if caching fails
+        return self.skipWaiting();
+      })
   );
 });
 
