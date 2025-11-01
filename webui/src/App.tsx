@@ -8,7 +8,7 @@ import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
-import type { MetaResponse } from "./api/types";
+import type { MetaResponse, StatusResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
@@ -207,6 +207,7 @@ function AppShell(): JSX.Element {
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [statusData, setStatusData] = useState<StatusResponse | null>(null);
 
   // Theme is now managed by WebUIContext and applied automatically
 
@@ -327,6 +328,7 @@ function AppShell(): JSX.Element {
         // Force reload all data by incrementing the reload key
         setReloadKey((prev) => prev + 1);
         void refreshMeta({ force: true });
+        void refreshStatus();
       }
     };
 
@@ -335,6 +337,23 @@ function AppShell(): JSX.Element {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshMeta]);
+
+  const refreshStatus = useCallback(async () => {
+    try {
+      const status = await getStatus();
+      setStatusData(status);
+    } catch {
+      // Silently fail - status is not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+    const id = window.setInterval(() => {
+      void refreshStatus();
+    }, 30 * 1000); // Refresh every 30 seconds
+    return () => window.clearInterval(id);
+  }, [refreshStatus]);
 
   useEffect(() => {
     if (!meta?.update_state?.in_progress && !backendRestarting) {
@@ -409,6 +428,7 @@ function AppShell(): JSX.Element {
         if (cancelled) {
           return;
         }
+        setStatusData(status);
         const readyHint =
           status.ready ?? (Array.isArray(status.arrs) && status.arrs.length > 0);
         if (readyHint) {
@@ -450,17 +470,35 @@ function AppShell(): JSX.Element {
     };
   }, [push]);
 
-  const tabs = useMemo<NavTab[]>(
-    () => [
+  const tabs = useMemo<NavTab[]>(() => {
+    const baseTabs: NavTab[] = [
       { id: "processes", label: "Processes", icon: ProcessesIcon },
       { id: "logs", label: "Logs", icon: LogsIcon },
-      { id: "radarr", label: "Radarr", icon: RadarrIcon },
-      { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
-      { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
+    ];
+
+    const arrTabs: NavTab[] = [];
+    const arrs = statusData?.arrs ?? [];
+
+    const hasRadarr = arrs.some((arr) => arr.type === "radarr");
+    const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
+    const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
+
+    if (hasRadarr) {
+      arrTabs.push({ id: "radarr", label: "Radarr", icon: RadarrIcon });
+    }
+    if (hasSonarr) {
+      arrTabs.push({ id: "sonarr", label: "Sonarr", icon: SonarrIcon });
+    }
+    if (hasLidarr) {
+      arrTabs.push({ id: "lidarr", label: "Lidarr", icon: LidarrIcon });
+    }
+
+    return [
+      ...baseTabs,
+      ...arrTabs,
       { id: "config", label: "Config", icon: ConfigIcon },
-    ],
-    []
-  );
+    ];
+  }, [statusData]);
 
   const repositoryUrl = meta?.repository_url ?? "https://github.com/Feramance/qBitrr";
   const displayVersion = meta?.current_version
@@ -479,6 +517,14 @@ function AppShell(): JSX.Element {
     versionTitleParts.push(`Update check failed: ${meta.error}`);
   }
   const versionTitle = versionTitleParts.length ? versionTitleParts.join(" • ") : undefined;
+
+  // Redirect to processes if active tab is no longer available
+  useEffect(() => {
+    const tabExists = tabs.some((tab) => tab.id === activeTab);
+    if (!tabExists && tabs.length > 0) {
+      setActiveTab("processes");
+    }
+  }, [tabs, activeTab]);
 
   const handleCheckUpdates = useCallback(() => {
     void refreshMeta({ force: true });
