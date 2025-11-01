@@ -1753,7 +1753,7 @@ class Arr:
                 try:
                     artists = self.client.get_artist()
                     for artist in artists:
-                        albums = self.client.get_album(artist["id"])
+                        albums = self.client.get_album(artistId=artist["id"])
                         for album in albums:
                             ids.append(album["id"])
                     break
@@ -2303,7 +2303,7 @@ class Arr:
                         continue
                     while True:
                         try:
-                            albums = self.client.get_album(artist["id"])
+                            albums = self.client.get_album(artistId=artist["id"])
                             break
                         except (
                             requests.exceptions.ChunkedEncodingError,
