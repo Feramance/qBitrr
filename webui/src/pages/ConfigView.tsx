@@ -1862,12 +1862,26 @@ function FieldGroup({
       // Special handling for Theme field - apply immediately without save
       const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
 
+      // Normalize the formatted value for theme field (case-insensitive)
+      let displayValue = formatted;
+      if (isThemeField && typeof formatted === "string") {
+        const normalizedLower = formatted.toLowerCase();
+        if (normalizedLower === "light") {
+          displayValue = "Light";
+        } else if (normalizedLower === "dark") {
+          displayValue = "Dark";
+        } else {
+          // Default to Dark if invalid
+          displayValue = "Dark";
+        }
+      }
+
       return (
         <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
-            value={formatted ? { value: formatted, label: formatted } : null}
+            value={displayValue ? { value: displayValue, label: displayValue } : null}
             onChange={(option) => {
               const newValue = option?.value || "";
               onChange(path, field, newValue);

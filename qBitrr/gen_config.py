@@ -51,9 +51,9 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "WebUI theme (light or dark)",
+        "WebUI theme (Light or Dark)",
         "Theme",
-        "dark",
+        "Dark",
     )
     config.add("WebUI", web_settings)
 
@@ -893,6 +893,22 @@ def _migrate_webui_config(config: MyConfig) -> bool:
     return migrated
 
 
+def _normalize_theme_value(value: Any) -> str:
+    """
+    Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
+    """
+    if value is None:
+        return "Dark"
+    value_str = str(value).strip().lower()
+    if value_str == "light":
+        return "Light"
+    elif value_str == "dark":
+        return "Dark"
+    else:
+        # Default to Dark if invalid value
+        return "Dark"
+
+
 def _validate_and_fill_config(config: MyConfig) -> bool:
     """
     Validate configuration and fill in missing values with defaults.
@@ -956,11 +972,21 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Token", ""),
         ("LiveArr", True),
         ("GroupSonarr", True),
-        ("Theme", "dark"),
+        ("Theme", "Dark"),
     ]
 
     for key, default in webui_defaults:
         if ensure_value("WebUI", key, default):
+            changed = True
+
+    # Normalize Theme value to always be capitalized (Light or Dark)
+    ensure_section("WebUI")
+    webui_section = config.config["WebUI"]
+    if "Theme" in webui_section:
+        current_theme = webui_section["Theme"]
+        normalized_theme = _normalize_theme_value(current_theme)
+        if current_theme != normalized_theme:
+            webui_section["Theme"] = normalized_theme
             changed = True
 
     # Validate qBit section

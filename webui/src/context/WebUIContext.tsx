@@ -104,8 +104,9 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     localStorage.setItem("theme", value);
     // Apply theme immediately to DOM
     document.documentElement.setAttribute('data-theme', value);
-    // Save to backend
-    void saveSettings("Theme", value.charAt(0).toUpperCase() + value.slice(1));
+    // Save to backend with proper capitalization (Light or Dark)
+    const capitalizedTheme = value === "light" ? "Light" : "Dark";
+    void saveSettings("Theme", capitalizedTheme);
   }, [saveSettings]);
 
   const value: WebUIContextValue = {
