@@ -664,6 +664,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 lastUpdated={aggUpdated}
                 groupSonarr={groupSonarr}
                 summary={aggSummary}
+                instanceCount={instances.length}
               />
             ) : (
               <SonarrInstanceView
@@ -706,6 +707,7 @@ interface SonarrAggregateViewProps {
   lastUpdated: string | null;
   groupSonarr: boolean;
   summary: { available: number; monitored: number; missing: number; total: number };
+  instanceCount: number;
 }
 
 function SonarrAggregateView({
@@ -719,6 +721,7 @@ function SonarrAggregateView({
   lastUpdated,
   groupSonarr,
   summary,
+  instanceCount,
 }: SonarrAggregateViewProps): JSX.Element {
   // Create fully grouped data from all rows
   const allGroupedData = useMemo(() => {

@@ -54,6 +54,7 @@ interface LidarrAggregateViewProps {
   lastUpdated: string | null;
   onSort: (key: LidarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
+  instanceCount: number;
 }
 
 function LidarrAggregateView({
@@ -67,14 +68,15 @@ function LidarrAggregateView({
   lastUpdated,
   onSort,
   summary,
+  instanceCount,
 }: LidarrAggregateViewProps): JSX.Element {
   const columns = useMemo<ColumnDef<LidarrAggRow>[]>(
     () => [
-      {
+      ...(instanceCount > 1 ? [{
         accessorKey: "__instance",
         header: "Instance",
         size: 150,
-      },
+      },] : []),
       {
         accessorKey: "title",
         header: "Album",
@@ -120,7 +122,7 @@ function LidarrAggregateView({
         size: 120,
       },
     ],
-    []
+    [instanceCount]
   );
 
   const table = useReactTable({
@@ -1019,6 +1021,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                   )
                 }
                 summary={aggSummary}
+                instanceCount={instances.length}
               />
             ) : (
               <LidarrInstanceView

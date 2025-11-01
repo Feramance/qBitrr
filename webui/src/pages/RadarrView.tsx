@@ -56,6 +56,7 @@ interface RadarrAggregateViewProps {
   sort: { key: RadarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: RadarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
+  instanceCount: number;
 }
 
 function RadarrAggregateView({
@@ -70,14 +71,15 @@ function RadarrAggregateView({
   sort,
   onSort,
   summary,
+  instanceCount,
 }: RadarrAggregateViewProps): JSX.Element {
   const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
     () => [
-      {
+      ...(instanceCount > 1 ? [{
         accessorKey: "__instance",
         header: "Instance",
         size: 150,
-      },
+      }] : []),
       {
         accessorKey: "title",
         header: "Title",
@@ -113,7 +115,7 @@ function RadarrAggregateView({
         size: 120,
       },
     ],
-    []
+    [instanceCount]
   );
 
   const table = useReactTable({
@@ -1000,6 +1002,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                   )
                 }
                 summary={aggSummary}
+                instanceCount={instances.length}
               />
             ) : (
               <RadarrInstanceView
