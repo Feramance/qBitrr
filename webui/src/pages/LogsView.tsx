@@ -197,99 +197,65 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
   }, [describeError, push]);
 
-  const scrollToBottom = useCallback(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
-  }, []);
-
   const loadTail = useCallback(
-    async (name: string, shouldAutoScroll: boolean, showLoading: boolean = false) => {
+    async (name: string, showLoading: boolean = false) => {
       if (!name) return;
       if (showLoading) setLoadingContent(true);
       try {
         const text = await getLogTail(name);
         setContent(text);
-        // Scroll to bottom after content loads if autoscroll is enabled
-        if (shouldAutoScroll) {
-          // Use multiple RAF calls to ensure DOM has fully updated
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              scrollToBottom();
-            });
-          });
-        }
       } catch (error) {
         push(describeError(error, `Failed to read ${name}`), "error");
       } finally {
         if (showLoading) setLoadingContent(false);
       }
     },
-    [describeError, push, scrollToBottom]
+    [describeError, push]
   );
+
+  // Auto-scroll to bottom when content changes and autoscroll is enabled
+  useEffect(() => {
+    if (!autoScroll || !content || !logRef.current) return;
+
+    // Scroll immediately after state update
+    const scrollToBottom = () => {
+      if (logRef.current) {
+        logRef.current.scrollTop = logRef.current.scrollHeight;
+      }
+    };
+
+    // Use setTimeout to ensure the DOM has been updated with new content
+    const timeoutId = setTimeout(() => {
+      scrollToBottom();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
   useEffect(() => {
     const logElement = logRef.current;
     if (!logElement) return;
 
-    let scrollTimeout: number | null = null;
-    let isUserScroll = false;
-    let lastScrollHeight = logElement.scrollHeight;
+    let lastKnownScrollTop = logElement.scrollTop;
 
     const handleScroll = () => {
-      // Clear any pending timeout
-      if (scrollTimeout !== null) {
-        window.clearTimeout(scrollTimeout);
+      const { scrollTop, scrollHeight, clientHeight } = logElement;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
+
+      // Only disable autoscroll if user manually scrolls up (not down)
+      if (scrollTop < lastKnownScrollTop && !isNearBottom) {
+        setAutoScroll(false);
       }
 
-      // Check if scroll height changed (content update) vs user scroll
-      const currentScrollHeight = logElement.scrollHeight;
-      if (currentScrollHeight !== lastScrollHeight) {
-        // Content changed, not a user scroll
-        lastScrollHeight = currentScrollHeight;
-        return;
-      }
-
-      // Mark as user-initiated scroll
-      isUserScroll = true;
-
-      // Debounce scroll detection
-      scrollTimeout = window.setTimeout(() => {
-        if (!isUserScroll || !autoScroll) return;
-
-        const { scrollTop, scrollHeight, clientHeight } = logElement;
-        const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-
-        // If user scrolled away from bottom, disable autoscroll
-        if (!isAtBottom) {
-          setAutoScroll(false);
-        }
-
-        isUserScroll = false;
-      }, 150);
+      lastKnownScrollTop = scrollTop;
     };
 
     logElement.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       logElement.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout !== null) {
-        window.clearTimeout(scrollTimeout);
-      }
     };
-  }, [autoScroll]);
-
-  // Scroll to bottom when autoscroll is re-enabled or content changes
-  useEffect(() => {
-    if (autoScroll && logRef.current && content) {
-      // Double RAF to ensure DOM has updated
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToBottom();
-        });
-      });
-    }
-  }, [autoScroll, content, scrollToBottom]);
+  }, []);
 
   useEffect(() => {
     void loadList();
@@ -297,17 +263,17 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   useEffect(() => {
     if (selected) {
-      void loadTail(selected, autoScroll, true);
+      void loadTail(selected, true);
     }
-  }, [selected, autoScroll, loadTail]);
+  }, [selected, loadTail]);
 
   useInterval(
     () => {
       if (selected) {
-        void loadTail(selected, autoScroll);
+        void loadTail(selected, false);
       }
     },
-    active && autoScroll ? 2000 : null
+    active ? 2000 : null
   );
 
 
