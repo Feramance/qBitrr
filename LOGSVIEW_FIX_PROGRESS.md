@@ -102,3 +102,16 @@ Height is fixed ✓, but auto-scroll still doesn't reach the bottom ✗
 - [ ] User can still manually scroll (needs user testing)
 - [ ] Scrolling up disables auto-scroll (needs user testing)
 - [ ] Re-enabling auto-scroll jumps to bottom (needs user testing)
+
+---
+
+## Update 2025-11-02 (Third Iteration)
+
+### Issue: Auto-scroll STILL not working after second fix
+User reports auto-scroll still doesn't work. Getting browser extension error (unrelated).
+
+**Investigation Plan:**
+1. Add debug logging to see actual scroll values
+2. Try scrolling to a very large number (99999999) to ensure we reach bottom
+3. Consider if the issue is timing-related or if scrollHeight is being calculated wrong
+4. Check if we need to scroll both the container AND trigger a reflow

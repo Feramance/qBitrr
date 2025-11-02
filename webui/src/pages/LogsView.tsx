@@ -221,8 +221,27 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
     const scrollToBottom = () => {
       if (logRef.current) {
-        // Force scroll to absolute bottom by setting scrollTop to scrollHeight
-        logRef.current.scrollTop = logRef.current.scrollHeight;
+        const el = logRef.current;
+        const before = {
+          scrollTop: el.scrollTop,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight
+        };
+
+        // Force scroll to absolute bottom - use a very large number to ensure we reach bottom
+        el.scrollTop = 999999999;
+
+        const after = {
+          scrollTop: el.scrollTop,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight
+        };
+
+        console.log('[LogsView Auto-scroll]', {
+          before,
+          after,
+          scrolledToBottom: (after.scrollHeight - after.scrollTop - after.clientHeight) < 5
+        });
       }
     };
 
@@ -230,8 +249,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     // The ANSI conversion creates complex nested HTML that takes time to layout
     const timeouts: number[] = [];
 
-    // Try at multiple intervals to handle delayed layout
-    [0, 50, 100, 200, 500].forEach(delay => {
+    // Try at multiple intervals to handle delayed layout, with one very late attempt
+    [0, 50, 100, 200, 500, 1000].forEach(delay => {
       timeouts.push(window.setTimeout(scrollToBottom, delay));
     });
 
