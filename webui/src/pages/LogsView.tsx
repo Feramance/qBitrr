@@ -159,6 +159,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
+  const bottomMarkerRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -216,24 +217,31 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content || !logRef.current) return;
+    if (!autoScroll || !content) return;
 
-    // Scroll to bottom after DOM has been updated with new content
+    // Use scrollIntoView on the bottom marker for most reliable scrolling
     const scrollToBottom = () => {
-      if (logRef.current) {
+      if (bottomMarkerRef.current) {
+        console.log('[LogsView] Scrolling with scrollIntoView');
+        bottomMarkerRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+      } else if (logRef.current) {
+        // Fallback to manual scroll
         const element = logRef.current;
-        // Force a reflow to ensure scroll height is calculated
         void element.offsetHeight;
+        console.log('[LogsView] Fallback scroll:', {
+          scrollHeight: element.scrollHeight,
+          clientHeight: element.clientHeight,
+          scrollTop: element.scrollTop
+        });
         element.scrollTop = element.scrollHeight;
       }
     };
 
     // Use multiple timing strategies to ensure scroll happens
-    // This handles different browser rendering timings
     scrollToBottom(); // Try immediately
     requestAnimationFrame(scrollToBottom); // Try after next paint
     setTimeout(scrollToBottom, 50); // Try after 50ms
-    setTimeout(scrollToBottom, 100); // Try after 100ms as fallback
+    setTimeout(scrollToBottom, 150); // Try after 150ms as fallback
   }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
@@ -342,20 +350,23 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               Loading logs...
             </div>
           ) : content ? (
-            <pre
-              ref={preRef}
-              style={{
-                margin: 0,
-                whiteSpace: 'pre-wrap',
-                fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
-                fontSize: '13px',
-                lineHeight: '1.5',
-                color: '#e5e5e5',
-                tabSize: 4,
-                minHeight: '100%'
-              }}
-              dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
-            />
+            <>
+              <pre
+                ref={preRef}
+                style={{
+                  margin: 0,
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  color: '#e5e5e5',
+                  tabSize: 4,
+                  minHeight: '100%'
+                }}
+                dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
+              />
+              <div ref={bottomMarkerRef} style={{ height: '1px', width: '1px' }} />
+            </>
           ) : (
             <div style={{ color: '#666' }}>Select a log file to view its tail...</div>
           )}
