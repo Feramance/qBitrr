@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
-import { useScrollIntoView } from "@mantine/hooks";
 import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
@@ -158,13 +157,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [autoScroll, setAutoScroll] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
-  const logRef = useRef<HTMLDivElement | null>(null);
-  const preRef = useRef<HTMLPreElement | null>(null);
-  const { scrollIntoView, targetRef } = useScrollIntoView<HTMLDivElement>({
-    offset: 0,
-    duration: 0,
-    isList: false
-  });
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -222,32 +216,29 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content) return;
+    if (!autoScroll || !content || !bottomRef.current) return;
 
-    // Use Mantine's useScrollIntoView hook with multiple attempts for delayed layout
-    const timeouts: number[] = [];
-
-    // Try at multiple intervals to handle ANSI HTML layout delays
-    [0, 50, 100, 200].forEach(delay => {
-      timeouts.push(window.setTimeout(() => {
-        scrollIntoView({ alignment: 'end' });
-      }, delay));
-    });
-
-    return () => {
-      timeouts.forEach(t => window.clearTimeout(t));
+    // Simple, direct approach: scroll the bottom marker into view
+    const scrollToBottom = () => {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
     };
-  }, [content, autoScroll, scrollIntoView]);
+
+    // Try multiple times to handle delayed ANSI HTML rendering
+    scrollToBottom(); // Immediate
+    const timeout = setTimeout(scrollToBottom, 100); // Delayed for safety
+
+    return () => clearTimeout(timeout);
+  }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
   useEffect(() => {
-    const logElement = logRef.current;
-    if (!logElement) return;
+    const container = logContainerRef.current;
+    if (!container) return;
 
-    let lastKnownScrollTop = logElement.scrollTop;
+    let lastKnownScrollTop = container.scrollTop;
 
     const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = logElement;
+      const { scrollTop, scrollHeight, clientHeight } = container;
       const isNearBottom = scrollHeight - scrollTop - clientHeight < 50;
 
       // Only disable autoscroll if user manually scrolls up (not down)
@@ -258,9 +249,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       lastKnownScrollTop = scrollTop;
     };
 
-    logElement.addEventListener('scroll', handleScroll, { passive: true });
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      logElement.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -331,13 +322,14 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           </div>
         </div>
-        <div ref={logRef} style={{
+        <div ref={logContainerRef} style={{
           flex: 1,
           minHeight: 0,
           overflow: 'auto',
           backgroundColor: '#0a0e14',
           borderRadius: '4px',
-          padding: '16px'
+          padding: '16px',
+          position: 'relative'
         }}>
           {loadingContent ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666' }}>
@@ -345,11 +337,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               Loading logs...
             </div>
           ) : content ? (
-            <>
+            <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
               <pre
-                ref={preRef}
                 style={{
                   margin: 0,
+                  flex: '1 1 auto',
                   whiteSpace: 'pre-wrap',
                   fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
                   fontSize: '13px',
@@ -359,8 +351,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 }}
                 dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
               />
-              <div ref={targetRef as React.RefObject<HTMLDivElement>} style={{ height: '1px', width: '1px' }} />
-            </>
+              <div ref={bottomRef} style={{ height: '1px', flexShrink: 0 }} />
+            </div>
           ) : (
             <div style={{ color: '#666' }}>Select a log file to view its tail...</div>
           )}

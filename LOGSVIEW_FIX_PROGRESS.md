@@ -192,3 +192,32 @@ Please refresh the qBitrr UI and verify:
 - [ ] Scrolling up manually disables auto-scroll
 - [ ] Re-enabling auto-scroll checkbox immediately jumps to bottom
 - [ ] No console errors
+
+---
+
+## Update 2025-11-02 (Fifth Iteration - Back to Basics)
+
+### Issue: Mantine hook also not working, height not filling container
+
+User reports:
+- Auto-scroll still doesn't work with Mantine hook
+- Height is not 100% again (pre not filling container when content is short)
+
+### New Approach: Simplest Possible Solution
+Going back to basics with vanilla React refs and native browser APIs.
+No libraries, no complexity - just direct DOM manipulation that works.
+
+**Implementation (Fifth Fix):**
+1. Removed Mantine `useScrollIntoView` hook dependency
+2. Use simple `bottomRef.current?.scrollIntoView()` with native browser API
+3. Wrapped pre in a flex container with `minHeight: '100%'` to fill space
+4. Pre element uses `flex: '1 1 auto'` to grow/shrink as needed
+5. Bottom marker with `flexShrink: 0` to stay at bottom
+6. Only 2 scroll attempts: immediate + 100ms delay (simpler)
+
+**Why this should work:**
+- Flex layout ensures wrapper fills container height
+- Pre grows with content but wrapper maintains minimum height
+- Bottom marker is always at the end of the flex container
+- Native `scrollIntoView()` is reliable across all browsers
+- Minimal complexity = fewer failure points
