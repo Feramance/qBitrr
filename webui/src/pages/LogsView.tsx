@@ -361,19 +361,21 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           ) : content ? (
             <>
-              <pre
-                ref={preRef}
-                style={{
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
-                  fontSize: '13px',
-                  lineHeight: '1.5',
-                  color: '#e5e5e5',
-                  tabSize: 4
-                }}
-                dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
-              />
+              <div style={{ minHeight: '100%' }}>
+                <pre
+                  ref={preRef}
+                  style={{
+                    margin: 0,
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                    color: '#e5e5e5',
+                    tabSize: 4
+                  }}
+                  dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
+                />
+              </div>
               <div ref={bottomMarkerRef} style={{ height: '1px', width: '1px' }} />
             </>
           ) : (
