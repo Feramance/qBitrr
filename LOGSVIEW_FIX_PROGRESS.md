@@ -164,8 +164,31 @@ The project already has `@mantine/hooks` installed, which includes a reliable
 - Cleaner, more maintainable code
 - Proper TypeScript types
 
-**Implementation:**
+**Implementation (Fourth Fix - FINAL):**
 - Import `useScrollIntoView` from `@mantine/hooks`
-- Use it to manage scrolling to the bottom marker
-- Remove custom scroll logic and timeouts
-- Let the library handle timing and edge cases
+- Replace bottomMarkerRef with Mantine's targetRef
+- Use `scrollIntoView({ alignment: 'end' })` instead of manual scrollTop
+- Removed all debug logging
+- Simplified timeout intervals to [0, 50, 100, 200]ms
+- Let the library handle browser quirks and edge cases
+
+## FINAL Solution Summary
+
+### What Works Now:
+1. ✅ Pre element properly sized (no minHeight constraint)
+2. ✅ Content creates natural scrollable overflow
+3. ✅ Auto-scroll uses battle-tested Mantine hook
+4. ✅ Clean, maintainable code
+
+### Key Commits:
+- `b923eac` - Use Mantine useScrollIntoView hook for reliable auto-scrolling
+- `449e936` - Remove minHeight from pre to allow scrollable overflow
+- `f809dfc` - Add debug logging to diagnose auto-scroll issue (analysis)
+- `8af8e7b` - Fix logs view height and auto-scroll to properly display log tail (initial attempt)
+
+### Testing:
+Please refresh the qBitrr UI and verify:
+- [ ] Logs auto-scroll to bottom when new content arrives
+- [ ] Scrolling up manually disables auto-scroll
+- [ ] Re-enabling auto-scroll checkbox immediately jumps to bottom
+- [ ] No console errors
