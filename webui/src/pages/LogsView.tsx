@@ -3,13 +3,18 @@ import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
-import Select from "react-select";
+import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
+
+interface LogOption {
+  value: string;
+  label: string;
+}
 
 // Helper function for react-select theme-aware styles
-const getSelectStyles = () => {
+const getSelectStyles = (): StylesConfig<LogOption, false> => {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
-    control: (base: any) => ({
+    control: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       color: isDark ? '#eaeef2' : '#1d1d1f',
@@ -20,13 +25,13 @@ const getSelectStyles = () => {
         borderColor: isDark ? '#3a4149' : '#b8b8bd',
       }
     }),
-    menu: (base: any) => ({
+    menu: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       borderColor: isDark ? '#2a2f36' : '#d2d2d7',
       border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
     }),
-    option: (base: any, state: any) => ({
+    option: (base: CSSObjectWithLabel, state: OptionProps<LogOption, false>) => ({
       ...base,
       background: state.isFocused
         ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
@@ -36,19 +41,19 @@ const getSelectStyles = () => {
         background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
       }
     }),
-    singleValue: (base: any) => ({
+    singleValue: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    input: (base: any) => ({
+    input: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    placeholder: (base: any) => ({
+    placeholder: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#9aa3ac' : '#6e6e73',
     }),
-    menuList: (base: any) => ({
+    menuList: (base: CSSObjectWithLabel) => ({
       ...base,
       padding: '4px',
     }),
