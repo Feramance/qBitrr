@@ -199,14 +199,17 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       try {
         const text = await getLogTail(name);
         setContent(text);
-        // Use double requestAnimationFrame to ensure DOM has updated
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => {
-            if (logRef.current && shouldAutoScroll) {
-              logRef.current.scrollTop = logRef.current.scrollHeight;
-            }
-          });
-        });
+        // Scroll to bottom after content loads if autoscroll is enabled
+        if (shouldAutoScroll) {
+          // Use setTimeout with RAF to ensure content has fully rendered
+          setTimeout(() => {
+            window.requestAnimationFrame(() => {
+              if (logRef.current) {
+                logRef.current.scrollTop = logRef.current.scrollHeight;
+              }
+            });
+          }, 50);
+        }
       } catch (error) {
         push(describeError(error, `Failed to read ${name}`), "error");
       } finally {
@@ -252,15 +255,17 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Scroll to bottom when autoscroll is re-enabled
   useEffect(() => {
-    if (autoScroll && logRef.current) {
-      // Immediately scroll to bottom when enabled
-      window.requestAnimationFrame(() => {
-        if (logRef.current) {
-          logRef.current.scrollTop = logRef.current.scrollHeight;
-        }
-      });
+    if (autoScroll && logRef.current && content) {
+      // Scroll to bottom when autoscroll is toggled on
+      setTimeout(() => {
+        window.requestAnimationFrame(() => {
+          if (logRef.current) {
+            logRef.current.scrollTop = logRef.current.scrollHeight;
+          }
+        });
+      }, 50);
     }
-  }, [autoScroll]);
+  }, [autoScroll, content]);
 
   useEffect(() => {
     void loadList();
@@ -270,7 +275,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     if (selected) {
       void loadTail(selected, autoScroll, true);
     }
-  }, [selected, loadTail, autoScroll]);
+  }, [selected, loadTail]);
 
   useInterval(
     () => {
