@@ -222,26 +222,16 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     const element = logRef.current;
 
     const scrollToBottom = () => {
-      const before = {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight
-      };
+      const beforeTop = element.scrollTop;
+      const scrollH = element.scrollHeight;
+      const clientH = element.clientHeight;
 
       // Set scroll to maximum possible value
       element.scrollTop = element.scrollHeight;
 
-      const after = {
-        scrollTop: element.scrollTop,
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight
-      };
+      const afterTop = element.scrollTop;
 
-      console.log('[LogsView] Scroll attempt:', {
-        before,
-        after,
-        changed: before.scrollTop !== after.scrollTop
-      });
+      console.log(`[LogsView] scrollHeight=${scrollH} clientHeight=${clientH} scrollTop: ${beforeTop} -> ${afterTop} (changed=${beforeTop !== afterTop})`);
     };
 
     // Use longer delays to ensure the dangerouslySetInnerHTML has fully rendered
