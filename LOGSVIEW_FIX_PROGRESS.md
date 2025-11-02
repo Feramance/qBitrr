@@ -84,3 +84,21 @@ Height is fixed ✓, but auto-scroll still doesn't reach the bottom ✗
 - Use `logRef.current.scrollTop = logRef.current.scrollHeight` to force scroll to absolute bottom
 - Add longer timeout intervals to ensure layout is complete (200ms, 500ms in addition to immediate attempts)
 - Keep the bottom marker for potential future use but don't rely on it for scrolling
+
+**Implementation (Second Fix):**
+- Changed from `bottomMarkerRef.current?.scrollIntoView()` to direct `logRef.current.scrollTop = logRef.current.scrollHeight`
+- Extended timeout intervals from [0, 50, 100] to [0, 50, 100, 200, 500] milliseconds
+- Result: Auto-scroll now reliably reaches the bottom of logs ✓
+
+## Final Status
+
+### Commits:
+1. `8af8e7b` - Fix logs view height and auto-scroll to properly display log tail
+2. `df9edf1` - Fix auto-scroll by directly setting scrollTop to scrollHeight
+
+### Testing Checklist:
+- [x] Pre element fills container height when content is short
+- [x] Auto-scroll actually reaches the very last log line
+- [ ] User can still manually scroll (needs user testing)
+- [ ] Scrolling up disables auto-scroll (needs user testing)
+- [ ] Re-enabling auto-scroll jumps to bottom (needs user testing)
