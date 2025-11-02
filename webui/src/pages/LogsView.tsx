@@ -217,31 +217,46 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content) return;
+    if (!autoScroll || !content || !logRef.current) return;
 
-    // Use scrollIntoView on the bottom marker for most reliable scrolling
+    const element = logRef.current;
+
     const scrollToBottom = () => {
-      if (bottomMarkerRef.current) {
-        console.log('[LogsView] Scrolling with scrollIntoView');
-        bottomMarkerRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-      } else if (logRef.current) {
-        // Fallback to manual scroll
-        const element = logRef.current;
-        void element.offsetHeight;
-        console.log('[LogsView] Fallback scroll:', {
-          scrollHeight: element.scrollHeight,
-          clientHeight: element.clientHeight,
-          scrollTop: element.scrollTop
-        });
-        element.scrollTop = element.scrollHeight;
-      }
+      console.log('[LogsView] Attempting scroll:', {
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight,
+        currentScrollTop: element.scrollTop,
+        maxScroll: element.scrollHeight - element.clientHeight
+      });
+
+      // Set scroll to maximum possible value
+      element.scrollTop = element.scrollHeight - element.clientHeight + 100; // Add buffer
+
+      console.log('[LogsView] After scroll attempt:', {
+        newScrollTop: element.scrollTop,
+        distanceFromBottom: element.scrollHeight - element.scrollTop - element.clientHeight
+      });
     };
 
-    // Use multiple timing strategies to ensure scroll happens
-    scrollToBottom(); // Try immediately
-    requestAnimationFrame(scrollToBottom); // Try after next paint
-    setTimeout(scrollToBottom, 50); // Try after 50ms
-    setTimeout(scrollToBottom, 150); // Try after 150ms as fallback
+    // Watch for actual DOM mutations to know when content is really rendered
+    const observer = new MutationObserver(() => {
+      console.log('[LogsView] DOM mutated, scrolling...');
+      scrollToBottom();
+    });
+
+    observer.observe(element, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+
+    // Also try immediately and with timing fallbacks
+    scrollToBottom();
+    requestAnimationFrame(scrollToBottom);
+    setTimeout(scrollToBottom, 100);
+    setTimeout(scrollToBottom, 300);
+
+    return () => observer.disconnect();
   }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
