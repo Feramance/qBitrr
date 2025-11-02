@@ -222,41 +222,28 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     const element = logRef.current;
 
     const scrollToBottom = () => {
-      console.log('[LogsView] Attempting scroll:', {
-        scrollHeight: element.scrollHeight,
-        clientHeight: element.clientHeight,
-        currentScrollTop: element.scrollTop,
-        maxScroll: element.scrollHeight - element.clientHeight
-      });
-
       // Set scroll to maximum possible value
-      element.scrollTop = element.scrollHeight - element.clientHeight + 100; // Add buffer
-
-      console.log('[LogsView] After scroll attempt:', {
-        newScrollTop: element.scrollTop,
-        distanceFromBottom: element.scrollHeight - element.scrollTop - element.clientHeight
-      });
+      element.scrollTop = element.scrollHeight;
     };
 
-    // Watch for actual DOM mutations to know when content is really rendered
-    const observer = new MutationObserver(() => {
-      console.log('[LogsView] DOM mutated, scrolling...');
-      scrollToBottom();
+    // Use longer delays to ensure the dangerouslySetInnerHTML has fully rendered
+    // The ANSI conversion creates complex nested HTML that takes time to layout
+    const timeouts: number[] = [];
+
+    // Try at multiple increasing intervals
+    [0, 50, 100, 200, 300, 500, 1000].forEach(delay => {
+      timeouts.push(window.setTimeout(scrollToBottom, delay));
     });
 
-    observer.observe(element, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
-
-    // Also try immediately and with timing fallbacks
-    scrollToBottom();
+    // Also use RAF for immediate attempts
     requestAnimationFrame(scrollToBottom);
-    setTimeout(scrollToBottom, 100);
-    setTimeout(scrollToBottom, 300);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToBottom);
+    });
 
-    return () => observer.disconnect();
+    return () => {
+      timeouts.forEach(t => window.clearTimeout(t));
+    };
   }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
