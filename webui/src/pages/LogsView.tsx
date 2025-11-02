@@ -217,36 +217,19 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content || !logRef.current) return;
-
-    const element = logRef.current;
+    if (!autoScroll || !content || !bottomMarkerRef.current) return;
 
     const scrollToBottom = () => {
-      const beforeTop = element.scrollTop;
-      const scrollH = element.scrollHeight;
-      const clientH = element.clientHeight;
-
-      // Set scroll to maximum possible value
-      element.scrollTop = element.scrollHeight;
-
-      const afterTop = element.scrollTop;
-
-      console.log(`[LogsView] scrollHeight=${scrollH} clientHeight=${clientH} scrollTop: ${beforeTop} -> ${afterTop} (changed=${beforeTop !== afterTop})`);
+      bottomMarkerRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
     };
 
-    // Use longer delays to ensure the dangerouslySetInnerHTML has fully rendered
+    // Use timeouts to ensure the dangerouslySetInnerHTML has fully rendered
     // The ANSI conversion creates complex nested HTML that takes time to layout
     const timeouts: number[] = [];
 
-    // Try at multiple increasing intervals
-    [0, 50, 100, 200, 300, 500, 1000].forEach(delay => {
+    // Try at multiple intervals to handle delayed layout
+    [0, 50, 100].forEach(delay => {
       timeouts.push(window.setTimeout(scrollToBottom, delay));
-    });
-
-    // Also use RAF for immediate attempts
-    requestAnimationFrame(scrollToBottom);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(scrollToBottom);
     });
 
     return () => {
@@ -361,21 +344,20 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
             </div>
           ) : content ? (
             <>
-              <div style={{ minHeight: '100%' }}>
-                <pre
-                  ref={preRef}
-                  style={{
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
-                    fontSize: '13px',
-                    lineHeight: '1.5',
-                    color: '#e5e5e5',
-                    tabSize: 4
-                  }}
-                  dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
-                />
-              </div>
+              <pre
+                ref={preRef}
+                style={{
+                  margin: 0,
+                  minHeight: '100%',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  color: '#e5e5e5',
+                  tabSize: 4
+                }}
+                dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
+              />
               <div ref={bottomMarkerRef} style={{ height: '1px', width: '1px' }} />
             </>
           ) : (
