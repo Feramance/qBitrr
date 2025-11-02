@@ -439,6 +439,10 @@ class Arr:
         if self.use_temp_for_missing:
             self.temp_quality_profile_ids = self.parse_quality_profiles()
 
+        # Cache for valid quality profile IDs to avoid repeated API calls and warnings
+        self._quality_profile_cache: dict[int, dict] = {}
+        self._invalid_quality_profiles: set[int] = set()
+
         if self.rss_sync_timer > 0:
             self.rss_sync_timer_last_checked = datetime(1970, 1, 1)
         else:
@@ -3188,15 +3192,33 @@ class Arr:
                             if albumData:
                                 if not albumData.MinCustomFormatScore:
                                     try:
-                                        minCustomFormat = self.client.get_quality_profile(
-                                            db_entry["profileId"]
-                                        )["minFormatScore"]
-                                    except PyarrResourceNotFound:
-                                        self.logger.warning(
-                                            "Quality profile %s not found for album %s, defaulting to 0",
-                                            db_entry.get("profileId"),
-                                            db_entry.get("title", "Unknown"),
-                                        )
+                                        profile_id = db_entry["profileId"]
+                                        # Check if this profile ID is known to be invalid
+                                        if profile_id in self._invalid_quality_profiles:
+                                            minCustomFormat = 0
+                                        # Check cache first
+                                        elif profile_id in self._quality_profile_cache:
+                                            minCustomFormat = self._quality_profile_cache[
+                                                profile_id
+                                            ].get("minFormatScore", 0)
+                                        else:
+                                            # Fetch from API and cache
+                                            try:
+                                                profile = self.client.get_quality_profile(
+                                                    profile_id
+                                                )
+                                                self._quality_profile_cache[profile_id] = profile
+                                                minCustomFormat = profile.get("minFormatScore", 0)
+                                            except PyarrResourceNotFound:
+                                                # Mark as invalid to avoid repeated warnings
+                                                self._invalid_quality_profiles.add(profile_id)
+                                                self.logger.warning(
+                                                    "Quality profile %s not found for album %s, defaulting to 0",
+                                                    db_entry.get("profileId"),
+                                                    db_entry.get("title", "Unknown"),
+                                                )
+                                                minCustomFormat = 0
+                                    except Exception:
                                         minCustomFormat = 0
                                 else:
                                     minCustomFormat = albumData.MinCustomFormatScore
@@ -3214,15 +3236,31 @@ class Arr:
                                     customFormat = 0
                             else:
                                 try:
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        db_entry["profileId"]
-                                    )["minFormatScore"]
-                                except PyarrResourceNotFound:
-                                    self.logger.warning(
-                                        "Quality profile %s not found for album %s, defaulting to 0",
-                                        db_entry.get("profileId"),
-                                        db_entry.get("title", "Unknown"),
-                                    )
+                                    profile_id = db_entry["profileId"]
+                                    # Check if this profile ID is known to be invalid
+                                    if profile_id in self._invalid_quality_profiles:
+                                        minCustomFormat = 0
+                                    # Check cache first
+                                    elif profile_id in self._quality_profile_cache:
+                                        minCustomFormat = self._quality_profile_cache[
+                                            profile_id
+                                        ].get("minFormatScore", 0)
+                                    else:
+                                        # Fetch from API and cache
+                                        try:
+                                            profile = self.client.get_quality_profile(profile_id)
+                                            self._quality_profile_cache[profile_id] = profile
+                                            minCustomFormat = profile.get("minFormatScore", 0)
+                                        except PyarrResourceNotFound:
+                                            # Mark as invalid to avoid repeated warnings
+                                            self._invalid_quality_profiles.add(profile_id)
+                                            self.logger.warning(
+                                                "Quality profile %s not found for album %s, defaulting to 0",
+                                                db_entry.get("profileId"),
+                                                db_entry.get("title", "Unknown"),
+                                            )
+                                            minCustomFormat = 0
+                                except Exception:
                                     minCustomFormat = 0
                                 if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
                                     customFormat = 0  # Lidarr may not have customFormatScore
@@ -3239,7 +3277,60 @@ class Arr:
 
                     # Determine if album has all tracks
                     hasAllTracks = db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100
-                    QualityUnmet = False  # Lidarr doesn't have qualityCutoffNotMet in the same way
+
+                    # Check if quality cutoff is met for Lidarr
+                    # Unlike Sonarr/Radarr which have a qualityCutoffNotMet boolean field,
+                    # Lidarr requires us to check the track file quality against the profile cutoff
+                    QualityUnmet = False
+                    if hasAllTracks:
+                        try:
+                            # Get the artist's quality profile to find the cutoff
+                            artist_id = db_entry.get("artistId")
+                            artist_data = self.client.get_artist(artist_id)
+                            profile_id = artist_data.get("qualityProfileId")
+
+                            if profile_id:
+                                # Get or use cached profile
+                                if profile_id in self._quality_profile_cache:
+                                    profile = self._quality_profile_cache[profile_id]
+                                else:
+                                    profile = self.client.get_quality_profile(profile_id)
+                                    self._quality_profile_cache[profile_id] = profile
+
+                                cutoff_quality_id = profile.get("cutoff")
+                                upgrade_allowed = profile.get("upgradeAllowed", False)
+
+                                if cutoff_quality_id and upgrade_allowed:
+                                    # Get track files for this album to check their quality
+                                    album_id = db_entry.get("id")
+                                    track_files = self.client.get_track_file(albumId=[album_id])
+
+                                    if track_files:
+                                        # Check if any track file's quality is below the cutoff
+                                        for track_file in track_files:
+                                            file_quality = track_file.get("quality", {}).get(
+                                                "quality", {}
+                                            )
+                                            file_quality_id = file_quality.get("id", 0)
+
+                                            if file_quality_id < cutoff_quality_id:
+                                                QualityUnmet = True
+                                                self.logger.trace(
+                                                    "Album '%s' has quality below cutoff: %s (ID: %d) < cutoff (ID: %d)",
+                                                    db_entry.get("title", "Unknown"),
+                                                    file_quality.get("name", "Unknown"),
+                                                    file_quality_id,
+                                                    cutoff_quality_id,
+                                                )
+                                                break
+                        except Exception as e:
+                            self.logger.trace(
+                                "Could not determine quality cutoff status for album '%s': %s",
+                                db_entry.get("title", "Unknown"),
+                                str(e),
+                            )
+                            # Default to False if we can't determine
+                            QualityUnmet = False
 
                     if (
                         hasAllTracks
