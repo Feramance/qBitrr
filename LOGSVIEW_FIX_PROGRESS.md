@@ -149,3 +149,23 @@ Please refresh and check console logs again. You should now see:
 - scrollHeight > clientHeight (actual scrollable content)
 - scrollTop changes to a large value when auto-scroll triggers
 - scrolledToBottom: true after scroll completes
+
+---
+
+## Update 2025-11-02 (Fourth Iteration - Use Mantine Hook)
+
+### Better Solution: Use @mantine/hooks useScrollIntoView
+The project already has `@mantine/hooks` installed, which includes a reliable
+`useScrollIntoView` hook designed specifically for this use case.
+
+**Benefits:**
+- Battle-tested library solution
+- Handles edge cases and browser quirks
+- Cleaner, more maintainable code
+- Proper TypeScript types
+
+**Implementation:**
+- Import `useScrollIntoView` from `@mantine/hooks`
+- Use it to manage scrolling to the bottom marker
+- Remove custom scroll logic and timeouts
+- Let the library handle timing and edge cases

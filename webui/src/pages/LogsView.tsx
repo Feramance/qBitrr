@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useScrollIntoView } from "@mantine/hooks";
 import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
@@ -159,7 +160,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
   const preRef = useRef<HTMLPreElement | null>(null);
-  const bottomMarkerRef = useRef<HTMLDivElement | null>(null);
+  const { scrollIntoView, targetRef } = useScrollIntoView<HTMLDivElement>({
+    offset: 0,
+    duration: 0,
+    isList: false
+  });
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -217,47 +222,22 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content || !logRef.current) return;
+    if (!autoScroll || !content) return;
 
-    const scrollToBottom = () => {
-      if (logRef.current) {
-        const el = logRef.current;
-        const before = {
-          scrollTop: el.scrollTop,
-          scrollHeight: el.scrollHeight,
-          clientHeight: el.clientHeight
-        };
-
-        // Force scroll to absolute bottom - use a very large number to ensure we reach bottom
-        el.scrollTop = 999999999;
-
-        const after = {
-          scrollTop: el.scrollTop,
-          scrollHeight: el.scrollHeight,
-          clientHeight: el.clientHeight
-        };
-
-        console.log('[LogsView Auto-scroll]', {
-          before,
-          after,
-          scrolledToBottom: (after.scrollHeight - after.scrollTop - after.clientHeight) < 5
-        });
-      }
-    };
-
-    // Use timeouts to ensure the dangerouslySetInnerHTML has fully rendered
-    // The ANSI conversion creates complex nested HTML that takes time to layout
+    // Use Mantine's useScrollIntoView hook with multiple attempts for delayed layout
     const timeouts: number[] = [];
 
-    // Try at multiple intervals to handle delayed layout, with one very late attempt
-    [0, 50, 100, 200, 500, 1000].forEach(delay => {
-      timeouts.push(window.setTimeout(scrollToBottom, delay));
+    // Try at multiple intervals to handle ANSI HTML layout delays
+    [0, 50, 100, 200].forEach(delay => {
+      timeouts.push(window.setTimeout(() => {
+        scrollIntoView({ alignment: 'end' });
+      }, delay));
     });
 
     return () => {
       timeouts.forEach(t => window.clearTimeout(t));
     };
-  }, [content, autoScroll]);
+  }, [content, autoScroll, scrollIntoView]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
   useEffect(() => {
@@ -379,7 +359,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 }}
                 dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
               />
-              <div ref={bottomMarkerRef} style={{ height: '1px', width: '1px' }} />
+              <div ref={targetRef as React.RefObject<HTMLDivElement>} style={{ height: '1px', width: '1px' }} />
             </>
           ) : (
             <div style={{ color: '#666' }}>Select a log file to view its tail...</div>
