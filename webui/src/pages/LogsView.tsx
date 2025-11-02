@@ -222,8 +222,26 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     const element = logRef.current;
 
     const scrollToBottom = () => {
+      const before = {
+        scrollTop: element.scrollTop,
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight
+      };
+
       // Set scroll to maximum possible value
       element.scrollTop = element.scrollHeight;
+
+      const after = {
+        scrollTop: element.scrollTop,
+        scrollHeight: element.scrollHeight,
+        clientHeight: element.clientHeight
+      };
+
+      console.log('[LogsView] Scroll attempt:', {
+        before,
+        after,
+        changed: before.scrollTop !== after.scrollTop
+      });
     };
 
     // Use longer delays to ensure the dangerouslySetInnerHTML has fully rendered
