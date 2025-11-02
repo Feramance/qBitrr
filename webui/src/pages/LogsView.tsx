@@ -136,8 +136,8 @@ function ansiToHtml(text: string): string {
   // Close any remaining open spans
   result += '</span>'.repeat(styles.length);
 
-  // Convert newlines to <br> tags
-  result = result.replace(/\n/g, '<br>');
+  // Keep newlines as-is for pre-wrap (don't convert to <br>)
+  // The pre element with white-space: pre-wrap will handle them correctly
 
   return result;
 }
