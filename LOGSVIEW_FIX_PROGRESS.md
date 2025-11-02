@@ -115,3 +115,25 @@ User reports auto-scroll still doesn't work. Getting browser extension error (un
 2. Try scrolling to a very large number (99999999) to ensure we reach bottom
 3. Consider if the issue is timing-related or if scrollHeight is being calculated wrong
 4. Check if we need to scroll both the container AND trigger a reflow
+
+**Debug Results:**
+```json
+{
+  "before": { "scrollTop": 1, "scrollHeight": 775, "clientHeight": 774 },
+  "after": { "scrollTop": 1, "scrollHeight": 775, "clientHeight": 774 },
+  "scrolledToBottom": true
+}
+```
+
+**ROOT CAUSE FOUND:**
+- scrollHeight (775) - clientHeight (774) = only 1px of scrollable content!
+- The container has `padding: '16px'` (32px total vertical)
+- The `<pre>` has `minHeight: '100%'` which fills the content box (excluding padding)
+- This means the pre is constrained to the container size and doesn't overflow
+- **The actual log text needs to flow beyond minHeight to create scrollable content**
+
+**Solution:**
+- Remove `minHeight: '100%'` from the `<pre>` element
+- The pre should be auto-height based on content
+- If content is short, that's fine - no need to artificially fill space
+- If content is long, it will naturally create scrollable overflow

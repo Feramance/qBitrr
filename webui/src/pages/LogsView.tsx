@@ -370,7 +370,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 ref={preRef}
                 style={{
                   margin: 0,
-                  minHeight: '100%',
                   whiteSpace: 'pre-wrap',
                   fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
                   fontSize: '13px',
