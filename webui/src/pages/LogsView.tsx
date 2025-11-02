@@ -153,7 +153,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
-  const isUserScrollingRef = useRef(false);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -200,10 +199,13 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       try {
         const text = await getLogTail(name);
         setContent(text);
+        // Use double requestAnimationFrame to ensure DOM has updated
         window.requestAnimationFrame(() => {
-          if (logRef.current && shouldAutoScroll && !isUserScrollingRef.current) {
-            logRef.current.scrollTop = logRef.current.scrollHeight;
-          }
+          window.requestAnimationFrame(() => {
+            if (logRef.current && shouldAutoScroll) {
+              logRef.current.scrollTop = logRef.current.scrollHeight;
+            }
+          });
         });
       } catch (error) {
         push(describeError(error, `Failed to read ${name}`), "error");
@@ -217,33 +219,46 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   // Handle user scroll - disable autoscroll if user scrolls up
   useEffect(() => {
     const logElement = logRef.current;
-    if (!logElement) return;
+    if (!logElement || !autoScroll) return;
+
+    let scrollTimeout: number | null = null;
 
     const handleScroll = () => {
-      if (!autoScroll) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = logElement;
-      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
-
-      // If user scrolled away from bottom, disable autoscroll
-      if (!isAtBottom && !isUserScrollingRef.current) {
-        isUserScrollingRef.current = true;
-        setAutoScroll(false);
+      // Clear any pending timeout
+      if (scrollTimeout !== null) {
+        window.clearTimeout(scrollTimeout);
       }
+
+      // Debounce scroll detection
+      scrollTimeout = window.setTimeout(() => {
+        const { scrollTop, scrollHeight, clientHeight } = logElement;
+        const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 10;
+
+        // If user scrolled away from bottom, disable autoscroll
+        if (!isAtBottom) {
+          setAutoScroll(false);
+        }
+      }, 100);
     };
 
-    logElement.addEventListener('scroll', handleScroll);
-    return () => logElement.removeEventListener('scroll', handleScroll);
+    logElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      logElement.removeEventListener('scroll', handleScroll);
+      if (scrollTimeout !== null) {
+        window.clearTimeout(scrollTimeout);
+      }
+    };
   }, [autoScroll]);
 
-  // Reset user scrolling flag when autoscroll is re-enabled
+  // Scroll to bottom when autoscroll is re-enabled
   useEffect(() => {
-    if (autoScroll) {
-      isUserScrollingRef.current = false;
+    if (autoScroll && logRef.current) {
       // Immediately scroll to bottom when enabled
-      if (logRef.current) {
-        logRef.current.scrollTop = logRef.current.scrollHeight;
-      }
+      window.requestAnimationFrame(() => {
+        if (logRef.current) {
+          logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+      });
     }
   }, [autoScroll]);
 

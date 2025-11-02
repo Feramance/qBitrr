@@ -88,6 +88,17 @@ class WebUI:
         werkzeug_logger.handlers.clear()
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
+
+        # Add cache control for static files to support config reload
+        @self.app.after_request
+        def add_cache_headers(response):
+            # Prevent caching of index.html and service worker to ensure fresh config loads
+            if request.path in ("/static/index.html", "/ui", "/static/sw.js", "/sw.js"):
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            return response
+
         # Security token (optional) - auto-generate and persist if empty
         self.token = CONFIG.get("WebUI.Token", fallback=None)
         if not self.token:
@@ -947,7 +958,15 @@ class WebUI:
         @app.get("/ui")
         def ui_index():
             # Serve UI without requiring a token; API remains protected
-            return redirect("/static/index.html")
+            # Add cache-busting parameter based on config reload timestamp
+            from flask import make_response
+
+            response = make_response(redirect("/static/index.html"))
+            # Prevent caching of the UI entry point
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
 
         def _processes_payload() -> dict[str, Any]:
             procs = []
@@ -1810,7 +1829,14 @@ class WebUI:
                 self.logger.exception("Failed to refresh auto update configuration")
             # Live-reload: rebuild Arr instances and restart processes
             self._reload_all()
-            return jsonify({"status": "ok"})
+            response = jsonify({"status": "ok"})
+            # Clear cache headers to force browser to reload
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            # Add a custom header to signal the client to reload
+            response.headers["X-Config-Reloaded"] = "true"
+            return response
 
         @app.post("/web/config")
         def web_update_config():
@@ -1833,7 +1859,14 @@ class WebUI:
             except Exception:
                 self.logger.exception("Failed to refresh auto update configuration")
             self._reload_all()
-            return jsonify({"status": "ok"})
+            response = jsonify({"status": "ok"})
+            # Clear cache headers to force browser to reload
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            # Add a custom header to signal the client to reload
+            response.headers["X-Config-Reloaded"] = "true"
+            return response
 
     def _reload_all(self):
         # Stop current processes

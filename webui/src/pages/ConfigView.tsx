@@ -1502,8 +1502,21 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setSaving(false);
         return;
       }
-      await updateConfig({ changes });
+      const response = await updateConfig({ changes });
       push("Configuration saved", "success");
+
+      // Clear browser cache and reload config
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+        } catch (error) {
+          console.warn('Failed to clear caches:', error);
+        }
+      }
+
       await loadConfig();
     } catch (error) {
       push(
