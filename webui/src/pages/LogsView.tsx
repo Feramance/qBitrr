@@ -158,6 +158,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
   const logRef = useRef<HTMLDivElement | null>(null);
+  const preRef = useRef<HTMLPreElement | null>(null);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -217,19 +218,22 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   useEffect(() => {
     if (!autoScroll || !content || !logRef.current) return;
 
-    // Scroll immediately after state update
+    // Scroll to bottom after DOM has been updated with new content
     const scrollToBottom = () => {
       if (logRef.current) {
-        logRef.current.scrollTop = logRef.current.scrollHeight;
+        const element = logRef.current;
+        // Force a reflow to ensure scroll height is calculated
+        void element.offsetHeight;
+        element.scrollTop = element.scrollHeight;
       }
     };
 
-    // Use setTimeout to ensure the DOM has been updated with new content
-    const timeoutId = setTimeout(() => {
-      scrollToBottom();
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
+    // Use multiple timing strategies to ensure scroll happens
+    // This handles different browser rendering timings
+    scrollToBottom(); // Try immediately
+    requestAnimationFrame(scrollToBottom); // Try after next paint
+    setTimeout(scrollToBottom, 50); // Try after 50ms
+    setTimeout(scrollToBottom, 100); // Try after 100ms as fallback
   }, [content, autoScroll]);
 
   // Handle user scroll - disable autoscroll if user scrolls up manually
@@ -338,17 +342,20 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               Loading logs...
             </div>
           ) : content ? (
-            <pre style={{
-              margin: 0,
-              whiteSpace: 'pre-wrap',
-              fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
-              fontSize: '13px',
-              lineHeight: '1.5',
-              color: '#e5e5e5',
-              tabSize: 4,
-              minHeight: '100%'
-            }} dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}>
-            </pre>
+            <pre
+              ref={preRef}
+              style={{
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+                fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
+                fontSize: '13px',
+                lineHeight: '1.5',
+                color: '#e5e5e5',
+                tabSize: 4,
+                minHeight: '100%'
+              }}
+              dangerouslySetInnerHTML={{ __html: ansiToHtml(content) }}
+            />
           ) : (
             <div style={{ color: '#666' }}>Select a log file to view its tail...</div>
           )}
