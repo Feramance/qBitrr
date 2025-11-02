@@ -217,10 +217,13 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   // Auto-scroll to bottom when content changes and autoscroll is enabled
   useEffect(() => {
-    if (!autoScroll || !content || !bottomMarkerRef.current) return;
+    if (!autoScroll || !content || !logRef.current) return;
 
     const scrollToBottom = () => {
-      bottomMarkerRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+      if (logRef.current) {
+        // Force scroll to absolute bottom by setting scrollTop to scrollHeight
+        logRef.current.scrollTop = logRef.current.scrollHeight;
+      }
     };
 
     // Use timeouts to ensure the dangerouslySetInnerHTML has fully rendered
@@ -228,7 +231,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     const timeouts: number[] = [];
 
     // Try at multiple intervals to handle delayed layout
-    [0, 50, 100].forEach(delay => {
+    [0, 50, 100, 200, 500].forEach(delay => {
       timeouts.push(window.setTimeout(scrollToBottom, delay));
     });
 

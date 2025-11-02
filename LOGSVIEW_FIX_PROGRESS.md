@@ -66,3 +66,21 @@
 
 ## Build Required
 Run `cd webui && npm run build` to rebuild the frontend with these fixes.
+
+---
+
+## Update 2025-11-02 (Second Iteration)
+
+### Issue: Auto-scroll still not working
+Height is fixed ✓, but auto-scroll still doesn't reach the bottom ✗
+
+**Problem Analysis:**
+- The `scrollIntoView` with `block: 'end'` on bottomMarkerRef is not reliable
+- The scrollable container is `logRef` (the outer div with overflow: auto)
+- The bottom marker is a sibling after the `<pre>`, but scrollIntoView behavior is inconsistent
+- Need to directly manipulate scrollTop on the container instead
+
+**New Solution:**
+- Use `logRef.current.scrollTop = logRef.current.scrollHeight` to force scroll to absolute bottom
+- Add longer timeout intervals to ensure layout is complete (200ms, 500ms in addition to immediate attempts)
+- Keep the bottom marker for potential future use but don't rely on it for scrolling
