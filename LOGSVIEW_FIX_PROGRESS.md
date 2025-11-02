@@ -137,3 +137,15 @@ User reports auto-scroll still doesn't work. Getting browser extension error (un
 - The pre should be auto-height based on content
 - If content is short, that's fine - no need to artificially fill space
 - If content is long, it will naturally create scrollable overflow
+
+**Implementation (Third Fix):**
+- Removed `minHeight: '100%'` from pre element styles (line 351)
+- Pre now naturally expands based on content
+- Scrollable container can now properly overflow when content exceeds available height
+- Auto-scroll can now work because there's actually scrollable content
+
+**Testing after this fix:**
+Please refresh and check console logs again. You should now see:
+- scrollHeight > clientHeight (actual scrollable content)
+- scrollTop changes to a large value when auto-scroll triggers
+- scrolledToBottom: true after scroll completes
