@@ -5637,7 +5637,7 @@ class Arr:
 
             self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks])
             self.artists_file_model = Artists
-            self.series_file_model = Artists  # Alias for compatibility with artist processing
+            self.series_file_model = None  # Lidarr uses artists, not series
         else:
             # Radarr or any type without db3/db4 (series/artists/tracks models)
             self.db.create_tables([Files, Queue, PersistingQueue])
