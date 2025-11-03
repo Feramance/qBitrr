@@ -5521,6 +5521,8 @@ class Arr:
             self.artists_file_model = Artists
             self.series_file_model = None
         else:
+            # Radarr or any type without db3/db4 (series/artists/tracks models)
+            self.db.create_tables([Files, Queue, PersistingQueue])
             self.artists_file_model = None
             self.series_file_model = None
 
