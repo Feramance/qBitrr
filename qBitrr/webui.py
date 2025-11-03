@@ -1354,7 +1354,9 @@ class WebUI:
         def _list_logs() -> list[str]:
             if not logs_root.exists():
                 return []
-            return sorted(f.name for f in logs_root.glob("*.log*"))
+            # Add "All Logs" as first option
+            log_files = sorted(f.name for f in logs_root.glob("*.log*"))
+            return ["All Logs"] + log_files if log_files else []
 
         @app.get("/api/logs")
         def api_logs():
@@ -1383,6 +1385,34 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            # Handle "All Logs" special case - combine all log files
+            if name == "All Logs":
+                if not logs_root.exists():
+                    return send_file(io.BytesIO(b""), mimetype="text/plain")
+                try:
+                    # Get all .log files (not .log.1, .log.2 etc - just current logs)
+                    log_files = sorted(logs_root.glob("*.log"), key=lambda p: p.name.lower())
+                    combined_lines = []
+                    for log_file in log_files:
+                        try:
+                            content = log_file.read_text(
+                                encoding="utf-8", errors="ignore"
+                            ).splitlines()
+                            # Add a header for each log file
+                            combined_lines.append(f"{'=' * 80}")
+                            combined_lines.append(f"LOG: {log_file.name}")
+                            combined_lines.append(f"{'=' * 80}")
+                            # Add last 500 lines from each log
+                            combined_lines.extend(content[-500:])
+                            combined_lines.append("")  # Empty line between logs
+                        except Exception:
+                            continue
+                    tail = "\n".join(combined_lines[-2000:])  # Overall limit of 2000 lines
+                except Exception:
+                    tail = ""
+                return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+
+            # Regular single log file
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
