@@ -541,36 +541,52 @@ class WebUI:
                     "reason": album.Reason,
                 }
 
-                # Optionally fetch tracks from Lidarr API
+                # Optionally fetch tracks from database
                 if include_tracks:
                     try:
-                        # Get album details from Lidarr API to fetch tracks
-                        client = getattr(arr, "client", None)
-                        if client and hasattr(client, "get_album"):
-                            album_details = client.get_album(album.EntryId)
-                            if album_details and "media" in album_details:
-                                tracks = []
-                                for medium in album_details.get("media", []):
-                                    for track in medium.get("tracks", []):
-                                        tracks.append(
-                                            {
-                                                "id": track.get("id"),
-                                                "trackNumber": track.get("trackNumber"),
-                                                "title": track.get("title", ""),
-                                                "duration": track.get("duration", 0),
-                                                "hasFile": track.get("hasFile", False),
-                                                "trackFileId": track.get("trackFileId"),
-                                                "monitored": track.get("monitored", False),
-                                            }
-                                        )
-                                album_data["tracks"] = tracks
-                                # Add statistics
-                                stats = album_details.get("statistics", {})
-                                album_data["trackCount"] = stats.get("trackCount", 0)
-                                album_data["trackFileCount"] = stats.get("trackFileCount", 0)
-                                album_data["percentOfTracks"] = stats.get("percentOfTracks", 0)
+                        # Import TrackFilesModel locally to avoid circular imports
+                        from qBitrr.tables import TrackFilesModel
+
+                        # Query tracks from database for this album
+                        track_query = (
+                            TrackFilesModel.select()
+                            .where(TrackFilesModel.AlbumId == album.EntryId)
+                            .order_by(TrackFilesModel.TrackNumber)
+                        )
+
+                        tracks = []
+                        track_count = 0
+                        track_file_count = 0
+
+                        for track in track_query:
+                            tracks.append(
+                                {
+                                    "id": track.EntryId,
+                                    "trackNumber": track.TrackNumber,
+                                    "title": track.Title,
+                                    "duration": track.Duration,
+                                    "hasFile": track.HasFile,
+                                    "trackFileId": track.TrackFileId,
+                                    "monitored": track.Monitored,
+                                }
+                            )
+                            track_count += 1
+                            if track.HasFile:
+                                track_file_count += 1
+
+                        if tracks:
+                            album_data["tracks"] = tracks
+                            album_data["trackCount"] = track_count
+                            album_data["trackFileCount"] = track_file_count
+                            album_data["percentOfTracks"] = (
+                                int((track_file_count / track_count) * 100)
+                                if track_count > 0
+                                else 0
+                            )
                     except Exception as e:
-                        self.logger.debug(f"Failed to fetch tracks for album {album.EntryId}: {e}")
+                        self.logger.warning(
+                            f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
+                        )
                         album_data["tracks"] = []
 
                 albums.append(album_data)

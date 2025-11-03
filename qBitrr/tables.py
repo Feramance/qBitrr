@@ -82,6 +82,17 @@ class AlbumFilesModel(Model):
     ArtistTitle = TextField(null=True)
 
 
+class TrackFilesModel(Model):
+    EntryId = IntegerField(primary_key=True)
+    AlbumId = IntegerField(null=False)
+    TrackNumber = IntegerField(null=True)
+    Title = TextField(null=True)
+    Duration = IntegerField(null=True)  # Duration in seconds
+    HasFile = BooleanField(default=False)
+    TrackFileId = IntegerField(null=True)
+    Monitored = BooleanField(default=False)
+
+
 class ArtistFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
     Title = TextField(null=True)

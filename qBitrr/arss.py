@@ -3462,11 +3462,36 @@ class Arr:
                         Reason=reason,
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
+
+                    # Store tracks for this album
+                    if "media" in db_entry:
+                        # First, delete existing tracks for this album
+                        TrackFilesModel.delete().where(
+                            TrackFilesModel.AlbumId == entryId
+                        ).execute()
+
+                        # Insert new tracks
+                        for medium in db_entry.get("media", []):
+                            for track in medium.get("tracks", []):
+                                TrackFilesModel.insert(
+                                    EntryId=track.get("id"),
+                                    AlbumId=entryId,
+                                    TrackNumber=track.get("trackNumber"),
+                                    Title=track.get("title", ""),
+                                    Duration=track.get("duration", 0),
+                                    HasFile=track.get("hasFile", False),
+                                    TrackFileId=track.get("trackFileId"),
+                                    Monitored=track.get("monitored", False),
+                                ).execute()
                 else:
                     db_commands = self.model_file.delete().where(
                         self.model_file.EntryId == db_entry["id"]
                     )
                     db_commands.execute()
+                    # Also delete tracks for this album
+                    TrackFilesModel.delete().where(
+                        TrackFilesModel.AlbumId == db_entry["id"]
+                    ).execute()
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
