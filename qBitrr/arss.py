@@ -3397,7 +3397,13 @@ class Arr:
                     # Handle artist field which can be an object or might not exist
                     artist_obj = db_entry.get("artist", {})
                     if isinstance(artist_obj, dict):
-                        artistName = artist_obj.get("artistName", "Unknown Artist")
+                        # Try multiple possible field names for artist name
+                        artistName = (
+                            artist_obj.get("artistName")
+                            or artist_obj.get("name")
+                            or artist_obj.get("title")
+                            or "Unknown Artist"
+                        )
                     else:
                         artistName = "Unknown Artist"
                     artistId = db_entry.get("artistId", 0)
