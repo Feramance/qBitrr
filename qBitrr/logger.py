@@ -84,10 +84,11 @@ logger = logging.getLogger("qBitrr.Misc")
 
 
 HAS_RUN = False
+ALL_LOGS_HANDLER = None  # Global handler for unified All.log file
 
 
 def run_logs(logger: Logger, _name: str = None) -> None:
-    global HAS_RUN
+    global HAS_RUN, ALL_LOGS_HANDLER
     try:
         configkeys = {f"qBitrr.{i}" for i in CONFIG.sections()}
         key_length = max(len(max(configkeys, key=len)), 10)
@@ -120,43 +121,86 @@ def run_logs(logger: Logger, _name: str = None) -> None:
         reconfigure=True,
     )
     logger.propagate = False
-    if ENABLE_LOGS and _name:
-        logs_folder = HOME_PATH.joinpath("logs")
-        logs_folder.mkdir(parents=True, exist_ok=True)
-        logs_folder.chmod(mode=0o777)
-        logfile = logs_folder.joinpath(_name + ".log")
-        if pathlib.Path(logfile).is_file():
-            logold = logs_folder.joinpath(_name + ".log.old")
-            if pathlib.Path(logold).exists():
-                logold.unlink()
-            logfile.rename(logold)
-        fh = logging.FileHandler(logfile)
-        # Use ColoredFormatter for file output to include ANSI colors in log files
-        fh.setFormatter(
-            coloredlogs.ColoredFormatter(
-                fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
-                level_styles={
-                    "trace": {"color": "black", "bold": True},
-                    "debug": {"color": "magenta", "bold": True},
-                    "verbose": {"color": "blue", "bold": True},
-                    "info": {"color": "white"},
-                    "notice": {"color": "cyan"},
-                    "hnotice": {"color": "cyan", "bold": True},
-                    "warning": {"color": "yellow", "bold": True},
-                    "success": {"color": "green", "bold": True},
-                    "error": {"color": "red"},
-                    "critical": {"color": "red", "bold": True},
-                },
-                field_styles={
-                    "asctime": {"color": "green"},
-                    "process": {"color": "magenta"},
-                    "levelname": {"color": "red", "bold": True},
-                    "name": {"color": "blue", "bold": True},
-                    "thread": {"color": "cyan"},
-                },
+    if ENABLE_LOGS:
+        # Initialize unified All.log handler once (first time run_logs is called)
+        if ALL_LOGS_HANDLER is None:
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            all_logfile = logs_folder.joinpath("All.log")
+            # Rotate old All.log if it exists
+            if all_logfile.exists():
+                all_logold = logs_folder.joinpath("All.log.old")
+                if all_logold.exists():
+                    all_logold.unlink()
+                all_logfile.rename(all_logold)
+            # Create handler for All.log that all loggers will use
+            ALL_LOGS_HANDLER = logging.FileHandler(all_logfile)
+            ALL_LOGS_HANDLER.setFormatter(
+                coloredlogs.ColoredFormatter(
+                    fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
+                    level_styles={
+                        "trace": {"color": "black", "bold": True},
+                        "debug": {"color": "magenta", "bold": True},
+                        "verbose": {"color": "blue", "bold": True},
+                        "info": {"color": "white"},
+                        "notice": {"color": "cyan"},
+                        "hnotice": {"color": "cyan", "bold": True},
+                        "warning": {"color": "yellow", "bold": True},
+                        "success": {"color": "green", "bold": True},
+                        "error": {"color": "red"},
+                        "critical": {"color": "red", "bold": True},
+                    },
+                    field_styles={
+                        "asctime": {"color": "green"},
+                        "process": {"color": "magenta"},
+                        "levelname": {"color": "red", "bold": True},
+                        "name": {"color": "blue", "bold": True},
+                        "thread": {"color": "cyan"},
+                    },
+                )
             )
-        )
-        logger.addHandler(fh)
+            # Add to root logger so all qBitrr loggers inherit it
+            logging.root.addHandler(ALL_LOGS_HANDLER)
+
+        # Add individual component log file handler
+        if _name:
+            logs_folder = HOME_PATH.joinpath("logs")
+            logs_folder.mkdir(parents=True, exist_ok=True)
+            logs_folder.chmod(mode=0o777)
+            logfile = logs_folder.joinpath(_name + ".log")
+            if pathlib.Path(logfile).is_file():
+                logold = logs_folder.joinpath(_name + ".log.old")
+                if pathlib.Path(logold).exists():
+                    logold.unlink()
+                logfile.rename(logold)
+            fh = logging.FileHandler(logfile)
+            # Use ColoredFormatter for file output to include ANSI colors in log files
+            fh.setFormatter(
+                coloredlogs.ColoredFormatter(
+                    fmt="[%(asctime)-15s] " f"%(levelname)-8s: %(name)-{key_length}s: %(message)s",
+                    level_styles={
+                        "trace": {"color": "black", "bold": True},
+                        "debug": {"color": "magenta", "bold": True},
+                        "verbose": {"color": "blue", "bold": True},
+                        "info": {"color": "white"},
+                        "notice": {"color": "cyan"},
+                        "hnotice": {"color": "cyan", "bold": True},
+                        "warning": {"color": "yellow", "bold": True},
+                        "success": {"color": "green", "bold": True},
+                        "error": {"color": "red"},
+                        "critical": {"color": "red", "bold": True},
+                    },
+                    field_styles={
+                        "asctime": {"color": "green"},
+                        "process": {"color": "magenta"},
+                        "levelname": {"color": "red", "bold": True},
+                        "name": {"color": "blue", "bold": True},
+                        "thread": {"color": "cyan"},
+                    },
+                )
+            )
+            logger.addHandler(fh)
     if HAS_RUN is False:
         HAS_RUN = True
         log_debugs(logger)

@@ -1385,83 +1385,9 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Handle "All Logs" special case - combine all log files chronologically
+            # Handle "All Logs" special case - serve the unified All.log file
             if name == "All Logs":
-                if not logs_root.exists():
-                    return send_file(io.BytesIO(b""), mimetype="text/plain")
-                try:
-                    import re
-                    from datetime import datetime
-
-                    # Get all .log files (not .log.old or numbered backups)
-                    log_files = [f for f in logs_root.glob("*.log") if not f.name.endswith(".old")]
-
-                    # Collect all log entries with timestamps
-                    # Log format: [YYYY-MM-DD HH:MM:SS,mmm] LEVEL: name: message
-                    # Note: Python logging's asctime includes milliseconds after comma
-                    # IMPORTANT: Log entries can be concatenated without newlines: ...][2025-11-03 09:37:52]...
-                    all_entries = []
-                    # Match [YYYY-MM-DD HH:MM:SS,mmm] or [YYYY-MM-DD HH:MM:SS]
-                    timestamp_pattern = re.compile(
-                        r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:,\d{3})?\]"
-                    )
-                    # Pattern to split concatenated entries: split before [TIMESTAMP]
-                    split_pattern = re.compile(r"(?=\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
-
-                    for log_file in log_files:
-                        try:
-                            lines = log_file.read_text(
-                                encoding="utf-8", errors="ignore"
-                            ).splitlines()
-
-                            current_entry = []
-                            current_timestamp = None
-
-                            for line in lines:
-                                # Split line on timestamp boundaries (handles concatenated entries)
-                                split_lines = [s for s in split_pattern.split(line) if s.strip()]
-
-                                for subline in split_lines:
-                                    # Check if this subline starts a new log entry
-                                    match = timestamp_pattern.match(subline)
-                                    if match:
-                                        # Save previous entry if exists
-                                        if current_entry:
-                                            all_entries.append(
-                                                (current_timestamp, "\n".join(current_entry))
-                                            )
-
-                                        # Start new entry
-                                        try:
-                                            current_timestamp = datetime.strptime(
-                                                match.group(1), "%Y-%m-%d %H:%M:%S"
-                                            )
-                                        except Exception:
-                                            current_timestamp = datetime.min
-                                        current_entry = [subline]
-                                    else:
-                                        # Continuation line - append to current entry
-                                        if current_entry:
-                                            current_entry.append(subline)
-                                        else:
-                                            # Orphan line without preceding timestamp
-                                            all_entries.append((datetime.min, subline))
-
-                            # Don't forget the last entry
-                            if current_entry:
-                                all_entries.append((current_timestamp, "\n".join(current_entry)))
-
-                        except Exception:
-                            continue
-
-                    # Sort by timestamp
-                    all_entries.sort(key=lambda x: x[0])
-
-                    # Take last 2000 entries and extract just the text
-                    tail = "\n".join(entry[1] for entry in all_entries[-2000:])
-                except Exception:
-                    tail = ""
-                return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                name = "All.log"
 
             # Regular single log file
             file = _resolve_log_file(name)
