@@ -33,24 +33,7 @@ import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 
-// Helper function to flatten LidarrAlbumEntry to LidarrAlbum for easier use
-function flattenAlbumEntry(entry: LidarrAlbumEntry): LidarrAlbum {
-  const album = entry.album as Record<string, unknown>;
-  const totals = entry.totals;
-  const tracks = entry.tracks;
-
-  return {
-    ...album,
-    tracks,
-    trackCount: totals.monitored,
-    trackFileCount: totals.available,
-    percentOfTracks: totals.monitored > 0
-      ? Math.round((totals.available / totals.monitored) * 100)
-      : 0,
-  } as LidarrAlbum;
-}
-
-interface LidarrAggRow extends LidarrAlbum {
+interface LidarrAggRow extends LidarrAlbumEntry {
   __instance: string;
 }
 
@@ -102,7 +85,7 @@ function LidarrAggregateView({
 
     rows.forEach(row => {
       const instance = row.__instance;
-      const artist = row.artistName || "Unknown Artist";
+      const artist = (row.album?.["artistName"] as string | undefined) || "Unknown Artist";
 
       if (!instanceMap.has(instance)) {
         instanceMap.set(instance, new Map());
@@ -244,22 +227,34 @@ function LidarrAggregateView({
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
               </summary>
               <div className="artist-content">
-                {artistGroup.albums.map((album) => (
-                  <details key={`${album.__instance}-${album.artistName}-${album.title}`} className="album-details">
+                {artistGroup.albums.map((albumEntry) => {
+                  const albumData = albumEntry.album as Record<string, unknown>;
+                  const albumTitle = (albumData?.["title"] as string | undefined) || "Unknown Album";
+                  const albumId = (albumData?.["id"] as number | undefined) || 0;
+                  const artistName = (albumData?.["artistName"] as string | undefined) || "";
+                  const releaseDate = albumData?.["releaseDate"] as string | undefined;
+                  const monitored = albumData?.["monitored"] as boolean | undefined;
+                  const hasFile = albumData?.["hasFile"] as boolean | undefined;
+                  const reason = albumData?.["reason"] as string | null | undefined;
+                  const tracks = albumEntry.tracks || [];
+                  const totals = albumEntry.totals;
+
+                  return (
+                  <details key={`${albumEntry.__instance}-${artistName}-${albumTitle}`} className="album-details">
                     <summary className="album-summary">
-                      <span className="album-title">{album.title}</span>
-                      {album.releaseDate && (
-                        <span className="album-date">{new Date(album.releaseDate).toLocaleDateString()}</span>
+                      <span className="album-title">{albumTitle}</span>
+                      {releaseDate && (
+                        <span className="album-date">{new Date(releaseDate).toLocaleDateString()}</span>
                       )}
-                      {album.tracks && album.tracks.length > 0 && (
-                        <span className="album-track-count">({album.trackFileCount || 0}/{album.trackCount || album.tracks.length} tracks)</span>
+                      {tracks && tracks.length > 0 && (
+                        <span className="album-track-count">({totals.available || 0}/{totals.monitored || tracks.length} tracks)</span>
                       )}
-                      <span className={`album-status ${album.hasFile ? 'has-file' : 'missing'}`}>
-                        {album.hasFile ? '✓' : '✗'}
+                      <span className={`album-status ${hasFile ? 'has-file' : 'missing'}`}>
+                        {hasFile ? '✓' : '✗'}
                       </span>
                     </summary>
                     <div className="album-content">
-                      {album.tracks && album.tracks.length > 0 ? (
+                      {tracks && tracks.length > 0 ? (
                         <div className="tracks-table-wrapper">
                           <table className="tracks-table">
                             <thead>
@@ -271,8 +266,8 @@ function LidarrAggregateView({
                               </tr>
                             </thead>
                             <tbody>
-                              {album.tracks.map((track) => (
-                                <tr key={`${album.id}-${track.id}`} className={track.hasFile ? 'track-available' : 'track-missing'}>
+                              {tracks.map((track) => (
+                                <tr key={`${albumId}-${track.id}`} className={track.hasFile ? 'track-available' : 'track-missing'}>
                                   <td data-label="#">{track.trackNumber}</td>
                                   <td data-label="Title">{track.title}</td>
                                   <td data-label="Duration">{track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '—'}</td>
@@ -289,18 +284,19 @@ function LidarrAggregateView({
                       ) : (
                         <div className="album-info">
                           <p>
-                            <strong>Monitored:</strong> {album.monitored ? 'Yes' : 'No'}
+                            <strong>Monitored:</strong> {monitored ? 'Yes' : 'No'}
                             {' | '}
-                            <strong>Has File:</strong> {album.hasFile ? 'Yes' : 'No'}
+                            <strong>Has File:</strong> {hasFile ? 'Yes' : 'No'}
                           </p>
-                          {album.reason && (
-                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{album.reason}</span></p>
+                          {reason && (
+                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{reason}</span></p>
                           )}
                         </div>
                       )}
                     </div>
                   </details>
-                ))}
+                  );
+                })}
               </div>
             </details>
           ))}
@@ -385,7 +381,7 @@ interface LidarrInstanceViewProps {
   page: number;
   totalPages: number;
   pageSize: number;
-  allAlbums: LidarrAlbum[];
+  allAlbums: LidarrAlbumEntry[];
   onlyMissing: boolean;
   reasonFilter: string;
   onPageChange: (page: number) => void;
@@ -411,7 +407,10 @@ function LidarrInstanceView({
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
     if (onlyMissing) {
-      albums = albums.filter((a) => !a.hasFile);
+      albums = albums.filter((entry) => {
+        const albumData = entry.album as Record<string, unknown>;
+        return !(albumData?.["hasFile"] as boolean | undefined);
+      });
     }
     return albums;
   }, [allAlbums, onlyMissing]);
@@ -419,20 +418,27 @@ function LidarrInstanceView({
   const reasonFilteredAlbums = useMemo(() => {
     if (reasonFilter === "all") return filteredAlbums;
     if (reasonFilter === "none") {
-      return filteredAlbums.filter((a) => !a.reason);
+      return filteredAlbums.filter((entry) => {
+        const albumData = entry.album as Record<string, unknown>;
+        return !albumData?.["reason"];
+      });
     }
-    return filteredAlbums.filter((a) => a.reason === reasonFilter);
+    return filteredAlbums.filter((entry) => {
+      const albumData = entry.album as Record<string, unknown>;
+      return albumData?.["reason"] === reasonFilter;
+    });
   }, [filteredAlbums, reasonFilter]);
 
   // Group albums by artist for hierarchical view
   const groupedAlbums = useMemo(() => {
-    const artistMap = new Map<string, LidarrAlbum[]>();
-    reasonFilteredAlbums.forEach(album => {
-      const artist = album.artistName || "Unknown Artist";
+    const artistMap = new Map<string, LidarrAlbumEntry[]>();
+    reasonFilteredAlbums.forEach(albumEntry => {
+      const albumData = albumEntry.album as Record<string, unknown>;
+      const artist = (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
       if (!artistMap.has(artist)) {
         artistMap.set(artist, []);
       }
-      artistMap.get(artist)!.push(album);
+      artistMap.get(artist)!.push(albumEntry);
     });
     return Array.from(artistMap.entries()).map(([artist, albums]) => ({
       artist,
@@ -440,47 +446,62 @@ function LidarrInstanceView({
     }));
   }, [reasonFilteredAlbums]);
 
-  const columns = useMemo<ColumnDef<LidarrAlbum>[]>(
+  const columns = useMemo<ColumnDef<LidarrAlbumEntry>[]>(
     () => [
       {
-        accessorKey: "title",
+        id: "title",
         header: "Album",
-        cell: (info) => info.getValue(),
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          return (albumData?.["title"] as string | undefined) || "Unknown Album";
+        },
       },
       {
-        accessorKey: "artistName",
+        id: "artistName",
         header: "Artist",
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          return (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
+        },
         size: 150,
       },
       {
-        accessorKey: "releaseDate",
+        id: "releaseDate",
         header: "Release Date",
         cell: (info) => {
-          const date = info.getValue() as string | undefined;
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const date = albumData?.["releaseDate"] as string | undefined;
           if (!date) return <span className="hint">—</span>;
           return new Date(date).toLocaleDateString();
         },
         size: 120,
       },
       {
-        accessorKey: "monitored",
+        id: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const monitored = albumData?.["monitored"] as boolean | undefined;
+          return monitored ? <span className="table-badge">Yes</span> : <span>No</span>;
+        },
         size: 100,
       },
       {
-        accessorKey: "hasFile",
+        id: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const hasFile = albumData?.["hasFile"] as boolean | undefined;
+          return hasFile ? <span className="table-badge">Yes</span> : <span>No</span>;
+        },
         size: 100,
       },
       {
-        accessorKey: "reason",
+        id: "reason",
         header: "Reason",
         cell: (info) => {
-          const reason = info.getValue() as string | null;
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const reason = albumData?.["reason"] as string | null | undefined;
           if (!reason) return <span className="hint">—</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
@@ -527,22 +548,34 @@ function LidarrInstanceView({
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
               </summary>
               <div className="artist-content">
-                {artistGroup.albums.map((album) => (
-                  <details key={`${album.artistName}-${album.title}`} className="album-details">
+                {artistGroup.albums.map((albumEntry) => {
+                  const albumData = albumEntry.album as Record<string, unknown>;
+                  const albumTitle = (albumData?.["title"] as string | undefined) || "Unknown Album";
+                  const albumId = (albumData?.["id"] as number | undefined) || 0;
+                  const artistName = (albumData?.["artistName"] as string | undefined) || "";
+                  const releaseDate = albumData?.["releaseDate"] as string | undefined;
+                  const monitored = albumData?.["monitored"] as boolean | undefined;
+                  const hasFile = albumData?.["hasFile"] as boolean | undefined;
+                  const reason = albumData?.["reason"] as string | null | undefined;
+                  const tracks = albumEntry.tracks || [];
+                  const totals = albumEntry.totals;
+
+                  return (
+                  <details key={`${artistName}-${albumTitle}`} className="album-details">
                     <summary className="album-summary">
-                      <span className="album-title">{album.title}</span>
-                      {album.releaseDate && (
-                        <span className="album-date">{new Date(album.releaseDate).toLocaleDateString()}</span>
+                      <span className="album-title">{albumTitle}</span>
+                      {releaseDate && (
+                        <span className="album-date">{new Date(releaseDate).toLocaleDateString()}</span>
                       )}
-                      {album.tracks && album.tracks.length > 0 && (
-                        <span className="album-track-count">({album.trackFileCount || 0}/{album.trackCount || album.tracks.length} tracks)</span>
+                      {tracks && tracks.length > 0 && (
+                        <span className="album-track-count">({totals.available || 0}/{totals.monitored || tracks.length} tracks)</span>
                       )}
-                      <span className={`album-status ${album.hasFile ? 'has-file' : 'missing'}`}>
-                        {album.hasFile ? '✓' : '✗'}
+                      <span className={`album-status ${hasFile ? 'has-file' : 'missing'}`}>
+                        {hasFile ? '✓' : '✗'}
                       </span>
                     </summary>
                     <div className="album-content">
-                      {album.tracks && album.tracks.length > 0 ? (
+                      {tracks && tracks.length > 0 ? (
                         <div className="tracks-table-wrapper">
                           <table className="tracks-table">
                             <thead>
@@ -554,8 +587,8 @@ function LidarrInstanceView({
                               </tr>
                             </thead>
                             <tbody>
-                              {album.tracks.map((track) => (
-                                <tr key={`${album.id}-${track.id}`} className={track.hasFile ? 'track-available' : 'track-missing'}>
+                              {tracks.map((track) => (
+                                <tr key={`${albumId}-${track.id}`} className={track.hasFile ? 'track-available' : 'track-missing'}>
                                   <td data-label="#">{track.trackNumber}</td>
                                   <td data-label="Title">{track.title}</td>
                                   <td data-label="Duration">{track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '—'}</td>
@@ -572,18 +605,19 @@ function LidarrInstanceView({
                       ) : (
                         <div className="album-info">
                           <p>
-                            <strong>Monitored:</strong> {album.monitored ? 'Yes' : 'No'}
+                            <strong>Monitored:</strong> {monitored ? 'Yes' : 'No'}
                             {' | '}
-                            <strong>Has File:</strong> {album.hasFile ? 'Yes' : 'No'}
+                            <strong>Has File:</strong> {hasFile ? 'Yes' : 'No'}
                           </p>
-                          {album.reason && (
-                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{album.reason}</span></p>
+                          {reason && (
+                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{reason}</span></p>
                           )}
                         </div>
                       )}
                     </div>
                   </details>
-                ))}
+                  );
+                })}
               </div>
             </details>
           ))}
@@ -609,8 +643,11 @@ function LidarrInstanceView({
             </thead>
             <tbody>
               {table.getRowModel().rows.map((row) => {
-                const album = row.original;
-                const stableKey = `${album.title}-${album.artistName}`;
+                const albumEntry = row.original;
+                const albumData = albumEntry.album as Record<string, unknown>;
+                const title = (albumData?.["title"] as string | undefined) || "Unknown";
+                const artistName = (albumData?.["artistName"] as string | undefined) || "Unknown";
+                const stableKey = `${title}-${artistName}`;
                 return (
                   <tr key={stableKey}>
                     {row.getVisibleCells().map((cell) => (
@@ -676,11 +713,11 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const [instanceQuery, setInstanceQuery] = useState("");
   const [instanceLoading, setInstanceLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-  const [instancePages, setInstancePages] = useState<Record<number, LidarrAlbum[]>>({});
+  const [instancePages, setInstancePages] = useState<Record<number, LidarrAlbumEntry[]>>({});
   const [instancePageSize, setInstancePageSize] = useState(LIDARR_PAGE_SIZE);
   const [instanceTotalPages, setInstanceTotalPages] = useState(1);
   const instanceKeyRef = useRef<string>("");
-  const instancePagesRef = useRef<Record<number, LidarrAlbum[]>>({});
+  const instancePagesRef = useRef<Record<number, LidarrAlbumEntry[]>>({});
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
 
@@ -746,12 +783,11 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     ) => {
       if (!pages.length) return;
       try {
-        const results: { page: number; albums: LidarrAlbum[] }[] = [];
+        const results: { page: number; albums: LidarrAlbumEntry[] }[] = [];
         for (const pg of pages) {
           const res = await getLidarrAlbums(category, pg, pageSize, query);
           const resolved = res.page ?? pg;
-          const flattenedAlbums = (res.albums ?? []).map(flattenAlbumEntry);
-          results.push({ page: resolved, albums: flattenedAlbums });
+          results.push({ page: resolved, albums: res.albums ?? [] });
           if (instanceKeyRef.current !== key) {
             return;
           }
@@ -821,17 +857,17 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
         setInstancePageSize(pageSize);
         setInstanceTotalPages(totalPages);
-        const flattenedAlbums = (response.albums ?? []).map(flattenAlbumEntry);
+        const albums = response.albums ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
         // Smart diffing: only update if data actually changed
         const existingAlbums = instancePagesRef.current[resolvedPage] ?? [];
-        const albumsChanged = JSON.stringify(existingAlbums) !== JSON.stringify(flattenedAlbums);
+        const albumsChanged = JSON.stringify(existingAlbums) !== JSON.stringify(albums);
 
         if (keyChanged || albumsChanged) {
           setInstancePages((prev) => {
             const base = keyChanged ? {} : prev;
-            const next = { ...base, [resolvedPage]: flattenedAlbums };
+            const next = { ...base, [resolvedPage]: albums };
             instancePagesRef.current = next;
             return next;
           });
@@ -902,9 +938,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
             counted = true;
           }
           const albumEntries = res.albums ?? [];
-          const flattenedAlbums = albumEntries.map(flattenAlbumEntry);
-          flattenedAlbums.forEach((album) => {
-            aggregated.push({ ...album, __instance: label });
+          albumEntries.forEach((entry) => {
+            aggregated.push({ ...entry, __instance: label });
           });
           if (!albumEntries.length || albumEntries.length < LIDARR_AGG_FETCH_SIZE) break;
           page += 1;
@@ -913,19 +948,25 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
 
       // Flatten tracks from all albums for flat mode
       const trackRows: LidarrTrackRow[] = [];
-      aggregated.forEach((album) => {
-        if (album.tracks && album.tracks.length > 0) {
-          album.tracks.forEach((track) => {
+      aggregated.forEach((albumEntry) => {
+        const albumData = albumEntry.album as Record<string, unknown>;
+        const artistName = (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
+        const albumTitle = (albumData?.["title"] as string | undefined) || "Unknown Album";
+        const reason = albumData?.["reason"] as string | null | undefined;
+        const tracks = albumEntry.tracks || [];
+
+        if (tracks && tracks.length > 0) {
+          tracks.forEach((track) => {
             trackRows.push({
-              __instance: album.__instance,
-              artistName: album.artistName || "Unknown Artist",
-              albumTitle: album.title || "Unknown Album",
+              __instance: albumEntry.__instance,
+              artistName,
+              albumTitle,
               trackNumber: track.trackNumber || 0,
               title: track.title || "Unknown Track",
               duration: track.duration,
               hasFile: track.hasFile || false,
               monitored: track.monitored || false,
-              reason: album.reason,
+              reason,
             });
           });
         }
@@ -1083,20 +1124,30 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     if (aggFilter) {
       const q = aggFilter.toLowerCase();
       rows = rows.filter((row) => {
-        const title = (row.title ?? "").toString().toLowerCase();
-        const artist = (row.artistName ?? "").toString().toLowerCase();
+        const albumData = row.album as Record<string, unknown>;
+        const title = ((albumData?.["title"] as string | undefined) ?? "").toString().toLowerCase();
+        const artist = ((albumData?.["artistName"] as string | undefined) ?? "").toString().toLowerCase();
         const instance = (row.__instance ?? "").toLowerCase();
         return title.includes(q) || artist.includes(q) || instance.includes(q);
       });
     }
     if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
+      rows = rows.filter((row) => {
+        const albumData = row.album as Record<string, unknown>;
+        return !(albumData?.["hasFile"] as boolean | undefined);
+      });
     }
     if (reasonFilter !== "all") {
       if (reasonFilter === "none") {
-        rows = rows.filter((row) => !row.reason);
+        rows = rows.filter((row) => {
+          const albumData = row.album as Record<string, unknown>;
+          return !albumData?.["reason"];
+        });
       } else {
-        rows = rows.filter((row) => row.reason === reasonFilter);
+        rows = rows.filter((row) => {
+          const albumData = row.album as Record<string, unknown>;
+          return albumData?.["reason"] === reasonFilter;
+        });
       }
     }
     return rows;
@@ -1108,7 +1159,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     const pages = Object.keys(instancePages)
       .map(Number)
       .sort((a, b) => a - b);
-    const rows: LidarrAlbum[] = [];
+    const rows: LidarrAlbumEntry[] = [];
     pages.forEach((pg) => {
       if (instancePages[pg]) {
         rows.push(...instancePages[pg]);
