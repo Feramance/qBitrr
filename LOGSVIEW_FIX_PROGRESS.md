@@ -251,3 +251,87 @@ After multiple failed attempts with custom solutions, switching to **`@melloware
 - ANSI colors render correctly
 - Search built-in
 - Line selection built-in
+
+---
+
+## Update 2025-11-03 (All Logs Chronological Sorting Fix)
+
+### Issue: "All Logs" not sorting chronologically
+
+User reports that the "All Logs" view (added in earlier commits) is not properly merging logs chronologically. Logs from different components are appearing concatenated rather than interleaved by timestamp.
+
+**Example of broken output:**
+```
+[2025-11-03 09:28:15] ... Radarr-1080
+[2025-11-03 09:28:15] ... Radarr-1080
+[2025-11-03 09:26:23] ... Radarr-Anime  # <- Earlier time after later times!
+```
+
+### Root Cause Analysis
+
+**Problem 1: Incorrect regex pattern**
+- Original pattern: `r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]"`
+- Actual log format: `[YYYY-MM-DD HH:MM:SS,mmm]` (includes milliseconds after comma)
+- Python's `%(asctime)s` produces timestamps with `,mmm` suffix
+- Regex wasn't matching actual timestamps correctly
+
+**Problem 2: Multi-line entries not grouped**
+- Log entries with tracebacks/stack traces span multiple lines
+- Original code treated each line independently
+- Continuation lines (without timestamps) should stay with parent entry
+
+**Problem 3: Sorting granularity**
+- Original code sorted individual lines
+- Should sort complete multi-line entries as atomic units
+
+### Solution Implementation
+
+**Changes Made:**
+1. Updated regex to handle milliseconds: `r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:,\d{3})?\]"`
+   - Matches both `[YYYY-MM-DD HH:MM:SS,mmm]` and `[YYYY-MM-DD HH:MM:SS]`
+   - Non-capturing group `(?:,\d{3})?` for optional milliseconds
+
+2. Group multi-line entries together:
+   - Track `current_entry` list and `current_timestamp`
+   - When new timestamp found, save previous entry as complete unit
+   - Continuation lines (no timestamp) append to current entry
+   - Entries stored as `(timestamp, full_text)` tuples
+
+3. Sort complete entries chronologically:
+   - Each entry can be multiple lines (e.g., log + traceback)
+   - Sort by timestamp, preserving entry integrity
+   - Take last 2000 entries (not lines)
+
+### Testing
+
+Created test with simulated log data:
+```python
+# Three log files with interleaved timestamps
+Main.log:       09:28:15.100, 09:28:16.200, 09:28:20.000
+Radarr-1080:    09:28:15.150, 09:28:17.300, 09:28:19.500 (+ traceback)
+Radarr-Anime:   09:26:23.000, 09:28:18.400
+```
+
+**Result:** ✅ Perfect chronological ordering:
+```
+09:26:23 Radarr-Anime: Started
+09:28:15.100 Main: Starting
+09:28:15.150 Radarr-1080: Connecting
+09:28:16.200 Main: Initialized
+09:28:17.300 Radarr-1080: Connected
+09:28:18.400 Radarr-Anime: Processing
+09:28:19.500 Radarr-1080: Failed (+ traceback grouped)
+09:28:20.000 Main: Running
+```
+
+### Key Commits
+- `e4d687c` - Fix chronological sorting in 'All Logs' view
+- `eda1b67` - Merge all log files chronologically (broken implementation)
+- `d67cdd0` - Return Main.log for All Logs (workaround attempt)
+- `da412b9` - Add 'All Logs' view (initial feature)
+
+### Files Modified
+- `qBitrr/webui.py` (lines 1386-1450)
+
+### Status: ✅ FIXED
+The "All Logs" view now properly merges logs from all components (Main, Radarr-4K, Sonarr, WebUI, etc.) in chronological order, like `docker logs -f qbitrr` would show.
