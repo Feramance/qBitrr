@@ -68,6 +68,7 @@ from qBitrr.tables import (
     MoviesFilesModel,
     SeriesFilesModel,
     TorrentLibrary,
+    TrackFilesModel,
 )
 from qBitrr.utils import (
     ExpiringSet,
