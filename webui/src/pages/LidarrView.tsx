@@ -373,6 +373,7 @@ interface LidarrInstanceViewProps {
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
+  groupLidarr: boolean;
 }
 
 function LidarrInstanceView({
@@ -387,6 +388,7 @@ function LidarrInstanceView({
   onPageChange,
   onRestart,
   lastUpdated,
+  groupLidarr,
 }: LidarrInstanceViewProps): JSX.Element {
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
@@ -403,6 +405,22 @@ function LidarrInstanceView({
     }
     return filteredAlbums.filter((a) => a.reason === reasonFilter);
   }, [filteredAlbums, reasonFilter]);
+
+  // Group albums by artist for hierarchical view
+  const groupedAlbums = useMemo(() => {
+    const artistMap = new Map<string, LidarrAlbum[]>();
+    reasonFilteredAlbums.forEach(album => {
+      const artist = album.artistName || "Unknown Artist";
+      if (!artistMap.has(artist)) {
+        artistMap.set(artist, []);
+      }
+      artistMap.get(artist)!.push(album);
+    });
+    return Array.from(artistMap.entries()).map(([artist, albums]) => ({
+      artist,
+      albums
+    }));
+  }, [reasonFilteredAlbums]);
 
   const columns = useMemo<ColumnDef<LidarrAlbum>[]>(
     () => [
@@ -481,6 +499,76 @@ function LidarrInstanceView({
       {loading ? (
         <div className="loading">
           <span className="spinner" /> Loading…
+        </div>
+      ) : groupLidarr ? (
+        <div className="lidarr-hierarchical-view">
+          {groupedAlbums.map((artistGroup) => (
+            <details key={artistGroup.artist} className="artist-details">
+              <summary className="artist-summary">
+                <span className="artist-title">{artistGroup.artist}</span>
+                <span className="artist-count">({artistGroup.albums.length} albums)</span>
+              </summary>
+              <div className="artist-content">
+                {artistGroup.albums.map((album) => (
+                  <details key={`${album.artistName}-${album.title}`} className="album-details">
+                    <summary className="album-summary">
+                      <span className="album-title">{album.title}</span>
+                      {album.releaseDate && (
+                        <span className="album-date">{new Date(album.releaseDate).toLocaleDateString()}</span>
+                      )}
+                      {album.tracks && album.tracks.length > 0 && (
+                        <span className="album-track-count">({album.trackFileCount || 0}/{album.trackCount || album.tracks.length} tracks)</span>
+                      )}
+                      <span className={`album-status ${album.hasFile ? 'has-file' : 'missing'}`}>
+                        {album.hasFile ? '✓' : '✗'}
+                      </span>
+                    </summary>
+                    <div className="album-content">
+                      {album.tracks && album.tracks.length > 0 ? (
+                        <div className="tracks-table-wrapper">
+                          <table className="tracks-table">
+                            <thead>
+                              <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Duration</th>
+                                <th>Has File</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {album.tracks.map((track) => (
+                                <tr key={`${album.id}-${track.id}`} className={track.hasFile ? 'track-available' : 'track-missing'}>
+                                  <td data-label="#">{track.trackNumber}</td>
+                                  <td data-label="Title">{track.title}</td>
+                                  <td data-label="Duration">{track.duration ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, '0')}` : '—'}</td>
+                                  <td data-label="Has File">
+                                    <span className={`track-status ${track.hasFile ? 'available' : 'missing'}`}>
+                                      {track.hasFile ? '✓' : '✗'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="album-info">
+                          <p>
+                            <strong>Monitored:</strong> {album.monitored ? 'Yes' : 'No'}
+                            {' | '}
+                            <strong>Has File:</strong> {album.hasFile ? 'Yes' : 'No'}
+                          </p>
+                          {album.reason && (
+                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{album.reason}</span></p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </details>
+          ))}
         </div>
       ) : allAlbums.length ? (
         <div className="table-wrapper">
@@ -642,7 +730,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       try {
         const results: { page: number; albums: LidarrAlbum[] }[] = [];
         for (const pg of pages) {
-          const res = await getLidarrAlbums(category, pg, pageSize, query);
+          const res = await getLidarrAlbums(category, pg, pageSize, query, true);
           const resolved = res.page ?? pg;
           results.push({ page: resolved, albums: res.albums ?? [] });
           if (instanceKeyRef.current !== key) {
@@ -703,7 +791,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           category,
           page,
           LIDARR_PAGE_SIZE,
-          query
+          query,
+          true  // Always include tracks for instance view
         );
         setInstanceData(response);
         const resolvedPage = response.page ?? page;
@@ -1151,6 +1240,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
+                groupLidarr={groupLidarr}
               />
             )}
           </div>
