@@ -730,7 +730,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       try {
         const results: { page: number; albums: LidarrAlbum[] }[] = [];
         for (const pg of pages) {
-          const res = await getLidarrAlbums(category, pg, pageSize, query, true);
+          const res = await getLidarrAlbums(category, pg, pageSize, query);
           const resolved = res.page ?? pg;
           results.push({ page: resolved, albums: res.albums ?? [] });
           if (instanceKeyRef.current !== key) {
@@ -791,8 +791,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           category,
           page,
           LIDARR_PAGE_SIZE,
-          query,
-          true  // Always include tracks for instance view
+          query
         );
         setInstanceData(response);
         const resolvedPage = response.page ?? page;
@@ -873,8 +872,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               inst.category,
               page,
               LIDARR_AGG_FETCH_SIZE,
-              "",
-              groupLidarr  // Include tracks when grouping is enabled
+              ""
             );
           if (!counted) {
             const counts = res.counts;

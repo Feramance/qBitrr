@@ -215,8 +215,7 @@ export async function getLidarrAlbums(
   category: string,
   page: number,
   pageSize: number,
-  query?: string,
-  includeTracks?: boolean
+  query?: string
 ): Promise<LidarrAlbumsResponse> {
   const params = new URLSearchParams();
   params.set("page", page.toString());
@@ -224,9 +223,8 @@ export async function getLidarrAlbums(
   if (query) {
     params.set("q", query);
   }
-  if (includeTracks) {
-    params.set("include_tracks", "true");
-  }
+  // Always include tracks
+  params.set("include_tracks", "true");
   return fetchJson<LidarrAlbumsResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
   );
