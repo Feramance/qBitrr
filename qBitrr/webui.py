@@ -1385,15 +1385,47 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Handle "All Logs" special case - return Main.log which contains all logger output
+            # Handle "All Logs" special case - combine all log files chronologically
             if name == "All Logs":
-                file = _resolve_log_file("Main.log")
-                if file is None or not file.exists():
-                    # Fallback to empty if Main.log doesn't exist
+                if not logs_root.exists():
                     return send_file(io.BytesIO(b""), mimetype="text/plain")
                 try:
-                    content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                    tail = "\n".join(content[-2000:])
+                    import re
+                    from datetime import datetime
+
+                    # Get all .log files (not .log.old or numbered backups)
+                    log_files = [f for f in logs_root.glob("*.log") if not f.name.endswith(".old")]
+
+                    # Collect all lines with timestamps
+                    all_lines = []
+                    timestamp_pattern = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+
+                    for log_file in log_files:
+                        try:
+                            lines = log_file.read_text(
+                                encoding="utf-8", errors="ignore"
+                            ).splitlines()
+                            for line in lines:
+                                # Try to extract timestamp from line
+                                match = timestamp_pattern.match(line)
+                                if match:
+                                    try:
+                                        ts = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+                                        all_lines.append((ts, line))
+                                    except Exception:
+                                        # If timestamp parsing fails, use current time
+                                        all_lines.append((datetime.min, line))
+                                else:
+                                    # Lines without timestamps (continuation lines) use min time
+                                    all_lines.append((datetime.min, line))
+                        except Exception:
+                            continue
+
+                    # Sort by timestamp
+                    all_lines.sort(key=lambda x: x[0])
+
+                    # Take last 2000 lines and extract just the text
+                    tail = "\n".join(line[1] for line in all_lines[-2000:])
                 except Exception:
                     tail = ""
                 return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
