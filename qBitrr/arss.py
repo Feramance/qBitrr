@@ -1426,10 +1426,6 @@ class Arr:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
         )
-        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            delete_ = True
-        else:
-            delete_ = False
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
@@ -1458,7 +1454,7 @@ class Arr:
                     del self.manager.qbit_manager.name_cache[h]
                 if h in self.manager.qbit_manager.cache:
                     del self.manager.qbit_manager.cache[h]
-        if delete_:
+        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
         self.skip_blacklist.clear()

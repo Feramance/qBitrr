@@ -157,21 +157,15 @@ class WebUI:
 
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
         now = datetime.utcnow()
-        fetch_required = force
         with self._version_lock:
             if not force and now < self._version_cache_expiry:
                 snapshot = dict(self._version_cache)
                 snapshot["update_state"] = dict(self._update_state)
                 return snapshot
-            if not force:
-                fetch_required = True
             # optimistic expiry to avoid concurrent fetches
             self._version_cache_expiry = now + timedelta(minutes=5)
 
-        if fetch_required:
-            latest_info = self._fetch_version_info()
-        else:
-            latest_info = {}
+        latest_info = self._fetch_version_info()
 
         with self._version_lock:
             if latest_info:
