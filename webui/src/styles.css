@@ -520,6 +520,87 @@ body {
   background: var(--hover-bg);
 }
 
+/* Lidarr Hierarchical View Styles */
+.lidarr-hierarchical-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.artist-details {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+}
+
+.artist-summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card-header-bg);
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.artist-summary:hover {
+  background: var(--hover-bg);
+}
+
+.artist-title {
+  font-size: 1.1em;
+  flex: 1;
+}
+
+.artist-instance {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.artist-count {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.artist-content {
+  padding: 8px;
+}
+
+.albums-table-wrapper {
+  overflow-x: auto;
+}
+
+.albums-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.albums-table th,
+.albums-table td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.albums-table th {
+  background: var(--table-header-bg);
+  font-weight: 600;
+  color: var(--text);
+  position: sticky;
+  top: 0;
+}
+
+.albums-table tr:hover {
+  background: var(--hover-bg);
+}
+
 .table-badge {
     display: inline-block;
     padding: 3px 8px;

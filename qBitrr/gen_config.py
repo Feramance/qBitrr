@@ -51,6 +51,12 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
+        "Group Lidarr albums by artist in views",
+        "GroupLidarr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
         "WebUI theme (Light or Dark)",
         "Theme",
         "Dark",
@@ -972,6 +978,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Token", ""),
         ("LiveArr", True),
         ("GroupSonarr", True),
+        ("GroupLidarr", True),
         ("Theme", "Dark"),
     ]
 

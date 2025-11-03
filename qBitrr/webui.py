@@ -1811,17 +1811,16 @@ class WebUI:
 
         @app.post("/api/config")
         def api_update_config():
-            if (resp := require_token()) is not None:
-                return resp
             body = request.get_json(silent=True) or {}
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
-                return jsonify({"error": "changes must be an object"}), 400
+                return jsonify({"error": "Invalid request"}), 400
 
             # Frontend-only WebUI settings that don't require backend reload
             frontend_only_keys = {
                 "WebUI.LiveArr",
                 "WebUI.GroupSonarr",
+                "WebUI.GroupLidarr",
                 "WebUI.Theme",
             }
 
@@ -1874,6 +1873,7 @@ class WebUI:
             frontend_only_keys = {
                 "WebUI.LiveArr",
                 "WebUI.GroupSonarr",
+                "WebUI.GroupLidarr",
                 "WebUI.Theme",
             }
 

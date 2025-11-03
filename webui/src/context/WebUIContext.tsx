@@ -7,6 +7,7 @@ type Theme = "light" | "dark";
 interface WebUISettings {
   liveArr: boolean;
   groupSonarr: boolean;
+  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
 }
@@ -14,10 +15,12 @@ interface WebUISettings {
 interface WebUIContextValue {
   liveArr: boolean;
   groupSonarr: boolean;
+  groupLidarr: boolean;
   viewDensity: ViewDensity;
   theme: Theme;
   setLiveArr: (value: boolean) => void;
   setGroupSonarr: (value: boolean) => void;
+  setGroupLidarr: (value: boolean) => void;
   setViewDensity: (value: ViewDensity) => void;
   setTheme: (value: Theme) => void;
   loading: boolean;
@@ -29,6 +32,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   const [settings, setSettings] = useState<WebUISettings>({
     liveArr: true,
     groupSonarr: true,
+    groupLidarr: true,
     viewDensity: "comfortable",
     theme: "dark",
   });
@@ -52,6 +56,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
         setSettings({
           liveArr: webui?.LiveArr === true,
           groupSonarr: webui?.GroupSonarr === true,
+          groupLidarr: webui?.GroupLidarr === true,
           viewDensity: storedDensity || "comfortable",
           theme,
         });
@@ -92,6 +97,11 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     void saveSettings("GroupSonarr", value);
   }, [saveSettings]);
 
+  const setGroupLidarr = useCallback((value: boolean) => {
+    setSettings(prev => ({ ...prev, groupLidarr: value }));
+    void saveSettings("GroupLidarr", value);
+  }, [saveSettings]);
+
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));
     // Store in localStorage (client-side preference, not sent to backend)
@@ -112,10 +122,12 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   const value: WebUIContextValue = {
     liveArr: settings.liveArr,
     groupSonarr: settings.groupSonarr,
+    groupLidarr: settings.groupLidarr,
     viewDensity: settings.viewDensity,
     theme: settings.theme,
     setLiveArr,
     setGroupSonarr,
+    setGroupLidarr,
     setViewDensity,
     setTheme,
     loading,

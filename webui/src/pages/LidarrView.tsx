@@ -55,6 +55,7 @@ interface LidarrAggregateViewProps {
   onSort: (key: LidarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
+  groupLidarr: boolean;
 }
 
 function LidarrAggregateView({
@@ -69,7 +70,60 @@ function LidarrAggregateView({
   onSort,
   summary,
   instanceCount,
+  groupLidarr,
 }: LidarrAggregateViewProps): JSX.Element {
+  // Create grouped data structure: instance > artist > albums
+  const groupedData = useMemo(() => {
+    const instanceMap = new Map<string, Map<string, LidarrAggRow[]>>();
+
+    rows.forEach(row => {
+      const instance = row.__instance;
+      const artist = row.artistName || "Unknown Artist";
+
+      if (!instanceMap.has(instance)) {
+        instanceMap.set(instance, new Map());
+      }
+      const artistMap = instanceMap.get(instance)!;
+
+      if (!artistMap.has(artist)) {
+        artistMap.set(artist, []);
+      }
+      artistMap.get(artist)!.push(row);
+    });
+
+    const result: Array<{
+      instance: string;
+      artist: string;
+      albums: LidarrAggRow[];
+    }> = [];
+
+    instanceMap.forEach((artistMap, instance) => {
+      artistMap.forEach((albums, artist) => {
+        result.push({
+          instance,
+          artist,
+          albums,
+        });
+      });
+    });
+
+    return result;
+  }, [rows]);
+
+  // For grouped view, paginate the artist groups (not individual albums)
+  // For flat view, paginate the album rows
+  const groupedPageRows = useMemo(() => {
+    const pageSize = 50;
+    return groupedData.slice(page * pageSize, (page + 1) * pageSize);
+  }, [groupedData, page]);
+
+  const flatPageRows = useMemo(() => {
+    const pageSize = 50;
+    return rows.slice(page * pageSize, (page + 1) * pageSize);
+  }, [rows, page]);
+
+  const tableData = groupLidarr ? groupedPageRows : flatPageRows;
+
   const columns = useMemo<ColumnDef<LidarrAggRow>[]>(
     () => [
       ...(instanceCount > 1 ? [{
@@ -157,6 +211,44 @@ function LidarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Lidarr library…
         </div>
+      ) : groupLidarr ? (
+        <div className="lidarr-hierarchical-view">
+          {groupedPageRows.map((artistGroup) => (
+            <details key={`${artistGroup.instance}-${artistGroup.artist}`} className="artist-details">
+              <summary className="artist-summary">
+                <span className="artist-title">{artistGroup.artist}</span>
+                <span className="artist-instance">({artistGroup.instance})</span>
+                <span className="artist-count">({artistGroup.albums.length} albums)</span>
+              </summary>
+              <div className="artist-content">
+                <div className="albums-table-wrapper">
+                  <table className="albums-table">
+                    <thead>
+                      <tr>
+                        <th>Album</th>
+                        <th>Release Date</th>
+                        <th>Monitored</th>
+                        <th>Has File</th>
+                        <th>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {artistGroup.albums.map((album) => (
+                        <tr key={`${album.__instance}-${album.artistName}-${album.title}`}>
+                          <td data-label="Album">{album.title}</td>
+                          <td data-label="Release Date">{album.releaseDate ? new Date(album.releaseDate).toLocaleDateString() : "—"}</td>
+                          <td data-label="Monitored"><span className="table-badge">{album.monitored ? "Yes" : "No"}</span></td>
+                          <td data-label="Has File"><span className="table-badge">{album.hasFile ? "Yes" : "No"}</span></td>
+                          <td data-label="Reason">{album.reason ? <span className="table-badge table-badge-reason">{album.reason}</span> : <span className="hint">—</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+          ))}
+        </div>
       ) : total ? (
         <div className="table-wrapper">
           <table className="responsive-table">
@@ -207,11 +299,14 @@ function LidarrAggregateView({
         <div className="hint">No albums found.</div>
       )}
 
-      {total > 0 && (
+      {tableData.length > 0 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({total.toLocaleString()} items · page size{" "}
-            {LIDARR_AGG_PAGE_SIZE})
+            {groupLidarr ? (
+              <>Page {page + 1} of {Math.ceil(groupedData.length / 50)} ({groupedData.length} artists · page size 50)</>
+            ) : (
+              <>Page {page + 1} of {totalPages} ({total.toLocaleString()} items · page size {LIDARR_AGG_PAGE_SIZE})</>
+            )}
           </div>
           <div className="inline">
             <button
@@ -223,8 +318,8 @@ function LidarrAggregateView({
             </button>
             <button
               className="btn"
-              onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-              disabled={page >= totalPages - 1 || loading}
+              onClick={() => onPageChange(Math.min((groupLidarr ? Math.ceil(groupedData.length / 50) : totalPages) - 1, page + 1))}
+              disabled={page >= (groupLidarr ? Math.ceil(groupedData.length / 50) : totalPages) - 1 || loading}
             >
               Next
             </button>
@@ -435,7 +530,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
-  const { liveArr } = useWebUI();
+  const { liveArr, groupLidarr, setGroupLidarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "">("aggregate");
@@ -1030,6 +1125,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 }
                 summary={aggSummary}
                 instanceCount={instances.length}
+                groupLidarr={groupLidarr}
               />
             ) : (
               <LidarrInstanceView
