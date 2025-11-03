@@ -122,8 +122,6 @@ function LidarrAggregateView({
     return rows.slice(page * pageSize, (page + 1) * pageSize);
   }, [rows, page]);
 
-  const tableData = groupLidarr ? groupedPageRows : flatPageRows;
-
   const columns = useMemo<ColumnDef<LidarrAggRow>[]>(
     () => [
       ...(instanceCount > 1 ? [{
@@ -170,7 +168,7 @@ function LidarrAggregateView({
         header: "Reason",
         cell: (info) => {
           const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="hint">{"—"}</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,
@@ -180,7 +178,7 @@ function LidarrAggregateView({
   );
 
   const table = useReactTable({
-    data: rows,
+    data: flatPageRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -239,7 +237,11 @@ function LidarrAggregateView({
                           <td data-label="Release Date">{album.releaseDate ? new Date(album.releaseDate).toLocaleDateString() : "—"}</td>
                           <td data-label="Monitored"><span className="table-badge">{album.monitored ? "Yes" : "No"}</span></td>
                           <td data-label="Has File"><span className="table-badge">{album.hasFile ? "Yes" : "No"}</span></td>
-                          <td data-label="Reason">{album.reason ? <span className="table-badge table-badge-reason">{album.reason}</span> : <span className="hint">—</span>}</td>
+                          <td data-label="Reason">
+                            {album.reason ? (
+                              <span className="table-badge table-badge-reason">{album.reason}</span>
+                            ) : null}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -299,7 +301,7 @@ function LidarrAggregateView({
         <div className="hint">No albums found.</div>
       )}
 
-      {tableData.length > 0 && (
+      {(groupLidarr ? groupedPageRows.length > 0 : flatPageRows.length > 0) && (
         <div className="pagination">
           <div>
             {groupLidarr ? (

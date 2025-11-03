@@ -79,6 +79,9 @@ LiveArr = true
 # Group Sonarr episodes by series in views
 GroupSonarr = true
 
+# Group Lidarr albums by artist in views
+GroupLidarr = true
+
 # WebUI theme (light or dark)
 Theme = "dark"
 

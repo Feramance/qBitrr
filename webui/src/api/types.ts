@@ -137,6 +137,7 @@ export interface LidarrAlbum {
   releaseDate?: string;
   monitored?: boolean;
   hasFile?: boolean;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
