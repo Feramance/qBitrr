@@ -1399,11 +1399,14 @@ class WebUI:
                     # Collect all log entries with timestamps
                     # Log format: [YYYY-MM-DD HH:MM:SS,mmm] LEVEL: name: message
                     # Note: Python logging's asctime includes milliseconds after comma
+                    # IMPORTANT: Log entries can be concatenated without newlines: ...][2025-11-03 09:37:52]...
                     all_entries = []
                     # Match [YYYY-MM-DD HH:MM:SS,mmm] or [YYYY-MM-DD HH:MM:SS]
                     timestamp_pattern = re.compile(
                         r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:,\d{3})?\]"
                     )
+                    # Pattern to split concatenated entries: split before [TIMESTAMP]
+                    split_pattern = re.compile(r"(?=\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
 
                     for log_file in log_files:
                         try:
@@ -1415,30 +1418,34 @@ class WebUI:
                             current_timestamp = None
 
                             for line in lines:
-                                # Check if this line starts a new log entry
-                                match = timestamp_pattern.match(line)
-                                if match:
-                                    # Save previous entry if exists
-                                    if current_entry:
-                                        all_entries.append(
-                                            (current_timestamp, "\n".join(current_entry))
-                                        )
+                                # Split line on timestamp boundaries (handles concatenated entries)
+                                split_lines = [s for s in split_pattern.split(line) if s.strip()]
 
-                                    # Start new entry
-                                    try:
-                                        current_timestamp = datetime.strptime(
-                                            match.group(1), "%Y-%m-%d %H:%M:%S"
-                                        )
-                                    except Exception:
-                                        current_timestamp = datetime.min
-                                    current_entry = [line]
-                                else:
-                                    # Continuation line - append to current entry
-                                    if current_entry:
-                                        current_entry.append(line)
+                                for subline in split_lines:
+                                    # Check if this subline starts a new log entry
+                                    match = timestamp_pattern.match(subline)
+                                    if match:
+                                        # Save previous entry if exists
+                                        if current_entry:
+                                            all_entries.append(
+                                                (current_timestamp, "\n".join(current_entry))
+                                            )
+
+                                        # Start new entry
+                                        try:
+                                            current_timestamp = datetime.strptime(
+                                                match.group(1), "%Y-%m-%d %H:%M:%S"
+                                            )
+                                        except Exception:
+                                            current_timestamp = datetime.min
+                                        current_entry = [subline]
                                     else:
-                                        # Orphan line without preceding timestamp
-                                        all_entries.append((datetime.min, line))
+                                        # Continuation line - append to current entry
+                                        if current_entry:
+                                            current_entry.append(subline)
+                                        else:
+                                            # Orphan line without preceding timestamp
+                                            all_entries.append((datetime.min, subline))
 
                             # Don't forget the last entry
                             if current_entry:
