@@ -3428,23 +3428,29 @@ class Arr:
                                     f"Album {entryId} missing 'media' field, fetching full details..."
                                 )
                                 try:
-                                    # get_album returns a list when given albumIds parameter
+                                    # When albumIds is a single int, get_album returns a dict (single album)
+                                    # This includes the full album data with media/tracks
                                     full_album = self.client.get_album(albumIds=entryId)
                                     self.logger.debug(
                                         f"Fetched album data type: {type(full_album)}, "
-                                        f"is list: {isinstance(full_album, list)}, "
-                                        f"length: {len(full_album) if isinstance(full_album, list) else 'N/A'}"
+                                        f"is dict: {isinstance(full_album, dict)}, "
+                                        f"is list: {isinstance(full_album, list)}"
                                     )
-                                    if (
-                                        full_album
-                                        and isinstance(full_album, list)
-                                        and len(full_album) > 0
-                                    ):
-                                        db_entry = full_album[0]
-                                        self.logger.debug(
-                                            f"Updated db_entry with full album data, "
-                                            f"has media: {'media' in db_entry}"
-                                        )
+
+                                    # Handle both dict (single album) and list responses
+                                    if full_album:
+                                        if isinstance(full_album, dict):
+                                            db_entry = full_album
+                                            self.logger.debug(
+                                                f"Updated db_entry with full album dict, "
+                                                f"has media: {'media' in db_entry}"
+                                            )
+                                        elif isinstance(full_album, list) and len(full_album) > 0:
+                                            db_entry = full_album[0]
+                                            self.logger.debug(
+                                                f"Updated db_entry with first album from list, "
+                                                f"has media: {'media' in db_entry}"
+                                            )
                                 except Exception as e:
                                     self.logger.warning(
                                         f"Could not fetch full album details for {entryId} ({title}): {e}"
