@@ -3493,10 +3493,11 @@ class Arr:
                         self.model_file.EntryId == db_entry["id"]
                     )
                     db_commands.execute()
-                    # Also delete tracks for this album
-                    TrackFilesModel.delete().where(
-                        TrackFilesModel.AlbumId == db_entry["id"]
-                    ).execute()
+                    # Also delete tracks for this album (Lidarr only)
+                    if self.track_file_model:
+                        self.track_file_model.delete().where(
+                            self.track_file_model.AlbumId == db_entry["id"]
+                        ).execute()
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
