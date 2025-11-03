@@ -333,5 +333,82 @@ Radarr-Anime:   09:26:23.000, 09:28:18.400
 ### Files Modified
 - `qBitrr/webui.py` (lines 1386-1450)
 
+### Status: ⚠️ PARTIAL FIX
+Initial fix worked for simple test data but failed with real logs.
+
+---
+
+## Update 2025-11-03 (Concatenated Log Entries Fix)
+
+### Issue: Still not sorted correctly with real log data
+
+User reports actual logs still showing wrong order:
+```
+[2025-11-03 09:37:51] ... Radarr-1080
+[2025-11-03 09:37:52] ... Radarr-1080
+[2025-11-03 09:37:14] ... Radarr-Anime  # Earlier time appearing at end!
+```
+
+### Root Cause: Concatenated Log Entries
+
+**Discovery:** Log entries are concatenated **on the same line** without newlines between them!
+
+Actual format:
+```
+...][CustomFormatMet:True ][2025-11-03 09:37:51] TRACE...[2025-11-03 09:37:52] DEBUG...
+```
+
+Multiple log entries appear on one line with pattern `...][TIMESTAMP]...` where:
+- Previous entry ends with `]`
+- Next entry starts with `[TIMESTAMP]`
+- Creating `][2025-11-03 09:37:52]` in middle of line
+
+**Problem with previous fix:**
+- Split only on `\n` (newlines)
+- Assumed one entry per line
+- Never detected multiple entries on same line
+- Result: Only first timestamp on each line was parsed
+
+### Solution: Split on Timestamp Boundaries
+
+Added pattern to split concatenated entries before processing:
+```python
+split_pattern = re.compile(r'(?=\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})')
+```
+
+**Logic flow:**
+1. Read file and split into lines (normal)
+2. **NEW:** Split each line on timestamp boundaries using lookahead regex
+3. Process each subline separately for timestamp extraction
+4. Group multi-line continuations as before
+5. Sort all entries chronologically
+
+### Testing with Real Data
+
+Using actual problematic log snippet from user:
+```python
+# Input: Single line with 7 concatenated entries
+"...][2025-11-03 09:37:51] TRACE...[2025-11-03 09:37:52] DEBUG...[2025-11-03 09:37:14] TRACE..."
+```
+
+**Result:** ✅ Correctly split into 9 entries and sorted chronologically:
+```
+09:37:14 Radarr-Anime: Category exists
+09:37:51 Radarr-1080: Grabbing Fast & Furious
+09:37:52 Radarr-1080: Updating database (4 entries with same timestamp)
+```
+
+### Key Commits
+- `8903a80` - Fix All Logs sorting for concatenated log entries (FINAL FIX)
+- `5fc63ef` - docs: Update progress log (previous iteration)
+- `e4d687c` - Fix chronological sorting (partial fix)
+
+### Files Modified
+- `qBitrr/webui.py` (lines 1399-1455)
+
 ### Status: ✅ FIXED
-The "All Logs" view now properly merges logs from all components (Main, Radarr-4K, Sonarr, WebUI, etc.) in chronological order, like `docker logs -f qbitrr` would show.
+The "All Logs" view now properly:
+- Handles concatenated entries without newlines
+- Splits on timestamp boundaries within lines
+- Merges logs from all components chronologically
+- Works exactly like `docker logs -f qbitrr`
