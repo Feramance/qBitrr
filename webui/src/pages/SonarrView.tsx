@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -12,6 +13,7 @@ import {
   getSonarrSeries,
   restartArr,
 } from "../api/client";
+import { StableTable } from "../components/StableTable";
 import {
   useReactTable,
   getCoreRowModel,
@@ -565,9 +567,12 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     1,
     Math.ceil(sortedAggRows.length / SONARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = sortedAggRows.slice(
-    aggPage * SONARR_AGG_PAGE_SIZE,
-    aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
+  const aggPageRows = useMemo(
+    () => sortedAggRows.slice(
+      aggPage * SONARR_AGG_PAGE_SIZE,
+      aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
+    ),
+    [sortedAggRows, aggPage]
   );
 
   const currentSeries = instancePages[instancePage] ?? [];

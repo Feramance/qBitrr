@@ -876,9 +876,12 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     1,
     Math.ceil(sortedAggRows.length / LIDARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = sortedAggRows.slice(
-    aggPage * LIDARR_AGG_PAGE_SIZE,
-    aggPage * LIDARR_AGG_PAGE_SIZE + LIDARR_AGG_PAGE_SIZE
+  const aggPageRows = useMemo(
+    () => sortedAggRows.slice(
+      aggPage * LIDARR_AGG_PAGE_SIZE,
+      aggPage * LIDARR_AGG_PAGE_SIZE + LIDARR_AGG_PAGE_SIZE
+    ),
+    [sortedAggRows, aggPage]
   );
 
   const allInstanceAlbums = useMemo(() => {

@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -12,6 +13,7 @@ import {
   getRadarrMovies,
   restartArr,
 } from "../api/client";
+import { StableTable } from "../components/StableTable";
 import {
   useReactTable,
   getCoreRowModel,
@@ -59,7 +61,7 @@ interface RadarrAggregateViewProps {
   instanceCount: number;
 }
 
-function RadarrAggregateView({
+const RadarrAggregateView = memo(function RadarrAggregateView({
   loading,
   rows,
   total,
@@ -118,12 +120,6 @@ function RadarrAggregateView({
     [instanceCount]
   );
 
-  const table = useReactTable({
-    data: rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
-
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -151,51 +147,11 @@ function RadarrAggregateView({
           <span className="spinner" /> Loading Radarr library…
         </div>
       ) : total ? (
-        <div className="table-wrapper">
-          <table className="responsive-table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className={header.column.getCanSort() ? "sortable" : ""}
-                      onClick={() => {
-                        const sortKey = header.id as RadarrAggSortKey;
-                        onSort(sortKey);
-                      }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => {
-                const movie = row.original;
-                const stableKey = `${movie.__instance}-${movie.title}-${movie.year}`;
-                return (
-                  <tr key={stableKey}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <StableTable
+          data={rows}
+          columns={columns}
+          getRowKey={(movie) => `${movie.__instance}-${movie.title}-${movie.year}`}
+        />
       ) : (
         <div className="hint">No movies found.</div>
       )}
@@ -226,7 +182,7 @@ function RadarrAggregateView({
       )}
     </div>
   );
-}
+});
 
 interface RadarrInstanceViewProps {
   loading: boolean;
@@ -238,11 +194,12 @@ interface RadarrInstanceViewProps {
   onlyMissing: boolean;
   reasonFilter: string;
   onPageChange: (page: number) => void;
+  onRefresh: () => void;
   onRestart: () => void;
   lastUpdated: string | null;
 }
 
-function RadarrInstanceView({
+const RadarrInstanceView = memo(function RadarrInstanceView({
   loading,
   data,
   page,
@@ -252,6 +209,7 @@ function RadarrInstanceView({
   onlyMissing,
   reasonFilter,
   onPageChange,
+  onRefresh,
   onRestart,
   lastUpdated,
 }: RadarrInstanceViewProps): JSX.Element {
@@ -408,7 +366,7 @@ function RadarrInstanceView({
       )}
     </div>
   );
-}
+});
 
 export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const { push } = useToast();
@@ -856,9 +814,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     1,
     Math.ceil(sortedAggRows.length / RADARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = sortedAggRows.slice(
-    aggPage * RADARR_AGG_PAGE_SIZE,
-    aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
+  const aggPageRows = useMemo(
+    () => sortedAggRows.slice(
+      aggPage * RADARR_AGG_PAGE_SIZE,
+      aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
+    ),
+    [sortedAggRows, aggPage]
   );
 
   const allInstanceMovies = useMemo(() => {
@@ -886,6 +847,30 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       );
     }
   }, [selection, push]);
+
+  const handleAggRefresh = useCallback(() => {
+    void loadAggregate({ showLoading: true });
+  }, [loadAggregate]);
+
+  const handleAggSort = useCallback((key: RadarrAggSortKey) => {
+    setAggSort((prev) =>
+      prev.key === key
+        ? {
+            key,
+            direction: prev.direction === "asc" ? "desc" : "asc",
+          }
+        : { key, direction: "asc" }
+    );
+  }, []);
+
+  const handleInstanceRefresh = useCallback(() => {
+    if (selection && selection !== "aggregate") {
+      void fetchInstance(selection, instancePage, instanceQuery, {
+        preloadAll: false,
+        showLoading: true,
+      });
+    }
+  }, [selection, instancePage, instanceQuery, fetchInstance]);
 
   const handleInstanceSelection = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
@@ -992,20 +977,10 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
-                onRefresh={() => void loadAggregate({ showLoading: true })}
+                onRefresh={handleAggRefresh}
                 lastUpdated={aggUpdated}
                 sort={aggSort}
-                onSort={(key) =>
-                  setAggSort((prev) =>
-                    prev.key === key
-                      ? {
-                          key,
-                          direction:
-                            prev.direction === "asc" ? "desc" : "asc",
-                        }
-                      : { key, direction: "asc" }
-                  )
-                }
+                onSort={handleAggSort}
                 summary={aggSummary}
                 instanceCount={instances.length}
               />
@@ -1025,6 +1000,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                     preloadAll: true,
                   });
                 }}
+                onRefresh={handleInstanceRefresh}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
               />
