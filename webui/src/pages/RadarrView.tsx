@@ -621,13 +621,16 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     [push, preloadRemainingPages]
   );
 
-  const loadAggregate = useCallback(async () => {
+  const loadAggregate = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!instances.length) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
-    setAggLoading(true);
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) {
+      setAggLoading(true);
+    }
     try {
       const aggregated: RadarrAggRow[] = [];
       let totalAvailable = 0;
@@ -738,7 +741,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
 
   useInterval(() => {
     if (selection === "aggregate" && liveArr) {
-      void loadAggregate();
+      void loadAggregate({ showLoading: false });
     }
   }, selection === "aggregate" && liveArr ? 10000 : null);
 
@@ -987,7 +990,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
-                onRefresh={() => void loadAggregate()}
+                onRefresh={() => void loadAggregate({ showLoading: true })}
                 lastUpdated={aggUpdated}
                 sort={aggSort}
                 onSort={(key) =>

@@ -307,14 +307,17 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     [push, onlyMissing]
   );
 
-  const loadAggregate = useCallback(async () => {
+  const loadAggregate = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!instances.length) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
     console.log(`[Sonarr Aggregate] Starting aggregation for ${instances.length} instances`);
-    setAggLoading(true);
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) {
+      setAggLoading(true);
+    }
     try {
       const aggregated: SonarrAggRow[] = [];
       let totalAvailable = 0;
@@ -481,7 +484,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
   useInterval(() => {
     if (selection === "aggregate" && liveArr) {
-      void loadAggregate();
+      void loadAggregate({ showLoading: false });
     }
   }, selection === "aggregate" && liveArr ? 10000 : null);
 
@@ -693,7 +696,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
-                onRefresh={() => void loadAggregate()}
+                onRefresh={() => void loadAggregate({ showLoading: true })}
                 lastUpdated={aggUpdated}
                 groupSonarr={groupSonarr}
                 summary={aggSummary}
