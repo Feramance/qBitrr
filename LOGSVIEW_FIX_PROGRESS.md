@@ -406,9 +406,48 @@ Using actual problematic log snippet from user:
 ### Files Modified
 - `qBitrr/webui.py` (lines 1399-1455)
 
-### Status: ✅ FIXED
-The "All Logs" view now properly:
-- Handles concatenated entries without newlines
-- Splits on timestamp boundaries within lines
-- Merges logs from all components chronologically
-- Works exactly like `docker logs -f qbitrr`
+### Status: ⚠️ WORKING BUT COMPLEX
+The runtime parsing approach works but is overly complex.
+
+---
+
+## Update 2025-11-03 (FINAL - Unified All.log File)
+
+### Better Approach: Write to All.log at Source
+
+User suggested a much better solution: Instead of parsing and merging logs at request time, have the logging system write to a unified `All.log` file from the start.
+
+### Implementation
+
+**Changes to logger.py:**
+- Added global `ALL_LOGS_HANDLER` for unified All.log file
+- Handler created once on first `run_logs()` call
+- Added to root logger so all component loggers inherit it
+- Each logger still gets its own file (Main.log, Radarr-1080.log, etc.)
+- All loggers ALSO write to All.log automatically
+
+**Changes to webui.py:**
+- Simplified "All Logs" endpoint to: `if name == "All Logs": name = "All.log"`
+- Removed 80+ lines of timestamp parsing, splitting, and merging logic
+- No more runtime overhead
+
+### Benefits
+
+✅ **Guaranteed chronological order** - logs written as they happen
+✅ **No runtime parsing** - just serve the file
+✅ **No concatenation issues** - proper logging writes proper newlines
+✅ **Much simpler code** - from 80 lines to 2 lines
+✅ **More efficient** - no CPU time spent parsing on every request
+✅ **More maintainable** - leverages Python's logging correctly
+
+### Key Commits
+- `ff8bf20` - Replace runtime log merging with unified All.log file (FINAL)
+- `8903a80` - Fix All Logs sorting for concatenated log entries (superseded)
+- `e4d687c` - Fix chronological sorting (superseded)
+
+### Files Modified
+- `qBitrr/logger.py` (lines 86-165)
+- `qBitrr/webui.py` (lines 1387-1390)
+
+### Status: ✅ FIXED (FINAL)
+The "All Logs" view now serves a unified All.log file that all components write to automatically. Logs are chronologically ordered by design, not by runtime parsing.
