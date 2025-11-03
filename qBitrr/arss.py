@@ -2308,7 +2308,10 @@ class Arr:
                         continue
                     while True:
                         try:
-                            albums = self.client.get_album(artistId=artist["id"])
+                            # allArtistAlbums=True includes full album data with media/tracks
+                            albums = self.client.get_album(
+                                artistId=artist["id"], allArtistAlbums=True
+                            )
                             break
                         except (
                             requests.exceptions.ChunkedEncodingError,
@@ -2328,19 +2331,7 @@ class Arr:
                             )
                             if release_date > datetime.now():
                                 continue
-                        # Fetch full album details including tracks/media
-                        while True:
-                            try:
-                                album_details = self.client.get_album(id_=album["id"])
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
-                        self.db_update_single_series(db_entry=album_details)
+                        self.db_update_single_series(db_entry=album)
                 self.db_update_processed = True
             self.logger.trace("Finished updating database")
         finally:
