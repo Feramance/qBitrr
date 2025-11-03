@@ -2168,104 +2168,47 @@ class Arr:
             except Exception:
                 pass
             self.db_update_todays_releases()
-            if self.db_update_processed and not self.search_by_year:
+            if self.db_update_processed:
                 return
-            if self.search_by_year:
-                self.logger.info("Started updating database for %s", self.search_current_year)
-            else:
-                self.logger.info("Started updating database")
+            self.logger.info("Started updating database")
             if self.type == "sonarr":
-                if not self.series_search:
-                    while True:
-                        try:
-                            series = self.client.get_series()
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
-                    if self.search_by_year:
-                        for s in series:
-                            if isinstance(s, str):
-                                continue
-                            episodes = self.client.get_episode(s["id"], True)
-                            for e in episodes:
-                                if isinstance(e, str):
-                                    continue
-                                if "airDateUtc" in e:
-                                    if datetime.strptime(
-                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                        continue
-                                    if (
-                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                        .replace(tzinfo=timezone.utc)
-                                        .date()
-                                        < datetime(
-                                            month=1, day=1, year=int(self.search_current_year)
-                                        ).date()
-                                    ):
-                                        continue
-                                    if (
-                                        datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ")
-                                        .replace(tzinfo=timezone.utc)
-                                        .date()
-                                        > datetime(
-                                            month=12, day=31, year=int(self.search_current_year)
-                                        ).date()
-                                    ):
-                                        continue
-                                    if not self.search_specials and e["seasonNumber"] == 0:
-                                        continue
-                                    self.db_update_single_series(db_entry=e)
+                # Always fetch series list for both episode and series-level tracking
+                while True:
+                    try:
+                        series = self.client.get_series()
+                        break
+                    except (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    ):
+                        continue
 
-                    else:
-                        for s in series:
-                            if isinstance(s, str):
-                                continue
-                            episodes = self.client.get_episode(s["id"], True)
-                            for e in episodes:
-                                if isinstance(e, str):
-                                    continue
-                                if "airDateUtc" in e:
-                                    if datetime.strptime(
-                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                        continue
-                                    if not self.search_specials and e["seasonNumber"] == 0:
-                                        continue
-                                    self.db_update_single_series(db_entry=e)
-                    self.db_update_processed = True
-                else:
-                    while True:
-                        try:
-                            series = self.client.get_series()
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
+                # Process episodes for episode-level tracking (all episodes)
+                for s in series:
+                    if isinstance(s, str):
+                        continue
+                    episodes = self.client.get_episode(s["id"], True)
+                    for e in episodes:
+                        if isinstance(e, str):
                             continue
-                    if self.search_by_year:
-                        for s in series:
-                            if isinstance(s, str):
+                        if "airDateUtc" in e:
+                            if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                                tzinfo=timezone.utc
+                            ) > datetime.now(timezone.utc):
                                 continue
-                            if s["year"] < self.search_current_year:
+                            if not self.search_specials and e["seasonNumber"] == 0:
                                 continue
-                            if s["year"] > self.search_current_year:
-                                continue
-                            self.db_update_single_series(db_entry=s, series=True)
-                    else:
-                        for s in series:
-                            if isinstance(s, str):
-                                continue
-                            self.db_update_single_series(db_entry=s, series=True)
-                    self.db_update_processed = True
+                            self.db_update_single_series(db_entry=e, series=False)
+
+                # Process series for series-level tracking (all series)
+                for s in series:
+                    if isinstance(s, str):
+                        continue
+                    self.db_update_single_series(db_entry=s, series=True)
+
+                self.db_update_processed = True
             elif self.type == "radarr":
                 while True:
                     try:
@@ -2278,20 +2221,11 @@ class Arr:
                         JSONDecodeError,
                     ):
                         continue
-                if self.search_by_year:
-                    for m in movies:
-                        if isinstance(m, str):
-                            continue
-                        if m["year"] < self.search_current_year:
-                            continue
-                        if m["year"] > self.search_current_year:
-                            continue
-                        self.db_update_single_series(db_entry=m)
-                else:
-                    for m in movies:
-                        if isinstance(m, str):
-                            continue
-                        self.db_update_single_series(db_entry=m)
+                # Process all movies
+                for m in movies:
+                    if isinstance(m, str):
+                        continue
+                    self.db_update_single_series(db_entry=m)
                 self.db_update_processed = True
             elif self.type == "lidarr":
                 while True:
@@ -2994,24 +2928,8 @@ class Arr:
                         )
                         db_commands.execute()
 
-                        # Also populate individual episodes for WebUI display
-                        try:
-                            episodes = self.client.get_episode(EntryId, True)
-                            for e in episodes:
-                                if isinstance(e, str):
-                                    continue
-                                if "airDateUtc" in e:
-                                    if datetime.strptime(
-                                        e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ"
-                                    ).replace(tzinfo=timezone.utc) > datetime.now(timezone.utc):
-                                        continue
-                                    if not self.search_specials and e["seasonNumber"] == 0:
-                                        continue
-                                    # Call the episode update logic (not series)
-                                    self.db_update_single_series(db_entry=e, series=False)
-                        except Exception:
-                            # Don't fail series update if episode sync fails
-                            pass
+                        # Note: Episodes are now handled separately in db_update()
+                        # No need to recursively process episodes here to avoid duplication
                     else:
                         db_commands = self.series_file_model.delete().where(
                             self.series_file_model.EntryId == EntryId
@@ -5512,7 +5430,7 @@ class Arr:
         if self.search_setup_completed:
             return
 
-        db1, db2, db3, db4 = self._get_models()
+        db1, db2, db3, db4, db5 = self._get_models()
 
         if not (
             self.search_missing
@@ -5522,7 +5440,7 @@ class Arr:
             or self.ombi_search_requests
             or self.overseerr_requests
         ):
-            if db4 and getattr(self, "torrents", None) is None:
+            if db5 and getattr(self, "torrents", None) is None:
                 self.torrent_db = SqliteDatabase(None)
                 self.torrent_db.init(
                     str(self._app_data_folder.joinpath("Torrents.db")),
@@ -5536,7 +5454,7 @@ class Arr:
                     timeout=15,
                 )
 
-                class Torrents(db4):
+                class Torrents(db5):
                     class Meta:
                         database = self.torrent_db
 
@@ -5574,10 +5492,9 @@ class Arr:
 
         self.db.connect()
 
-        # Create bound TrackFilesModel for Lidarr
-        if db1 == AlbumFilesModel:
+        if db4:
 
-            class Tracks(TrackFilesModel):
+            class Tracks(db4):
                 class Meta:
                     database = self.db
 
@@ -5585,27 +5502,29 @@ class Arr:
         else:
             self.track_file_model = None
 
-        if db3:
+        if db3 and self.type == "sonarr":
 
             class Series(db3):
                 class Meta:
                     database = self.db
 
-            if self.track_file_model:
-                self.db.create_tables(
-                    [Files, Queue, PersistingQueue, Series, self.track_file_model]
-                )
-            else:
-                self.db.create_tables([Files, Queue, PersistingQueue, Series])
+            self.db.create_tables([Files, Queue, PersistingQueue, Series])
             self.series_file_model = Series
+            self.artists_file_model = None
+        elif db3 and self.type == "lidarr":
+
+            class Artists(db3):
+                class Meta:
+                    database = self.db
+
+            self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks])
+            self.artists_file_model = Artists
+            self.series_file_model = None
         else:
-            if self.track_file_model:
-                self.db.create_tables([Files, Queue, PersistingQueue, self.track_file_model])
-            else:
-                self.db.create_tables([Files, Queue, PersistingQueue])
+            self.artists_file_model = None
             self.series_file_model = None
 
-        if db4:
+        if db5:
             self.torrent_db = SqliteDatabase(None)
             self.torrent_db.init(
                 str(self._app_data_folder.joinpath("Torrents.db")),
@@ -5619,7 +5538,7 @@ class Arr:
                 timeout=15,
             )
 
-            class Torrents(db4):
+            class Torrents(db5):
                 class Meta:
                     database = self.torrent_db
 
@@ -5640,19 +5559,14 @@ class Arr:
         type[EpisodeFilesModel] | type[MoviesFilesModel] | type[AlbumFilesModel],
         type[EpisodeQueueModel] | type[MovieQueueModel] | type[AlbumQueueModel],
         type[SeriesFilesModel] | type[ArtistFilesModel] | None,
+        type[TrackFilesModel] | None,
         type[TorrentLibrary] | None,
     ]:
         if self.type == "sonarr":
-            if self.series_search:
-                return (
-                    EpisodeFilesModel,
-                    EpisodeQueueModel,
-                    SeriesFilesModel,
-                    TorrentLibrary if TAGLESS else None,
-                )
             return (
                 EpisodeFilesModel,
                 EpisodeQueueModel,
+                SeriesFilesModel,
                 None,
                 TorrentLibrary if TAGLESS else None,
             )
@@ -5661,6 +5575,7 @@ class Arr:
                 MoviesFilesModel,
                 MovieQueueModel,
                 None,
+                None,
                 TorrentLibrary if TAGLESS else None,
             )
         if self.type == "lidarr":
@@ -5668,6 +5583,7 @@ class Arr:
                 AlbumFilesModel,
                 AlbumQueueModel,
                 ArtistFilesModel,
+                TrackFilesModel,
                 TorrentLibrary if TAGLESS else None,
             )
         raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
