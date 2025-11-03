@@ -518,30 +518,12 @@ class WebUI:
             query = query.order_by(model.Title).paginate(page + 1, page_size)
             albums = []
             for album in query:
-                album_data = {
-                    "id": album.EntryId,
-                    "title": album.Title,
-                    "artistId": album.ArtistId,
-                    "artistName": album.ArtistTitle,
-                    "monitored": self._safe_bool(album.Monitored),
-                    "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
-                    "foreignAlbumId": album.ForeignAlbumId,
-                    "releaseDate": (
-                        album.ReleaseDate.isoformat()
-                        if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
-                        else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
-                    ),
-                    "qualityMet": self._safe_bool(album.QualityMet),
-                    "isRequest": self._safe_bool(album.IsRequest),
-                    "upgrade": self._safe_bool(album.Upgrade),
-                    "customFormatScore": album.CustomFormatScore,
-                    "minCustomFormatScore": album.MinCustomFormatScore,
-                    "customFormatMet": self._safe_bool(album.CustomFormatMet),
-                    "reason": album.Reason,
-                }
-
                 # Always fetch tracks from database (Lidarr only)
                 track_model = getattr(arr, "track_file_model", None)
+                tracks_list = []
+                track_monitored_count = 0
+                track_available_count = 0
+
                 if track_model:
                     try:
                         # Query tracks from database for this album
@@ -551,42 +533,65 @@ class WebUI:
                             .order_by(track_model.TrackNumber)
                         )
 
-                        tracks = []
-                        track_count = 0
-                        track_file_count = 0
-
                         for track in track_query:
-                            tracks.append(
+                            is_monitored = self._safe_bool(track.Monitored)
+                            has_file = self._safe_bool(track.HasFile)
+
+                            if is_monitored:
+                                track_monitored_count += 1
+                            if has_file:
+                                track_available_count += 1
+
+                            tracks_list.append(
                                 {
                                     "id": track.EntryId,
                                     "trackNumber": track.TrackNumber,
                                     "title": track.Title,
                                     "duration": track.Duration,
-                                    "hasFile": track.HasFile,
+                                    "hasFile": has_file,
                                     "trackFileId": track.TrackFileId,
-                                    "monitored": track.Monitored,
+                                    "monitored": is_monitored,
                                 }
-                            )
-                            track_count += 1
-                            if track.HasFile:
-                                track_file_count += 1
-
-                        if tracks:
-                            album_data["tracks"] = tracks
-                            album_data["trackCount"] = track_count
-                            album_data["trackFileCount"] = track_file_count
-                            album_data["percentOfTracks"] = (
-                                int((track_file_count / track_count) * 100)
-                                if track_count > 0
-                                else 0
                             )
                     except Exception as e:
                         self.logger.warning(
                             f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
                         )
-                        album_data["tracks"] = []
 
-                albums.append(album_data)
+                track_missing_count = max(track_monitored_count - track_available_count, 0)
+
+                # Build album data in Sonarr-like structure
+                album_item = {
+                    "album": {
+                        "id": album.EntryId,
+                        "title": album.Title,
+                        "artistId": album.ArtistId,
+                        "artistName": album.ArtistTitle,
+                        "monitored": self._safe_bool(album.Monitored),
+                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                        "foreignAlbumId": album.ForeignAlbumId,
+                        "releaseDate": (
+                            album.ReleaseDate.isoformat()
+                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
+                        ),
+                        "qualityMet": self._safe_bool(album.QualityMet),
+                        "isRequest": self._safe_bool(album.IsRequest),
+                        "upgrade": self._safe_bool(album.Upgrade),
+                        "customFormatScore": album.CustomFormatScore,
+                        "minCustomFormatScore": album.MinCustomFormatScore,
+                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                        "reason": album.Reason,
+                    },
+                    "totals": {
+                        "available": track_available_count,
+                        "monitored": track_monitored_count,
+                        "missing": track_missing_count,
+                    },
+                    "tracks": tracks_list,
+                }
+
+                albums.append(album_item)
         return {
             "counts": {
                 "available": available_count,

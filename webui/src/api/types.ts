@@ -159,13 +159,23 @@ export interface LidarrAlbum {
   [key: string]: unknown;
 }
 
+export interface LidarrAlbumEntry {
+  album: Record<string, unknown>;
+  totals: {
+    available: number;
+    monitored: number;
+    missing?: number;
+  };
+  tracks: LidarrTrack[];
+}
+
 export interface LidarrAlbumsResponse {
   category: string;
   counts: LidarrCounts;
   total: number;
   page: number;
   page_size: number;
-  albums: LidarrAlbum[];
+  albums: LidarrAlbumEntry[];
 }
 
 export interface LidarrTracksResponse {

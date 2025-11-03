@@ -22,6 +22,7 @@ import {
 import type {
   ArrInfo,
   LidarrAlbum,
+  LidarrAlbumEntry,
   LidarrAlbumsResponse,
 } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -31,6 +32,23 @@ import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
+
+// Helper function to flatten LidarrAlbumEntry to LidarrAlbum for easier use
+function flattenAlbumEntry(entry: LidarrAlbumEntry): LidarrAlbum {
+  const album = entry.album as Record<string, unknown>;
+  const totals = entry.totals;
+  const tracks = entry.tracks;
+
+  return {
+    ...album,
+    tracks,
+    trackCount: totals.monitored,
+    trackFileCount: totals.available,
+    percentOfTracks: totals.monitored > 0
+      ? Math.round((totals.available / totals.monitored) * 100)
+      : 0,
+  } as LidarrAlbum;
+}
 
 interface LidarrAggRow extends LidarrAlbum {
   __instance: string;
@@ -732,7 +750,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         for (const pg of pages) {
           const res = await getLidarrAlbums(category, pg, pageSize, query);
           const resolved = res.page ?? pg;
-          results.push({ page: resolved, albums: res.albums ?? [] });
+          const flattenedAlbums = (res.albums ?? []).map(flattenAlbumEntry);
+          results.push({ page: resolved, albums: flattenedAlbums });
           if (instanceKeyRef.current !== key) {
             return;
           }
@@ -802,17 +821,17 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
         setInstancePageSize(pageSize);
         setInstanceTotalPages(totalPages);
-        const albums = response.albums ?? [];
+        const flattenedAlbums = (response.albums ?? []).map(flattenAlbumEntry);
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
         // Smart diffing: only update if data actually changed
         const existingAlbums = instancePagesRef.current[resolvedPage] ?? [];
-        const albumsChanged = JSON.stringify(existingAlbums) !== JSON.stringify(albums);
+        const albumsChanged = JSON.stringify(existingAlbums) !== JSON.stringify(flattenedAlbums);
 
         if (keyChanged || albumsChanged) {
           setInstancePages((prev) => {
             const base = keyChanged ? {} : prev;
-            const next = { ...base, [resolvedPage]: albums };
+            const next = { ...base, [resolvedPage]: flattenedAlbums };
             instancePagesRef.current = next;
             return next;
           });
@@ -882,11 +901,12 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
             }
             counted = true;
           }
-          const albums = res.albums ?? [];
-          albums.forEach((album) => {
+          const albumEntries = res.albums ?? [];
+          const flattenedAlbums = albumEntries.map(flattenAlbumEntry);
+          flattenedAlbums.forEach((album) => {
             aggregated.push({ ...album, __instance: label });
           });
-          if (!albums.length || albums.length < LIDARR_AGG_FETCH_SIZE) break;
+          if (!albumEntries.length || albumEntries.length < LIDARR_AGG_FETCH_SIZE) break;
           page += 1;
         }
       }
