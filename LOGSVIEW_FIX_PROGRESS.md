@@ -215,9 +215,39 @@ No libraries, no complexity - just direct DOM manipulation that works.
 5. Bottom marker with `flexShrink: 0` to stay at bottom
 6. Only 2 scroll attempts: immediate + 100ms delay (simpler)
 
-**Why this should work:**
-- Flex layout ensures wrapper fills container height
-- Pre grows with content but wrapper maintains minimum height
-- Bottom marker is always at the end of the flex container
-- Native `scrollIntoView()` is reliable across all browsers
-- Minimal complexity = fewer failure points
+**Result:** Still didn't work. Height still not filling, scroll still broken.
+
+---
+
+## Update 2025-11-02 (FINAL - Professional Library Solution)
+
+### Decision: Use Purpose-Built Log Viewer Library
+
+After multiple failed attempts with custom solutions, switching to **`@melloware/react-logviewer`**
+
+**Why this library:**
+- **Purpose-built** for displaying live logs with auto-scroll
+- **ANSI color support** built-in (no custom parser needed)
+- **Auto-scroll/follow mode** is a core feature
+- **Search functionality** included
+- **Virtual scrolling** for performance with large logs
+- **Actively maintained** (v6.3.4, updated 2025)
+- **Production-ready** - used by many projects
+
+**Implementation (FINAL):**
+1. `npm install @melloware/react-logviewer`
+2. Replace entire custom LogsView with `<LazyLog>` component
+3. Removed custom ANSI parser (80+ lines)
+4. Removed custom scroll logic (40+ lines)
+5. Removed custom height management code
+6. Simple props: `text={content}`, `follow={follow}`, `enableSearch`, `style={{height: '100%'}}`
+
+**Benefits:**
+- 120+ lines of complex code replaced with ~10 lines
+- Professional, battle-tested solution
+- All features work out of the box
+- Height fills container automatically
+- Auto-scroll works reliably
+- ANSI colors render correctly
+- Search built-in
+- Line selection built-in

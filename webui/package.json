@@ -3,6 +3,7 @@
     "@mantine/core": "^8.3.6",
     "@mantine/dates": "^8.3.6",
     "@mantine/hooks": "^8.3.6",
+    "@melloware/react-logviewer": "^6.3.4",
     "@tanstack/react-table": "^8.21.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
