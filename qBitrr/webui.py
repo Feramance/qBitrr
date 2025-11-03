@@ -1385,29 +1385,15 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Handle "All Logs" special case - combine all log files
+            # Handle "All Logs" special case - return Main.log which contains all logger output
             if name == "All Logs":
-                if not logs_root.exists():
+                file = _resolve_log_file("Main.log")
+                if file is None or not file.exists():
+                    # Fallback to empty if Main.log doesn't exist
                     return send_file(io.BytesIO(b""), mimetype="text/plain")
                 try:
-                    # Get all .log files (not .log.1, .log.2 etc - just current logs)
-                    log_files = sorted(logs_root.glob("*.log"), key=lambda p: p.name.lower())
-                    combined_lines = []
-                    for log_file in log_files:
-                        try:
-                            content = log_file.read_text(
-                                encoding="utf-8", errors="ignore"
-                            ).splitlines()
-                            # Add a header for each log file
-                            combined_lines.append(f"{'=' * 80}")
-                            combined_lines.append(f"LOG: {log_file.name}")
-                            combined_lines.append(f"{'=' * 80}")
-                            # Add last 500 lines from each log
-                            combined_lines.extend(content[-500:])
-                            combined_lines.append("")  # Empty line between logs
-                        except Exception:
-                            continue
-                    tail = "\n".join(combined_lines[-2000:])  # Overall limit of 2000 lines
+                    content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
+                    tail = "\n".join(content[-2000:])
                 except Exception:
                     tail = ""
                 return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
