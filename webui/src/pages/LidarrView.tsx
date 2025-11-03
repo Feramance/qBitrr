@@ -36,23 +36,31 @@ interface LidarrAggRow extends LidarrAlbum {
   __instance: string;
 }
 
-type LidarrSortKey = "title" | "artistName" | "releaseDate" | "monitored" | "hasFile";
-type LidarrAggSortKey = "__instance" | LidarrSortKey;
+interface LidarrTrackRow {
+  __instance: string;
+  artistName: string;
+  albumTitle: string;
+  trackNumber: number;
+  title: string;
+  duration?: number;
+  hasFile: boolean;
+  monitored: boolean;
+  reason?: string | null;
+}
+
+
 
 const LIDARR_PAGE_SIZE = 50;
-const LIDARR_AGG_PAGE_SIZE = 50;
 const LIDARR_AGG_FETCH_SIZE = 500;
 
 interface LidarrAggregateViewProps {
   loading: boolean;
   rows: LidarrAggRow[];
-  total: number;
+  trackRows: LidarrTrackRow[];
   page: number;
-  totalPages: number;
   onPageChange: (page: number) => void;
   onRefresh: () => void;
   lastUpdated: string | null;
-  onSort: (key: LidarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
   groupLidarr: boolean;
@@ -61,13 +69,11 @@ interface LidarrAggregateViewProps {
 function LidarrAggregateView({
   loading,
   rows,
-  total,
+  trackRows,
   page,
-  totalPages,
   onPageChange,
   onRefresh,
   lastUpdated,
-  onSort,
   summary,
   instanceCount,
   groupLidarr,
@@ -121,35 +127,44 @@ function LidarrAggregateView({
     const pageSize = 50;
     const start = page * pageSize;
     const end = start + pageSize;
-    return rows.slice(start, end);
-  }, [rows, page]);
+    return trackRows.slice(start, end);
+  }, [trackRows, page]);
 
-  const columns = useMemo<ColumnDef<LidarrAggRow>[]>(
+  const flatColumns = useMemo<ColumnDef<LidarrTrackRow>[]>(
     () => [
       ...(instanceCount > 1 ? [{
         accessorKey: "__instance",
         header: "Instance",
-        size: 150,
-      },] : []),
-      {
-        accessorKey: "title",
-        header: "Album",
-        cell: (info) => info.getValue(),
-      },
+        size: 120,
+      }] : []),
       {
         accessorKey: "artistName",
         header: "Artist",
         size: 150,
       },
       {
-        accessorKey: "releaseDate",
-        header: "Release Date",
+        accessorKey: "albumTitle",
+        header: "Album",
+        size: 150,
+      },
+      {
+        accessorKey: "trackNumber",
+        header: "#",
+        size: 50,
+      },
+      {
+        accessorKey: "title",
+        header: "Track",
+      },
+      {
+        accessorKey: "duration",
+        header: "Duration",
         cell: (info) => {
-          const date = info.getValue() as string | undefined;
-          if (!date) return <span className="hint">—</span>;
-          return new Date(date).toLocaleDateString();
+          const dur = info.getValue() as number | undefined;
+          if (!dur) return <span className="hint">—</span>;
+          return `${Math.floor(dur / 60)}:${String(dur % 60).padStart(2, '0')}`;
         },
-        size: 120,
+        size: 80,
       },
       {
         accessorKey: "monitored",
@@ -165,23 +180,13 @@ function LidarrAggregateView({
           (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
         size: 100,
       },
-      {
-        accessorKey: "reason",
-        header: "Reason",
-        cell: (info) => {
-          const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">{"—"}</span>;
-          return <span className="table-badge table-badge-reason">{reason}</span>;
-        },
-        size: 120,
-      },
     ],
     [instanceCount]
   );
 
-  const table = useReactTable({
+  const flatTable = useReactTable({
     data: flatPageRows,
-    columns,
+    columns: flatColumns,
     getCoreRowModel: getCoreRowModel(),
   });
 
@@ -282,21 +287,14 @@ function LidarrAggregateView({
             </details>
           ))}
         </div>
-      ) : total ? (
+      ) : trackRows.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
+              {flatTable.getHeaderGroups().map((headerGroup) => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className={header.column.getCanSort() ? "sortable" : ""}
-                      onClick={() => {
-                        const sortKey = header.id as LidarrAggSortKey;
-                        onSort(sortKey);
-                      }}
-                    >
+                    <th key={header.id}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -309,9 +307,9 @@ function LidarrAggregateView({
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => {
-                const album = row.original;
-                const stableKey = `${album.__instance}-${album.title}-${album.artistName}`;
+              {flatTable.getRowModel().rows.map((row) => {
+                const track = row.original;
+                const stableKey = `${track.__instance}-${track.artistName}-${track.albumTitle}-${track.trackNumber}`;
                 return (
                   <tr key={stableKey}>
                     {row.getVisibleCells().map((cell) => (
@@ -329,7 +327,7 @@ function LidarrAggregateView({
           </table>
         </div>
       ) : (
-        <div className="hint">No albums found.</div>
+        <div className="hint">No tracks found.</div>
       )}
 
       {(groupLidarr ? groupedPageRows.length > 0 : flatPageRows.length > 0) && (
@@ -338,7 +336,7 @@ function LidarrAggregateView({
             {groupLidarr ? (
               <>Page {page + 1} of {Math.ceil(groupedData.length / 50)} ({groupedData.length} artists · page size 50)</>
             ) : (
-              <>Page {page + 1} of {totalPages} ({total.toLocaleString()} items · page size {LIDARR_AGG_PAGE_SIZE})</>
+              <>Page {page + 1} of {Math.ceil(trackRows.length / 50)} ({trackRows.length.toLocaleString()} tracks · page size 50)</>
             )}
           </div>
           <div className="inline">
@@ -351,8 +349,8 @@ function LidarrAggregateView({
             </button>
             <button
               className="btn"
-              onClick={() => onPageChange(Math.min((groupLidarr ? Math.ceil(groupedData.length / 50) : totalPages) - 1, page + 1))}
-              disabled={page >= (groupLidarr ? Math.ceil(groupedData.length / 50) : totalPages) - 1 || loading}
+              onClick={() => onPageChange(Math.min((groupLidarr ? Math.ceil(groupedData.length / 50) : Math.ceil(trackRows.length / 50)) - 1, page + 1))}
+              disabled={page >= (groupLidarr ? Math.ceil(groupedData.length / 50) : Math.ceil(trackRows.length / 50)) - 1 || loading}
             >
               Next
             </button>
@@ -563,7 +561,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
-  const { liveArr, groupLidarr, setGroupLidarr } = useWebUI();
+  const { liveArr, groupLidarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "">("aggregate");
@@ -581,14 +579,11 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const backendReadyWarnedRef = useRef(false);
 
   const [aggRows, setAggRows] = useState<LidarrAggRow[]>([]);
+  const [aggTrackRows, setAggTrackRows] = useState<LidarrTrackRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
-  const [aggSort, setAggSort] = useState<{
-    key: LidarrAggSortKey;
-    direction: "asc" | "desc";
-  }>({ key: "__instance", direction: "asc" });
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [aggSummary, setAggSummary] = useState<{
@@ -809,21 +804,56 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
 
+      // Flatten tracks from all albums for flat mode
+      const trackRows: LidarrTrackRow[] = [];
+      aggregated.forEach((album) => {
+        if (album.tracks && album.tracks.length > 0) {
+          album.tracks.forEach((track) => {
+            trackRows.push({
+              __instance: album.__instance,
+              artistName: album.artistName || "Unknown Artist",
+              albumTitle: album.title || "Unknown Album",
+              trackNumber: track.trackNumber || 0,
+              title: track.title || "Unknown Track",
+              duration: track.duration,
+              hasFile: track.hasFile || false,
+              monitored: track.monitored || false,
+              reason: album.reason,
+            });
+          });
+        }
+      });
+
       // Smart diffing: only update if data actually changed
       const prevJson = JSON.stringify(aggRows);
       const nextJson = JSON.stringify(aggregated);
       const rowsChanged = prevJson !== nextJson;
 
+      const prevTrackJson = JSON.stringify(aggTrackRows);
+      const nextTrackJson = JSON.stringify(trackRows);
+      const trackRowsChanged = prevTrackJson !== nextTrackJson;
+
       if (rowsChanged) {
         setAggRows(aggregated);
       }
 
-      const newSummary = {
-        available: totalAvailable,
-        monitored: totalMonitored,
-        missing: aggregated.length - totalAvailable,
-        total: aggregated.length,
-      };
+      if (trackRowsChanged) {
+        setAggTrackRows(trackRows);
+      }
+
+      const newSummary = groupLidarr
+        ? {
+            available: totalAvailable,
+            monitored: totalMonitored,
+            missing: aggregated.length - totalAvailable,
+            total: aggregated.length,
+          }
+        : {
+            available: trackRows.filter(t => t.hasFile).length,
+            monitored: trackRows.filter(t => t.monitored).length,
+            missing: trackRows.filter(t => !t.hasFile).length,
+            total: trackRows.length,
+          };
 
       const summaryChanged = (
         aggSummary.available !== newSummary.available ||
@@ -858,7 +888,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, aggRows, aggSummary, aggFilter]);
+  }, [instances, globalSearch, push, aggRows, aggTrackRows, aggSummary, aggFilter, groupLidarr]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 
@@ -965,45 +995,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
-  const sortedAggRows = useMemo(() => {
-    const list = [...filteredAggRows];
-    const getValue = (row: LidarrAggRow, key: LidarrAggSortKey) => {
-      switch (key) {
-        case "__instance":
-          return (row.__instance || "").toLowerCase();
-        case "title":
-          return (row.title || "").toLowerCase();
-        case "artistName":
-          return (row.artistName || "").toLowerCase();
-        case "releaseDate":
-          return row.releaseDate ?? "";
-        case "monitored":
-          return row.monitored ? 1 : 0;
-        case "hasFile":
-          return row.hasFile ? 1 : 0;
-        default:
-          return "";
-      }
-    };
-    list.sort((a, b) => {
-      const valueA = getValue(a, aggSort.key);
-      const valueB = getValue(b, aggSort.key);
-      let comparison = 0;
-      if (typeof valueA === "number" && typeof valueB === "number") {
-        comparison = valueA - valueB;
-      } else if (typeof valueA === "string" && typeof valueB === "string") {
-        comparison = valueA.localeCompare(valueB);
-      } else {
-        comparison = String(valueA).localeCompare(String(valueB));
-      }
-      return aggSort.direction === "asc" ? comparison : -comparison;
-    });
-    return list;
-  }, [filteredAggRows, aggSort]);
 
-  // Note: Pagination is now handled inside LidarrAggregateView component
-  // The component will paginate based on groupLidarr state (by artists or by albums)
-  const aggPages = 1; // Placeholder, actual pagination is done in the component
 
   const allInstanceAlbums = useMemo(() => {
     const pages = Object.keys(instancePages)
@@ -1131,24 +1123,12 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
             {isAggregate ? (
               <LidarrAggregateView
                 loading={aggLoading}
-                rows={sortedAggRows}
-                total={sortedAggRows.length}
+                rows={filteredAggRows}
+                trackRows={aggTrackRows}
                 page={aggPage}
-                totalPages={aggPages}
                 onPageChange={setAggPage}
                 onRefresh={() => void loadAggregate({ showLoading: true })}
                 lastUpdated={aggUpdated}
-                onSort={(key) =>
-                  setAggSort((prev) =>
-                    prev.key === key
-                      ? {
-                          key,
-                          direction:
-                            prev.direction === "asc" ? "desc" : "asc",
-                        }
-                      : { key, direction: "asc" }
-                  )
-                }
                 summary={aggSummary}
                 instanceCount={instances.length}
                 groupLidarr={groupLidarr}

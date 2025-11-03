@@ -604,6 +604,121 @@ class WebUI:
             "albums": albums,
         }
 
+    def _lidarr_tracks_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
+        from qBitrr.tables import AlbumFilesModel, TrackFilesModel
+
+        try:
+            # Join tracks with albums to get artist/album info
+            query = (
+                TrackFilesModel.select(
+                    TrackFilesModel,
+                    AlbumFilesModel.Title.alias("AlbumTitle"),
+                    AlbumFilesModel.ArtistTitle,
+                    AlbumFilesModel.ArtistId,
+                )
+                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
+                .where(True)
+            )
+
+            # Apply filters
+            if monitored is not None:
+                query = query.where(TrackFilesModel.Monitored == monitored)
+            if has_file is not None:
+                query = query.where(TrackFilesModel.HasFile == has_file)
+            if search:
+                query = query.where(
+                    (TrackFilesModel.Title.contains(search))
+                    | (AlbumFilesModel.Title.contains(search))
+                    | (AlbumFilesModel.ArtistTitle.contains(search))
+                )
+
+            # Get counts
+            available_count = (
+                TrackFilesModel.select()
+                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
+                .where(TrackFilesModel.HasFile == True)
+                .count()
+            )
+            monitored_count = (
+                TrackFilesModel.select()
+                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
+                .where(TrackFilesModel.Monitored == True)
+                .count()
+            )
+            missing_count = (
+                TrackFilesModel.select()
+                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
+                .where(TrackFilesModel.HasFile == False)
+                .count()
+            )
+
+            total = query.count()
+
+            # Apply pagination
+            query = query.order_by(
+                AlbumFilesModel.ArtistTitle, AlbumFilesModel.Title, TrackFilesModel.TrackNumber
+            ).paginate(page + 1, page_size)
+
+            tracks = []
+            for track in query:
+                tracks.append(
+                    {
+                        "id": track.EntryId,
+                        "trackNumber": track.TrackNumber,
+                        "title": track.Title,
+                        "duration": track.Duration,
+                        "hasFile": track.HasFile,
+                        "trackFileId": track.TrackFileId,
+                        "monitored": track.Monitored,
+                        "albumId": track.AlbumId,
+                        "albumTitle": track.AlbumTitle,
+                        "artistTitle": track.ArtistTitle,
+                        "artistId": track.ArtistId,
+                    }
+                )
+
+            return {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "tracks": tracks,
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching Lidarr tracks: {e}")
+            return {
+                "counts": {"available": 0, "monitored": 0, "missing": 0},
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
     def _sonarr_series_from_db(
         self,
         arr,
@@ -1642,17 +1757,31 @@ class WebUI:
                 else None
             )
             include_tracks = self._safe_bool(request.args.get("include_tracks", False))
-            payload = self._lidarr_albums_from_db(
-                arr,
-                q,
-                page,
-                page_size,
-                monitored=monitored,
-                has_file=has_file,
-                quality_met=quality_met,
-                is_request=is_request,
-                include_tracks=include_tracks,
-            )
+            flat_mode = self._safe_bool(request.args.get("flat_mode", False))
+
+            if flat_mode:
+                # Flat mode: return tracks directly
+                payload = self._lidarr_tracks_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                )
+            else:
+                # Grouped mode: return albums (optionally with tracks)
+                payload = self._lidarr_albums_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                    quality_met=quality_met,
+                    is_request=is_request,
+                    include_tracks=include_tracks,
+                )
             payload["category"] = category
             return jsonify(payload)
 

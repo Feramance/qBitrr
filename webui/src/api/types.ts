@@ -137,6 +137,10 @@ export interface LidarrTrack {
   hasFile?: boolean;
   trackFileId?: number | null;
   monitored?: boolean;
+  albumId?: number;
+  albumTitle?: string;
+  artistTitle?: string;
+  artistId?: number;
 }
 
 export interface LidarrAlbum {
@@ -162,6 +166,19 @@ export interface LidarrAlbumsResponse {
   page: number;
   page_size: number;
   albums: LidarrAlbum[];
+}
+
+export interface LidarrTracksResponse {
+  category: string;
+  counts: {
+    available: number;
+    monitored: number;
+    missing: number;
+  };
+  total: number;
+  page: number;
+  page_size: number;
+  tracks: LidarrTrack[];
 }
 
 export type ConfigDocument = Record<string, unknown>;
