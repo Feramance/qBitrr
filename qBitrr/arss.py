@@ -2264,6 +2264,11 @@ class Arr:
                             if release_date > datetime.now():
                                 continue
                         self.db_update_single_series(db_entry=album)
+                # Process artists for artist-level tracking
+                for artist in artists:
+                    if isinstance(artist, str):
+                        continue
+                    self.db_update_single_series(db_entry=artist, artist=True)
                 self.db_update_processed = True
             self.logger.trace("Finished updating database")
         finally:
@@ -2510,7 +2515,11 @@ class Arr:
             return False
 
     def db_update_single_series(
-        self, db_entry: JsonObject = None, request: bool = False, series: bool = False
+        self,
+        db_entry: JsonObject = None,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
     ):
         if not (
             self.search_missing
@@ -3102,14 +3111,71 @@ class Arr:
                     )
                     db_commands.execute()
             elif self.type == "lidarr":
-                self.model_file: AlbumFilesModel
-                searched = False
-                albumData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
-                if db_entry["monitored"] or self.search_unmonitored:
-                    while True:
-                        try:
-                            if albumData:
-                                if not albumData.MinCustomFormatScore:
+                if not artist:
+                    # Album handling
+                    self.model_file: AlbumFilesModel
+                    searched = False
+                    albumData = self.model_file.get_or_none(
+                        self.model_file.EntryId == db_entry["id"]
+                    )
+                    if db_entry["monitored"] or self.search_unmonitored:
+                        while True:
+                            try:
+                                if albumData:
+                                    if not albumData.MinCustomFormatScore:
+                                        try:
+                                            profile_id = db_entry["profileId"]
+                                            # Check if this profile ID is known to be invalid
+                                            if profile_id in self._invalid_quality_profiles:
+                                                minCustomFormat = 0
+                                            # Check cache first
+                                            elif profile_id in self._quality_profile_cache:
+                                                minCustomFormat = self._quality_profile_cache[
+                                                    profile_id
+                                                ].get("minFormatScore", 0)
+                                            else:
+                                                # Fetch from API and cache
+                                                try:
+                                                    profile = self.client.get_quality_profile(
+                                                        profile_id
+                                                    )
+                                                    self._quality_profile_cache[profile_id] = (
+                                                        profile
+                                                    )
+                                                    minCustomFormat = profile.get(
+                                                        "minFormatScore", 0
+                                                    )
+                                                except PyarrResourceNotFound:
+                                                    # Mark as invalid to avoid repeated warnings
+                                                    self._invalid_quality_profiles.add(profile_id)
+                                                    self.logger.warning(
+                                                        "Quality profile %s not found for album %s, defaulting to 0",
+                                                        db_entry.get("profileId"),
+                                                        db_entry.get("title", "Unknown"),
+                                                    )
+                                                    minCustomFormat = 0
+                                        except Exception:
+                                            minCustomFormat = 0
+                                    else:
+                                        minCustomFormat = albumData.MinCustomFormatScore
+                                    if (
+                                        db_entry.get("statistics", {}).get("percentOfTracks", 0)
+                                        == 100
+                                    ):
+                                        # Album has files
+                                        albumFileId = db_entry.get("statistics", {}).get(
+                                            "sizeOnDisk", 0
+                                        )
+                                        if albumFileId != albumData.AlbumFileId:
+                                            # Get custom format score from album files
+                                            customFormat = (
+                                                0  # Lidarr may not have customFormatScore
+                                            )
+                                        else:
+                                            customFormat = albumData.CustomFormatScore
+                                    else:
+                                        customFormat = 0
+                                else:
                                     try:
                                         profile_id = db_entry["profileId"]
                                         # Check if this profile ID is known to be invalid
@@ -3139,164 +3205,13 @@ class Arr:
                                                 minCustomFormat = 0
                                     except Exception:
                                         minCustomFormat = 0
-                                else:
-                                    minCustomFormat = albumData.MinCustomFormatScore
-                                if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
-                                    # Album has files
-                                    albumFileId = db_entry.get("statistics", {}).get(
-                                        "sizeOnDisk", 0
-                                    )
-                                    if albumFileId != albumData.AlbumFileId:
-                                        # Get custom format score from album files
+                                    if (
+                                        db_entry.get("statistics", {}).get("percentOfTracks", 0)
+                                        == 100
+                                    ):
                                         customFormat = 0  # Lidarr may not have customFormatScore
                                     else:
-                                        customFormat = albumData.CustomFormatScore
-                                else:
-                                    customFormat = 0
-                            else:
-                                try:
-                                    profile_id = db_entry["profileId"]
-                                    # Check if this profile ID is known to be invalid
-                                    if profile_id in self._invalid_quality_profiles:
-                                        minCustomFormat = 0
-                                    # Check cache first
-                                    elif profile_id in self._quality_profile_cache:
-                                        minCustomFormat = self._quality_profile_cache[
-                                            profile_id
-                                        ].get("minFormatScore", 0)
-                                    else:
-                                        # Fetch from API and cache
-                                        try:
-                                            profile = self.client.get_quality_profile(profile_id)
-                                            self._quality_profile_cache[profile_id] = profile
-                                            minCustomFormat = profile.get("minFormatScore", 0)
-                                        except PyarrResourceNotFound:
-                                            # Mark as invalid to avoid repeated warnings
-                                            self._invalid_quality_profiles.add(profile_id)
-                                            self.logger.warning(
-                                                "Quality profile %s not found for album %s, defaulting to 0",
-                                                db_entry.get("profileId"),
-                                                db_entry.get("title", "Unknown"),
-                                            )
-                                            minCustomFormat = 0
-                                except Exception:
-                                    minCustomFormat = 0
-                                if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
-                                    customFormat = 0  # Lidarr may not have customFormatScore
-                                else:
-                                    customFormat = 0
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
-
-                    # Determine if album has all tracks
-                    hasAllTracks = db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100
-
-                    # Check if quality cutoff is met for Lidarr
-                    # Unlike Sonarr/Radarr which have a qualityCutoffNotMet boolean field,
-                    # Lidarr requires us to check the track file quality against the profile cutoff
-                    QualityUnmet = False
-                    if hasAllTracks:
-                        try:
-                            # Get the artist's quality profile to find the cutoff
-                            artist_id = db_entry.get("artistId")
-                            artist_data = self.client.get_artist(artist_id)
-                            profile_id = artist_data.get("qualityProfileId")
-
-                            if profile_id:
-                                # Get or use cached profile
-                                if profile_id in self._quality_profile_cache:
-                                    profile = self._quality_profile_cache[profile_id]
-                                else:
-                                    profile = self.client.get_quality_profile(profile_id)
-                                    self._quality_profile_cache[profile_id] = profile
-
-                                cutoff_quality_id = profile.get("cutoff")
-                                upgrade_allowed = profile.get("upgradeAllowed", False)
-
-                                if cutoff_quality_id and upgrade_allowed:
-                                    # Get track files for this album to check their quality
-                                    album_id = db_entry.get("id")
-                                    track_files = self.client.get_track_file(albumId=[album_id])
-
-                                    if track_files:
-                                        # Check if any track file's quality is below the cutoff
-                                        for track_file in track_files:
-                                            file_quality = track_file.get("quality", {}).get(
-                                                "quality", {}
-                                            )
-                                            file_quality_id = file_quality.get("id", 0)
-
-                                            if file_quality_id < cutoff_quality_id:
-                                                QualityUnmet = True
-                                                self.logger.trace(
-                                                    "Album '%s' has quality below cutoff: %s (ID: %d) < cutoff (ID: %d)",
-                                                    db_entry.get("title", "Unknown"),
-                                                    file_quality.get("name", "Unknown"),
-                                                    file_quality_id,
-                                                    cutoff_quality_id,
-                                                )
-                                                break
-                        except Exception as e:
-                            self.logger.trace(
-                                "Could not determine quality cutoff status for album '%s': %s",
-                                db_entry.get("title", "Unknown"),
-                                str(e),
-                            )
-                            # Default to False if we can't determine
-                            QualityUnmet = False
-
-                    if (
-                        hasAllTracks
-                        and not (self.quality_unmet_search and QualityUnmet)
-                        and not (
-                            self.custom_format_unmet_search and customFormat < minCustomFormat
-                        )
-                    ):
-                        searched = True
-                        self.model_queue.update(Completed=True).where(
-                            self.model_queue.EntryId == db_entry["id"]
-                        ).execute()
-
-                    if self.use_temp_for_missing:
-                        quality_profile_id = db_entry.get("qualityProfileId")
-                        if (
-                            searched
-                            and quality_profile_id in self.temp_quality_profile_ids.values()
-                            and not self.keep_temp_profile
-                        ):
-                            db_entry["qualityProfileId"] = list(
-                                self.temp_quality_profile_ids.keys()
-                            )[
-                                list(self.temp_quality_profile_ids.values()).index(
-                                    quality_profile_id
-                                )
-                            ]
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                db_entry["qualityProfileId"],
-                            )
-                        elif (
-                            not searched
-                            and quality_profile_id in self.temp_quality_profile_ids.keys()
-                        ):
-                            db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                quality_profile_id
-                            ]
-                            self.logger.debug(
-                                "Updating quality profile for %s to %s",
-                                db_entry["title"],
-                                db_entry["qualityProfileId"],
-                            )
-                        while True:
-                            try:
-                                self.client.upd_album(db_entry)
+                                        customFormat = 0
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -3306,131 +3221,338 @@ class Arr:
                             ):
                                 continue
 
-                    title = db_entry.get("title", "Unknown Album")
-                    monitored = db_entry.get("monitored", False)
-                    # Handle artist field which can be an object or might not exist
-                    artist_obj = db_entry.get("artist", {})
-                    if isinstance(artist_obj, dict):
-                        # Try multiple possible field names for artist name
-                        artistName = (
-                            artist_obj.get("artistName")
-                            or artist_obj.get("name")
-                            or artist_obj.get("title")
-                            or "Unknown Artist"
+                        # Determine if album has all tracks
+                        hasAllTracks = (
+                            db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100
                         )
-                    else:
-                        artistName = "Unknown Artist"
-                    artistId = db_entry.get("artistId", 0)
-                    foreignAlbumId = db_entry.get("foreignAlbumId", "")
-                    releaseDate = db_entry.get("releaseDate")
-                    entryId = db_entry.get("id", 0)
-                    albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
-                    qualityMet = not QualityUnmet if hasAllTracks else False
-                    customFormatMet = customFormat >= minCustomFormat
 
-                    if not hasAllTracks:
-                        reason = "Missing"
-                    elif self.quality_unmet_search and QualityUnmet:
-                        reason = "Quality"
-                    elif self.custom_format_unmet_search and not customFormatMet:
-                        reason = "CustomFormat"
-                    elif self.do_upgrade_search:
-                        reason = "Upgrade"
-                    else:
-                        reason = "Scheduled search"
+                        # Check if quality cutoff is met for Lidarr
+                        # Unlike Sonarr/Radarr which have a qualityCutoffNotMet boolean field,
+                        # Lidarr requires us to check the track file quality against the profile cutoff
+                        QualityUnmet = False
+                        if hasAllTracks:
+                            try:
+                                # Get the artist's quality profile to find the cutoff
+                                artist_id = db_entry.get("artistId")
+                                artist_data = self.client.get_artist(artist_id)
+                                profile_id = artist_data.get("qualityProfileId")
 
-                    to_update = {
-                        self.model_file.AlbumFileId: albumFileId,
-                        self.model_file.Monitored: monitored,
-                        self.model_file.QualityMet: qualityMet,
-                        self.model_file.Searched: searched,
-                        self.model_file.Upgrade: False,
-                        self.model_file.MinCustomFormatScore: minCustomFormat,
-                        self.model_file.CustomFormatScore: customFormat,
-                        self.model_file.CustomFormatMet: customFormatMet,
-                        self.model_file.Reason: reason,
-                        self.model_file.ArtistTitle: artistName,
-                        self.model_file.ArtistId: artistId,
-                        self.model_file.ForeignAlbumId: foreignAlbumId,
-                        self.model_file.ReleaseDate: releaseDate,
-                    }
+                                if profile_id:
+                                    # Get or use cached profile
+                                    if profile_id in self._quality_profile_cache:
+                                        profile = self._quality_profile_cache[profile_id]
+                                    else:
+                                        profile = self.client.get_quality_profile(profile_id)
+                                        self._quality_profile_cache[profile_id] = profile
 
-                    if request:
-                        to_update[self.model_file.IsRequest] = request
+                                    cutoff_quality_id = profile.get("cutoff")
+                                    upgrade_allowed = profile.get("upgradeAllowed", False)
 
-                    self.logger.debug(
-                        "Updating database entry | %s - %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
-                        artistName.ljust(30, "."),
-                        title.ljust(30, "."),
-                        str(searched).ljust(5),
-                        str(False).ljust(5),
-                        str(qualityMet).ljust(5),
-                        str(customFormatMet).ljust(5),
-                    )
+                                    if cutoff_quality_id and upgrade_allowed:
+                                        # Get track files for this album to check their quality
+                                        album_id = db_entry.get("id")
+                                        track_files = self.client.get_track_file(
+                                            albumId=[album_id]
+                                        )
 
-                    db_commands = self.model_file.insert(
-                        Title=title,
-                        Monitored=monitored,
-                        ArtistTitle=artistName,
-                        ArtistId=artistId,
-                        ForeignAlbumId=foreignAlbumId,
-                        ReleaseDate=releaseDate,
-                        EntryId=entryId,
-                        Searched=searched,
-                        AlbumFileId=albumFileId,
-                        IsRequest=request,
-                        QualityMet=qualityMet,
-                        Upgrade=False,
-                        MinCustomFormatScore=minCustomFormat,
-                        CustomFormatScore=customFormat,
-                        CustomFormatMet=customFormatMet,
-                        Reason=reason,
-                    ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
-                    db_commands.execute()
+                                        if track_files:
+                                            # Check if any track file's quality is below the cutoff
+                                            for track_file in track_files:
+                                                file_quality = track_file.get("quality", {}).get(
+                                                    "quality", {}
+                                                )
+                                                file_quality_id = file_quality.get("id", 0)
 
-                    # Store tracks for this album (Lidarr only)
-                    if self.track_file_model:
-                        if "media" in db_entry:
-                            # First, delete existing tracks for this album
-                            self.track_file_model.delete().where(
-                                self.track_file_model.AlbumId == entryId
+                                                if file_quality_id < cutoff_quality_id:
+                                                    QualityUnmet = True
+                                                    self.logger.trace(
+                                                        "Album '%s' has quality below cutoff: %s (ID: %d) < cutoff (ID: %d)",
+                                                        db_entry.get("title", "Unknown"),
+                                                        file_quality.get("name", "Unknown"),
+                                                        file_quality_id,
+                                                        cutoff_quality_id,
+                                                    )
+                                                    break
+                            except Exception as e:
+                                self.logger.trace(
+                                    "Could not determine quality cutoff status for album '%s': %s",
+                                    db_entry.get("title", "Unknown"),
+                                    str(e),
+                                )
+                                # Default to False if we can't determine
+                                QualityUnmet = False
+
+                        if (
+                            hasAllTracks
+                            and not (self.quality_unmet_search and QualityUnmet)
+                            and not (
+                                self.custom_format_unmet_search and customFormat < minCustomFormat
+                            )
+                        ):
+                            searched = True
+                            self.model_queue.update(Completed=True).where(
+                                self.model_queue.EntryId == db_entry["id"]
                             ).execute()
 
-                            # Insert new tracks
-                            track_insert_count = 0
-                            for medium in db_entry.get("media", []):
-                                for track in medium.get("tracks", []):
-                                    self.track_file_model.insert(
-                                        EntryId=track.get("id"),
-                                        AlbumId=entryId,
-                                        TrackNumber=track.get("trackNumber"),
-                                        Title=track.get("title", ""),
-                                        Duration=track.get("duration", 0),
-                                        HasFile=track.get("hasFile", False),
-                                        TrackFileId=track.get("trackFileId"),
-                                        Monitored=track.get("monitored", False),
-                                    ).execute()
-                                    track_insert_count += 1
-                            if track_insert_count > 0:
+                        if self.use_temp_for_missing:
+                            quality_profile_id = db_entry.get("qualityProfileId")
+                            if (
+                                searched
+                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and not self.keep_temp_profile
+                            ):
+                                db_entry["qualityProfileId"] = list(
+                                    self.temp_quality_profile_ids.keys()
+                                )[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        quality_profile_id
+                                    )
+                                ]
                                 self.logger.debug(
-                                    f"Stored {track_insert_count} tracks for album {entryId} ({title})"
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    db_entry["qualityProfileId"],
                                 )
-                        else:
-                            self.logger.warning(
-                                f"Album {entryId} ({title}) has no 'media' field - tracks not stored. "
-                                "This may indicate Lidarr API is not returning full album data. "
-                                "Check that allArtistAlbums=True is being used in get_album() calls."
+                            elif (
+                                not searched
+                                and quality_profile_id in self.temp_quality_profile_ids.keys()
+                            ):
+                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
+                                    quality_profile_id
+                                ]
+                                self.logger.debug(
+                                    "Updating quality profile for %s to %s",
+                                    db_entry["title"],
+                                    db_entry["qualityProfileId"],
+                                )
+                            while True:
+                                try:
+                                    self.client.upd_album(db_entry)
+                                    break
+                                except (
+                                    requests.exceptions.ChunkedEncodingError,
+                                    requests.exceptions.ContentDecodingError,
+                                    requests.exceptions.ConnectionError,
+                                    JSONDecodeError,
+                                ):
+                                    continue
+
+                        title = db_entry.get("title", "Unknown Album")
+                        monitored = db_entry.get("monitored", False)
+                        # Handle artist field which can be an object or might not exist
+                        artist_obj = db_entry.get("artist", {})
+                        if isinstance(artist_obj, dict):
+                            # Try multiple possible field names for artist name
+                            artistName = (
+                                artist_obj.get("artistName")
+                                or artist_obj.get("name")
+                                or artist_obj.get("title")
+                                or "Unknown Artist"
                             )
+                        else:
+                            artistName = "Unknown Artist"
+                        artistId = db_entry.get("artistId", 0)
+                        foreignAlbumId = db_entry.get("foreignAlbumId", "")
+                        releaseDate = db_entry.get("releaseDate")
+                        entryId = db_entry.get("id", 0)
+                        albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
+                        qualityMet = not QualityUnmet if hasAllTracks else False
+                        customFormatMet = customFormat >= minCustomFormat
+
+                        if not hasAllTracks:
+                            reason = "Missing"
+                        elif self.quality_unmet_search and QualityUnmet:
+                            reason = "Quality"
+                        elif self.custom_format_unmet_search and not customFormatMet:
+                            reason = "CustomFormat"
+                        elif self.do_upgrade_search:
+                            reason = "Upgrade"
+                        else:
+                            reason = "Scheduled search"
+
+                        to_update = {
+                            self.model_file.AlbumFileId: albumFileId,
+                            self.model_file.Monitored: monitored,
+                            self.model_file.QualityMet: qualityMet,
+                            self.model_file.Searched: searched,
+                            self.model_file.Upgrade: False,
+                            self.model_file.MinCustomFormatScore: minCustomFormat,
+                            self.model_file.CustomFormatScore: customFormat,
+                            self.model_file.CustomFormatMet: customFormatMet,
+                            self.model_file.Reason: reason,
+                            self.model_file.ArtistTitle: artistName,
+                            self.model_file.ArtistId: artistId,
+                            self.model_file.ForeignAlbumId: foreignAlbumId,
+                            self.model_file.ReleaseDate: releaseDate,
+                        }
+
+                        if request:
+                            to_update[self.model_file.IsRequest] = request
+
+                        self.logger.debug(
+                            "Updating database entry | %s - %s [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
+                            artistName.ljust(30, "."),
+                            title.ljust(30, "."),
+                            str(searched).ljust(5),
+                            str(False).ljust(5),
+                            str(qualityMet).ljust(5),
+                            str(customFormatMet).ljust(5),
+                        )
+
+                        db_commands = self.model_file.insert(
+                            Title=title,
+                            Monitored=monitored,
+                            ArtistTitle=artistName,
+                            ArtistId=artistId,
+                            ForeignAlbumId=foreignAlbumId,
+                            ReleaseDate=releaseDate,
+                            EntryId=entryId,
+                            Searched=searched,
+                            AlbumFileId=albumFileId,
+                            IsRequest=request,
+                            QualityMet=qualityMet,
+                            Upgrade=False,
+                            MinCustomFormatScore=minCustomFormat,
+                            CustomFormatScore=customFormat,
+                            CustomFormatMet=customFormatMet,
+                            Reason=reason,
+                        ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
+                        db_commands.execute()
+
+                        # Store tracks for this album (Lidarr only)
+                        if self.track_file_model:
+                            if "media" in db_entry:
+                                # First, delete existing tracks for this album
+                                self.track_file_model.delete().where(
+                                    self.track_file_model.AlbumId == entryId
+                                ).execute()
+
+                                # Insert new tracks
+                                track_insert_count = 0
+                                for medium in db_entry.get("media", []):
+                                    for track in medium.get("tracks", []):
+                                        self.track_file_model.insert(
+                                            EntryId=track.get("id"),
+                                            AlbumId=entryId,
+                                            TrackNumber=track.get("trackNumber"),
+                                            Title=track.get("title", ""),
+                                            Duration=track.get("duration", 0),
+                                            HasFile=track.get("hasFile", False),
+                                            TrackFileId=track.get("trackFileId"),
+                                            Monitored=track.get("monitored", False),
+                                        ).execute()
+                                        track_insert_count += 1
+                                if track_insert_count > 0:
+                                    self.logger.debug(
+                                        f"Stored {track_insert_count} tracks for album {entryId} ({title})"
+                                    )
+                            else:
+                                self.logger.warning(
+                                    f"Album {entryId} ({title}) has no 'media' field - tracks not stored. "
+                                    "This may indicate Lidarr API is not returning full album data. "
+                                    "Check that allArtistAlbums=True is being used in get_album() calls."
+                                )
+                    else:
+                        db_commands = self.model_file.delete().where(
+                            self.model_file.EntryId == db_entry["id"]
+                        )
+                        db_commands.execute()
+                        # Also delete tracks for this album (Lidarr only)
+                        if self.track_file_model:
+                            self.track_file_model.delete().where(
+                                self.track_file_model.AlbumId == db_entry["id"]
+                            ).execute()
                 else:
-                    db_commands = self.model_file.delete().where(
-                        self.model_file.EntryId == db_entry["id"]
+                    # Artist handling
+                    self.artists_file_model: ArtistFilesModel
+                    EntryId = db_entry["id"]
+                    artistData = self.artists_file_model.get_or_none(
+                        self.artists_file_model.EntryId == EntryId
                     )
-                    db_commands.execute()
-                    # Also delete tracks for this album (Lidarr only)
-                    if self.track_file_model:
-                        self.track_file_model.delete().where(
-                            self.track_file_model.AlbumId == db_entry["id"]
-                        ).execute()
+                    if db_entry["monitored"] or self.search_unmonitored:
+                        while True:
+                            try:
+                                artistMetadata = self.client.get_artist(id_=EntryId) or {}
+                                quality_profile_id = None
+                                if isinstance(artistMetadata, dict):
+                                    quality_profile_id = artistMetadata.get("qualityProfileId")
+                                else:
+                                    quality_profile_id = getattr(
+                                        artistMetadata, "qualityProfileId", None
+                                    )
+                                if not artistData:
+                                    if quality_profile_id:
+                                        profile = (
+                                            self.client.get_quality_profile(quality_profile_id)
+                                            or {}
+                                        )
+                                        minCustomFormat = profile.get("minFormatScore") or 0
+                                    else:
+                                        self.logger.warning(
+                                            "Artist %s (%s) missing qualityProfileId; "
+                                            "defaulting custom format score to 0",
+                                            db_entry.get("artistName"),
+                                            EntryId,
+                                        )
+                                        minCustomFormat = 0
+                                else:
+                                    minCustomFormat = getattr(
+                                        artistData, "MinCustomFormatScore", 0
+                                    )
+                                break
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ):
+                                continue
+                        # Calculate if artist is fully searched based on album statistics
+                        statistics = artistMetadata.get("statistics", {})
+                        albumCount = statistics.get("albumCount", 0)
+                        statistics.get("totalAlbumCount", 0)
+                        # Check if there's any album with files (sizeOnDisk > 0)
+                        sizeOnDisk = statistics.get("sizeOnDisk", 0)
+                        # Artist is considered searched if it has albums and at least some have files
+                        searched = albumCount > 0 and sizeOnDisk > 0
+
+                        Title = artistMetadata.get("artistName")
+                        Monitored = db_entry["monitored"]
+
+                        to_update = {
+                            self.artists_file_model.Monitored: Monitored,
+                            self.artists_file_model.Title: Title,
+                            self.artists_file_model.Searched: searched,
+                            self.artists_file_model.Upgrade: False,
+                            self.artists_file_model.MinCustomFormatScore: minCustomFormat,
+                        }
+
+                        self.logger.debug(
+                            "Updating database entry | %s [Searched:%s][Upgrade:%s]",
+                            Title.ljust(60, "."),
+                            str(searched).ljust(5),
+                            str(False).ljust(5),
+                        )
+
+                        db_commands = self.artists_file_model.insert(
+                            EntryId=EntryId,
+                            Title=Title,
+                            Searched=searched,
+                            Monitored=Monitored,
+                            Upgrade=False,
+                            MinCustomFormatScore=minCustomFormat,
+                        ).on_conflict(
+                            conflict_target=[self.artists_file_model.EntryId], update=to_update
+                        )
+                        db_commands.execute()
+
+                        # Note: Albums are now handled separately in db_update()
+                        # No need to recursively process albums here to avoid duplication
+                    else:
+                        db_commands = self.artists_file_model.delete().where(
+                            self.artists_file_model.EntryId == EntryId
+                        )
+                        db_commands.execute()
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
@@ -5515,7 +5637,7 @@ class Arr:
 
             self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks])
             self.artists_file_model = Artists
-            self.series_file_model = None
+            self.series_file_model = Artists  # Alias for compatibility with artist processing
         else:
             # Radarr or any type without db3/db4 (series/artists/tracks models)
             self.db.create_tables([Files, Queue, PersistingQueue])
