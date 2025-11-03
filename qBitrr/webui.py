@@ -540,50 +540,51 @@ class WebUI:
                     "reason": album.Reason,
                 }
 
-                # Always fetch tracks from database
-                try:
-                    # Import TrackFilesModel locally to avoid circular imports
-                    from qBitrr.tables import TrackFilesModel
-
-                    # Query tracks from database for this album
-                    track_query = (
-                        TrackFilesModel.select()
-                        .where(TrackFilesModel.AlbumId == album.EntryId)
-                        .order_by(TrackFilesModel.TrackNumber)
-                    )
-
-                    tracks = []
-                    track_count = 0
-                    track_file_count = 0
-
-                    for track in track_query:
-                        tracks.append(
-                            {
-                                "id": track.EntryId,
-                                "trackNumber": track.TrackNumber,
-                                "title": track.Title,
-                                "duration": track.Duration,
-                                "hasFile": track.HasFile,
-                                "trackFileId": track.TrackFileId,
-                                "monitored": track.Monitored,
-                            }
+                # Always fetch tracks from database (Lidarr only)
+                track_model = getattr(arr, "track_file_model", None)
+                if track_model:
+                    try:
+                        # Query tracks from database for this album
+                        track_query = (
+                            track_model.select()
+                            .where(track_model.AlbumId == album.EntryId)
+                            .order_by(track_model.TrackNumber)
                         )
-                        track_count += 1
-                        if track.HasFile:
-                            track_file_count += 1
 
-                    if tracks:
-                        album_data["tracks"] = tracks
-                        album_data["trackCount"] = track_count
-                        album_data["trackFileCount"] = track_file_count
-                        album_data["percentOfTracks"] = (
-                            int((track_file_count / track_count) * 100) if track_count > 0 else 0
+                        tracks = []
+                        track_count = 0
+                        track_file_count = 0
+
+                        for track in track_query:
+                            tracks.append(
+                                {
+                                    "id": track.EntryId,
+                                    "trackNumber": track.TrackNumber,
+                                    "title": track.Title,
+                                    "duration": track.Duration,
+                                    "hasFile": track.HasFile,
+                                    "trackFileId": track.TrackFileId,
+                                    "monitored": track.Monitored,
+                                }
+                            )
+                            track_count += 1
+                            if track.HasFile:
+                                track_file_count += 1
+
+                        if tracks:
+                            album_data["tracks"] = tracks
+                            album_data["trackCount"] = track_count
+                            album_data["trackFileCount"] = track_file_count
+                            album_data["percentOfTracks"] = (
+                                int((track_file_count / track_count) * 100)
+                                if track_count > 0
+                                else 0
+                            )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
                         )
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
-                    )
-                    album_data["tracks"] = []
+                        album_data["tracks"] = []
 
                 albums.append(album_data)
         return {
@@ -622,50 +623,64 @@ class WebUI:
                 "tracks": [],
             }
 
-        from qBitrr.tables import AlbumFilesModel, TrackFilesModel
+        track_model = getattr(arr, "track_file_model", None)
+        album_model = getattr(arr, "model_file", None)
+
+        if not track_model or not album_model:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
 
         try:
             # Join tracks with albums to get artist/album info
             query = (
-                TrackFilesModel.select(
-                    TrackFilesModel,
-                    AlbumFilesModel.Title.alias("AlbumTitle"),
-                    AlbumFilesModel.ArtistTitle,
-                    AlbumFilesModel.ArtistId,
+                track_model.select(
+                    track_model,
+                    album_model.Title.alias("AlbumTitle"),
+                    album_model.ArtistTitle,
+                    album_model.ArtistId,
                 )
-                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
                 .where(True)
             )
 
             # Apply filters
             if monitored is not None:
-                query = query.where(TrackFilesModel.Monitored == monitored)
+                query = query.where(track_model.Monitored == monitored)
             if has_file is not None:
-                query = query.where(TrackFilesModel.HasFile == has_file)
+                query = query.where(track_model.HasFile == has_file)
             if search:
                 query = query.where(
-                    (TrackFilesModel.Title.contains(search))
-                    | (AlbumFilesModel.Title.contains(search))
-                    | (AlbumFilesModel.ArtistTitle.contains(search))
+                    (track_model.Title.contains(search))
+                    | (album_model.Title.contains(search))
+                    | (album_model.ArtistTitle.contains(search))
                 )
 
             # Get counts
             available_count = (
-                TrackFilesModel.select()
-                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
-                .where(TrackFilesModel.HasFile == True)
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == True)
                 .count()
             )
             monitored_count = (
-                TrackFilesModel.select()
-                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
-                .where(TrackFilesModel.Monitored == True)
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.Monitored == True)
                 .count()
             )
             missing_count = (
-                TrackFilesModel.select()
-                .join(AlbumFilesModel, on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId))
-                .where(TrackFilesModel.HasFile == False)
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == False)
                 .count()
             )
 
@@ -673,7 +688,7 @@ class WebUI:
 
             # Apply pagination
             query = query.order_by(
-                AlbumFilesModel.ArtistTitle, AlbumFilesModel.Title, TrackFilesModel.TrackNumber
+                album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
             ).paginate(page + 1, page_size)
 
             tracks = []
