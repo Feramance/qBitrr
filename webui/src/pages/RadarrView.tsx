@@ -664,14 +664,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       }
 
       // Smart diffing: only update if data actually changed
-      setAggRows((prev) => {
-        const prevJson = JSON.stringify(prev);
-        const nextJson = JSON.stringify(aggregated);
-        if (prevJson === nextJson) {
-          return prev;
-        }
-        return aggregated;
-      });
+      const prevJson = JSON.stringify(aggRows);
+      const nextJson = JSON.stringify(aggregated);
+      const rowsChanged = prevJson !== nextJson;
+
+      if (rowsChanged) {
+        setAggRows(aggregated);
+      }
 
       const newSummary = {
         available: totalAvailable,
@@ -680,24 +679,27 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         total: aggregated.length,
       };
 
-      setAggSummary((prev) => {
-        if (
-          prev.available === newSummary.available &&
-          prev.monitored === newSummary.monitored &&
-          prev.missing === newSummary.missing &&
-          prev.total === newSummary.total
-        ) {
-          return prev;
-        }
-        return newSummary;
-      });
+      const summaryChanged = (
+        aggSummary.available !== newSummary.available ||
+        aggSummary.monitored !== newSummary.monitored ||
+        aggSummary.missing !== newSummary.missing ||
+        aggSummary.total !== newSummary.total
+      );
+
+      if (summaryChanged) {
+        setAggSummary(newSummary);
+      }
 
       // Only reset page if filter changed, not on refresh
       if (aggFilter !== globalSearch) {
         setAggPage(0);
         setAggFilter(globalSearch);
       }
-      setAggUpdated(new Date().toLocaleTimeString());
+
+      // Only update timestamp if data actually changed
+      if (rowsChanged || summaryChanged) {
+        setAggUpdated(new Date().toLocaleTimeString());
+      }
     } catch (error) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
@@ -710,7 +712,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push]);
+  }, [instances, globalSearch, push, aggRows, aggSummary, aggFilter]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 

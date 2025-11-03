@@ -409,16 +409,16 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         instances: instances.length,
         note: aggregated.length === 0 ? "No episodes found - backend may still be initializing" : ""
       });
-      setAggRows((prev) => {
-        const prevJson = JSON.stringify(prev);
-        const nextJson = JSON.stringify(aggregated);
-        if (prevJson === nextJson) {
-          console.log(`[Sonarr Aggregate] Data unchanged, skipping update`);
-          return prev;
-        }
-        console.log(`[Sonarr Aggregate] Data changed, updating from ${prev.length} to ${aggregated.length} episodes`);
-        return aggregated;
-      });
+      const prevJson = JSON.stringify(aggRows);
+      const nextJson = JSON.stringify(aggregated);
+      const rowsChanged = prevJson !== nextJson;
+
+      if (rowsChanged) {
+        console.log(`[Sonarr Aggregate] Data changed, updating from ${aggRows.length} to ${aggregated.length} episodes`);
+        setAggRows(aggregated);
+      } else {
+        console.log(`[Sonarr Aggregate] Data unchanged, skipping update`);
+      }
 
       const newSummary = {
         available: totalAvailable,
@@ -427,24 +427,27 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         total: aggregated.length,
       };
 
-      setAggSummary((prev) => {
-        if (
-          prev.available === newSummary.available &&
-          prev.monitored === newSummary.monitored &&
-          prev.missing === newSummary.missing &&
-          prev.total === newSummary.total
-        ) {
-          return prev;
-        }
-        return newSummary;
-      });
+      const summaryChanged = (
+        aggSummary.available !== newSummary.available ||
+        aggSummary.monitored !== newSummary.monitored ||
+        aggSummary.missing !== newSummary.missing ||
+        aggSummary.total !== newSummary.total
+      );
+
+      if (summaryChanged) {
+        setAggSummary(newSummary);
+      }
 
       // Only reset page if filter changed, not on refresh
       if (aggFilter !== globalSearch) {
         setAggPage(0);
         setAggFilter(globalSearch);
       }
-      setAggUpdated(new Date().toLocaleTimeString());
+
+      // Only update timestamp if data actually changed
+      if (rowsChanged || summaryChanged) {
+        setAggUpdated(new Date().toLocaleTimeString());
+      }
     } catch (error) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
@@ -457,7 +460,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, onlyMissing]);
+  }, [instances, globalSearch, push, onlyMissing, aggRows, aggSummary, aggFilter]);
 
   useEffect(() => {
     if (!active) return;
