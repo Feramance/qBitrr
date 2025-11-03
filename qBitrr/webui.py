@@ -1396,36 +1396,62 @@ class WebUI:
                     # Get all .log files (not .log.old or numbered backups)
                     log_files = [f for f in logs_root.glob("*.log") if not f.name.endswith(".old")]
 
-                    # Collect all lines with timestamps
-                    all_lines = []
-                    timestamp_pattern = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
+                    # Collect all log entries with timestamps
+                    # Log format: [YYYY-MM-DD HH:MM:SS,mmm] LEVEL: name: message
+                    # Note: Python logging's asctime includes milliseconds after comma
+                    all_entries = []
+                    # Match [YYYY-MM-DD HH:MM:SS,mmm] or [YYYY-MM-DD HH:MM:SS]
+                    timestamp_pattern = re.compile(
+                        r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})(?:,\d{3})?\]"
+                    )
 
                     for log_file in log_files:
                         try:
                             lines = log_file.read_text(
                                 encoding="utf-8", errors="ignore"
                             ).splitlines()
+
+                            current_entry = []
+                            current_timestamp = None
+
                             for line in lines:
-                                # Try to extract timestamp from line
+                                # Check if this line starts a new log entry
                                 match = timestamp_pattern.match(line)
                                 if match:
+                                    # Save previous entry if exists
+                                    if current_entry:
+                                        all_entries.append(
+                                            (current_timestamp, "\n".join(current_entry))
+                                        )
+
+                                    # Start new entry
                                     try:
-                                        ts = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
-                                        all_lines.append((ts, line))
+                                        current_timestamp = datetime.strptime(
+                                            match.group(1), "%Y-%m-%d %H:%M:%S"
+                                        )
                                     except Exception:
-                                        # If timestamp parsing fails, use current time
-                                        all_lines.append((datetime.min, line))
+                                        current_timestamp = datetime.min
+                                    current_entry = [line]
                                 else:
-                                    # Lines without timestamps (continuation lines) use min time
-                                    all_lines.append((datetime.min, line))
+                                    # Continuation line - append to current entry
+                                    if current_entry:
+                                        current_entry.append(line)
+                                    else:
+                                        # Orphan line without preceding timestamp
+                                        all_entries.append((datetime.min, line))
+
+                            # Don't forget the last entry
+                            if current_entry:
+                                all_entries.append((current_timestamp, "\n".join(current_entry)))
+
                         except Exception:
                             continue
 
                     # Sort by timestamp
-                    all_lines.sort(key=lambda x: x[0])
+                    all_entries.sort(key=lambda x: x[0])
 
-                    # Take last 2000 lines and extract just the text
-                    tail = "\n".join(line[1] for line in all_lines[-2000:])
+                    # Take last 2000 entries and extract just the text
+                    tail = "\n".join(entry[1] for entry in all_entries[-2000:])
                 except Exception:
                     tail = ""
                 return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
