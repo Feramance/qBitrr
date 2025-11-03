@@ -3421,76 +3421,51 @@ class Arr:
 
                         # Store tracks for this album (Lidarr only)
                         if self.track_file_model:
-                            # Fetch full album details to get media/tracks
-                            # The bulk get_album(artistId=...) call doesn't include media field
-                            if "media" not in db_entry:
+                            try:
+                                # Fetch tracks for this album via the track API
+                                # Tracks are NOT in the media field, they're a separate endpoint
+                                tracks = self.client.get_tracks(albumId=entryId)
                                 self.logger.debug(
-                                    f"Album {entryId} missing 'media' field, fetching full details..."
-                                )
-                                try:
-                                    # When albumIds is a single int, get_album returns a dict (single album)
-                                    # This includes the full album data with media/tracks
-                                    full_album = self.client.get_album(albumIds=entryId)
-                                    self.logger.debug(
-                                        f"Fetched album data type: {type(full_album)}, "
-                                        f"is dict: {isinstance(full_album, dict)}, "
-                                        f"is list: {isinstance(full_album, list)}"
-                                    )
-
-                                    # Handle both dict (single album) and list responses
-                                    if full_album:
-                                        if isinstance(full_album, dict):
-                                            db_entry = full_album
-                                            self.logger.debug(
-                                                f"Updated db_entry with full album dict, "
-                                                f"has media: {'media' in db_entry}"
-                                            )
-                                        elif isinstance(full_album, list) and len(full_album) > 0:
-                                            db_entry = full_album[0]
-                                            self.logger.debug(
-                                                f"Updated db_entry with first album from list, "
-                                                f"has media: {'media' in db_entry}"
-                                            )
-                                except Exception as e:
-                                    self.logger.warning(
-                                        f"Could not fetch full album details for {entryId} ({title}): {e}"
-                                    )
-
-                            if "media" in db_entry:
-                                media_list = db_entry.get("media", [])
-                                self.logger.debug(
-                                    f"Album {entryId} has {len(media_list)} media items"
+                                    f"Fetched {len(tracks) if isinstance(tracks, list) else 0} tracks for album {entryId}"
                                 )
 
-                                # First, delete existing tracks for this album
-                                self.track_file_model.delete().where(
-                                    self.track_file_model.AlbumId == entryId
-                                ).execute()
+                                if tracks and isinstance(tracks, list):
+                                    # First, delete existing tracks for this album
+                                    self.track_file_model.delete().where(
+                                        self.track_file_model.AlbumId == entryId
+                                    ).execute()
 
-                                # Insert new tracks
-                                track_insert_count = 0
-                                for medium in media_list:
-                                    tracks_in_medium = medium.get("tracks", [])
-                                    self.logger.debug(f"Medium has {len(tracks_in_medium)} tracks")
-                                    for track in tracks_in_medium:
+                                    # Insert new tracks
+                                    track_insert_count = 0
+                                    for track in tracks:
+                                        # Get monitored status from track or default to album's monitored status
+                                        track_monitored = track.get(
+                                            "monitored", db_entry.get("monitored", False)
+                                        )
+
                                         self.track_file_model.insert(
                                             EntryId=track.get("id"),
                                             AlbumId=entryId,
-                                            TrackNumber=track.get("trackNumber"),
+                                            TrackNumber=track.get("trackNumber", ""),
                                             Title=track.get("title", ""),
                                             Duration=track.get("duration", 0),
                                             HasFile=track.get("hasFile", False),
-                                            TrackFileId=track.get("trackFileId"),
-                                            Monitored=track.get("monitored", False),
+                                            TrackFileId=track.get("trackFileId", 0),
+                                            Monitored=track_monitored,
                                         ).execute()
                                         track_insert_count += 1
-                                if track_insert_count > 0:
-                                    self.logger.info(
-                                        f"Stored {track_insert_count} tracks for album {entryId} ({title})"
+
+                                    if track_insert_count > 0:
+                                        self.logger.info(
+                                            f"Stored {track_insert_count} tracks for album {entryId} ({title})"
+                                        )
+                                else:
+                                    self.logger.debug(
+                                        f"No tracks found for album {entryId} ({title})"
                                     )
-                            else:
+                            except Exception as e:
                                 self.logger.warning(
-                                    f"Album {entryId} ({title}) has no 'media' field after fetch attempt - tracks not stored"
+                                    f"Could not fetch tracks for album {entryId} ({title}): {e}"
                                 )
                     else:
                         db_commands = self.model_file.delete().where(
