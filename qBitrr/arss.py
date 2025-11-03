@@ -3421,6 +3421,22 @@ class Arr:
 
                         # Store tracks for this album (Lidarr only)
                         if self.track_file_model:
+                            # Fetch full album details to get media/tracks
+                            # The bulk get_album(artistId=...) call doesn't include media field
+                            if "media" not in db_entry:
+                                try:
+                                    full_album = self.client.get_album(albumIds=entryId)
+                                    if (
+                                        full_album
+                                        and isinstance(full_album, list)
+                                        and len(full_album) > 0
+                                    ):
+                                        db_entry = full_album[0]
+                                except Exception as e:
+                                    self.logger.debug(
+                                        f"Could not fetch full album details for {entryId}: {e}"
+                                    )
+
                             if "media" in db_entry:
                                 # First, delete existing tracks for this album
                                 self.track_file_model.delete().where(
@@ -3447,10 +3463,8 @@ class Arr:
                                         f"Stored {track_insert_count} tracks for album {entryId} ({title})"
                                     )
                             else:
-                                self.logger.warning(
-                                    f"Album {entryId} ({title}) has no 'media' field - tracks not stored. "
-                                    "This may indicate Lidarr API is not returning full album data. "
-                                    "Check that allArtistAlbums=True is being used in get_album() calls."
+                                self.logger.debug(
+                                    f"Album {entryId} ({title}) has no 'media' field - tracks not stored"
                                 )
                     else:
                         db_commands = self.model_file.delete().where(
