@@ -6279,9 +6279,10 @@ class FreeSpaceManager(Arr):
         None,
         None,
         None,
+        None,
         type[TorrentLibrary] | None,
     ]:
-        return None, None, None, (TorrentLibrary if TAGLESS else None)
+        return None, None, None, None, (TorrentLibrary if TAGLESS else None)
 
     def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
