@@ -2328,7 +2328,19 @@ class Arr:
                             )
                             if release_date > datetime.now():
                                 continue
-                        self.db_update_single_series(db_entry=album)
+                        # Fetch full album details including tracks/media
+                        while True:
+                            try:
+                                album_details = self.client.get_album(id_=album["id"])
+                                break
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ):
+                                continue
+                        self.db_update_single_series(db_entry=album_details)
                 self.db_update_processed = True
             self.logger.trace("Finished updating database")
         finally:
