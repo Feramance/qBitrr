@@ -605,6 +605,7 @@ class Arr:
         self.series_file_model: Model | None = None
         self.model_queue: Model | None = None
         self.persistent_queue: Model | None = None
+        self.track_file_model: Model | None = None
         self.torrents: TorrentLibrary | None = None
         self.torrent_db: SqliteDatabase | None = None
         self.db: SqliteDatabase | None = None
@@ -3467,17 +3468,17 @@ class Arr:
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
 
-                    # Store tracks for this album
-                    if "media" in db_entry:
+                    # Store tracks for this album (Lidarr only)
+                    if "media" in db_entry and self.track_file_model:
                         # First, delete existing tracks for this album
-                        TrackFilesModel.delete().where(
-                            TrackFilesModel.AlbumId == entryId
+                        self.track_file_model.delete().where(
+                            self.track_file_model.AlbumId == entryId
                         ).execute()
 
                         # Insert new tracks
                         for medium in db_entry.get("media", []):
                             for track in medium.get("tracks", []):
-                                TrackFilesModel.insert(
+                                self.track_file_model.insert(
                                     EntryId=track.get("id"),
                                     AlbumId=entryId,
                                     TrackNumber=track.get("trackNumber"),
@@ -5552,16 +5553,36 @@ class Arr:
                 database = self.db
 
         self.db.connect()
+
+        # Create bound TrackFilesModel for Lidarr
+        if db1 == AlbumFilesModel:
+
+            class Tracks(TrackFilesModel):
+                class Meta:
+                    database = self.db
+
+            self.track_file_model = Tracks
+        else:
+            self.track_file_model = None
+
         if db3:
 
             class Series(db3):
                 class Meta:
                     database = self.db
 
-            self.db.create_tables([Files, Queue, PersistingQueue, Series])
+            if self.track_file_model:
+                self.db.create_tables(
+                    [Files, Queue, PersistingQueue, Series, self.track_file_model]
+                )
+            else:
+                self.db.create_tables([Files, Queue, PersistingQueue, Series])
             self.series_file_model = Series
         else:
-            self.db.create_tables([Files, Queue, PersistingQueue])
+            if self.track_file_model:
+                self.db.create_tables([Files, Queue, PersistingQueue, self.track_file_model])
+            else:
+                self.db.create_tables([Files, Queue, PersistingQueue])
             self.series_file_model = None
 
         if db4:
