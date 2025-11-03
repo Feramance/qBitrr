@@ -160,8 +160,9 @@ def run_logs(logger: Logger, _name: str = None) -> None:
                     },
                 )
             )
-            # Add to root logger so all qBitrr loggers inherit it
-            logging.root.addHandler(ALL_LOGS_HANDLER)
+
+        # Add All.log handler to this logger (since propagate=False, we can't use root)
+        logger.addHandler(ALL_LOGS_HANDLER)
 
         # Add individual component log file handler
         if _name:
