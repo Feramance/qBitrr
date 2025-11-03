@@ -3424,20 +3424,38 @@ class Arr:
                             # Fetch full album details to get media/tracks
                             # The bulk get_album(artistId=...) call doesn't include media field
                             if "media" not in db_entry:
+                                self.logger.debug(
+                                    f"Album {entryId} missing 'media' field, fetching full details..."
+                                )
                                 try:
+                                    # get_album returns a list when given albumIds parameter
                                     full_album = self.client.get_album(albumIds=entryId)
+                                    self.logger.debug(
+                                        f"Fetched album data type: {type(full_album)}, "
+                                        f"is list: {isinstance(full_album, list)}, "
+                                        f"length: {len(full_album) if isinstance(full_album, list) else 'N/A'}"
+                                    )
                                     if (
                                         full_album
                                         and isinstance(full_album, list)
                                         and len(full_album) > 0
                                     ):
                                         db_entry = full_album[0]
+                                        self.logger.debug(
+                                            f"Updated db_entry with full album data, "
+                                            f"has media: {'media' in db_entry}"
+                                        )
                                 except Exception as e:
-                                    self.logger.debug(
-                                        f"Could not fetch full album details for {entryId}: {e}"
+                                    self.logger.warning(
+                                        f"Could not fetch full album details for {entryId} ({title}): {e}"
                                     )
 
                             if "media" in db_entry:
+                                media_list = db_entry.get("media", [])
+                                self.logger.debug(
+                                    f"Album {entryId} has {len(media_list)} media items"
+                                )
+
                                 # First, delete existing tracks for this album
                                 self.track_file_model.delete().where(
                                     self.track_file_model.AlbumId == entryId
@@ -3445,8 +3463,10 @@ class Arr:
 
                                 # Insert new tracks
                                 track_insert_count = 0
-                                for medium in db_entry.get("media", []):
-                                    for track in medium.get("tracks", []):
+                                for medium in media_list:
+                                    tracks_in_medium = medium.get("tracks", [])
+                                    self.logger.debug(f"Medium has {len(tracks_in_medium)} tracks")
+                                    for track in tracks_in_medium:
                                         self.track_file_model.insert(
                                             EntryId=track.get("id"),
                                             AlbumId=entryId,
@@ -3459,12 +3479,12 @@ class Arr:
                                         ).execute()
                                         track_insert_count += 1
                                 if track_insert_count > 0:
-                                    self.logger.debug(
+                                    self.logger.info(
                                         f"Stored {track_insert_count} tracks for album {entryId} ({title})"
                                     )
                             else:
-                                self.logger.debug(
-                                    f"Album {entryId} ({title}) has no 'media' field - tracks not stored"
+                                self.logger.warning(
+                                    f"Album {entryId} ({title}) has no 'media' field after fetch attempt - tracks not stored"
                                 )
                     else:
                         db_commands = self.model_file.delete().where(
