@@ -129,6 +129,16 @@ export interface LidarrCounts {
   monitored: number;
 }
 
+export interface LidarrTrack {
+  id?: number;
+  trackNumber?: number;
+  title?: string;
+  duration?: number;
+  hasFile?: boolean;
+  trackFileId?: number | null;
+  monitored?: boolean;
+}
+
 export interface LidarrAlbum {
   id?: number;
   title?: string;
@@ -138,6 +148,10 @@ export interface LidarrAlbum {
   monitored?: boolean;
   hasFile?: boolean;
   reason?: string | null;
+  tracks?: LidarrTrack[];
+  trackCount?: number;
+  trackFileCount?: number;
+  percentOfTracks?: number;
   [key: string]: unknown;
 }
 

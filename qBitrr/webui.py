@@ -427,6 +427,7 @@ class WebUI:
         has_file: bool | None = None,
         quality_met: bool | None = None,
         is_request: bool | None = None,
+        include_tracks: bool = False,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
             return {
@@ -518,29 +519,61 @@ class WebUI:
             query = query.order_by(model.Title).paginate(page + 1, page_size)
             albums = []
             for album in query:
-                albums.append(
-                    {
-                        "id": album.EntryId,
-                        "title": album.Title,
-                        "artistId": album.ArtistId,
-                        "artistName": album.ArtistTitle,
-                        "monitored": self._safe_bool(album.Monitored),
-                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
-                        "foreignAlbumId": album.ForeignAlbumId,
-                        "releaseDate": (
-                            album.ReleaseDate.isoformat()
-                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
-                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
-                        ),
-                        "qualityMet": self._safe_bool(album.QualityMet),
-                        "isRequest": self._safe_bool(album.IsRequest),
-                        "upgrade": self._safe_bool(album.Upgrade),
-                        "customFormatScore": album.CustomFormatScore,
-                        "minCustomFormatScore": album.MinCustomFormatScore,
-                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
-                        "reason": album.Reason,
-                    }
-                )
+                album_data = {
+                    "id": album.EntryId,
+                    "title": album.Title,
+                    "artistId": album.ArtistId,
+                    "artistName": album.ArtistTitle,
+                    "monitored": self._safe_bool(album.Monitored),
+                    "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                    "foreignAlbumId": album.ForeignAlbumId,
+                    "releaseDate": (
+                        album.ReleaseDate.isoformat()
+                        if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                        else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
+                    ),
+                    "qualityMet": self._safe_bool(album.QualityMet),
+                    "isRequest": self._safe_bool(album.IsRequest),
+                    "upgrade": self._safe_bool(album.Upgrade),
+                    "customFormatScore": album.CustomFormatScore,
+                    "minCustomFormatScore": album.MinCustomFormatScore,
+                    "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                    "reason": album.Reason,
+                }
+
+                # Optionally fetch tracks from Lidarr API
+                if include_tracks:
+                    try:
+                        # Get album details from Lidarr API to fetch tracks
+                        client = getattr(arr, "client", None)
+                        if client and hasattr(client, "get_album"):
+                            album_details = client.get_album(album.EntryId)
+                            if album_details and "media" in album_details:
+                                tracks = []
+                                for medium in album_details.get("media", []):
+                                    for track in medium.get("tracks", []):
+                                        tracks.append(
+                                            {
+                                                "id": track.get("id"),
+                                                "trackNumber": track.get("trackNumber"),
+                                                "title": track.get("title", ""),
+                                                "duration": track.get("duration", 0),
+                                                "hasFile": track.get("hasFile", False),
+                                                "trackFileId": track.get("trackFileId"),
+                                                "monitored": track.get("monitored", False),
+                                            }
+                                        )
+                                album_data["tracks"] = tracks
+                                # Add statistics
+                                stats = album_details.get("statistics", {})
+                                album_data["trackCount"] = stats.get("trackCount", 0)
+                                album_data["trackFileCount"] = stats.get("trackFileCount", 0)
+                                album_data["percentOfTracks"] = stats.get("percentOfTracks", 0)
+                    except Exception as e:
+                        self.logger.debug(f"Failed to fetch tracks for album {album.EntryId}: {e}")
+                        album_data["tracks"] = []
+
+                albums.append(album_data)
         return {
             "counts": {
                 "available": available_count,
@@ -1592,6 +1625,7 @@ class WebUI:
                 if "is_request" in request.args
                 else None
             )
+            include_tracks = self._safe_bool(request.args.get("include_tracks", False))
             payload = self._lidarr_albums_from_db(
                 arr,
                 q,
@@ -1601,6 +1635,7 @@ class WebUI:
                 has_file=has_file,
                 quality_met=quality_met,
                 is_request=is_request,
+                include_tracks=include_tracks,
             )
             payload["category"] = category
             return jsonify(payload)

@@ -215,12 +215,18 @@ export async function getLidarrAlbums(
   category: string,
   page: number,
   pageSize: number,
-  q: string
+  query?: string,
+  includeTracks?: boolean
 ): Promise<LidarrAlbumsResponse> {
   const params = new URLSearchParams();
-  params.set("page", String(page));
-  params.set("page_size", String(pageSize));
-  if (q) params.set("q", q);
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  if (includeTracks) {
+    params.set("include_tracks", "true");
+  }
   return fetchJson<LidarrAlbumsResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
   );
