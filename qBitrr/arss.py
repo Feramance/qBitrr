@@ -3475,25 +3475,38 @@ class Arr:
                     db_commands.execute()
 
                     # Store tracks for this album (Lidarr only)
-                    if "media" in db_entry and self.track_file_model:
-                        # First, delete existing tracks for this album
-                        self.track_file_model.delete().where(
-                            self.track_file_model.AlbumId == entryId
-                        ).execute()
+                    if self.track_file_model:
+                        if "media" in db_entry:
+                            # First, delete existing tracks for this album
+                            self.track_file_model.delete().where(
+                                self.track_file_model.AlbumId == entryId
+                            ).execute()
 
-                        # Insert new tracks
-                        for medium in db_entry.get("media", []):
-                            for track in medium.get("tracks", []):
-                                self.track_file_model.insert(
-                                    EntryId=track.get("id"),
-                                    AlbumId=entryId,
-                                    TrackNumber=track.get("trackNumber"),
-                                    Title=track.get("title", ""),
-                                    Duration=track.get("duration", 0),
-                                    HasFile=track.get("hasFile", False),
-                                    TrackFileId=track.get("trackFileId"),
-                                    Monitored=track.get("monitored", False),
-                                ).execute()
+                            # Insert new tracks
+                            track_insert_count = 0
+                            for medium in db_entry.get("media", []):
+                                for track in medium.get("tracks", []):
+                                    self.track_file_model.insert(
+                                        EntryId=track.get("id"),
+                                        AlbumId=entryId,
+                                        TrackNumber=track.get("trackNumber"),
+                                        Title=track.get("title", ""),
+                                        Duration=track.get("duration", 0),
+                                        HasFile=track.get("hasFile", False),
+                                        TrackFileId=track.get("trackFileId"),
+                                        Monitored=track.get("monitored", False),
+                                    ).execute()
+                                    track_insert_count += 1
+                            if track_insert_count > 0:
+                                self.logger.debug(
+                                    f"Stored {track_insert_count} tracks for album {entryId} ({title})"
+                                )
+                        else:
+                            self.logger.warning(
+                                f"Album {entryId} ({title}) has no 'media' field - tracks not stored. "
+                                "This may indicate Lidarr API is not returning full album data. "
+                                "Check that allArtistAlbums=True is being used in get_album() calls."
+                            )
                 else:
                     db_commands = self.model_file.delete().where(
                         self.model_file.EntryId == db_entry["id"]

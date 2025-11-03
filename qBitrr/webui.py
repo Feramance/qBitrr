@@ -532,6 +532,10 @@ class WebUI:
                             .where(track_model.AlbumId == album.EntryId)
                             .order_by(track_model.TrackNumber)
                         )
+                        track_count = track_query.count()
+                        self.logger.debug(
+                            f"Album {album.EntryId} ({album.Title}): Found {track_count} tracks in database"
+                        )
 
                         for track in track_query:
                             is_monitored = self._safe_bool(track.Monitored)
