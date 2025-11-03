@@ -3099,3 +3099,89 @@ svg[height] {
 [data-density="compact"] .changelog-section h3 {
     font-size: 13px;
 }
+
+/* React LogViewer Search Bar Styling */
+.react-lazylog-searchbar {
+    background: var(--surface) !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 8px 12px !important;
+}
+
+[data-theme="dark"] .react-lazylog-searchbar {
+    background: #0f131a !important;
+}
+
+.react-lazylog-searchbar-input {
+    background: var(--bg) !important;
+    color: var(--on-surface) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+}
+
+[data-theme="dark"] .react-lazylog-searchbar-input {
+    background: #12151a !important;
+}
+
+.react-lazylog-searchbar-input:focus {
+    outline: none !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px rgba(122, 162, 247, 0.1) !important;
+}
+
+[data-theme="light"] .react-lazylog-searchbar-input:focus {
+    box-shadow: 0 0 0 2px rgba(0, 113, 227, 0.1) !important;
+}
+
+.react-lazylog-searchbar-input::placeholder {
+    color: var(--muted) !important;
+}
+
+.react-lazylog-searchbar-matches {
+    color: var(--muted) !important;
+    font-size: 12px !important;
+}
+
+.react-lazylog-searchbar-filter,
+.react-lazylog-searchbar-up-arrow,
+.react-lazylog-searchbar-down-arrow {
+    background: transparent !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px !important;
+    padding: 6px !important;
+    cursor: pointer !important;
+    transition: all 0.15s ease !important;
+}
+
+.react-lazylog-searchbar-filter:hover,
+.react-lazylog-searchbar-up-arrow:hover,
+.react-lazylog-searchbar-down-arrow:hover {
+    background: rgba(122, 162, 247, 0.1) !important;
+    border-color: var(--primary) !important;
+}
+
+[data-theme="light"] .react-lazylog-searchbar-filter:hover,
+[data-theme="light"] .react-lazylog-searchbar-up-arrow:hover,
+[data-theme="light"] .react-lazylog-searchbar-down-arrow:hover {
+    background: rgba(0, 113, 227, 0.08) !important;
+}
+
+.react-lazylog-searchbar-filter svg,
+.react-lazylog-searchbar-up-arrow svg,
+.react-lazylog-searchbar-down-arrow svg {
+    fill: var(--on-surface) !important;
+    width: 16px !important;
+    height: 16px !important;
+}
+
+.react-lazylog-searchbar-filter.inactive,
+.react-lazylog-searchbar-up-arrow.inactive,
+.react-lazylog-searchbar-down-arrow.inactive {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.react-lazylog-searchbar-matches.inactive {
+    opacity: 0.5 !important;
+}
