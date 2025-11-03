@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
 import Select from "react-select";
@@ -307,8 +308,6 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     secure: true,
     fullWidth: true,
   },
-  // Live Arr, Group Sonarr, and Theme are now managed dynamically via WebUIContext
-  // and should not be part of the config form to avoid dirty state issues
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -1319,6 +1318,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     const liveKeys = new Set([
       "WebUI.LiveArr",
       "WebUI.GroupSonarr",
+      "WebUI.GroupLidarr",
       "WebUI.Theme",
     ]);
 
@@ -1700,6 +1700,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
+          showLiveSettings={true}
         />
       ) : null}
       {isQbitOpen ? (
@@ -2241,6 +2242,7 @@ interface SimpleConfigModalProps {
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
+  showLiveSettings?: boolean;
 }
 
 function SimpleConfigModal({
@@ -2250,7 +2252,10 @@ function SimpleConfigModal({
   basePath,
   onChange,
   onClose,
+  showLiveSettings = false,
 }: SimpleConfigModalProps): JSX.Element | null {
+  const webUI = showLiveSettings ? useWebUI() : null;
+
   if (!state) return null;
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -2277,6 +2282,57 @@ function SimpleConfigModal({
             onChange={onChange}
             defaultOpen
           />
+          {showLiveSettings && webUI && (
+            <div className="field-group">
+              <h3 className="field-group-title">Live Settings</h3>
+              <div className="field-group-content">
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.liveArr}
+                      onChange={(e) => webUI.setLiveArr(e.target.checked)}
+                    />
+                    {" "}Live Arr Updates
+                  </label>
+                  <p className="field-description">Enable real-time updates for Arr views</p>
+                </div>
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.groupSonarr}
+                      onChange={(e) => webUI.setGroupSonarr(e.target.checked)}
+                    />
+                    {" "}Group Sonarr by Series
+                  </label>
+                  <p className="field-description">Group Sonarr episodes by series in views</p>
+                </div>
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.groupLidarr}
+                      onChange={(e) => webUI.setGroupLidarr(e.target.checked)}
+                    />
+                    {" "}Group Lidarr by Artist
+                  </label>
+                  <p className="field-description">Group Lidarr albums by artist in views</p>
+                </div>
+                <div className="field">
+                  <label>Theme</label>
+                  <select
+                    value={webUI.theme}
+                    onChange={(e) => webUI.setTheme(e.target.value as "light" | "dark")}
+                  >
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
+                  <p className="field-description">WebUI theme (Light or Dark)</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
