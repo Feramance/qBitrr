@@ -1817,6 +1817,21 @@ class WebUI:
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
+
+            # Frontend-only WebUI settings that don't require backend reload
+            frontend_only_keys = {
+                "WebUI.LiveArr",
+                "WebUI.GroupSonarr",
+                "WebUI.Theme",
+            }
+
+            # Check if any changes require backend reload
+            requires_reload = False
+            for key in changes.keys():
+                if key not in frontend_only_keys:
+                    requires_reload = True
+                    break
+
             # Apply changes
             for key, val in changes.items():
                 if val is None:
@@ -1830,12 +1845,15 @@ class WebUI:
                     self.token = str(val) if val is not None else ""
             # Persist
             CONFIG.save()
-            try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            # Live-reload: rebuild Arr instances and restart processes
-            self._reload_all()
+
+            # Only reload if changes affect backend behavior
+            if requires_reload:
+                try:
+                    self.manager.configure_auto_update()
+                except Exception:
+                    self.logger.exception("Failed to refresh auto update configuration")
+                # Live-reload: rebuild Arr instances and restart processes
+                self._reload_all()
             response = jsonify({"status": "ok"})
             # Clear cache headers to force browser to reload
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -1851,6 +1869,21 @@ class WebUI:
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
+
+            # Frontend-only WebUI settings that don't require backend reload
+            frontend_only_keys = {
+                "WebUI.LiveArr",
+                "WebUI.GroupSonarr",
+                "WebUI.Theme",
+            }
+
+            # Check if any changes require backend reload
+            requires_reload = False
+            for key in changes.keys():
+                if key not in frontend_only_keys:
+                    requires_reload = True
+                    break
+
             for key, val in changes.items():
                 if val is None:
                     _toml_delete(CONFIG.config, key)
@@ -1861,11 +1894,14 @@ class WebUI:
                 if key == "WebUI.Token":
                     self.token = str(val) if val is not None else ""
             CONFIG.save()
-            try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            self._reload_all()
+
+            # Only reload if changes affect backend behavior
+            if requires_reload:
+                try:
+                    self.manager.configure_auto_update()
+                except Exception:
+                    self.logger.exception("Failed to refresh auto update configuration")
+                self._reload_all()
             response = jsonify({"status": "ok"})
             # Clear cache headers to force browser to reload
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"

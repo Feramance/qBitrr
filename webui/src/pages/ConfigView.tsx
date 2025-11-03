@@ -307,9 +307,8 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     secure: true,
     fullWidth: true,
   },
-  { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
-  { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
-  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["Light", "Dark"] },
+  // Live Arr, Group Sonarr, and Theme are now managed dynamically via WebUIContext
+  // and should not be part of the config form to avoid dirty state issues
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -1316,8 +1315,18 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     const flattenedOriginal = flatten(originalConfig);
     const flattenedCurrent = flatten(formState);
 
+    // Keys that are managed dynamically and should not trigger dirty state
+    const liveKeys = new Set([
+      "WebUI.LiveArr",
+      "WebUI.GroupSonarr",
+      "WebUI.Theme",
+    ]);
+
     let dirty = false;
     for (const [key, value] of Object.entries(flattenedCurrent)) {
+      // Skip live WebUI settings
+      if (liveKeys.has(key)) continue;
+
       const originalValue = flattenedOriginal[key];
       const changed =
         Array.isArray(value) || Array.isArray(originalValue)
@@ -1330,6 +1339,9 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     }
     if (!dirty) {
       for (const key of Object.keys(flattenedOriginal)) {
+        // Skip live WebUI settings
+        if (liveKeys.has(key)) continue;
+
         if (!(key in flattenedCurrent)) {
           dirty = true;
           break;

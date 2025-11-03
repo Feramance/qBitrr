@@ -351,7 +351,7 @@ function AppShell(): JSX.Element {
     void refreshStatus();
     const id = window.setInterval(() => {
       void refreshStatus();
-    }, 30 * 1000); // Refresh every 30 seconds
+    }, 5 * 1000); // Refresh every 5 seconds for more dynamic tab loading
     return () => window.clearInterval(id);
   }, [refreshStatus]);
 
