@@ -2120,16 +2120,24 @@ class WebUI:
         if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
             for arr in self.manager.arr_manager.managed_objects.values():
                 try:
-                    if (
-                        hasattr(arr, "search_db_file")
-                        and arr.search_db_file
-                        and arr.search_db_file.exists()
-                    ):
-                        self.logger.info(f"Deleting database file: {arr.search_db_file}")
-                        arr.search_db_file.unlink()
-                        self.logger.success(f"Deleted database file for {arr._name}")
+                    if hasattr(arr, "search_db_file") and arr.search_db_file:
+                        # Delete main database file
+                        if arr.search_db_file.exists():
+                            self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                            arr.search_db_file.unlink()
+                            self.logger.success(f"Deleted database file for {arr._name}")
+                        # Delete WAL file (Write-Ahead Log)
+                        wal_file = arr.search_db_file.with_suffix(".db-wal")
+                        if wal_file.exists():
+                            self.logger.info(f"Deleting WAL file: {wal_file}")
+                            wal_file.unlink()
+                        # Delete SHM file (Shared Memory)
+                        shm_file = arr.search_db_file.with_suffix(".db-shm")
+                        if shm_file.exists():
+                            self.logger.info(f"Deleting SHM file: {shm_file}")
+                            shm_file.unlink()
                 except Exception as e:
-                    self.logger.warning(f"Failed to delete database file for {arr._name}: {e}")
+                    self.logger.warning(f"Failed to delete database files for {arr._name}: {e}")
 
         # Rebuild arr manager from config and spawn fresh
         from qBitrr.arss import ArrManager
