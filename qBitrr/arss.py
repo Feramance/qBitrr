@@ -3057,7 +3057,7 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
-                    if not movie["hasFile"]:
+                    if not db_entry["hasFile"]:
                         # Movie is missing a file - always mark as Missing
                         reason = "Missing"
                     elif self.quality_unmet_search and QualityUnmet:
