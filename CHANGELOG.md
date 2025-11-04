@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.3.3 (01/01/1970)
+
+---
+
+## v5.3.3 (04/11/2025)
+
+---
+
 ## v5.3.2 (04/11/2025)
 - [[patch] Fix search reason filter not working in Sonarr view](https://github.com/Feramance/qBitrr/commit/a068d9b980e16ea4b77d81b84f7a816715d8fe93) - @Feramance
 
@@ -390,22 +398,3 @@
 ## v4.10.10 (26/12/2024)
 - [[patch] Removed bad variable calls](https://github.com/Feramance/qBitrr/commit/dbec9dcecc2a8e092ca0fc3714448b0ca98b1cf9) - @Feramance
 - [Removed redundant logging](https://github.com/Feramance/qBitrr/commit/d0883c7ae03fb02e8134b394e9d5ad86ce487d2d) - @Feramance
-
----
-
-## v4.10.9 (26/12/2024)
-- [[patch] Loop fixes](https://github.com/Feramance/qBitrr/commit/f934c77661a5f6276f46e0146cc132fa0714b35b) - @Feramance
-- [Remove redundant variable](https://github.com/Feramance/qBitrr/commit/3d4a3f90e7a78aacf9b47a4c1e95cf5267110952) - @Feramance
-- [Further loop changes](https://github.com/Feramance/qBitrr/commit/434dade175b290a37cd397fa4067edd62743eb79) - @Feramance
-- [Loop timer adjustment](https://github.com/Feramance/qBitrr/commit/2aeb48b6367c7c6b450d17496f6955d1cf253ae0) - @Feramance
-- [Loop debugging](https://github.com/Feramance/qBitrr/commit/0c6f377cb99b161abaedb02d5648b2cdc2190b6c) - @Feramance
-
----
-
-## v4.10.8 (18/12/2024)
-- [[patch] Hotfix Free space config changes](https://github.com/Feramance/qBitrr/commit/072bffdca3af9b85c34c89f7f2a09fea4f530596) - @Feramance
-- [Changed log messages for clarity](https://github.com/Feramance/qBitrr/commit/631ec2dce2e710fdba7dc9a90558111817292a3e) - @Feramance
-- [Add logs for temp profile switching testing](https://github.com/Feramance/qBitrr/commit/9b137fd9eee21323f4762aa0e7ccbc234cfb09d3) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/a0c2a9622af9fdff5efed6eb8c58896b9b3dba55) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/8d62851db045e1daadf868a947b641d57f4c94f1) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/82adf8f79ed05da38057fcc49e988afedd7015b6) - @Feramance
