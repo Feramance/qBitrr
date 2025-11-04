@@ -1,6 +1,14 @@
 # Changelog
 
+## v5.4.0 (01/01/1970)
+
+---
+
 ## v5.3.3 (01/01/1970)
+
+---
+
+## v5.4.0 (04/11/2025)
 
 ---
 
@@ -386,15 +394,3 @@
 ## v4.10.12 (23/02/2025)
 - [[patch] Update arss.py](https://github.com/Feramance/qBitrr/commit/8bad377188bbdd09ddbfaf8decb1b0bc42982545) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/25f0f37dd0b872d9f3ac4685b57eb1e305d43538) - @Feramance
-
----
-
-## v4.10.11 (03/02/2025)
-- [[patch] Keep temp profile config](https://github.com/Feramance/qBitrr/commit/6742616fd4aaa5191bf481016c57c7a4e394a48d) - @Feramance
-- [New logo upload](https://github.com/Feramance/qBitrr/commit/c2076a7bdc24385d9617dc093ac8ffe5f39bee78) - @Feramance
-
----
-
-## v4.10.10 (26/12/2024)
-- [[patch] Removed bad variable calls](https://github.com/Feramance/qBitrr/commit/dbec9dcecc2a8e092ca0fc3714448b0ca98b1cf9) - @Feramance
-- [Removed redundant logging](https://github.com/Feramance/qBitrr/commit/d0883c7ae03fb02e8134b394e9d5ad86ce487d2d) - @Feramance
