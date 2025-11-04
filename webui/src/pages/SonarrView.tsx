@@ -562,10 +562,16 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
+      console.log(`[Sonarr Filter] Applying reason filter: "${reasonFilter}"`);
+      const beforeFilterCount = rows.length;
       if (reasonFilter === "Not being searched") {
         rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
+      }
+      console.log(`[Sonarr Filter] Filtered from ${beforeFilterCount} to ${rows.length} episodes for reason "${reasonFilter}"`);
+      if (rows.length < 10) {
+        console.log(`[Sonarr Filter] Sample filtered rows:`, rows.slice(0, 5).map(r => ({ series: r.series, episode: r.episode, reason: r.reason })));
       }
     }
     return rows;
@@ -1285,10 +1291,16 @@ function SonarrInstanceView({
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
+      console.log(`[Sonarr Instance Filter] Applying reason filter: "${reasonFilter}"`);
+      const beforeFilterCount = rows.length;
       if (reasonFilter === "Not being searched") {
         rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
+      }
+      console.log(`[Sonarr Instance Filter] Filtered from ${beforeFilterCount} to ${rows.length} episodes for reason "${reasonFilter}"`);
+      if (rows.length < 10) {
+        console.log(`[Sonarr Instance Filter] Sample filtered rows:`, rows.slice(0, 5).map(r => ({ series: r.series, episode: r.episode, reason: r.reason })));
       }
     }
     return rows;

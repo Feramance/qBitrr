@@ -72,6 +72,7 @@ export interface RadarrMovie {
   year?: number;
   monitored?: boolean;
   hasFile?: boolean;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
@@ -92,6 +93,7 @@ export interface SonarrEpisode {
   monitored?: boolean;
   hasFile?: boolean;
   airDateUtc?: string;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
