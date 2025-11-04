@@ -241,10 +241,6 @@ function ChangelogModal({
             )}
           </div>
           <div className="changelog-buttons">
-            <button className="btn ghost" type="button" onClick={onClose}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
             <button
               className="btn primary"
               type="button"
