@@ -22,7 +22,7 @@ from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
 )
-from qBitrr.versioning import fetch_latest_release
+from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
@@ -88,6 +88,17 @@ class WebUI:
         werkzeug_logger.handlers.clear()
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
+
+        # Add cache control for static files to support config reload
+        @self.app.after_request
+        def add_cache_headers(response):
+            # Prevent caching of index.html and service worker to ensure fresh config loads
+            if request.path in ("/static/index.html", "/ui", "/static/sw.js", "/sw.js"):
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            return response
+
         # Security token (optional) - auto-generate and persist if empty
         self.token = CONFIG.get("WebUI.Token", fallback=None)
         if not self.token:
@@ -104,7 +115,8 @@ class WebUI:
         self._version_cache = {
             "current_version": patched_version,
             "latest_version": None,
-            "changelog": "",
+            "changelog": "",  # Latest version changelog
+            "current_version_changelog": "",  # Current version changelog
             "changelog_url": f"https://github.com/{self._github_repo}/releases",
             "repository_url": f"https://github.com/{self._github_repo}",
             "homepage_url": f"https://github.com/{self._github_repo}",
@@ -120,6 +132,7 @@ class WebUI:
             "completed_at": None,
         }
         self._update_thread: threading.Thread | None = None
+        self._rebuilding_arrs = False
         self._register_routes()
         static_root = Path(__file__).with_name("static")
         if not (static_root / "index.html").exists():
@@ -144,23 +157,45 @@ class WebUI:
             "error": None,
         }
 
+    def _fetch_current_version_changelog(self) -> dict[str, Any]:
+        """Fetch changelog for the current running version."""
+        current_ver = patched_version
+        if not current_ver:
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": "No current version",
+            }
+
+        info = fetch_release_by_tag(current_ver, self._github_repo)
+        if info.get("error"):
+            self.logger.debug("Failed to fetch current version changelog: %s", info["error"])
+            # Fallback to generic releases page
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": info["error"],
+            }
+
+        return {
+            "changelog": info.get("changelog") or "",
+            "changelog_url": info.get("changelog_url")
+            or f"https://github.com/{self._github_repo}/releases/tag/v{current_ver}",
+            "error": None,
+        }
+
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
         now = datetime.utcnow()
-        fetch_required = force
         with self._version_lock:
             if not force and now < self._version_cache_expiry:
                 snapshot = dict(self._version_cache)
                 snapshot["update_state"] = dict(self._update_state)
                 return snapshot
-            if not force:
-                fetch_required = True
             # optimistic expiry to avoid concurrent fetches
             self._version_cache_expiry = now + timedelta(minutes=5)
 
-        if fetch_required:
-            latest_info = self._fetch_version_info()
-        else:
-            latest_info = {}
+        latest_info = self._fetch_version_info()
+        current_ver_info = self._fetch_current_version_changelog()
 
         with self._version_lock:
             if latest_info:
@@ -174,6 +209,12 @@ class WebUI:
                     self._version_cache["update_available"] = bool(latest_info["update_available"])
                 if "error" in latest_info:
                     self._version_cache["error"] = latest_info["error"]
+            # Store current version changelog
+            if current_ver_info and not current_ver_info.get("error"):
+                self._version_cache["current_version_changelog"] = (
+                    current_ver_info.get("changelog") or ""
+                )
+
             self._version_cache["current_version"] = patched_version
             self._version_cache["last_checked"] = now.isoformat()
             # Extend cache validity if fetch succeeded; otherwise allow quick retry.
@@ -406,6 +447,328 @@ class WebUI:
             "movies": movies,
         }
 
+    def _lidarr_albums_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+        quality_met: bool | None = None,
+        is_request: bool | None = None,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        model = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
+        if model is None or db is None:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        with db.connection_context():
+            base_query = model.select()
+
+            # Calculate counts
+            monitored_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.Monitored == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            available_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(
+                    (model.Monitored == True)  # noqa: E712
+                    & (model.AlbumFileId.is_null(False))
+                    & (model.AlbumFileId != 0)
+                )
+                .scalar()
+                or 0
+            )
+            missing_count = max(monitored_count - available_count, 0)
+            quality_met_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.QualityMet == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            request_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.IsRequest == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+
+            # Build filtered query
+            query = base_query
+            if search:
+                query = query.where(model.Title.contains(search))
+            if monitored is not None:
+                query = query.where(model.Monitored == monitored)
+            if has_file is not None:
+                if has_file:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(False)) & (model.AlbumFileId != 0)
+                    )
+                else:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(True)) | (model.AlbumFileId == 0)
+                    )
+            if quality_met is not None:
+                query = query.where(model.QualityMet == quality_met)
+            if is_request is not None:
+                query = query.where(model.IsRequest == is_request)
+
+            total = query.count()
+            query = query.order_by(model.Title).paginate(page + 1, page_size)
+            albums = []
+            for album in query:
+                # Always fetch tracks from database (Lidarr only)
+                track_model = getattr(arr, "track_file_model", None)
+                tracks_list = []
+                track_monitored_count = 0
+                track_available_count = 0
+
+                if track_model:
+                    try:
+                        # Query tracks from database for this album
+                        track_query = (
+                            track_model.select()
+                            .where(track_model.AlbumId == album.EntryId)
+                            .order_by(track_model.TrackNumber)
+                        )
+                        track_count = track_query.count()
+                        self.logger.debug(
+                            f"Album {album.EntryId} ({album.Title}): Found {track_count} tracks in database"
+                        )
+
+                        for track in track_query:
+                            is_monitored = self._safe_bool(track.Monitored)
+                            has_file = self._safe_bool(track.HasFile)
+
+                            if is_monitored:
+                                track_monitored_count += 1
+                            if has_file:
+                                track_available_count += 1
+
+                            tracks_list.append(
+                                {
+                                    "id": track.EntryId,
+                                    "trackNumber": track.TrackNumber,
+                                    "title": track.Title,
+                                    "duration": track.Duration,
+                                    "hasFile": has_file,
+                                    "trackFileId": track.TrackFileId,
+                                    "monitored": is_monitored,
+                                }
+                            )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
+                        )
+
+                track_missing_count = max(track_monitored_count - track_available_count, 0)
+
+                # Build album data in Sonarr-like structure
+                album_item = {
+                    "album": {
+                        "id": album.EntryId,
+                        "title": album.Title,
+                        "artistId": album.ArtistId,
+                        "artistName": album.ArtistTitle,
+                        "monitored": self._safe_bool(album.Monitored),
+                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                        "foreignAlbumId": album.ForeignAlbumId,
+                        "releaseDate": (
+                            album.ReleaseDate.isoformat()
+                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
+                        ),
+                        "qualityMet": self._safe_bool(album.QualityMet),
+                        "isRequest": self._safe_bool(album.IsRequest),
+                        "upgrade": self._safe_bool(album.Upgrade),
+                        "customFormatScore": album.CustomFormatScore,
+                        "minCustomFormatScore": album.MinCustomFormatScore,
+                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                        "reason": album.Reason,
+                    },
+                    "totals": {
+                        "available": track_available_count,
+                        "monitored": track_monitored_count,
+                        "missing": track_missing_count,
+                    },
+                    "tracks": tracks_list,
+                }
+
+                albums.append(album_item)
+        return {
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+                "quality_met": quality_met_count,
+                "requests": request_count,
+            },
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "albums": albums,
+        }
+
+    def _lidarr_tracks_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
+        track_model = getattr(arr, "track_file_model", None)
+        album_model = getattr(arr, "model_file", None)
+
+        if not track_model or not album_model:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
+        try:
+            # Join tracks with albums to get artist/album info
+            query = (
+                track_model.select(
+                    track_model,
+                    album_model.Title.alias("AlbumTitle"),
+                    album_model.ArtistTitle,
+                    album_model.ArtistId,
+                )
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(True)
+            )
+
+            # Apply filters
+            if monitored is not None:
+                query = query.where(track_model.Monitored == monitored)
+            if has_file is not None:
+                query = query.where(track_model.HasFile == has_file)
+            if search:
+                query = query.where(
+                    (track_model.Title.contains(search))
+                    | (album_model.Title.contains(search))
+                    | (album_model.ArtistTitle.contains(search))
+                )
+
+            # Get counts
+            available_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == True)
+                .count()
+            )
+            monitored_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.Monitored == True)
+                .count()
+            )
+            missing_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == False)
+                .count()
+            )
+
+            total = query.count()
+
+            # Apply pagination
+            query = query.order_by(
+                album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
+            ).paginate(page + 1, page_size)
+
+            tracks = []
+            for track in query:
+                tracks.append(
+                    {
+                        "id": track.EntryId,
+                        "trackNumber": track.TrackNumber,
+                        "title": track.Title,
+                        "duration": track.Duration,
+                        "hasFile": track.HasFile,
+                        "trackFileId": track.TrackFileId,
+                        "monitored": track.Monitored,
+                        "albumId": track.AlbumId,
+                        "albumTitle": track.AlbumTitle,
+                        "artistTitle": track.ArtistTitle,
+                        "artistId": track.ArtistId,
+                    }
+                )
+
+            return {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "tracks": tracks,
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching Lidarr tracks: {e}")
+            return {
+                "counts": {"available": 0, "monitored": 0, "missing": 0},
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
     def _sonarr_series_from_db(
         self,
         arr,
@@ -510,10 +873,14 @@ class WebUI:
                             episodes_model.EpisodeNumber.asc(),
                         )
                         episodes = episodes_query.iterator()
+                        episodes_list = list(episodes)
+                        self.logger.debug(
+                            f"[Sonarr Series] Series {getattr(series, 'Title', 'unknown')} (ID {getattr(series, 'EntryId', '?')}) has {len(episodes_list)} episodes (missing_only={missing_only})"
+                        )
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
                         series_available = 0
-                        for ep in episodes:
+                        for ep in episodes_list:
                             season_value = getattr(ep, "SeasonNumber", None)
                             season_key = (
                                 str(season_value) if season_value is not None else "unknown"
@@ -733,17 +1100,30 @@ class WebUI:
                         }
                     )
 
-        return {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": missing_count,
-            },
-            "total": total_series,
-            "page": resolved_page,
-            "page_size": page_size,
-            "series": payload,
-        }
+            result = {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total_series,
+                "page": resolved_page,
+                "page_size": page_size,
+                "series": payload,
+            }
+            if payload:
+                first_series = payload[0]
+                first_seasons = first_series.get("seasons", {})
+                total_episodes_in_response = sum(
+                    len(season.get("episodes", [])) for season in first_seasons.values()
+                )
+                self.logger.info(
+                    f"[Sonarr API] Returning {len(payload)} series, "
+                    f"first series '{first_series.get('series', {}).get('title', '?')}' has "
+                    f"{len(first_seasons)} seasons, {total_episodes_in_response} episodes "
+                    f"(missing_only={missing_only})"
+                )
+            return result
 
     # Routes
     def _register_routes(self):
@@ -792,7 +1172,15 @@ class WebUI:
         @app.get("/ui")
         def ui_index():
             # Serve UI without requiring a token; API remains protected
-            return redirect("/static/index.html")
+            # Add cache-busting parameter based on config reload timestamp
+            from flask import make_response
+
+            response = make_response(redirect("/static/index.html"))
+            # Prevent caching of the UI entry point
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
 
         def _processes_payload() -> dict[str, Any]:
             procs = []
@@ -1035,6 +1423,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": bool(p.is_alive()),
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -1045,6 +1434,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": False,
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -1180,7 +1570,9 @@ class WebUI:
         def _list_logs() -> list[str]:
             if not logs_root.exists():
                 return []
-            return sorted(f.name for f in logs_root.glob("*.log*"))
+            # Add "All Logs" as first option
+            log_files = sorted(f.name for f in logs_root.glob("*.log*"))
+            return ["All Logs"] + log_files if log_files else []
 
         @app.get("/api/logs")
         def api_logs():
@@ -1209,6 +1601,11 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            # Handle "All Logs" special case - serve the unified All.log file
+            if name == "All Logs":
+                name = "All.log"
+
+            # Regular single log file
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -1379,11 +1776,70 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
+        @app.get("/web/lidarr/<category>/albums")
+        def web_lidarr_albums(category: str):
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != "lidarr":
+                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = request.args.get("page_size", default=50, type=int)
+            monitored = (
+                self._safe_bool(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            has_file = (
+                self._safe_bool(request.args.get("has_file"))
+                if "has_file" in request.args
+                else None
+            )
+            quality_met = (
+                self._safe_bool(request.args.get("quality_met"))
+                if "quality_met" in request.args
+                else None
+            )
+            is_request = (
+                self._safe_bool(request.args.get("is_request"))
+                if "is_request" in request.args
+                else None
+            )
+            flat_mode = self._safe_bool(request.args.get("flat_mode", False))
+
+            if flat_mode:
+                # Flat mode: return tracks directly
+                payload = self._lidarr_tracks_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                )
+            else:
+                # Grouped mode: return albums with tracks (always)
+                payload = self._lidarr_albums_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                    quality_met=quality_met,
+                    is_request=is_request,
+                )
+            payload["category"] = category
+            return jsonify(payload)
+
         def _arr_list_payload() -> dict[str, Any]:
             items = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})
@@ -1441,7 +1897,7 @@ class WebUI:
             arrs = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     # Determine liveness based on child search/torrent processes
                     alive = False
                     for loop in ("search", "torrent"):
@@ -1585,12 +2041,26 @@ class WebUI:
 
         @app.post("/api/config")
         def api_update_config():
-            if (resp := require_token()) is not None:
-                return resp
             body = request.get_json(silent=True) or {}
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
-                return jsonify({"error": "changes must be an object"}), 400
+                return jsonify({"error": "Invalid request"}), 400
+
+            # Frontend-only WebUI settings that don't require backend reload
+            frontend_only_keys = {
+                "WebUI.LiveArr",
+                "WebUI.GroupSonarr",
+                "WebUI.GroupLidarr",
+                "WebUI.Theme",
+            }
+
+            # Check if any changes require backend reload
+            requires_reload = False
+            for key in changes.keys():
+                if key not in frontend_only_keys:
+                    requires_reload = True
+                    break
+
             # Apply changes
             for key, val in changes.items():
                 if val is None:
@@ -1604,13 +2074,23 @@ class WebUI:
                     self.token = str(val) if val is not None else ""
             # Persist
             CONFIG.save()
-            try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            # Live-reload: rebuild Arr instances and restart processes
-            self._reload_all()
-            return jsonify({"status": "ok"})
+
+            # Only reload if changes affect backend behavior
+            if requires_reload:
+                try:
+                    self.manager.configure_auto_update()
+                except Exception:
+                    self.logger.exception("Failed to refresh auto update configuration")
+                # Live-reload: rebuild Arr instances and restart processes
+                self._reload_all()
+            response = jsonify({"status": "ok"})
+            # Clear cache headers to force browser to reload
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            # Add a custom header to signal the client to reload
+            response.headers["X-Config-Reloaded"] = "true"
+            return response
 
         @app.post("/web/config")
         def web_update_config():
@@ -1618,6 +2098,22 @@ class WebUI:
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
+
+            # Frontend-only WebUI settings that don't require backend reload
+            frontend_only_keys = {
+                "WebUI.LiveArr",
+                "WebUI.GroupSonarr",
+                "WebUI.GroupLidarr",
+                "WebUI.Theme",
+            }
+
+            # Check if any changes require backend reload
+            requires_reload = False
+            for key in changes.keys():
+                if key not in frontend_only_keys:
+                    requires_reload = True
+                    break
+
             for key, val in changes.items():
                 if val is None:
                     _toml_delete(CONFIG.config, key)
@@ -1628,38 +2124,80 @@ class WebUI:
                 if key == "WebUI.Token":
                     self.token = str(val) if val is not None else ""
             CONFIG.save()
-            try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            self._reload_all()
-            return jsonify({"status": "ok"})
+
+            # Only reload if changes affect backend behavior
+            if requires_reload:
+                try:
+                    self.manager.configure_auto_update()
+                except Exception:
+                    self.logger.exception("Failed to refresh auto update configuration")
+                self._reload_all()
+            response = jsonify({"status": "ok"})
+            # Clear cache headers to force browser to reload
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            # Add a custom header to signal the client to reload
+            response.headers["X-Config-Reloaded"] = "true"
+            return response
 
     def _reload_all(self):
-        # Stop current processes
-        for p in list(self.manager.child_processes):
-            try:
-                p.kill()
-            except Exception:
-                pass
-            try:
-                p.terminate()
-            except Exception:
-                pass
-        self.manager.child_processes.clear()
-        # Rebuild arr manager from config and spawn fresh
-        from qBitrr.arss import ArrManager
-
-        self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
-        self.manager.configure_auto_update()
-        # Spawn and start new processes
-        for arr in self.manager.arr_manager.managed_objects.values():
-            _, procs = arr.spawn_child_processes()
-            for p in procs:
+        # Set rebuilding flag
+        self._rebuilding_arrs = True
+        try:
+            # Stop current processes
+            for p in list(self.manager.child_processes):
                 try:
-                    p.start()
+                    p.kill()
                 except Exception:
                     pass
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+            self.manager.child_processes.clear()
+
+            # Delete database files for all arr instances before rebuilding
+            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                for arr in self.manager.arr_manager.managed_objects.values():
+                    try:
+                        if hasattr(arr, "search_db_file") and arr.search_db_file:
+                            # Delete main database file
+                            if arr.search_db_file.exists():
+                                self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                                arr.search_db_file.unlink()
+                                self.logger.success(f"Deleted database file for {arr._name}")
+                            # Delete WAL file (Write-Ahead Log)
+                            wal_file = arr.search_db_file.with_suffix(".db-wal")
+                            if wal_file.exists():
+                                self.logger.info(f"Deleting WAL file: {wal_file}")
+                                wal_file.unlink()
+                            # Delete SHM file (Shared Memory)
+                            shm_file = arr.search_db_file.with_suffix(".db-shm")
+                            if shm_file.exists():
+                                self.logger.info(f"Deleting SHM file: {shm_file}")
+                                shm_file.unlink()
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to delete database files for {arr._name}: {e}"
+                        )
+
+            # Rebuild arr manager from config and spawn fresh
+            from qBitrr.arss import ArrManager
+
+            self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
+            self.manager.configure_auto_update()
+            # Spawn and start new processes
+            for arr in self.manager.arr_manager.managed_objects.values():
+                _, procs = arr.spawn_child_processes()
+                for p in procs:
+                    try:
+                        p.start()
+                    except Exception:
+                        pass
+        finally:
+            # Clear rebuilding flag
+            self._rebuilding_arrs = False
 
     def start(self):
         if self._thread and self._thread.is_alive():

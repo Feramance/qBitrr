@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
+import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
 import Select from "react-select";
@@ -45,7 +46,7 @@ interface ValidationError {
   message: string;
 }
 
-const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
+const SERVARR_SECTION_REGEX = /(rad|son|anim|lid)arr/i;
 
 // Helper function for react-select theme-aware styles
 const getSelectStyles = () => {
@@ -307,9 +308,6 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     secure: true,
     fullWidth: true,
   },
-  { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
-  { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
-  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["Light", "Dark"] },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -887,6 +885,7 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
 function getArrFieldSets(arrKey: string) {
   const lower = arrKey.toLowerCase();
   const isSonarr = lower.includes("sonarr");
+  const isLidarr = lower.includes("lidarr");
   const generalFields = [...ARR_GENERAL_FIELDS];
   const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
     if (!field.path) {
@@ -902,10 +901,17 @@ function getArrFieldSets(arrKey: string) {
         return false;
       }
     }
+    if (isLidarr) {
+      // Lidarr doesn't support SearchByYear (music albums don't have the same year-based search)
+      if (joined === "EntrySearch.SearchByYear") {
+        return false;
+      }
+    }
     return true;
   });
-  const entryOmbiFields = [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
-  const entryOverseerrFields = [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
+  // Ombi and Overseerr don't support music requests, so hide them for Lidarr
+  const entryOmbiFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
+  const entryOverseerrFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
   const torrentFields = [...ARR_TORRENT_FIELDS];
   const seedingFields = [...ARR_SEEDING_FIELDS];
   const trackerFields = [...ARR_TRACKER_FIELDS];
@@ -1083,16 +1089,23 @@ function ensureArrDefaults(type: string): ConfigDocument {
   const lowerType = type.toLowerCase();
   const isSonarr = lowerType.includes("sonarr");
   const isRadarr = lowerType.includes("radarr");
-  const is4k = lowerType.includes("4k");
+  const isLidarr = lowerType.includes("lidarr");
+
   const arrErrorCodes = isRadarr
     ? [
-        "Not an upgrade for existing movie file(s)",
         "Not a preferred word upgrade for existing movie file(s)",
+        "Not an upgrade for existing movie file(s)",
+        "Unable to determine if file is a sample",
+      ]
+    : isLidarr
+    ? [
+        "Not a preferred word upgrade for existing album file(s)",
+        "Not an upgrade for existing album file(s)",
         "Unable to determine if file is a sample",
       ]
     : [
-        "Not an upgrade for existing episode file(s)",
         "Not a preferred word upgrade for existing episode file(s)",
+        "Not an upgrade for existing episode file(s)",
         "Unable to determine if file is a sample",
       ];
 
@@ -1125,14 +1138,13 @@ function ensureArrDefaults(type: string): ConfigDocument {
     OmbiURI: "CHANGE_ME",
     OmbiAPIKey: "CHANGE_ME",
     ApprovedOnly: true,
-    Is4K: is4k,
   };
   entrySearch.Overseerr = {
     SearchOverseerrRequests: false,
     OverseerrURI: "CHANGE_ME",
     OverseerrAPIKey: "CHANGE_ME",
     ApprovedOnly: true,
-    Is4K: is4k,
+    Is4K: false,
   };
 
   const torrent: Record<string, unknown> = {
@@ -1153,7 +1165,9 @@ function ensureArrDefaults(type: string): ConfigDocument {
       "music video",
       "comandotorrents.com",
     ],
-    FileExtensionAllowlist: [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
+    FileExtensionAllowlist: isLidarr
+      ? [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
+      : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     AutoDelete: false,
     IgnoreTorrentsYoungerThan: 600,
     MaximumETA: 604800,
@@ -1254,7 +1268,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
-      type: "radarr" | "sonarr" | "other";
+      type: "radarr" | "sonarr" | "lidarr" | "other";
       items: Array<[string, ConfigDocument]>;
     }> = [];
     const sorted = [...arrSections].sort((a, b) =>
@@ -1262,6 +1276,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     );
     const radarr: Array<[string, ConfigDocument]> = [];
     const sonarr: Array<[string, ConfigDocument]> = [];
+    const lidarr: Array<[string, ConfigDocument]> = [];
     const others: Array<[string, ConfigDocument]> = [];
     for (const entry of sorted) {
       const [key] = entry;
@@ -1270,16 +1285,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         radarr.push(entry);
       } else if (keyLower.startsWith("sonarr")) {
         sonarr.push(entry);
+      } else if (keyLower.startsWith("lidarr")) {
+        lidarr.push(entry);
       } else {
         others.push(entry);
       }
     }
-    if (radarr.length) {
-      groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
-    }
-    if (sonarr.length) {
-      groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
-    }
+    // Always show Radarr, Sonarr, and Lidarr sections even if empty
+    groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
+    groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
+    groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
     if (others.length) {
       groups.push({ label: "Other Instances", type: "other", items: others });
     }
@@ -1299,8 +1314,19 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     const flattenedOriginal = flatten(originalConfig);
     const flattenedCurrent = flatten(formState);
 
+    // Keys that are managed dynamically and should not trigger dirty state
+    const liveKeys = new Set([
+      "WebUI.LiveArr",
+      "WebUI.GroupSonarr",
+      "WebUI.GroupLidarr",
+      "WebUI.Theme",
+    ]);
+
     let dirty = false;
     for (const [key, value] of Object.entries(flattenedCurrent)) {
+      // Skip live WebUI settings
+      if (liveKeys.has(key)) continue;
+
       const originalValue = flattenedOriginal[key];
       const changed =
         Array.isArray(value) || Array.isArray(originalValue)
@@ -1313,6 +1339,9 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     }
     if (!dirty) {
       for (const key of Object.keys(flattenedOriginal)) {
+        // Skip live WebUI settings
+        if (liveKeys.has(key)) continue;
+
         if (!(key in flattenedCurrent)) {
           dirty = true;
           break;
@@ -1372,7 +1401,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [activeArrKey, arrSections]);
 
   const addArrInstance = useCallback(
-    (type: "radarr" | "sonarr") => {
+    (type: "radarr" | "sonarr" | "lidarr") => {
       if (!formState) return;
       const prefix = type.charAt(0).toUpperCase() + type.slice(1);
       let index = 1;
@@ -1395,7 +1424,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     (key: string) => {
       if (!formState) return;
       const keyLower = key.toLowerCase();
-      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr")) {
+      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr") && !keyLower.startsWith("lidarr")) {
         return;
       }
       const confirmed = window.confirm(
@@ -1485,8 +1514,21 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setSaving(false);
         return;
       }
-      await updateConfig({ changes });
+      const response = await updateConfig({ changes });
       push("Configuration saved", "success");
+
+      // Clear browser cache and reload config
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+        } catch (error) {
+          console.warn('Failed to clear caches:', error);
+        }
+      }
+
       await loadConfig();
     } catch (error) {
       push(
@@ -1552,15 +1594,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        <span className="config-arr-group__count">
                          {group.items.length}
                        </span>
-                       {(group.type === "radarr" || group.type === "sonarr") && (
-                         <button
-                           className="btn small"
-                           type="button"
-                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
-                         >
-                           <IconImage src={AddIcon} />
-                           Add Instance
-                         </button>
+                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr") && (
+                          <button
+                            className="btn small"
+                            type="button"
+                            onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr")}
+                          >
+                            <IconImage src={AddIcon} />
+                            Add Instance
+                          </button>
                        )}
                      </summary>
                     <div className="config-arr-grid">
@@ -1568,7 +1610,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
                         const category = getValue(value as ConfigDocument, ["Category"]);
                         const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        const canDelete = group.type === "radarr" || group.type === "sonarr";
+                        const canDelete = group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr";
                         return (
                           <div className="card config-card config-arr-card" key={key}>
                             <div className="card-header">{key}</div>
@@ -1658,6 +1700,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
+          showLiveSettings={true}
         />
       ) : null}
       {isQbitOpen ? (
@@ -1845,12 +1888,26 @@ function FieldGroup({
       // Special handling for Theme field - apply immediately without save
       const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
 
+      // Normalize the formatted value for theme field (case-insensitive)
+      let displayValue = formatted;
+      if (isThemeField && typeof formatted === "string") {
+        const normalizedLower = formatted.toLowerCase();
+        if (normalizedLower === "light") {
+          displayValue = "Light";
+        } else if (normalizedLower === "dark") {
+          displayValue = "Dark";
+        } else {
+          // Default to Dark if invalid
+          displayValue = "Dark";
+        }
+      }
+
       return (
         <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
-            value={formatted ? { value: formatted, label: formatted } : null}
+            value={displayValue ? { value: displayValue, label: displayValue } : null}
             onChange={(option) => {
               const newValue = option?.value || "";
               onChange(path, field, newValue);
@@ -2127,20 +2184,24 @@ function ArrInstanceModal({
             onChange={onChange}
             defaultOpen
           />
-          <FieldGroup
-            title="Ombi Integration"
-            fields={entryOmbiFields}
-            state={state}
-            basePath={[keyName]}
-            onChange={onChange}
-          />
-          <FieldGroup
-            title="Overseerr Integration"
-            fields={entryOverseerrFields}
-            state={state}
-            basePath={[keyName]}
-            onChange={onChange}
-          />
+          {entryOmbiFields.length > 0 && (
+            <FieldGroup
+              title="Ombi Integration"
+              fields={entryOmbiFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+            />
+          )}
+          {entryOverseerrFields.length > 0 && (
+            <FieldGroup
+              title="Overseerr Integration"
+              fields={entryOverseerrFields}
+              state={state}
+              basePath={[keyName]}
+              onChange={onChange}
+            />
+          )}
           <FieldGroup
             title="Torrent Handling"
             fields={torrentFields}
@@ -2181,6 +2242,7 @@ interface SimpleConfigModalProps {
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
+  showLiveSettings?: boolean;
 }
 
 function SimpleConfigModal({
@@ -2190,7 +2252,10 @@ function SimpleConfigModal({
   basePath,
   onChange,
   onClose,
+  showLiveSettings = false,
 }: SimpleConfigModalProps): JSX.Element | null {
+  const webUI = showLiveSettings ? useWebUI() : null;
+
   if (!state) return null;
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -2217,6 +2282,57 @@ function SimpleConfigModal({
             onChange={onChange}
             defaultOpen
           />
+          {showLiveSettings && webUI && (
+            <div className="field-group">
+              <h3 className="field-group-title">Live Settings</h3>
+              <div className="field-group-content">
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.liveArr}
+                      onChange={(e) => webUI.setLiveArr(e.target.checked)}
+                    />
+                    {" "}Live Arr Updates
+                  </label>
+                  <p className="field-description">Enable real-time updates for Arr views</p>
+                </div>
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.groupSonarr}
+                      onChange={(e) => webUI.setGroupSonarr(e.target.checked)}
+                    />
+                    {" "}Group Sonarr by Series
+                  </label>
+                  <p className="field-description">Group Sonarr episodes by series in views</p>
+                </div>
+                <div className="field">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={webUI.groupLidarr}
+                      onChange={(e) => webUI.setGroupLidarr(e.target.checked)}
+                    />
+                    {" "}Group Lidarr by Artist
+                  </label>
+                  <p className="field-description">Group Lidarr albums by artist in views</p>
+                </div>
+                <div className="field">
+                  <label>Theme</label>
+                  <select
+                    value={webUI.theme}
+                    onChange={(e) => webUI.setTheme(e.target.value as "light" | "dark")}
+                  >
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
+                  <p className="field-description">WebUI theme (Light or Dark)</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>

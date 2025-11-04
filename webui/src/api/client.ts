@@ -8,12 +8,24 @@ import type {
   RadarrMoviesResponse,
   RestartResponse,
   SonarrSeriesResponse,
+  LidarrAlbumsResponse,
+  LidarrAlbum,
   StatusResponse,
 } from "./types";
 
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
 const MAX_AUTH_RETRIES = 1;
+
+// Request deduplication cache
+const inflightRequests = new Map<string, Promise<unknown>>();
+
+function createRequestKey(input: RequestInfo | URL, init?: RequestInit): string {
+  const url = input instanceof Request ? input.url : String(input);
+  const method = init?.method || "GET";
+  const body = init?.body ? String(init.body) : "";
+  return `${method}:${url}:${body}`;
+}
 
 function resolveToken(): string | null {
   for (const key of TOKEN_STORAGE_KEYS) {
@@ -81,6 +93,25 @@ async function fetchWithAuthRetry<T>(
 }
 
 async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  // Only deduplicate GET requests (safe to share)
+  const method = init?.method || "GET";
+  if (method === "GET") {
+    const key = createRequestKey(input, init);
+    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
+
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const promise = fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response))
+      .finally(() => {
+        inflightRequests.delete(key);
+      });
+
+    inflightRequests.set(key, promise);
+    return promise;
+  }
+
   return fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response));
 }
 
@@ -207,6 +238,25 @@ export async function getSonarrSeries(
   }
   return fetchJson<SonarrSeriesResponse>(
     `/web/sonarr/${encodeURIComponent(category)}/series?${params}`
+  );
+}
+
+export async function getLidarrAlbums(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string
+): Promise<LidarrAlbumsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  // Always include tracks
+  params.set("include_tracks", "true");
+  return fetchJson<LidarrAlbumsResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
   );
 }
 

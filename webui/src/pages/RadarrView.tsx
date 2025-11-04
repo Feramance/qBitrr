@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -12,6 +13,7 @@ import {
   getRadarrMovies,
   restartArr,
 } from "../api/client";
+import { StableTable } from "../components/StableTable";
 import {
   useReactTable,
   getCoreRowModel,
@@ -29,12 +31,14 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 
 interface RadarrAggRow extends RadarrMovie {
   __instance: string;
+  [key: string]: unknown;
 }
 
 type RadarrSortKey = "title" | "year" | "monitored" | "hasFile";
@@ -56,9 +60,11 @@ interface RadarrAggregateViewProps {
   sort: { key: RadarrAggSortKey; direction: "asc" | "desc" };
   onSort: (key: RadarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
+  instanceCount: number;
+  isAggFiltered?: boolean;
 }
 
-function RadarrAggregateView({
+const RadarrAggregateView = memo(function RadarrAggregateView({
   loading,
   rows,
   total,
@@ -70,14 +76,16 @@ function RadarrAggregateView({
   sort,
   onSort,
   summary,
+  instanceCount,
+  isAggFiltered = false,
 }: RadarrAggregateViewProps): JSX.Element {
   const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
     () => [
-      {
+      ...(instanceCount > 1 ? [{
         accessorKey: "__instance",
         header: "Instance",
         size: 150,
-      },
+      }] : []),
       {
         accessorKey: "title",
         header: "Title",
@@ -91,15 +99,27 @@ function RadarrAggregateView({
       {
         accessorKey: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const monitored = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
         accessorKey: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const hasFile = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
@@ -107,20 +127,14 @@ function RadarrAggregateView({
         header: "Reason",
         cell: (info) => {
           const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,
       },
     ],
-    []
+    [instanceCount]
   );
-
-  const table = useReactTable({
-    data: rows,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  });
 
   return (
     <div className="stack animate-fade-in">
@@ -137,6 +151,13 @@ function RadarrAggregateView({
           {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
           <strong>Total:</strong>{" "}
           {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {isAggFiltered && total < summary.total && (
+            <>
+              {" "}• <strong>Filtered:</strong>{" "}
+              {total.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+              {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -149,51 +170,11 @@ function RadarrAggregateView({
           <span className="spinner" /> Loading Radarr library…
         </div>
       ) : total ? (
-        <div className="table-wrapper">
-          <table className="responsive-table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th
-                      key={header.id}
-                      className={header.column.getCanSort() ? "sortable" : ""}
-                      onClick={() => {
-                        const sortKey = header.id as RadarrAggSortKey;
-                        onSort(sortKey);
-                      }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => {
-                const movie = row.original;
-                const stableKey = `${movie.__instance}-${movie.title}-${movie.year}`;
-                return (
-                  <tr key={stableKey}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <StableTable
+          data={rows}
+          columns={columns}
+          getRowKey={(movie) => `${movie.__instance}-${movie.title}-${movie.year}`}
+        />
       ) : (
         <div className="hint">No movies found.</div>
       )}
@@ -224,7 +205,7 @@ function RadarrAggregateView({
       )}
     </div>
   );
-}
+});
 
 interface RadarrInstanceViewProps {
   loading: boolean;
@@ -236,11 +217,12 @@ interface RadarrInstanceViewProps {
   onlyMissing: boolean;
   reasonFilter: string;
   onPageChange: (page: number) => void;
+  onRefresh: () => void;
   onRestart: () => void;
   lastUpdated: string | null;
 }
 
-function RadarrInstanceView({
+const RadarrInstanceView = memo(function RadarrInstanceView({
   loading,
   data,
   page,
@@ -250,6 +232,7 @@ function RadarrInstanceView({
   onlyMissing,
   reasonFilter,
   onPageChange,
+  onRefresh,
   onRestart,
   lastUpdated,
 }: RadarrInstanceViewProps): JSX.Element {
@@ -269,6 +252,10 @@ function RadarrInstanceView({
     return filteredMovies.filter((m) => m.reason === reasonFilter);
   }, [filteredMovies, reasonFilter]);
 
+  const totalMovies = useMemo(() => allMovies.length, [allMovies]);
+  const isFiltered = reasonFilter !== "all";
+  const filteredCount = reasonFilteredMovies.length;
+
   const columns = useMemo<ColumnDef<RadarrMovie>[]>(
     () => [
       {
@@ -284,15 +271,27 @@ function RadarrInstanceView({
       {
         accessorKey: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const monitored = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
         accessorKey: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const hasFile = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
@@ -300,7 +299,7 @@ function RadarrInstanceView({
         header: "Reason",
         cell: (info) => {
           const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,
@@ -326,6 +325,12 @@ function RadarrInstanceView({
               }`
             : ""}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
+          {isFiltered && totalMovies > 0 && (
+            <>
+              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
+              {totalMovies.toLocaleString()}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />
@@ -363,7 +368,7 @@ function RadarrInstanceView({
                 return (
                   <tr key={stableKey}>
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id}>
+                      <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -406,7 +411,7 @@ function RadarrInstanceView({
       )}
     </div>
   );
-}
+});
 
 export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const { push } = useToast();
@@ -419,7 +424,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const { liveArr, setLiveArr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "aggregate">("aggregate");
+  const [selection, setSelection] = useState<string | "aggregate">("");
   const [instanceData, setInstanceData] = useState<RadarrMoviesResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
   const [instanceQuery, setInstanceQuery] = useState("");
@@ -433,11 +438,23 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
 
+  // Smart data sync for instance movies
+  const instanceMovieSync = useDataSync<RadarrMovie>({
+    getKey: (movie) => `${movie.title}-${movie.year}`,
+    hashFields: ['title', 'year', 'hasFile', 'monitored', 'reason'],
+  });
+
   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+
+  // Smart data sync for aggregate movies
+  const aggMovieSync = useDataSync<RadarrAggRow>({
+    getKey: (movie) => `${movie.__instance}-${movie.title}-${movie.year}`,
+    hashFields: ['__instance', 'title', 'year', 'hasFile', 'monitored', 'reason'],
+  });
   const [aggSort, setAggSort] = useState<{
     key: RadarrAggSortKey;
     direction: "asc" | "desc";
@@ -470,7 +487,8 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         return;
       }
       if (selection === "") {
-        setSelection("aggregate");
+        // If only 1 instance, select it directly; otherwise use aggregate
+        setSelection(filtered.length === 1 ? filtered[0].category : "aggregate");
       } else if (
         selection !== "aggregate" &&
         !filtered.some((arr) => arr.category === selection)
@@ -513,9 +531,10 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           const next = { ...prev };
           let hasChanges = false;
           for (const { page, movies } of results) {
-            const existingMovies = prev[page] ?? [];
-            if (JSON.stringify(existingMovies) !== JSON.stringify(movies)) {
-              next[page] = movies;
+            // Use hash-based comparison for each page
+            const syncResult = instanceMovieSync.syncData(movies);
+            if (syncResult.hasChanges) {
+              next[page] = syncResult.data;
               hasChanges = true;
             }
           }
@@ -574,14 +593,19 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         const movies = response.movies ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
-        // Smart diffing: only update if data actually changed
-        const existingMovies = instancePagesRef.current[resolvedPage] ?? [];
-        const moviesChanged = JSON.stringify(existingMovies) !== JSON.stringify(movies);
+        // Smart diffing using hash-based change detection
+        const syncResult = instanceMovieSync.syncData(movies);
+        const moviesChanged = syncResult.hasChanges;
+
+        if (keyChanged) {
+          // Reset sync state on key change
+          instanceMovieSync.reset();
+        }
 
         if (keyChanged || moviesChanged) {
           setInstancePages((prev) => {
             const base = keyChanged ? {} : prev;
-            const next = { ...base, [resolvedPage]: movies };
+            const next = { ...base, [resolvedPage]: syncResult.data };
             instancePagesRef.current = next;
             return next;
           });
@@ -618,13 +642,16 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     [push, preloadRemainingPages]
   );
 
-  const loadAggregate = useCallback(async () => {
+  const loadAggregate = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!instances.length) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
-    setAggLoading(true);
+    const showLoading = options?.showLoading ?? true;
+    if (showLoading) {
+      setAggLoading(true);
+    }
     try {
       const aggregated: RadarrAggRow[] = [];
       let totalAvailable = 0;
@@ -657,15 +684,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
 
-      // Smart diffing: only update if data actually changed
-      setAggRows((prev) => {
-        const prevJson = JSON.stringify(prev);
-        const nextJson = JSON.stringify(aggregated);
-        if (prevJson === nextJson) {
-          return prev;
-        }
-        return aggregated;
-      });
+      // Smart diffing using hash-based change detection
+      const syncResult = aggMovieSync.syncData(aggregated);
+      const rowsChanged = syncResult.hasChanges;
+
+      if (rowsChanged) {
+        setAggRows(syncResult.data);
+      }
 
       const newSummary = {
         available: totalAvailable,
@@ -674,24 +699,27 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         total: aggregated.length,
       };
 
-      setAggSummary((prev) => {
-        if (
-          prev.available === newSummary.available &&
-          prev.monitored === newSummary.monitored &&
-          prev.missing === newSummary.missing &&
-          prev.total === newSummary.total
-        ) {
-          return prev;
-        }
-        return newSummary;
-      });
+      const summaryChanged = (
+        aggSummary.available !== newSummary.available ||
+        aggSummary.monitored !== newSummary.monitored ||
+        aggSummary.missing !== newSummary.missing ||
+        aggSummary.total !== newSummary.total
+      );
+
+      if (summaryChanged) {
+        setAggSummary(newSummary);
+      }
 
       // Only reset page if filter changed, not on refresh
       if (aggFilter !== globalSearch) {
         setAggPage(0);
         setAggFilter(globalSearch);
       }
-      setAggUpdated(new Date().toLocaleTimeString());
+
+      // Only update timestamp if data actually changed
+      if (rowsChanged || summaryChanged) {
+        setAggUpdated(new Date().toLocaleTimeString());
+      }
     } catch (error) {
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
@@ -704,7 +732,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push]);
+  }, [instances, globalSearch, push, aggFilter]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 
@@ -735,7 +763,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
 
   useInterval(() => {
     if (selection === "aggregate" && liveArr) {
-      void loadAggregate();
+      void loadAggregate({ showLoading: false });
     }
   }, selection === "aggregate" && liveArr ? 10000 : null);
 
@@ -810,6 +838,8 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
+  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
     const getValue = (row: RadarrAggRow, key: RadarrAggSortKey) => {
@@ -848,9 +878,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     1,
     Math.ceil(sortedAggRows.length / RADARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = sortedAggRows.slice(
-    aggPage * RADARR_AGG_PAGE_SIZE,
-    aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
+  const aggPageRows = useMemo(
+    () => sortedAggRows.slice(
+      aggPage * RADARR_AGG_PAGE_SIZE,
+      aggPage * RADARR_AGG_PAGE_SIZE + RADARR_AGG_PAGE_SIZE
+    ),
+    [sortedAggRows, aggPage]
   );
 
   const allInstanceMovies = useMemo(() => {
@@ -879,6 +912,30 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     }
   }, [selection, push]);
 
+  const handleAggRefresh = useCallback(() => {
+    void loadAggregate({ showLoading: true });
+  }, [loadAggregate]);
+
+  const handleAggSort = useCallback((key: RadarrAggSortKey) => {
+    setAggSort((prev) =>
+      prev.key === key
+        ? {
+            key,
+            direction: prev.direction === "asc" ? "desc" : "asc",
+          }
+        : { key, direction: "asc" }
+    );
+  }, []);
+
+  const handleInstanceRefresh = useCallback(() => {
+    if (selection && selection !== "aggregate") {
+      void fetchInstance(selection, instancePage, instanceQuery, {
+        preloadAll: false,
+        showLoading: true,
+      });
+    }
+  }, [selection, instancePage, instanceQuery, fetchInstance]);
+
   const handleInstanceSelection = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
       const next = (event.target.value || "aggregate") as string | "aggregate";
@@ -898,12 +955,14 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       <div className="card-body">
         <div className="split">
           <aside className="pane sidebar">
-            <button
-              className={`btn ${isAggregate ? "active" : ""}`}
-              onClick={() => setSelection("aggregate")}
-            >
-              All Radarr
-            </button>
+            {instances.length > 1 && (
+              <button
+                className={`btn ${isAggregate ? "active" : ""}`}
+                onClick={() => setSelection("aggregate")}
+              >
+                All Radarr
+              </button>
+            )}
             {instances.map((inst) => (
               <button
                 key={inst.category}
@@ -927,7 +986,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 onChange={handleInstanceSelection}
                 disabled={!instances.length}
               >
-                <option value="aggregate">All Radarr</option>
+                {instances.length > 1 && <option value="aggregate">All Radarr</option>}
                 {instances.map((inst) => (
                   <option key={inst.category} value={inst.category}>
                     {inst.name || inst.category}
@@ -969,7 +1028,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                   <option value="Quality">Quality</option>
                   <option value="CustomFormat">Custom Format</option>
                   <option value="Upgrade">Upgrade</option>
-                  <option value="Scheduled search">Scheduled Search</option>
                 </select>
               </div>
             </div>
@@ -982,21 +1040,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
-                onRefresh={() => void loadAggregate()}
+                onRefresh={handleAggRefresh}
                 lastUpdated={aggUpdated}
                 sort={aggSort}
-                onSort={(key) =>
-                  setAggSort((prev) =>
-                    prev.key === key
-                      ? {
-                          key,
-                          direction:
-                            prev.direction === "asc" ? "desc" : "asc",
-                        }
-                      : { key, direction: "asc" }
-                  )
-                }
+                onSort={handleAggSort}
                 summary={aggSummary}
+                instanceCount={instances.length}
+                isAggFiltered={isAggFiltered}
               />
             ) : (
               <RadarrInstanceView
@@ -1014,6 +1064,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                     preloadAll: true,
                   });
                 }}
+                onRefresh={handleInstanceRefresh}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
               />

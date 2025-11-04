@@ -7,8 +7,8 @@ import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
-import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
-import type { MetaResponse } from "./api/types";
+import { getMeta, getStatus, triggerUpdate } from "./api/client";
+import type { MetaResponse, StatusResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
@@ -18,9 +18,10 @@ import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
+import LidarrIcon from "./icons/lidarr.svg";
 import ConfigIcon from "./icons/gear.svg";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "config";
 
 interface NavTab {
   id: Tab;
@@ -37,6 +38,79 @@ function formatVersionLabel(value: string | null | undefined): string {
     return "unknown";
   }
   return trimmed[0] === "v" || trimmed[0] === "V" ? trimmed : `v${trimmed}`;
+}
+
+interface WelcomeModalProps {
+  currentVersion: string;
+  changelog: string | null;
+  changelogUrl: string | null;
+  repositoryUrl: string;
+  onClose: () => void;
+}
+
+function WelcomeModal({
+  currentVersion,
+  changelog,
+  changelogUrl,
+  repositoryUrl,
+  onClose,
+}: WelcomeModalProps): JSX.Element {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="welcome-title">
+            🎉 Welcome to qBitrr {formatVersionLabel(currentVersion)}!
+          </h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body changelog-modal__body">
+          <div className="changelog-meta">
+            <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              You've been updated to version <strong>{formatVersionLabel(currentVersion)}</strong>.
+              Here's what's new in this release:
+            </p>
+          </div>
+          <div className="changelog-section">
+            <h3>Release Notes</h3>
+            <pre className="changelog-body">
+              {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
+            </pre>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <div className="changelog-links">
+            {(changelogUrl || repositoryUrl) && (
+              <a
+                className="btn ghost small"
+                href={changelogUrl ?? repositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IconImage src={ExternalIcon} />
+                View Full Release on GitHub
+              </a>
+            )}
+          </div>
+          <div className="changelog-buttons">
+            <button className="btn primary" type="button" onClick={onClose}>
+              <IconImage src={CloseIcon} />
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface ChangelogModalProps {
@@ -71,16 +145,16 @@ function ChangelogModal({
   // Start countdown when update completes successfully
   useEffect(() => {
     if (updateState?.last_result === "success" && updateState?.completed_at) {
-      setCountdown(10);
+      let countdown = 10;
+      setCountdown(countdown);
       const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timer);
-            window.location.reload();
-            return null;
-          }
-          return prev - 1;
-        });
+        countdown -= 1;
+        if (countdown <= 0) {
+          clearInterval(timer);
+          window.location.reload();
+        } else {
+          setCountdown(countdown);
+        }
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -192,7 +266,7 @@ function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
   const [configDirty, setConfigDirty] = useState(false);
   const { push } = useToast();
-  const { value: searchValue, setValue: setSearchValue } = useSearch();
+  const { setValue: setSearchValue } = useSearch();
   const { viewDensity, setViewDensity } = useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -206,6 +280,8 @@ function AppShell(): JSX.Element {
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [statusData, setStatusData] = useState<StatusResponse | null>(null);
+  const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
   // Theme is now managed by WebUIContext and applied automatically
 
@@ -256,6 +332,30 @@ function AppShell(): JSX.Element {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
 
+  // Check for new version on first launch - show welcome popup with changelog
+  useEffect(() => {
+    if (!meta?.current_version) {
+      return;
+    }
+
+    const lastSeenVersion = localStorage.getItem("lastSeenVersion");
+    const currentVersion = meta.current_version;
+
+    // Show welcome popup if this is a new version (but not on very first install)
+    if (lastSeenVersion && lastSeenVersion !== currentVersion) {
+      // Ensure we have changelog data before showing popup
+      if (!meta.current_version_changelog && !meta.changelog) {
+        void refreshMeta({ force: true, silent: true });
+      }
+      setShowWelcomeChangelog(true);
+    }
+
+    // Store current version as last seen when user opens the app (first install)
+    if (!lastSeenVersion) {
+      localStorage.setItem("lastSeenVersion", currentVersion);
+    }
+  }, [meta?.current_version, meta?.changelog, refreshMeta]);
+
   // Network status notifications
   useEffect(() => {
     if (!isOnline) {
@@ -297,11 +397,11 @@ function AppShell(): JSX.Element {
         return;
       }
 
-      // Number keys 1-5 for tab switching
-      if (event.key >= '1' && event.key <= '5' && !isMod) {
+      // Number keys 1-6 for tab switching
+      if (event.key >= '1' && event.key <= '6' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'config'];
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'config'];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -326,6 +426,7 @@ function AppShell(): JSX.Element {
         // Force reload all data by incrementing the reload key
         setReloadKey((prev) => prev + 1);
         void refreshMeta({ force: true });
+        void refreshStatus();
       }
     };
 
@@ -334,6 +435,23 @@ function AppShell(): JSX.Element {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshMeta]);
+
+  const refreshStatus = useCallback(async () => {
+    try {
+      const status = await getStatus();
+      setStatusData(status);
+    } catch {
+      // Silently fail - status is not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+    const id = window.setInterval(() => {
+      void refreshStatus();
+    }, 5 * 1000); // Refresh every 5 seconds for more dynamic tab loading
+    return () => window.clearInterval(id);
+  }, [refreshStatus]);
 
   useEffect(() => {
     if (!meta?.update_state?.in_progress && !backendRestarting) {
@@ -408,6 +526,7 @@ function AppShell(): JSX.Element {
         if (cancelled) {
           return;
         }
+        setStatusData(status);
         const readyHint =
           status.ready ?? (Array.isArray(status.arrs) && status.arrs.length > 0);
         if (readyHint) {
@@ -449,16 +568,35 @@ function AppShell(): JSX.Element {
     };
   }, [push]);
 
-  const tabs = useMemo<NavTab[]>(
-    () => [
+  const tabs = useMemo<NavTab[]>(() => {
+    const baseTabs: NavTab[] = [
       { id: "processes", label: "Processes", icon: ProcessesIcon },
       { id: "logs", label: "Logs", icon: LogsIcon },
-      { id: "radarr", label: "Radarr", icon: RadarrIcon },
-      { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
+    ];
+
+    const arrTabs: NavTab[] = [];
+    const arrs = statusData?.arrs ?? [];
+
+    const hasRadarr = arrs.some((arr) => arr.type === "radarr");
+    const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
+    const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
+
+    if (hasRadarr) {
+      arrTabs.push({ id: "radarr", label: "Radarr", icon: RadarrIcon });
+    }
+    if (hasSonarr) {
+      arrTabs.push({ id: "sonarr", label: "Sonarr", icon: SonarrIcon });
+    }
+    if (hasLidarr) {
+      arrTabs.push({ id: "lidarr", label: "Lidarr", icon: LidarrIcon });
+    }
+
+    return [
+      ...baseTabs,
+      ...arrTabs,
       { id: "config", label: "Config", icon: ConfigIcon },
-    ],
-    []
-  );
+    ];
+  }, [statusData]);
 
   const repositoryUrl = meta?.repository_url ?? "https://github.com/Feramance/qBitrr";
   const displayVersion = meta?.current_version
@@ -478,6 +616,14 @@ function AppShell(): JSX.Element {
   }
   const versionTitle = versionTitleParts.length ? versionTitleParts.join(" • ") : undefined;
 
+  // Redirect to processes if active tab is no longer available
+  useEffect(() => {
+    const tabExists = tabs.some((tab) => tab.id === activeTab);
+    if (!tabExists && tabs.length > 0) {
+      setActiveTab("processes");
+    }
+  }, [tabs, activeTab]);
+
   const handleCheckUpdates = useCallback(() => {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
@@ -492,6 +638,14 @@ function AppShell(): JSX.Element {
   const handleCloseChangelog = useCallback(() => {
     setShowChangelog(false);
   }, []);
+
+  const handleCloseWelcomeChangelog = useCallback(() => {
+    setShowWelcomeChangelog(false);
+    // Mark this version as seen
+    if (meta?.current_version) {
+      localStorage.setItem("lastSeenVersion", meta.current_version);
+    }
+  }, [meta?.current_version]);
 
   const handleTriggerUpdate = useCallback(async () => {
     setUpdateBusy(true);
@@ -610,6 +764,7 @@ function AppShell(): JSX.Element {
           {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
           {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
           {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+          {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
           {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
         </Suspense>
       </main>
@@ -624,6 +779,15 @@ function AppShell(): JSX.Element {
           updating={updateBusy}
           onClose={handleCloseChangelog}
           onUpdate={handleTriggerUpdate}
+        />
+      ) : null}
+      {showWelcomeChangelog && meta ? (
+        <WelcomeModal
+          currentVersion={meta.current_version}
+          changelog={meta.current_version_changelog || meta.changelog}
+          changelogUrl={changelogUrl}
+          repositoryUrl={repositoryUrl}
+          onClose={handleCloseWelcomeChangelog}
         />
       ) : null}
     </div>

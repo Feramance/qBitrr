@@ -68,3 +68,36 @@ def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -
         "update_available": update_available,
         "error": None,
     }
+
+
+def fetch_release_by_tag(
+    tag: str, repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10
+) -> dict[str, Any]:
+    """Fetch a specific release by tag name."""
+    # Ensure tag starts with 'v'
+    if not tag.startswith(("v", "V")):
+        tag = f"v{tag}"
+
+    url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+    headers = {"Accept": "application/vnd.github+json"}
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        message = str(exc)
+        if len(message) > 200:
+            message = f"{message[:197]}..."
+        return {
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases/tag/{tag}",
+            "error": message,
+        }
+
+    changelog = payload.get("body") or ""
+    changelog_url = payload.get("html_url") or f"https://github.com/{repo}/releases/tag/{tag}"
+    return {
+        "changelog": changelog,
+        "changelog_url": changelog_url,
+        "error": None,
+    }

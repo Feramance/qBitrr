@@ -51,9 +51,15 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "WebUI theme (light or dark)",
+        "Group Lidarr albums by artist in views",
+        "GroupLidarr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI theme (Light or Dark)",
         "Theme",
-        "dark",
+        "Dark",
     )
     config.add("WebUI", web_settings)
 
@@ -239,7 +245,7 @@ def _add_qbit_section(config: TOMLDocument):
 
 
 def _add_category_sections(config: TOMLDocument):
-    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K"]:
+    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K", "Lidarr-Music"]:
         _gen_default_cat(c, config)
 
 
@@ -303,6 +309,14 @@ def _gen_default_cat(category: str, config: TOMLDocument):
             [
                 "Not a preferred word upgrade for existing episode file(s)",
                 "Not an upgrade for existing episode file(s)",
+                "Unable to determine if file is a sample",
+            ]
+        )
+    elif "lidarr" in category.lower():
+        messages.extend(
+            [
+                "Not a preferred word upgrade for existing track file(s)",
+                "Not an upgrade for existing track file(s)",
                 "Unable to determine if file is a sample",
             ]
         )
@@ -640,12 +654,14 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "SearchLimit",
             5,
         )
-    _gen_default_line(
-        search_table,
-        "It will order searches by the year the EPISODE was first aired",
-        "SearchByYear",
-        True,
-    )
+    # SearchByYear doesn't apply to Lidarr (music albums)
+    if "lidarr" not in category.lower():
+        _gen_default_line(
+            search_table,
+            "It will order searches by the year the EPISODE was first aired",
+            "SearchByYear",
+            True,
+        )
     _gen_default_line(
         search_table,
         "Reverse search order (Start searching oldest to newest)",
@@ -719,8 +735,10 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "PrioritizeTodaysReleases",
             True,
         )
-    _gen_default_ombi_table(category, search_table)
-    _gen_default_overseerr_table(category, search_table)
+    # Ombi and Overseerr don't support music requests
+    if "lidarr" not in category.lower():
+        _gen_default_ombi_table(category, search_table)
+        _gen_default_overseerr_table(category, search_table)
     cat_default.add("EntrySearch", search_table)
 
 
@@ -881,6 +899,22 @@ def _migrate_webui_config(config: MyConfig) -> bool:
     return migrated
 
 
+def _normalize_theme_value(value: Any) -> str:
+    """
+    Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
+    """
+    if value is None:
+        return "Dark"
+    value_str = str(value).strip().lower()
+    if value_str == "light":
+        return "Light"
+    elif value_str == "dark":
+        return "Dark"
+    else:
+        # Default to Dark if invalid value
+        return "Dark"
+
+
 def _validate_and_fill_config(config: MyConfig) -> bool:
     """
     Validate configuration and fill in missing values with defaults.
@@ -944,11 +978,22 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Token", ""),
         ("LiveArr", True),
         ("GroupSonarr", True),
-        ("Theme", "dark"),
+        ("GroupLidarr", True),
+        ("Theme", "Dark"),
     ]
 
     for key, default in webui_defaults:
         if ensure_value("WebUI", key, default):
+            changed = True
+
+    # Normalize Theme value to always be capitalized (Light or Dark)
+    ensure_section("WebUI")
+    webui_section = config.config["WebUI"]
+    if "Theme" in webui_section:
+        current_theme = webui_section["Theme"]
+        normalized_theme = _normalize_theme_value(current_theme)
+        if current_theme != normalized_theme:
+            webui_section["Theme"] = normalized_theme
             changed = True
 
     # Validate qBit section

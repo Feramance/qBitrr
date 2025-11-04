@@ -79,6 +79,9 @@ LiveArr = true
 # Group Sonarr episodes by series in views
 GroupSonarr = true
 
+# Group Lidarr albums by artist in views
+GroupLidarr = true
+
 # WebUI theme (light or dark)
 Theme = "dark"
 
@@ -953,3 +956,167 @@ AddTrackerIfMissing = false
 RemoveIfExists = false
 SuperSeedMode = false
 AddTags = ["4K"]
+
+
+[Lidarr-Music]
+# Toggle whether to manage the Servarr instance torrents.
+Managed = true
+
+# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+URI = "CHANGE_ME"
+
+# The Servarr API Key, Can be found it Settings > General > Security
+APIKey = "CHANGE_ME"
+
+# Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
+Category = "lidarr-music"
+
+# Toggle whether to send a query to Servarr to search any failed torrents
+ReSearch = true
+
+# The Servarr's Import Mode(one of Move, Copy or Auto)
+importMode = "Auto"
+
+# Timer to call RSSSync (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
+RssSyncTimer = 5
+
+# Timer to call RefreshDownloads to update the queue. (In minutes) - Set to 0 to disable (Values below 5 can cause errors for maximum retires)
+RefreshDownloadsTimer = 5
+
+# Error messages shown my the Arr instance which should be considered failures.
+# This entry should be a list, leave it empty if you want to disable this error handling.
+# If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
+ArrErrorCodesToBlocklist = ["Not an upgrade for existing album file(s)", "Not a preferred word upgrade for existing album file(s)", "Unable to determine if file is a sample"]
+
+
+[Lidarr-Music.EntrySearch]
+# All these settings depends on SearchMissing being True
+
+# Should search for Missing files?
+SearchMissing = true
+
+# Should search for unmonitored albums?
+Unmonitored = false
+
+# Lidarr has a default of 3 simultaneous tasks, which can be increased up to 10 tasks
+# If you set the environment variable of "THREAD_LIMIT" to a number between and including 2-10
+# Lidarr devs have stated that this is an unsupported feature so you will not get any support for doing so from them.
+SearchLimit = 5
+
+# Reverse search order (Start searching oldest to newest)
+SearchInReverse = false
+
+# Delay between request searches in seconds
+SearchRequestsEvery = 300
+
+# Search albums which already have a file in hopes of finding a better quality version.
+DoUpgradeSearch = false
+
+# Do a quality unmet search for existing entries.
+QualityUnmetSearch = false
+
+# Do a minimum custom format score unmet search for existing entries.
+CustomFormatUnmetSearch = false
+
+# Automatically remove torrents that do not mee the minimum custom format score.
+ForceMinimumCustomFormat = false
+
+# Once you have search all files on your specified year range restart the loop and search again.
+SearchAgainOnSearchCompletion = true
+
+# Use Temp profile for missing
+UseTempForMissing = false
+
+# Don't change back to main profile
+KeepTempProfile = false
+
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
+
+
+[Lidarr-Music.Torrent]
+# Set it to regex matches to respect/ignore case.
+CaseSensitiveMatches = false
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
+
+# These regex values will match any folder where the full name matches the specified values here, comma separated strings.
+# These regex need to be escaped, that's why you see so many backslashes.
+FileNameExclusionRegex = ["\\bsample\\b", "brarbg.com\\b", "\\btrailer\\b", "comandotorrents.com"]
+
+# Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions
+FileExtensionAllowlist = [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
+
+# Auto delete files that can't be playable (i.e .exe, .png)
+AutoDelete = false
+
+# Ignore Torrents which are younger than this value (in seconds: 600 = 10 Minutes)
+IgnoreTorrentsYoungerThan = 600
+
+# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour)
+# Note that if you set the MaximumETA on a tracker basis that value is favoured over this value
+MaximumETA = 604800
+
+# Do not delete torrents with higher completion percentage than this setting (0.5 = 50%, 1.0 = 100%)
+MaximumDeletablePercentage = 0.99
+
+# Ignore slow torrents.
+DoNotRemoveSlow = true
+
+# Maximum allowed time for allowed stalled torrents in minutes (-1 = Disabled, 0 = Infinite)
+StalledDelay = 15
+
+# Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
+ReSearchStalled = false
+
+
+[Lidarr-Music.Torrent.SeedingMode]
+# Set the maximum allowed download rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the DownloadRateLimit on a tracker basis that value is favoured over this value
+DownloadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload rate for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the UploadRateLimit on a tracker basis that value is favoured over this value
+UploadRateLimitPerTorrent = -1
+
+# Set the maximum allowed upload ratio for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxUploadRatio on a tracker basis that value is favoured over this value
+MaxUploadRatio = -1
+
+# Set the maximum seeding time in seconds for torrents
+# Set this value to -1 to disabled it
+# Note that if you set the MaxSeedingTime on a tracker basis that value is favoured over this value
+MaxSeedingTime = -1
+
+# Remove torrent condition (-1=Do not remove, 1=Remove on MaxUploadRatio, 2=Remove on MaxSeedingTime, 3=Remove on MaxUploadRatio or MaxSeedingTime, 4=Remove on MaxUploadRatio and MaxSeedingTime)
+RemoveTorrent = -1
+
+# Enable if you want to remove dead trackers
+RemoveDeadTrackers = false
+
+# If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
+RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
+
+# You can have multiple trackers set here or none just add more subsections.
+
+[[Lidarr-Music.Torrent.Trackers]]
+Name = "RED"
+Priority = 10
+URI = "https://flacsfor.me/announce"
+MaximumETA = 18000
+DownloadRateLimit = -1
+UploadRateLimit = -1
+MaxUploadRatio = -1
+MaxSeedingTime = -1
+AddTrackerIfMissing = false
+RemoveIfExists = false
+SuperSeedMode = false
+AddTags = ["qBitrr-music"]
