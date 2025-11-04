@@ -68,6 +68,7 @@ interface LidarrAggregateViewProps {
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
   groupLidarr: boolean;
+  isAggFiltered?: boolean;
 }
 
 function LidarrAggregateView({
@@ -81,6 +82,7 @@ function LidarrAggregateView({
   summary,
   instanceCount,
   groupLidarr,
+  isAggFiltered = false,
 }: LidarrAggregateViewProps): JSX.Element {
   const prevRowsRef = useRef<LidarrAggRow[]>([]);
   const groupedDataCache = useRef<Array<{
@@ -272,6 +274,13 @@ function LidarrAggregateView({
           {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
           <strong>Total:</strong>{" "}
           {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {isAggFiltered && (groupLidarr ? rows.length : trackRows.length) < summary.total && (
+            <>
+              {" "}• <strong>Filtered:</strong>{" "}
+              {(groupLidarr ? rows.length : trackRows.length).toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+              {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -508,6 +517,10 @@ function LidarrInstanceView({
     });
   }, [filteredAlbums, reasonFilter]);
 
+  const totalAlbums = useMemo(() => allAlbums.length, [allAlbums]);
+  const isFiltered = reasonFilter !== "all";
+  const filteredCount = reasonFilteredAlbums.length;
+
   const prevFilteredAlbumsRef = useRef<LidarrAlbumEntry[]>([]);
   const groupedAlbumsCache = useRef<Array<{
     artist: string;
@@ -631,6 +644,12 @@ function LidarrInstanceView({
               }`
             : ""}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
+          {isFiltered && totalAlbums > 0 && (
+            <>
+              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
+              {totalAlbums.toLocaleString()}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />
@@ -1314,6 +1333,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
+  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+
 
 
   const allInstanceAlbums = useMemo(() => {
@@ -1451,6 +1472,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 summary={aggSummary}
                 instanceCount={instances.length}
                 groupLidarr={groupLidarr}
+                isAggFiltered={isAggFiltered}
               />
             ) : (
               <LidarrInstanceView

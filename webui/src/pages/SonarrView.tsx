@@ -557,6 +557,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     return rows;
   }, [aggRows, aggFilter, reasonFilter]);
 
+  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+
   const sortedAggRows = filteredAggRows;
 
   const aggPages = Math.max(
@@ -705,6 +707,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 groupSonarr={groupSonarr}
                 summary={aggSummary}
                 instanceCount={instances.length}
+                isAggFiltered={isAggFiltered}
               />
             ) : (
               <SonarrInstanceView
@@ -748,6 +751,7 @@ interface SonarrAggregateViewProps {
   groupSonarr: boolean;
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
+  isAggFiltered?: boolean;
 }
 
 function SonarrAggregateView({
@@ -762,6 +766,7 @@ function SonarrAggregateView({
   groupSonarr,
   summary,
   instanceCount,
+  isAggFiltered = false,
 }: SonarrAggregateViewProps): JSX.Element {
   const prevRowsRef = useRef<SonarrAggRow[]>([]);
   const groupedDataCache = useRef<Array<{
@@ -1029,6 +1034,13 @@ function SonarrAggregateView({
           {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
           <strong>Total Episodes:</strong>{" "}
           {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {isAggFiltered && rows.length < summary.total && (
+            <>
+              {" "}• <strong>Filtered:</strong>{" "}
+              {rows.length.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+              {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -1200,7 +1212,8 @@ function SonarrInstanceView({
   page,
   pageSize,
   totalPages,
-
+  totalItems,
+  onlyMissing,
   onPageChange,
   groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {

@@ -61,6 +61,7 @@ interface RadarrAggregateViewProps {
   onSort: (key: RadarrAggSortKey) => void;
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
+  isAggFiltered?: boolean;
 }
 
 const RadarrAggregateView = memo(function RadarrAggregateView({
@@ -76,6 +77,7 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
   onSort,
   summary,
   instanceCount,
+  isAggFiltered = false,
 }: RadarrAggregateViewProps): JSX.Element {
   const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
     () => [
@@ -149,6 +151,13 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
           {summary.missing.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
           <strong>Total:</strong>{" "}
           {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          {isAggFiltered && total < summary.total && (
+            <>
+              {" "}• <strong>Filtered:</strong>{" "}
+              {total.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+              {summary.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -243,6 +252,10 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
     return filteredMovies.filter((m) => m.reason === reasonFilter);
   }, [filteredMovies, reasonFilter]);
 
+  const totalMovies = useMemo(() => allMovies.length, [allMovies]);
+  const isFiltered = reasonFilter !== "all";
+  const filteredCount = reasonFilteredMovies.length;
+
   const columns = useMemo<ColumnDef<RadarrMovie>[]>(
     () => [
       {
@@ -312,6 +325,12 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
               }`
             : ""}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
+          {isFiltered && totalMovies > 0 && (
+            <>
+              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
+              {totalMovies.toLocaleString()}
+            </>
+          )}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />
@@ -819,6 +838,8 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
+  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];
     const getValue = (row: RadarrAggRow, key: RadarrAggSortKey) => {
@@ -1026,6 +1047,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 onSort={handleAggSort}
                 summary={aggSummary}
                 instanceCount={instances.length}
+                isAggFiltered={isAggFiltered}
               />
             ) : (
               <RadarrInstanceView
