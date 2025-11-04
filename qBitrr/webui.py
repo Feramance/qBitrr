@@ -15,7 +15,7 @@ from flask import Flask, jsonify, redirect, request, send_file
 from peewee import fn
 
 from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
-from qBitrr.bundled_data import patched_version
+from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.search_activity_store import (
@@ -159,7 +159,7 @@ class WebUI:
 
     def _fetch_current_version_changelog(self) -> dict[str, Any]:
         """Fetch changelog for the current running version."""
-        current_ver = patched_version
+        current_ver = tagged_version
         if not current_ver:
             return {
                 "changelog": "",
