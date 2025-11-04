@@ -508,7 +508,7 @@ function LidarrInstanceView({
     if (reasonFilter === "Not being searched") {
       return filteredAlbums.filter((entry) => {
         const albumData = entry.album as Record<string, unknown>;
-        return albumData?.["reason"] === "Not being searched";
+        return albumData?.["reason"] === "Not being searched" || !albumData?.["reason"];
       });
     }
     return filteredAlbums.filter((entry) => {
@@ -1321,7 +1321,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       if (reasonFilter === "Not being searched") {
         rows = rows.filter((row) => {
           const albumData = row.album as Record<string, unknown>;
-          return albumData?.["reason"] === "Not being searched";
+          return albumData?.["reason"] === "Not being searched" || !albumData?.["reason"];
         });
       } else {
         rows = rows.filter((row) => {
@@ -1353,7 +1353,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     }
     if (reasonFilter !== "all") {
       if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched");
+        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }

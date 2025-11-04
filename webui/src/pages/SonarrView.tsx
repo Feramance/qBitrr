@@ -553,7 +553,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     }
     if (reasonFilter !== "all") {
       if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched");
+        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }
@@ -1267,7 +1267,7 @@ function SonarrInstanceView({
     }
     if (reasonFilter !== "all") {
       if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched");
+        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }

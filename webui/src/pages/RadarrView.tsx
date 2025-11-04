@@ -247,7 +247,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   const reasonFilteredMovies = useMemo(() => {
     if (reasonFilter === "all") return filteredMovies;
     if (reasonFilter === "Not being searched") {
-      return filteredMovies.filter((m) => m.reason === "Not being searched");
+      return filteredMovies.filter((m) => m.reason === "Not being searched" || !m.reason);
     }
     return filteredMovies.filter((m) => m.reason === reasonFilter);
   }, [filteredMovies, reasonFilter]);
@@ -830,7 +830,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     }
     if (reasonFilter !== "all") {
       if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched");
+        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }
