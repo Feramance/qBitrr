@@ -505,10 +505,10 @@ function LidarrInstanceView({
 
   const reasonFilteredAlbums = useMemo(() => {
     if (reasonFilter === "all") return filteredAlbums;
-    if (reasonFilter === "none") {
+    if (reasonFilter === "Not being searched") {
       return filteredAlbums.filter((entry) => {
         const albumData = entry.album as Record<string, unknown>;
-        return !albumData?.["reason"];
+        return albumData?.["reason"] === "Not being searched" || !albumData?.["reason"];
       });
     }
     return filteredAlbums.filter((entry) => {
@@ -1318,10 +1318,10 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       });
     }
     if (reasonFilter !== "all") {
-      if (reasonFilter === "none") {
+      if (reasonFilter === "Not being searched") {
         rows = rows.filter((row) => {
           const albumData = row.album as Record<string, unknown>;
-          return !albumData?.["reason"];
+          return albumData?.["reason"] === "Not being searched" || !albumData?.["reason"];
         });
       } else {
         rows = rows.filter((row) => {
@@ -1352,8 +1352,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
-      if (reasonFilter === "none") {
-        rows = rows.filter((row) => !row.reason);
+      if (reasonFilter === "Not being searched") {
+        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }
@@ -1474,7 +1474,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                   value={reasonFilter}
                 >
                   <option value="all">All Reasons</option>
-                  <option value="none">Not Being Searched</option>
+                  <option value="Not being searched">Not Being Searched</option>
                   <option value="Missing">Missing</option>
                   <option value="Quality">Quality</option>
                   <option value="CustomFormat">Custom Format</option>

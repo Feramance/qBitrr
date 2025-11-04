@@ -72,6 +72,7 @@ export interface RadarrMovie {
   year?: number;
   monitored?: boolean;
   hasFile?: boolean;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
@@ -92,6 +93,7 @@ export interface SonarrEpisode {
   monitored?: boolean;
   hasFile?: boolean;
   airDateUtc?: string;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
@@ -218,4 +220,11 @@ export interface MetaResponse {
   last_checked: string | null;
   error?: string | null;
   update_state: UpdateState;
+}
+
+export interface ConfigUpdateResponse {
+  status: string;
+  configReloaded: boolean;
+  reloadType: "none" | "frontend" | "webui" | "single_arr" | "multi_arr" | "full";
+  affectedInstances: string[];
 }

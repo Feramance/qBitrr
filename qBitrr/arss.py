@@ -2705,10 +2705,8 @@ class Arr:
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if searched:
-                            # Episode is complete and not being searched
-                            reason = None
-                        elif not episode["hasFile"]:
+                        if not episode["hasFile"]:
+                            # Episode is missing a file - always mark as Missing
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
@@ -2716,8 +2714,11 @@ class Arr:
                             reason = "CustomFormat"
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
+                        elif searched:
+                            # Episode has file and search is complete
+                            reason = "Not being searched"
                         else:
-                            reason = None
+                            reason = "Not being searched"
 
                         to_update = {
                             self.model_file.Monitored: Monitored,
@@ -3056,10 +3057,8 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
-                    if searched:
-                        # Movie is complete and not being searched
-                        reason = None
-                    elif not db_entry["hasFile"]:
+                    if not db_entry["hasFile"]:
+                        # Movie is missing a file - always mark as Missing
                         reason = "Missing"
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
@@ -3067,8 +3066,11 @@ class Arr:
                         reason = "CustomFormat"
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
+                    elif searched:
+                        # Movie has file and search is complete
+                        reason = "Not being searched"
                     else:
-                        reason = None
+                        reason = "Not being searched"
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
@@ -3365,10 +3367,8 @@ class Arr:
                         qualityMet = not QualityUnmet if hasAllTracks else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if searched:
-                            # Album is complete and not being searched
-                            reason = None
-                        elif not hasAllTracks:
+                        if not hasAllTracks:
+                            # Album is missing tracks - always mark as Missing
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
@@ -3376,8 +3376,11 @@ class Arr:
                             reason = "CustomFormat"
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
+                        elif searched:
+                            # Album is complete and not being searched
+                            reason = "Not being searched"
                         else:
-                            reason = None
+                            reason = "Not being searched"
 
                         to_update = {
                             self.model_file.AlbumFileId: albumFileId,
