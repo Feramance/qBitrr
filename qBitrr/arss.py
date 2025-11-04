@@ -2717,7 +2717,7 @@ class Arr:
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
                         else:
-                            reason = "Scheduled search"
+                            reason = None
 
                         to_update = {
                             self.model_file.Monitored: Monitored,
@@ -3068,7 +3068,7 @@ class Arr:
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
                     else:
-                        reason = "Scheduled search"
+                        reason = None
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
@@ -3377,7 +3377,7 @@ class Arr:
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
                         else:
-                            reason = "Scheduled search"
+                            reason = None
 
                         to_update = {
                             self.model_file.AlbumFileId: albumFileId,
@@ -3863,7 +3863,7 @@ class Arr:
                 self.model_file.update(Searched=True, Upgrade=True).where(
                     file_model.EntryId == file_model.EntryId
                 ).execute()
-                reason_text = getattr(file_model, "Reason", None) or "Scheduled search"
+                reason_text = getattr(file_model, "Reason", None) or None
                 if reason_text:
                     self.logger.hnotice(
                         "%sSearching for: %s | S%02dE%03d | %s | [id=%s|AirDateUTC=%s][%s]",

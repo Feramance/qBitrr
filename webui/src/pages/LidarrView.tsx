@@ -1455,7 +1455,6 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                   <option value="Quality">Quality</option>
                   <option value="CustomFormat">Custom Format</option>
                   <option value="Upgrade">Upgrade</option>
-                  <option value="Scheduled search">Scheduled Search</option>
                 </select>
               </div>
             </div>
