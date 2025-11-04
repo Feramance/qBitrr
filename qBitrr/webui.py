@@ -2115,6 +2115,22 @@ class WebUI:
             except Exception:
                 pass
         self.manager.child_processes.clear()
+
+        # Delete database files for all arr instances before rebuilding
+        if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+            for arr in self.manager.arr_manager.managed_objects.values():
+                try:
+                    if (
+                        hasattr(arr, "search_db_file")
+                        and arr.search_db_file
+                        and arr.search_db_file.exists()
+                    ):
+                        self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                        arr.search_db_file.unlink()
+                        self.logger.success(f"Deleted database file for {arr._name}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to delete database file for {arr._name}: {e}")
+
         # Rebuild arr manager from config and spawn fresh
         from qBitrr.arss import ArrManager
 
