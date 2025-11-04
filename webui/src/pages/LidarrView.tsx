@@ -170,15 +170,27 @@ function LidarrAggregateView({
       {
         accessorKey: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const monitored = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
         accessorKey: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const hasFile = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
     ],
@@ -288,9 +300,14 @@ function LidarrAggregateView({
                             {' | '}
                             <strong>Has File:</strong> {hasFile ? 'Yes' : 'No'}
                           </p>
-                          {reason && (
-                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{reason}</span></p>
-                          )}
+                          <p>
+                            <strong>Reason:</strong>{' '}
+                            {reason ? (
+                              <span className="table-badge table-badge-reason">{reason}</span>
+                            ) : (
+                              <span className="table-badge table-badge-reason">Not being searched</span>
+                            )}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -482,7 +499,11 @@ function LidarrInstanceView({
         cell: (info) => {
           const albumData = info.row.original.album as Record<string, unknown>;
           const monitored = albumData?.["monitored"] as boolean | undefined;
-          return monitored ? <span className="table-badge">Yes</span> : <span>No</span>;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
         },
         size: 100,
       },
@@ -492,7 +513,11 @@ function LidarrInstanceView({
         cell: (info) => {
           const albumData = info.row.original.album as Record<string, unknown>;
           const hasFile = albumData?.["hasFile"] as boolean | undefined;
-          return hasFile ? <span className="table-badge">Yes</span> : <span>No</span>;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
         },
         size: 100,
       },
@@ -502,7 +527,7 @@ function LidarrInstanceView({
         cell: (info) => {
           const albumData = info.row.original.album as Record<string, unknown>;
           const reason = albumData?.["reason"] as string | null | undefined;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,
@@ -609,9 +634,14 @@ function LidarrInstanceView({
                             {' | '}
                             <strong>Has File:</strong> {hasFile ? 'Yes' : 'No'}
                           </p>
-                          {reason && (
-                            <p><strong>Reason:</strong> <span className="table-badge table-badge-reason">{reason}</span></p>
-                          )}
+                          <p>
+                            <strong>Reason:</strong>{' '}
+                            {reason ? (
+                              <span className="table-badge table-badge-reason">{reason}</span>
+                            ) : (
+                              <span className="table-badge table-badge-reason">Not being searched</span>
+                            )}
+                          </p>
                         </div>
                       )}
                     </div>

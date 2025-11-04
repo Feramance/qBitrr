@@ -95,15 +95,27 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
       {
         accessorKey: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const monitored = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
         accessorKey: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const hasFile = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
@@ -111,7 +123,7 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
         header: "Reason",
         cell: (info) => {
           const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,
@@ -244,15 +256,27 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
       {
         accessorKey: "monitored",
         header: "Monitored",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const monitored = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+              {monitored ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
         accessorKey: "hasFile",
         header: "Has File",
-        cell: (info) =>
-          (info.getValue() as boolean) ? <span className="table-badge">Yes</span> : <span>No</span>,
+        cell: (info) => {
+          const hasFile = info.getValue() as boolean;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
+        },
         size: 100,
       },
       {
@@ -260,7 +284,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
         header: "Reason",
         cell: (info) => {
           const reason = info.getValue() as string | null;
-          if (!reason) return <span className="hint">—</span>;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
           return <span className="table-badge table-badge-reason">{reason}</span>;
         },
         size: 120,

@@ -2705,7 +2705,10 @@ class Arr:
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if not episode["hasFile"]:
+                        if searched:
+                            # Episode is complete and not being searched
+                            reason = None
+                        elif not episode["hasFile"]:
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
@@ -3053,7 +3056,10 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
-                    if not db_entry["hasFile"]:
+                    if searched:
+                        # Movie is complete and not being searched
+                        reason = None
+                    elif not db_entry["hasFile"]:
                         reason = "Missing"
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
@@ -3359,7 +3365,10 @@ class Arr:
                         qualityMet = not QualityUnmet if hasAllTracks else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if not hasAllTracks:
+                        if searched:
+                            # Album is complete and not being searched
+                            reason = None
+                        elif not hasAllTracks:
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"

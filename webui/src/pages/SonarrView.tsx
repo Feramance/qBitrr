@@ -849,7 +849,11 @@ function SonarrAggregateView({
       header: "Monitored",
       cell: ({ row }) => {
         const monitored = row.original.isEpisode ? row.original.monitored : row.original.monitored;
-        return <span className="table-badge">{monitored ? "Yes" : "No"}</span>;
+        return (
+          <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+            {monitored ? '✓' : '✗'}
+          </span>
+        );
       }
     },
     {
@@ -857,7 +861,12 @@ function SonarrAggregateView({
       header: "Has File",
       cell: ({ row }) => {
         if (row.original.isEpisode) {
-          return <span className="table-badge">{row.original.hasFile ? "Yes" : "No"}</span>;
+          const hasFile = row.original.hasFile;
+          return (
+            <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+              {hasFile ? '✓' : '✗'}
+            </span>
+          );
         }
         return null;
       }
@@ -899,16 +908,26 @@ function SonarrAggregateView({
     {
       accessorKey: "monitored",
       header: "Monitored",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
+      cell: ({ getValue }) => {
+        const monitored = getValue() as boolean;
+        return (
+          <span className={`track-status ${monitored ? 'available' : 'missing'}`}>
+            {monitored ? '✓' : '✗'}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "hasFile",
       header: "Has File",
-      cell: ({ getValue }) => (
-        <span className="table-badge">{getValue() ? "Yes" : "No"}</span>
-      ),
+      cell: ({ getValue }) => {
+        const hasFile = getValue() as boolean;
+        return (
+          <span className={`track-status ${hasFile ? 'available' : 'missing'}`}>
+            {hasFile ? '✓' : '✗'}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "airDate",
@@ -1013,10 +1032,18 @@ function SonarrAggregateView({
                               <tr key={`${episode.__instance}-${episode.series}-${episode.season}-${episode.episode}`}>
                                 <td data-label="Episode">{episode.episode}</td>
                                 <td data-label="Title">{episode.title}</td>
-                                <td data-label="Monitored"><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
-                                <td data-label="Has File"><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                                <td data-label="Monitored">
+                                  <span className={`track-status ${episode.monitored ? 'available' : 'missing'}`}>
+                                    {episode.monitored ? '✓' : '✗'}
+                                  </span>
+                                </td>
+                                <td data-label="Has File">
+                                  <span className={`track-status ${episode.hasFile ? 'available' : 'missing'}`}>
+                                    {episode.hasFile ? '✓' : '✗'}
+                                  </span>
+                                </td>
                                 <td data-label="Air Date">{episode.airDate || "—"}</td>
-                                <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
+                                <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="table-badge table-badge-reason">Not being searched</span>}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1234,10 +1261,18 @@ function SonarrInstanceView({
                             <tr key={`${episode.series}-${episode.season}-${episode.episode}`}>
                               <td data-label="Episode">{episode.episode}</td>
                               <td data-label="Title">{episode.title}</td>
-                              <td data-label="Monitored"><span className="table-badge">{episode.monitored ? "Yes" : "No"}</span></td>
-                              <td data-label="Has File"><span className="table-badge">{episode.hasFile ? "Yes" : "No"}</span></td>
+                              <td data-label="Monitored">
+                                <span className={`track-status ${episode.monitored ? 'available' : 'missing'}`}>
+                                  {episode.monitored ? '✓' : '✗'}
+                                </span>
+                              </td>
+                              <td data-label="Has File">
+                                <span className={`track-status ${episode.hasFile ? 'available' : 'missing'}`}>
+                                  {episode.hasFile ? '✓' : '✗'}
+                                </span>
+                              </td>
                               <td data-label="Air Date">{episode.airDate || "—"}</td>
-                              <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="hint">—</span>}</td>
+                              <td data-label="Reason">{episode.reason ? <span className="table-badge table-badge-reason">{episode.reason}</span> : <span className="table-badge table-badge-reason">Not being searched</span>}</td>
                             </tr>
                           ))}
                           </tbody>
@@ -1277,10 +1312,18 @@ function SonarrInstanceView({
                   <td data-label="Season">{row.season}</td>
                   <td data-label="Episode">{row.episode}</td>
                   <td data-label="Title">{row.title}</td>
-                  <td data-label="Monitored"><span className="table-badge">{row.monitored ? "Yes" : "No"}</span></td>
-                  <td data-label="Has File"><span className="table-badge">{row.hasFile ? "Yes" : "No"}</span></td>
+                  <td data-label="Monitored">
+                    <span className={`track-status ${row.monitored ? 'available' : 'missing'}`}>
+                      {row.monitored ? '✓' : '✗'}
+                    </span>
+                  </td>
+                  <td data-label="Has File">
+                    <span className={`track-status ${row.hasFile ? 'available' : 'missing'}`}>
+                      {row.hasFile ? '✓' : '✗'}
+                    </span>
+                  </td>
                   <td data-label="Air Date">{row.airDate || "—"}</td>
-                  <td data-label="Reason">{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="hint">—</span>}</td>
+                  <td data-label="Reason">{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="table-badge table-badge-reason">Not being searched</span>}</td>
                 </tr>
               ))}
             </tbody>

@@ -1451,6 +1451,92 @@ svg[height] {
     .table-wrapper {
         overflow: visible;
     }
+
+    /* Mobile responsive styles for episodes-table */
+    .episodes-table thead {
+        display: none;
+    }
+    .episodes-table,
+    .episodes-table tbody,
+    .episodes-table tr,
+    .episodes-table td {
+        display: block;
+        width: 100%;
+    }
+    .episodes-table tbody tr {
+        background: rgba(18, 21, 26, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .episodes-table td {
+        padding: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    .episodes-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+        min-width: 80px;
+    }
+    .episodes-table-wrapper {
+        overflow: visible;
+    }
+
+    /* Mobile responsive styles for tracks-table */
+    .tracks-table thead {
+        display: none;
+    }
+    .tracks-table,
+    .tracks-table tbody,
+    .tracks-table tr,
+    .tracks-table td {
+        display: block;
+        width: 100%;
+    }
+    .tracks-table tbody tr {
+        background: rgba(18, 21, 26, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    .tracks-table td {
+        padding: 4px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        font-size: 14px;
+        line-height: 1.4;
+    }
+    .tracks-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex-shrink: 0;
+        min-width: 80px;
+    }
+    .tracks-table-wrapper {
+        overflow: visible;
+    }
 }
 
 
