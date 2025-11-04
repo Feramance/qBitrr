@@ -916,6 +916,7 @@ class WebUI:
                                         "monitored": is_monitored,
                                         "hasFile": has_file,
                                         "airDateUtc": air_value,
+                                        "reason": getattr(ep, "Reason", None),
                                     }
                                 )
                         for bucket in seasons.values():
