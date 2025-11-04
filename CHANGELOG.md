@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.3.2 (04/11/2025)
+- [[patch] Fix search reason filter not working in Sonarr view](https://github.com/Feramance/qBitrr/commit/a068d9b980e16ea4b77d81b84f7a816715d8fe93) - @Feramance
+
+---
+
 ## v5.3.1 (04/11/2025)
 - [[patch] fixed changelog fetch tag](https://github.com/Feramance/qBitrr/commit/20f30d7dfa90c2262d8196e6834a2e340d869171) - @Feramance
 
@@ -404,10 +409,3 @@
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/a0c2a9622af9fdff5efed6eb8c58896b9b3dba55) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/8d62851db045e1daadf868a947b641d57f4c94f1) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/82adf8f79ed05da38057fcc49e988afedd7015b6) - @Feramance
-
----
-
-## v4.10.7 (18/12/2024)
-- [[patch] Hotfix 2](https://github.com/Feramance/qBitrr/commit/7e355b9d4977b8daed95da58323f1c6ffcadf521) - @Feramance
-- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/0bb99509bbfe8949543108667caa1b2560436b93) - @Feramance
-- [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/b301ea02b586a52af65959fa653135b815b4b435) - @Feramance
