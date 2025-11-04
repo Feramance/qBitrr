@@ -103,7 +103,6 @@ function WelcomeModal({
           </div>
           <div className="changelog-buttons">
             <button className="btn primary" type="button" onClick={onClose}>
-              <IconImage src={CloseIcon} />
               Got it!
             </button>
           </div>
