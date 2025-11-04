@@ -57,6 +57,7 @@ function isProcessEqual(a: ProcessInfo, b: ProcessInfo): boolean {
     a.kind === b.kind &&
     a.pid === b.pid &&
     a.alive === b.alive &&
+    (a.rebuilding ?? false) === (b.rebuilding ?? false) &&
     (a.searchSummary ?? "") === (b.searchSummary ?? "") &&
     (a.searchTimestamp ?? "") === (b.searchTimestamp ?? "") &&
     (a.queueCount ?? null) === (b.queueCount ?? null) &&
@@ -383,6 +384,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                     </div>
                     <div className="process-chip__detail">
                       {(() => {
+                        if (item.rebuilding) {
+                          return "Rebuilding";
+                        }
                         const kindLower = item.kind.toLowerCase();
                         if (kindLower === "search") {
                           const summary = item.searchSummary ?? "";

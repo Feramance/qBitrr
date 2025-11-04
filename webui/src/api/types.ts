@@ -6,6 +6,7 @@ export interface ProcessInfo {
   kind: string;
   pid: number | null;
   alive: boolean;
+  rebuilding?: boolean;
   searchSummary?: string;
   searchTimestamp?: string;
   queueCount?: number;

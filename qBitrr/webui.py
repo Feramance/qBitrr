@@ -131,6 +131,7 @@ class WebUI:
             "completed_at": None,
         }
         self._update_thread: threading.Thread | None = None
+        self._rebuilding_arrs = False
         self._register_routes()
         static_root = Path(__file__).with_name("static")
         if not (static_root / "index.html").exists():
@@ -1387,6 +1388,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": bool(p.is_alive()),
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -1397,6 +1399,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": False,
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -2104,54 +2107,62 @@ class WebUI:
             return response
 
     def _reload_all(self):
-        # Stop current processes
-        for p in list(self.manager.child_processes):
-            try:
-                p.kill()
-            except Exception:
-                pass
-            try:
-                p.terminate()
-            except Exception:
-                pass
-        self.manager.child_processes.clear()
-
-        # Delete database files for all arr instances before rebuilding
-        if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
-            for arr in self.manager.arr_manager.managed_objects.values():
+        # Set rebuilding flag
+        self._rebuilding_arrs = True
+        try:
+            # Stop current processes
+            for p in list(self.manager.child_processes):
                 try:
-                    if hasattr(arr, "search_db_file") and arr.search_db_file:
-                        # Delete main database file
-                        if arr.search_db_file.exists():
-                            self.logger.info(f"Deleting database file: {arr.search_db_file}")
-                            arr.search_db_file.unlink()
-                            self.logger.success(f"Deleted database file for {arr._name}")
-                        # Delete WAL file (Write-Ahead Log)
-                        wal_file = arr.search_db_file.with_suffix(".db-wal")
-                        if wal_file.exists():
-                            self.logger.info(f"Deleting WAL file: {wal_file}")
-                            wal_file.unlink()
-                        # Delete SHM file (Shared Memory)
-                        shm_file = arr.search_db_file.with_suffix(".db-shm")
-                        if shm_file.exists():
-                            self.logger.info(f"Deleting SHM file: {shm_file}")
-                            shm_file.unlink()
-                except Exception as e:
-                    self.logger.warning(f"Failed to delete database files for {arr._name}: {e}")
-
-        # Rebuild arr manager from config and spawn fresh
-        from qBitrr.arss import ArrManager
-
-        self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
-        self.manager.configure_auto_update()
-        # Spawn and start new processes
-        for arr in self.manager.arr_manager.managed_objects.values():
-            _, procs = arr.spawn_child_processes()
-            for p in procs:
-                try:
-                    p.start()
+                    p.kill()
                 except Exception:
                     pass
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+            self.manager.child_processes.clear()
+
+            # Delete database files for all arr instances before rebuilding
+            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                for arr in self.manager.arr_manager.managed_objects.values():
+                    try:
+                        if hasattr(arr, "search_db_file") and arr.search_db_file:
+                            # Delete main database file
+                            if arr.search_db_file.exists():
+                                self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                                arr.search_db_file.unlink()
+                                self.logger.success(f"Deleted database file for {arr._name}")
+                            # Delete WAL file (Write-Ahead Log)
+                            wal_file = arr.search_db_file.with_suffix(".db-wal")
+                            if wal_file.exists():
+                                self.logger.info(f"Deleting WAL file: {wal_file}")
+                                wal_file.unlink()
+                            # Delete SHM file (Shared Memory)
+                            shm_file = arr.search_db_file.with_suffix(".db-shm")
+                            if shm_file.exists():
+                                self.logger.info(f"Deleting SHM file: {shm_file}")
+                                shm_file.unlink()
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to delete database files for {arr._name}: {e}"
+                        )
+
+            # Rebuild arr manager from config and spawn fresh
+            from qBitrr.arss import ArrManager
+
+            self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
+            self.manager.configure_auto_update()
+            # Spawn and start new processes
+            for arr in self.manager.arr_manager.managed_objects.values():
+                _, procs = arr.spawn_child_processes()
+                for p in procs:
+                    try:
+                        p.start()
+                    except Exception:
+                        pass
+        finally:
+            # Clear rebuilding flag
+            self._rebuilding_arrs = False
 
     def start(self):
         if self._thread and self._thread.is_alive():
