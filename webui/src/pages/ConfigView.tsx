@@ -1505,8 +1505,22 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setSaving(false);
         return;
       }
-      const { configReloaded } = await updateConfig({ changes });
-      push("Configuration saved", "success");
+      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
+
+      // Build appropriate success message
+      let message = "Configuration saved";
+      if (reloadType === "full") {
+        message += " • All instances reloaded";
+      } else if (reloadType === "multi_arr" && affectedInstances?.length) {
+        message += ` • Reloaded ${affectedInstances.length} instances: ${affectedInstances.join(", ")}`;
+      } else if (reloadType === "single_arr" && affectedInstances?.length) {
+        message += ` • Reloaded: ${affectedInstances.join(", ")}`;
+      } else if (reloadType === "webui") {
+        message += " • WebUI restarting...";
+      } else if (reloadType === "frontend") {
+        message += " • Theme/display settings updated";
+      }
+      push(message, "success");
 
       // Only clear browser cache if backend reloaded (non-frontend-only changes)
       if (configReloaded && 'caches' in window) {

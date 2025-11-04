@@ -221,3 +221,10 @@ export interface MetaResponse {
   error?: string | null;
   update_state: UpdateState;
 }
+
+export interface ConfigUpdateResponse {
+  status: string;
+  configReloaded: boolean;
+  reloadType: "none" | "frontend" | "webui" | "single_arr" | "multi_arr" | "full";
+  affectedInstances: string[];
+}

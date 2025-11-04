@@ -2,6 +2,7 @@ import type {
   ArrListResponse,
   ConfigDocument,
   ConfigUpdatePayload,
+  ConfigUpdateResponse,
   MetaResponse,
   LogsListResponse,
   ProcessesResponse,
@@ -273,7 +274,7 @@ export async function getConfig(): Promise<ConfigDocument> {
 
 export async function updateConfig(
   payload: ConfigUpdatePayload
-): Promise<{ configReloaded: boolean }> {
+): Promise<ConfigUpdateResponse> {
   const token = resolveToken();
   const response = await fetch("/web/config", buildInit({
     method: "POST",
@@ -302,9 +303,9 @@ export async function updateConfig(
     throw new Error(message);
   }
 
-  // Check if backend reloaded config (indicates non-frontend-only changes)
-  const configReloaded = response.headers.get("X-Config-Reloaded") === "true";
-  return { configReloaded };
+  // Parse response body with full type information
+  const data = await response.json() as ConfigUpdateResponse;
+  return data;
 }
 
 export async function triggerUpdate(): Promise<void> {
