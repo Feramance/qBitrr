@@ -1,5 +1,106 @@
 # Changelog
 
+## v5.3.0 (04/11/2025)
+- [[minor] Fixed PyPi version](https://github.com/Feramance/qBitrr/commit/01aee8713cab1e899a50cd2a4da644edb818d7f7) - @Feramance
+- [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/110154577b3b715d28b0420192bc86a0b167d958) - @Feramance
+- [[minor] Prepare release with first-launch welcome popup feature](https://github.com/Feramance/qBitrr/commit/0b2cf6b2283c69323699f7dd3d7f2c89a0d87cd2) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/08d8d1de566c0229e5da7545fbfe0ad767aaf35d) - @Feramance
+- [[minor] Add comprehensive Lidarr support with full feature parity (#190)](https://github.com/Feramance/qBitrr/commit/37fef92d60ee908c966696d72568fb727344cb82) - @Feramance
+- [Add first-launch welcome popup with version-specific changelog](https://github.com/Feramance/qBitrr/commit/b5d09050cc8be5f44860e93486890ad669045144) - @Feramance
+- [Add visual feedback for Arr rebuild operations in process chips](https://github.com/Feramance/qBitrr/commit/24dc87ef741b41b045ec2323e4c1e61eaed8d92a) - @Feramance
+- [Also delete WAL and SHM files when rebuilding Arr instances](https://github.com/Feramance/qBitrr/commit/dc4910d3b6c0617dda9878491430f825b42a118a) - @Feramance
+- [Delete database files when rebuilding Arr instances](https://github.com/Feramance/qBitrr/commit/960f85133bb2a3bdf5a64658f96fd29b8395cfbd) - @Feramance
+- [Remove 'Scheduled search' reason from frontend and backend](https://github.com/Feramance/qBitrr/commit/2720161f9d5845ba936990af58efeae581f7858e) - @Feramance
+- [Add filtered count display for manual search and reason filters in Arr views](https://github.com/Feramance/qBitrr/commit/3b266c7e1e4a1d45d9a870920b81e2fa661f16e0) - @Feramance
+- [Fix infinite loop in loadAggregate caused by circular dependencies](https://github.com/Feramance/qBitrr/commit/981fc639f4eaaf1591a93cbed77e15abd519468a) - @Feramance
+- [Fix constant refreshing in Sonarr and Lidarr grouped views](https://github.com/Feramance/qBitrr/commit/06d39b30f44a2d25cfa86b6b044b1e6cb0acafaf) - @Feramance
+- [Integrate smart data refresh into Radarr, Sonarr, and Lidarr views](https://github.com/Feramance/qBitrr/commit/9bda9d93b5f8b54cc3f03921f88df1e1ef239e06) - @Feramance
+- [Add smart data refresh infrastructure for WebUI performance optimization](https://github.com/Feramance/qBitrr/commit/a2d5ea65efb6fec68ff0b81a7b912f29af136c0c) - @Feramance
+- [Add Reason column to Lidarr track tables in grouped views](https://github.com/Feramance/qBitrr/commit/6084721f0cee9f55adcd3146eb1939f0e17d72c8) - @Feramance
+- [Fix reason assignment logic and enhance WebUI with checkmarks and mobile responsiveness](https://github.com/Feramance/qBitrr/commit/2708fe7c4081b279c26de70b18285dd94757256d) - @Feramance
+- [Fix: Use get_tracks() API to fetch track data](https://github.com/Feramance/qBitrr/commit/6c9b1f2de5d450cb581b686e7498bf709b861f22) - @Feramance
+- [Fix: Handle dict response from get_album API call](https://github.com/Feramance/qBitrr/commit/77ee6dfd231cb2b4e6f8576f1a64bbca839eccba) - @Feramance
+- [Add comprehensive debug logging for track population](https://github.com/Feramance/qBitrr/commit/136010d950fe2a14e60836b68afd14654c84ea54) - @Feramance
+- [Fix: Fetch full album details to populate track data](https://github.com/Feramance/qBitrr/commit/6a66be06b194024a273050572ba64c8f54d1f14e) - @Feramance
+- [Fix: Set series_file_model to None for Lidarr](https://github.com/Feramance/qBitrr/commit/95011bd1af0ce7ed44f86ae1c2d57c6d3f64dedf) - @Feramance
+- [Complete Lidarr artist database population](https://github.com/Feramance/qBitrr/commit/b4992613c5a9b5f08aafd70488222a458807dd0f) - @Feramance
+- [Refactor: remove pointless variables that are always true](https://github.com/Feramance/qBitrr/commit/4b8ab456f6bd6f28aff295d275c666f7e2e60854) - @Feramance
+- [Fix missing database table creation for Radarr](https://github.com/Feramance/qBitrr/commit/6643a159b26414c468529567a5783727bdea571c) - @Feramance
+- [Fix FreeSpaceManager._get_models() return tuple size](https://github.com/Feramance/qBitrr/commit/28e3b53d7bdda7fa8b04bd364a11cf34d66c3a35) - @Feramance
+- [Refactor database population to separate from search filtering](https://github.com/Feramance/qBitrr/commit/de8905efb8c1f38bb14131abd13b29155134f05f) - @Feramance
+- [Add detailed logging for Lidarr track storage](https://github.com/Feramance/qBitrr/commit/c3bcfbbbe84fff98baf0ddcfea8cb0df655add88) - @Feramance
+- [Fix Lidarr artist name extraction to support multiple API field names](https://github.com/Feramance/qBitrr/commit/8fb7da12634db4d8814b1cd669d61d55c39caeb9) - @Feramance
+- [Update Lidarr frontend to work with nested album structure matching Sonarr pattern](https://github.com/Feramance/qBitrr/commit/3b6941e815083968181846a4b73ceaeaf1caaab7) - @Feramance
+- [Restructure Lidarr album API to match Sonarr's nested format with track totals](https://github.com/Feramance/qBitrr/commit/9dc6995d16a1de0b15cd5f947a29c689a8db3249) - @Feramance
+- [Fix track deletion to use bound model when removing albums](https://github.com/Feramance/qBitrr/commit/b295c748b8a9d320533dc57f3b313c334bb544da) - @Feramance
+- [Fix WebUI to use bound TrackFilesModel from arr instance](https://github.com/Feramance/qBitrr/commit/d196fa5da123f29c69f95f131c7e737640ff6d96) - @Feramance
+- [Fix TrackFilesModel database binding for Lidarr](https://github.com/Feramance/qBitrr/commit/e0614380774d94d59e98d1d07bafe3964d2bd151) - @Feramance
+- [Add missing TrackFilesModel import to fix Lidarr track storage](https://github.com/Feramance/qBitrr/commit/f3da6f15f0044aefb21825cc699b6245ca91565a) - @Feramance
+- [Fix Lidarr track fetching by using allArtistAlbums parameter](https://github.com/Feramance/qBitrr/commit/96370b87a939b174a1bcd07e3d42a926b9210e58) - @Feramance
+- [Fix Lidarr track fetching to include media data during database sync](https://github.com/Feramance/qBitrr/commit/6f6686bbf62290091d48b491904929d034612384) - @Feramance
+- [Simplify Lidarr API by always including tracks](https://github.com/Feramance/qBitrr/commit/ecf729a091c6d275e499024b22587fc87f4798cf) - @Feramance
+- [Fix Lidarr instance view to display track tables in grouped mode](https://github.com/Feramance/qBitrr/commit/4198f525c0bd1fd220389bed281f900325c6bed7) - @Feramance
+- [Add flat mode track display for Lidarr views](https://github.com/Feramance/qBitrr/commit/57634bda1463053cbc11909b1a13a554d3766469) - @Feramance
+- [Add database-backed track storage for Lidarr albums](https://github.com/Feramance/qBitrr/commit/02447456b694b7e120aacc5efa9549c561088241) - @Feramance
+- [Add track-level display to Lidarr hierarchy view](https://github.com/Feramance/qBitrr/commit/f8658d9769bd6b50c662568ff2ee4b6c39c1568e) - @Feramance
+- [Add live WebUI settings to Config view](https://github.com/Feramance/qBitrr/commit/776c9ae3c507ca6ab10adba1fdfdb40126154fa4) - @Feramance
+- [Add Group by Artist configuration for Lidarr views](https://github.com/Feramance/qBitrr/commit/9d1bd0d7d8b28a8803140a65057378ebfa47003d) - @Feramance
+- [Add Group by Artist configuration for Lidarr views](https://github.com/Feramance/qBitrr/commit/b580d610744f00d665f07e49dd4d44104fe05953) - @Feramance
+- [Fix table re-rendering with StableTable component and React.memo optimization](https://github.com/Feramance/qBitrr/commit/b06a7d9c45375d41d3617f72a4d89ca3f89eb65c) - @Feramance
+- [Prevent unnecessary re-renders by only updating timestamp when data changes](https://github.com/Feramance/qBitrr/commit/e3e4c99596b2f2f9e8c4209688540e3c18c4bf1d) - @Feramance
+- [Fix table flashing on auto-refresh in arr views by skipping loading state for background updates](https://github.com/Feramance/qBitrr/commit/7af547f1b36e21c87b82a62c2ee88a8c87058e9c) - @Feramance
+- [Make WebUI settings fully live and improve tab loading responsiveness](https://github.com/Feramance/qBitrr/commit/3f4e596ea3e5e7732549ab355877703438cdab34) - @Feramance
+- [Style react-logviewer search bar to match dark theme](https://github.com/Feramance/qBitrr/commit/c425465ad975ba96c3151de219723ce6b5b7d775) - @Feramance
+- [Merge branch 'master' into Lidarr-Support](https://github.com/Feramance/qBitrr/commit/89cb13a2db0bf8b13e89a1ed3d71d3c8a98c4fa8) - @Feramance
+- [Bump react-hook-form from 7.65.0 to 7.66.0 in /webui (#195)](https://github.com/Feramance/qBitrr/commit/830a7e20b9cbaaee314e55d328b05c00e2d3017d) - @dependabot[bot]
+- [Bump globals from 16.4.0 to 16.5.0 in /webui (#193)](https://github.com/Feramance/qBitrr/commit/ae3a1f7e077cf1fa50deefd15bc931cc84cedee8) - @dependabot[bot]
+- [Bump eslint from 9.38.0 to 9.39.0 in /webui (#192)](https://github.com/Feramance/qBitrr/commit/101631806dccf1b5495348df114b9d93ae15cfa5) - @dependabot[bot]
+- [Fix All.log handler to work with propagate=False](https://github.com/Feramance/qBitrr/commit/e90131b16c8907ed238fed0c611123e10cb9616d) - @Feramance
+- [Bump @eslint/js from 9.38.0 to 9.39.0 in /webui (#191)](https://github.com/Feramance/qBitrr/commit/048ea44489825e8787cb76f7a4159fc8c0081c62) - @dependabot[bot]
+- [docs: Document unified All.log file solution](https://github.com/Feramance/qBitrr/commit/4cdac57a55703cd81a06e80e6f4462605abb2a6c) - @Feramance
+- [Replace runtime log merging with unified All.log file](https://github.com/Feramance/qBitrr/commit/ff8bf20d2bffb021891e0f3169073479ff449315) - @Feramance
+- [docs: Document concatenated log entries fix](https://github.com/Feramance/qBitrr/commit/35d546556567faef41900b2a4b8254dd46b7270c) - @Feramance
+- [Fix All Logs sorting for concatenated log entries](https://github.com/Feramance/qBitrr/commit/8903a8001d57ac8ee4c1c1dfcbfa79b142c03600) - @Feramance
+- [docs: Update progress log with All Logs chronological sorting fix](https://github.com/Feramance/qBitrr/commit/5fc63efbab8518dca429fb0246f507c9698b8137) - @Feramance
+- [Fix chronological sorting in 'All Logs' view](https://github.com/Feramance/qBitrr/commit/e4d687ce75d1b4d3b2f3457ad152a070c51cfb8c) - @Feramance
+- [Merge all log files chronologically for 'All Logs' view](https://github.com/Feramance/qBitrr/commit/eda1b67ae0a32fb51a84e9929d106bd0dc14afc9) - @Feramance
+- [Change 'All Logs' to return Main.log (full combined output)](https://github.com/Feramance/qBitrr/commit/d67cdd0195ef99107c470e96cb48cd5e2e9b0ce4) - @Feramance
+- [Add 'All Logs' view to combine all log outputs](https://github.com/Feramance/qBitrr/commit/da412b9d1bc5b14eebee72194f26b90b1bc94914) - @Feramance
+- [Remove build artifacts from git tracking](https://github.com/Feramance/qBitrr/commit/dc4f467fbc0037e407ae6f322f15d5612b0479d3) - @Feramance
+- [Replace custom log viewer with @melloware/react-logviewer library](https://github.com/Feramance/qBitrr/commit/7ef977f96fdf92ef03476cfa07df9b22a841a118) - @Feramance
+- [Simplify to basic scrollIntoView with flex layout for height](https://github.com/Feramance/qBitrr/commit/c10c5bd861316cd08b91ee10ba626c6b0464db96) - @Feramance
+- [Document final Mantine hook solution](https://github.com/Feramance/qBitrr/commit/6f6d0cf35b9796d41a07bbba2b62b6352d2e923c) - @Feramance
+- [Use Mantine useScrollIntoView hook for reliable auto-scrolling](https://github.com/Feramance/qBitrr/commit/b923eacbcd1916a42fa5bba5d7dceb2443809a63) - @Feramance
+- [Document root cause and fix for scroll overflow issue](https://github.com/Feramance/qBitrr/commit/5915df62d3dd241225563c80de46eaaf0985bd3b) - @Feramance
+- [Remove minHeight from pre to allow scrollable overflow](https://github.com/Feramance/qBitrr/commit/449e936028243997862f44bc0bdae9709bd07ba5) - @Feramance
+- [Add debug logging to diagnose auto-scroll issue](https://github.com/Feramance/qBitrr/commit/f809dfc5ad20cb9ddd7a40cff81965fabe18b2c0) - @Feramance
+- [Document final status of LogsView fixes in progress log](https://github.com/Feramance/qBitrr/commit/c8e4042af2d7e89836f7c93a8d27fd945d882989) - @Feramance
+- [Fix auto-scroll by directly setting scrollTop to scrollHeight](https://github.com/Feramance/qBitrr/commit/df9edf19a827367d841a00f218ba392d13cf8115) - @Feramance
+- [Fix logs view height and auto-scroll to properly display log tail](https://github.com/Feramance/qBitrr/commit/8af8e7b520d704ce9ca5fee0df84e4098f523f21) - @Feramance
+- [Fix ANSI-to-HTML: preserve newlines instead of converting to br tags](https://github.com/Feramance/qBitrr/commit/f2de9f91f96a5b574f7da6ce5d51542d576e441b) - @Feramance
+- [Wrap pre element in div with minHeight to preserve container fill](https://github.com/Feramance/qBitrr/commit/a1b3fa112be5ae83fc6057672a7f30faddb27eff) - @Feramance
+- [Remove minHeight constraint that was preventing log content from expanding](https://github.com/Feramance/qBitrr/commit/481ff27a291e6652832a9b4c178b4632a4a8422e) - @Feramance
+- [Simplify debug logging to show actual scroll values inline](https://github.com/Feramance/qBitrr/commit/295d830cc8d41e8f531b649d106e4ddf893c6cf9) - @Feramance
+- [Add debug logging to diagnose scroll position issue](https://github.com/Feramance/qBitrr/commit/8009f8bd4e81aca549f0dea72495c99aa0f14b51) - @Feramance
+- [Use multiple delayed scroll attempts up to 1 second for complex ANSI HTML](https://github.com/Feramance/qBitrr/commit/9c294f3fa419352e6774c9b0ce0866ca9e2d57df) - @Feramance
+- [Add MutationObserver and extensive debug logging for scroll investigation](https://github.com/Feramance/qBitrr/commit/7356123abc7926ee8b1fc74555f99a2fcb75f4a4) - @Feramance
+- [Use scrollIntoView for more reliable log tail scrolling with debug logging](https://github.com/Feramance/qBitrr/commit/d7020865ee91790511558242b88352e87b8d040f) - @Feramance
+- [Use aggressive multi-strategy approach to force scroll to log tail](https://github.com/Feramance/qBitrr/commit/2bf7e5eedad09c405a5a53bd3e7f89c572c30060) - @Feramance
+- [Simplify and fix logs auto-scroll to reliably tail to end](https://github.com/Feramance/qBitrr/commit/c44f153bcc4702ec93b784b575d27e17a050ad48) - @Feramance
+- [Fix TypeScript linting errors in LogsView](https://github.com/Feramance/qBitrr/commit/ce27d26d0ef88c82c31304f6888ad5bb283ecb5a) - @Feramance
+- [Fix logs auto-scroll to reliably scroll to bottom](https://github.com/Feramance/qBitrr/commit/dbe387432549694c0e3302c63ffc36e2c3a5dfee) - @Feramance
+- [Enable Lidarr quality cutoff checking for upgrade searches](https://github.com/Feramance/qBitrr/commit/ed40c39732c32753a6cc5cfa49943bb7ccdf80ad) - @Feramance
+- [Revert cache-clearing changes that broke Arr views](https://github.com/Feramance/qBitrr/commit/5334701c9296ee24df0ff25c0e744d9befb4990e) - @Feramance
+- [Improve logs auto-scroll reliability with timeout-based rendering](https://github.com/Feramance/qBitrr/commit/4e8330984bf9ee901d5475998cc5ebfcf87aa20b) - @Feramance
+- [Fix WebUI logs auto-scroll and add cache clearing on config save](https://github.com/Feramance/qBitrr/commit/74797853540e98b0b945b1f28bf6a0d5ccb7f108) - @Feramance
+- [Enhance free space manager logging with human-readable byte formatting and improved context](https://github.com/Feramance/qBitrr/commit/7e8fe1437a633b82ed058b6c9fad1387bdcb6630) - @Feramance
+- [Make theme config case-insensitive with normalized display](https://github.com/Feramance/qBitrr/commit/41595b505b45755bea2465dd6dfd995ec5945218) - @Feramance
+- [Fix Sonarr database population when using series search mode](https://github.com/Feramance/qBitrr/commit/4cc022c20282db9e583a5a6228bc80c5695d184e) - @Feramance
+- [Improve Sonarr view UX during backend initialization](https://github.com/Feramance/qBitrr/commit/cb97478ec151b937aff13a512e41b938df0ab380) - @Feramance
+- [Fix SonarrView data loading - add missing useMemo dependency](https://github.com/Feramance/qBitrr/commit/917918c4c3c7f00480a786dcb0ced40ea2fa7094) - @Feramance
+
+---
+
 ## v5.2.0 (31/10/2025)
 - [[minor] UI Updates (#188)](https://github.com/Feramance/qBitrr/commit/e02b5745050d81828fcbb68052b895abdd07d649) - @Feramance
 - [Fix update flow](https://github.com/Feramance/qBitrr/commit/4f797617f61557ea41770e772b732381a1d63781) - @Feramance
@@ -310,39 +411,3 @@
 
 ## v4.10.6 (18/12/2024)
 - [[patch] Free space config folder added](https://github.com/Feramance/qBitrr/commit/9286bdc67402a13b213254cf6e742905f1004e25) - @Feramance
-
----
-
-## v4.10.5 (10/12/2024)
-- [[patch] Minor changes and temporarily disabling separate request search](https://github.com/Feramance/qBitrr/commit/b4654957964b622e1eea8a984aebb6cb2cfd1566) - @Feramance
-- [Further testing](https://github.com/Feramance/qBitrr/commit/b024cf324bdef262d67c1b10ff5fd961144edfa8) - @Feramance
-- [Change searched update](https://github.com/Feramance/qBitrr/commit/0029967628b6e1378e3fb2b5c4b2b94c39934e06) - @Feramance
-- [Further testing upgrade searches](https://github.com/Feramance/qBitrr/commit/6f886ac18acfe034a0dba2164e49117c6f004fe7) - @Feramance
-- [Adjust upgrade behaviour](https://github.com/Feramance/qBitrr/commit/863d79e6a311dd839716fd19ec1ffb81bc299707) - @Feramance
-- [More logging for further debugging](https://github.com/Feramance/qBitrr/commit/e40ed6c1a2420ec857380c46286eb9d759f998f1) - @Feramance
-- [Added logging to check loop flow](https://github.com/Feramance/qBitrr/commit/f9ca818d2b13829aed067a0d0e16cfcbedf9556c) - @Feramance
-- [Merge pull request #145 from bruvv/patch-1](https://github.com/Feramance/qBitrr/commit/132d0816abe114c8c3c8be3dcada8899f2d297b1) - @Feramance
-- [Small typos in config file](https://github.com/Feramance/qBitrr/commit/52d49066375de050747582aeb2c70ddfb004a143) - @bruvv
-- [Removed some log tags](https://github.com/Feramance/qBitrr/commit/4e415d93cea1ceb46b74e341c96a953206a5ffa3) - @Feramance
-- [Logging adjustements](https://github.com/Feramance/qBitrr/commit/f89325de2bcc571bdd24a1e82e5895d89235f312) - @Feramance
-- [Logging and a few performance changes](https://github.com/Feramance/qBitrr/commit/5fee30041fa5ac9b99e8deed699efefb45b2ce12) - @Feramance
-- [Adjust search loop timer](https://github.com/Feramance/qBitrr/commit/4a1af891ce0d9d8996c6f94d06ebf37c1b193593) - @Feramance
-- [Request search adjustements](https://github.com/Feramance/qBitrr/commit/19f6521aab911d2e821a8143ec12aa625825b65b) - @Feramance
-- [Decrement command count for requests](https://github.com/Feramance/qBitrr/commit/daf60f511d8f3bf159fe9ceb27272bc3e039a319) - @Feramance
-- [Adjusted request conditions further](https://github.com/Feramance/qBitrr/commit/d69afa42dd3329dd61c5f20d7155db7b39517caa) - @Feramance
-- [Adjusted request get files conditions](https://github.com/Feramance/qBitrr/commit/beb71697ee036f5b6240050ad737c16bdac7ec85) - @Feramance
-- [Radarr request query adjustements](https://github.com/Feramance/qBitrr/commit/a19e08cbf3fd3cfbbe94a245b7631f5ae5a85409) - @Feramance
-- [Logging](https://github.com/Feramance/qBitrr/commit/48ffcbf21d9d3922067aa85ee842a16fe765742b) - @Feramance
-- [Adjust has_internet check](https://github.com/Feramance/qBitrr/commit/449b1aa77ea171a739d70dfe201d203a7e573359) - @Feramance
-- [Change request search filtering](https://github.com/Feramance/qBitrr/commit/e6e489ede8a787dfb4743be133af4a9a1c563442) - @Feramance
-- [Further fixes](https://github.com/Feramance/qBitrr/commit/91588932b728ed0abe7bb6d7b51b5b5f330af682) - @Feramance
-- [Updated get request files return type](https://github.com/Feramance/qBitrr/commit/1888f8bbfcc50d63a9e52bd17ca9dad4e9ced9d5) - @Feramance
-- [Fixed error](https://github.com/Feramance/qBitrr/commit/f7ee6552716a43ef7dcc58a0752bd3f3f40667a4) - @Feramance
-- [Logging](https://github.com/Feramance/qBitrr/commit/797282530535174dd8a5020594d5b1578b221a6c) - @Feramance
-- [Added logging to check where the flow is crashing](https://github.com/Feramance/qBitrr/commit/22bf52c1d8674d65dd4f0e8874e437bb52a1e119) - @Feramance
-- [Request search testing](https://github.com/Feramance/qBitrr/commit/a69262b2c6bcfd0c920e2a6f511e66ed1aeb4b95) - @Feramance
-- [Revert some request changes](https://github.com/Feramance/qBitrr/commit/6a338244585971e6843aaff42c95aa01a5c61b01) - @Feramance
-- [Request search run condition adjustements](https://github.com/Feramance/qBitrr/commit/ed63e087e3e719d30462207423664fe1f9cc66bb) - @Feramance
-- [Timing updates for request search](https://github.com/Feramance/qBitrr/commit/b519e3e97b9a8e83efed53e894b7df0d13669d68) - @Feramance
-- [Get request files changes](https://github.com/Feramance/qBitrr/commit/c382304e46c9da5edcad78028f2aeb157b3e456e) - @Feramance
-- [Request search loop overhaul](https://github.com/Feramance/qBitrr/commit/c2d77b75e77540a01d2a3e63007cf9a722f88850) - @Feramance
