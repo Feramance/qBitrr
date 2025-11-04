@@ -1335,7 +1335,31 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
 
   const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
 
-
+  const filteredAggTrackRows = useMemo(() => {
+    let rows = aggTrackRows;
+    if (aggFilter) {
+      const q = aggFilter.toLowerCase();
+      rows = rows.filter((row) => {
+        return (
+          row.artistName.toLowerCase().includes(q) ||
+          row.albumTitle.toLowerCase().includes(q) ||
+          row.title.toLowerCase().includes(q) ||
+          row.__instance.toLowerCase().includes(q)
+        );
+      });
+    }
+    if (onlyMissing) {
+      rows = rows.filter((row) => !row.hasFile);
+    }
+    if (reasonFilter !== "all") {
+      if (reasonFilter === "none") {
+        rows = rows.filter((row) => !row.reason);
+      } else {
+        rows = rows.filter((row) => row.reason === reasonFilter);
+      }
+    }
+    return rows;
+  }, [aggTrackRows, aggFilter, onlyMissing, reasonFilter]);
 
   const allInstanceAlbums = useMemo(() => {
     const pages = Object.keys(instancePages)
@@ -1463,7 +1487,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               <LidarrAggregateView
                 loading={aggLoading}
                 rows={filteredAggRows}
-                trackRows={aggTrackRows}
+                trackRows={filteredAggTrackRows}
                 page={aggPage}
                 onPageChange={setAggPage}
                 onRefresh={() => void loadAggregate({ showLoading: true })}
