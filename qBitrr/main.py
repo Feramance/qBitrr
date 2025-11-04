@@ -212,20 +212,67 @@ class qBitManager:
         def _restart():
             if delay > 0:
                 time.sleep(delay)
-            self.logger.notice("Exiting to complete restart.")
+            self.logger.notice("Restarting qBitrr...")
+
+            # Set shutdown event to signal all loops to stop
             try:
                 self.shutdown_event.set()
             except Exception:
                 pass
+
+            # Wait for child processes to exit gracefully
             for proc in list(self.child_processes):
                 with contextlib.suppress(Exception):
                     proc.join(timeout=5)
+
+            # Force kill any remaining child processes
             for proc in list(self.child_processes):
                 with contextlib.suppress(Exception):
                     proc.kill()
                 with contextlib.suppress(Exception):
                     proc.terminate()
-            os._exit(0)
+
+            # Close database connections explicitly
+            try:
+                if hasattr(self, "arr_manager") and self.arr_manager:
+                    for arr in self.arr_manager.managed_objects.values():
+                        if hasattr(arr, "db") and arr.db:
+                            with contextlib.suppress(Exception):
+                                arr.db.close()
+            except Exception:
+                pass
+
+            # Flush all log handlers
+            try:
+                for handler in logging.root.handlers[:]:
+                    with contextlib.suppress(Exception):
+                        handler.flush()
+                        handler.close()
+            except Exception:
+                pass
+
+            # Prepare restart arguments
+            python = sys.executable
+            args = [python] + sys.argv
+
+            self.logger.notice("Executing restart: %s", " ".join(args))
+
+            # Flush logs one final time before exec
+            try:
+                for handler in self.logger.handlers[:]:
+                    with contextlib.suppress(Exception):
+                        handler.flush()
+            except Exception:
+                pass
+
+            # Replace current process with new instance
+            # This works in Docker, native installs, and systemd
+            try:
+                os.execv(python, args)
+            except Exception as e:
+                # If execv fails, fall back to exit and hope external supervisor restarts us
+                self.logger.critical("Failed to restart via execv: %s. Exiting instead.", e)
+                os._exit(1)
 
         self._restart_thread = Thread(target=_restart, name="qBitrr-Restart", daemon=True)
         self._restart_thread.start()

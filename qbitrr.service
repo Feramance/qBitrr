@@ -1,0 +1,39 @@
+[Unit]
+Description=qBitrr - Radarr/Sonarr/Lidarr Torrent Manager
+Documentation=https://github.com/Feramance/qBitrr
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qbitrr
+Group=qbitrr
+WorkingDirectory=/opt/qbitrr
+
+# Main process
+ExecStart=/usr/bin/python3 -m qBitrr.main
+
+# Restart policy
+# always: Restart on any exit (crash, update, manual restart)
+# on-failure: Only restart on error exit codes
+Restart=always
+RestartSec=5
+
+# Resource limits (adjust as needed)
+# LimitNOFILE=65536
+# MemoryMax=2G
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qbitrr
+
+# Security hardening (optional, adjust as needed)
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+# ReadWritePaths=/opt/qbitrr /config
+
+[Install]
+WantedBy=multi-user.target

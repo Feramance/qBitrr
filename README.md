@@ -121,11 +121,31 @@ The React + Vite dashboard listens on `http://<host>:6969/ui` by default.
 - 🗂️ **Tabs** – Processes, Logs, Radarr, Sonarr, Lidarr, and Config—all live data, all actionable.
 - 🧪 **Developing the UI** – the source lives in `webui/`. Run `npm ci && npm run dev` to hack locally, and `npm run build` (or `make syncenv`) before committing so the bundled assets stay current.
 
+## 🔄 Updates & Restarts
+qBitrr supports automatic updates and seamless restarts:
+
+- **Auto-Update**: Configure scheduled updates in `config.toml`:
+  ```toml
+  [Settings]
+  AutoUpdate = true
+  AutoUpdateSchedule = "0 4 * * *"  # Daily at 4 AM
+  ```
+- **Manual Update**: Click "Update Now" in the WebUI Config tab—qBitrr downloads the latest version and restarts automatically.
+- **Smart Restart**: Uses `os.execv()` to replace the process in-place, maintaining the same PID and environment. Works seamlessly in:
+  - ✅ Docker containers (no restart policy needed)
+  - ✅ Native pip installs
+  - ✅ Systemd services ([setup guide](SYSTEMD_SERVICE.md))
+  - ✅ Windows, Linux, macOS
+- **Clean Shutdown**: Databases are closed, logs are flushed, and child processes are terminated gracefully before restart.
+
+See [RESTART_IMPROVEMENTS.md](RESTART_IMPROVEMENTS.md) for technical details and [SYSTEMD_SERVICE.md](SYSTEMD_SERVICE.md) for systemd setup.
+
 ## 🔁 Day-to-day Ops
 - ♻️ Rebuild Arr metadata via "Rebuild Arrs" in the UI or `POST /api/arr/rebuild`.
 - 🔁 Restart individual loops or slam the "Restart All" button when something is stuck.
 - 📬 Overseerr/Ombi integration pulls new requests automatically once configured.
 - 🗃️ Logs roll into `~/logs/` (think `Main.log`, `WebUI.log`, etc.)—view them in the UI or right off disk.
+- 🔄 **Auto-Update** – qBitrr can update and restart itself automatically via scheduled updates or manual trigger from the WebUI. The restart mechanism uses `os.execv()` for true in-place restarts that work in Docker, native installs, and systemd services without external supervisors.
 
 ## 🆘 Troubleshooting
 1. Enable file logging, reproduce the issue, and grab the relevant snippets (scrub secrets).
