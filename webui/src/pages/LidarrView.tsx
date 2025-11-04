@@ -29,12 +29,14 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 
 interface LidarrAggRow extends LidarrAlbumEntry {
   __instance: string;
+  [key: string]: unknown;
 }
 
 interface LidarrTrackRow {
@@ -47,6 +49,7 @@ interface LidarrTrackRow {
   hasFile: boolean;
   monitored: boolean;
   reason?: string | null;
+  [key: string]: unknown;
 }
 
 
@@ -777,12 +780,40 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
 
+  // Smart data sync for instance albums
+  const instanceAlbumSync = useDataSync<LidarrAlbumEntry>({
+    getKey: (album) => {
+      const albumData = album.album as Record<string, unknown>;
+      const artistName = (albumData?.["artistName"] as string | undefined) || "";
+      const title = (albumData?.["title"] as string | undefined) || "";
+      return `${artistName}-${title}`;
+    },
+    hashFields: ['album', 'tracks', 'totals'],
+  });
+
   const [aggRows, setAggRows] = useState<LidarrAggRow[]>([]);
   const [aggTrackRows, setAggTrackRows] = useState<LidarrTrackRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+
+  // Smart data sync for aggregate albums
+  const aggAlbumSync = useDataSync<LidarrAggRow>({
+    getKey: (album) => {
+      const albumData = album.album as Record<string, unknown>;
+      const artistName = (albumData?.["artistName"] as string | undefined) || "";
+      const title = (albumData?.["title"] as string | undefined) || "";
+      return `${album.__instance}-${artistName}-${title}`;
+    },
+    hashFields: ['__instance', 'album', 'tracks', 'totals'],
+  });
+
+  // Smart data sync for track rows
+  const aggTrackSync = useDataSync<LidarrTrackRow>({
+    getKey: (track) => `${track.__instance}-${track.artistName}-${track.albumTitle}-${track.trackNumber}`,
+    hashFields: ['__instance', 'artistName', 'albumTitle', 'trackNumber', 'title', 'hasFile', 'monitored', 'reason'],
+  });
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [aggSummary, setAggSummary] = useState<{
@@ -855,9 +886,10 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           const next = { ...prev };
           let hasChanges = false;
           for (const { page, albums } of results) {
-            const existingAlbums = prev[page] ?? [];
-            if (JSON.stringify(existingAlbums) !== JSON.stringify(albums)) {
-              next[page] = albums;
+            // Use hash-based comparison for each page
+            const syncResult = instanceAlbumSync.syncData(albums);
+            if (syncResult.hasChanges) {
+              next[page] = syncResult.data;
               hasChanges = true;
             }
           }
@@ -916,14 +948,19 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         const albums = response.albums ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
-        // Smart diffing: only update if data actually changed
-        const existingAlbums = instancePagesRef.current[resolvedPage] ?? [];
-        const albumsChanged = JSON.stringify(existingAlbums) !== JSON.stringify(albums);
+        // Smart diffing using hash-based change detection
+        const syncResult = instanceAlbumSync.syncData(albums);
+        const albumsChanged = syncResult.hasChanges;
+
+        if (keyChanged) {
+          // Reset sync state on key change
+          instanceAlbumSync.reset();
+        }
 
         if (keyChanged || albumsChanged) {
           setInstancePages((prev) => {
             const base = keyChanged ? {} : prev;
-            const next = { ...base, [resolvedPage]: albums };
+            const next = { ...base, [resolvedPage]: syncResult.data };
             instancePagesRef.current = next;
             return next;
           });
@@ -1041,21 +1078,19 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         }
       });
 
-      // Smart diffing: only update if data actually changed
-      const prevJson = JSON.stringify(aggRows);
-      const nextJson = JSON.stringify(aggregated);
-      const rowsChanged = prevJson !== nextJson;
+      // Smart diffing using hash-based change detection
+      const albumSyncResult = aggAlbumSync.syncData(aggregated);
+      const rowsChanged = albumSyncResult.hasChanges;
 
-      const prevTrackJson = JSON.stringify(aggTrackRows);
-      const nextTrackJson = JSON.stringify(trackRows);
-      const trackRowsChanged = prevTrackJson !== nextTrackJson;
+      const trackSyncResult = aggTrackSync.syncData(trackRows);
+      const trackRowsChanged = trackSyncResult.hasChanges;
 
       if (rowsChanged) {
-        setAggRows(aggregated);
+        setAggRows(albumSyncResult.data);
       }
 
       if (trackRowsChanged) {
-        setAggTrackRows(trackRows);
+        setAggTrackRows(trackSyncResult.data);
       }
 
       const newSummary = groupLidarr

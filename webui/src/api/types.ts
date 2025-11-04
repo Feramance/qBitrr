@@ -167,6 +167,7 @@ export interface LidarrAlbumEntry {
     missing?: number;
   };
   tracks: LidarrTrack[];
+  [key: string]: unknown;
 }
 
 export interface LidarrAlbumsResponse {

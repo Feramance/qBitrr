@@ -31,12 +31,14 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import RestartIcon from "../icons/refresh-arrow.svg";
 
 interface RadarrAggRow extends RadarrMovie {
   __instance: string;
+  [key: string]: unknown;
 }
 
 type RadarrSortKey = "title" | "year" | "monitored" | "hasFile";
@@ -417,11 +419,23 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
 
+  // Smart data sync for instance movies
+  const instanceMovieSync = useDataSync<RadarrMovie>({
+    getKey: (movie) => `${movie.title}-${movie.year}`,
+    hashFields: ['title', 'year', 'hasFile', 'monitored', 'reason'],
+  });
+
   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+
+  // Smart data sync for aggregate movies
+  const aggMovieSync = useDataSync<RadarrAggRow>({
+    getKey: (movie) => `${movie.__instance}-${movie.title}-${movie.year}`,
+    hashFields: ['__instance', 'title', 'year', 'hasFile', 'monitored', 'reason'],
+  });
   const [aggSort, setAggSort] = useState<{
     key: RadarrAggSortKey;
     direction: "asc" | "desc";
@@ -498,9 +512,10 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           const next = { ...prev };
           let hasChanges = false;
           for (const { page, movies } of results) {
-            const existingMovies = prev[page] ?? [];
-            if (JSON.stringify(existingMovies) !== JSON.stringify(movies)) {
-              next[page] = movies;
+            // Use hash-based comparison for each page
+            const syncResult = instanceMovieSync.syncData(movies);
+            if (syncResult.hasChanges) {
+              next[page] = syncResult.data;
               hasChanges = true;
             }
           }
@@ -559,14 +574,19 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         const movies = response.movies ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
-        // Smart diffing: only update if data actually changed
-        const existingMovies = instancePagesRef.current[resolvedPage] ?? [];
-        const moviesChanged = JSON.stringify(existingMovies) !== JSON.stringify(movies);
+        // Smart diffing using hash-based change detection
+        const syncResult = instanceMovieSync.syncData(movies);
+        const moviesChanged = syncResult.hasChanges;
+
+        if (keyChanged) {
+          // Reset sync state on key change
+          instanceMovieSync.reset();
+        }
 
         if (keyChanged || moviesChanged) {
           setInstancePages((prev) => {
             const base = keyChanged ? {} : prev;
-            const next = { ...base, [resolvedPage]: movies };
+            const next = { ...base, [resolvedPage]: syncResult.data };
             instancePagesRef.current = next;
             return next;
           });
@@ -645,13 +665,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         }
       }
 
-      // Smart diffing: only update if data actually changed
-      const prevJson = JSON.stringify(aggRows);
-      const nextJson = JSON.stringify(aggregated);
-      const rowsChanged = prevJson !== nextJson;
+      // Smart diffing using hash-based change detection
+      const syncResult = aggMovieSync.syncData(aggregated);
+      const rowsChanged = syncResult.hasChanges;
 
       if (rowsChanged) {
-        setAggRows(aggregated);
+        setAggRows(syncResult.data);
       }
 
       const newSummary = {

@@ -34,6 +34,7 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 
@@ -51,6 +52,7 @@ interface SonarrAggRow {
   hasFile: boolean;
   airDate: string;
   reason?: string | null;
+  [key: string]: unknown;
 }
 
 const SONARR_PAGE_SIZE = 25;
@@ -116,6 +118,12 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+
+  // Smart data sync for aggregate episodes
+  const aggEpisodeSync = useDataSync<SonarrAggRow>({
+    getKey: (ep) => `${ep.__instance}-${ep.series}-${ep.season}-${ep.episode}`,
+    hashFields: ['__instance', 'series', 'season', 'episode', 'title', 'hasFile', 'monitored', 'airDate', 'reason'],
+  });
 
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [reasonFilter, setReasonFilter] = useState<string>("all");
@@ -399,25 +407,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         }
       }
 
-      // Smart diffing: only update if data actually changed
-      const uniqueSeries = new Set(aggregated.map(ep => `${ep.__instance}::${ep.series}`)).size;
-      const totalSeriesReturned = instances.reduce((sum, inst) => {
-        // This is an approximation based on what we fetched
-        return sum;
-      }, 0);
-      console.log(`[Sonarr Aggregate] Aggregation complete:`, {
-        totalEpisodes: aggregated.length,
-        uniqueSeries: uniqueSeries,
-        instances: instances.length,
-        note: aggregated.length === 0 ? "No episodes found - backend may still be initializing" : ""
-      });
-      const prevJson = JSON.stringify(aggRows);
-      const nextJson = JSON.stringify(aggregated);
-      const rowsChanged = prevJson !== nextJson;
+      // Smart diffing using hash-based change detection
+      const syncResult = aggEpisodeSync.syncData(aggregated);
+      const rowsChanged = syncResult.hasChanges;
 
       if (rowsChanged) {
         console.log(`[Sonarr Aggregate] Data changed, updating from ${aggRows.length} to ${aggregated.length} episodes`);
-        setAggRows(aggregated);
+        setAggRows(syncResult.data);
       } else {
         console.log(`[Sonarr Aggregate] Data unchanged, skipping update`);
       }
