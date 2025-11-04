@@ -763,8 +763,48 @@ function SonarrAggregateView({
   summary,
   instanceCount,
 }: SonarrAggregateViewProps): JSX.Element {
-  // Create fully grouped data from all rows
+  const prevRowsRef = useRef<SonarrAggRow[]>([]);
+  const groupedDataCache = useRef<Array<{
+    instance: string;
+    series: string;
+    subRows: Array<{
+      seasonNumber: string;
+      isSeason: boolean;
+      subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
+    }>;
+  }>>([]);
+
+  // Create fully grouped data from all rows - only rebuild if rows actually changed
   const allGroupedData = useMemo(() => {
+    // Quick reference check - if same array reference, return cached
+    if (rows === prevRowsRef.current) {
+      return groupedDataCache.current;
+    }
+
+    // Check if content is identical (same length and keys)
+    if (rows.length === prevRowsRef.current.length) {
+      let identical = true;
+      for (let i = 0; i < rows.length; i++) {
+        const curr = rows[i];
+        const prev = prevRowsRef.current[i];
+        if (
+          curr.__instance !== prev.__instance ||
+          curr.series !== prev.series ||
+          curr.season !== prev.season ||
+          curr.episode !== prev.episode ||
+          curr.hasFile !== prev.hasFile ||
+          curr.monitored !== prev.monitored
+        ) {
+          identical = false;
+          break;
+        }
+      }
+      if (identical) {
+        return groupedDataCache.current;
+      }
+    }
+
+    // Content changed, rebuild grouped structure
     const instanceMap = new Map<string, Map<string, Map<string, SonarrAggRow[]>>>();
 
     rows.forEach(row => {
@@ -811,6 +851,10 @@ function SonarrAggregateView({
         });
       });
     });
+
+    // Update caches
+    prevRowsRef.current = rows;
+    groupedDataCache.current = result;
 
     return result;
   }, [rows]);
@@ -1162,8 +1206,16 @@ function SonarrInstanceView({
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
 
-  // Transform series to SonarrAggRow[]
+  const prevSeriesRef = useRef<typeof series>([]);
+  const episodeRowsCache = useRef<SonarrAggRow[]>([]);
+
+  // Transform series to SonarrAggRow[] - only rebuild if series changed
   const episodeRows = useMemo(() => {
+    // Quick reference check
+    if (series === prevSeriesRef.current) {
+      return episodeRowsCache.current;
+    }
+
     const rows: SonarrAggRow[] = [];
     for (const entry of series) {
       const title = (entry.series?.["title"] as string | undefined) || "";
@@ -1182,11 +1234,29 @@ function SonarrInstanceView({
         });
       });
     }
+
+    prevSeriesRef.current = series;
+    episodeRowsCache.current = rows;
     return rows;
   }, [series]);
 
-  // Group for hierarchical view
+  const prevEpisodeRowsRef = useRef<SonarrAggRow[]>([]);
+  const groupedTableDataCache = useRef<Array<{
+    series: string;
+    subRows: Array<{
+      seasonNumber: string;
+      isSeason: boolean;
+      subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
+    }>;
+  }>>([]);
+
+  // Group for hierarchical view - only rebuild if episodeRows changed
   const groupedTableData = useMemo(() => {
+    // Quick reference check
+    if (episodeRows === prevEpisodeRowsRef.current) {
+      return groupedTableDataCache.current;
+    }
+
     const map = new Map<string, Map<string, SonarrAggRow[]>>();
     episodeRows.forEach(row => {
       const seriesKey = row.series;
@@ -1196,7 +1266,8 @@ function SonarrInstanceView({
       if (!seasons.has(seasonKey)) seasons.set(seasonKey, []);
       seasons.get(seasonKey)!.push(row);
     });
-    return Array.from(map.entries()).map(([series, seasons]) => ({
+
+    const result = Array.from(map.entries()).map(([series, seasons]) => ({
       series,
       subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
         seasonNumber,
@@ -1204,6 +1275,10 @@ function SonarrInstanceView({
         subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
       }))
     }));
+
+    prevEpisodeRowsRef.current = episodeRows;
+    groupedTableDataCache.current = result;
+    return result;
   }, [episodeRows]);
 
   return (

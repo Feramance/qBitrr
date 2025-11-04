@@ -82,8 +82,45 @@ function LidarrAggregateView({
   instanceCount,
   groupLidarr,
 }: LidarrAggregateViewProps): JSX.Element {
-  // Create grouped data structure: instance > artist > albums
+  const prevRowsRef = useRef<LidarrAggRow[]>([]);
+  const groupedDataCache = useRef<Array<{
+    instance: string;
+    artist: string;
+    albums: LidarrAggRow[];
+  }>>([]);
+
+  // Create grouped data structure: instance > artist > albums - only rebuild if rows actually changed
   const groupedData = useMemo(() => {
+    // Quick reference check - if same array reference, return cached
+    if (rows === prevRowsRef.current) {
+      return groupedDataCache.current;
+    }
+
+    // Check if content is identical (same length and album titles)
+    if (rows.length === prevRowsRef.current.length) {
+      let identical = true;
+      for (let i = 0; i < rows.length; i++) {
+        const curr = rows[i];
+        const prev = prevRowsRef.current[i];
+        const currAlbum = curr.album as Record<string, unknown>;
+        const prevAlbum = prev.album as Record<string, unknown>;
+        if (
+          curr.__instance !== prev.__instance ||
+          currAlbum?.["title"] !== prevAlbum?.["title"] ||
+          currAlbum?.["artistName"] !== prevAlbum?.["artistName"] ||
+          currAlbum?.["hasFile"] !== prevAlbum?.["hasFile"] ||
+          currAlbum?.["monitored"] !== prevAlbum?.["monitored"]
+        ) {
+          identical = false;
+          break;
+        }
+      }
+      if (identical) {
+        return groupedDataCache.current;
+      }
+    }
+
+    // Content changed, rebuild grouped structure
     const instanceMap = new Map<string, Map<string, LidarrAggRow[]>>();
 
     rows.forEach(row => {
@@ -116,6 +153,10 @@ function LidarrAggregateView({
         });
       });
     });
+
+    // Update caches
+    prevRowsRef.current = rows;
+    groupedDataCache.current = result;
 
     return result;
   }, [rows]);
@@ -467,8 +508,19 @@ function LidarrInstanceView({
     });
   }, [filteredAlbums, reasonFilter]);
 
-  // Group albums by artist for hierarchical view
+  const prevFilteredAlbumsRef = useRef<LidarrAlbumEntry[]>([]);
+  const groupedAlbumsCache = useRef<Array<{
+    artist: string;
+    albums: LidarrAlbumEntry[];
+  }>>([]);
+
+  // Group albums by artist for hierarchical view - only rebuild if filtered albums changed
   const groupedAlbums = useMemo(() => {
+    // Quick reference check
+    if (reasonFilteredAlbums === prevFilteredAlbumsRef.current) {
+      return groupedAlbumsCache.current;
+    }
+
     const artistMap = new Map<string, LidarrAlbumEntry[]>();
     reasonFilteredAlbums.forEach(albumEntry => {
       const albumData = albumEntry.album as Record<string, unknown>;
@@ -478,10 +530,15 @@ function LidarrInstanceView({
       }
       artistMap.get(artist)!.push(albumEntry);
     });
-    return Array.from(artistMap.entries()).map(([artist, albums]) => ({
+
+    const result = Array.from(artistMap.entries()).map(([artist, albums]) => ({
       artist,
       albums
     }));
+
+    prevFilteredAlbumsRef.current = reasonFilteredAlbums;
+    groupedAlbumsCache.current = result;
+    return result;
   }, [reasonFilteredAlbums]);
 
   const columns = useMemo<ColumnDef<LidarrAlbumEntry>[]>(
