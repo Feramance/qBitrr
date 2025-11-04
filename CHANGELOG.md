@@ -1,5 +1,10 @@
 # Changelog
 
+## v5.3.1 (04/11/2025)
+- [[patch] fixed changelog fetch tag](https://github.com/Feramance/qBitrr/commit/20f30d7dfa90c2262d8196e6834a2e340d869171) - @Feramance
+
+---
+
 ## v5.3.0 (04/11/2025)
 - [[minor] Fixed PyPi version](https://github.com/Feramance/qBitrr/commit/01aee8713cab1e899a50cd2a4da644edb818d7f7) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/110154577b3b715d28b0420192bc86a0b167d958) - @Feramance
@@ -406,8 +411,3 @@
 - [[patch] Hotfix 2](https://github.com/Feramance/qBitrr/commit/7e355b9d4977b8daed95da58323f1c6ffcadf521) - @Feramance
 - [Merge branch 'master' of https://github.com/Feramance/qBitrr](https://github.com/Feramance/qBitrr/commit/0bb99509bbfe8949543108667caa1b2560436b93) - @Feramance
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/b301ea02b586a52af65959fa653135b815b4b435) - @Feramance
-
----
-
-## v4.10.6 (18/12/2024)
-- [[patch] Free space config folder added](https://github.com/Feramance/qBitrr/commit/9286bdc67402a13b213254cf6e742905f1004e25) - @Feramance
