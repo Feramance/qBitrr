@@ -2710,7 +2710,7 @@ class Arr:
                             reason = "Missing"
                         elif searched:
                             # Episode has file and search is complete
-                            reason = None
+                            reason = "Not being searched"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
                         elif self.custom_format_unmet_search and not customFormatMet:
@@ -2718,7 +2718,7 @@ class Arr:
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
                         else:
-                            reason = None
+                            reason = "Not being searched"
 
                         to_update = {
                             self.model_file.Monitored: Monitored,
@@ -3062,7 +3062,7 @@ class Arr:
                         reason = "Missing"
                     elif searched:
                         # Movie has file and search is complete
-                        reason = None
+                        reason = "Not being searched"
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
                     elif self.custom_format_unmet_search and not customFormatMet:
@@ -3070,7 +3070,7 @@ class Arr:
                     elif self.do_upgrade_search:
                         reason = "Upgrade"
                     else:
-                        reason = None
+                        reason = "Not being searched"
 
                     to_update = {
                         self.model_file.MovieFileId: movieFileId,
@@ -3372,7 +3372,7 @@ class Arr:
                             reason = "Missing"
                         elif searched:
                             # Album is complete and not being searched
-                            reason = None
+                            reason = "Not being searched"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
                         elif self.custom_format_unmet_search and not customFormatMet:
@@ -3380,7 +3380,7 @@ class Arr:
                         elif self.do_upgrade_search:
                             reason = "Upgrade"
                         else:
-                            reason = None
+                            reason = "Not being searched"
 
                         to_update = {
                             self.model_file.AlbumFileId: albumFileId,

@@ -552,8 +552,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
-      if (reasonFilter === "none") {
-        rows = rows.filter((row) => !row.reason);
+      if (reasonFilter === "Not being searched") {
+        rows = rows.filter((row) => row.reason === "Not being searched");
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }
@@ -688,7 +688,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                   value={reasonFilter}
                 >
                   <option value="all">All Reasons</option>
-                  <option value="none">Not Being Searched</option>
+                  <option value="Not being searched">Not Being Searched</option>
                   <option value="Missing">Missing</option>
                   <option value="Quality">Quality</option>
                   <option value="CustomFormat">Custom Format</option>
@@ -1266,8 +1266,8 @@ function SonarrInstanceView({
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
-      if (reasonFilter === "none") {
-        rows = rows.filter((row) => !row.reason);
+      if (reasonFilter === "Not being searched") {
+        rows = rows.filter((row) => row.reason === "Not being searched");
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
       }
