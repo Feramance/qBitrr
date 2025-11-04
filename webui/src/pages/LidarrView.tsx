@@ -1197,7 +1197,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, aggRows, aggTrackRows, aggSummary, aggFilter, groupLidarr]);
+  }, [instances, globalSearch, push, aggFilter, groupLidarr]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 

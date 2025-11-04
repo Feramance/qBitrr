@@ -713,7 +713,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, aggRows, aggSummary, aggFilter]);
+  }, [instances, globalSearch, push, aggFilter]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 
