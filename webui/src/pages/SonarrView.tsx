@@ -356,7 +356,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             firstSeries: res.series?.[0] ? {
               title: res.series[0].series?.title,
               seasonsCount: Object.keys(res.series[0].seasons ?? {}).length,
-              firstSeasonEpisodes: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.length ?? 0
+              firstSeasonEpisodes: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.length ?? 0,
+              firstEpisode: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.[0]
             } : null
           });
           if (!counted) {
@@ -385,6 +386,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             Object.entries(entry.seasons ?? {}).forEach(
               ([seasonNumber, season]) => {
                 (season.episodes ?? []).forEach((episode: SonarrEpisode) => {
+                  const episodeReason = (episode.reason as string | null | undefined) ?? null;
                   aggregated.push({
                     __instance: label,
                     series: title,
@@ -394,7 +396,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                     monitored: !!episode.monitored,
                     hasFile: !!episode.hasFile,
                     airDate: episode.airDateUtc ?? "",
-                    reason: (episode.reason as string | null | undefined) ?? null,
+                    reason: episodeReason,
                   });
                 });
               }
@@ -411,6 +413,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       // Smart diffing using hash-based change detection
       const syncResult = aggEpisodeSync.syncData(aggregated);
       const rowsChanged = syncResult.hasChanges;
+
+      // Debug: Check what reason values we have
+      const reasonCounts = new Map<string, number>();
+      aggregated.forEach(ep => {
+        const r = ep.reason || "null/empty";
+        reasonCounts.set(r, (reasonCounts.get(r) || 0) + 1);
+      });
+      console.log(`[Sonarr Aggregate] Reason distribution:`, Object.fromEntries(reasonCounts));
 
       if (rowsChanged) {
         console.log(`[Sonarr Aggregate] Data changed, updating from ${aggRows.length} to ${aggregated.length} episodes`);
@@ -982,6 +992,15 @@ function SonarrAggregateView({
       accessorKey: "airDate",
       header: "Air Date",
       cell: ({ getValue }) => getValue() || "—",
+    },
+    {
+      accessorKey: "reason",
+      header: "Reason",
+      cell: ({ getValue }) => {
+        const reason = getValue() as string | null | undefined;
+        if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
+        return <span className="table-badge table-badge-reason">{reason}</span>;
+      },
     },
   ], [instanceCount]);
 
