@@ -80,7 +80,7 @@ Dynamic: license-file
 [![pre-commit.ci](https://results.pre-commit.ci/badge/github/Feramance/qBitrr/master.svg)](https://results.pre-commit.ci/latest/github/Feramance/qBitrr/master)
 [![License: MIT](https://img.shields.io/pypi/l/qbitrr)](LICENSE)
 
-> 🧩 qBitrr keeps qBittorrent, Radarr, Sonarr, and your request tools chatting happily so downloads finish, import, and clean up without babysitting.
+> 🧩 qBitrr keeps qBittorrent, Radarr, Sonarr, Lidarr, and your request tools chatting happily so downloads finish, import, and clean up without babysitting.
 
 ## 📚 What's Inside
 - [Overview](#-overview)
@@ -98,7 +98,7 @@ Dynamic: license-file
 - [License](#-license)
 
 ## 🧠 Overview
-qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent for stalled jobs, kicks Radarr/Sonarr when something finishes, prunes your completed folder, and even offers a slick React dashboard so you can see what's running at a glance.
+qBitrr is the glue that keeps the *Arr ecosystem tidy. It watches qBittorrent for stalled jobs, kicks Radarr/Sonarr/Lidarr when something finishes, prunes your completed folder, and even offers a slick React dashboard so you can see what's running at a glance.
 
 ## ✨ Highlights
 - 🚑 **Health checks** – spot stalled or broken torrents, blacklist them on the relevant Arr, and optionally trigger a re-search.
@@ -180,7 +180,7 @@ services:
 
 ## 🛠️ Configuration
 - Default config path: `~/config/config.toml` (native) or `/config/config.toml` (Docker).
-- Tag new downloads in Radarr/Sonarr so qBitrr can map them correctly.
+- Tag new downloads in Radarr/Sonarr/Lidarr so qBitrr can map them correctly.
 - qBittorrent 5.x works via a config flag (will become default later). The latest validated build is **4.6.7**.
 - Turn on logging (`Settings.Logging = true`) when you need support—logs land in `~/logs/` or `/config/logs`.
 
@@ -190,7 +190,7 @@ See `config.example.toml` for every knob and dial.
 The React + Vite dashboard listens on `http://<host>:6969/ui` by default.
 
 - 🔐 **Authentication** – set `Settings.WebUIToken` to protect `/api/*`. The UI itself uses the `/web/*` helpers.
-- 🗂️ **Tabs** – Processes, Logs, Radarr, Sonarr, and Config—all live data, all actionable.
+- 🗂️ **Tabs** – Processes, Logs, Radarr, Sonarr, Lidarr, and Config—all live data, all actionable.
 - 🧪 **Developing the UI** – the source lives in `webui/`. Run `npm ci && npm run dev` to hack locally, and `npm run build` (or `make syncenv`) before committing so the bundled assets stay current.
 
 ## 🔁 Day-to-day Ops
