@@ -75,7 +75,6 @@ jobs:
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Bump version to v${{ steps.version.outputs.value }}'
-        tagging_message: v${{ steps.version.outputs.value }}
         commit_options: -S
         commit_user_name: ${{ steps.import_gpg.outputs.name }}
         commit_user_email: ${{ steps.import_gpg.outputs.email }}
