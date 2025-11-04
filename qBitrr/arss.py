@@ -2705,11 +2705,12 @@ class Arr:
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if searched:
-                            # Episode is complete and not being searched
-                            reason = None
-                        elif not episode["hasFile"]:
+                        if not episode["hasFile"]:
+                            # Episode is missing a file - always mark as Missing
                             reason = "Missing"
+                        elif searched:
+                            # Episode has file and search is complete
+                            reason = None
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
                         elif self.custom_format_unmet_search and not customFormatMet:
@@ -3056,11 +3057,12 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
-                    if searched:
-                        # Movie is complete and not being searched
-                        reason = None
-                    elif not db_entry["hasFile"]:
+                    if not movie["hasFile"]:
+                        # Movie is missing a file - always mark as Missing
                         reason = "Missing"
+                    elif searched:
+                        # Movie has file and search is complete
+                        reason = None
                     elif self.quality_unmet_search and QualityUnmet:
                         reason = "Quality"
                     elif self.custom_format_unmet_search and not customFormatMet:
@@ -3365,11 +3367,12 @@ class Arr:
                         qualityMet = not QualityUnmet if hasAllTracks else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if searched:
+                        if not hasAllTracks:
+                            # Album is missing tracks - always mark as Missing
+                            reason = "Missing"
+                        elif searched:
                             # Album is complete and not being searched
                             reason = None
-                        elif not hasAllTracks:
-                            reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
                             reason = "Quality"
                         elif self.custom_format_unmet_search and not customFormatMet:
