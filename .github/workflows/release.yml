@@ -348,19 +348,13 @@ jobs:
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
-    - uses: actions/checkout@v5
-      with:
-        fetch-depth: 0
-        ref: v${{ needs.prepare_release.outputs.new_version }}
-        token: ${{ secrets.PAT }}
     - name: Publish release
-      uses: softprops/action-gh-release@v2
-      with:
-        token: ${{ secrets.PAT }}
-        tag_name: v${{ needs.prepare_release.outputs.new_version }}
-        name: v${{ needs.prepare_release.outputs.new_version }}
-        draft: false
-        prerelease: false
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        TAG="v${{ needs.prepare_release.outputs.new_version }}"
+        echo "Publishing release ${TAG}"
+        gh release edit "${TAG}" --draft=false --repo ${{ github.repository }}
 concurrency:
   group: release
   cancel-in-progress: false
