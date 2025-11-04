@@ -548,6 +548,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         );
       });
     }
+    if (onlyMissing) {
+      rows = rows.filter((row) => !row.hasFile);
+    }
     if (reasonFilter !== "all") {
       if (reasonFilter === "none") {
         rows = rows.filter((row) => !row.reason);
@@ -556,9 +559,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       }
     }
     return rows;
-  }, [aggRows, aggFilter, reasonFilter]);
+  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
-  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+  const isAggFiltered = Boolean(aggFilter) || onlyMissing || reasonFilter !== "all";
 
   const sortedAggRows = filteredAggRows;
 
@@ -1259,6 +1262,9 @@ function SonarrInstanceView({
 
   const filteredEpisodeRows = useMemo(() => {
     let rows = episodeRows;
+    if (onlyMissing) {
+      rows = rows.filter((row) => !row.hasFile);
+    }
     if (reasonFilter !== "all") {
       if (reasonFilter === "none") {
         rows = rows.filter((row) => !row.reason);
@@ -1267,7 +1273,7 @@ function SonarrInstanceView({
       }
     }
     return rows;
-  }, [episodeRows, reasonFilter]);
+  }, [episodeRows, onlyMissing, reasonFilter]);
 
   const prevEpisodeRowsRef = useRef<SonarrAggRow[]>([]);
   const groupedTableDataCache = useRef<Array<{

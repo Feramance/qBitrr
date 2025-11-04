@@ -273,11 +273,38 @@ export async function getConfig(): Promise<ConfigDocument> {
 
 export async function updateConfig(
   payload: ConfigUpdatePayload
-): Promise<void> {
-  await fetchJson<void>("/web/config", {
+): Promise<{ configReloaded: boolean }> {
+  const token = resolveToken();
+  const response = await fetch("/web/config", buildInit({
     method: "POST",
     body: JSON.stringify(payload),
-  });
+  }, token));
+
+  if (!response.ok) {
+    let detail: unknown = null;
+    try {
+      detail = await response.json();
+    } catch {
+      // ignore
+    }
+    let message = `${response.status} ${response.statusText}`;
+    if (
+      detail &&
+      typeof detail === "object" &&
+      "error" in detail &&
+      typeof (detail as Record<string, unknown>).error === "string"
+    ) {
+      const errorText = (detail as Record<string, unknown>).error as string;
+      if (errorText.trim()) {
+        message = errorText;
+      }
+    }
+    throw new Error(message);
+  }
+
+  // Check if backend reloaded config (indicates non-frontend-only changes)
+  const configReloaded = response.headers.get("X-Config-Reloaded") === "true";
+  return { configReloaded };
 }
 
 export async function triggerUpdate(): Promise<void> {

@@ -1514,11 +1514,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setSaving(false);
         return;
       }
-      const response = await updateConfig({ changes });
+      const { configReloaded } = await updateConfig({ changes });
       push("Configuration saved", "success");
 
-      // Clear browser cache and reload config
-      if ('caches' in window) {
+      // Only clear browser cache if backend reloaded (non-frontend-only changes)
+      if (configReloaded && 'caches' in window) {
         try {
           const cacheNames = await caches.keys();
           await Promise.all(
