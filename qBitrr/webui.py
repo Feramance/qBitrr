@@ -22,7 +22,7 @@ from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
 )
-from qBitrr.versioning import fetch_latest_release
+from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
@@ -115,7 +115,8 @@ class WebUI:
         self._version_cache = {
             "current_version": patched_version,
             "latest_version": None,
-            "changelog": "",
+            "changelog": "",  # Latest version changelog
+            "current_version_changelog": "",  # Current version changelog
             "changelog_url": f"https://github.com/{self._github_repo}/releases",
             "repository_url": f"https://github.com/{self._github_repo}",
             "homepage_url": f"https://github.com/{self._github_repo}",
@@ -156,6 +157,33 @@ class WebUI:
             "error": None,
         }
 
+    def _fetch_current_version_changelog(self) -> dict[str, Any]:
+        """Fetch changelog for the current running version."""
+        current_ver = patched_version
+        if not current_ver:
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": "No current version",
+            }
+
+        info = fetch_release_by_tag(current_ver, self._github_repo)
+        if info.get("error"):
+            self.logger.debug("Failed to fetch current version changelog: %s", info["error"])
+            # Fallback to generic releases page
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": info["error"],
+            }
+
+        return {
+            "changelog": info.get("changelog") or "",
+            "changelog_url": info.get("changelog_url")
+            or f"https://github.com/{self._github_repo}/releases/tag/v{current_ver}",
+            "error": None,
+        }
+
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
         now = datetime.utcnow()
         with self._version_lock:
@@ -167,6 +195,7 @@ class WebUI:
             self._version_cache_expiry = now + timedelta(minutes=5)
 
         latest_info = self._fetch_version_info()
+        current_ver_info = self._fetch_current_version_changelog()
 
         with self._version_lock:
             if latest_info:
@@ -180,6 +209,12 @@ class WebUI:
                     self._version_cache["update_available"] = bool(latest_info["update_available"])
                 if "error" in latest_info:
                     self._version_cache["error"] = latest_info["error"]
+            # Store current version changelog
+            if current_ver_info and not current_ver_info.get("error"):
+                self._version_cache["current_version_changelog"] = (
+                    current_ver_info.get("changelog") or ""
+                )
+
             self._version_cache["current_version"] = patched_version
             self._version_cache["last_checked"] = now.isoformat()
             # Extend cache validity if fetch succeeded; otherwise allow quick retry.

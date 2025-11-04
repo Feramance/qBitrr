@@ -40,6 +40,79 @@ function formatVersionLabel(value: string | null | undefined): string {
   return trimmed[0] === "v" || trimmed[0] === "V" ? trimmed : `v${trimmed}`;
 }
 
+interface WelcomeModalProps {
+  currentVersion: string;
+  changelog: string | null;
+  changelogUrl: string | null;
+  repositoryUrl: string;
+  onClose: () => void;
+}
+
+function WelcomeModal({
+  currentVersion,
+  changelog,
+  changelogUrl,
+  repositoryUrl,
+  onClose,
+}: WelcomeModalProps): JSX.Element {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="welcome-title">
+            🎉 Welcome to qBitrr {formatVersionLabel(currentVersion)}!
+          </h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body changelog-modal__body">
+          <div className="changelog-meta">
+            <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              You've been updated to version <strong>{formatVersionLabel(currentVersion)}</strong>.
+              Here's what's new in this release:
+            </p>
+          </div>
+          <div className="changelog-section">
+            <h3>Release Notes</h3>
+            <pre className="changelog-body">
+              {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
+            </pre>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <div className="changelog-links">
+            {(changelogUrl || repositoryUrl) && (
+              <a
+                className="btn ghost small"
+                href={changelogUrl ?? repositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IconImage src={ExternalIcon} />
+                View Full Release on GitHub
+              </a>
+            )}
+          </div>
+          <div className="changelog-buttons">
+            <button className="btn primary" type="button" onClick={onClose}>
+              <IconImage src={CloseIcon} />
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ChangelogModalProps {
   currentVersion: string;
   latestVersion: string | null;
@@ -208,6 +281,7 @@ function AppShell(): JSX.Element {
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [statusData, setStatusData] = useState<StatusResponse | null>(null);
+  const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
   // Theme is now managed by WebUIContext and applied automatically
 
@@ -257,6 +331,30 @@ function AppShell(): JSX.Element {
   useEffect(() => {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
+
+  // Check for new version on first launch - show welcome popup with changelog
+  useEffect(() => {
+    if (!meta?.current_version) {
+      return;
+    }
+
+    const lastSeenVersion = localStorage.getItem("lastSeenVersion");
+    const currentVersion = meta.current_version;
+
+    // Show welcome popup if this is a new version (but not on very first install)
+    if (lastSeenVersion && lastSeenVersion !== currentVersion) {
+      // Ensure we have changelog data before showing popup
+      if (!meta.current_version_changelog && !meta.changelog) {
+        void refreshMeta({ force: true, silent: true });
+      }
+      setShowWelcomeChangelog(true);
+    }
+
+    // Store current version as last seen when user opens the app (first install)
+    if (!lastSeenVersion) {
+      localStorage.setItem("lastSeenVersion", currentVersion);
+    }
+  }, [meta?.current_version, meta?.changelog, refreshMeta]);
 
   // Network status notifications
   useEffect(() => {
@@ -541,6 +639,14 @@ function AppShell(): JSX.Element {
     setShowChangelog(false);
   }, []);
 
+  const handleCloseWelcomeChangelog = useCallback(() => {
+    setShowWelcomeChangelog(false);
+    // Mark this version as seen
+    if (meta?.current_version) {
+      localStorage.setItem("lastSeenVersion", meta.current_version);
+    }
+  }, [meta?.current_version]);
+
   const handleTriggerUpdate = useCallback(async () => {
     setUpdateBusy(true);
     setBackendRestarting(false);
@@ -673,6 +779,15 @@ function AppShell(): JSX.Element {
           updating={updateBusy}
           onClose={handleCloseChangelog}
           onUpdate={handleTriggerUpdate}
+        />
+      ) : null}
+      {showWelcomeChangelog && meta ? (
+        <WelcomeModal
+          currentVersion={meta.current_version}
+          changelog={meta.current_version_changelog || meta.changelog}
+          changelogUrl={changelogUrl}
+          repositoryUrl={repositoryUrl}
+          onClose={handleCloseWelcomeChangelog}
         />
       ) : null}
     </div>

@@ -210,7 +210,8 @@ export interface MetaResponse {
   current_version: string;
   latest_version: string | null;
   update_available: boolean;
-  changelog: string | null;
+  changelog: string | null; // Latest version changelog
+  current_version_changelog: string | null; // Current version changelog
   changelog_url: string | null;
   repository_url: string;
   homepage_url: string;
