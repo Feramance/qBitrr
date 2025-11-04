@@ -193,6 +193,16 @@ function LidarrAggregateView({
         },
         size: 100,
       },
+      {
+        accessorKey: "reason",
+        header: "Reason",
+        cell: (info) => {
+          const reason = info.getValue() as string | null | undefined;
+          if (!reason) return <span className="table-badge table-badge-reason">Not being searched</span>;
+          return <span className="table-badge table-badge-reason">{reason}</span>;
+        },
+        size: 120,
+      },
     ],
     [instanceCount]
   );
@@ -275,6 +285,7 @@ function LidarrAggregateView({
                                 <th>Title</th>
                                 <th>Duration</th>
                                 <th>Has File</th>
+                                <th>Reason</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -287,6 +298,13 @@ function LidarrAggregateView({
                                     <span className={`track-status ${track.hasFile ? 'available' : 'missing'}`}>
                                       {track.hasFile ? '✓' : '✗'}
                                     </span>
+                                  </td>
+                                  <td data-label="Reason">
+                                    {reason ? (
+                                      <span className="table-badge table-badge-reason">{reason}</span>
+                                    ) : (
+                                      <span className="table-badge table-badge-reason">Not being searched</span>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
@@ -609,6 +627,7 @@ function LidarrInstanceView({
                                 <th>Title</th>
                                 <th>Duration</th>
                                 <th>Has File</th>
+                                <th>Reason</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -621,6 +640,13 @@ function LidarrInstanceView({
                                     <span className={`track-status ${track.hasFile ? 'available' : 'missing'}`}>
                                       {track.hasFile ? '✓' : '✗'}
                                     </span>
+                                  </td>
+                                  <td data-label="Reason">
+                                    {reason ? (
+                                      <span className="table-badge table-badge-reason">{reason}</span>
+                                    ) : (
+                                      <span className="table-badge table-badge-reason">Not being searched</span>
+                                    )}
                                   </td>
                                 </tr>
                               ))}
