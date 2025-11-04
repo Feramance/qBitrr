@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { produce } from "immer";
+import equal from "fast-deep-equal";
 import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -1040,9 +1042,7 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   return errors;
 }
 
-function cloneConfig(config: ConfigDocument | null): ConfigDocument | null {
-  return config ? JSON.parse(JSON.stringify(config)) : null;
-}
+// Note: cloneConfig is no longer needed - using immer's produce for immutable updates
 
 function getValue(doc: ConfigDocument | null, path: string[]): unknown {
   if (!doc) return undefined;
@@ -1225,7 +1225,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     try {
       const config = await getConfig();
       setOriginalConfig(config);
-      setFormState(cloneConfig(config));
+      // Deep clone config for form state (immer will handle immutability from here)
+      setFormState(config ? JSON.parse(JSON.stringify(config)) : null);
     } catch (error) {
       push(
         error instanceof Error
@@ -1245,7 +1246,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const handleFieldChange = useCallback(
     (path: string[], def: FieldDefinition, raw: unknown) => {
       if (!formState) return;
-      const next = cloneConfig(formState) ?? {};
       const parsed =
         def.parse?.(raw as string | boolean) ??
         (def.type === "number"
@@ -1253,8 +1253,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           : def.type === "checkbox"
           ? Boolean(raw)
           : raw);
-      setValue(next, path, parsed);
-      setFormState(next);
+      setFormState(
+        produce(formState, (draft) => {
+          setValue(draft, path, parsed);
+        })
+      );
     },
     [formState]
   );
@@ -1328,11 +1331,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       if (liveKeys.has(key)) continue;
 
       const originalValue = flattenedOriginal[key];
-      const changed =
-        Array.isArray(value) || Array.isArray(originalValue)
-          ? JSON.stringify(value ?? []) !== JSON.stringify(originalValue ?? [])
-          : value !== originalValue;
-      if (changed) {
+      // Use fast-deep-equal for accurate comparison (handles arrays, objects, etc.)
+      if (!equal(value, originalValue)) {
         dirty = true;
         break;
       }
@@ -1410,13 +1410,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         index += 1;
         key = `${prefix}-${index}`;
       }
-      const next = cloneConfig(formState) ?? {};
       const defaults = ensureArrDefaults(type);
       if (defaults && typeof defaults === "object") {
         (defaults as Record<string, unknown>).Name = key;
       }
-      next[key] = defaults;
-      setFormState(next);
+      setFormState(
+        produce(formState, (draft) => {
+          draft[key] = defaults;
+        })
+      );
     },
     [formState]
   );
@@ -1433,12 +1435,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       if (!confirmed) {
         return;
       }
-      const next = cloneConfig(formState) ?? {};
-      if (!(key in next)) {
+      if (!(key in formState)) {
         return;
       }
-      delete next[key];
-      setFormState(next);
+      setFormState(
+        produce(formState, (draft) => {
+          delete draft[key];
+        })
+      );
       if (activeArrKey === key) {
         setActiveArrKey(null);
       }
@@ -1458,14 +1462,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         push(`An instance named "${newName}" already exists`, "error");
         return;
       }
-      const next = cloneConfig(formState) ?? {};
-      const section = next[oldName];
-      delete next[oldName];
-      next[newName] = section;
-      if (section && typeof section === "object") {
-        (section as Record<string, unknown>).Name = newName;
-      }
-      setFormState(next);
+      setFormState(
+        produce(formState, (draft) => {
+          const section = draft[oldName];
+          delete draft[oldName];
+          draft[newName] = section;
+          if (section && typeof section === "object") {
+            (section as Record<string, unknown>).Name = newName;
+          }
+        })
+      );
       if (activeArrKey === oldName) {
         setActiveArrKey(newName);
       }
@@ -1495,12 +1501,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       const changes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(flattenedCurrent)) {
         const originalValue = flattenedOriginal[key];
-        const changed =
-          Array.isArray(value) || Array.isArray(originalValue)
-            ? JSON.stringify(value ?? []) !==
-              JSON.stringify(originalValue ?? [])
-            : value !== originalValue;
-        if (changed) {
+        // Use fast-deep-equal for accurate comparison
+        if (!equal(value, originalValue)) {
           changes[key] = value;
         }
       }
