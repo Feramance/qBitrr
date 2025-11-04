@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
+import { get, set } from "lodash-es";
 import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -1044,14 +1045,10 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
 
 // Note: cloneConfig is no longer needed - using immer's produce for immutable updates
 
+// Utility wrappers around lodash for ConfigDocument operations
 function getValue(doc: ConfigDocument | null, path: string[]): unknown {
   if (!doc) return undefined;
-  let cur: unknown = doc;
-  for (const key of path) {
-    if (cur == null || typeof cur !== "object") return undefined;
-    cur = (cur as Record<string, unknown>)[key];
-  }
-  return cur;
+  return get(doc, path);
 }
 
 function setValue(
@@ -1059,19 +1056,11 @@ function setValue(
   path: string[],
   value: unknown
 ): void {
-  let cur: Record<string, unknown> = doc;
-  path.forEach((key, idx) => {
-    if (idx === path.length - 1) {
-      cur[key] = value;
-    } else {
-      if (typeof cur[key] !== "object" || cur[key] === null) {
-        cur[key] = {};
-      }
-      cur = cur[key] as Record<string, unknown>;
-    }
-  });
+  set(doc, path, value);
 }
 
+// Custom flatten to create dot-notation keys (e.g., "Settings.FreeSpace")
+// Note: lodash's flatten is for arrays; this is a specialized object flattener
 function flatten(doc: ConfigDocument, prefix: string[] = []): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(doc)) {
