@@ -24,15 +24,18 @@ def normalize_version(raw: str | None) -> str | None:
 def is_newer_version(candidate: str | None, current: str | None = None) -> bool:
     if not candidate:
         return False
+    normalized_candidate = normalize_version(candidate)
     normalized_current = normalize_version(current or patched_version)
     if not normalized_current:
         return True
+    if not normalized_candidate:
+        return False
     try:
-        latest_version = version_parser.parse(candidate)
+        latest_version = version_parser.parse(normalized_candidate)
         current_version = version_parser.parse(normalized_current)
         return latest_version > current_version
     except Exception:
-        return candidate != normalized_current
+        return normalized_candidate != normalized_current
 
 
 def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -> dict[str, Any]:
