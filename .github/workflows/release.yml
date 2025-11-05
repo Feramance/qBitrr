@@ -358,16 +358,9 @@ jobs:
         echo "Skipping gren release (release already created as draft)..."
         echo "Note: Release notes will be populated from changelog in publish_release job"
 
-        echo "Generating changelog with gren..."
-        if gren changelog --override 2>&1 | tee gren-changelog.log; then
-          echo "✓ Changelog generated successfully"
-        else
-          echo "⚠ Warning: gren changelog failed"
-          cat gren-changelog.log
-
-          # Fallback: Generate changelog entry manually
-          echo "Attempting manual changelog generation..."
-          python3 <<'PYEOF'
+        echo "Skipping gren changelog (using Python fallback for better control)..."
+        echo "Generating changelog entry manually with grouped categories..."
+        python3 <<'PYEOF'
         import os
         import subprocess
         from datetime import datetime
@@ -539,7 +532,8 @@ jobs:
         # Verify changelog was updated
         if ! git diff --quiet CHANGELOG.md; then
           echo "✓ Changelog successfully updated"
-          git diff CHANGELOG.md | head -50
+          echo "Preview of changes:"
+          git diff CHANGELOG.md | head -50 || true
         else
           echo "⚠ Warning: Changelog was not modified"
           echo "Checking if entry already exists..."
