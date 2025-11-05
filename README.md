@@ -496,11 +496,11 @@ AutoUpdateCron = "0 3 * * 0"  # Cron expression (default: Sunday 3 AM)
 ```
 
 **Cron Expression Examples:**
-```toml
-"0 3 * * 0"     # Every Sunday at 3:00 AM
-"0 */6 * * *"   # Every 6 hours
-"0 0 * * *"     # Daily at midnight
-"0 2 * * 1-5"   # Weekdays at 2:00 AM
+```bash
+0 3 * * 0      # Every Sunday at 3:00 AM
+0 */6 * * *    # Every 6 hours
+0 0 * * *      # Daily at midnight
+0 2 * * 1-5    # Weekdays at 2:00 AM
 ```
 
 ---
