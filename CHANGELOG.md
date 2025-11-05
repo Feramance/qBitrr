@@ -1,10 +1,20 @@
 # Changelog
 
-## v5.4.5 (01/01/1970)
+## v5.4.5 (05/11/2025)
+
+### 🐛 Bug Fixes
+- [[patch] Sync changelog and release system improvements](https://github.com/Feramance/qBitrr/commit/dd7f7263026b05cdd7e5ed267d05565ecd173845) - @Feramance
+- [[patch] Fix version](https://github.com/Feramance/qBitrr/commit/7be1c1bd2be57e79b1c4b57fd5ea5e1e0af3b05f) - @Feramance
+- [Fix changelog generation with populated entries and robust fallback mechanism](https://github.com/Feramance/qBitrr/commit/23c27716abc019f5daabdafde5e0eb3c97397857) - @Feramance
+- [Prevent duplicate release creation in workflow](https://github.com/Feramance/qBitrr/commit/a8e2c2dd60f7c6f3cca18b391674d011977528c5) - @Feramance
+
+### 🚀 Features
+- [Add automated GitHub release notes population from changelog](https://github.com/Feramance/qBitrr/commit/4c6b58a76eee1048cc5930ba30db81a74606941b) - @Feramance
+- [Add grouped changelog with icons for features, fixes, and other commit types](https://github.com/Feramance/qBitrr/commit/f11382245a4561efe1d1b97e9ebf83032fbb732b) - @Feramance
 
 ---
 
-## v5.4.4 (01/01/1970)
+## v5.4.4 (05/11/2025)
 ### 🚀 Features
 - [Add binary download support for auto-updates](https://github.com/Feramance/qBitrr/commit/59421749450fca0f470f63a6094d358daa77d00b) - @Feramance
 - [Implement GitHub release-based auto-update with installation type detection](https://github.com/Feramance/qBitrr/commit/1a3f9936a3f7beb7aaa3116c1d71b046109d2c4f) - @Feramance
@@ -20,10 +30,6 @@
 
 ### 🔧 Maintenance
 - [Changelog fixes](https://github.com/Feramance/qBitrr/commit/1bb74b40d18813b7b3bb727b8e4809233606de1c) - @Feramance
----
-
-## v5.4.5 (05/11/2025)
-
 ---
 
 ## v5.4.3 (05/11/2025)

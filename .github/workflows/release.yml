@@ -604,6 +604,7 @@ jobs:
         echo "✓ Latest changes pulled"
 
     - name: Extract and update release notes from changelog
+      id: extract_notes
       env:
         GH_TOKEN: ${{ secrets.PAT }}
         VERSION: ${{ needs.prepare_release.outputs.new_version }}
@@ -658,7 +659,7 @@ jobs:
           echo "⚠ No release notes file found, skipping update"
         fi
     - name: Publish release
-      if: always()
+      if: steps.extract_notes.outcome == 'success'
       env:
         GH_TOKEN: ${{ secrets.PAT }}
       run: |
