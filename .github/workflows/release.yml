@@ -478,6 +478,22 @@ jobs:
                 print(f"✓ Changelog for v{version} already exists")
         else:
             print("⚠ Could not find previous tag")
+            # Create a minimal entry as last resort
+            with open('CHANGELOG.md', 'r') as f:
+                content = f.read()
+
+            date_str = datetime.now().strftime('%d/%m/%Y')
+            header = f"## v{version} ({date_str})\n"
+
+            if header not in content:
+                minimal_entry = f"{header}\n### 🔧 Maintenance\n- Release v{version}\n\n---\n\n"
+                changelog_start = content.find("# Changelog\n\n")
+                if changelog_start >= 0:
+                    insert_pos = changelog_start + len("# Changelog\n\n")
+                    new_content = content[:insert_pos] + minimal_entry + content[insert_pos:]
+                    with open('CHANGELOG.md', 'w') as f:
+                        f.write(new_content)
+                    print(f"✓ Created minimal changelog entry for v{version}")
         PYEOF
         fi
 
@@ -487,6 +503,13 @@ jobs:
           git diff CHANGELOG.md | head -50
         else
           echo "⚠ Warning: Changelog was not modified"
+          echo "Checking if entry already exists..."
+          if grep -q "## v${VERSION}" CHANGELOG.md; then
+            echo "✓ Entry for v${VERSION} already exists in changelog"
+          else
+            echo "❌ ERROR: No changelog entry for v${VERSION}"
+            exit 1
+          fi
         fi
     - name: Import GPG key
       id: changelog_gpg
@@ -538,6 +561,12 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: '3.12'
+    - name: Pull latest changelog updates
+      run: |
+        echo "Pulling latest changes from master (including changelog updates)..."
+        git pull origin master
+        echo "✓ Latest changes pulled"
+
     - name: Extract and update release notes from changelog
       env:
         GH_TOKEN: ${{ secrets.PAT }}
@@ -564,14 +593,23 @@ jobs:
 
         if match:
             body = match.group(3).strip()
-            # Write to file for gh CLI
-            with open('/tmp/release_notes.md', 'w') as f:
-                f.write(body)
-            print(f"✓ Extracted {len(body)} characters for {tag}")
-            sys.exit(0)
+            if body:
+                # Write to file for gh CLI
+                with open('/tmp/release_notes.md', 'w') as f:
+                    f.write(body)
+                print(f"✓ Extracted {len(body)} characters for {tag}")
+                sys.exit(0)
+            else:
+                print(f"⚠ Changelog entry for {tag} is empty")
+                sys.exit(1)
         else:
             print(f"⚠ Could not find changelog entry for {tag}")
-            sys.exit(1)
+            print(f"This might mean the changelog job failed to generate it.")
+            print(f"The release will be published without detailed notes.")
+            # Create a minimal release note
+            with open('/tmp/release_notes.md', 'w') as f:
+                f.write(f"Release {tag}\n\nSee [CHANGELOG.md](https://github.com/${{{{ github.repository }}}}/blob/master/CHANGELOG.md) for details.")
+            sys.exit(0)
         PYEOF
 
         # Update the release with the changelog content
@@ -579,15 +617,25 @@ jobs:
           echo "Updating release ${TAG} with changelog content..."
           gh release edit "${TAG}" --notes-file /tmp/release_notes.md --repo ${{ github.repository }}
           echo "✓ Release notes updated"
+        else
+          echo "⚠ No release notes file found, skipping update"
         fi
     - name: Publish release
+      if: always()
       env:
         GH_TOKEN: ${{ secrets.PAT }}
       run: |
         TAG="v${{ needs.prepare_release.outputs.new_version }}"
         echo "Publishing release ${TAG} and marking as latest..."
-        gh release edit "${TAG}" --draft=false --latest --repo ${{ github.repository }}
-        echo "✓ Release ${TAG} published successfully"
+
+        # Check if release exists before publishing
+        if gh release view "${TAG}" --repo ${{ github.repository }} >/dev/null 2>&1; then
+          gh release edit "${TAG}" --draft=false --latest --repo ${{ github.repository }}
+          echo "✓ Release ${TAG} published successfully"
+        else
+          echo "⚠ Release ${TAG} does not exist, cannot publish"
+          exit 1
+        fi
 concurrency:
   group: release
   cancel-in-progress: false
