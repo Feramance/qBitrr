@@ -348,6 +348,7 @@ jobs:
         VERSION: ${{ needs.prepare_release.outputs.new_version }}
       run: |
         set -e
+        set -o pipefail  # But allow pipe failures we explicitly handle
 
         echo "Fetching all tags and commits..."
         git fetch --all --tags
@@ -532,8 +533,10 @@ jobs:
         # Verify changelog was updated
         if ! git diff --quiet CHANGELOG.md; then
           echo "✓ Changelog successfully updated"
-          echo "Preview of changes:"
-          git diff CHANGELOG.md | head -50 || true
+          # Show stats instead of full diff to avoid SIGPIPE
+          git diff --stat CHANGELOG.md
+          echo "First 20 lines of new changelog entry:"
+          git diff CHANGELOG.md | grep "^+" | head -20 || echo "Could not preview changes"
         else
           echo "⚠ Warning: Changelog was not modified"
           echo "Checking if entry already exists..."
