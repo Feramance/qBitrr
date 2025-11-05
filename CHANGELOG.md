@@ -1,5 +1,9 @@
 # Changelog
 
+## v5.4.3 (01/01/1970)
+
+---
+
 ## v5.4.2 (01/01/1970)
 
 ---
@@ -13,6 +17,10 @@
 ---
 
 ## v5.3.3 (01/01/1970)
+
+---
+
+## v5.4.3 (05/11/2025)
 
 ---
 
@@ -361,27 +369,3 @@
 
 ## v4.10.18 (12/03/2025)
 - [[patch] Free space fixes and remove stalled tag if recent](https://github.com/Feramance/qBitrr/commit/8bf7bb4366c0dc38fd2ff2ae430c7c8bf8a79cfb) - @Feramance
-
----
-
-## v4.10.17 (12/03/2025)
-- [[patch] Updated paused torrent handling](https://github.com/Feramance/qBitrr/commit/1b4be8ff27ec72132e29db1a96ff612dad8d9df5) - @Feramance
-- [Free space adjustements](https://github.com/Feramance/qBitrr/commit/7805b27bc78a19ae27db7e0e19abe6c102ec396b) - @Feramance
-
----
-
-## v4.10.16 (11/03/2025)
-- [[patch] Stalled delay fixes](https://github.com/Feramance/qBitrr/commit/fd119edf95348a255b27968e9dc55304f0228389) - @Feramance
-- [Further conditional adjustements for younger torrents and stalled delay](https://github.com/Feramance/qBitrr/commit/07a881e3496f49d93b63cf38549f8ba848eaf348) - @Feramance
-- [Adjusted younger than conditions](https://github.com/Feramance/qBitrr/commit/737f295b58fc2be41a97e80fb21db20ebda82a1b) - @Feramance
-- [Further stall handling checks](https://github.com/Feramance/qBitrr/commit/7c976a40b378243de5c7702deb0c1d41f106fb50) - @Feramance
-- [Log updates](https://github.com/Feramance/qBitrr/commit/03fe74e35e85669e484c406045b776f60aa54f9b) - @Feramance
-- [Adjusted stalled delay conditions](https://github.com/Feramance/qBitrr/commit/4b71295c58b502b8bcfe7da3ba4f1e4784165dbe) - @Feramance
-- [Logging update](https://github.com/Feramance/qBitrr/commit/09fd554546c71968fd5a6df2e42755bd998da060) - @Feramance
-- [Further update changes](https://github.com/Feramance/qBitrr/commit/83f10f33cb9260b889c2c54ccda31d1590297862) - @Feramance
-- [Update log](https://github.com/Feramance/qBitrr/commit/ee30569a045482ec0c2f68b8ce81f6722cf24a7f) - @Feramance
-- [Logging to check vars](https://github.com/Feramance/qBitrr/commit/386332cd00e33c4f5b9fa1936cde72bda7490727) - @Feramance
-- [Removed recent queue to use added on torrent property instead](https://github.com/Feramance/qBitrr/commit/2a12cb4ae098dcf2d63e044ce7775b7914bc3867) - @Feramance
-- [Adjusted recent queue check](https://github.com/Feramance/qBitrr/commit/cf7082fd937d91296d4c2b3f8da43bf5dfd69e47) - @Feramance
-- [Adjust stalled delay behaviour](https://github.com/Feramance/qBitrr/commit/d9a76442fca5c2c41b643c6a8461cd3efe8d2f27) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/eb98c8b5edee9ef846d79c0cbc9de41767c4512a) - @Feramance
