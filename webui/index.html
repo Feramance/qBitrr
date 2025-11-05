@@ -14,14 +14,21 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Register service worker for PWA support
+      // Note: Service workers require HTTPS or localhost. Registration will silently fail
+      // on insecure contexts (HTTP over IP), but will work behind HTTPS reverse proxy.
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
-              console.log('ServiceWorker registered:', registration);
+              console.log('ServiceWorker registered successfully');
             })
             .catch((error) => {
-              console.log('ServiceWorker registration failed:', error);
+              // Silently fail on insecure contexts - this is expected for HTTP access
+              if (error.name === 'SecurityError' || error.name === 'TypeError') {
+                console.debug('ServiceWorker not available (requires HTTPS or localhost)');
+              } else {
+                console.warn('ServiceWorker registration error:', error.message);
+              }
             });
         });
       }
