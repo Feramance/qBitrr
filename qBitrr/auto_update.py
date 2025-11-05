@@ -42,6 +42,12 @@ def get_binary_asset_pattern() -> str:
     Returns:
         Partial filename to match against release assets
         Examples: "ubuntu-latest-x64", "windows-latest-x64", "macOS-latest-arm64"
+
+    Note: The release workflow only builds these platforms:
+        - ubuntu-latest-x64
+        - macOS-latest-arm64
+        - windows-latest-x64
+    Other platforms (Linux ARM, macOS Intel, Windows ARM) are not built.
     """
     system = platform.system()
     machine = platform.machine()
@@ -49,12 +55,15 @@ def get_binary_asset_pattern() -> str:
     # Map platform to GitHub runner names (matching build workflow)
     if system == "Linux":
         os_part = "ubuntu-latest"
+        # Note: Only x64 is built for Linux (arm64 excluded from workflow)
         arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
     elif system == "Darwin":  # macOS
         os_part = "macOS-latest"
+        # Note: Only arm64 is built for macOS (x64/Intel excluded from workflow)
         arch_part = "arm64" if machine == "arm64" else "x64"
     elif system == "Windows":
         os_part = "windows-latest"
+        # Note: Only x64 is built for Windows (arm64 excluded from workflow)
         arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
     else:
         raise RuntimeError(f"Unsupported platform: {system} {machine}")
@@ -104,11 +113,25 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
             release_tag,
         )
         logger.debug("Available assets: %s", available)
+
+        # Provide helpful error message
+        system = platform.system()
+        machine = platform.machine()
+        unsupported_platforms = [
+            "ubuntu-latest-arm64",
+            "macOS-latest-x64",
+            "windows-latest-arm64",
+        ]
+
+        error_msg = f"No binary available for {system} {machine}"
+        if asset_pattern in unsupported_platforms:
+            error_msg += f" (platform {asset_pattern} is not built by release workflow)"
+
         return {
             "url": None,
             "name": None,
             "size": None,
-            "error": f"No binary available for platform {asset_pattern}",
+            "error": error_msg,
         }
 
     except Exception as exc:
