@@ -180,27 +180,66 @@ class qBitManager:
             self.logger.error("Auto update could not be scheduled; leaving it disabled")
 
     def _perform_auto_update(self) -> None:
+        """Check for updates and apply if available."""
         self.logger.notice("Checking for updates...")
+
+        # Fetch latest release info from GitHub
         release_info = fetch_latest_release()
+
         if release_info.get("error"):
             self.logger.error("Auto update skipped: %s", release_info["error"])
             return
-        target_version = release_info.get("raw_tag") or release_info.get("normalized")
+
+        # Use normalized version for comparison, raw tag for display
+        target_version = release_info.get("normalized")
+        raw_tag = release_info.get("raw_tag")
+
         if not release_info.get("update_available"):
             if target_version:
                 self.logger.info(
                     "Auto update skipped: already running the latest release (%s).",
-                    target_version,
+                    raw_tag or target_version,
                 )
             else:
                 self.logger.info("Auto update skipped: no new release detected.")
             return
 
-        self.logger.notice("Updating from %s to %s", patched_version, target_version or "latest")
-        updated = perform_self_update(self.logger)
+        # Detect installation type
+        from qBitrr.auto_update import get_installation_type
+
+        install_type = get_installation_type()
+
+        self.logger.notice(
+            "Update available: %s -> %s (installation: %s)",
+            patched_version,
+            raw_tag or target_version,
+            install_type,
+        )
+
+        # Perform the update with specific version
+        updated = perform_self_update(self.logger, target_version=target_version)
+
         if not updated:
-            self.logger.error("Auto update failed; manual intervention may be required.")
+            if install_type == "binary":
+                # Binary installations require manual update, this is expected
+                self.logger.info("Manual update required for binary installation")
+            else:
+                self.logger.error("Auto update failed; manual intervention may be required.")
             return
+
+        # Verify update success (git/pip only)
+        if target_version and install_type != "binary":
+            from qBitrr.auto_update import verify_update_success
+
+            if verify_update_success(target_version, self.logger):
+                self.logger.notice("Update verified successfully")
+            else:
+                self.logger.warning(
+                    "Update completed but version verification failed. "
+                    "The system may not be running the expected version."
+                )
+                # Continue with restart anyway (Phase 1 approach)
+
         self.logger.notice("Update applied successfully; restarting to load the new version.")
         self.request_restart()
 

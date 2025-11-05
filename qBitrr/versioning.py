@@ -36,6 +36,11 @@ def is_newer_version(candidate: str | None, current: str | None = None) -> bool:
 
 
 def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -> dict[str, Any]:
+    """Fetch latest non-draft, non-prerelease from GitHub.
+
+    Note: The /releases/latest endpoint excludes drafts by default, but we
+    explicitly check to be defensive and provide clear error messages.
+    """
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     headers = {"Accept": "application/vnd.github+json"}
     try:
@@ -53,6 +58,31 @@ def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -
             "changelog_url": f"https://github.com/{repo}/releases",
             "update_available": False,
             "error": message,
+        }
+
+    # Validate release is not draft/prerelease
+    is_draft = payload.get("draft", False)
+    is_prerelease = payload.get("prerelease", False)
+
+    if is_draft:
+        return {
+            "raw_tag": None,
+            "normalized": None,
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases",
+            "update_available": False,
+            "error": "Latest release is a draft (not yet published)",
+        }
+
+    if is_prerelease:
+        # Could make this configurable via settings in the future
+        return {
+            "raw_tag": None,
+            "normalized": None,
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases",
+            "update_available": False,
+            "error": "Latest release is a prerelease (beta/rc)",
         }
 
     raw_tag = (payload.get("tag_name") or payload.get("name") or "").strip()
