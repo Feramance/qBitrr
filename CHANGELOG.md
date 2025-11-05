@@ -1,10 +1,18 @@
 # Changelog
 
+## v5.4.1 (01/01/1970)
+
+---
+
 ## v5.4.0 (01/01/1970)
 
 ---
 
 ## v5.3.3 (01/01/1970)
+
+---
+
+## v5.4.1 (05/11/2025)
 
 ---
 
@@ -383,14 +391,3 @@
 ## v4.10.14 (04/03/2025)
 - [[patch] Catch quality profile data errors](https://github.com/Feramance/qBitrr/commit/1de777789d4300409db863a1a6aa0afb1b720781) - @Feramance
 - [Dependency bump](https://github.com/Feramance/qBitrr/commit/63e2e619415d29d79bf7c8f0cbc004d7da79e217) - @Feramance
-
----
-
-## v4.10.13 (26/02/2025)
-- [[patch] Fix max eta handling](https://github.com/Feramance/qBitrr/commit/cb4e892c097d5dd0ff547c7f0f34e90ca420b00c) - @Feramance
-
----
-
-## v4.10.12 (23/02/2025)
-- [[patch] Update arss.py](https://github.com/Feramance/qBitrr/commit/8bad377188bbdd09ddbfaf8decb1b0bc42982545) - @Feramance
-- [Update README.md](https://github.com/Feramance/qBitrr/commit/25f0f37dd0b872d9f3ac4685b57eb1e305d43538) - @Feramance
