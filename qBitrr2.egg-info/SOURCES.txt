@@ -24,6 +24,8 @@ qBitrr/utils.py
 qBitrr/versioning.py
 qBitrr/webui.py
 qBitrr/static/index.html
+qBitrr/static/manifest.json
+qBitrr/static/sw.js
 qBitrr/static/vite.svg
 qBitrr/static/assets/ArrView.js
 qBitrr/static/assets/ArrView.js.map
@@ -33,7 +35,6 @@ qBitrr/static/assets/LogsView.js
 qBitrr/static/assets/LogsView.js.map
 qBitrr/static/assets/ProcessesView.js
 qBitrr/static/assets/ProcessesView.js.map
-qBitrr/static/assets/alert.svg
 qBitrr/static/assets/app.css
 qBitrr/static/assets/app.js
 qBitrr/static/assets/app.js.map
@@ -42,8 +43,7 @@ qBitrr/static/assets/check-mark.svg
 qBitrr/static/assets/close.svg
 qBitrr/static/assets/download.svg
 qBitrr/static/assets/gear.svg
-qBitrr/static/assets/live-streaming.js
-qBitrr/static/assets/live-streaming.js.map
+qBitrr/static/assets/lidarr.svg
 qBitrr/static/assets/live-streaming.svg
 qBitrr/static/assets/log.svg
 qBitrr/static/assets/plus.svg

@@ -1,16 +1,24 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: qBitrr2
-Version: 5..0
-Summary: "A simple Python script to talk to qBittorrent and Arr's"
+Version: 5.4.0
+Summary: Intelligent automation for qBittorrent and *Arr apps (Radarr/Sonarr/Lidarr) - health monitoring, instant imports, quality upgrades, request integration
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
 Author-email: fera@fera.wtf
 License: MIT
+Project-URL: Homepage, https://github.com/Feramance/qBitrr
+Project-URL: Documentation, https://github.com/Feramance/qBitrr/blob/master/API_DOCUMENTATION.md
 Project-URL: Issue Tracker, https://github.com/Feramance/qBitrr/issues
 Project-URL: Source Code, https://github.com/Feramance/qBitrr
+Project-URL: Changelog, https://github.com/Feramance/qBitrr/blob/master/CHANGELOG.md
+Project-URL: Docker Hub, https://hub.docker.com/r/feramance/qbitrr
+Project-URL: PyPI, https://pypi.org/project/qBitrr2/
+Project-URL: Systemd Guide, https://github.com/Feramance/qBitrr/blob/master/SYSTEMD_SERVICE.md
+Keywords: qbittorrent,radarr,sonarr,lidarr,arr,automation,torrent,media,plex,jellyfin,overseerr,ombi
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: End Users/Desktop
+Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS :: MacOS X
@@ -20,55 +28,19 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Topic :: Communications
+Classifier: Topic :: Internet
+Classifier: Topic :: Multimedia :: Video
+Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: <4,>=3.12
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: cachetools
-Requires-Dist: colorama
-Requires-Dist: coloredlogs
-Requires-Dist: flask
-Requires-Dist: environ-config
-Requires-Dist: ffmpeg-python
-Requires-Dist: jaraco.docker
-Requires-Dist: packaging
-Requires-Dist: pathos
-Requires-Dist: peewee
-Requires-Dist: ping3
-Requires-Dist: pyarr
-Requires-Dist: qbittorrent-api
-Requires-Dist: requests
-Requires-Dist: tomlkit
-Requires-Dist: waitress
-Requires-Dist: croniter
-Provides-Extra: dev
-Requires-Dist: black==24.3.0; extra == "dev"
-Requires-Dist: bump2version==1.0.1; extra == "dev"
-Requires-Dist: isort==5.10.1; extra == "dev"
-Requires-Dist: pip-tools==7.3.0; extra == "dev"
-Requires-Dist: pre-commit==3.3.3; extra == "dev"
-Requires-Dist: pyinstaller==5.13.1; extra == "dev"
-Requires-Dist: pyupgrade==2.31.0; extra == "dev"
-Requires-Dist: twine==3.7.1; extra == "dev"
-Requires-Dist: ujson==5.10.0; extra == "dev"
-Requires-Dist: upgrade-pip==0.1.4; extra == "dev"
-Provides-Extra: fast
-Requires-Dist: ujson==5.10.0; extra == "fast"
 Provides-Extra: all
-Requires-Dist: black==24.3.0; extra == "all"
-Requires-Dist: bump2version==1.0.1; extra == "all"
-Requires-Dist: isort==5.10.1; extra == "all"
-Requires-Dist: pip-tools==7.3.0; extra == "all"
-Requires-Dist: pre-commit==3.3.3; extra == "all"
-Requires-Dist: pyinstaller==5.13.1; extra == "all"
-Requires-Dist: pyupgrade==2.31.0; extra == "all"
-Requires-Dist: twine==3.7.1; extra == "all"
-Requires-Dist: ujson==5.10.0; extra == "all"
-Requires-Dist: upgrade-pip==0.1.4; extra == "all"
-Requires-Dist: ujson==5.10.0; extra == "all"
-Dynamic: license-file
+Provides-Extra: dev
+Provides-Extra: fast
+License-File: LICENSE
 
 # qBitrr
 
