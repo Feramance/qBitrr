@@ -223,6 +223,24 @@ class WebUI:
 
             self._version_cache["current_version"] = patched_version
             self._version_cache["last_checked"] = now.isoformat()
+
+            # Add installation type and binary download info
+            from qBitrr.auto_update import get_binary_download_url, get_installation_type
+
+            install_type = get_installation_type()
+            self._version_cache["installation_type"] = install_type
+
+            # If binary and update available, get download URL
+            if install_type == "binary" and self._version_cache.get("update_available"):
+                latest_version = self._version_cache.get("latest_version")
+                if latest_version:
+                    binary_info = get_binary_download_url(latest_version, self.logger)
+                    self._version_cache["binary_download_url"] = binary_info.get("url")
+                    self._version_cache["binary_download_name"] = binary_info.get("name")
+                    self._version_cache["binary_download_size"] = binary_info.get("size")
+                    if binary_info.get("error"):
+                        self._version_cache["binary_download_error"] = binary_info["error"]
+
             # Extend cache validity if fetch succeeded; otherwise allow quick retry.
             if not latest_info or latest_info.get("error"):
                 self._version_cache_expiry = now + timedelta(minutes=5)
@@ -1906,6 +1924,65 @@ class WebUI:
             if not ok:
                 return jsonify({"error": message}), 409
             return jsonify({"status": "started"})
+
+        @app.get("/api/download-update")
+        def api_download_update():
+            """Redirect to binary download URL for current platform."""
+            if (resp := require_token()) is not None:
+                return resp
+
+            from qBitrr.auto_update import get_installation_type
+
+            install_type = get_installation_type()
+
+            if install_type != "binary":
+                return jsonify({"error": "Download only available for binary installations"}), 400
+
+            # Get latest version info
+            version_info = self._ensure_version_info()
+
+            if not version_info.get("update_available"):
+                return jsonify({"error": "No update available"}), 404
+
+            download_url = version_info.get("binary_download_url")
+            if not download_url:
+                error = version_info.get(
+                    "binary_download_error", "No binary available for your platform"
+                )
+                return jsonify({"error": error}), 404
+
+            # Redirect to GitHub download URL
+            from flask import redirect
+
+            return redirect(download_url)
+
+        @app.get("/web/download-update")
+        def web_download_update():
+            """Redirect to binary download URL for current platform."""
+            from qBitrr.auto_update import get_installation_type
+
+            install_type = get_installation_type()
+
+            if install_type != "binary":
+                return jsonify({"error": "Download only available for binary installations"}), 400
+
+            # Get latest version info
+            version_info = self._ensure_version_info()
+
+            if not version_info.get("update_available"):
+                return jsonify({"error": "No update available"}), 404
+
+            download_url = version_info.get("binary_download_url")
+            if not download_url:
+                error = version_info.get(
+                    "binary_download_error", "No binary available for your platform"
+                )
+                return jsonify({"error": error}), 404
+
+            # Redirect to GitHub download URL
+            from flask import redirect
+
+            return redirect(download_url)
 
         def _status_payload() -> dict[str, Any]:
             qb = {

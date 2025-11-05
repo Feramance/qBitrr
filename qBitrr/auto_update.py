@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import logging
+import platform
 import subprocess
 import sys
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
+import requests
 from croniter import croniter
 from croniter.croniter import CroniterBadCronError
 
@@ -32,6 +34,91 @@ def get_installation_type() -> str:
 
     # Default to pip installation
     return "pip"
+
+
+def get_binary_asset_pattern() -> str:
+    """Get the asset filename pattern for the current platform.
+
+    Returns:
+        Partial filename to match against release assets
+        Examples: "ubuntu-latest-x64", "windows-latest-x64", "macOS-latest-arm64"
+    """
+    system = platform.system()
+    machine = platform.machine()
+
+    # Map platform to GitHub runner names (matching build workflow)
+    if system == "Linux":
+        os_part = "ubuntu-latest"
+        arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
+    elif system == "Darwin":  # macOS
+        os_part = "macOS-latest"
+        arch_part = "arm64" if machine == "arm64" else "x64"
+    elif system == "Windows":
+        os_part = "windows-latest"
+        arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
+    else:
+        raise RuntimeError(f"Unsupported platform: {system} {machine}")
+
+    return f"{os_part}-{arch_part}"
+
+
+def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[str, Any]:
+    """Get the download URL for the binary asset matching current platform.
+
+    Args:
+        release_tag: GitHub release tag (e.g., "v5.4.3")
+        logger: Logger instance
+
+    Returns:
+        Dict with 'url', 'name', 'size' if found, or 'error' if not found
+    """
+    try:
+        # Get asset pattern for current platform
+        asset_pattern = get_binary_asset_pattern()
+        logger.debug("Looking for binary asset matching: %s", asset_pattern)
+
+        # Fetch release details with assets
+        repo = "Feramance/qBitrr"
+        url = f"https://api.github.com/repos/{repo}/releases/tags/{release_tag}"
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        release_data = response.json()
+
+        # Find matching asset
+        assets = release_data.get("assets", [])
+        for asset in assets:
+            name = asset.get("name", "")
+            if asset_pattern in name:
+                return {
+                    "url": asset["browser_download_url"],
+                    "name": name,
+                    "size": asset.get("size", 0),
+                    "error": None,
+                }
+
+        # No matching asset found
+        available = [a.get("name") for a in assets]
+        logger.error(
+            "No binary asset found for platform %s in release %s",
+            asset_pattern,
+            release_tag,
+        )
+        logger.debug("Available assets: %s", available)
+        return {
+            "url": None,
+            "name": None,
+            "size": None,
+            "error": f"No binary available for platform {asset_pattern}",
+        }
+
+    except Exception as exc:
+        logger.error("Failed to fetch binary asset info: %s", exc)
+        return {
+            "url": None,
+            "name": None,
+            "size": None,
+            "error": str(exc),
+        }
 
 
 class AutoUpdater:
