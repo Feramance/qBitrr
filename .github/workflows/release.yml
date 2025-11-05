@@ -518,6 +518,57 @@ jobs:
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        ref: master
+        token: ${{ secrets.PAT }}
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+    - name: Extract and update release notes from changelog
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+        VERSION: ${{ needs.prepare_release.outputs.new_version }}
+      run: |
+        TAG="v${VERSION}"
+        echo "Extracting changelog for ${TAG}..."
+
+        # Extract the changelog entry for this version
+        python3 <<'PYEOF'
+        import os
+        import re
+        import sys
+
+        version = os.environ['VERSION']
+        tag = f"v{version}"
+
+        with open('CHANGELOG.md', 'r') as f:
+            content = f.read()
+
+        # Find this version's entry
+        pattern = rf'## (v{re.escape(version)}) \((\d{{2}}/\d{{2}}/\d{{4}})\)\n(.*?)(?=\n---\n\n|\Z)'
+        match = re.search(pattern, content, re.DOTALL)
+
+        if match:
+            body = match.group(3).strip()
+            # Write to file for gh CLI
+            with open('/tmp/release_notes.md', 'w') as f:
+                f.write(body)
+            print(f"✓ Extracted {len(body)} characters for {tag}")
+            sys.exit(0)
+        else:
+            print(f"⚠ Could not find changelog entry for {tag}")
+            sys.exit(1)
+        PYEOF
+
+        # Update the release with the changelog content
+        if [ -f /tmp/release_notes.md ]; then
+          echo "Updating release ${TAG} with changelog content..."
+          gh release edit "${TAG}" --notes-file /tmp/release_notes.md --repo ${{ github.repository }}
+          echo "✓ Release notes updated"
+        fi
     - name: Publish release
       env:
         GH_TOKEN: ${{ secrets.PAT }}
