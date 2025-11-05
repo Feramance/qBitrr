@@ -14,6 +14,7 @@ import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
 import RefreshIcon from "./icons/refresh-arrow.svg";
 import UpdateIcon from "./icons/up-arrow.svg";
+import DownloadIcon from "./icons/download.svg";
 import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
@@ -116,6 +117,11 @@ interface ChangelogModalProps {
   repositoryUrl: string;
   updateState: MetaResponse["update_state"] | null | undefined;
   updating: boolean;
+  installationType: MetaResponse["installation_type"];
+  binaryDownloadUrl: string | null;
+  binaryDownloadName: string | null;
+  binaryDownloadSize: number | null;
+  binaryDownloadError: string | null;
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -128,6 +134,11 @@ function ChangelogModal({
   repositoryUrl,
   updateState,
   updating,
+  installationType,
+  binaryDownloadUrl,
+  binaryDownloadName,
+  binaryDownloadSize,
+  binaryDownloadError,
   onClose,
   onUpdate,
 }: ChangelogModalProps): JSX.Element {
@@ -136,6 +147,7 @@ function ChangelogModal({
   const completedLabel = updateState?.completed_at
     ? new Date(updateState.completed_at).toLocaleString()
     : null;
+  const isBinaryInstall = installationType === "binary";
 
   // Start countdown when update completes successfully
   useEffect(() => {
@@ -237,15 +249,48 @@ function ChangelogModal({
             )}
           </div>
           <div className="changelog-buttons">
-            <button
-              className="btn primary"
-              type="button"
-              onClick={onUpdate}
-              disabled={updateDisabled}
-            >
-              <IconImage src={UpdateIcon} />
-              {updateDisabled ? "Updating..." : "Update Now"}
-            </button>
+            {isBinaryInstall ? (
+              binaryDownloadError ? (
+                <div className="update-status text-danger" style={{ marginBottom: '0.5rem' }}>
+                  {binaryDownloadError}
+                </div>
+              ) : binaryDownloadUrl ? (
+                <>
+                  <a
+                    className="btn primary"
+                    href={`/web/download-update`}
+                    download={binaryDownloadName ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <IconImage src={DownloadIcon} />
+                    Download Update
+                    {binaryDownloadSize && binaryDownloadSize > 0 ? (
+                      <span style={{ marginLeft: '0.5rem', opacity: 0.8, fontSize: '0.875rem' }}>
+                        ({(binaryDownloadSize / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    ) : null}
+                  </a>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                    Binary installation detected. Download and manually replace the executable.
+                  </div>
+                </>
+              ) : (
+                <div className="update-status text-danger">
+                  Unable to fetch binary download URL. Please update manually.
+                </div>
+              )
+            ) : (
+              <button
+                className="btn primary"
+                type="button"
+                onClick={onUpdate}
+                disabled={updateDisabled}
+              >
+                <IconImage src={UpdateIcon} />
+                {updateDisabled ? "Updating..." : "Update Now"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -768,6 +813,11 @@ function AppShell(): JSX.Element {
           repositoryUrl={repositoryUrl}
           updateState={updateState}
           updating={updateBusy}
+          installationType={meta.installation_type}
+          binaryDownloadUrl={meta.binary_download_url}
+          binaryDownloadName={meta.binary_download_name}
+          binaryDownloadSize={meta.binary_download_size}
+          binaryDownloadError={meta.binary_download_error}
           onClose={handleCloseChangelog}
           onUpdate={handleTriggerUpdate}
         />

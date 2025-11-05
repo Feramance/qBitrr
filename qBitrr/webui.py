@@ -124,6 +124,11 @@ class WebUI:
             "update_available": False,
             "last_checked": None,
             "error": None,
+            "installation_type": "unknown",
+            "binary_download_url": None,
+            "binary_download_name": None,
+            "binary_download_size": None,
+            "binary_download_error": None,
         }
         self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
         self._update_state = {

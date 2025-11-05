@@ -220,6 +220,11 @@ export interface MetaResponse {
   last_checked: string | null;
   error?: string | null;
   update_state: UpdateState;
+  installation_type: "git" | "pip" | "binary" | "unknown";
+  binary_download_url: string | null;
+  binary_download_name: string | null;
+  binary_download_size: number | null;
+  binary_download_error: string | null;
 }
 
 export interface ConfigUpdateResponse {
