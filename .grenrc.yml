@@ -10,6 +10,44 @@ ignoreCommitsWith:
 - \[pre-commit.ci\]
 changelogFilename: CHANGELOG.md
 override: true
+groupBy:
+  🚀 Features:
+  - \[minor\]
+  - \[major\]
+  - 'feat:'
+  - 'feature:'
+  - 'Add '
+  - 'Implement '
+  🐛 Bug Fixes:
+  - \[patch\]
+  - 'fix:'
+  - 'Fix '
+  - 'Fixed '
+  - Hotfix
+  📝 Documentation:
+  - 'docs:'
+  - 'doc:'
+  - 'Document '
+  - Update README
+  ♻️ Refactoring:
+  - 'refactor:'
+  - Refactor
+  🎨 Styling:
+  - 'style:'
+  - 'UI '
+  - 'WebUI '
+  ⚡ Performance:
+  - 'perf:'
+  - 'performance:'
+  - 'optimize:'
+  - 'Optimize '
+  🔧 Maintenance:
+  - 'chore:'
+  - 'build:'
+  - 'ci:'
+  - 'Bump '
+  - 'Update '
+  - 'Merge '
 template:
   commit: '- [{{message}}]({{url}}) - @{{author}}'
   issue: '- {{labels}} {{name}} [{{text}}]({{url}})'

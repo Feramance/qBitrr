@@ -361,6 +361,40 @@ jobs:
         import subprocess
         from datetime import datetime
 
+        def categorize_commit(message):
+            """Categorize a commit message and return the group"""
+            msg_lower = message.lower()
+
+            # Check for explicit prefixes
+            if any(x in message for x in ['[minor]', '[major]', 'feat:', 'feature:']):
+                return '🚀 Features'
+            if 'Add ' in message or 'Implement ' in message:
+                return '🚀 Features'
+
+            if any(x in message for x in ['[patch]', 'fix:', 'Fix ', 'Fixed ', 'Hotfix']):
+                return '🐛 Bug Fixes'
+
+            if any(x in message for x in ['docs:', 'doc:', 'Document ']):
+                return '📝 Documentation'
+
+            if 'refactor:' in msg_lower or 'Refactor' in message:
+                return '♻️ Refactoring'
+
+            if 'style:' in msg_lower or 'UI ' in message or 'WebUI ' in message:
+                return '🎨 Styling'
+
+            if any(x in msg_lower for x in ['perf:', 'performance:', 'optimize:']):
+                return '⚡ Performance'
+
+            if any(x in message for x in ['chore:', 'build:', 'ci:', 'Bump ', 'Update ', 'Merge ']):
+                return '🔧 Maintenance'
+
+            # Default to bug fixes if it starts with "Fix" or maintenance for everything else
+            if message.startswith('Fix '):
+                return '🐛 Bug Fixes'
+
+            return '🔧 Maintenance'
+
         version = os.environ['VERSION']
         tag = f"v{version}"
 
@@ -389,11 +423,33 @@ jobs:
             header = f"## v{version} ({date_str})\n"
 
             if header not in content:
-                # Generate entry
-                entry = header
-                for commit in commits[:20]:  # Limit to 20 commits
+                # Group commits by category
+                grouped = {}
+                for commit in commits[:50]:  # Limit to 50 commits
                     hash_val, msg = commit.split(' ', 1)
-                    entry += f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance\n"
+                    category = categorize_commit(msg)
+                    if category not in grouped:
+                        grouped[category] = []
+                    grouped[category].append(f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance")
+
+                # Build entry with groups
+                entry = header
+                group_order = [
+                    '🚀 Features',
+                    '🐛 Bug Fixes',
+                    '📝 Documentation',
+                    '♻️ Refactoring',
+                    '🎨 Styling',
+                    '⚡ Performance',
+                    '🔧 Maintenance'
+                ]
+
+                for group in group_order:
+                    if group in grouped:
+                        entry += f"\n### {group}\n"
+                        for commit_line in grouped[group]:
+                            entry += f"{commit_line}\n"
+
                 entry += "\n---\n\n"
 
                 # Insert after "# Changelog\n\n"
