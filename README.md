@@ -454,6 +454,11 @@ AutoPauseResume = true         # Required for FreeSpace to work
 **Disable monitoring:**
 ```toml
 [Settings]
+FreeSpace = ""  # Empty string or 0 disables monitoring
+```
+
+---
+
 ### 🔄 Auto-Updates & Restarts
 
 qBitrr can automatically update itself by checking GitHub releases for new versions. The update behavior varies by installation type.
