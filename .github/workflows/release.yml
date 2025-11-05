@@ -446,33 +446,27 @@ jobs:
             except:
                 pass
 
-        # Method 3: Last resort - use HEAD~10 (last 10 commits)
+        # If we still don't have a previous tag, this is the first release
         if not prev_tag:
-            print("⚠ Could not find previous tag, using last 10 commits")
-            prev_tag = "HEAD~10"
+            print("⚠ Could not find any previous tag - this appears to be the first release")
+            print("❌ ERROR: Cannot generate changelog without a previous reference point")
+            sys.exit(1)
 
-        if prev_tag:
-            # Get commits between tags
-            commits_cmd = subprocess.run(
-                ['git', 'log', f'{prev_tag}..{tag}', '--format=%H %s', '--no-merges'],
-                capture_output=True, text=True
-            )
-            commits = [line for line in commits_cmd.stdout.strip().split('\n')
-                       if line and '[skip ci]' not in line and '[ci skip]' not in line]
+        # Get commits between tags
+        print(f"Getting commits between {prev_tag} and {tag}...")
+        commits_cmd = subprocess.run(
+            ['git', 'log', f'{prev_tag}..{tag}', '--format=%H %s', '--no-merges'],
+            capture_output=True, text=True
+        )
+        commits = [line for line in commits_cmd.stdout.strip().split('\n')
+                   if line and '[skip ci]' not in line and '[ci skip]' not in line]
 
-            if not commits:
-                print(f"⚠ No commits found between {prev_tag} and {tag}")
-                print("This might be the first release or all commits were skipped")
-                # Get all commits from HEAD instead
-                commits_cmd = subprocess.run(
-                    ['git', 'log', '-10', '--format=%H %s', '--no-merges'],
-                    capture_output=True, text=True
-                )
-                commits = [line for line in commits_cmd.stdout.strip().split('\n')
-                           if line and '[skip ci]' not in line and '[ci skip]' not in line]
-                print(f"Using last {len(commits)} commits from HEAD")
+        if not commits:
+            print(f"❌ ERROR: No commits found between {prev_tag} and {tag}")
+            print("This should never happen if the version was properly bumped")
+            sys.exit(1)
 
-            print(f"Found {len(commits)} commits to include in changelog")
+        print(f"Found {len(commits)} commits to include in changelog")
 
             # Read existing changelog
             with open('CHANGELOG.md', 'r') as f:
