@@ -328,7 +328,99 @@ jobs:
     - name: Install release notes tooling
       run: npm install github-release-notes -g
     - name: Generate release notes and changelog
-      run: "gren release\ngren changelog\n"
+      env:
+        VERSION: ${{ needs.prepare_release.outputs.new_version }}
+      run: |
+        set -e
+
+        echo "Fetching all tags and commits..."
+        git fetch --all --tags
+
+        echo "Current tags:"
+        git tag -l | tail -10
+
+        echo "Generating release notes with gren..."
+        if gren release --override --tags=v${VERSION} 2>&1 | tee gren-release.log; then
+          echo "✓ Release notes generated successfully"
+        else
+          echo "⚠ Warning: gren release failed"
+          cat gren-release.log
+        fi
+
+        echo "Generating changelog with gren..."
+        if gren changelog --override 2>&1 | tee gren-changelog.log; then
+          echo "✓ Changelog generated successfully"
+        else
+          echo "⚠ Warning: gren changelog failed"
+          cat gren-changelog.log
+
+          # Fallback: Generate changelog entry manually
+          echo "Attempting manual changelog generation..."
+          python3 <<'PYEOF'
+        import os
+        import subprocess
+        from datetime import datetime
+
+        version = os.environ['VERSION']
+        tag = f"v{version}"
+
+        # Get previous tag
+        prev_tag_cmd = subprocess.run(
+            ['git', 'describe', '--tags', '--abbrev=0', f'{tag}^'],
+            capture_output=True, text=True
+        )
+        prev_tag = prev_tag_cmd.stdout.strip() if prev_tag_cmd.returncode == 0 else ""
+
+        if prev_tag:
+            # Get commits between tags
+            commits_cmd = subprocess.run(
+                ['git', 'log', f'{prev_tag}..{tag}', '--format=%H %s', '--no-merges'],
+                capture_output=True, text=True
+            )
+            commits = [line for line in commits_cmd.stdout.strip().split('\n')
+                       if line and '[skip ci]' not in line and '[ci skip]' not in line]
+
+            # Read existing changelog
+            with open('CHANGELOG.md', 'r') as f:
+                content = f.read()
+
+            # Find the position to insert new entry
+            date_str = datetime.now().strftime('%d/%m/%Y')
+            header = f"## v{version} ({date_str})\n"
+
+            if header not in content:
+                # Generate entry
+                entry = header
+                for commit in commits[:20]:  # Limit to 20 commits
+                    hash_val, msg = commit.split(' ', 1)
+                    entry += f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance\n"
+                entry += "\n---\n\n"
+
+                # Insert after "# Changelog\n\n"
+                changelog_start = content.find("# Changelog\n\n")
+                if changelog_start >= 0:
+                    insert_pos = changelog_start + len("# Changelog\n\n")
+                    new_content = content[:insert_pos] + entry + content[insert_pos:]
+
+                    with open('CHANGELOG.md', 'w') as f:
+                        f.write(new_content)
+                    print(f"✓ Manually generated changelog for v{version}")
+                else:
+                    print("⚠ Could not find changelog header")
+            else:
+                print(f"✓ Changelog for v{version} already exists")
+        else:
+            print("⚠ Could not find previous tag")
+        PYEOF
+        fi
+
+        # Verify changelog was updated
+        if ! git diff --quiet CHANGELOG.md; then
+          echo "✓ Changelog successfully updated"
+          git diff CHANGELOG.md | head -50
+        else
+          echo "⚠ Warning: Changelog was not modified"
+        fi
     - name: Import GPG key
       id: changelog_gpg
       uses: crazy-max/ghaction-import-gpg@v6.3.0
@@ -338,7 +430,19 @@ jobs:
         git_user_signingkey: true
         git_commit_gpgsign: true
         git_tag_gpgsign: true
+    - name: Check for changelog changes
+      id: changelog_check
+      run: |
+        if git diff --quiet CHANGELOG.md; then
+          echo "has_changes=false" >> "${GITHUB_OUTPUT}"
+          echo "No changelog changes detected"
+        else
+          echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+          echo "Changelog changes detected"
+        fi
+
     - name: Commit changelog updates
+      if: steps.changelog_check.outputs.has_changes == 'true'
       uses: stefanzweifel/git-auto-commit-action@v7
       with:
         commit_message: '[skip ci] Update changelog for v${{ needs.prepare_release.outputs.new_version }}'

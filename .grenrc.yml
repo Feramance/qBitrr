@@ -5,11 +5,17 @@ ignoreIssuesWith:
 prefix: ''
 includeMessages: all
 ignoreCommitsWith:
-- \[auto-changelogs\]
-- \[auto-release\]
-- \[auto-publish\]
 - \[skip ci\]
 - \[ci skip\]
 - \[pre-commit.ci\]
 changelogFilename: CHANGELOG.md
 override: true
+template:
+  commit: '- [{{message}}]({{url}}) - @{{author}}'
+  issue: '- {{labels}} {{name}} [{{text}}]({{url}})'
+  label: '[**{{label}}**]'
+  noLabel: closed
+  group: "\n### {{heading}}\n"
+  changelogTitle: "# Changelog\n\n"
+  release: "## {{release}} ({{date}})\n{{body}}"
+  releaseSeparator: "\n---\n\n"

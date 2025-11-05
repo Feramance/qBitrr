@@ -1,10 +1,14 @@
 # Changelog
 
-## v5.4.4 (01/01/1970)
-
----
-
 ## v5.4.4 (05/11/2025)
+- [[patch] Auto-update system improvements complete](https://github.com/Feramance/qBitrr/commit/d7a14a56e7963367f7b51cc9404a382be385d7c9) - @Feramance
+- [Changelog fixes](https://github.com/Feramance/qBitrr/commit/1bb74b40d18813b7b3bb727b8e4809233606de1c) - @Feramance
+- [[patch] Fix version comparison to normalize candidate before parsing](https://github.com/Feramance/qBitrr/commit/ed6d85ffc90bffb9f33eff967a12243d0f707f64) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/b9120ef361299c6170679406aedaa78e299c14b2) - @Feramance
+- [[patch] Enhanced auto update flow](https://github.com/Feramance/qBitrr/commit/ea76e70bad19d12253768fd59dd5fb5a309742cf) - @Feramance
+- [Document supported binary platforms and improve error messages](https://github.com/Feramance/qBitrr/commit/fb4f9b0dc28846bc2289ebe4e0e23405e58a110a) - @Feramance
+- [Add binary download support for auto-updates](https://github.com/Feramance/qBitrr/commit/59421749450fca0f470f63a6094d358daa77d00b) - @Feramance
+- [Implement GitHub release-based auto-update with installation type detection](https://github.com/Feramance/qBitrr/commit/1a3f9936a3f7beb7aaa3116c1d71b046109d2c4f) - @Feramance
 
 ---
 
@@ -17,18 +21,39 @@
 ---
 
 ## v5.4.2 (05/11/2025)
+- [[patch] Ensure static files are included in Docker pip install](https://github.com/Feramance/qBitrr/commit/c8edde2e6302dd841a136ded39ba6d9584b239eb) - @Feramance
+- [PKG update](https://github.com/Feramance/qBitrr/commit/bc2d69aa9411478bb1af2eea5d0f98d5ba149ce5) - @Feramance
+- [[patch] Fix PyPI package missing WebUI static files](https://github.com/Feramance/qBitrr/commit/3c9a0475c267dad874b39383477f53c4fbeaf7bf) - @Feramance
 
 ---
 
 ## v5.4.1 (05/11/2025)
+- [[patch] Fix KeyError: 'monitored' when Sonarr API returns incomplete episode data](https://github.com/Feramance/qBitrr/commit/79216f5736409047832d868642ee5a719f224c1a) - @Feramance
+- [[patch] Fix service worker 404 by adding /sw.js route](https://github.com/Feramance/qBitrr/commit/c428cbf902a4893271c26355d251e558f09f59d8) - @Feramance
 
 ---
 
 ## v5.4.0 (04/11/2025)
+- [[minor] Sonarr-filters-and-config-improvements (#197)](https://github.com/Feramance/qBitrr/commit/ee619ecced6f54cdb7f6a1b48dce1473c271405f) - @Feramance
 
 ---
 
 ## v5.3.3 (04/11/2025)
+- [[patch] Fix version... again... again](https://github.com/Feramance/qBitrr/commit/16fd5dbf056cac111e148ca7aa1ef06a97df7084) - @Feramance
+- [Remove redundant button from update window](https://github.com/Feramance/qBitrr/commit/e40c919d0e93b8f329d2d8a414229f1d72d415ae) - @Feramance
+- [[patch] Fix version... again](https://github.com/Feramance/qBitrr/commit/cefeded5dcc8d29207b4576308411842db2966f5) - @Feramance
+- [[patch] Fix version](https://github.com/Feramance/qBitrr/commit/2b3f2a194b4640b4361cc937c459262434048911) - @Feramance
+- [[patch] workflow fixes](https://github.com/Feramance/qBitrr/commit/0c3d3be3c910c7d4e26baa6f032d973e4d983ba9) - @Feramance
+- [[patch] Fix release flow](https://github.com/Feramance/qBitrr/commit/d9606cca38198988045c5fa4581c22f4b4be327d) - @Feramance
+- [[patch] documentation and auto update fixes](https://github.com/Feramance/qBitrr/commit/d15763f881195e7edc4fd3967145b6f88293f243) - @Feramance
+- [Fix version](https://github.com/Feramance/qBitrr/commit/17d93798b4b388bf4a272c93d8a7143f925a4add) - @Feramance
+- [Contribution documentation](https://github.com/Feramance/qBitrr/commit/ed3b4a0765e77a36b84b308f25a476bf32ccaece) - @Feramance
+- [[patch] meta: enhance project metadata with comprehensive keywords and URLs](https://github.com/Feramance/qBitrr/commit/7b7f0bc76bed4d505df58e2f6f0143edfc8e33a6) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/ed650dc13eccc1904cb81d48f8d92c972e5746ab) - @Feramance
+- [[patch] docs: comprehensive documentation overhaul with feature deep dives, API reference, and systemd guidance](https://github.com/Feramance/qBitrr/commit/1a41c4c0d579a48e7374a60d883fb01d17686c02) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/8dd7a3b19e9acf2a1e867a5b375d9cf4acd3d4ce) - @Feramance
+- [Fix auto-update and manual update restart mechanism](https://github.com/Feramance/qBitrr/commit/4c3048849e6cb7e095cd63f726ad4b07857ffd49) - @Feramance
+- [Fixed got it button on changelog screen](https://github.com/Feramance/qBitrr/commit/4e5ceb15576338c49a31195260f20b72e6441e83) - @Feramance
 
 ---
 
