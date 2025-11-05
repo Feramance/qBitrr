@@ -120,8 +120,11 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 - **Path-specific monitoring** – watch specific directories for space issues
 
 ### 🔄 Auto-Updates & Self-Healing
+- **GitHub release-based updates** – automatically checks for published (non-draft) releases via GitHub API
 - **Scheduled auto-updates** – update qBitrr on a cron schedule (default: weekly Sunday 3 AM)
 - **Manual update trigger** – one-click updates from WebUI
+- **Installation-aware updates** – detects git/pip/binary installs and uses appropriate update method
+- **Version verification** – confirms installed version matches target before restart
 - **Smart restart mechanism** – uses `os.execv()` for true in-place restarts (no supervisor needed)
 - **Cross-platform compatibility** – works in Docker, systemd, native installs, Windows, Linux, macOS
 - **Graceful shutdown** – cleanly closes databases, flushes logs, terminates child processes
@@ -163,6 +166,8 @@ python -m pip install --upgrade qBitrr2
 AutoUpdateEnabled = true
 AutoUpdateCron = "0 3 * * 0"  # Weekly on Sunday at 3 AM
 ```
+
+> 📝 **Note:** Auto-updates check GitHub releases for new versions. Only published (non-draft) releases trigger updates. Binary installations receive update notifications but require manual download.
 
 ### 🐳 Run with Docker
 **Minimal setup:**
@@ -493,38 +498,238 @@ AutoPauseResume = true         # Required for FreeSpace to work
 **Disable monitoring:**
 ```toml
 [Settings]
-FreeSpace = "-1"  # Disables free space checking
-```
+### 🔄 Auto-Updates & Restarts
+
+qBitrr can automatically update itself by checking GitHub releases for new versions. The update behavior varies by installation type.
+
+#### 🔍 How Updates Work
+
+**Update Detection:**
+1. 📡 Queries GitHub API for latest **published** (non-draft) release
+2. 🔢 Compares release version with current version using semantic versioning
+3. ⏩ Skips prereleases (beta, rc, alpha) by default
+4. 📦 Only updates when a newer **stable** version is available
+
+**Installation Types:**
+
+| Type | Detection | Update Method | Version Control |
+|------|-----------|---------------|-----------------|
+| **Git** | `.git` directory exists | `git checkout <tag>` or `git pull` | Checks out specific release tag |
+| **PyPI** | Installed via pip | `pip install qBitrr2==<version>` | Installs exact version from PyPI |
+| **Binary** | PyInstaller executable | Notification only | Logs download URL for manual update |
+
+**Why different methods?**
+- **Git installations** can checkout specific tags for precise version control
+- **PyPI installations** can pin to exact versions for reliability
+- **Binary installations** cannot self-update (would require replacing running executable), so qBitrr logs the download URL and version info for manual update
 
 ---
 
-### 🔄 Auto-Updates & Restarts
+#### ⚙️ Configuration
 
-**Scheduled Updates:**
+**Basic Setup:**
 ```toml
 [Settings]
 AutoUpdateEnabled = true
 AutoUpdateCron = "0 3 * * 0"  # Cron expression (default: Sunday 3 AM)
 ```
 
-**Manual Updates:**
-- Click "Update Now" in WebUI Config tab
-- Automatically downloads latest version
-- Performs graceful restart
+**Cron Expression Examples:**
+```toml
+"0 3 * * 0"     # Every Sunday at 3:00 AM
+"0 */6 * * *"   # Every 6 hours
+"0 0 * * *"     # Daily at midnight
+"0 2 * * 1-5"   # Weekdays at 2:00 AM
+```
 
-**Restart Mechanism:**
-- Uses `os.execv()` for in-place process replacement
-- Maintains same PID (systemd-friendly)
-- Works in Docker, systemd, native installs
-- Cross-platform: Linux, macOS, Windows
-- Graceful shutdown: closes databases, flushes logs, terminates child processes
+---
 
-**Restart via API:**
+#### 📋 Update Process Flow
+
+**For Git & PyPI Installations:**
+
+1. **Check Phase:**
+   - Fetch latest release from GitHub API
+   - Validate release is not draft or prerelease
+   - Compare versions (semantic versioning)
+   - Skip if already on latest version
+
+2. **Download Phase:**
+   - **Git:** `git fetch --tags && git checkout v<version>`
+   - **PyPI:** `pip install --upgrade qBitrr2==<version>`
+
+3. **Verification Phase:**
+   - Reload version information
+   - Verify installed version matches target
+   - Log warning if mismatch
+
+4. **Restart Phase:**
+   - Gracefully shutdown (close DBs, flush logs)
+   - Terminate child processes
+   - Execute in-place restart via `os.execv()`
+   - Maintain same PID (systemd-friendly)
+
+**For Binary Installations:**
+
+1. **Check Phase:** Same as above
+2. **Notification:** Logs message with download URL and instructions
+3. **Manual Update:** User downloads new binary from GitHub releases
+4. **No Auto-Restart:** User manually restarts after replacing binary
+
+Example binary update log:
+```
+[INFO] Update available: v5.4.2 -> v5.4.3
+[INFO] Binary installation detected - manual update required
+[INFO] Download: https://github.com/Feramance/qBitrr/releases/latest
+[INFO] Instructions:
+  1. Download the binary for your platform
+  2. Extract the archive
+  3. Replace current executable with new binary
+  4. Restart qBitrr
+```
+
+---
+
+#### 🔧 Manual Updates
+
+**Via WebUI:**
+- Navigate to **Config tab**
+- Click **"Check for Updates"** to see available version
+- Click **"Update Now"** button
+- Confirm when prompted
+- Application restarts automatically (git/pip only)
+
+**Via Command Line:**
+
 ```bash
-# Restart entire application
+# Git installation
+cd /path/to/qBitrr
+git fetch --tags
+git checkout v5.4.3  # or: git pull
+qbitrr  # restart
+
+# PyPI installation
+pip install --upgrade qBitrr2
+# or: pip install qBitrr2==5.4.3  # specific version
+qbitrr  # restart
+
+# Binary installation
+# Download from: https://github.com/Feramance/qBitrr/releases/latest
+# Extract and replace binary, then restart
+
+# Docker installation
+docker pull feramance/qbitrr:latest
+docker restart qbitrr
+# or: docker-compose pull && docker-compose up -d
+```
+
+---
+
+#### 🔐 Security & Reliability
+
+**GitHub API Dependency:**
+- Auto-update requires GitHub API access
+- Rate limit: 60 requests/hour (unauthenticated)
+- Cron schedule should account for rate limits
+- Failures are logged but don't crash the application
+
+**Version Verification:**
+- After update, qBitrr verifies installed version
+- Helps catch failed updates or PyPI lag issues
+- Logs warning if version mismatch detected
+
+**Draft & Prerelease Handling:**
+- Draft releases are **always skipped** (unpublished)
+- Prereleases (beta/rc/alpha) are skipped by default
+- Useful for testing but not recommended for production
+
+**Rollback:**
+- Git installations: `git checkout <previous-tag>`
+- PyPI installations: `pip install qBitrr2==<previous-version>`
+- Binary installations: Keep backup of previous binary
+- No automatic rollback (manual intervention required)
+
+---
+
+#### 🚀 Restart Mechanism
+
+**How it Works:**
+```python
+os.execv(sys.executable, [sys.executable] + sys.argv)
+```
+
+**Benefits:**
+- ✅ **Same PID** – systemd doesn't detect a restart
+- ✅ **No supervisor** – doesn't require external process manager
+- ✅ **Clean state** – fresh Python interpreter, no memory leaks
+- ✅ **Fast** – near-instant restart (< 1 second)
+
+**Supported Environments:**
+- 🐳 **Docker** – container stays running, process restarts
+- ⚙️ **systemd** – service remains "active", no restart count increment
+- 💻 **Native** – works on Linux, macOS, Windows
+- 🪟 **Windows** – handles different executable extensions (.exe, .cmd)
+
+**Graceful Shutdown:**
+1. Stop all Arr manager child processes
+2. Close database connections
+3. Flush log buffers to disk
+4. Release file locks
+5. Execute in-place restart
+
+---
+
+#### 🛠️ Restart via API
+
+**Restart entire application:**
+```bash
 curl -X POST http://localhost:6969/api/restart
 
-# Restart specific Arr manager
+# With authentication
+curl -X POST http://localhost:6969/api/restart \
+  -H "Authorization: Bearer your-token"
+```
+
+**Restart specific Arr manager:**
+```bash
+curl -X POST http://localhost:6969/api/arr/radarr-movies/restart
+```
+
+---
+
+#### ⚠️ Troubleshooting Updates
+
+**Update not triggering:**
+- ✅ Check `AutoUpdateEnabled = true` in config
+- ✅ Verify cron expression is valid (use [crontab.guru](https://crontab.guru))
+- ✅ Check `Main.log` for GitHub API errors
+- ✅ Ensure internet connectivity to api.github.com
+- ✅ Check if already on latest version
+
+**Version mismatch after update:**
+- ✅ Review logs for pip/git errors
+- ✅ Manually verify installation: `pip show qBitrr2` or `git describe`
+- ✅ Check if PyPI is behind GitHub releases (can take hours)
+- ✅ Try manual update to force correct version
+
+**Binary updates not working:**
+- ℹ️ **Expected behavior** – binaries cannot auto-update
+- ✅ Check logs for download URL
+- ✅ Download matching binary for your platform
+- ✅ Extract and replace current executable
+- ✅ Ensure new binary has execute permissions (Unix)
+
+**Restart fails:**
+- ✅ Check file permissions on qBitrr installation
+- ✅ Review systemd journal if using systemd
+- ✅ Verify no file locks preventing restart
+- ✅ Check disk space for logs and databases
+- ✅ Manual restart: Stop service, start again
+
+**For systemd users:** See [SYSTEMD_SERVICE.md](SYSTEMD_SERVICE.md) for automatic restart configuration with `Restart=always`.
+
+---
+
 curl -X POST http://localhost:6969/api/arr/radarr-movies/restart
 ```
 
