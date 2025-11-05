@@ -409,12 +409,47 @@ jobs:
         version = os.environ['VERSION']
         tag = f"v{version}"
 
-        # Get previous tag
-        prev_tag_cmd = subprocess.run(
-            ['git', 'describe', '--tags', '--abbrev=0', f'{tag}^'],
-            capture_output=True, text=True
-        )
-        prev_tag = prev_tag_cmd.stdout.strip() if prev_tag_cmd.returncode == 0 else ""
+        # Get previous tag - try multiple methods
+        prev_tag = ""
+
+        # Method 1: Try git describe on the current tag's parent
+        try:
+            prev_tag_cmd = subprocess.run(
+                ['git', 'describe', '--tags', '--abbrev=0', f'{tag}^'],
+                capture_output=True, text=True
+            )
+            if prev_tag_cmd.returncode == 0:
+                prev_tag = prev_tag_cmd.stdout.strip()
+                print(f"Found previous tag via describe: {prev_tag}")
+        except:
+            pass
+
+        # Method 2: If that fails, get the second-most recent tag
+        if not prev_tag:
+            try:
+                all_tags_cmd = subprocess.run(
+                    ['git', 'tag', '--sort=-version:refname'],
+                    capture_output=True, text=True
+                )
+                if all_tags_cmd.returncode == 0:
+                    tags = [t.strip() for t in all_tags_cmd.stdout.strip().split('\n') if t.strip()]
+                    # Find current tag and get the one before it
+                    if tag in tags:
+                        tag_idx = tags.index(tag)
+                        if tag_idx + 1 < len(tags):
+                            prev_tag = tags[tag_idx + 1]
+                            print(f"Found previous tag via sorted list: {prev_tag}")
+                    elif len(tags) > 0:
+                        # If current tag not found, use most recent
+                        prev_tag = tags[0]
+                        print(f"Using most recent tag: {prev_tag}")
+            except:
+                pass
+
+        # Method 3: Last resort - use HEAD~10 (last 10 commits)
+        if not prev_tag:
+            print("⚠ Could not find previous tag, using last 10 commits")
+            prev_tag = "HEAD~10"
 
         if prev_tag:
             # Get commits between tags
@@ -425,6 +460,20 @@ jobs:
             commits = [line for line in commits_cmd.stdout.strip().split('\n')
                        if line and '[skip ci]' not in line and '[ci skip]' not in line]
 
+            if not commits:
+                print(f"⚠ No commits found between {prev_tag} and {tag}")
+                print("This might be the first release or all commits were skipped")
+                # Get all commits from HEAD instead
+                commits_cmd = subprocess.run(
+                    ['git', 'log', '-10', '--format=%H %s', '--no-merges'],
+                    capture_output=True, text=True
+                )
+                commits = [line for line in commits_cmd.stdout.strip().split('\n')
+                           if line and '[skip ci]' not in line and '[ci skip]' not in line]
+                print(f"Using last {len(commits)} commits from HEAD")
+
+            print(f"Found {len(commits)} commits to include in changelog")
+
             # Read existing changelog
             with open('CHANGELOG.md', 'r') as f:
                 content = f.read()
@@ -434,14 +483,24 @@ jobs:
             header = f"## v{version} ({date_str})\n"
 
             if header not in content:
+                if not commits:
+                    print("❌ ERROR: No commits found for changelog generation!")
+                    sys.exit(1)
+
                 # Group commits by category
                 grouped = {}
                 for commit in commits[:50]:  # Limit to 50 commits
-                    hash_val, msg = commit.split(' ', 1)
-                    category = categorize_commit(msg)
-                    if category not in grouped:
-                        grouped[category] = []
-                    grouped[category].append(f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance")
+                    if not commit.strip():
+                        continue
+                    try:
+                        hash_val, msg = commit.split(' ', 1)
+                        category = categorize_commit(msg)
+                        if category not in grouped:
+                            grouped[category] = []
+                        grouped[category].append(f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance")
+                    except ValueError:
+                        print(f"⚠ Skipping malformed commit line: {commit}")
+                        continue
 
                 # Build entry with groups
                 entry = header
@@ -461,6 +520,10 @@ jobs:
                         for commit_line in grouped[group]:
                             entry += f"{commit_line}\n"
 
+                if not grouped:
+                    print("❌ ERROR: No commits were categorized!")
+                    sys.exit(1)
+
                 entry += "\n---\n\n"
 
                 # Insert after "# Changelog\n\n"
@@ -476,24 +539,6 @@ jobs:
                     print("⚠ Could not find changelog header")
             else:
                 print(f"✓ Changelog for v{version} already exists")
-        else:
-            print("⚠ Could not find previous tag")
-            # Create a minimal entry as last resort
-            with open('CHANGELOG.md', 'r') as f:
-                content = f.read()
-
-            date_str = datetime.now().strftime('%d/%m/%Y')
-            header = f"## v{version} ({date_str})\n"
-
-            if header not in content:
-                minimal_entry = f"{header}\n### 🔧 Maintenance\n- Release v{version}\n\n---\n\n"
-                changelog_start = content.find("# Changelog\n\n")
-                if changelog_start >= 0:
-                    insert_pos = changelog_start + len("# Changelog\n\n")
-                    new_content = content[:insert_pos] + minimal_entry + content[insert_pos:]
-                    with open('CHANGELOG.md', 'w') as f:
-                        f.write(new_content)
-                    print(f"✓ Created minimal changelog entry for v{version}")
         PYEOF
         fi
 
