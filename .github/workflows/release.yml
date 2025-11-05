@@ -268,6 +268,16 @@ jobs:
       with:
         python-version: '3.12'
         cache: pip
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '20'
+        cache: npm
+        cache-dependency-path: webui/package-lock.json
+    - name: Build web UI assets
+      run: "cd webui\nnpm ci\nnpm run build\n"
+    - name: Copy web UI assets into package
+      run: "if [ -d webui/dist ]; then\n  rm -rf qBitrr/static/*\n  mkdir -p qBitrr/static\n  cp -a webui/dist/. qBitrr/static/\nelse\n  echo \"webui/dist not found; assuming assets already built into qBitrr/static\"\nfi\n"
     - name: Install build dependencies
       run: "python -m pip install --upgrade pip\npip install build wheel\n"
     - name: Build package
