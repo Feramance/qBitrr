@@ -25,7 +25,7 @@ RUN pip install --quiet -U pip wheel
 WORKDIR /app
 COPY . /app
 COPY --from=webui-build /src/qBitrr/static/ /app/qBitrr/static/
-RUN pip install --quiet ".[fast]"
+RUN rm -rf qBitrr2.egg-info *.egg-info && pip install --quiet ".[fast]"
 
 WORKDIR /config
 
