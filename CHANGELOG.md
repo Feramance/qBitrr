@@ -1,7 +1,10 @@
 # Changelog
 
-## v5.4.4 (05/11/2025)
+## v5.4.5 (01/01/1970)
 
+---
+
+## v5.4.4 (01/01/1970)
 ### 🚀 Features
 - [Add binary download support for auto-updates](https://github.com/Feramance/qBitrr/commit/59421749450fca0f470f63a6094d358daa77d00b) - @Feramance
 - [Implement GitHub release-based auto-update with installation type detection](https://github.com/Feramance/qBitrr/commit/1a3f9936a3f7beb7aaa3116c1d71b046109d2c4f) - @Feramance
@@ -17,11 +20,13 @@
 
 ### 🔧 Maintenance
 - [Changelog fixes](https://github.com/Feramance/qBitrr/commit/1bb74b40d18813b7b3bb727b8e4809233606de1c) - @Feramance
+---
+
+## v5.4.5 (05/11/2025)
 
 ---
 
 ## v5.4.3 (05/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Service worker support for auth proxies and Docker](https://github.com/Feramance/qBitrr/commit/122bc909f9296aac25b4fe115d3438b5162d3c37) - @Feramance
 - [Fix service worker detection behind authentication proxies](https://github.com/Feramance/qBitrr/commit/f097b52617d984a1fbff7d9fb2be42f502ac57dc) - @Feramance
@@ -29,37 +34,29 @@
 
 ### 🔧 Maintenance
 - [Serve service worker directly instead of redirecting](https://github.com/Feramance/qBitrr/commit/d8d162988e5578d159245227e6d71f7f9a16129b) - @Feramance
-
 ---
 
 ## v5.4.2 (05/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Ensure static files are included in Docker pip install](https://github.com/Feramance/qBitrr/commit/c8edde2e6302dd841a136ded39ba6d9584b239eb) - @Feramance
 - [[patch] Fix PyPI package missing WebUI static files](https://github.com/Feramance/qBitrr/commit/3c9a0475c267dad874b39383477f53c4fbeaf7bf) - @Feramance
 
 ### 🔧 Maintenance
 - [PKG update](https://github.com/Feramance/qBitrr/commit/bc2d69aa9411478bb1af2eea5d0f98d5ba149ce5) - @Feramance
-
 ---
 
 ## v5.4.1 (05/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Fix KeyError: 'monitored' when Sonarr API returns incomplete episode data](https://github.com/Feramance/qBitrr/commit/79216f5736409047832d868642ee5a719f224c1a) - @Feramance
 - [[patch] Fix service worker 404 by adding /sw.js route](https://github.com/Feramance/qBitrr/commit/c428cbf902a4893271c26355d251e558f09f59d8) - @Feramance
-
 ---
 
 ## v5.4.0 (04/11/2025)
-
 ### 🚀 Features
 - [[minor] Sonarr-filters-and-config-improvements (#197)](https://github.com/Feramance/qBitrr/commit/ee619ecced6f54cdb7f6a1b48dce1473c271405f) - @Feramance
-
 ---
 
 ## v5.3.3 (04/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Fix version... again... again](https://github.com/Feramance/qBitrr/commit/16fd5dbf056cac111e148ca7aa1ef06a97df7084) - @Feramance
 - [[patch] Fix version... again](https://github.com/Feramance/qBitrr/commit/cefeded5dcc8d29207b4576308411842db2966f5) - @Feramance
@@ -80,25 +77,19 @@
 ### 🔧 Maintenance
 - [Remove redundant button from update window](https://github.com/Feramance/qBitrr/commit/e40c919d0e93b8f329d2d8a414229f1d72d415ae) - @Feramance
 - [Contribution documentation](https://github.com/Feramance/qBitrr/commit/ed3b4a0765e77a36b84b308f25a476bf32ccaece) - @Feramance
-
 ---
 
 ## v5.3.2 (04/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Fix search reason filter not working in Sonarr view](https://github.com/Feramance/qBitrr/commit/a068d9b980e16ea4b77d81b84f7a816715d8fe93) - @Feramance
-
 ---
 
 ## v5.3.1 (04/11/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] fixed changelog fetch tag](https://github.com/Feramance/qBitrr/commit/20f30d7dfa90c2262d8196e6834a2e340d869171) - @Feramance
-
 ---
 
 ## v5.3.0 (04/11/2025)
-
 ### 🚀 Features
 - [[minor] Fixed PyPi version](https://github.com/Feramance/qBitrr/commit/01aee8713cab1e899a50cd2a4da644edb818d7f7) - @Feramance
 - [[minor] Prepare release with first-launch welcome popup feature](https://github.com/Feramance/qBitrr/commit/0b2cf6b2283c69323699f7dd3d7f2c89a0d87cd2) - @Feramance
@@ -207,32 +198,26 @@
 - [Enhance free space manager logging with human-readable byte formatting and improved context](https://github.com/Feramance/qBitrr/commit/7e8fe1437a633b82ed058b6c9fad1387bdcb6630) - @Feramance
 - [Make theme config case-insensitive with normalized display](https://github.com/Feramance/qBitrr/commit/41595b505b45755bea2465dd6dfd995ec5945218) - @Feramance
 - [Improve Sonarr view UX during backend initialization](https://github.com/Feramance/qBitrr/commit/cb97478ec151b937aff13a512e41b938df0ab380) - @Feramance
-
 ---
 
 ## v5.2.0 (31/10/2025)
-
 ### 🚀 Features
 - [[minor] UI Updates (#188)](https://github.com/Feramance/qBitrr/commit/e02b5745050d81828fcbb68052b895abdd07d649) - @Feramance
 
 ### 🐛 Bug Fixes
 - [Fix update flow](https://github.com/Feramance/qBitrr/commit/4f797617f61557ea41770e772b732381a1d63781) - @Feramance
-
 ---
 
 ## v5.1.1 (30/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Fixed database issues](https://github.com/Feramance/qBitrr/commit/8ca7e3b277e4f7320d10233eb1559ad4d0915eda) - @Feramance
 
 ### 🔧 Maintenance
 - [CHange update icon and undid database merging](https://github.com/Feramance/qBitrr/commit/ca5652cebd4eb660cccea6bd7ddee764d6e4bd51) - @Feramance
 - [Database hotfix](https://github.com/Feramance/qBitrr/commit/7a587f05004a3388ae0ecfb3bbaef205cecf8951) - @Feramance
-
 ---
 
 ## v5.1.0 (29/10/2025)
-
 ### 🚀 Features
 - [[minor] Combined databases rather than having multiple, fixed mobile UI and added tracker configs to web ui (#187)](https://github.com/Feramance/qBitrr/commit/44c938ac2ef308d80eceec2d5c9adf6adf5f44dd) - @Feramance
 
@@ -243,11 +228,9 @@
 - [Bump actions/upload-artifact from 4 to 5 (#183)](https://github.com/Feramance/qBitrr/commit/1ff2635b45e0eab033c7c37fb5238d84c9e09521) - @dependabot
 - [Bump actions/setup-node from 4 to 6 (#184)](https://github.com/Feramance/qBitrr/commit/749e38079527b139d37ea6e620724e120bbf4b6f) - @dependabot
 - [Bump actions/checkout from 4 to 5 (#185)](https://github.com/Feramance/qBitrr/commit/1329d25c490608713564d92bce898c9b62ee620a) - @dependabot
-
 ---
 
 ## v5.0.2 (29/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/4774b40b96dca128e36d558a85130af471496e9b) - @Feramance
 
@@ -257,11 +240,9 @@
 ### 🔧 Maintenance
 - [Update docker compose](https://github.com/Feramance/qBitrr/commit/5e8c09083a7b47b94c3f22fddc34f0ac08f6880c) - @Feramance
 - [Update dependabot auto merge](https://github.com/Feramance/qBitrr/commit/683f06971962c54a61eedc8864eaba44b8bdbdc1) - @Feramance
-
 ---
 
 ## v5.0.1 (29/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Request fixes (#186)](https://github.com/Feramance/qBitrr/commit/7d3ba50a164f8ac41f215e39cb1c2b28bc9c05a3) - @Feramance
 
@@ -278,11 +259,9 @@
 - [Bump @types/node from 24.9.1 to 24.9.2 in /webui (#180)](https://github.com/Feramance/qBitrr/commit/030ea6c4ecdf12832d928ffdfca4d303addf45cb) - @dependabot
 - [Bump eslint-plugin-react-hooks from 5.2.0 to 7.0.1 in /webui (#181)](https://github.com/Feramance/qBitrr/commit/098c00a226ee5e3212c547fc651d2bc8c69ad77d) - @dependabot
 - [Bump @vitejs/plugin-react from 5.0.4 to 5.1.0 in /webui (#182)](https://github.com/Feramance/qBitrr/commit/255f4596ab4cc006cc5a45a481c31031fe45a213) - @dependabot
-
 ---
 
 ## v5.0.0 (28/10/2025)
-
 ### 🚀 Features
 - [[major] Prepare for major release](https://github.com/Feramance/qBitrr/commit/ad15112d36cc92ebb5032e8fefe6dd06e015fb5c) - @Feramance
 - [[major] Merge pull request #171 from Feramance/React-updates](https://github.com/Feramance/qBitrr/commit/3675855f67569fde13576b05db915ee2c047fc89) - @Feramance
@@ -384,35 +363,27 @@
 - [Sonarr view rewrite](https://github.com/Feramance/qBitrr/commit/6762235883728c1de78215c821e4ecceb0ea8f90) - @Feramance
 - [Further fixes and changes to sonarr view](https://github.com/Feramance/qBitrr/commit/cdb9846a3c3852c04b7a93908b68d1ed56f1d001) - @Feramance
 - [Updates to sonarr view](https://github.com/Feramance/qBitrr/commit/09295e683476b3ef126b2df5403a325e7f96f718) - @Feramance
-
 ---
 
 ## v4.10.28 (16/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Fixed Arr has no attribute torrents](https://github.com/Feramance/qBitrr/commit/b4db5fa7987206d9e5cd203dcebe0b8933ebe0a8) - @Feramance
 
 ### 🔧 Maintenance
 - [Removed v5 config](https://github.com/Feramance/qBitrr/commit/dc942c4adca4863ca7bea74b19aeca5d7f4bd419) - @Feramance
-
 ---
 
 ## v4.10.27 (15/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/f468e796c7568c359d2378bbc7727629ea533775) - @Feramance
-
 ---
 
 ## v4.10.26 (15/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Dependency updates](https://github.com/Feramance/qBitrr/commit/4cd39849a2173f3b3dc2a9621d0f0c8f11fb1a88) - @Feramance
-
 ---
 
 ## v4.10.25 (14/10/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Merge pull request #167 from Feramance/165-attributeerror-nonetype-object-has-no-attribute-hash](https://github.com/Feramance/qBitrr/commit/8d7061a4e0a1470e0e99546a3855571114635e3d) - @Feramance
 
@@ -420,11 +391,9 @@
 - [Small fixes](https://github.com/Feramance/qBitrr/commit/bc288574e9ae9b73c3993c91645c9fe243679d9b) - @Feramance
 - [Minor tweaks to torrents library call](https://github.com/Feramance/qBitrr/commit/64309436a69db2387eb65afa5fc2e539d3ac03db) - @Feramance
 - [Added check before starting condition for `in tags`](https://github.com/Feramance/qBitrr/commit/1e08660a22856d1bc9bc9c1c31642c5476b9591a) - @Feramance
-
 ---
 
 ## v4.10.24 (03/06/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Some logic updates for the Sonarr search command](https://github.com/Feramance/qBitrr/commit/80762778f4517cd8b167b5e5bc47120e2345525a) - @Feramance
 
@@ -433,32 +402,26 @@
 - [Update arss.py](https://github.com/Feramance/qBitrr/commit/7d03fddde6f9201c4d64918084fc42460e45c6cd) - @Feramance
 - [fix "SeriesSearch"](https://github.com/Feramance/qBitrr/commit/9d0a1b8ef7c1a0d64f155370aaf84624d7f9c713) - @christianha1111
 - [use "SeriesSearch" in post_command. self.search_api_command was null unless. search_api_command is only set if self.search_missing:](https://github.com/Feramance/qBitrr/commit/753fc8b5bbed75d26cff9c2283f616614d2e873c) - @christianha1111
-
 ---
 
 ## v4.10.23 (29/05/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Hotfix](https://github.com/Feramance/qBitrr/commit/ca816463818878164bee3b31f9c04576c300aeeb) - @Feramance
 
 ### 🔧 Maintenance
 - [Update readme](https://github.com/Feramance/qBitrr/commit/cec04e271a9501a0b9f1fce46ab4d43563e9292e) - @Feramance
-
 ---
 
 ## v4.10.22 (29/05/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Retry release workflow](https://github.com/Feramance/qBitrr/commit/20ffbe4d2dc678a33bce56e60456130739d803c9) - @Feramance
 - [[patch] Updated tagging to handle all tags appropriately](https://github.com/Feramance/qBitrr/commit/7580e73d3889c687b1316987b5cc0aa81c43cc03) - @Feramance
 
 ### 🔧 Maintenance
 - [Update release workflow](https://github.com/Feramance/qBitrr/commit/967e1bf002aba1d3a6a89159f72530b9ed0c05db) - @Feramance
-
 ---
 
 ## v4.10.21 (21/04/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Merge pull request #162 from Feramance:160-question-regarding-the-initial-_monitored_tracker_urls-loading](https://github.com/Feramance/qBitrr/commit/ceb162cd1eee785c969cc07f0e9483b8bb74cab7) - @Feramance
 - [Fix per @overlord73](https://github.com/Feramance/qBitrr/commit/f38baf50338b5a20db9657a574425f59b5fe68d0) - @Feramance
@@ -475,42 +438,32 @@
 - [Coloured log files](https://github.com/Feramance/qBitrr/commit/1d7fd695eeb655a8fb628adcaae94b699b2c692b) - @Feramance
 - [Logging changes](https://github.com/Feramance/qBitrr/commit/091d6234aa425833b59fa5b3dc3eb969773cce74) - @Feramance
 - [Attempting to fix connection error](https://github.com/Feramance/qBitrr/commit/fb916f50881d65cbd32596e29d5c7336f6f889e7) - @Feramance
-
 ---
 
 ## v4.10.20 (12/03/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Adjusted stalled delay fallback, logs, and stalled delay now acts on the last activity, rather than added on](https://github.com/Feramance/qBitrr/commit/a61080f740835600c02383376134b6157a024346) - @Feramance
-
 ---
 
 ## v4.10.19 (12/03/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Enabled stalled delay default](https://github.com/Feramance/qBitrr/commit/e9df62d84372b997f399e52e0870150438191104) - @Feramance
-
 ---
 
 ## v4.10.18 (12/03/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Free space fixes and remove stalled tag if recent](https://github.com/Feramance/qBitrr/commit/8bf7bb4366c0dc38fd2ff2ae430c7c8bf8a79cfb) - @Feramance
-
 ---
 
 ## v4.10.17 (12/03/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Updated paused torrent handling](https://github.com/Feramance/qBitrr/commit/1b4be8ff27ec72132e29db1a96ff612dad8d9df5) - @Feramance
 
 ### 🔧 Maintenance
 - [Free space adjustements](https://github.com/Feramance/qBitrr/commit/7805b27bc78a19ae27db7e0e19abe6c102ec396b) - @Feramance
-
 ---
 
 ## v4.10.16 (11/03/2025)
-
 ### 🐛 Bug Fixes
 - [[patch] Stalled delay fixes](https://github.com/Feramance/qBitrr/commit/fd119edf95348a255b27968e9dc55304f0228389) - @Feramance
 
@@ -528,18 +481,3 @@
 - [Adjusted recent queue check](https://github.com/Feramance/qBitrr/commit/cf7082fd937d91296d4c2b3f8da43bf5dfd69e47) - @Feramance
 - [Adjust stalled delay behaviour](https://github.com/Feramance/qBitrr/commit/d9a76442fca5c2c41b643c6a8461cd3efe8d2f27) - @Feramance
 - [Update README.md](https://github.com/Feramance/qBitrr/commit/eb98c8b5edee9ef846d79c0cbc9de41767c4512a) - @Feramance
-
----
-
-## v4.10.15 (07/03/2025)
-
-### 🐛 Bug Fixes
-- [[patch] stalled activity is now checked against last activity](https://github.com/Feramance/qBitrr/commit/1c6fe184a39e730931e7477bf1161dc803f75df9) - @Feramance
-
-### 🔧 Maintenance
-- [Small fixes](https://github.com/Feramance/qBitrr/commit/1261cd4dd206a502ad9a695afaf977cea271d215) - @Feramance
-- [Adjusted stale download handling to allow buffer of activity prior to deletion](https://github.com/Feramance/qBitrr/commit/770f40554eb72282c8437ecdc2a8af0ff6322b1d) - @Feramance
-- [Adjusted ratio/seed handling](https://github.com/Feramance/qBitrr/commit/902c823d9f87c0954ec45d946b894caa94a8c02e) - @Feramance
-
----
-
