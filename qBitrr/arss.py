@@ -2547,7 +2547,7 @@ class Arr:
                             JSONDecodeError,
                         ):
                             continue
-                    if episode["monitored"] or self.search_unmonitored:
+                    if episode.get("monitored", True) or self.search_unmonitored:
                         while True:
                             try:
                                 series_info = episode.get("series") or {}
@@ -2701,7 +2701,7 @@ class Arr:
                             else None
                         )
                         AirDateUtc = episode["airDateUtc"]
-                        Monitored = episode["monitored"]
+                        Monitored = episode.get("monitored", True)
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
