@@ -68,10 +68,6 @@ function WelcomeModal({
           <h2 id="welcome-title">
             🎉 Welcome to qBitrr {formatVersionLabel(currentVersion)}!
           </h2>
-          <button className="btn ghost" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
-          </button>
         </div>
         <div className="modal-body changelog-modal__body">
           <div className="changelog-meta">
