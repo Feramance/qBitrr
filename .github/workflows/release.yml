@@ -106,7 +106,22 @@ jobs:
         fetch-depth: 0
         ref: master
         token: ${{ secrets.PAT }}
+    - name: Check if release exists
+      id: check_release
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        TAG="v${{ needs.prepare_release.outputs.new_version }}"
+        if gh release view "${TAG}" --repo ${{ github.repository }} >/dev/null 2>&1; then
+          echo "exists=true" >> "${GITHUB_OUTPUT}"
+          echo "⚠ Release ${TAG} already exists, will not create duplicate"
+        else
+          echo "exists=false" >> "${GITHUB_OUTPUT}"
+          echo "✓ Release ${TAG} does not exist, will create"
+        fi
+
     - name: Create draft release
+      if: steps.check_release.outputs.exists != 'true'
       uses: softprops/action-gh-release@v2
       with:
         token: ${{ secrets.PAT }}
@@ -114,6 +129,7 @@ jobs:
         name: v${{ needs.prepare_release.outputs.new_version }}
         draft: true
         prerelease: false
+        make_latest: false
   docker_images:
     name: Publish Docker images
     runs-on: ubuntu-latest
@@ -339,13 +355,8 @@ jobs:
         echo "Current tags:"
         git tag -l | tail -10
 
-        echo "Generating release notes with gren..."
-        if gren release --override --tags=v${VERSION} 2>&1 | tee gren-release.log; then
-          echo "✓ Release notes generated successfully"
-        else
-          echo "⚠ Warning: gren release failed"
-          cat gren-release.log
-        fi
+        echo "Skipping gren release (release already created as draft)..."
+        echo "Note: Release notes will be populated from changelog in publish_release job"
 
         echo "Generating changelog with gren..."
         if gren changelog --override 2>&1 | tee gren-changelog.log; then
@@ -574,8 +585,9 @@ jobs:
         GH_TOKEN: ${{ secrets.PAT }}
       run: |
         TAG="v${{ needs.prepare_release.outputs.new_version }}"
-        echo "Publishing release ${TAG}"
-        gh release edit "${TAG}" --draft=false --repo ${{ github.repository }}
+        echo "Publishing release ${TAG} and marking as latest..."
+        gh release edit "${TAG}" --draft=false --latest --repo ${{ github.repository }}
+        echo "✓ Release ${TAG} published successfully"
 concurrency:
   group: release
   cancel-in-progress: false
