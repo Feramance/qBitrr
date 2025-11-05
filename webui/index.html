@@ -14,15 +14,15 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Register service worker for PWA support
-      // Note: Service workers require HTTPS or localhost, and the sw.js file must be
-      // accessible without authentication if behind an auth proxy (e.g., Authentik).
+      // Note: Service workers require HTTPS or localhost. The /sw.js endpoint can be
+      // whitelisted in auth proxies (e.g., Authentik) to enable PWA features.
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
           try {
-            // First check if service worker file is accessible (not redirected by auth proxy)
-            const swResponse = await fetch('/sw.js', { method: 'HEAD' });
-            if (!swResponse.ok || swResponse.redirected) {
-              console.debug('ServiceWorker not available: file behind authentication or not accessible');
+            // Check if service worker file is accessible (not behind auth redirect)
+            const swResponse = await fetch('/sw.js', { method: 'HEAD', credentials: 'same-origin' });
+            if (!swResponse.ok || swResponse.status === 401 || swResponse.status === 403) {
+              console.debug('ServiceWorker not available: requires whitelisting /sw.js in auth proxy');
               return;
             }
 

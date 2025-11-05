@@ -1192,10 +1192,14 @@ class WebUI:
 
         @app.get("/sw.js")
         def service_worker():
-            # Service worker must be served from root path for PWA support
-            from flask import make_response
+            # Service worker must be served directly (not redirected) for PWA support
+            # This allows the endpoint to be whitelisted in auth proxies (e.g., Authentik)
+            import os
 
-            response = make_response(redirect("/static/sw.js"))
+            from flask import send_from_directory
+
+            static_dir = os.path.join(os.path.dirname(__file__), "static")
+            response = send_from_directory(static_dir, "sw.js")
             # Prevent caching of the service worker to ensure updates are picked up
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
