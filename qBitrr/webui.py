@@ -1190,6 +1190,18 @@ class WebUI:
             response.headers["Expires"] = "0"
             return response
 
+        @app.get("/sw.js")
+        def service_worker():
+            # Service worker must be served from root path for PWA support
+            from flask import make_response
+
+            response = make_response(redirect("/static/sw.js"))
+            # Prevent caching of the service worker to ensure updates are picked up
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+
         def _processes_payload() -> dict[str, Any]:
             procs = []
             search_activity_map = fetch_search_activities()
