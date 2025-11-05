@@ -646,8 +646,9 @@ jobs:
             print(f"This might mean the changelog job failed to generate it.")
             print(f"The release will be published without detailed notes.")
             # Create a minimal release note
+            repo = "${{ github.repository }}"
             with open('/tmp/release_notes.md', 'w') as f:
-                f.write(f"Release {tag}\n\nSee [CHANGELOG.md](https://github.com/${{{{ github.repository }}}}/blob/master/CHANGELOG.md) for details.")
+                f.write(f"Release {tag}\n\nSee [CHANGELOG.md](https://github.com/{repo}/blob/master/CHANGELOG.md) for details.")
             sys.exit(0)
         PYEOF
 
