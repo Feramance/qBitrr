@@ -698,6 +698,9 @@ class Arr:
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to %s", self.uri)
+            # Clear the cache to ensure we retry on next check
+            if 1 in self.expiring_bool.container:
+                self.expiring_bool.remove(1)
         return False
 
     @staticmethod
