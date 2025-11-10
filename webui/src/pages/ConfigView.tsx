@@ -521,18 +521,22 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
-    label: "Main Quality Profile",
-    path: ["EntrySearch", "MainQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Force Reset Temp Profiles",
+    path: ["EntrySearch", "ForceResetTempProfiles"],
+    type: "checkbox",
+    description: "Reset all items using temp profiles to their original main profile on qBitrr startup",
   },
   {
-    label: "Temp Quality Profile",
-    path: ["EntrySearch", "TempQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Temp Profile Reset Timeout (Minutes)",
+    path: ["EntrySearch", "TempProfileResetTimeoutMinutes"],
+    type: "number",
+    description: "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
+  },
+  {
+    label: "Profile Switch Retry Attempts",
+    path: ["EntrySearch", "ProfileSwitchRetryAttempts"],
+    type: "number",
+    description: "Number of retry attempts for profile switch API calls (default: 3)",
   },
   {
     label: "Search By Series",
@@ -1112,8 +1116,10 @@ function ensureArrDefaults(type: string): ConfigDocument {
     SearchAgainOnSearchCompletion: true,
     UseTempForMissing: false,
     KeepTempProfile: false,
-    MainQualityProfile: [],
-    TempQualityProfile: [],
+    ForceResetTempProfiles: false,
+    TempProfileResetTimeoutMinutes: 0,
+    ProfileSwitchRetryAttempts: 3,
+    QualityProfileMappings: {},
   };
 
   if (isSonarr) {
