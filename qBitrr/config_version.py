@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from qBitrr.gen_config import MyConfig
 
 # Current expected config version - increment when schema changes require migration
-EXPECTED_CONFIG_VERSION = 1
+EXPECTED_CONFIG_VERSION = 2
 
 logger = logging.getLogger(__name__)
 

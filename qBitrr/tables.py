@@ -20,6 +20,10 @@ class MoviesFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
 
 
 class EpisodeFilesModel(Model):
@@ -42,6 +46,10 @@ class EpisodeFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
 
 
 class SeriesFilesModel(Model):
@@ -80,6 +88,10 @@ class AlbumFilesModel(Model):
     Reason = TextField(null=True)
     ArtistId = IntegerField(null=False)
     ArtistTitle = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
 
 
 class TrackFilesModel(Model):

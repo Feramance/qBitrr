@@ -716,6 +716,34 @@ def _gen_default_search_table(category: str, cat_default: Table):
     _gen_default_line(search_table, "Don't change back to main profile", "KeepTempProfile", False)
     _gen_default_line(
         search_table,
+        [
+            "Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)",
+            "Profile names must match exactly as they appear in your Arr instance",
+            'Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}',
+        ],
+        "QualityProfileMappings",
+        {},
+    )
+    _gen_default_line(
+        search_table,
+        "Reset all items using temp profiles to their original main profile on qBitrr startup",
+        "ForceResetTempProfiles",
+        False,
+    )
+    _gen_default_line(
+        search_table,
+        "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
+        "TempProfileResetTimeoutMinutes",
+        0,
+    )
+    _gen_default_line(
+        search_table,
+        "Number of retry attempts for profile switch API calls (default: 3)",
+        "ProfileSwitchRetryAttempts",
+        3,
+    )
+    _gen_default_line(
+        search_table,
         "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",
         "MainQualityProfile",
         [],
@@ -908,6 +936,84 @@ def _migrate_webui_config(config: MyConfig) -> bool:
     return migrated
 
 
+def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
+    """
+    Migrate from list-based profile config to dict-based mappings.
+
+    Migration runs if:
+    - ConfigVersion is missing (old config), OR
+    - ConfigVersion == 1 (baseline version before this feature)
+
+    After migration, ConfigVersion will be set to 2 by apply_config_migrations().
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    # Check if migration already applied
+    current_version = get_config_version(config)
+    if current_version >= 2:
+        return False  # Already migrated
+
+    # At this point, ConfigVersion is either missing (returns 1 as default) or explicitly 1
+    # Both cases need migration if old format exists
+
+    changes_made = False
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+
+    for arr_type in arr_types:
+        # Find all Arr instances (e.g., "Radarr-Movies", "Sonarr-TV")
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            entry_search_key = f"{key}.EntrySearch"
+            entry_search_section = config.get(entry_search_key, fallback=None)
+            if not entry_search_section:
+                continue
+
+            # Check for old format
+            main_profiles = config.get(f"{entry_search_key}.MainQualityProfile", fallback=None)
+            temp_profiles = config.get(f"{entry_search_key}.TempQualityProfile", fallback=None)
+
+            # Skip if no old format found
+            if not main_profiles or not temp_profiles:
+                continue
+
+            # Validate list lengths match
+            if len(main_profiles) != len(temp_profiles):
+                logger.error(
+                    f"Cannot migrate {key}: MainQualityProfile ({len(main_profiles)}) "
+                    f"and TempQualityProfile ({len(temp_profiles)}) have different lengths"
+                )
+                continue
+
+            # Create mappings dict, filtering out empty/None values
+            mappings = {
+                str(main).strip(): str(temp).strip()
+                for main, temp in zip(main_profiles, temp_profiles)
+                if main and temp and str(main).strip() and str(temp).strip()
+            }
+
+            if mappings:
+                # Set new format
+                config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = mappings
+                changes_made = True
+                logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
+
+                # Remove old format
+                del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
+                del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
+                logger.debug(f"Removed legacy profile lists from {key}")
+
+    return changes_made
+
+
 def _normalize_theme_value(value: Any) -> str:
     """
     Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
@@ -1019,6 +1125,35 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         if ensure_value("qBit", key, default):
             changed = True
 
+    # Validate EntrySearch sections for all Arr instances
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+    entry_search_defaults = {
+        "QualityProfileMappings": {},
+        "ForceResetTempProfiles": False,
+        "TempProfileResetTimeoutMinutes": 0,
+        "ProfileSwitchRetryAttempts": 3,
+    }
+
+    for arr_type in arr_types:
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            # Check if this Arr instance has an EntrySearch section
+            if "EntrySearch" in config.config[str(key)]:
+                entry_search = config.config[str(key)]["EntrySearch"]
+
+                # Add missing fields directly to the existing section
+                for field, default in entry_search_defaults.items():
+                    if field not in entry_search:
+                        if field == "QualityProfileMappings":
+                            # Create as a subsection/table
+                            entry_search[field] = table()
+                        else:
+                            # Add as a simple value
+                            entry_search[field] = default
+                        changed = True
+
     return changed
 
 
@@ -1060,6 +1195,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Apply migrations
     if _migrate_webui_config(config):
+        changes_made = True
+
+    # NEW: Migrate quality profile mappings from list to dict format
+    if _migrate_quality_profile_mappings(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)
