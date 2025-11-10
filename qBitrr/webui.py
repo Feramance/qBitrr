@@ -2359,11 +2359,19 @@ class WebUI:
 
                 # Test connection (no timeout - Flask/Waitress handles this)
                 try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
                     # Get system info to verify connection
                     system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
 
                     # Fetch quality profiles
                     quality_profiles = client.get_quality_profile()
+                    self.logger.info(
+                        f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                    )
 
                     # Format response
                     return jsonify(
