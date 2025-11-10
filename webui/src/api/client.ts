@@ -327,3 +327,28 @@ export async function updateConfig(
 export async function triggerUpdate(): Promise<void> {
   await fetchJson<void>("/web/update", { method: "POST" });
 }
+
+export interface TestConnectionRequest {
+  arrType: "radarr" | "sonarr" | "lidarr";
+  uri: string;
+  apiKey: string;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  systemInfo?: {
+    version: string;
+    branch?: string;
+  };
+  qualityProfiles?: Array<{ id: number; name: string }>;
+}
+
+export async function testArrConnection(
+  request: TestConnectionRequest
+): Promise<TestConnectionResponse> {
+  return fetchJson("/api/arr/test-connection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}

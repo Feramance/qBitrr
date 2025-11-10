@@ -2308,6 +2308,113 @@ class WebUI:
         def web_update_config():
             return _handle_config_update()
 
+        @app.post("/api/arr/test-connection")
+        def api_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            """
+            if (resp := require_token()) is not None:
+                return resp
+
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Create temporary Arr API client
+                if arr_type == "radarr":
+                    from pyarr import RadarrAPI
+
+                    client = RadarrAPI(uri, api_key)
+                elif arr_type == "sonarr":
+                    from pyarr import SonarrAPI
+
+                    client = SonarrAPI(uri, api_key)
+                elif arr_type == "lidarr":
+                    from pyarr import LidarrAPI
+
+                    client = LidarrAPI(uri, api_key)
+                else:
+                    return (
+                        jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                        400,
+                    )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+
+                    # Fetch quality profiles
+                    quality_profiles = client.get_quality_profile()
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        return jsonify({"success": False, "message": f"Error: {error_msg}"}), 500
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
+
     def _reload_all(self):
         # Set rebuilding flag
         self._rebuilding_arrs = True

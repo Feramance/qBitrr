@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
-import { getConfig, updateConfig } from "../api/client";
+import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
@@ -1782,6 +1782,7 @@ interface FieldGroupProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
+  qualityProfiles?: Array<{ id: number; name: string }>;
 }
 
 function FieldGroup({
@@ -1792,12 +1793,20 @@ function FieldGroup({
   onChange,
   onRenameSection,
   defaultOpen = false,
+  qualityProfiles = [],
 }: FieldGroupProps): JSX.Element {
   const sectionName = basePath[0] ?? "";
 
   if (title === "Quality Profile Mappings") {
     const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
     const mappingEntries = Object.entries(mappings);
+
+    // Check if credentials exist (URI and APIKey)
+    const hasCredentials = Boolean(
+      getValue(state as ConfigDocument, ["URI"]) &&
+        getValue(state as ConfigDocument, ["APIKey"])
+    );
+    const hasProfiles = qualityProfiles.length > 0;
 
     const handleAddMapping = () => {
       const nextMappings = { ...mappings, "": "" };
@@ -1828,44 +1837,87 @@ function FieldGroup({
           <div className="field-description" style={{ marginBottom: '1rem' }}>
             Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
           </div>
-          <div className="profile-mappings-grid">
-            {mappingEntries.map(([mainProfile, tempProfile], index) => (
-              <div key={index} className="profile-mapping-row">
-                <div className="field">
-                  <label>Main Profile</label>
-                  <input
-                    type="text"
-                    value={mainProfile}
-                    onChange={(e) => handleUpdateMapping(mainProfile, e.target.value, tempProfile)}
-                    placeholder="e.g., HD-1080p"
-                  />
-                </div>
-                <div className="field">
-                  <label>Temp Profile</label>
-                  <input
-                    type="text"
-                    value={tempProfile}
-                    onChange={(e) => handleUpdateMapping(mainProfile, mainProfile, e.target.value)}
-                    placeholder="e.g., SD"
-                  />
-                </div>
-                <button
-                  className="btn ghost icon-only"
-                  type="button"
-                  onClick={() => handleDeleteMapping(mainProfile)}
-                  title="Delete mapping"
-                >
-                  <IconImage src={DeleteIcon} />
+
+          {!hasCredentials ? (
+            <div className="alert warning">
+              ⚠️ Please configure URI and API Key first, then click "Test Connection" to load quality profiles
+            </div>
+          ) : !hasProfiles ? (
+            <div className="alert info">
+              ℹ️ Click "Test Connection" above to load quality profiles from your {sectionName} instance
+            </div>
+          ) : (
+            <>
+              <div className="profile-mappings-grid">
+                {mappingEntries.map(([mainProfile, tempProfile], index) => (
+                  <div key={index} className="profile-mapping-row">
+                    <div className="field">
+                      <label>Main Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          mainProfile
+                            ? { value: mainProfile, label: mainProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            option?.value || "",
+                            tempProfile
+                          )
+                        }
+                        placeholder="Select main profile..."
+                        isClearable
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Temp Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          tempProfile
+                            ? { value: tempProfile, label: tempProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            mainProfile,
+                            option?.value || ""
+                          )
+                        }
+                        placeholder="Select temp profile..."
+                        isClearable
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <button
+                      className="btn ghost icon-only"
+                      type="button"
+                      onClick={() => handleDeleteMapping(mainProfile)}
+                      title="Delete mapping"
+                    >
+                      <IconImage src={DeleteIcon} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="config-actions">
+                <button className="btn" type="button" onClick={handleAddMapping}>
+                  <IconImage src={AddIcon} />
+                  Add Profile Mapping
                 </button>
               </div>
-            ))}
-          </div>
-          <div className="config-actions">
-            <button className="btn" type="button" onClick={handleAddMapping}>
-              <IconImage src={AddIcon} />
-              Add Profile Mapping
-            </button>
-          </div>
+            </>
+          )}
         </div>
       </details>
     );
@@ -2252,6 +2304,71 @@ function ArrInstanceModal({
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
+  const { push } = useToast();
+
+  // State for test connection
+  const [testState, setTestState] = useState<{
+    testing: boolean;
+    result: TestConnectionResponse | null;
+  }>({ testing: false, result: null });
+
+  const [qualityProfiles, setQualityProfiles] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+
+  // Helper to get value from state
+  const getValue = (path: string[]): unknown => {
+    if (!state) return undefined;
+    // state could be a ConfigDocument or a nested object, so we get from root first
+    const rootState = state as ConfigDocument;
+    return get(rootState, [keyName, ...path]);
+  };
+
+  // Clear test state when URI or APIKey changes
+  useEffect(() => {
+    setTestState({ testing: false, result: null });
+    setQualityProfiles([]);
+  }, [getValue(["URI"]), getValue(["APIKey"])]);
+
+  // Test connection handler
+  const handleTestConnection = async () => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // Determine Arr type from keyName
+    const keyLower = keyName.toLowerCase();
+    const arrType = keyLower.includes("radarr")
+      ? "radarr"
+      : keyLower.includes("sonarr")
+        ? "sonarr"
+        : "lidarr";
+
+    if (!uri || !apiKey) {
+      push("Please configure URI and API Key first", "error");
+      return;
+    }
+
+    setTestState({ testing: true, result: null });
+
+    try {
+      const result = await testArrConnection({ arrType, uri, apiKey });
+      setTestState({ testing: false, result });
+
+      if (result.success) {
+        // Cache quality profiles for dropdown use
+        if (result.qualityProfiles) {
+          setQualityProfiles(result.qualityProfiles);
+        }
+        push(`Connected to ${keyName} successfully!`, "success");
+      } else {
+        push(`Connection failed: ${result.message}`, "error");
+      }
+    } catch (error) {
+      setTestState({ testing: false, result: null });
+      push("Test connection failed", "error");
+    }
+  };
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -2280,6 +2397,63 @@ function ArrInstanceModal({
             onRenameSection={onRename}
             defaultOpen
           />
+          {/* Test Connection Section */}
+          <div className="config-section test-connection-section">
+            <div className="field-group-actions">
+              <button
+                className="btn secondary"
+                type="button"
+                onClick={handleTestConnection}
+                disabled={
+                  testState.testing ||
+                  !getValue(["URI"]) ||
+                  !getValue(["APIKey"])
+                }
+              >
+                <IconImage
+                  src={testState.testing ? RefreshIcon : SaveIcon}
+                />
+                {testState.testing ? "Testing Connection..." : "Test Connection"}
+              </button>
+
+              {!getValue(["URI"]) || !getValue(["APIKey"]) ? (
+                <span className="field-hint">
+                  Configure URI and API Key above to test connection
+                </span>
+              ) : null}
+            </div>
+
+            {testState.result && (
+              <div
+                className={`alert ${testState.result.success ? "success" : "error"}`}
+              >
+                {testState.result.success ? (
+                  <>
+                    <strong>✓ {testState.result.message}</strong>
+                    {testState.result.systemInfo && (
+                      <div className="alert-details">
+                        Version: {testState.result.systemInfo.version}
+                        {testState.result.systemInfo.branch &&
+                          ` (${testState.result.systemInfo.branch})`}
+                      </div>
+                    )}
+                    {testState.result.qualityProfiles && (
+                      <div className="alert-details">
+                        Found {testState.result.qualityProfiles.length} quality
+                        profile(s)
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <strong>⚠️ Connection Failed</strong>
+                    <br />
+                    {testState.result.message}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
@@ -2295,6 +2469,7 @@ function ArrInstanceModal({
             basePath={[keyName]}
             onChange={onChange}
             defaultOpen
+            qualityProfiles={qualityProfiles}
           />
           {entryOmbiFields.length > 0 && (
             <FieldGroup
@@ -2338,8 +2513,8 @@ function ArrInstanceModal({
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
-            <IconImage src={SaveIcon} />
-            Done
+            <IconImage src={CloseIcon} />
+            Close
           </button>
         </div>
       </div>
