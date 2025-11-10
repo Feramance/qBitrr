@@ -2319,9 +2319,8 @@ function ArrInstanceModal({
   // Helper to get value from state
   const getValue = (path: string[]): unknown => {
     if (!state) return undefined;
-    // state could be a ConfigDocument or a nested object, so we get from root first
-    const rootState = state as ConfigDocument;
-    return get(rootState, [keyName, ...path]);
+    // state is already the Arr instance object, not the full ConfigDocument
+    return get(state, path);
   };
 
   // Clear test state when URI or APIKey changes
