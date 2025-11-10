@@ -2330,8 +2330,20 @@ function ArrInstanceModal({
     setQualityProfiles([]);
   }, [getValue(["URI"]), getValue(["APIKey"])]);
 
+  // Auto-test connection when modal opens if credentials exist
+  useEffect(() => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    if (uri && apiKey && !testState.testing && !testState.result) {
+      // Auto-test silently (without toasts)
+      handleTestConnection(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
   // Test connection handler
-  const handleTestConnection = async () => {
+  const handleTestConnection = async (silent = false) => {
     const uri = getValue(["URI"]) as string;
     const apiKey = getValue(["APIKey"]) as string;
 
@@ -2344,8 +2356,10 @@ function ArrInstanceModal({
         : "lidarr";
 
     if (!uri || !apiKey) {
-      push("Please configure URI and API Key first", "error");
-      return;
+      if (!silent) {
+        push("Please configure URI and API Key first", "error");
+      }
+      return false;
     }
 
     setTestState({ testing: true, result: null });
@@ -2359,13 +2373,41 @@ function ArrInstanceModal({
         if (result.qualityProfiles) {
           setQualityProfiles(result.qualityProfiles);
         }
-        push(`Connected to ${keyName} successfully!`, "success");
+        if (!silent) {
+          push(`Connected to ${keyName} successfully!`, "success");
+        }
+        return true;
       } else {
-        push(`Connection failed: ${result.message}`, "error");
+        if (!silent) {
+          push(`Connection failed: ${result.message}`, "error");
+        }
+        return false;
       }
     } catch (error) {
       setTestState({ testing: false, result: null });
-      push("Test connection failed", "error");
+      if (!silent) {
+        push("Test connection failed", "error");
+      }
+      return false;
+    }
+  };
+
+  // Handle save with connection test
+  const handleSave = async () => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // If credentials exist, test connection before saving
+    if (uri && apiKey) {
+      const success = await handleTestConnection(false);
+      if (success) {
+        push("Configuration saved successfully", "success");
+        onClose();
+      }
+      // If unsuccessful, stay open so user can fix config
+    } else {
+      // No credentials to test, just close
+      onClose();
     }
   };
 
@@ -2397,63 +2439,37 @@ function ArrInstanceModal({
             onRenameSection={onRename}
             defaultOpen
           />
-          {/* Test Connection Section */}
-          <div className="config-section test-connection-section">
-            <div className="field-group-actions">
-              <button
-                className="btn secondary"
-                type="button"
-                onClick={handleTestConnection}
-                disabled={
-                  testState.testing ||
-                  !getValue(["URI"]) ||
-                  !getValue(["APIKey"])
-                }
-              >
-                <IconImage
-                  src={testState.testing ? RefreshIcon : SaveIcon}
-                />
-                {testState.testing ? "Testing Connection..." : "Test Connection"}
-              </button>
-
-              {!getValue(["URI"]) || !getValue(["APIKey"]) ? (
-                <span className="field-hint">
-                  Configure URI and API Key above to test connection
-                </span>
-              ) : null}
+          {testState.result && (
+            <div
+              className={`alert ${testState.result.success ? "success" : "error"}`}
+              style={{ margin: "16px 0" }}
+            >
+              {testState.result.success ? (
+                <>
+                  <strong>✓ {testState.result.message}</strong>
+                  {testState.result.systemInfo && (
+                    <div className="alert-details">
+                      Version: {testState.result.systemInfo.version}
+                      {testState.result.systemInfo.branch &&
+                        ` (${testState.result.systemInfo.branch})`}
+                    </div>
+                  )}
+                  {testState.result.qualityProfiles && (
+                    <div className="alert-details">
+                      Found {testState.result.qualityProfiles.length} quality
+                      profile(s)
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>⚠️ Connection Failed</strong>
+                  <br />
+                  {testState.result.message}
+                </>
+              )}
             </div>
-
-            {testState.result && (
-              <div
-                className={`alert ${testState.result.success ? "success" : "error"}`}
-              >
-                {testState.result.success ? (
-                  <>
-                    <strong>✓ {testState.result.message}</strong>
-                    {testState.result.systemInfo && (
-                      <div className="alert-details">
-                        Version: {testState.result.systemInfo.version}
-                        {testState.result.systemInfo.branch &&
-                          ` (${testState.result.systemInfo.branch})`}
-                      </div>
-                    )}
-                    {testState.result.qualityProfiles && (
-                      <div className="alert-details">
-                        Found {testState.result.qualityProfiles.length} quality
-                        profile(s)
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <strong>⚠️ Connection Failed</strong>
-                    <br />
-                    {testState.result.message}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          )}
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
@@ -2512,9 +2528,18 @@ function ArrInstanceModal({
           />
         </div>
         <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={onClose}>
-            <IconImage src={CloseIcon} />
-            Close
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={() => handleTestConnection(false)}
+            disabled={testState.testing}
+          >
+            <IconImage src={testState.testing ? RefreshIcon : SaveIcon} />
+            {testState.testing ? "Testing..." : "Test Connection"}
+          </button>
+          <button className="btn primary" type="button" onClick={handleSave}>
+            <IconImage src={SaveIcon} />
+            Save
           </button>
         </div>
       </div>
