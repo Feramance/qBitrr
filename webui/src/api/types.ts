@@ -195,6 +195,19 @@ export interface LidarrTracksResponse {
   tracks: LidarrTrack[];
 }
 
+export interface ConfigVersionWarning {
+  type: "config_version_mismatch";
+  message: string;
+  currentVersion: number;
+}
+
+export interface ConfigResponseWithWarning {
+  config: Record<string, unknown>;
+  warning: ConfigVersionWarning;
+}
+
+// ConfigDocument is always a plain object with string keys
+// The warning structure is handled internally by getConfig()
 export type ConfigDocument = Record<string, unknown>;
 
 export interface ConfigUpdatePayload {

@@ -3,6 +3,10 @@
 
 
 [Settings]
+# Internal config schema version - DO NOT MODIFY
+# This is managed automatically by qBitrr for config migrations
+ConfigVersion = 1
+
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
 

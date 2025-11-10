@@ -1,6 +1,7 @@
 import type {
   ArrListResponse,
   ConfigDocument,
+  ConfigResponseWithWarning,
   ConfigUpdatePayload,
   ConfigUpdateResponse,
   MetaResponse,
@@ -269,7 +270,22 @@ export async function restartArr(category: string): Promise<void> {
 }
 
 export async function getConfig(): Promise<ConfigDocument> {
-  return fetchJson<ConfigDocument>("/web/config");
+  // Response might be ConfigDocument OR ConfigResponseWithWarning
+  const response = await fetchJson<ConfigDocument | ConfigResponseWithWarning>("/web/config");
+
+  // Check if response contains a warning structure
+  if (response && typeof response === "object" && "warning" in response && "config" in response) {
+    // Response has warning structure - store warning for display
+    const warningResponse = response as ConfigResponseWithWarning;
+    if (warningResponse.warning?.message) {
+      sessionStorage.setItem("config_version_warning", warningResponse.warning.message);
+    }
+    // Return the actual config (always present in warning structure)
+    return warningResponse.config;
+  }
+
+  // Normal response - just a plain config object
+  return response as ConfigDocument;
 }
 
 export async function updateConfig(

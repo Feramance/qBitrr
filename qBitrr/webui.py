@@ -2141,6 +2141,23 @@ class WebUI:
                 except Exception:
                     pass
                 data = _toml_to_jsonable(CONFIG.config)
+
+                # Check config version and add warning if mismatch
+                from qBitrr.config_version import get_config_version, validate_config_version
+
+                is_valid, validation_result = validate_config_version(CONFIG)
+                if not is_valid:
+                    # Add version mismatch warning to response
+                    response_data = {
+                        "config": data,
+                        "warning": {
+                            "type": "config_version_mismatch",
+                            "message": validation_result,
+                            "currentVersion": get_config_version(CONFIG),
+                        },
+                    }
+                    return jsonify(response_data)
+
                 return jsonify(data)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
@@ -2151,6 +2168,15 @@ class WebUI:
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
+
+            # Prevent ConfigVersion from being modified by user
+            protected_keys = {"Settings.ConfigVersion"}
+            for key in protected_keys:
+                if key in changes:
+                    return (
+                        jsonify({"error": f"Cannot modify protected configuration key: {key}"}),
+                        403,
+                    )
 
             # Define key categories
             frontend_only_keys = {

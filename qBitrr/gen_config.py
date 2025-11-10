@@ -85,6 +85,15 @@ def _add_settings_section(config: TOMLDocument):
     settings = table()
     _gen_default_line(
         settings,
+        [
+            "Internal config schema version - DO NOT MODIFY",
+            "This is managed automatically by qBitrr for config migrations",
+        ],
+        "ConfigVersion",
+        1,
+    )
+    _gen_default_line(
+        settings,
         "Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE",
         "ConsoleLevel",
         ENVIRO_CONFIG.settings.console_level or "INFO",
@@ -948,6 +957,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate Settings section
     settings_defaults = [
+        ("ConfigVersion", 1),  # Internal version, DO NOT expose to WebUI
         ("ConsoleLevel", "INFO"),
         ("Logging", True),
         ("CompletedDownloadFolder", "CHANGE_ME"),
@@ -1017,14 +1027,48 @@ def apply_config_migrations(config: MyConfig) -> None:
     Apply all configuration migrations and validations.
     Saves the config if any changes were made.
     """
+    from qBitrr.config_version import (
+        EXPECTED_CONFIG_VERSION,
+        backup_config,
+        get_config_version,
+        set_config_version,
+        validate_config_version,
+    )
+
     changes_made = False
+
+    # Validate config version
+    is_valid, validation_result = validate_config_version(config)
+
+    if not is_valid:
+        # Config version is newer than expected - log error but continue
+        print(f"WARNING: {validation_result}")
+        print("Continuing with potentially incompatible config...")
+
+    # Check if migration is needed
+    current_version = get_config_version(config)
+    needs_migration = current_version < EXPECTED_CONFIG_VERSION
+
+    if needs_migration:
+        print(f"Config schema upgrade needed (v{current_version} -> v{EXPECTED_CONFIG_VERSION})")
+        # Create backup before migration
+        backup_path = backup_config(config.path)
+        if backup_path:
+            print(f"Config backup created: {backup_path}")
+        else:
+            print("WARNING: Could not create config backup, proceeding with migration anyway")
 
     # Apply migrations
     if _migrate_webui_config(config):
         changes_made = True
 
-    # Validate and fill config
+    # Validate and fill config (this also ensures ConfigVersion field exists)
     if _validate_and_fill_config(config):
+        changes_made = True
+
+    # Update config version if migration was needed
+    if needs_migration and current_version < EXPECTED_CONFIG_VERSION:
+        set_config_version(config, EXPECTED_CONFIG_VERSION)
         changes_made = True
 
     # Save if changes were made
