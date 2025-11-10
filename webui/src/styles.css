@@ -2308,6 +2308,32 @@ svg[height] {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
 }
+
+.profile-mappings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-mapping-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.profile-mapping-row .field {
+    margin: 0;
+}
+
+.profile-mapping-row .btn.icon-only {
+    height: 38px;
+    width: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .tracker-card .card-header {
     display: flex;
     justify-content: space-between;

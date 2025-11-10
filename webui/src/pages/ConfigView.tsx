@@ -110,6 +110,23 @@ const parseList = (value: string | boolean): string[] =>
 const formatList = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : String(value ?? "");
 
+const parseDict = (value: string | boolean): Record<string, string> => {
+  const str = String(value).trim();
+  if (!str || str === "{}") return {};
+  try {
+    return JSON.parse(str);
+  } catch {
+    return {};
+  }
+};
+
+const formatDict = (value: unknown): string => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "{}";
+  const obj = value as Record<string, unknown>;
+  if (Object.keys(obj).length === 0) return "{}";
+  return JSON.stringify(obj, null, 2);
+};
+
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
 
@@ -1778,6 +1795,82 @@ function FieldGroup({
 }: FieldGroupProps): JSX.Element {
   const sectionName = basePath[0] ?? "";
 
+  if (title === "Quality Profile Mappings") {
+    const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
+    const mappingEntries = Object.entries(mappings);
+
+    const handleAddMapping = () => {
+      const nextMappings = { ...mappings, "": "" };
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleUpdateMapping = (oldKey: string, newKey: string, newValue: string) => {
+      const nextMappings = { ...mappings };
+      if (oldKey !== newKey) {
+        delete nextMappings[oldKey];
+      }
+      if (newKey.trim()) {
+        nextMappings[newKey.trim()] = newValue.trim();
+      }
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleDeleteMapping = (key: string) => {
+      const nextMappings = { ...mappings };
+      delete nextMappings[key];
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    return (
+      <details className="config-section" open={defaultOpen}>
+        <summary>{title}</summary>
+        <div className="config-section__body">
+          <div className="field-description" style={{ marginBottom: '1rem' }}>
+            Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
+          </div>
+          <div className="profile-mappings-grid">
+            {mappingEntries.map(([mainProfile, tempProfile], index) => (
+              <div key={index} className="profile-mapping-row">
+                <div className="field">
+                  <label>Main Profile</label>
+                  <input
+                    type="text"
+                    value={mainProfile}
+                    onChange={(e) => handleUpdateMapping(mainProfile, e.target.value, tempProfile)}
+                    placeholder="e.g., HD-1080p"
+                  />
+                </div>
+                <div className="field">
+                  <label>Temp Profile</label>
+                  <input
+                    type="text"
+                    value={tempProfile}
+                    onChange={(e) => handleUpdateMapping(mainProfile, mainProfile, e.target.value)}
+                    placeholder="e.g., SD"
+                  />
+                </div>
+                <button
+                  className="btn ghost icon-only"
+                  type="button"
+                  onClick={() => handleDeleteMapping(mainProfile)}
+                  title="Delete mapping"
+                >
+                  <IconImage src={DeleteIcon} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="config-actions">
+            <button className="btn" type="button" onClick={handleAddMapping}>
+              <IconImage src={AddIcon} />
+              Add Profile Mapping
+            </button>
+          </div>
+        </div>
+      </details>
+    );
+  }
+
   if (title === "Trackers") {
     const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
     const handleAddTracker = () => {
@@ -2190,6 +2283,14 @@ function ArrInstanceModal({
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+          />
+          <FieldGroup
+            title="Quality Profile Mappings"
+            fields={[]}
             state={state}
             basePath={[keyName]}
             onChange={onChange}
