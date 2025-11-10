@@ -2382,11 +2382,46 @@ class WebUI:
                         f"System status retrieved: {system_info.get('version', 'unknown')}"
                     )
 
-                    # Fetch quality profiles
-                    quality_profiles = client.get_quality_profile()
-                    self.logger.info(
-                        f"Quality profiles retrieved: {len(quality_profiles)} profiles"
-                    )
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
 
                     # Format response
                     return jsonify(
