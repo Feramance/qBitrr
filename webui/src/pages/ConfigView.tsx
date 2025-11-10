@@ -2533,8 +2533,14 @@ function ArrInstanceModal({
             onClick={() => handleTestConnection(false)}
             disabled={testState.testing}
           >
-            <IconImage src={testState.testing ? RefreshIcon : SaveIcon} />
-            {testState.testing ? "Testing..." : "Test Connection"}
+            {testState.testing ? (
+              <>
+                <IconImage src={RefreshIcon} />
+                Testing...
+              </>
+            ) : (
+              "Test"
+            )}
           </button>
           <button className="btn primary" type="button" onClick={handleSave}>
             <IconImage src={SaveIcon} />
