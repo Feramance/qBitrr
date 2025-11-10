@@ -2338,24 +2338,39 @@ class WebUI:
                         400,
                     )
 
-                # Create temporary Arr API client
-                if arr_type == "radarr":
-                    from pyarr import RadarrAPI
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                for group_name, arr_instance in self.manager.groups.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
 
-                    client = RadarrAPI(uri, api_key)
-                elif arr_type == "sonarr":
-                    from pyarr import SonarrAPI
-
-                    client = SonarrAPI(uri, api_key)
-                elif arr_type == "lidarr":
-                    from pyarr import LidarrAPI
-
-                    client = LidarrAPI(uri, api_key)
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
                 else:
-                    return (
-                        jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
-                        400,
-                    )
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
 
                 # Test connection (no timeout - Flask/Waitress handles this)
                 try:
