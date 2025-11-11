@@ -2153,11 +2153,6 @@ class WebUI:
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
 
-        @app.get("/web/token")
-        def web_get_token():
-            # Return the configured WebUI token for client-side API authentication
-            return jsonify({"token": self.token or ""})
-
         @app.get("/web/config")
         def web_get_config():
             try:

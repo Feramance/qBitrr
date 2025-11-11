@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
-import { getLogDownloadUrl, getLogs, getWebToken } from "../api/client";
+import { getConfig, getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { IconImage } from "../components/IconImage";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
@@ -115,14 +115,16 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
   }, [describeError, push]);
 
-  // Fetch and cache the WebUI token on mount
+  // Fetch and cache the WebUI token from config on mount
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const token = await getWebToken();
-        tokenRef.current = token;
+        const config = await getConfig();
+        // Extract token from WebUI.Token field
+        const token = config?.WebUI?.Token;
+        tokenRef.current = token || "";
       } catch (error) {
-        console.error("Failed to fetch WebUI token:", error);
+        console.error("Failed to fetch WebUI token from config:", error);
       }
     };
     void fetchToken();
