@@ -20,6 +20,9 @@ class MoviesFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
     # Profile switching state tracking
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
@@ -59,6 +62,9 @@ class SeriesFilesModel(Model):
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
 
 
 class MovieQueueModel(Model):
@@ -112,6 +118,9 @@ class ArtistFilesModel(Model):
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
 
 
 class AlbumQueueModel(Model):

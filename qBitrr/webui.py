@@ -446,6 +446,18 @@ class WebUI:
             page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
             movies = []
             for movie in page_items:
+                # Read quality profile from database
+                quality_profile_id = (
+                    getattr(movie, "QualityProfileId", None)
+                    if hasattr(model, "QualityProfileId")
+                    else None
+                )
+                quality_profile_name = (
+                    getattr(movie, "QualityProfileName", None)
+                    if hasattr(model, "QualityProfileName")
+                    else None
+                )
+
                 movies.append(
                     {
                         "id": movie.EntryId,
@@ -460,6 +472,8 @@ class WebUI:
                         "minCustomFormatScore": movie.MinCustomFormatScore,
                         "customFormatMet": self._safe_bool(movie.CustomFormatMet),
                         "reason": movie.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
                     }
                 )
         return {
@@ -519,6 +533,10 @@ class WebUI:
             }
         page = max(page, 0)
         page_size = max(page_size, 1)
+
+        # Quality profiles are now stored in the database
+        # No need to fetch from API
+
         with db.connection_context():
             base_query = model.select()
 
@@ -623,6 +641,10 @@ class WebUI:
 
                 track_missing_count = max(track_monitored_count - track_available_count, 0)
 
+                # Get quality profile from database model
+                quality_profile_id = getattr(album, "QualityProfileId", None)
+                quality_profile_name = getattr(album, "QualityProfileName", None)
+
                 # Build album data in Sonarr-like structure
                 album_item = {
                     "album": {
@@ -645,6 +667,8 @@ class WebUI:
                         "minCustomFormatScore": album.MinCustomFormatScore,
                         "customFormatMet": self._safe_bool(album.CustomFormatMet),
                         "reason": album.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
                     },
                     "totals": {
                         "available": track_available_count,
@@ -832,6 +856,7 @@ class WebUI:
         missing_condition = episodes_model.EpisodeFileId.is_null(True) | (
             episodes_model.EpisodeFileId == 0
         )
+
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -961,11 +986,27 @@ class WebUI:
                             }
                             if not seasons:
                                 continue
+
+                        # Get quality profile for this series from database
+                        series_id = getattr(series, "EntryId", None)
+                        quality_profile_id = (
+                            getattr(series, "QualityProfileId", None)
+                            if hasattr(series_model, "QualityProfileId")
+                            else None
+                        )
+                        quality_profile_name = (
+                            getattr(series, "QualityProfileName", None)
+                            if hasattr(series_model, "QualityProfileName")
+                            else None
+                        )
+
                         payload.append(
                             {
                                 "series": {
-                                    "id": getattr(series, "EntryId", None),
+                                    "id": series_id,
                                     "title": getattr(series, "Title", "") or "",
+                                    "qualityProfileId": quality_profile_id,
+                                    "qualityProfileName": quality_profile_name,
                                 },
                                 "totals": {
                                     "available": series_available,

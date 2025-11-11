@@ -73,6 +73,8 @@ export interface RadarrMovie {
   monitored?: boolean;
   hasFile?: boolean;
   reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
@@ -105,7 +107,10 @@ export interface SonarrSeason {
 }
 
 export interface SonarrSeriesEntry {
-  series: Record<string, unknown>;
+  series: Record<string, unknown> & {
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+  };
   totals: {
     available: number;
     monitored: number;
@@ -159,11 +164,16 @@ export interface LidarrAlbum {
   trackCount?: number;
   trackFileCount?: number;
   percentOfTracks?: number;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
 export interface LidarrAlbumEntry {
-  album: Record<string, unknown>;
+  album: Record<string, unknown> & {
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+  };
   totals: {
     available: number;
     monitored: number;

@@ -123,6 +123,15 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
         size: 100,
       },
       {
+        accessorKey: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const profileName = info.getValue() as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
+      },
+      {
         accessorKey: "reason",
         header: "Reason",
         cell: (info) => {
@@ -293,6 +302,15 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
           );
         },
         size: 100,
+      },
+      {
+        accessorKey: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const profileName = info.getValue() as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
       },
       {
         accessorKey: "reason",

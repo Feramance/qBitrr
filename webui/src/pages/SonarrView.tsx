@@ -1010,6 +1010,9 @@ function SonarrAggregateView({
     },
   ], [instanceCount]);
 
+  // Note: Quality profile is per-series, not per-episode
+  // It would need to be fetched from the series data and added to each episode row
+
   const columns = groupSonarr ? groupedColumns : flatColumns;
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -1082,11 +1085,16 @@ function SonarrAggregateView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number]) => (
+          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number]) => {
+            const qualityProfile = seriesGroup.subRows[0]?.subRows[0]?.qualityProfileName as string | undefined;
+            return (
             <details key={`${seriesGroup.instance}-${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
                 <span className="series-instance">({seriesGroup.instance})</span>
+                {qualityProfile ? (
+                  <span className="series-quality">• {qualityProfile}</span>
+                ) : null}
               </summary>
               <div className="series-content">
                 {seriesGroup.subRows.map((season: typeof seriesGroup.subRows[number]) => (
@@ -1135,7 +1143,8 @@ function SonarrAggregateView({
                 ))}
               </div>
             </details>
-          ))}
+          );
+          })}
         </div>
       ) : !loading && summary.total === 0 && instanceCount > 0 ? (
         <div className="hint">

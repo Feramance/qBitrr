@@ -240,6 +240,15 @@ function LidarrAggregateView({
         size: 100,
       },
       {
+        accessorKey: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const profileName = info.getValue() as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
+      },
+      {
         accessorKey: "reason",
         header: "Reason",
         cell: (info) => {
@@ -611,6 +620,16 @@ function LidarrInstanceView({
           );
         },
         size: 100,
+      },
+      {
+        id: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const profileName = albumData?.["qualityProfileName"] as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
       },
       {
         id: "reason",
