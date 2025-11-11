@@ -121,7 +121,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       try {
         const config = await getConfig();
         // Extract token from WebUI.Token field
-        const token = config?.WebUI?.Token;
+        const webui = config?.WebUI as { Token?: string } | undefined;
+        const token = webui?.Token;
         tokenRef.current = token || "";
       } catch (error) {
         console.error("Failed to fetch WebUI token from config:", error);
