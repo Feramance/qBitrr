@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
 import { getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
 
@@ -114,28 +115,27 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
   }, [describeError, push]);
 
-  // Custom fetch function that includes credentials for auth proxy
-  const customFetch = useMemo(() => {
-    return (url: string, options?: RequestInit) => {
-      return fetch(url, {
-        ...options,
-        credentials: 'include',
-        mode: 'cors',
-        headers: {
-          ...options?.headers,
-        },
-      });
-    };
-  }, []);
-
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
   useEffect(() => {
     if (selected) {
-      // Update log URL with cache-busting timestamp
-      setLogUrl(`/web/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
+      // Get token from localStorage for URL-based auth bypass
+      const token = localStorage.getItem("token") ||
+                    sessionStorage.getItem("token") ||
+                    localStorage.getItem("webui-token") ||
+                    sessionStorage.getItem("webui-token") ||
+                    localStorage.getItem("webui_token") ||
+                    sessionStorage.getItem("webui_token");
+
+      const params = new URLSearchParams();
+      params.set("t", Date.now().toString());
+      if (token) {
+        params.set("token", token);
+      }
+
+      setLogUrl(`/web/logs/${encodeURIComponent(selected)}?${params}`);
     } else {
       setLogUrl("");
     }
@@ -204,7 +204,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               selectableLines
               extraLines={1}
               stream={active}
-              fetch={customFetch}
               style={{
                 height: '100%',
                 backgroundColor: '#0a0e14',

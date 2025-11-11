@@ -1648,6 +1648,10 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            # Require token for log access (supports query param for auth proxy bypass)
+            if (resp := require_token()) is not None:
+                return resp
+
             # Handle "All Logs" special case - serve the unified All.log file
             if name == "All Logs":
                 name = "All.log"
