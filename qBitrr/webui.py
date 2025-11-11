@@ -1635,16 +1635,27 @@ class WebUI:
         def api_log(name: str):
             if (resp := require_token()) is not None:
                 return resp
+            # Handle "All Logs" special case - serve the unified All.log file
+            if name == "All Logs":
+                name = "All.log"
+
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
-            # Return last 2000 lines
+
+            # Stream full log file to support dynamic loading in LazyLog
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
+                content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
