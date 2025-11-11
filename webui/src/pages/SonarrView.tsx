@@ -877,6 +877,7 @@ function SonarrAggregateView({
       seriesMap.forEach((seasonMap, series) => {
         // Get quality profile from first episode (all episodes in a series share the same profile)
         const firstEpisode = Array.from(seasonMap.values())[0]?.[0];
+        console.log(`[Sonarr Grouped] Series: ${series}, QualityProfile: ${firstEpisode?.qualityProfileName}, FirstEpisode:`, firstEpisode);
         result.push({
           instance,
           series,
@@ -1100,6 +1101,7 @@ function SonarrAggregateView({
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
           {groupedPageRows.map((seriesGroup) => {
+            console.log(`[Sonarr Render] Series: ${seriesGroup.series}, QualityProfile: ${seriesGroup.qualityProfileName}`);
             return (
             <details key={`${seriesGroup.instance}-${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
