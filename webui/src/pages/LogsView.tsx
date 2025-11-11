@@ -159,7 +159,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     () => {
       updateLogUrl();
     },
-    active ? 2000 : null
+    active ? 1000 : null
   );
 
 
