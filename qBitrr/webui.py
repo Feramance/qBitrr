@@ -2473,6 +2473,169 @@ class WebUI:
                 self.logger.error("Test connection error: %s", e)
                 return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
 
+        @app.post("/web/arr/test-connection")
+        def web_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            Public endpoint (mirrors /api/arr/test-connection).
+            """
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                for group_name, arr_instance in self.manager.groups.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        return jsonify({"success": False, "message": f"Error: {error_msg}"}), 500
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
+
     def _reload_all(self):
         # Set rebuilding flag
         self._rebuilding_arrs = True

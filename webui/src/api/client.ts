@@ -347,7 +347,7 @@ export interface TestConnectionResponse {
 export async function testArrConnection(
   request: TestConnectionRequest
 ): Promise<TestConnectionResponse> {
-  return fetchJson("/api/arr/test-connection", {
+  return fetchJson("/web/arr/test-connection", {
     method: "POST",
     body: JSON.stringify(request),
   });
