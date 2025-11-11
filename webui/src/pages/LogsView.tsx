@@ -118,30 +118,24 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     void loadList();
   }, [loadList]);
 
-  // Get token for authorization header
-  const authToken = useMemo(() => {
-    return localStorage.getItem("token") ||
-           sessionStorage.getItem("token") ||
-           localStorage.getItem("webui-token") ||
-           sessionStorage.getItem("webui-token") ||
-           localStorage.getItem("webui_token") ||
-           sessionStorage.getItem("webui_token");
-  }, []);
-
-  // Fetch options with Bearer token
-  const fetchOptions = useMemo(() => {
-    if (!authToken) return {};
-    return {
-      headers: {
-        'Authorization': `Bearer ${authToken}`,
-      },
-    };
-  }, [authToken]);
-
   useEffect(() => {
     if (selected) {
-      // Use API endpoint with token authentication
-      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
+      // Get token from storage
+      const token = localStorage.getItem("token") ||
+                    sessionStorage.getItem("token") ||
+                    localStorage.getItem("webui-token") ||
+                    sessionStorage.getItem("webui-token") ||
+                    localStorage.getItem("webui_token") ||
+                    sessionStorage.getItem("webui_token");
+
+      // Use API endpoint with token in query param (backend supports this)
+      const params = new URLSearchParams();
+      params.set("t", Date.now().toString());
+      if (token) {
+        params.set("token", token);
+      }
+
+      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?${params}`);
     } else {
       setLogUrl("");
     }
@@ -210,7 +204,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               selectableLines
               extraLines={1}
               stream={active}
-              fetchOptions={fetchOptions}
               style={{
                 height: '100%',
                 backgroundColor: '#0a0e14',
