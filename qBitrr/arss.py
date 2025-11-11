@@ -3414,10 +3414,11 @@ class Arr:
                                 # Try to get from already-fetched artist data if available
                                 artist_data = self.client.get_artist(artist_id)
                                 qualityProfileId = artist_data.get("qualityProfileId")
-                                if (
-                                    qualityProfileId
-                                    and qualityProfileId in self._quality_profile_cache
-                                ):
+                                if qualityProfileId:
+                                    # Fetch quality profile from cache or API
+                                    if qualityProfileId not in self._quality_profile_cache:
+                                        profile = self.client.get_quality_profile(qualityProfileId)
+                                        self._quality_profile_cache[qualityProfileId] = profile
                                     qualityProfileName = self._quality_profile_cache[
                                         qualityProfileId
                                     ].get("name")
