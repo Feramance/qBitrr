@@ -765,7 +765,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     if (selection === "aggregate" && liveArr) {
       void loadAggregate({ showLoading: false });
     }
-  }, selection === "aggregate" && liveArr ? 10000 : null);
+  }, selection === "aggregate" && liveArr ? 1000 : null);
 
   useEffect(() => {
     if (!active) return;

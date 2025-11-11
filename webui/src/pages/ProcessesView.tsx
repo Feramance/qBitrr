@@ -79,16 +79,8 @@ function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
 
 function getRefreshDelay(active: boolean, processes: ProcessInfo[]): number | null {
   if (!active) return null;
-  const hasActiveSearch = processes.some(
-    (proc) => proc.alive && proc.kind.toLowerCase() === "search"
-  );
-  if (hasActiveSearch) return 5000;
-  const hasQueueActivity = processes.some(
-    (proc) =>
-      typeof proc.queueCount === "number" && proc.queueCount > 0
-  );
-  if (hasQueueActivity) return 10000;
-  return 20000;
+  // Refresh every 1 second when active
+  return 1000;
 }
 
 interface ProcessesViewProps {
