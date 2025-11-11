@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useCallback, useEffect, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
 import { getConfig, getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
 
@@ -135,7 +136,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     void loadList();
   }, [loadList]);
 
-  useEffect(() => {
+  const updateLogUrl = useCallback(() => {
     if (selected && token !== null) {
       // Use API endpoint with token in query param
       const params = new URLSearchParams();
@@ -148,6 +149,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       setLogUrl("");
     }
   }, [selected, token]);
+
+  useEffect(() => {
+    updateLogUrl();
+  }, [updateLogUrl]);
+
+  // Refresh URL periodically to reload logs when tab is active
+  useInterval(
+    () => {
+      updateLogUrl();
+    },
+    active ? 2000 : null
+  );
 
 
 
