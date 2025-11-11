@@ -1658,7 +1658,10 @@ class WebUI:
                 return jsonify({"error": "not found"}), 404
 
             # Stream full log file to support dynamic loading in LazyLog
-            return send_file(file, mimetype="text/plain")
+            response = send_file(file, mimetype="text/plain", download_name=None)
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/api/logs/<name>/download")
         def api_log_download(name: str):
