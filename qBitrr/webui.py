@@ -1656,12 +1656,9 @@ class WebUI:
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
-            try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
-            except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+
+            # Stream full log file to support dynamic loading in LazyLog
+            return send_file(file, mimetype="text/plain")
 
         @app.get("/api/logs/<name>/download")
         def api_log_download(name: str):

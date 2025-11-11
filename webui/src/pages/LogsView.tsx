@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
-import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
+import { getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
-import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
 
@@ -72,10 +71,9 @@ interface LogsViewProps {
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("All Logs");
-  const [content, setContent] = useState("");
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
-  const [loadingContent, setLoadingContent] = useState(false);
+  const [logUrl, setLogUrl] = useState<string>("");
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -87,8 +85,6 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
     return context;
   }, []);
-
-
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -118,42 +114,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
   }, [describeError, push]);
 
-  const loadTail = useCallback(
-    async (name: string, showLoading: boolean = false) => {
-      if (!name) return;
-      if (showLoading) setLoadingContent(true);
-      try {
-        const text = await getLogTail(name);
-        setContent(text);
-      } catch (error) {
-        push(describeError(error, `Failed to read ${name}`), "error");
-      } finally {
-        if (showLoading) setLoadingContent(false);
-      }
-    },
-    [describeError, push]
-  );
-
-
-
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
   useEffect(() => {
     if (selected) {
-      void loadTail(selected, true);
+      // Update log URL with cache-busting timestamp
+      setLogUrl(`/web/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
+    } else {
+      setLogUrl("");
     }
-  }, [selected, loadTail]);
-
-  useInterval(
-    () => {
-      if (selected) {
-        void loadTail(selected, false);
-      }
-    },
-    active ? 2000 : null
-  );
+  }, [selected]);
 
 
 
@@ -209,19 +181,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           overflow: 'hidden',
           borderRadius: '4px'
         }}>
-          {loadingContent ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', backgroundColor: '#0a0e14' }}>
-              <span className="spinner" style={{ marginRight: '8px' }} />
-              Loading logs...
-            </div>
-          ) : content ? (
+          {logUrl ? (
             <LazyLog
-              text={content}
+              url={logUrl}
               follow={follow}
               enableSearch
               caseInsensitive
               selectableLines
               extraLines={1}
+              stream={active}
+              fetchOptions={{
+                method: 'GET'
+              }}
               style={{
                 height: '100%',
                 backgroundColor: '#0a0e14',
@@ -232,7 +203,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               }}
             />
           ) : (
-            <div style={{ color: '#666', backgroundColor: '#0a0e14', padding: '16px' }}>Select a log file to view its tail...</div>
+            <div style={{ color: '#666', backgroundColor: '#0a0e14', padding: '16px' }}>Select a log file to view...</div>
           )}
         </div>
       </div>
