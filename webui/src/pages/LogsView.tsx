@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
 import { getConfig, getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
@@ -72,10 +72,12 @@ interface LogsViewProps {
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("All Logs");
-  const [logUrl, setLogUrl] = useState<string>("");
+  const [logContent, setLogContent] = useState<string>("");
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(false);
   const [token, setToken] = useState<string>("");
+  const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -136,28 +138,53 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     void loadList();
   }, [loadList]);
 
-  const updateLogUrl = useCallback(() => {
-    if (selected && token !== null) {
-      // Use API endpoint with token in query param
-      const params = new URLSearchParams();
-      params.set("t", Date.now().toString());
-      if (token) {
-        params.set("token", token);
+  const fetchLogContent = useCallback(
+    async (showLoading: boolean = false) => {
+      if (!selected || token === null) return;
+
+      if (showLoading) setLoadingContent(true);
+      try {
+        const params = new URLSearchParams();
+        if (token) {
+          params.set("token", token);
+        }
+
+        const response = await fetch(
+          `/api/logs/${encodeURIComponent(selected)}?${params}`
+        );
+        if (!response.ok) {
+          throw new Error(`${response.status} ${response.statusText}`);
+        }
+
+        const newContent = await response.text();
+        const newLines = newContent.split('\n');
+        const currentLinesCount = newLines.length;
+
+        // Only update if content has changed (new lines added)
+        if (currentLinesCount !== lastLinesCountRef.current) {
+          setLogContent(newContent);
+          lastLinesCountRef.current = currentLinesCount;
+        }
+      } catch (error) {
+        push(describeError(error, `Failed to read ${selected}`), "error");
+      } finally {
+        if (showLoading) setLoadingContent(false);
       }
-      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?${params}`);
-    } else {
-      setLogUrl("");
-    }
-  }, [selected, token]);
+    },
+    [selected, token, push, describeError]
+  );
 
   useEffect(() => {
-    updateLogUrl();
-  }, [updateLogUrl]);
+    if (selected && token !== null) {
+      lastLinesCountRef.current = 0;
+      void fetchLogContent(true);
+    }
+  }, [selected, token, fetchLogContent]);
 
-  // Refresh URL periodically to reload logs when tab is active
+  // Refresh content periodically when tab is active
   useInterval(
     () => {
-      updateLogUrl();
+      void fetchLogContent(false);
     },
     active ? 1000 : null
   );
@@ -216,15 +243,19 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           overflow: 'hidden',
           borderRadius: '4px'
         }}>
-          {logUrl ? (
+          {loadingContent ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', backgroundColor: '#0a0e14' }}>
+              <span className="spinner" style={{ marginRight: '8px' }} />
+              Loading logs...
+            </div>
+          ) : logContent ? (
             <LazyLog
-              url={logUrl}
+              text={logContent}
               follow={follow}
               enableSearch
               caseInsensitive
               selectableLines
               extraLines={1}
-              stream={active}
               style={{
                 height: '100%',
                 backgroundColor: '#0a0e14',
