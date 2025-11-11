@@ -74,7 +74,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [logUrl, setLogUrl] = useState<string>("");
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
-  const tokenRef = useRef<string | null>(null);
+  const [token, setToken] = useState<string>("");
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -122,8 +122,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         const config = await getConfig();
         // Extract token from WebUI.Token field
         const webui = config?.WebUI as { Token?: string } | undefined;
-        const token = webui?.Token;
-        tokenRef.current = token || "";
+        const fetchedToken = webui?.Token || "";
+        setToken(fetchedToken);
       } catch (error) {
         console.error("Failed to fetch WebUI token from config:", error);
       }
@@ -136,18 +136,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   }, [loadList]);
 
   useEffect(() => {
-    if (selected) {
+    if (selected && token !== null) {
       // Use API endpoint with token in query param
       const params = new URLSearchParams();
       params.set("t", Date.now().toString());
-      if (tokenRef.current) {
-        params.set("token", tokenRef.current);
+      if (token) {
+        params.set("token", token);
       }
       setLogUrl(`/api/logs/${encodeURIComponent(selected)}?${params}`);
     } else {
       setLogUrl("");
     }
-  }, [selected]);
+  }, [selected, token]);
 
 
 
