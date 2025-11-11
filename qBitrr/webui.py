@@ -2340,7 +2340,8 @@ class WebUI:
 
                 # Try to find existing Arr instance with matching URI
                 existing_arr = None
-                for group_name, arr_instance in self.manager.groups.items():
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
                     if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
                         if arr_instance.uri == uri and arr_instance.apikey == api_key:
                             existing_arr = arr_instance
@@ -2503,7 +2504,8 @@ class WebUI:
 
                 # Try to find existing Arr instance with matching URI
                 existing_arr = None
-                for group_name, arr_instance in self.manager.groups.items():
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
                     if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
                         if arr_instance.uri == uri and arr_instance.apikey == api_key:
                             existing_arr = arr_instance
