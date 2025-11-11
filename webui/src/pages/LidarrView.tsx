@@ -90,6 +90,8 @@ function LidarrAggregateView({
   const groupedDataCache = useRef<Array<{
     instance: string;
     artist: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
     albums: LidarrAggRow[];
   }>>([]);
 
@@ -145,14 +147,21 @@ function LidarrAggregateView({
     const result: Array<{
       instance: string;
       artist: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
       albums: LidarrAggRow[];
     }> = [];
 
     instanceMap.forEach((artistMap, instance) => {
       artistMap.forEach((albums, artist) => {
+        // Get quality profile from first album (albums of the same artist typically share the same profile)
+        const firstAlbum = albums[0];
+        const albumData = firstAlbum?.album as Record<string, unknown> | undefined;
         result.push({
           instance,
           artist,
+          qualityProfileId: (albumData?.["qualityProfileId"] as number | null | undefined) ?? null,
+          qualityProfileName: (albumData?.["qualityProfileName"] as string | null | undefined) ?? null,
           albums,
         });
       });
@@ -311,6 +320,9 @@ function LidarrAggregateView({
                 <span className="artist-title">{artistGroup.artist}</span>
                 <span className="artist-instance">({artistGroup.instance})</span>
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
+                {artistGroup.qualityProfileName ? (
+                  <span className="artist-quality">• {artistGroup.qualityProfileName}</span>
+                ) : null}
               </summary>
               <div className="artist-content">
                 {artistGroup.albums.map((albumEntry) => {
@@ -322,7 +334,6 @@ function LidarrAggregateView({
                   const monitored = albumData?.["monitored"] as boolean | undefined;
                   const hasFile = albumData?.["hasFile"] as boolean | undefined;
                   const reason = albumData?.["reason"] as string | null | undefined;
-                  const qualityProfileName = albumData?.["qualityProfileName"] as string | null | undefined;
                   const tracks = albumEntry.tracks || [];
                   const totals = albumEntry.totals;
 
@@ -336,9 +347,6 @@ function LidarrAggregateView({
                       {tracks && tracks.length > 0 && (
                         <span className="album-track-count">({totals.available || 0}/{totals.monitored || tracks.length} tracks)</span>
                       )}
-                      {qualityProfileName ? (
-                        <span className="album-quality">• {qualityProfileName}</span>
-                      ) : null}
                       <span className={`album-status ${hasFile ? 'has-file' : 'missing'}`}>
                         {hasFile ? '✓' : '✗'}
                       </span>

@@ -798,6 +798,8 @@ function SonarrAggregateView({
   const groupedDataCache = useRef<Array<{
     instance: string;
     series: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
     subRows: Array<{
       seasonNumber: string;
       isSeason: boolean;
@@ -862,6 +864,8 @@ function SonarrAggregateView({
     const result: Array<{
       instance: string;
       series: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
       subRows: Array<{
         seasonNumber: string;
         isSeason: boolean;
@@ -871,9 +875,13 @@ function SonarrAggregateView({
 
     instanceMap.forEach((seriesMap, instance) => {
       seriesMap.forEach((seasonMap, series) => {
+        // Get quality profile from first episode (all episodes in a series share the same profile)
+        const firstEpisode = Array.from(seasonMap.values())[0]?.[0];
         result.push({
           instance,
           series,
+          qualityProfileId: firstEpisode?.qualityProfileId,
+          qualityProfileName: firstEpisode?.qualityProfileName,
           subRows: Array.from(seasonMap.entries()).map(([seasonNumber, episodes]) => ({
             seasonNumber,
             isSeason: true,
@@ -1091,15 +1099,14 @@ function SonarrAggregateView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedPageRows.map((seriesGroup: typeof groupedPageRows[number]) => {
-            const qualityProfile = seriesGroup.subRows[0]?.subRows[0]?.qualityProfileName as string | undefined;
+          {groupedPageRows.map((seriesGroup) => {
             return (
             <details key={`${seriesGroup.instance}-${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
                 <span className="series-instance">({seriesGroup.instance})</span>
-                {qualityProfile ? (
-                  <span className="series-quality">• {qualityProfile}</span>
+                {seriesGroup.qualityProfileName ? (
+                  <span className="series-quality">• {seriesGroup.qualityProfileName}</span>
                 ) : null}
               </summary>
               <div className="series-content">
@@ -1146,11 +1153,11 @@ function SonarrAggregateView({
                       </div>
                     </div>
                   </details>
-                ))}
-              </div>
-            </details>
-          );
-          })}
+                  ))}
+                </div>
+              </details>
+              );
+            })}
         </div>
       ) : !loading && summary.total === 0 && instanceCount > 0 ? (
         <div className="hint">
