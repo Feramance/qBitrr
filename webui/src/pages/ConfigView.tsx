@@ -1872,6 +1872,7 @@ function FieldGroup({
                         }
                         placeholder="Select main profile..."
                         isClearable
+                        styles={getSelectStyles()}
                         classNamePrefix="react-select"
                       />
                     </div>
@@ -1896,6 +1897,7 @@ function FieldGroup({
                         }
                         placeholder="Select temp profile..."
                         isClearable
+                        styles={getSelectStyles()}
                         classNamePrefix="react-select"
                       />
                     </div>
