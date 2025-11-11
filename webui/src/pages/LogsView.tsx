@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
-import { getLogDownloadUrl, getLogs } from "../api/client";
+import { getLogDownloadUrl, getLogs, getWebToken } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { IconImage } from "../components/IconImage";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
@@ -74,6 +74,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [logUrl, setLogUrl] = useState<string>("");
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
+  const tokenRef = useRef<string | null>(null);
   const { push } = useToast();
 
   const describeError = useCallback((reason: unknown, context: string): string => {
@@ -114,14 +115,32 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     }
   }, [describeError, push]);
 
+  // Fetch and cache the WebUI token on mount
+  useEffect(() => {
+    const fetchToken = async () => {
+      try {
+        const token = await getWebToken();
+        tokenRef.current = token;
+      } catch (error) {
+        console.error("Failed to fetch WebUI token:", error);
+      }
+    };
+    void fetchToken();
+  }, []);
+
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
   useEffect(() => {
     if (selected) {
-      // Use API endpoint (Authentik handles auth, no qBitrr token needed)
-      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
+      // Use API endpoint with token in query param
+      const params = new URLSearchParams();
+      params.set("t", Date.now().toString());
+      if (tokenRef.current) {
+        params.set("token", tokenRef.current);
+      }
+      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?${params}`);
     } else {
       setLogUrl("");
     }

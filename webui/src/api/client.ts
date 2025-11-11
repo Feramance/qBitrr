@@ -197,6 +197,11 @@ export async function getLogs(): Promise<LogsListResponse> {
   return fetchJson<LogsListResponse>("/web/logs");
 }
 
+export async function getWebToken(): Promise<string> {
+  const response = await fetchJson<{ token: string }>("/web/token");
+  return response.token;
+}
+
 export async function getLogTail(name: string): Promise<string> {
   return fetchTextResponse(`/web/logs/${encodeURIComponent(name)}`);
 }

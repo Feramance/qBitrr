@@ -1633,7 +1633,8 @@ class WebUI:
 
         @app.get("/api/logs/<name>")
         def api_log(name: str):
-            # No token required - Authentik handles authentication
+            if (resp := require_token()) is not None:
+                return resp
             # Handle "All Logs" special case - serve the unified All.log file
             if name == "All Logs":
                 name = "All.log"
@@ -2151,6 +2152,11 @@ class WebUI:
                 return jsonify(data)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
+
+        @app.get("/web/token")
+        def web_get_token():
+            # Return the configured WebUI token for client-side API authentication
+            return jsonify({"token": self.token or ""})
 
         @app.get("/web/config")
         def web_get_config():
