@@ -1992,8 +1992,8 @@ function FieldGroup({
     const pathSegments = field.path ?? [];
     const path = [...basePath, ...pathSegments];
     const key = path.join('.');
-    const rawValue = field.path
-      ? getValue(state as ConfigDocument, field.path as string[])
+    const rawValue = path.length > 0
+      ? getValue(state as ConfigDocument, path)
       : undefined;
     const formatted =
       field.format?.(rawValue) ??
