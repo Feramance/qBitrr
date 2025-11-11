@@ -76,7 +76,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
-  const [token, setToken] = useState<string>("");
+  const tokenRef = useRef<string>("");
   const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
 
@@ -125,8 +125,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         const config = await getConfig();
         // Extract token from WebUI.Token field
         const webui = config?.WebUI as { Token?: string } | undefined;
-        const fetchedToken = webui?.Token || "";
-        setToken(fetchedToken);
+        tokenRef.current = webui?.Token || "";
       } catch (error) {
         console.error("Failed to fetch WebUI token from config:", error);
       }
@@ -140,13 +139,13 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   const fetchLogContent = useCallback(
     async (showLoading: boolean = false) => {
-      if (!selected || token === null) return;
+      if (!selected) return;
 
       if (showLoading) setLoadingContent(true);
       try {
         const params = new URLSearchParams();
-        if (token) {
-          params.set("token", token);
+        if (tokenRef.current) {
+          params.set("token", tokenRef.current);
         }
 
         const response = await fetch(
@@ -171,15 +170,15 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         if (showLoading) setLoadingContent(false);
       }
     },
-    [selected, token, push, describeError]
+    [selected, push, describeError]
   );
 
   useEffect(() => {
-    if (selected && token !== null) {
+    if (selected) {
       lastLinesCountRef.current = 0;
       void fetchLogContent(true);
     }
-  }, [selected, token, fetchLogContent]);
+  }, [selected, fetchLogContent]);
 
   // Refresh content periodically when tab is active
   useInterval(
