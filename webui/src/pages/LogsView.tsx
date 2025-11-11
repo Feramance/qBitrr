@@ -76,6 +76,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [tokenReady, setTokenReady] = useState(false);
   const tokenRef = useRef<string>("");
   const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
@@ -128,6 +129,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         tokenRef.current = webui?.Token || "";
       } catch (error) {
         console.error("Failed to fetch WebUI token from config:", error);
+      } finally {
+        setTokenReady(true);
       }
     };
     void fetchToken();
@@ -174,16 +177,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   );
 
   useEffect(() => {
-    if (selected) {
+    if (selected && tokenReady) {
       lastLinesCountRef.current = 0;
       void fetchLogContent(true);
     }
-  }, [selected, fetchLogContent]);
+  }, [selected, tokenReady, fetchLogContent]);
 
   // Refresh content periodically when tab is active
   useInterval(
     () => {
-      void fetchLogContent(false);
+      if (tokenReady) {
+        void fetchLogContent(false);
+      }
     },
     active ? 1000 : null
   );
