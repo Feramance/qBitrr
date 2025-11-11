@@ -101,12 +101,14 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const { push } = useToast();
   const isFetching = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showLoading = true) => {
     if (isFetching.current) {
       return;
     }
     isFetching.current = true;
-    setLoading((prev) => (prev ? prev : true));
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
       const [processData, status] = await Promise.all([
         getProcesses(),
@@ -135,7 +137,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       );
     } finally {
       isFetching.current = false;
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [push]);
 
@@ -155,7 +159,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   useInterval(() => {
-    void load();
+    void load(false); // Auto-refresh without showing loading spinner
   }, refreshDelay);
 
   const handleRestart = useCallback(
