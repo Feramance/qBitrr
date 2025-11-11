@@ -49,6 +49,9 @@ class EpisodeFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Quality profile from Arr API (inherited from series)
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
     # Profile switching state tracking
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
@@ -94,6 +97,9 @@ class AlbumFilesModel(Model):
     Reason = TextField(null=True)
     ArtistId = IntegerField(null=False)
     ArtistTitle = TextField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
     # Profile switching state tracking
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
