@@ -118,25 +118,25 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     void loadList();
   }, [loadList]);
 
-  // Custom fetch function that includes Bearer token for API authentication
-  const customFetch = useMemo(() => {
-    return (url: string, options?: RequestInit) => {
-      const token = localStorage.getItem("token") ||
-                    sessionStorage.getItem("token") ||
-                    localStorage.getItem("webui-token") ||
-                    sessionStorage.getItem("webui-token") ||
-                    localStorage.getItem("webui_token") ||
-                    sessionStorage.getItem("webui_token");
-
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...options?.headers,
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-      });
-    };
+  // Get token for authorization header
+  const authToken = useMemo(() => {
+    return localStorage.getItem("token") ||
+           sessionStorage.getItem("token") ||
+           localStorage.getItem("webui-token") ||
+           sessionStorage.getItem("webui-token") ||
+           localStorage.getItem("webui_token") ||
+           sessionStorage.getItem("webui_token");
   }, []);
+
+  // Fetch options with Bearer token
+  const fetchOptions = useMemo(() => {
+    if (!authToken) return {};
+    return {
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+      },
+    };
+  }, [authToken]);
 
   useEffect(() => {
     if (selected) {
@@ -210,7 +210,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               selectableLines
               extraLines={1}
               stream={active}
-              fetch={customFetch}
+              fetchOptions={fetchOptions}
               style={{
                 height: '100%',
                 backgroundColor: '#0a0e14',
