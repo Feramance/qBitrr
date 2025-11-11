@@ -121,21 +121,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   useEffect(() => {
     if (selected) {
-      // Get token from localStorage for URL-based auth bypass
-      const token = localStorage.getItem("token") ||
-                    sessionStorage.getItem("token") ||
-                    localStorage.getItem("webui-token") ||
-                    sessionStorage.getItem("webui-token") ||
-                    localStorage.getItem("webui_token") ||
-                    sessionStorage.getItem("webui_token");
-
-      const params = new URLSearchParams();
-      params.set("t", Date.now().toString());
-      if (token) {
-        params.set("token", token);
-      }
-
-      setLogUrl(`/web/logs/${encodeURIComponent(selected)}?${params}`);
+      // Use cache-busting timestamp for URL
+      setLogUrl(`/web/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
     } else {
       setLogUrl("");
     }

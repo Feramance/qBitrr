@@ -1648,10 +1648,7 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Require token for log access (supports query param for auth proxy bypass)
-            if (resp := require_token()) is not None:
-                return resp
-
+            # Public endpoint for Authentik bypass - no token required
             # Handle "All Logs" special case - serve the unified All.log file
             if name == "All Logs":
                 name = "All.log"
@@ -1667,7 +1664,9 @@ class WebUI:
             except Exception:
                 content = ""
             response = send_file(
-                io.BytesIO(content.encode("utf-8")), mimetype="text/plain", as_attachment=False
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
             )
             response.headers["Content-Type"] = "text/plain; charset=utf-8"
             response.headers["Cache-Control"] = "no-cache"
