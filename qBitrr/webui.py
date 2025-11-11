@@ -1633,8 +1633,7 @@ class WebUI:
 
         @app.get("/api/logs/<name>")
         def api_log(name: str):
-            if (resp := require_token()) is not None:
-                return resp
+            # No token required - Authentik handles authentication
             # Handle "All Logs" special case - serve the unified All.log file
             if name == "All Logs":
                 name = "All.log"

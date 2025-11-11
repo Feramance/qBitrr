@@ -120,22 +120,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
   useEffect(() => {
     if (selected) {
-      // Get token from storage
-      const token = localStorage.getItem("token") ||
-                    sessionStorage.getItem("token") ||
-                    localStorage.getItem("webui-token") ||
-                    sessionStorage.getItem("webui-token") ||
-                    localStorage.getItem("webui_token") ||
-                    sessionStorage.getItem("webui_token");
-
-      // Use API endpoint with token in query param (backend supports this)
-      const params = new URLSearchParams();
-      params.set("t", Date.now().toString());
-      if (token) {
-        params.set("token", token);
-      }
-
-      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?${params}`);
+      // Use API endpoint (Authentik handles auth, no qBitrr token needed)
+      setLogUrl(`/api/logs/${encodeURIComponent(selected)}?t=${Date.now()}`);
     } else {
       setLogUrl("");
     }
