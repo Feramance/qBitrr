@@ -52,6 +52,8 @@ interface SonarrAggRow {
   hasFile: boolean;
   airDate: string;
   reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
@@ -122,7 +124,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   // Smart data sync for aggregate episodes
   const aggEpisodeSync = useDataSync<SonarrAggRow>({
     getKey: (ep) => `${ep.__instance}-${ep.series}-${ep.season}-${ep.episode}`,
-    hashFields: ['__instance', 'series', 'season', 'episode', 'title', 'hasFile', 'monitored', 'airDate', 'reason'],
+    hashFields: ['__instance', 'series', 'season', 'episode', 'title', 'hasFile', 'monitored', 'airDate', 'reason', 'qualityProfileId', 'qualityProfileName'],
   });
 
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -383,6 +385,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
+            const qualityProfileId = entry.series?.qualityProfileId ?? null;
+            const qualityProfileName = entry.series?.qualityProfileName ?? null;
             Object.entries(entry.seasons ?? {}).forEach(
               ([seasonNumber, season]) => {
                 (season.episodes ?? []).forEach((episode: SonarrEpisode) => {
@@ -397,6 +401,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                     hasFile: !!episode.hasFile,
                     airDate: episode.airDateUtc ?? "",
                     reason: episodeReason,
+                    qualityProfileId,
+                    qualityProfileName,
                   });
                 });
               }

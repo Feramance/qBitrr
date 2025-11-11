@@ -49,6 +49,8 @@ interface LidarrTrackRow {
   hasFile: boolean;
   monitored: boolean;
   reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
@@ -320,6 +322,7 @@ function LidarrAggregateView({
                   const monitored = albumData?.["monitored"] as boolean | undefined;
                   const hasFile = albumData?.["hasFile"] as boolean | undefined;
                   const reason = albumData?.["reason"] as string | null | undefined;
+                  const qualityProfileName = albumData?.["qualityProfileName"] as string | null | undefined;
                   const tracks = albumEntry.tracks || [];
                   const totals = albumEntry.totals;
 
@@ -333,6 +336,9 @@ function LidarrAggregateView({
                       {tracks && tracks.length > 0 && (
                         <span className="album-track-count">({totals.available || 0}/{totals.monitored || tracks.length} tracks)</span>
                       )}
+                      {qualityProfileName ? (
+                        <span className="album-quality">• {qualityProfileName}</span>
+                      ) : null}
                       <span className={`album-status ${hasFile ? 'has-file' : 'missing'}`}>
                         {hasFile ? '✓' : '✗'}
                       </span>
@@ -1154,6 +1160,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         const artistName = (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
         const albumTitle = (albumData?.["title"] as string | undefined) || "Unknown Album";
         const reason = albumData?.["reason"] as string | null | undefined;
+        const qualityProfileId = albumData?.["qualityProfileId"] as number | null | undefined;
+        const qualityProfileName = albumData?.["qualityProfileName"] as string | null | undefined;
         const tracks = albumEntry.tracks || [];
 
         if (tracks && tracks.length > 0) {
@@ -1168,6 +1176,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               hasFile: track.hasFile || false,
               monitored: track.monitored || false,
               reason,
+              qualityProfileId,
+              qualityProfileName,
             });
           });
         }
