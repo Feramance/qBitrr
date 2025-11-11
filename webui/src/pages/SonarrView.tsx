@@ -1278,6 +1278,8 @@ function SonarrInstanceView({
     const rows: SonarrAggRow[] = [];
     for (const entry of series) {
       const title = (entry.series?.["title"] as string | undefined) || "";
+      const qualityProfileId = entry.series?.qualityProfileId ?? null;
+      const qualityProfileName = entry.series?.qualityProfileName ?? null;
       Object.entries(entry.seasons ?? {}).forEach(([seasonNumber, season]) => {
         (season.episodes ?? []).forEach((episode) => {
           rows.push({
@@ -1290,6 +1292,8 @@ function SonarrInstanceView({
             hasFile: !!episode.hasFile,
             airDate: episode.airDateUtc ?? "",
             reason: (episode.reason as string | null | undefined) ?? null,
+            qualityProfileId,
+            qualityProfileName,
           });
         });
       });
@@ -1324,6 +1328,8 @@ function SonarrInstanceView({
   const prevEpisodeRowsRef = useRef<SonarrAggRow[]>([]);
   const groupedTableDataCache = useRef<Array<{
     series: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
     subRows: Array<{
       seasonNumber: string;
       isSeason: boolean;
@@ -1348,14 +1354,20 @@ function SonarrInstanceView({
       seasons.get(seasonKey)!.push(row);
     });
 
-    const result = Array.from(map.entries()).map(([series, seasons]) => ({
-      series,
-      subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
-        seasonNumber,
-        isSeason: true,
-        subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
-      }))
-    }));
+    const result = Array.from(map.entries()).map(([seriesName, seasons]) => {
+      // Get quality profile from first episode (all episodes in a series share the same profile)
+      const firstEpisode = Array.from(seasons.values())[0]?.[0];
+      return {
+        series: seriesName,
+        qualityProfileId: firstEpisode?.qualityProfileId,
+        qualityProfileName: firstEpisode?.qualityProfileName,
+        subRows: Array.from(seasons.entries()).map(([seasonNumber, episodes]) => ({
+          seasonNumber,
+          isSeason: true,
+          subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
+        }))
+      };
+    });
 
     prevEpisodeRowsRef.current = filteredEpisodeRows;
     groupedTableDataCache.current = result;
@@ -1393,14 +1405,18 @@ function SonarrInstanceView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedTableData.map((series) => (
-            <details key={`${series.series}`} className="series-details">
+          {groupedTableData.map((seriesGroup) => {
+            return (
+            <details key={`${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
-                <span className="series-title">{series.series}</span>
+                <span className="series-title">{seriesGroup.series}</span>
+                {seriesGroup.qualityProfileName ? (
+                  <span className="series-quality">• {seriesGroup.qualityProfileName}</span>
+                ) : null}
               </summary>
               <div className="series-content">
-                {series.subRows.map((season) => (
-                  <details key={`${series.series}-${season.seasonNumber}`} className="season-details">
+                {seriesGroup.subRows.map((season) => (
+                  <details key={`${seriesGroup.series}-${season.seasonNumber}`} className="season-details">
                     <summary className="season-summary">
                       <span className="season-title">Season {season.seasonNumber}</span>
                       <span className="season-count">({season.subRows.length} episodes)</span>
@@ -1445,7 +1461,8 @@ function SonarrInstanceView({
                 ))}
               </div>
             </details>
-          ))}
+            );
+          })}
         </div>
       ) : !loading && series.length > 0 && filteredEpisodeRows.length === 0 && episodeRows.length === 0 ? (
         <div className="hint">
