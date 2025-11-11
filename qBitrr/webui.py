@@ -1658,7 +1658,13 @@ class WebUI:
                 return jsonify({"error": "not found"}), 404
 
             # Stream full log file to support dynamic loading in LazyLog
-            response = send_file(file, mimetype="text/plain", download_name=None)
+            try:
+                content = file.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")), mimetype="text/plain", as_attachment=False
+            )
             response.headers["Content-Type"] = "text/plain; charset=utf-8"
             response.headers["Cache-Control"] = "no-cache"
             return response
