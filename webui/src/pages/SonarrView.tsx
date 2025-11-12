@@ -1329,6 +1329,7 @@ function SonarrInstanceView({
   groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
+  const [groupedPage, setGroupedPage] = useState(0);
 
   const prevSeriesRef = useRef<typeof series>([]);
   const episodeRowsCache = useRef<SonarrAggRow[]>([]);
@@ -1439,6 +1440,14 @@ function SonarrInstanceView({
     return result;
   }, [filteredEpisodeRows]);
 
+  // Paginate grouped series
+  const groupedPageSize = 50;
+  const groupedPageData = useMemo(() => {
+    return groupedTableData.slice(groupedPage * groupedPageSize, (groupedPage + 1) * groupedPageSize);
+  }, [groupedTableData, groupedPage]);
+  const groupedTotalPages = Math.ceil(groupedTableData.length / groupedPageSize);
+  const safeGroupedPage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
+
   const totalEpisodes = useMemo(() => episodeRows.length, [episodeRows]);
   const isFiltered = reasonFilter !== "all";
   const filteredCount = filteredEpisodeRows.length;
@@ -1470,7 +1479,7 @@ function SonarrInstanceView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedTableData.map((seriesGroup) => {
+          {groupedPageData.map((seriesGroup) => {
             let episodeCount = 0;
             seriesGroup.subRows.forEach(season => {
               episodeCount += season.subRows.length;
@@ -1534,7 +1543,31 @@ function SonarrInstanceView({
             );
           })}
         </div>
-      ) : !loading && series.length > 0 && filteredEpisodeRows.length === 0 && episodeRows.length === 0 ? (
+      ) : null}
+      {groupSonarr && groupedTableData.length > 0 && (
+        <div className="pagination">
+          <div>
+            Page {safeGroupedPage + 1} of {groupedTotalPages} ({groupedTableData.length} series)
+          </div>
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.max(0, safeGroupedPage - 1))}
+              disabled={safeGroupedPage === 0}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, safeGroupedPage + 1))}
+              disabled={safeGroupedPage >= groupedTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+      {!groupSonarr && !loading && series.length > 0 && filteredEpisodeRows.length === 0 && episodeRows.length === 0 ? (
         <div className="hint">
           <p>No episodes found for these series.</p>
           <p>The backend may still be syncing episode data from Sonarr. Please check the logs or wait a few moments and refresh.</p>

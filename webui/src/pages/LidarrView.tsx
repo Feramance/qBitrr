@@ -540,6 +540,8 @@ function LidarrInstanceView({
   lastUpdated,
   groupLidarr,
 }: LidarrInstanceViewProps): JSX.Element {
+  const [groupedPage, setGroupedPage] = useState(0);
+
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
     if (onlyMissing) {
@@ -608,6 +610,14 @@ function LidarrInstanceView({
     groupedAlbumsCache.current = result;
     return result;
   }, [reasonFilteredAlbums]);
+
+  // Paginate grouped artists
+  const groupedPageSize = 50;
+  const groupedPageData = useMemo(() => {
+    return groupedAlbums.slice(groupedPage * groupedPageSize, (groupedPage + 1) * groupedPageSize);
+  }, [groupedAlbums, groupedPage]);
+  const groupedTotalPages = Math.ceil(groupedAlbums.length / groupedPageSize);
+  const safeGroupedPage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
 
   const columns = useMemo<ColumnDef<LidarrAlbumEntry>[]>(
     () => [
@@ -728,7 +738,7 @@ function LidarrInstanceView({
         </div>
       ) : groupLidarr ? (
         <div className="lidarr-hierarchical-view">
-          {groupedAlbums.map((artistGroup) => (
+          {groupedPageData.map((artistGroup) => (
             <details key={artistGroup.artist} className="artist-details">
               <summary className="artist-summary">
                 <span className="artist-title">{artistGroup.artist}</span>
@@ -825,7 +835,31 @@ function LidarrInstanceView({
             </details>
           ))}
         </div>
-      ) : allAlbums.length ? (
+      ) : null}
+      {groupLidarr && groupedAlbums.length > 0 && (
+        <div className="pagination">
+          <div>
+            Page {safeGroupedPage + 1} of {groupedTotalPages} ({groupedAlbums.length} artists)
+          </div>
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.max(0, safeGroupedPage - 1))}
+              disabled={safeGroupedPage === 0}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, safeGroupedPage + 1))}
+              disabled={safeGroupedPage >= groupedTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+      {!groupLidarr && allAlbums.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
