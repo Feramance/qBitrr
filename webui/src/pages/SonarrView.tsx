@@ -1015,6 +1015,14 @@ function SonarrAggregateView({
       cell: ({ getValue }) => getValue() || "—",
     },
     {
+      accessorKey: "qualityProfileName",
+      header: "Quality Profile",
+      cell: ({ getValue }) => {
+        const profileName = getValue() as string | null | undefined;
+        return profileName || "—";
+      },
+    },
+    {
       accessorKey: "reason",
       header: "Reason",
       cell: ({ getValue }) => {
@@ -1492,6 +1500,7 @@ function SonarrInstanceView({
                 <th>Monitored</th>
                 <th>Has File</th>
                 <th>Air Date</th>
+                <th>Quality Profile</th>
                 <th>Reason</th>
               </tr>
             </thead>
@@ -1513,6 +1522,7 @@ function SonarrInstanceView({
                     </span>
                   </td>
                   <td data-label="Air Date">{row.airDate || "—"}</td>
+                  <td data-label="Quality Profile">{row.qualityProfileName || "—"}</td>
                   <td data-label="Reason">{row.reason ? <span className="table-badge table-badge-reason">{row.reason}</span> : <span className="table-badge table-badge-reason">Not being searched</span>}</td>
                 </tr>
               ))}
