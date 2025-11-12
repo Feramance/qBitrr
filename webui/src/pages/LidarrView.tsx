@@ -548,6 +548,7 @@ function LidarrInstanceView({
   const groupedAlbumsCache = useRef<Array<{
     artist: string;
     albums: LidarrAlbumEntry[];
+    qualityProfileName?: string | null;
   }>>([]);
 
   // Group albums by artist for hierarchical view - only rebuild if filtered albums changed
@@ -567,10 +568,16 @@ function LidarrInstanceView({
       artistMap.get(artist)!.push(albumEntry);
     });
 
-    const result = Array.from(artistMap.entries()).map(([artist, albums]) => ({
-      artist,
-      albums
-    }));
+    const result = Array.from(artistMap.entries()).map(([artist, albums]) => {
+      // Get quality profile from first album (all albums by same artist typically share quality profile)
+      const firstAlbum = albums[0]?.album as Record<string, unknown> | undefined;
+      const qualityProfileName = (firstAlbum?.["qualityProfileName"] as string | null | undefined) ?? null;
+      return {
+        artist,
+        albums,
+        qualityProfileName,
+      };
+    });
 
     prevFilteredAlbumsRef.current = reasonFilteredAlbums;
     groupedAlbumsCache.current = result;
@@ -701,6 +708,9 @@ function LidarrInstanceView({
               <summary className="artist-summary">
                 <span className="artist-title">{artistGroup.artist}</span>
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
+                {artistGroup.qualityProfileName ? (
+                  <span className="artist-quality">• {artistGroup.qualityProfileName}</span>
+                ) : null}
               </summary>
               <div className="artist-content">
                 {artistGroup.albums.map((albumEntry) => {
