@@ -921,7 +921,15 @@ function SonarrAggregateView({
       cell: ({ row }) => {
         if (row.original.isEpisode) return row.original.title;
         if (row.original.isSeason) return `Season ${row.original.seasonNumber}`;
-        return row.original.series;
+        // Series row - show series name, instance, and quality profile (like Lidarr)
+        const parts = [row.original.series];
+        if (row.original.instance) {
+          parts.push(`(${row.original.instance})`);
+        }
+        if (row.original.qualityProfileName) {
+          parts.push(`• ${row.original.qualityProfileName}`);
+        }
+        return parts.join(' ');
       }
     },
     {
