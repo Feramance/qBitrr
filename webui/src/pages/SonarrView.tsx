@@ -1572,9 +1572,9 @@ function SonarrInstanceView({
           <p>No episodes found for these series.</p>
           <p>The backend may still be syncing episode data from Sonarr. Please check the logs or wait a few moments and refresh.</p>
         </div>
-      ) : !loading && series.length > 0 && filteredEpisodeRows.length === 0 && episodeRows.length > 0 ? (
+      ) : !groupSonarr && !loading && series.length > 0 && filteredEpisodeRows.length === 0 && episodeRows.length > 0 ? (
         <div className="hint">No episodes match the current filter.</div>
-      ) : filteredEpisodeRows.length ? (
+      ) : !groupSonarr && filteredEpisodeRows.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
