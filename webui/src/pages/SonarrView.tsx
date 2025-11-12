@@ -96,7 +96,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const { liveArr, setLiveArr, groupSonarr, setGroupSonarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "">("aggregate");
+  const [selection, setSelection] = useState<string | "">("");
   const [instanceData, setInstanceData] =
     useState<SonarrSeriesResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
