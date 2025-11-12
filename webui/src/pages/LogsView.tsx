@@ -152,7 +152,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         }
 
         const response = await fetch(
-          `/api/logs/${encodeURIComponent(selected)}?${params}`
+          `/web/logs/${encodeURIComponent(selected)}?${params}`
         );
         if (!response.ok) {
           throw new Error(`${response.status} ${response.statusText}`);
