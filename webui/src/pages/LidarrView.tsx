@@ -1300,9 +1300,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    
+
     const selectionChanged = prevSelectionRef.current !== selection;
-    
+
     // Reset page and cache only when selection changes
     if (selectionChanged) {
       instancePagesRef.current = {};
@@ -1311,7 +1311,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       setInstancePage(0);
       prevSelectionRef.current = selection;
     }
-    
+
     // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
     void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {

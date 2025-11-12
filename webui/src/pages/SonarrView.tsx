@@ -487,21 +487,21 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    
+
     const selectionChanged = prevSelectionRef.current !== selection;
     const onlyMissingChanged = prevOnlyMissingRef.current !== onlyMissing;
-    
+
     // Reset page only when selection changes, not when filters change
     if (selectionChanged) {
       setInstancePage(0);
       prevSelectionRef.current = selection;
     }
-    
+
     // Update ref for next comparison
     if (onlyMissingChanged) {
       prevOnlyMissingRef.current = onlyMissing;
     }
-    
+
     // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
     void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
