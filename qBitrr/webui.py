@@ -2542,6 +2542,8 @@ class WebUI:
                 except Exception as e:
                     # Handle specific error types
                     error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
 
                     if "401" in error_msg or "Unauthorized" in error_msg:
                         return (
@@ -2568,11 +2570,12 @@ class WebUI:
                             503,
                         )
                     else:
-                        return jsonify({"success": False, "message": f"Error: {error_msg}"}), 500
+                        # Generic error message - details logged above
+                        return jsonify({"success": False, "message": "Connection test failed"}), 500
 
             except Exception as e:
                 self.logger.error("Test connection error: %s", e)
-                return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
 
         @app.post("/web/arr/test-connection")
         def web_arr_test_connection():
@@ -2706,6 +2709,8 @@ class WebUI:
                 except Exception as e:
                     # Handle specific error types
                     error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
 
                     if "401" in error_msg or "Unauthorized" in error_msg:
                         return (
@@ -2732,11 +2737,12 @@ class WebUI:
                             503,
                         )
                     else:
-                        return jsonify({"success": False, "message": f"Error: {error_msg}"}), 500
+                        # Generic error message - details logged above
+                        return jsonify({"success": False, "message": "Connection test failed"}), 500
 
             except Exception as e:
                 self.logger.error("Test connection error: %s", e)
-                return jsonify({"success": False, "message": f"Unexpected error: {str(e)}"}), 500
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
 
     def _reload_all(self):
         # Set rebuilding flag
