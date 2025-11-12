@@ -806,6 +806,7 @@ function SonarrAggregateView({
       subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
     }>;
   }>>([]);
+  const episodeKeysCache = useRef<Set<string>>(new Set());
 
   // Create fully grouped data from all rows - only rebuild if rows actually changed
   const allGroupedData = useMemo(() => {
@@ -814,25 +815,25 @@ function SonarrAggregateView({
       return groupedDataCache.current;
     }
 
-    // Check if content is identical (same length and keys)
-    if (rows.length === prevRowsRef.current.length) {
+    // Build set of current episode keys for comparison
+    const currentKeys = new Set<string>();
+    rows.forEach(row => {
+      const key = `${row.__instance}-${row.series}-${row.season}-${row.episode}`;
+      currentKeys.add(key);
+    });
+
+    // Check if the set of episodes is identical (same episodes, potentially different order)
+    if (currentKeys.size === episodeKeysCache.current.size && 
+        rows.length === prevRowsRef.current.length) {
       let identical = true;
-      for (let i = 0; i < rows.length; i++) {
-        const curr = rows[i];
-        const prev = prevRowsRef.current[i];
-        if (
-          curr.__instance !== prev.__instance ||
-          curr.series !== prev.series ||
-          curr.season !== prev.season ||
-          curr.episode !== prev.episode ||
-          curr.hasFile !== prev.hasFile ||
-          curr.monitored !== prev.monitored
-        ) {
+      for (const key of currentKeys) {
+        if (!episodeKeysCache.current.has(key)) {
           identical = false;
           break;
         }
       }
       if (identical) {
+        // Same episodes, return cached (prevents rebuilding when only order changes)
         return groupedDataCache.current;
       }
     }
@@ -895,6 +896,7 @@ function SonarrAggregateView({
     // Update caches
     prevRowsRef.current = rows;
     groupedDataCache.current = result;
+    episodeKeysCache.current = currentKeys;
 
     return result;
   }, [rows]);

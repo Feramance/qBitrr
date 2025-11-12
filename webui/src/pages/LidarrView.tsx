@@ -94,6 +94,7 @@ function LidarrAggregateView({
     qualityProfileName?: string | null;
     albums: LidarrAggRow[];
   }>>([]);
+  const albumKeysCache = useRef<Set<string>>(new Set());
 
   // Create grouped data structure: instance > artist > albums - only rebuild if rows actually changed
   const groupedData = useMemo(() => {
@@ -102,26 +103,26 @@ function LidarrAggregateView({
       return groupedDataCache.current;
     }
 
-    // Check if content is identical (same length and album titles)
-    if (rows.length === prevRowsRef.current.length) {
+    // Build set of current album keys for comparison
+    const currentKeys = new Set<string>();
+    rows.forEach(row => {
+      const albumData = row.album as Record<string, unknown>;
+      const key = `${row.__instance}-${albumData?.["artistName"]}-${albumData?.["title"]}`;
+      currentKeys.add(key);
+    });
+
+    // Check if the set of albums is identical (same albums, potentially different order)
+    if (currentKeys.size === albumKeysCache.current.size && 
+        rows.length === prevRowsRef.current.length) {
       let identical = true;
-      for (let i = 0; i < rows.length; i++) {
-        const curr = rows[i];
-        const prev = prevRowsRef.current[i];
-        const currAlbum = curr.album as Record<string, unknown>;
-        const prevAlbum = prev.album as Record<string, unknown>;
-        if (
-          curr.__instance !== prev.__instance ||
-          currAlbum?.["title"] !== prevAlbum?.["title"] ||
-          currAlbum?.["artistName"] !== prevAlbum?.["artistName"] ||
-          currAlbum?.["hasFile"] !== prevAlbum?.["hasFile"] ||
-          currAlbum?.["monitored"] !== prevAlbum?.["monitored"]
-        ) {
+      for (const key of currentKeys) {
+        if (!albumKeysCache.current.has(key)) {
           identical = false;
           break;
         }
       }
       if (identical) {
+        // Same albums, return cached (prevents rebuilding when only order changes)
         return groupedDataCache.current;
       }
     }
@@ -170,6 +171,7 @@ function LidarrAggregateView({
     // Update caches
     prevRowsRef.current = rows;
     groupedDataCache.current = result;
+    albumKeysCache.current = currentKeys;
 
     return result;
   }, [rows]);
