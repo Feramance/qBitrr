@@ -1158,7 +1158,7 @@ class WebUI:
                         seasons = {key: data for key, data in seasons.items() if data["episodes"]}
                         if not seasons:
                             continue
-                    
+
                     # If quality profile is still None, fetch from Sonarr API
                     if quality_profile_id is None and series_id is not None:
                         try:
@@ -1171,16 +1171,22 @@ class WebUI:
                                     if quality_profile_id:
                                         quality_cache = getattr(arr, "_quality_profile_cache", {})
                                         if quality_profile_id in quality_cache:
-                                            quality_profile_name = quality_cache[quality_profile_id].get("name")
+                                            quality_profile_name = quality_cache[
+                                                quality_profile_id
+                                            ].get("name")
                                         elif hasattr(client, "get_quality_profile"):
                                             try:
-                                                profile = client.get_quality_profile(quality_profile_id)
-                                                quality_profile_name = profile.get("name") if profile else None
+                                                profile = client.get_quality_profile(
+                                                    quality_profile_id
+                                                )
+                                                quality_profile_name = (
+                                                    profile.get("name") if profile else None
+                                                )
                                             except Exception:
                                                 pass
                         except Exception:
                             pass
-                    
+
                     payload.append(
                         {
                             "series": {
