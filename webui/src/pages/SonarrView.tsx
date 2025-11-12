@@ -114,6 +114,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [instanceTotalItems, setInstanceTotalItems] = useState(0);
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
+  const prevSelectionRef = useRef<string | "">(selection);
 
   const [aggRows, setAggRows] = useState<SonarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
@@ -128,6 +129,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   });
 
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const prevOnlyMissingRef = useRef(onlyMissing);
   const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [aggSummary, setAggSummary] = useState<{
     available: number;
@@ -485,14 +487,29 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    setInstancePage(0);
+    
+    const selectionChanged = prevSelectionRef.current !== selection;
+    const onlyMissingChanged = prevOnlyMissingRef.current !== onlyMissing;
+    
+    // Reset page only when selection changes, not when filters change
+    if (selectionChanged) {
+      setInstancePage(0);
+      prevSelectionRef.current = selection;
+    }
+    
+    // Update ref for next comparison
+    if (onlyMissingChanged) {
+      prevOnlyMissingRef.current = onlyMissing;
+    }
+    
+    // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, {
+    void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
       preloadAll: true,
       showLoading: true,
       missingOnly: onlyMissing,
     });
-  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
+  }, [active, selection, onlyMissing, fetchInstance, instancePage]);
 
   useEffect(() => {
     if (!active) return;

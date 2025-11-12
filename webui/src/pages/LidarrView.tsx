@@ -922,6 +922,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const instancePagesRef = useRef<Record<number, LidarrAlbumEntry[]>>({});
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
+  const prevSelectionRef = useRef<string | "">(selection);
 
   // Smart data sync for instance albums
   const instanceAlbumSync = useDataSync<LidarrAlbumEntry>({
@@ -1299,16 +1300,25 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    instancePagesRef.current = {};
-    setInstancePages({});
-    setInstanceTotalPages(1);
-    setInstancePage(0);
+    
+    const selectionChanged = prevSelectionRef.current !== selection;
+    
+    // Reset page and cache only when selection changes
+    if (selectionChanged) {
+      instancePagesRef.current = {};
+      setInstancePages({});
+      setInstanceTotalPages(1);
+      setInstancePage(0);
+      prevSelectionRef.current = selection;
+    }
+    
+    // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, {
+    void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
       preloadAll: true,
       showLoading: true,
     });
-  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
+  }, [active, selection, fetchInstance, instancePage]);
 
   useEffect(() => {
     if (!active) return;
