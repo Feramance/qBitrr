@@ -913,7 +913,7 @@ function LidarrInstanceView({
       {groupLidarr && allAlbums.length > 0 && totalPages > 1 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} · {groupedAlbums.length.toLocaleString()} artists ({allAlbums.length.toLocaleString()} albums on page)
+            Page {page + 1} of {totalPages} ({(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums on page)
           </div>
           <div className="inline">
             <button
