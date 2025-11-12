@@ -910,27 +910,33 @@ function LidarrInstanceView({
         <div className="hint">No albums found.</div>
       )}
 
-      {groupLidarr && allAlbums.length > 0 && totalPages > 1 && (
+      {groupLidarr && allAlbums.length > 0 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums on page)
+            {totalPages > 1 ? (
+              <>Page {page + 1} of {totalPages} ({(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums on page)</>
+            ) : (
+              <>{(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums</>
+            )}
           </div>
-          <div className="inline">
-            <button
-              className="btn"
-              onClick={() => onPageChange(Math.max(0, page - 1))}
-              disabled={page === 0 || loading}
-            >
-              Prev
-            </button>
-            <button
-              className="btn"
-              onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-              disabled={page >= totalPages - 1 || loading}
-            >
-              Next
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <div className="inline">
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.max(0, page - 1))}
+                disabled={page === 0 || loading}
+              >
+                Prev
+              </button>
+              <button
+                className="btn"
+                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
+                disabled={page >= totalPages - 1 || loading}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
