@@ -595,31 +595,36 @@ class WebUI:
             albums = []
 
             if group_by_artist:
-                # Paginate by artists: get distinct artists, paginate, then fetch all albums for those artists
-                # Get distinct artists from the filtered query
-                artist_query = (
-                    query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
+                # Paginate by artists: Two-pass approach with Peewee
+                # First, get all distinct artist names from the filtered query
+                # Use a subquery to get distinct artists efficiently
+                artists_subquery = query.select(model.ArtistTitle).distinct().order_by(
+                    model.ArtistTitle
                 )
-                total_artists = artist_query.count()
 
-                # Paginate artists
-                paginated_artists = artist_query.paginate(page + 1, page_size)
-                artist_names = [artist.ArtistTitle for artist in paginated_artists]
+                # Convert to list to avoid multiple iterations
+                all_artists = [row.ArtistTitle for row in artists_subquery]
+                total = len(all_artists)
 
-                # Fetch all albums for these artists
-                if artist_names:
-                    albums_query = query.where(model.ArtistTitle.in_(artist_names)).order_by(
-                        model.ArtistTitle, model.ReleaseDate
+                # Paginate the artist list in Python
+                start_idx = page * page_size
+                end_idx = start_idx + page_size
+                paginated_artists = all_artists[start_idx:end_idx]
+
+                # Fetch all albums for these paginated artists
+                if paginated_artists:
+                    album_results = list(
+                        query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
+                            model.ArtistTitle, model.ReleaseDate
+                        )
                     )
-                    total = total_artists  # Total is count of artists, not albums
-                    album_results = list(albums_query)
                 else:
-                    total = 0
                     album_results = []
             else:
                 # Flat mode: paginate by albums as before
                 total = query.count()
                 album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
+
 
             for album in album_results:
                 # Always fetch tracks from database (Lidarr only)
