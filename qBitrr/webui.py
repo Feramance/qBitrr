@@ -598,8 +598,8 @@ class WebUI:
                 # Paginate by artists: Two-pass approach with Peewee
                 # First, get all distinct artist names from the filtered query
                 # Use a subquery to get distinct artists efficiently
-                artists_subquery = query.select(model.ArtistTitle).distinct().order_by(
-                    model.ArtistTitle
+                artists_subquery = (
+                    query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
                 )
 
                 # Convert to list to avoid multiple iterations
@@ -624,7 +624,6 @@ class WebUI:
                 # Flat mode: paginate by albums as before
                 total = query.count()
                 album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
-
 
             for album in album_results:
                 # Always fetch tracks from database (Lidarr only)
