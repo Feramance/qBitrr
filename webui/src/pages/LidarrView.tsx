@@ -112,7 +112,7 @@ function LidarrAggregateView({
     });
 
     // Check if the set of albums is identical (same albums, potentially different order)
-    if (currentKeys.size === albumKeysCache.current.size && 
+    if (currentKeys.size === albumKeysCache.current.size &&
         rows.length === prevRowsRef.current.length) {
       let identical = true;
       for (const key of currentKeys) {

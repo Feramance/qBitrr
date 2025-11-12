@@ -823,7 +823,7 @@ function SonarrAggregateView({
     });
 
     // Check if the set of episodes is identical (same episodes, potentially different order)
-    if (currentKeys.size === episodeKeysCache.current.size && 
+    if (currentKeys.size === episodeKeysCache.current.size &&
         rows.length === prevRowsRef.current.length) {
       let identical = true;
       for (const key of currentKeys) {
