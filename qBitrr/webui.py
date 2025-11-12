@@ -2571,7 +2571,10 @@ class WebUI:
                         )
                     else:
                         # Generic error message - details logged above
-                        return jsonify({"success": False, "message": "Connection test failed"}), 500
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
 
             except Exception as e:
                 self.logger.error("Test connection error: %s", e)
@@ -2738,7 +2741,10 @@ class WebUI:
                         )
                     else:
                         # Generic error message - details logged above
-                        return jsonify({"success": False, "message": "Connection test failed"}), 500
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
 
             except Exception as e:
                 self.logger.error("Test connection error: %s", e)
