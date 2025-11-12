@@ -479,6 +479,13 @@ body {
   white-space: nowrap;
 }
 
+.series-count {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
 .series-quality {
   font-size: 0.9em;
   color: var(--muted);

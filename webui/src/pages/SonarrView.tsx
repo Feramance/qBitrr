@@ -1153,11 +1153,16 @@ function SonarrAggregateView({
         <div className="sonarr-hierarchical-view">
           {groupedPageRows.map((seriesGroup) => {
             console.log(`[Sonarr Render] Series: ${seriesGroup.series}, QualityProfile: ${seriesGroup.qualityProfileName}`);
+            let episodeCount = 0;
+            seriesGroup.subRows.forEach(season => {
+              episodeCount += season.subRows.length;
+            });
             return (
             <details key={`${seriesGroup.instance}-${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
                 <span className="series-instance">({seriesGroup.instance})</span>
+                <span className="series-count">({episodeCount} episodes)</span>
                 {seriesGroup.qualityProfileName ? (
                   <span className="series-quality">• {seriesGroup.qualityProfileName}</span>
                 ) : null}
@@ -1466,10 +1471,15 @@ function SonarrInstanceView({
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
           {groupedTableData.map((seriesGroup) => {
+            let episodeCount = 0;
+            seriesGroup.subRows.forEach(season => {
+              episodeCount += season.subRows.length;
+            });
             return (
             <details key={`${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
+                <span className="series-count">({episodeCount} episodes)</span>
                 {seriesGroup.qualityProfileName ? (
                   <span className="series-quality">• {seriesGroup.qualityProfileName}</span>
                 ) : null}
