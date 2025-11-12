@@ -459,6 +459,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .series-summary:hover,
@@ -468,6 +469,7 @@ body {
 
 .series-title {
   font-size: 1.1em;
+  flex: 1;
 }
 
 .series-instance {
