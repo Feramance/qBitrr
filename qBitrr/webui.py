@@ -500,6 +500,7 @@ class WebUI:
         has_file: bool | None = None,
         quality_met: bool | None = None,
         is_request: bool | None = None,
+        group_by_artist: bool = True,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
             return {
@@ -591,10 +592,39 @@ class WebUI:
             if is_request is not None:
                 query = query.where(model.IsRequest == is_request)
 
-            total = query.count()
-            query = query.order_by(model.Title).paginate(page + 1, page_size)
             albums = []
-            for album in query:
+            
+            if group_by_artist:
+                # Paginate by artists: get distinct artists, paginate, then fetch all albums for those artists
+                # Get distinct artists from the filtered query
+                artist_query = (
+                    query.select(model.ArtistTitle)
+                    .distinct()
+                    .order_by(model.ArtistTitle)
+                )
+                total_artists = artist_query.count()
+                
+                # Paginate artists
+                paginated_artists = artist_query.paginate(page + 1, page_size)
+                artist_names = [artist.ArtistTitle for artist in paginated_artists]
+                
+                # Fetch all albums for these artists
+                if artist_names:
+                    albums_query = (
+                        query.where(model.ArtistTitle.in_(artist_names))
+                        .order_by(model.ArtistTitle, model.ReleaseDate)
+                    )
+                    total = total_artists  # Total is count of artists, not albums
+                    album_results = list(albums_query)
+                else:
+                    total = 0
+                    album_results = []
+            else:
+                # Flat mode: paginate by albums as before
+                total = query.count()
+                album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
+            
+            for album in album_results:
                 # Always fetch tracks from database (Lidarr only)
                 track_model = getattr(arr, "track_file_model", None)
                 tracks_list = []
@@ -1968,7 +1998,7 @@ class WebUI:
                     has_file=has_file,
                 )
             else:
-                # Grouped mode: return albums with tracks (always)
+                # Grouped mode: return albums with tracks, paginated by artist
                 payload = self._lidarr_albums_from_db(
                     arr,
                     q,
@@ -1978,6 +2008,7 @@ class WebUI:
                     has_file=has_file,
                     quality_met=quality_met,
                     is_request=is_request,
+                    group_by_artist=True,
                 )
             payload["category"] = category
             return jsonify(payload)
