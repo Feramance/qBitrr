@@ -885,7 +885,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const { liveArr, groupLidarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "">("aggregate");
+  const [selection, setSelection] = useState<string | "">("");
   const [instanceData, setInstanceData] = useState<LidarrAlbumsResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
   const [instanceQuery, setInstanceQuery] = useState("");
