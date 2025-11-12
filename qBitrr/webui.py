@@ -1103,7 +1103,15 @@ class WebUI:
                     seasons: dict[str, dict[str, Any]] = {}
                     series_monitored = 0
                     series_available = 0
+                    # Track quality profile from first episode (all episodes in a series share the same profile)
+                    quality_profile_id = None
+                    quality_profile_name = None
                     for ep in episodes_query.iterator():
+                        # Capture quality profile from first episode if available
+                        if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
+                            quality_profile_id = getattr(ep, "QualityProfileId", None)
+                        if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
+                            quality_profile_name = getattr(ep, "QualityProfileName", None)
                         season_value = getattr(ep, "SeasonNumber", None)
                         season_key = str(season_value) if season_value is not None else "unknown"
                         season_bucket = seasons.setdefault(
@@ -1162,6 +1170,8 @@ class WebUI:
                                         else str(series_id)
                                     )
                                 ),
+                                "qualityProfileId": quality_profile_id,
+                                "qualityProfileName": quality_profile_name,
                             },
                             "totals": {
                                 "available": series_available,
