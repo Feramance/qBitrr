@@ -617,6 +617,19 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   );
 
   const currentSeries = instancePages[instancePage] ?? [];
+  
+  const allSeries = useMemo(() => {
+    const pages = Object.keys(instancePages)
+      .map(Number)
+      .sort((a, b) => a - b);
+    const rows: SonarrSeriesEntry[] = [];
+    pages.forEach((pg) => {
+      if (instancePages[pg]) {
+        rows.push(...instancePages[pg]);
+      }
+    });
+    return rows;
+  }, [instancePages]);
 
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
@@ -755,7 +768,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               <SonarrInstanceView
                 loading={instanceLoading}
                 counts={instanceData?.counts ?? null}
-                series={currentSeries}
+                series={groupSonarr ? currentSeries : allSeries}
                 page={instancePage}
                 pageSize={instancePageSize}
                 totalPages={instanceTotalPages}
@@ -1346,6 +1359,10 @@ function SonarrInstanceView({
   groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
+  
+  // Separate pagination state for flat (episode) view
+  const [flatPage, setFlatPage] = useState(0);
+  const FLAT_PAGE_SIZE = 50;
 
   const prevSeriesRef = useRef<typeof series>([]);
   const episodeRowsCache = useRef<SonarrAggRow[]>([]);
@@ -1407,6 +1424,11 @@ function SonarrInstanceView({
     return rows;
   }, [episodeRows, onlyMissing, reasonFilter]);
 
+  // Reset flat page when filters change
+  useEffect(() => {
+    setFlatPage(0);
+  }, [onlyMissing, reasonFilter]);
+
   const prevEpisodeRowsRef = useRef<SonarrAggRow[]>([]);
   const groupedTableDataCache = useRef<Array<{
     series: string;
@@ -1459,6 +1481,13 @@ function SonarrInstanceView({
   const totalEpisodes = useMemo(() => episodeRows.length, [episodeRows]);
   const isFiltered = reasonFilter !== "all";
   const filteredCount = filteredEpisodeRows.length;
+
+  // Pagination for flat view
+  const flatTotalPages = Math.max(1, Math.ceil(filteredEpisodeRows.length / FLAT_PAGE_SIZE));
+  const flatSafePage = Math.min(flatPage, Math.max(0, flatTotalPages - 1));
+  const paginatedEpisodeRows = useMemo(() => {
+    return filteredEpisodeRows.slice(flatSafePage * FLAT_PAGE_SIZE, (flatSafePage + 1) * FLAT_PAGE_SIZE);
+  }, [filteredEpisodeRows, flatSafePage]);
 
   return (
     <div className="stack animate-fade-in">
@@ -1575,7 +1604,7 @@ function SonarrInstanceView({
               </tr>
             </thead>
             <tbody>
-              {filteredEpisodeRows.slice(safePage * pageSize, safePage * pageSize + pageSize).map((row, idx) => (
+              {paginatedEpisodeRows.map((row, idx) => (
                 <tr key={`${row.series}-${row.season}-${row.episode}-${idx}`}>
                   <td data-label="Series">{row.series}</td>
                   <td data-label="Season">{row.season}</td>
@@ -1598,27 +1627,29 @@ function SonarrInstanceView({
               ))}
             </tbody>
           </table>
-          <div className="pagination">
-            <div>
-              Page {safePage + 1} of {totalPages} ({filteredEpisodeRows.length.toLocaleString()} items · page size {pageSize})
+          {flatTotalPages > 1 && (
+            <div className="pagination">
+              <div>
+                Page {flatSafePage + 1} of {flatTotalPages} ({filteredEpisodeRows.length.toLocaleString()} episodes · page size {FLAT_PAGE_SIZE})
+              </div>
+              <div className="inline">
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.max(0, flatSafePage - 1))}
+                  disabled={flatSafePage === 0 || loading}
+                >
+                  Prev
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.min(flatTotalPages - 1, flatSafePage + 1))}
+                  disabled={flatSafePage >= flatTotalPages - 1 || loading}
+                >
+                  Next
+                </button>
+              </div>
             </div>
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, safePage - 1))}
-                disabled={safePage === 0 || loading}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.min(totalPages - 1, safePage + 1))}
-                disabled={safePage >= totalPages - 1 || loading}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       ) : (
         <div className="hint">No series found.</div>

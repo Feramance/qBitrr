@@ -540,6 +540,10 @@ function LidarrInstanceView({
   lastUpdated,
   groupLidarr,
 }: LidarrInstanceViewProps): JSX.Element {
+  // Separate pagination state for flat (album) view
+  const [flatPage, setFlatPage] = useState(0);
+  const FLAT_PAGE_SIZE = 50;
+
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
     if (onlyMissing) {
@@ -568,6 +572,11 @@ function LidarrInstanceView({
   const totalAlbums = useMemo(() => allAlbums.length, [allAlbums]);
   const isFiltered = reasonFilter !== "all";
   const filteredCount = reasonFilteredAlbums.length;
+
+  // Reset flat page when filters change
+  useEffect(() => {
+    setFlatPage(0);
+  }, [onlyMissing, reasonFilter]);
 
   const prevFilteredAlbumsRef = useRef<LidarrAlbumEntry[]>([]);
   const groupedAlbumsCache = useRef<Array<{
@@ -692,8 +701,15 @@ function LidarrInstanceView({
     []
   );
 
+  // Pagination for flat view
+  const flatTotalPages = Math.max(1, Math.ceil(reasonFilteredAlbums.length / FLAT_PAGE_SIZE));
+  const flatSafePage = Math.min(flatPage, Math.max(0, flatTotalPages - 1));
+  const paginatedAlbums = useMemo(() => {
+    return reasonFilteredAlbums.slice(flatSafePage * FLAT_PAGE_SIZE, (flatSafePage + 1) * FLAT_PAGE_SIZE);
+  }, [reasonFilteredAlbums, flatSafePage]);
+
   const table = useReactTable({
-    data: reasonFilteredAlbums.slice(page * pageSize, page * pageSize + pageSize),
+    data: paginatedAlbums,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -866,15 +882,38 @@ function LidarrInstanceView({
               })}
             </tbody>
           </table>
+          {flatTotalPages > 1 && (
+            <div className="pagination">
+              <div>
+                Page {flatSafePage + 1} of {flatTotalPages} ({reasonFilteredAlbums.length.toLocaleString()} albums · page size {FLAT_PAGE_SIZE})
+              </div>
+              <div className="inline">
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.max(0, flatSafePage - 1))}
+                  disabled={flatSafePage === 0 || loading}
+                >
+                  Prev
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.min(flatTotalPages - 1, flatSafePage + 1))}
+                  disabled={flatSafePage >= flatTotalPages - 1 || loading}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="hint">No albums found.</div>
       )}
 
-      {allAlbums.length > 0 && totalPages > 1 && (
+      {groupLidarr && allAlbums.length > 0 && totalPages > 1 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({groupLidarr ? `${groupedAlbums.length.toLocaleString()} artists from ${allAlbums.length.toLocaleString()} albums` : `${reasonFilteredAlbums.length.toLocaleString()} items · page size ${pageSize}`})
+            Page {page + 1} of {totalPages} ({groupedAlbums.length.toLocaleString()} artists on page · {totalPages * pageSize} total albums)
           </div>
           <div className="inline">
             <button
@@ -1455,6 +1494,10 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [instancePages]);
 
+  const currentPageAlbums = useMemo(() => {
+    return instancePages[instancePage] ?? [];
+  }, [instancePages, instancePage]);
+
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
     try {
@@ -1585,7 +1628,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 page={instancePage}
                 totalPages={instanceTotalPages}
                 pageSize={instancePageSize}
-                allAlbums={allInstanceAlbums}
+                allAlbums={groupLidarr ? currentPageAlbums : allInstanceAlbums}
                 onlyMissing={onlyMissing}
                 reasonFilter={reasonFilter}
                 onPageChange={(page) => {
