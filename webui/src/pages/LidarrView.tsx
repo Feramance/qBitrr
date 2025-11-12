@@ -94,7 +94,14 @@ function LidarrAggregateView({
     qualityProfileName?: string | null;
     albums: LidarrAggRow[];
   }>>([]);
-  const albumKeysCache = useRef<Set<string>>(new Set());
+  const artistGroupCache = useRef<Map<string, {
+    instance: string;
+    artist: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+    albums: LidarrAggRow[];
+    albumKeys: Set<string>;
+  }>>(new Map());
 
   // Create grouped data structure: instance > artist > albums - only rebuild if rows actually changed
   const groupedData = useMemo(() => {
@@ -103,31 +110,7 @@ function LidarrAggregateView({
       return groupedDataCache.current;
     }
 
-    // Build set of current album keys for comparison
-    const currentKeys = new Set<string>();
-    rows.forEach(row => {
-      const albumData = row.album as Record<string, unknown>;
-      const key = `${row.__instance}-${albumData?.["artistName"]}-${albumData?.["title"]}`;
-      currentKeys.add(key);
-    });
-
-    // Check if the set of albums is identical (same albums, potentially different order)
-    if (currentKeys.size === albumKeysCache.current.size &&
-        rows.length === prevRowsRef.current.length) {
-      let identical = true;
-      for (const key of currentKeys) {
-        if (!albumKeysCache.current.has(key)) {
-          identical = false;
-          break;
-        }
-      }
-      if (identical) {
-        // Same albums, return cached (prevents rebuilding when only order changes)
-        return groupedDataCache.current;
-      }
-    }
-
-    // Content changed, rebuild grouped structure
+    // Build instance > artist > albums map
     const instanceMap = new Map<string, Map<string, LidarrAggRow[]>>();
 
     rows.forEach(row => {
@@ -153,25 +136,65 @@ function LidarrAggregateView({
       albums: LidarrAggRow[];
     }> = [];
 
+    const newArtistGroupCache = new Map<string, {
+      instance: string;
+      artist: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
+      albums: LidarrAggRow[];
+      albumKeys: Set<string>;
+    }>();
+
     instanceMap.forEach((artistMap, instance) => {
       artistMap.forEach((albums, artist) => {
-        // Get quality profile from first album (albums of the same artist typically share the same profile)
+        const artistKey = `${instance}-${artist}`;
+        
+        // Build set of album keys for this artist
+        const albumKeys = new Set<string>();
+        albums.forEach(album => {
+          const albumData = album.album as Record<string, unknown>;
+          const albumKey = `${albumData?.["title"]}`;
+          albumKeys.add(albumKey);
+        });
+
+        // Check if this artist group is in cache and unchanged
+        const cached = artistGroupCache.current.get(artistKey);
+        if (cached && cached.albumKeys.size === albumKeys.size) {
+          let unchanged = true;
+          for (const key of albumKeys) {
+            if (!cached.albumKeys.has(key)) {
+              unchanged = false;
+              break;
+            }
+          }
+          if (unchanged) {
+            // Reuse cached artist group (prevents count flickering)
+            result.push(cached);
+            newArtistGroupCache.set(artistKey, cached);
+            return;
+          }
+        }
+
+        // Build new artist group
         const firstAlbum = albums[0];
         const albumData = firstAlbum?.album as Record<string, unknown> | undefined;
-        result.push({
+        const artistGroup = {
           instance,
           artist,
           qualityProfileId: (albumData?.["qualityProfileId"] as number | null | undefined) ?? null,
           qualityProfileName: (albumData?.["qualityProfileName"] as string | null | undefined) ?? null,
           albums,
-        });
+          albumKeys,
+        };
+        result.push(artistGroup);
+        newArtistGroupCache.set(artistKey, artistGroup);
       });
     });
 
     // Update caches
     prevRowsRef.current = rows;
     groupedDataCache.current = result;
-    albumKeysCache.current = currentKeys;
+    artistGroupCache.current = newArtistGroupCache;
 
     return result;
   }, [rows]);
