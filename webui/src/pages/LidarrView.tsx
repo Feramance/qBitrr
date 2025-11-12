@@ -148,7 +148,7 @@ function LidarrAggregateView({
     instanceMap.forEach((artistMap, instance) => {
       artistMap.forEach((albums, artist) => {
         const artistKey = `${instance}-${artist}`;
-        
+
         // Build set of album keys for this artist
         const albumKeys = new Set<string>();
         albums.forEach(album => {

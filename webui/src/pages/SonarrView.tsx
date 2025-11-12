@@ -878,7 +878,7 @@ function SonarrAggregateView({
     instanceMap.forEach((seriesMap, instance) => {
       seriesMap.forEach((seasonMap, series) => {
         const seriesKey = `${instance}-${series}`;
-        
+
         // Build set of episode keys for this series
         const episodeKeys = new Set<string>();
         seasonMap.forEach((episodes, season) => {
