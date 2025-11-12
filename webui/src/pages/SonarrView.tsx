@@ -617,7 +617,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   );
 
   const currentSeries = instancePages[instancePage] ?? [];
-  
+
   const allSeries = useMemo(() => {
     const pages = Object.keys(instancePages)
       .map(Number)
@@ -1359,7 +1359,7 @@ function SonarrInstanceView({
   groupSonarr,
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
-  
+
   // Separate pagination state for flat (episode) view
   const [flatPage, setFlatPage] = useState(0);
   const FLAT_PAGE_SIZE = 50;
