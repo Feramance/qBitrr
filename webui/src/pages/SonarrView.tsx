@@ -806,7 +806,18 @@ function SonarrAggregateView({
       subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
     }>;
   }>>([]);
-  const episodeKeysCache = useRef<Set<string>>(new Set());
+  const seriesGroupCache = useRef<Map<string, {
+    instance: string;
+    series: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+    subRows: Array<{
+      seasonNumber: string;
+      isSeason: boolean;
+      subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
+    }>;
+    episodeKeys: Set<string>;
+  }>>(new Map());
 
   // Create fully grouped data from all rows - only rebuild if rows actually changed
   const allGroupedData = useMemo(() => {
@@ -815,30 +826,7 @@ function SonarrAggregateView({
       return groupedDataCache.current;
     }
 
-    // Build set of current episode keys for comparison
-    const currentKeys = new Set<string>();
-    rows.forEach(row => {
-      const key = `${row.__instance}-${row.series}-${row.season}-${row.episode}`;
-      currentKeys.add(key);
-    });
-
-    // Check if the set of episodes is identical (same episodes, potentially different order)
-    if (currentKeys.size === episodeKeysCache.current.size &&
-        rows.length === prevRowsRef.current.length) {
-      let identical = true;
-      for (const key of currentKeys) {
-        if (!episodeKeysCache.current.has(key)) {
-          identical = false;
-          break;
-        }
-      }
-      if (identical) {
-        // Same episodes, return cached (prevents rebuilding when only order changes)
-        return groupedDataCache.current;
-      }
-    }
-
-    // Content changed, rebuild grouped structure
+    // Build instance > series > seasons map
     const instanceMap = new Map<string, Map<string, Map<string, SonarrAggRow[]>>>();
 
     rows.forEach(row => {
@@ -874,12 +862,54 @@ function SonarrAggregateView({
       }>;
     }> = [];
 
+    const newSeriesGroupCache = new Map<string, {
+      instance: string;
+      series: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
+      subRows: Array<{
+        seasonNumber: string;
+        isSeason: boolean;
+        subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
+      }>;
+      episodeKeys: Set<string>;
+    }>();
+
     instanceMap.forEach((seriesMap, instance) => {
       seriesMap.forEach((seasonMap, series) => {
-        // Get quality profile from first episode (all episodes in a series share the same profile)
+        const seriesKey = `${instance}-${series}`;
+        
+        // Build set of episode keys for this series
+        const episodeKeys = new Set<string>();
+        seasonMap.forEach((episodes, season) => {
+          episodes.forEach(ep => {
+            const episodeKey = `${season}-${ep.episode}`;
+            episodeKeys.add(episodeKey);
+          });
+        });
+
+        // Check if this series group is in cache and unchanged
+        const cached = seriesGroupCache.current.get(seriesKey);
+        if (cached && cached.episodeKeys.size === episodeKeys.size) {
+          let unchanged = true;
+          for (const key of episodeKeys) {
+            if (!cached.episodeKeys.has(key)) {
+              unchanged = false;
+              break;
+            }
+          }
+          if (unchanged) {
+            // Reuse cached series group (prevents count flickering)
+            result.push(cached);
+            newSeriesGroupCache.set(seriesKey, cached);
+            return;
+          }
+        }
+
+        // Build new series group
         const firstEpisode = Array.from(seasonMap.values())[0]?.[0];
         console.log(`[Sonarr Grouped] Series: ${series}, QualityProfile: ${firstEpisode?.qualityProfileName}, FirstEpisode:`, firstEpisode);
-        result.push({
+        const seriesGroup = {
           instance,
           series,
           qualityProfileId: firstEpisode?.qualityProfileId,
@@ -888,15 +918,18 @@ function SonarrAggregateView({
             seasonNumber,
             isSeason: true,
             subRows: episodes.map(ep => ({ ...ep, isEpisode: true }))
-          }))
-        });
+          })),
+          episodeKeys,
+        };
+        result.push(seriesGroup);
+        newSeriesGroupCache.set(seriesKey, seriesGroup);
       });
     });
 
     // Update caches
     prevRowsRef.current = rows;
     groupedDataCache.current = result;
-    episodeKeysCache.current = currentKeys;
+    seriesGroupCache.current = newSeriesGroupCache;
 
     return result;
   }, [rows]);
