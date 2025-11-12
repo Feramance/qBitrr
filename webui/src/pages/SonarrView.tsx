@@ -1657,7 +1657,7 @@ function SonarrInstanceView({
       {groupSonarr && series.length > 0 && (
         <div className="pagination">
           <div>
-            Page {safePage + 1} of {totalPages} ({totalItems.toLocaleString()} series)
+            Page {safePage + 1} of {totalPages} ({totalItems.toLocaleString()} series · {filteredEpisodeRows.length.toLocaleString()} episodes on page)
           </div>
           <div className="inline">
             <button
