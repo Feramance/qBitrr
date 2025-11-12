@@ -540,8 +540,6 @@ function LidarrInstanceView({
   lastUpdated,
   groupLidarr,
 }: LidarrInstanceViewProps): JSX.Element {
-  const [groupedPage, setGroupedPage] = useState(0);
-
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
     if (onlyMissing) {
@@ -610,14 +608,6 @@ function LidarrInstanceView({
     groupedAlbumsCache.current = result;
     return result;
   }, [reasonFilteredAlbums]);
-
-  // Paginate grouped artists
-  const groupedPageSize = 50;
-  const groupedPageData = useMemo(() => {
-    return groupedAlbums.slice(groupedPage * groupedPageSize, (groupedPage + 1) * groupedPageSize);
-  }, [groupedAlbums, groupedPage]);
-  const groupedTotalPages = Math.ceil(groupedAlbums.length / groupedPageSize);
-  const safeGroupedPage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
 
   const columns = useMemo<ColumnDef<LidarrAlbumEntry>[]>(
     () => [
@@ -738,7 +728,7 @@ function LidarrInstanceView({
         </div>
       ) : groupLidarr ? (
         <div className="lidarr-hierarchical-view">
-          {groupedPageData.map((artistGroup) => (
+          {groupedAlbums.map((artistGroup) => (
             <details key={artistGroup.artist} className="artist-details">
               <summary className="artist-summary">
                 <span className="artist-title">{artistGroup.artist}</span>
@@ -835,31 +825,7 @@ function LidarrInstanceView({
             </details>
           ))}
         </div>
-      ) : null}
-      {groupLidarr && groupedAlbums.length > 0 && (
-        <div className="pagination">
-          <div>
-            Page {safeGroupedPage + 1} of {groupedTotalPages} ({groupedAlbums.length} artists)
-          </div>
-          <div className="inline">
-            <button
-              className="btn"
-              onClick={() => setGroupedPage(Math.max(0, safeGroupedPage - 1))}
-              disabled={safeGroupedPage === 0}
-            >
-              Prev
-            </button>
-            <button
-              className="btn"
-              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, safeGroupedPage + 1))}
-              disabled={safeGroupedPage >= groupedTotalPages - 1}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
-      {!groupLidarr && allAlbums.length ? (
+      ) : !groupLidarr && allAlbums.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
@@ -905,11 +871,10 @@ function LidarrInstanceView({
         <div className="hint">No albums found.</div>
       )}
 
-      {reasonFilteredAlbums.length > pageSize && (
+      {allAlbums.length > 0 && totalPages > 1 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({reasonFilteredAlbums.length.toLocaleString()} items · page size{" "}
-            {pageSize})
+            Page {page + 1} of {totalPages} ({groupLidarr ? `${allAlbums.length.toLocaleString()} albums` : `${reasonFilteredAlbums.length.toLocaleString()} items · page size ${pageSize}`})
           </div>
           <div className="inline">
             <button
