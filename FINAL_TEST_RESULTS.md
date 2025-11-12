@@ -64,14 +64,14 @@ Then include in series object:
 - API response: qualityProfileName = null (using fallback path)
 - Expected: Will work once series table is populated
 
-### Sonarr-Anime Instance ⏳ PENDING  
+### Sonarr-Anime Instance ⏳ PENDING
 - Series table: 0 rows (still syncing)
 - Expected: Will work once series table is populated
 
 ## Files Modified
 1. `webui/src/pages/SonarrView.tsx` (+10 lines)
    - Added quality profile column to flat table views
-   
+
 2. `qBitrr/webui.py` (+6 lines)
    - Added quality profile extraction in API fallback path
 
@@ -82,7 +82,7 @@ Then include in series object:
 - Grouped view at series level
 - Flat table view in dedicated column
 
-### When Series Table is Empty (Fallback Path)  
+### When Series Table is Empty (Fallback Path)
 ⚠️ Quality profiles will be `null` because:
 - Episode records don't have quality profile data populated
 - Fallback path tries to extract from episodes but finds null values
