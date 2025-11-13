@@ -702,6 +702,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85em;
+  table-layout: fixed;
 }
 
 .tracks-table th,
@@ -709,6 +710,37 @@ body {
   padding: 6px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed column widths for tracks table */
+.tracks-table th:nth-child(1),
+.tracks-table td:nth-child(1) {
+  width: 50px; /* Track number */
+}
+
+.tracks-table th:nth-child(2),
+.tracks-table td:nth-child(2) {
+  width: auto; /* Title - takes remaining space */
+  white-space: normal; /* Allow title to wrap if needed */
+}
+
+.tracks-table th:nth-child(3),
+.tracks-table td:nth-child(3) {
+  width: 80px; /* Duration */
+}
+
+.tracks-table th:nth-child(4),
+.tracks-table td:nth-child(4) {
+  width: 90px; /* Has File */
+  text-align: center;
+}
+
+.tracks-table th:nth-child(5),
+.tracks-table td:nth-child(5) {
+  width: 150px; /* Reason */
 }
 
 .tracks-table th {
