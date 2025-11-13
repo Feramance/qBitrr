@@ -262,7 +262,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   }, [filteredMovies, reasonFilter]);
 
   const totalMovies = useMemo(() => allMovies.length, [allMovies]);
-  const isFiltered = reasonFilter !== "all";
+  const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = reasonFilteredMovies.length;
 
   const columns = useMemo<ColumnDef<RadarrMovie>[]>(
@@ -337,18 +337,28 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
-          {data?.counts
-            ? `Available: ${data.counts.available ?? 0} • Monitored: ${
-                data.counts.monitored ?? 0
-              }`
-            : ""}
-          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
-          {isFiltered && totalMovies > 0 && (
+          {data?.counts ? (
             <>
-              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
-              {totalMovies.toLocaleString()}
+              <strong>Available:</strong>{" "}
+              {(data.counts.available ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Monitored:</strong>{" "}
+              {(data.counts.monitored ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Missing:</strong>{" "}
+              {((data.counts.monitored ?? 0) - (data.counts.available ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Total:</strong>{" "}
+              {totalMovies.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {isFiltered && filteredCount < totalMovies && (
+                <>
+                  {" "}• <strong>Filtered:</strong>{" "}
+                  {filteredCount.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+                  {totalMovies.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </>
+              )}
             </>
+          ) : (
+            "Loading movie information..."
           )}
+          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />

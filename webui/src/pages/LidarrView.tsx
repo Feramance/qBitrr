@@ -524,6 +524,8 @@ interface LidarrInstanceViewProps {
   onRestart: () => void;
   lastUpdated: string | null;
   groupLidarr: boolean;
+  instances: ArrInfo[];
+  selection: string;
 }
 
 function LidarrInstanceView({
@@ -539,6 +541,8 @@ function LidarrInstanceView({
   onRestart,
   lastUpdated,
   groupLidarr,
+  instances,
+  selection,
 }: LidarrInstanceViewProps): JSX.Element {
   // Separate pagination state for flat (album) view
   const [flatPage, setFlatPage] = useState(0);
@@ -570,8 +574,27 @@ function LidarrInstanceView({
   }, [filteredAlbums, reasonFilter]);
 
   const totalAlbums = useMemo(() => allAlbums.length, [allAlbums]);
-  const isFiltered = reasonFilter !== "all";
+  const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = reasonFilteredAlbums.length;
+
+  // Count total tracks for instance view
+  const totalTracks = useMemo(() => {
+    let count = 0;
+    allAlbums.forEach(entry => {
+      const tracks = entry.tracks || [];
+      count += tracks.length;
+    });
+    return count;
+  }, [allAlbums]);
+
+  const filteredTracks = useMemo(() => {
+    let count = 0;
+    reasonFilteredAlbums.forEach(entry => {
+      const tracks = entry.tracks || [];
+      count += tracks.length;
+    });
+    return count;
+  }, [reasonFilteredAlbums]);
 
   // Reset flat page when filters change
   useEffect(() => {
@@ -719,18 +742,28 @@ function LidarrInstanceView({
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
-          {data?.counts
-            ? `Available: ${data.counts.available ?? 0} • Monitored: ${
-                data.counts.monitored ?? 0
-              }`
-            : ""}
-          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
-          {isFiltered && totalAlbums > 0 && (
+          {data?.counts ? (
             <>
-              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
-              {totalAlbums.toLocaleString()}
+              <strong>Available:</strong>{" "}
+              {(data.counts.available ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Monitored:</strong>{" "}
+              {(data.counts.monitored ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Missing:</strong>{" "}
+              {((data.counts.monitored ?? 0) - (data.counts.available ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Total:</strong>{" "}
+              {totalAlbums.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {isFiltered && filteredCount < totalAlbums && (
+                <>
+                  {" "}• <strong>Filtered:</strong>{" "}
+                  {filteredCount.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+                  {totalAlbums.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </>
+              )}
             </>
+          ) : (
+            "Loading album information..."
           )}
+          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />
@@ -744,10 +777,14 @@ function LidarrInstanceView({
         </div>
       ) : groupLidarr ? (
         <div className="lidarr-hierarchical-view">
-          {groupedAlbums.map((artistGroup) => (
+          {groupedAlbums.map((artistGroup) => {
+            // Get instance name from selection
+            const instanceName = instances.find(i => i.category === selection)?.name || selection;
+            return (
             <details key={artistGroup.artist} className="artist-details">
               <summary className="artist-summary">
                 <span className="artist-title">{artistGroup.artist}</span>
+                <span className="artist-instance">({instanceName})</span>
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
                 {artistGroup.qualityProfileName ? (
                   <span className="artist-quality">• {artistGroup.qualityProfileName}</span>
@@ -835,11 +872,12 @@ function LidarrInstanceView({
                       )}
                     </div>
                   </details>
-                  );
+                   );
                 })}
               </div>
             </details>
-          ))}
+            );
+          })}
         </div>
       ) : !groupLidarr && allAlbums.length ? (
         <div className="table-wrapper">
@@ -1646,6 +1684,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
                 groupLidarr={groupLidarr}
+                instances={instances}
+                selection={selection as string}
               />
             )}
           </div>

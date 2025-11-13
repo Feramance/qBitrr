@@ -786,6 +786,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
                 groupSonarr={groupSonarr}
+                instances={instances}
+                selection={selection as string}
               />
             )}
           </div>
@@ -1343,6 +1345,8 @@ interface SonarrInstanceViewProps {
   onRestart: () => void;
   lastUpdated: string | null;
   groupSonarr: boolean;
+  instances: ArrInfo[];
+  selection: string;
 }
 
 function SonarrInstanceView({
@@ -1356,7 +1360,11 @@ function SonarrInstanceView({
   onlyMissing,
   reasonFilter,
   onPageChange,
+  onRestart,
+  lastUpdated,
   groupSonarr,
+  instances,
+  selection,
 }: SonarrInstanceViewProps): JSX.Element {
   const safePage = Math.min(page, Math.max(0, totalPages - 1));
 
@@ -1479,7 +1487,7 @@ function SonarrInstanceView({
   }, [filteredEpisodeRows]);
 
   const totalEpisodes = useMemo(() => episodeRows.length, [episodeRows]);
-  const isFiltered = reasonFilter !== "all";
+  const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = filteredEpisodeRows.length;
 
   // Pagination for flat view
@@ -1495,20 +1503,31 @@ function SonarrInstanceView({
         <div className="hint">
           {counts ? (
             <>
-              <strong>Available:</strong> {counts.available.toLocaleString()} •{" "}
-              <strong>Monitored:</strong> {counts.monitored.toLocaleString()} •{" "}
-              <strong>Missing:</strong> {counts.missing?.toLocaleString() ?? 0}
-              {isFiltered && totalEpisodes > 0 && (
+              <strong>Available:</strong>{" "}
+              {counts.available.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Monitored:</strong>{" "}
+              {counts.monitored.toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Missing:</strong>{" "}
+              {(counts.missing ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Total Episodes:</strong>{" "}
+              {totalEpisodes.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {isFiltered && filteredCount < totalEpisodes && (
                 <>
-                  {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
-                  {totalEpisodes.toLocaleString()}
+                  {" "}• <strong>Filtered:</strong>{" "}
+                  {filteredCount.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+                  {totalEpisodes.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </>
               )}
             </>
           ) : (
             "Loading series information..."
           )}
+          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
+        <button className="btn ghost" onClick={onRestart} disabled={loading}>
+          <IconImage src={RefreshIcon} />
+          Restart
+        </button>
       </div>
       {loading ? (
         <div className="loading">
@@ -1521,10 +1540,13 @@ function SonarrInstanceView({
             seriesGroup.subRows.forEach(season => {
               episodeCount += season.subRows.length;
             });
+            // Get instance name from selection
+            const instanceName = instances.find(i => i.category === selection)?.name || selection;
             return (
             <details key={`${seriesGroup.series}`} className="series-details">
               <summary className="series-summary">
                 <span className="series-title">{seriesGroup.series}</span>
+                <span className="series-instance">({instanceName})</span>
                 <span className="series-count">({episodeCount} episodes)</span>
                 {seriesGroup.qualityProfileName ? (
                   <span className="series-quality">• {seriesGroup.qualityProfileName}</span>
