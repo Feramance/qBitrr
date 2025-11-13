@@ -718,7 +718,7 @@ body {
 /* Fixed column widths for tracks table */
 .tracks-table th:nth-child(1),
 .tracks-table td:nth-child(1) {
-  width: 50px; /* Track number */
+  width: 70px; /* Track number */
 }
 
 .tracks-table th:nth-child(2),
@@ -729,18 +729,18 @@ body {
 
 .tracks-table th:nth-child(3),
 .tracks-table td:nth-child(3) {
-  width: 80px; /* Duration */
+  width: 100px; /* Duration */
 }
 
 .tracks-table th:nth-child(4),
 .tracks-table td:nth-child(4) {
-  width: 90px; /* Has File */
+  width: 110px; /* Has File */
   text-align: center;
 }
 
 .tracks-table th:nth-child(5),
 .tracks-table td:nth-child(5) {
-  width: 150px; /* Reason */
+  width: 180px; /* Reason */
 }
 
 .tracks-table th {
