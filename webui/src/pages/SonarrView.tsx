@@ -1497,6 +1497,20 @@ function SonarrInstanceView({
     return filteredEpisodeRows.slice(flatSafePage * FLAT_PAGE_SIZE, (flatSafePage + 1) * FLAT_PAGE_SIZE);
   }, [filteredEpisodeRows, flatSafePage]);
 
+  // Pagination for grouped view (paginate by series groups, not backend pages)
+  const GROUPED_PAGE_SIZE = 50;
+  const [groupedPage, setGroupedPage] = useState(0);
+  const groupedTotalPages = Math.max(1, Math.ceil(groupedTableData.length / GROUPED_PAGE_SIZE));
+  const groupedSafePage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
+  const paginatedGroupedData = useMemo(() => {
+    return groupedTableData.slice(groupedSafePage * GROUPED_PAGE_SIZE, (groupedSafePage + 1) * GROUPED_PAGE_SIZE);
+  }, [groupedTableData, groupedSafePage]);
+
+  // Reset grouped page when filters change
+  useEffect(() => {
+    setGroupedPage(0);
+  }, [onlyMissing, reasonFilter]);
+
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -1535,7 +1549,7 @@ function SonarrInstanceView({
         </div>
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
-          {groupedTableData.map((seriesGroup) => {
+          {paginatedGroupedData.map((seriesGroup) => {
             let episodeCount = 0;
             seriesGroup.subRows.forEach(season => {
               episodeCount += season.subRows.length;
@@ -1676,23 +1690,23 @@ function SonarrInstanceView({
       ) : (
         <div className="hint">No series found.</div>
       )}
-      {groupSonarr && series.length > 0 && (
+      {groupSonarr && groupedTableData.length > 0 && (
         <div className="pagination">
           <div>
-            Page {safePage + 1} of {totalPages} ({totalItems.toLocaleString()} series · {filteredEpisodeRows.length.toLocaleString()} episodes on page)
+            Page {groupedSafePage + 1} of {groupedTotalPages} ({groupedTableData.length.toLocaleString()} series · page size {GROUPED_PAGE_SIZE})
           </div>
           <div className="inline">
             <button
               className="btn"
-              onClick={() => onPageChange(Math.max(0, safePage - 1))}
-              disabled={safePage === 0 || loading}
+              onClick={() => setGroupedPage(Math.max(0, groupedSafePage - 1))}
+              disabled={groupedSafePage === 0 || loading}
             >
               Prev
             </button>
             <button
               className="btn"
-              onClick={() => onPageChange(Math.min(totalPages - 1, safePage + 1))}
-              disabled={safePage >= totalPages - 1 || loading}
+              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, groupedSafePage + 1))}
+              disabled={groupedSafePage >= groupedTotalPages - 1 || loading}
             >
               Next
             </button>

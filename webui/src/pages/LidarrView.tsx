@@ -731,6 +731,20 @@ function LidarrInstanceView({
     return reasonFilteredAlbums.slice(flatSafePage * FLAT_PAGE_SIZE, (flatSafePage + 1) * FLAT_PAGE_SIZE);
   }, [reasonFilteredAlbums, flatSafePage]);
 
+  // Pagination for grouped view (paginate by artist groups, not backend pages)
+  const GROUPED_PAGE_SIZE = 50;
+  const [groupedPage, setGroupedPage] = useState(0);
+  const groupedTotalPages = Math.max(1, Math.ceil(groupedAlbums.length / GROUPED_PAGE_SIZE));
+  const groupedSafePage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
+  const paginatedGroupedAlbums = useMemo(() => {
+    return groupedAlbums.slice(groupedSafePage * GROUPED_PAGE_SIZE, (groupedSafePage + 1) * GROUPED_PAGE_SIZE);
+  }, [groupedAlbums, groupedSafePage]);
+
+  // Reset grouped page when filters change
+  useEffect(() => {
+    setGroupedPage(0);
+  }, [onlyMissing, reasonFilter]);
+
   const table = useReactTable({
     data: paginatedAlbums,
     columns,
@@ -777,7 +791,7 @@ function LidarrInstanceView({
         </div>
       ) : groupLidarr ? (
         <div className="lidarr-hierarchical-view">
-          {groupedAlbums.map((artistGroup) => {
+          {paginatedGroupedAlbums.map((artistGroup) => {
             // Get instance name from selection
             const instanceName = instances.find(i => i.category === selection)?.name || selection;
             return (
@@ -948,33 +962,27 @@ function LidarrInstanceView({
         <div className="hint">No albums found.</div>
       )}
 
-      {groupLidarr && allAlbums.length > 0 && (
+      {groupLidarr && groupedAlbums.length > 0 && (
         <div className="pagination">
           <div>
-            {totalPages > 1 ? (
-              <>Page {page + 1} of {totalPages} ({(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums on page)</>
-            ) : (
-              <>{(data?.total ?? 0).toLocaleString()} artists · {allAlbums.length.toLocaleString()} albums</>
-            )}
+            Page {groupedSafePage + 1} of {groupedTotalPages} ({groupedAlbums.length.toLocaleString()} artists · page size {GROUPED_PAGE_SIZE})
           </div>
-          {totalPages > 1 && (
-            <div className="inline">
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.max(0, page - 1))}
-                disabled={page === 0 || loading}
-              >
-                Prev
-              </button>
-              <button
-                className="btn"
-                onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-                disabled={page >= totalPages - 1 || loading}
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <div className="inline">
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.max(0, groupedSafePage - 1))}
+              disabled={groupedSafePage === 0 || loading}
+            >
+              Prev
+            </button>
+            <button
+              className="btn"
+              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, groupedSafePage + 1))}
+              disabled={groupedSafePage >= groupedTotalPages - 1 || loading}
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
