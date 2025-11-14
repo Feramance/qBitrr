@@ -3,6 +3,10 @@
 
 
 [Settings]
+# Internal config schema version - DO NOT MODIFY
+# This is managed automatically by qBitrr for config migrations
+ConfigVersion = 1
+
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
 
@@ -181,6 +185,20 @@ UseTempForMissing = false
 
 # Don't change back to main profile
 KeepTempProfile = false
+
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
 
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
@@ -393,6 +411,20 @@ UseTempForMissing = false
 # Don't change back to main profile
 KeepTempProfile = false
 
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
+
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
@@ -602,6 +634,20 @@ UseTempForMissing = false
 
 # Don't change back to main profile
 KeepTempProfile = false
+
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
 
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
@@ -818,6 +864,20 @@ UseTempForMissing = false
 # Don't change back to main profile
 KeepTempProfile = false
 
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
+
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []
 
@@ -1029,6 +1089,20 @@ UseTempForMissing = false
 
 # Don't change back to main profile
 KeepTempProfile = false
+
+# Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)
+# Profile names must match exactly as they appear in your Arr instance
+# Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}
+QualityProfileMappings = {}
+
+# Reset all items using temp profiles to their original main profile on qBitrr startup
+ForceResetTempProfiles = false
+
+# Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)
+TempProfileResetTimeoutMinutes = 0
+
+# Number of retry attempts for profile switch API calls (default: 3)
+ProfileSwitchRetryAttempts = 3
 
 # Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
 MainQualityProfile = []

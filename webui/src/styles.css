@@ -459,6 +459,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .series-summary:hover,
@@ -468,12 +469,35 @@ body {
 
 .series-title {
   font-size: 1.1em;
+  flex: 1;
 }
 
 .series-instance {
   font-size: 0.9em;
   color: var(--muted);
   font-weight: normal;
+  white-space: nowrap;
+}
+
+.series-count {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.series-quality {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.artist-quality {
+  font-size: 0.9em;
+  color: var(--muted);
+  font-weight: normal;
+  white-space: nowrap;
 }
 
 .season-title {
@@ -678,6 +702,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.85em;
+  table-layout: fixed;
 }
 
 .tracks-table th,
@@ -685,6 +710,37 @@ body {
   padding: 6px 10px;
   text-align: left;
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed column widths for tracks table */
+.tracks-table th:nth-child(1),
+.tracks-table td:nth-child(1) {
+  width: 70px; /* Track number */
+}
+
+.tracks-table th:nth-child(2),
+.tracks-table td:nth-child(2) {
+  width: auto; /* Title - takes remaining space */
+  white-space: normal; /* Allow title to wrap if needed */
+}
+
+.tracks-table th:nth-child(3),
+.tracks-table td:nth-child(3) {
+  width: 100px; /* Duration */
+}
+
+.tracks-table th:nth-child(4),
+.tracks-table td:nth-child(4) {
+  width: 110px; /* Has File */
+  text-align: center;
+}
+
+.tracks-table th:nth-child(5),
+.tracks-table td:nth-child(5) {
+  width: 180px; /* Reason */
 }
 
 .tracks-table th {
@@ -2308,6 +2364,32 @@ svg[height] {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(255, 255, 255, 0.08);
 }
+
+.profile-mappings-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-mapping-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.profile-mapping-row .field {
+    margin: 0;
+}
+
+.profile-mapping-row .btn.icon-only {
+    height: 38px;
+    width: 38px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .tracker-card .card-header {
     display: flex;
     justify-content: space-between;
@@ -3470,4 +3552,92 @@ svg[height] {
 
 .react-lazylog-searchbar-matches.inactive {
     opacity: 0.5 !important;
+}
+
+/* Test Connection Section */
+.test-connection-section {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.field-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field-hint {
+  font-size: 0.85em;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Alert Styles */
+.alert {
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+.alert.success {
+  background: rgba(76, 175, 80, 0.1);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  color: #66bb6a;
+}
+
+[data-theme="light"] .alert.success {
+  background: rgba(76, 175, 80, 0.08);
+  border-color: rgba(76, 175, 80, 0.4);
+  color: #388e3c;
+}
+
+.alert.error {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #ef5350;
+}
+
+[data-theme="light"] .alert.error {
+  background: rgba(244, 67, 54, 0.08);
+  border-color: rgba(244, 67, 54, 0.4);
+  color: #d32f2f;
+}
+
+.alert.info {
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #42a5f5;
+}
+
+[data-theme="light"] .alert.info {
+  background: rgba(33, 150, 243, 0.08);
+  border-color: rgba(33, 150, 243, 0.4);
+  color: #1976d2;
+}
+
+.alert.warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffb74d;
+}
+
+[data-theme="light"] .alert.warning {
+  background: rgba(255, 193, 7, 0.08);
+  border-color: rgba(255, 193, 7, 0.4);
+  color: #f57c00;
+}
+
+.alert-details {
+  font-size: 0.9em;
+  margin-top: 6px;
+  opacity: 0.9;
+}
+
+.alert strong {
+  font-weight: 600;
 }

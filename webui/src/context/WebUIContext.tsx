@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type JSX, type ReactNode } from "react";
 import { getConfig, updateConfig } from "../api/client";
+import { useToast } from "./ToastContext";
 
 type ViewDensity = "comfortable" | "compact";
 type Theme = "light" | "dark";
@@ -37,6 +38,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     theme: "dark",
   });
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   // Load initial settings
   useEffect(() => {
@@ -44,6 +46,15 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
       try {
         const config = await getConfig();
         const webui = config?.WebUI as Record<string, unknown> | undefined;
+
+        // Check for config version warning in sessionStorage
+        const warningMessage = sessionStorage.getItem("config_version_warning");
+        if (warningMessage) {
+          // Show error toast with longer duration for config version mismatch
+          toast.push(warningMessage, "error");
+          // Clear the warning after showing it
+          sessionStorage.removeItem("config_version_warning");
+        }
 
         // Load from localStorage as fallback for view density (client-side preference)
         const storedDensity = localStorage.getItem("viewDensity") as ViewDensity | null;
@@ -71,7 +82,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     };
 
     void loadSettings();
-  }, []);
+  }, [toast]);
 
   // Auto-save settings to backend
   const saveSettings = useCallback(async (key: string, value: boolean | string) => {

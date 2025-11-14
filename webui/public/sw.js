@@ -60,6 +60,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip log file requests - they can be very large and shouldn't be cached
+  if (url.pathname.startsWith('/web/logs/') && !url.pathname.endsWith('/download')) {
+    return;
+  }
+
   // Network-first for API calls
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(

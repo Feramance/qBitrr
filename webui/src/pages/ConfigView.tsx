@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
-import { getConfig, updateConfig } from "../api/client";
+import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
@@ -109,6 +109,23 @@ const parseList = (value: string | boolean): string[] =>
 
 const formatList = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : String(value ?? "");
+
+const parseDict = (value: string | boolean): Record<string, string> => {
+  const str = String(value).trim();
+  if (!str || str === "{}") return {};
+  try {
+    return JSON.parse(str);
+  } catch {
+    return {};
+  }
+};
+
+const formatDict = (value: unknown): string => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "{}";
+  const obj = value as Record<string, unknown>;
+  if (Object.keys(obj).length === 0) return "{}";
+  return JSON.stringify(obj, null, 2);
+};
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
@@ -521,18 +538,22 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
-    label: "Main Quality Profile",
-    path: ["EntrySearch", "MainQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Force Reset Temp Profiles",
+    path: ["EntrySearch", "ForceResetTempProfiles"],
+    type: "checkbox",
+    description: "Reset all items using temp profiles to their original main profile on qBitrr startup",
   },
   {
-    label: "Temp Quality Profile",
-    path: ["EntrySearch", "TempQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Temp Profile Reset Timeout (Minutes)",
+    path: ["EntrySearch", "TempProfileResetTimeoutMinutes"],
+    type: "number",
+    description: "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
+  },
+  {
+    label: "Profile Switch Retry Attempts",
+    path: ["EntrySearch", "ProfileSwitchRetryAttempts"],
+    type: "number",
+    description: "Number of retry attempts for profile switch API calls (default: 3)",
   },
   {
     label: "Search By Series",
@@ -1112,8 +1133,10 @@ function ensureArrDefaults(type: string): ConfigDocument {
     SearchAgainOnSearchCompletion: true,
     UseTempForMissing: false,
     KeepTempProfile: false,
-    MainQualityProfile: [],
-    TempQualityProfile: [],
+    ForceResetTempProfiles: false,
+    TempProfileResetTimeoutMinutes: 0,
+    ProfileSwitchRetryAttempts: 3,
+    QualityProfileMappings: {},
   };
 
   if (isSonarr) {
@@ -1759,6 +1782,7 @@ interface FieldGroupProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
+  qualityProfiles?: Array<{ id: number; name: string }>;
 }
 
 function FieldGroup({
@@ -1769,8 +1793,137 @@ function FieldGroup({
   onChange,
   onRenameSection,
   defaultOpen = false,
+  qualityProfiles = [],
 }: FieldGroupProps): JSX.Element {
   const sectionName = basePath[0] ?? "";
+
+  if (title === "Quality Profile Mappings") {
+    const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
+    const mappingEntries = Object.entries(mappings);
+
+    // Check if credentials exist (URI and APIKey)
+    const hasCredentials = Boolean(
+      getValue(state as ConfigDocument, ["URI"]) &&
+        getValue(state as ConfigDocument, ["APIKey"])
+    );
+    const hasProfiles = qualityProfiles.length > 0;
+
+    const handleAddMapping = () => {
+      const nextMappings = { ...mappings, "": "" };
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleUpdateMapping = (oldKey: string, newKey: string, newValue: string) => {
+      const nextMappings = { ...mappings };
+      if (oldKey !== newKey) {
+        delete nextMappings[oldKey];
+      }
+      if (newKey.trim()) {
+        nextMappings[newKey.trim()] = newValue.trim();
+      }
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleDeleteMapping = (key: string) => {
+      const nextMappings = { ...mappings };
+      delete nextMappings[key];
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    return (
+      <details className="config-section" open={defaultOpen}>
+        <summary>{title}</summary>
+        <div className="config-section__body">
+          <div className="field-description" style={{ marginBottom: '1rem' }}>
+            Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
+          </div>
+
+          {!hasCredentials ? (
+            <div className="alert warning">
+              ⚠️ Please configure URI and API Key first, then click "Test Connection" to load quality profiles
+            </div>
+          ) : !hasProfiles ? (
+            <div className="alert info">
+              ℹ️ Click "Test Connection" above to load quality profiles from your {sectionName} instance
+            </div>
+          ) : (
+            <>
+              <div className="profile-mappings-grid">
+                {mappingEntries.map(([mainProfile, tempProfile], index) => (
+                  <div key={index} className="profile-mapping-row">
+                    <div className="field">
+                      <label>Main Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          mainProfile
+                            ? { value: mainProfile, label: mainProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            option?.value || "",
+                            tempProfile
+                          )
+                        }
+                        placeholder="Select main profile..."
+                        isClearable
+                        styles={getSelectStyles()}
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Temp Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          tempProfile
+                            ? { value: tempProfile, label: tempProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            mainProfile,
+                            option?.value || ""
+                          )
+                        }
+                        placeholder="Select temp profile..."
+                        isClearable
+                        styles={getSelectStyles()}
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <button
+                      className="btn ghost icon-only"
+                      type="button"
+                      onClick={() => handleDeleteMapping(mainProfile)}
+                      title="Delete mapping"
+                    >
+                      <IconImage src={DeleteIcon} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="config-actions">
+                <button className="btn" type="button" onClick={handleAddMapping}>
+                  <IconImage src={AddIcon} />
+                  Add Profile Mapping
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </details>
+    );
+  }
 
   if (title === "Trackers") {
     const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
@@ -1839,8 +1992,8 @@ function FieldGroup({
     const pathSegments = field.path ?? [];
     const path = [...basePath, ...pathSegments];
     const key = path.join('.');
-    const rawValue = field.path
-      ? getValue(state as ConfigDocument, field.path as string[])
+    const rawValue = path.length > 0
+      ? getValue(state as ConfigDocument, path)
       : undefined;
     const formatted =
       field.format?.(rawValue) ??
@@ -2153,6 +2306,112 @@ function ArrInstanceModal({
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
+  const { push } = useToast();
+
+  // State for test connection
+  const [testState, setTestState] = useState<{
+    testing: boolean;
+    result: TestConnectionResponse | null;
+  }>({ testing: false, result: null });
+
+  const [qualityProfiles, setQualityProfiles] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+
+  // Helper to get value from state
+  const getValue = (path: string[]): unknown => {
+    if (!state) return undefined;
+    // state is already the Arr instance object, not the full ConfigDocument
+    return get(state, path);
+  };
+
+  // Clear test state when URI or APIKey changes
+  useEffect(() => {
+    setTestState({ testing: false, result: null });
+    setQualityProfiles([]);
+  }, [getValue(["URI"]), getValue(["APIKey"])]);
+
+  // Auto-test connection when modal opens if credentials exist
+  useEffect(() => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    if (uri && apiKey && !testState.testing && !testState.result) {
+      // Auto-test silently (without toasts)
+      handleTestConnection(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Test connection handler
+  const handleTestConnection = async (silent = false) => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // Determine Arr type from keyName
+    const keyLower = keyName.toLowerCase();
+    const arrType = keyLower.includes("radarr")
+      ? "radarr"
+      : keyLower.includes("sonarr")
+        ? "sonarr"
+        : "lidarr";
+
+    if (!uri || !apiKey) {
+      if (!silent) {
+        push("Please configure URI and API Key first", "error");
+      }
+      return false;
+    }
+
+    setTestState({ testing: true, result: null });
+
+    try {
+      const result = await testArrConnection({ arrType, uri, apiKey });
+      setTestState({ testing: false, result });
+
+      if (result.success) {
+        // Cache quality profiles for dropdown use
+        if (result.qualityProfiles) {
+          setQualityProfiles(result.qualityProfiles);
+        }
+        if (!silent) {
+          push(`Connected to ${keyName} successfully!`, "success");
+        }
+        return true;
+      } else {
+        if (!silent) {
+          push(`Connection failed: ${result.message}`, "error");
+        }
+        return false;
+      }
+    } catch (error) {
+      setTestState({ testing: false, result: null });
+      if (!silent) {
+        push("Test connection failed", "error");
+      }
+      return false;
+    }
+  };
+
+  // Handle save with connection test
+  const handleSave = async () => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // If credentials exist, test connection before saving
+    if (uri && apiKey) {
+      const success = await handleTestConnection(false);
+      if (success) {
+        push("Configuration saved successfully", "success");
+        onClose();
+      }
+      // If unsuccessful, stay open so user can fix config
+    } else {
+      // No credentials to test, just close
+      onClose();
+    }
+  };
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -2181,6 +2440,37 @@ function ArrInstanceModal({
             onRenameSection={onRename}
             defaultOpen
           />
+          {testState.result && (
+            <div
+              className={`alert ${testState.result.success ? "success" : "error"}`}
+              style={{ margin: "16px 0" }}
+            >
+              {testState.result.success ? (
+                <>
+                  <strong>✓ {testState.result.message}</strong>
+                  {testState.result.systemInfo && (
+                    <div className="alert-details">
+                      Version: {testState.result.systemInfo.version}
+                      {testState.result.systemInfo.branch &&
+                        ` (${testState.result.systemInfo.branch})`}
+                    </div>
+                  )}
+                  {testState.result.qualityProfiles && (
+                    <div className="alert-details">
+                      Found {testState.result.qualityProfiles.length} quality
+                      profile(s)
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>⚠️ Connection Failed</strong>
+                  <br />
+                  {testState.result.message}
+                </>
+              )}
+            </div>
+          )}
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
@@ -2188,6 +2478,15 @@ function ArrInstanceModal({
             basePath={[keyName]}
             onChange={onChange}
             defaultOpen
+          />
+          <FieldGroup
+            title="Quality Profile Mappings"
+            fields={[]}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+            defaultOpen
+            qualityProfiles={qualityProfiles}
           />
           {entryOmbiFields.length > 0 && (
             <FieldGroup
@@ -2230,9 +2529,24 @@ function ArrInstanceModal({
           />
         </div>
         <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={onClose}>
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={() => handleTestConnection(false)}
+            disabled={testState.testing}
+          >
+            {testState.testing ? (
+              <>
+                <IconImage src={RefreshIcon} />
+                Testing...
+              </>
+            ) : (
+              "Test"
+            )}
+          </button>
+          <button className="btn primary" type="button" onClick={handleSave}>
             <IconImage src={SaveIcon} />
-            Done
+            Save
           </button>
         </div>
       </div>

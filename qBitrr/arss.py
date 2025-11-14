@@ -698,6 +698,9 @@ class Arr:
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to %s", self.uri)
+            # Clear the cache to ensure we retry on next check
+            if 1 in self.expiring_bool.container:
+                self.expiring_bool.remove(1)
         return False
 
     @staticmethod
@@ -2910,12 +2913,27 @@ class Arr:
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
 
+                        # Get quality profile info
+                        qualityProfileName = None
+                        if quality_profile_id:
+                            try:
+                                if quality_profile_id not in self._quality_profile_cache:
+                                    profile = self.client.get_quality_profile(quality_profile_id)
+                                    self._quality_profile_cache[quality_profile_id] = profile
+                                qualityProfileName = self._quality_profile_cache[
+                                    quality_profile_id
+                                ].get("name")
+                            except Exception:
+                                pass
+
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
                             self.series_file_model.Searched: searched,
                             self.series_file_model.Upgrade: False,
                             self.series_file_model.MinCustomFormatScore: minCustomFormat,
+                            self.series_file_model.QualityProfileId: quality_profile_id,
+                            self.series_file_model.QualityProfileName: qualityProfileName,
                         }
 
                         self.logger.debug(
@@ -2932,6 +2950,8 @@ class Arr:
                             Monitored=Monitored,
                             Upgrade=False,
                             MinCustomFormatScore=minCustomFormat,
+                            QualityProfileId=quality_profile_id,
+                            QualityProfileName=qualityProfileName,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId], update=to_update
                         )
@@ -3057,6 +3077,20 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
+                    # Get quality profile info
+                    qualityProfileId = db_entry.get("qualityProfileId")
+                    qualityProfileName = None
+                    if qualityProfileId:
+                        try:
+                            if qualityProfileId not in self._quality_profile_cache:
+                                profile = self.client.get_quality_profile(qualityProfileId)
+                                self._quality_profile_cache[qualityProfileId] = profile
+                            qualityProfileName = self._quality_profile_cache[qualityProfileId].get(
+                                "name"
+                            )
+                        except Exception:
+                            pass
+
                     if not db_entry["hasFile"]:
                         # Movie is missing a file - always mark as Missing
                         reason = "Missing"
@@ -3082,6 +3116,8 @@ class Arr:
                         self.model_file.CustomFormatScore: customFormat,
                         self.model_file.CustomFormatMet: customFormatMet,
                         self.model_file.Reason: reason,
+                        self.model_file.QualityProfileId: qualityProfileId,
+                        self.model_file.QualityProfileName: qualityProfileName,
                     }
 
                     if request:
@@ -3111,6 +3147,8 @@ class Arr:
                         CustomFormatScore=customFormat,
                         CustomFormatMet=customFormatMet,
                         Reason=reason,
+                        QualityProfileId=qualityProfileId,
+                        QualityProfileName=qualityProfileName,
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
                 else:
@@ -3367,6 +3405,26 @@ class Arr:
                         qualityMet = not QualityUnmet if hasAllTracks else False
                         customFormatMet = customFormat >= minCustomFormat
 
+                        # Get quality profile info from artist (Lidarr albums inherit from artist)
+                        qualityProfileId = None
+                        qualityProfileName = None
+                        try:
+                            artist_id = db_entry.get("artistId")
+                            if artist_id:
+                                # Try to get from already-fetched artist data if available
+                                artist_data = self.client.get_artist(artist_id)
+                                qualityProfileId = artist_data.get("qualityProfileId")
+                                if qualityProfileId:
+                                    # Fetch quality profile from cache or API
+                                    if qualityProfileId not in self._quality_profile_cache:
+                                        profile = self.client.get_quality_profile(qualityProfileId)
+                                        self._quality_profile_cache[qualityProfileId] = profile
+                                    qualityProfileName = self._quality_profile_cache[
+                                        qualityProfileId
+                                    ].get("name")
+                        except Exception:
+                            pass
+
                         if not hasAllTracks:
                             # Album is missing tracks - always mark as Missing
                             reason = "Missing"
@@ -3396,6 +3454,8 @@ class Arr:
                             self.model_file.ArtistId: artistId,
                             self.model_file.ForeignAlbumId: foreignAlbumId,
                             self.model_file.ReleaseDate: releaseDate,
+                            self.model_file.QualityProfileId: qualityProfileId,
+                            self.model_file.QualityProfileName: qualityProfileName,
                         }
 
                         if request:
@@ -3428,6 +3488,8 @@ class Arr:
                             CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
+                            QualityProfileId=qualityProfileId,
+                            QualityProfileName=qualityProfileName,
                         ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
 
