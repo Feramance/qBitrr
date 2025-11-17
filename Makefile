@@ -6,6 +6,18 @@ VENV_DIR:=$(ROOT_DIR)/.venv
 
 ifeq ($(OS),Windows_NT)
 	PYTHON ?= python
+	PYTHON311 ?= $(shell \
+		for cmd in python3.12 python3.13 python3.14 python3.11 python3 python; do \
+			if command -v $$cmd >/dev/null 2>&1; then \
+				version=$$($$cmd -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null); \
+				if [ "$$version" = "3.11" ] || [ "$$version" = "3.12" ] || [ "$$version" = "3.13" ] || [ "$$version" = "3.14" ]; then \
+					echo $$cmd; \
+					exit 0; \
+				fi; \
+			fi; \
+		done; \
+		echo ""; \
+	)
 	VENV_PYTHON := ./.venv/Scripts/python.exe
 	WEBUI_BUILD := if exist "$(WEBUI_DIR)\package.json" (pushd "$(WEBUI_DIR)" && npm ci && npm run build && popd)
 else
@@ -17,6 +29,18 @@ else
 		else \
 			echo python3; \
 		fi \
+	)
+	PYTHON311 ?= $(shell \
+		for cmd in python3.12 python3.13 python3.14 python3.11 python3 python; do \
+			if command -v $$cmd >/dev/null 2>&1; then \
+				version=$$($$cmd -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null); \
+				if echo "$$version" | grep -qE "^3\.(1[1-9]|[2-9][0-9])$$"; then \
+					echo $$cmd; \
+					exit 0; \
+				fi; \
+			fi; \
+		done; \
+		echo ""; \
 	)
 	VENV_PYTHON := ./.venv/bin/python
 	WEBUI_BUILD := if [ -f "$(WEBUI_DIR)/package.json" ]; then \
@@ -46,7 +70,14 @@ bumpdeps:
 
 # Development environment
 newenv:
-	$(PYTHON) -m venv --clear ".venv"
+	@if [ -z "$(PYTHON311)" ]; then \
+		echo "Error: Python 3.11 or higher is required but not found."; \
+		echo "Please install Python 3.11+ and ensure it's in your PATH."; \
+		echo "Tried: python3.12, python3.13, python3.14, python3.11, python3, python"; \
+		exit 1; \
+	fi
+	@echo "Using Python: $(PYTHON311)"
+	$(PYTHON311) -m venv --clear ".venv"
 	"$(VENV_PYTHON)" -m pip install --upgrade pip
 	"$(VENV_PYTHON)" -m pip install --upgrade setuptools==69.5.1
 	"$(VENV_PYTHON)" -m pip install --upgrade wheel
