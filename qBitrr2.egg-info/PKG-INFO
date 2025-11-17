@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: qBitrr2
-Version: 5.4.0
+Version: 5.4.5
 Summary: Intelligent automation for qBittorrent and *Arr apps (Radarr/Sonarr/Lidarr) - health monitoring, instant imports, quality upgrades, request integration
 Home-page: https://github.com/Feramance/qBitrr
 Author: Feramance
@@ -25,6 +25,7 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -35,12 +36,52 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.12
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/markdown
-Provides-Extra: all
-Provides-Extra: dev
-Provides-Extra: fast
 License-File: LICENSE
+Requires-Dist: cachetools
+Requires-Dist: colorama
+Requires-Dist: coloredlogs
+Requires-Dist: flask
+Requires-Dist: environ-config
+Requires-Dist: ffmpeg-python
+Requires-Dist: jaraco.docker
+Requires-Dist: packaging
+Requires-Dist: pathos
+Requires-Dist: peewee
+Requires-Dist: ping3
+Requires-Dist: pyarr
+Requires-Dist: qbittorrent-api
+Requires-Dist: requests
+Requires-Dist: tomlkit
+Requires-Dist: waitress
+Requires-Dist: croniter
+Provides-Extra: dev
+Requires-Dist: black==24.3.0; extra == "dev"
+Requires-Dist: bump2version==1.0.1; extra == "dev"
+Requires-Dist: isort==5.10.1; extra == "dev"
+Requires-Dist: pip-tools==7.3.0; extra == "dev"
+Requires-Dist: pre-commit==3.3.3; extra == "dev"
+Requires-Dist: pyinstaller==5.13.1; extra == "dev"
+Requires-Dist: pyupgrade==2.31.0; extra == "dev"
+Requires-Dist: twine==3.7.1; extra == "dev"
+Requires-Dist: ujson==5.10.0; extra == "dev"
+Requires-Dist: upgrade-pip==0.1.4; extra == "dev"
+Provides-Extra: fast
+Requires-Dist: ujson==5.10.0; extra == "fast"
+Provides-Extra: all
+Requires-Dist: black==24.3.0; extra == "all"
+Requires-Dist: bump2version==1.0.1; extra == "all"
+Requires-Dist: isort==5.10.1; extra == "all"
+Requires-Dist: pip-tools==7.3.0; extra == "all"
+Requires-Dist: pre-commit==3.3.3; extra == "all"
+Requires-Dist: pyinstaller==5.13.1; extra == "all"
+Requires-Dist: pyupgrade==2.31.0; extra == "all"
+Requires-Dist: twine==3.7.1; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
+Requires-Dist: upgrade-pip==0.1.4; extra == "all"
+Requires-Dist: ujson==5.10.0; extra == "all"
+Dynamic: license-file
 
 # qBitrr
 

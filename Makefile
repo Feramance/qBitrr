@@ -87,6 +87,7 @@ syncenv:
 	"$(VENV_PYTHON)" -m pip install --upgrade pip
 	"$(VENV_PYTHON)" -m pip install -e ".[all]"
 	"$(VENV_PYTHON)" -m pre_commit install
+	pre-commit install
 	@$(WEBUI_BUILD)
 help:
 	@echo "$$HELP_BODY"

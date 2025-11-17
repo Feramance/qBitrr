@@ -1,10 +1,9 @@
 cachetools
 colorama
 coloredlogs
-croniter
+flask
 environ-config
 ffmpeg-python
-flask
 jaraco.docker
 packaging
 pathos
@@ -15,6 +14,7 @@ qbittorrent-api
 requests
 tomlkit
 waitress
+croniter
 
 [all]
 black==24.3.0
