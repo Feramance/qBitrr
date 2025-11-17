@@ -1769,6 +1769,7 @@ interface FieldGroupProps {
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
   qualityProfiles?: Array<{ id: number; name: string }>;
+  sectionKey?: string;
 }
 
 function FieldGroup({
@@ -1780,8 +1781,9 @@ function FieldGroup({
   onRenameSection,
   defaultOpen = false,
   qualityProfiles = [],
+  sectionKey,
 }: FieldGroupProps): JSX.Element {
-  const sectionName = basePath[0] ?? "";
+  const sectionName = sectionKey ?? basePath[0] ?? "";
 
   if (title === "Quality Profile Mappings") {
     const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
@@ -2449,6 +2451,7 @@ function ArrInstanceModal({
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             onRenameSection={onRename}
+            sectionKey={keyName}
             defaultOpen
           />
           {testState.result && (
@@ -2488,6 +2491,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
             defaultOpen
           />
           <FieldGroup
@@ -2496,6 +2500,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
             defaultOpen
             qualityProfiles={qualityProfiles}
           />
@@ -2506,6 +2511,7 @@ function ArrInstanceModal({
               state={state}
               basePath={[]}
               onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+              sectionKey={keyName}
             />
           )}
           {entryOverseerrFields.length > 0 && (
@@ -2515,6 +2521,7 @@ function ArrInstanceModal({
               state={state}
               basePath={[]}
               onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+              sectionKey={keyName}
             />
           )}
           <FieldGroup
@@ -2523,6 +2530,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
           <FieldGroup
             title="Seeding"
@@ -2530,6 +2538,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
           <FieldGroup
             title="Trackers"
@@ -2537,6 +2546,7 @@ function ArrInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
         </div>
         <div className="modal-footer">
