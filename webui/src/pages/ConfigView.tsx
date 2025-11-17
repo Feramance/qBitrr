@@ -1963,7 +1963,7 @@ function FieldGroup({
         return null;
       }
       const tooltip = getTooltip([sectionName]);
-      
+
       // Determine expected prefix for Arr instances
       let expectedPrefix: string | undefined;
       if (sectionName.startsWith("Radarr")) {
@@ -1973,7 +1973,7 @@ function FieldGroup({
       } else if (sectionName.startsWith("Lidarr")) {
         expectedPrefix = "Lidarr";
       }
-      
+
       return (
         <SectionNameField
           key={`${sectionName}.__name`}
@@ -2196,15 +2196,15 @@ function SectionNameField({
       setValue(currentName);
       return;
     }
-    
+
     let adjustedName = trimmed;
-    
+
     // Enforce prefix if specified
     if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
       // If user entered something without the prefix, prepend it
       adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
     }
-    
+
     if (adjustedName !== currentName) {
       onRename(adjustedName);
     } else {
