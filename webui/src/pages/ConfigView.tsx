@@ -110,23 +110,6 @@ const parseList = (value: string | boolean): string[] =>
 const formatList = (value: unknown): string =>
   Array.isArray(value) ? value.join(", ") : String(value ?? "");
 
-const parseDict = (value: string | boolean): Record<string, string> => {
-  const str = String(value).trim();
-  if (!str || str === "{}") return {};
-  try {
-    return JSON.parse(str);
-  } catch {
-    return {};
-  }
-};
-
-const formatDict = (value: unknown): string => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "{}";
-  const obj = value as Record<string, unknown>;
-  if (Object.keys(obj).length === 0) return "{}";
-  return JSON.stringify(obj, null, 2);
-};
-
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
 
@@ -732,18 +715,6 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     path: ["Torrent", "ReSearchStalled"],
     type: "checkbox",
   },
-  {
-    label: "Remove Dead Trackers",
-    path: ["Torrent", "RemoveDeadTrackers"],
-    type: "checkbox",
-  },
-  {
-    label: "Remove Tracker Messages",
-    path: ["Torrent", "RemoveTrackerWithMessage"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
-  },
 ];
 
 const ARR_SEEDING_FIELDS: FieldDefinition[] = [
@@ -812,6 +783,19 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
+  },
+  {
+    label: "Remove Dead Trackers",
+    path: ["Torrent", "SeedingMode", "RemoveDeadTrackers"],
+    type: "checkbox",
+  },
+  {
+    label: "Remove Tracker Messages",
+    path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+    fullWidth: true,
   },
 ];
 
@@ -1431,6 +1415,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           draft[key] = defaults;
         })
       );
+      // Open modal for immediate configuration
+      setActiveArrKey(key);
     },
     [formState]
   );
@@ -1977,6 +1963,17 @@ function FieldGroup({
         return null;
       }
       const tooltip = getTooltip([sectionName]);
+      
+      // Determine expected prefix for Arr instances
+      let expectedPrefix: string | undefined;
+      if (sectionName.startsWith("Radarr")) {
+        expectedPrefix = "Radarr";
+      } else if (sectionName.startsWith("Sonarr")) {
+        expectedPrefix = "Sonarr";
+      } else if (sectionName.startsWith("Lidarr")) {
+        expectedPrefix = "Lidarr";
+      }
+      
       return (
         <SectionNameField
           key={`${sectionName}.__name`}
@@ -1984,6 +1981,7 @@ function FieldGroup({
           tooltip={tooltip}
           currentName={sectionName}
           placeholder={field.placeholder}
+          expectedPrefix={expectedPrefix}
           onRename={(newName) => onRenameSection?.(sectionName, newName)}
         />
       );
@@ -2172,6 +2170,7 @@ interface SectionNameFieldProps {
   currentName: string;
   placeholder?: string;
   tooltip?: string;
+  expectedPrefix?: string;
   onRename: (newName: string) => void;
 }
 
@@ -2180,6 +2179,7 @@ function SectionNameField({
   currentName,
   placeholder,
   tooltip,
+  expectedPrefix,
   onRename,
 }: SectionNameFieldProps): JSX.Element {
   const [value, setValue] = useState(currentName);
@@ -2196,8 +2196,19 @@ function SectionNameField({
       setValue(currentName);
       return;
     }
-    if (trimmed !== currentName) {
-      onRename(trimmed);
+    
+    let adjustedName = trimmed;
+    
+    // Enforce prefix if specified
+    if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
+      // If user entered something without the prefix, prepend it
+      adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
+    }
+    
+    if (adjustedName !== currentName) {
+      onRename(adjustedName);
+    } else {
+      setValue(currentName); // Reset if no actual change
     }
   };
 
@@ -2384,7 +2395,7 @@ function ArrInstanceModal({
         }
         return false;
       }
-    } catch (error) {
+    } catch {
       setTestState({ testing: false, result: null });
       if (!silent) {
         push("Test connection failed", "error");
@@ -2573,7 +2584,7 @@ function SimpleConfigModal({
   onClose,
   showLiveSettings = false,
 }: SimpleConfigModalProps): JSX.Element | null {
-  const webUI = showLiveSettings ? useWebUI() : null;
+  const webUI = useWebUI();
 
   if (!state) return null;
   return (
