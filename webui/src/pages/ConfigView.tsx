@@ -2446,8 +2446,8 @@ function ArrInstanceModal({
             title={null}
             fields={generalFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             onRenameSection={onRename}
             defaultOpen
           />
@@ -2486,16 +2486,16 @@ function ArrInstanceModal({
             title="Entry Search"
             fields={entryFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             defaultOpen
           />
           <FieldGroup
             title="Quality Profile Mappings"
             fields={[]}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             defaultOpen
             qualityProfiles={qualityProfiles}
           />
@@ -2504,8 +2504,8 @@ function ArrInstanceModal({
               title="Ombi Integration"
               fields={entryOmbiFields}
               state={state}
-              basePath={[keyName]}
-              onChange={onChange}
+              basePath={[]}
+              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             />
           )}
           {entryOverseerrFields.length > 0 && (
@@ -2513,30 +2513,30 @@ function ArrInstanceModal({
               title="Overseerr Integration"
               fields={entryOverseerrFields}
               state={state}
-              basePath={[keyName]}
-              onChange={onChange}
+              basePath={[]}
+              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             />
           )}
           <FieldGroup
             title="Torrent Handling"
             fields={torrentFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
           />
           <FieldGroup
             title="Seeding"
             fields={seedingFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
           />
           <FieldGroup
             title="Trackers"
             fields={trackerFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
           />
         </div>
         <div className="modal-footer">
