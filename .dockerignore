@@ -28,4 +28,4 @@ webui/dist/
 .config/
 logs/
 *.log
-CONFIG_VIEW_*.md
+*.md
