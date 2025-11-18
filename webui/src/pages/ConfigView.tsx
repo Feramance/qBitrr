@@ -2207,6 +2207,15 @@ function SectionNameField({
       adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
     }
 
+    // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
+    const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
+    if (!formatRegex.test(adjustedName)) {
+      // Invalid format - show error and reset
+      alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
+      setValue(currentName);
+      return;
+    }
+
     if (adjustedName !== currentName) {
       onRename(adjustedName);
     } else {
