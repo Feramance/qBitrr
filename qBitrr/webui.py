@@ -1728,9 +1728,8 @@ class WebUI:
         def _list_logs() -> list[str]:
             if not logs_root.exists():
                 return []
-            # Add "All Logs" as first option
             log_files = sorted(f.name for f in logs_root.glob("*.log*"))
-            return ["All Logs"] + log_files if log_files else []
+            return log_files
 
         @app.get("/api/logs")
         def api_logs():
@@ -1746,10 +1745,6 @@ class WebUI:
         def api_log(name: str):
             if (resp := require_token()) is not None:
                 return resp
-            # Handle "All Logs" special case - serve the unified All.log file
-            if name == "All Logs":
-                name = "All.log"
-
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -1771,11 +1766,6 @@ class WebUI:
         @app.get("/web/logs/<name>")
         def web_log(name: str):
             # Public endpoint for Authentik bypass - no token required
-            # Handle "All Logs" special case - serve the unified All.log file
-            if name == "All Logs":
-                name = "All.log"
-
-            # Regular single log file
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404

@@ -71,7 +71,7 @@ interface LogsViewProps {
 
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string>("All Logs");
+  const [selected, setSelected] = useState<string>("All.log");
   const [logContent, setLogContent] = useState<string>("");
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
@@ -103,8 +103,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           if (prev && list.includes(prev)) {
             return prev;
           }
-          // Default to "All Logs" (first in list), fallback to first file if not available
-          return list.find((file) => file === "All Logs") ?? list[0];
+          // Default to "All.log", fallback to first file if not available
+          return list.find((file) => file === "All.log") ?? list[0];
         });
       } else {
         setSelected("");

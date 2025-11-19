@@ -25,3 +25,4 @@ test.py
 AGENTS.md
 compose.yml
 /docs/
+*.log
