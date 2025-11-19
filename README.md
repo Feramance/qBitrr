@@ -51,13 +51,15 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 - **Custom format scoring** – search for releases meeting minimum custom format scores
 - **Overseerr/Ombi integration** – auto-pull and prioritize user requests from request management tools
 - **Smart search modes** – series-level or episode-level search for TV shows based on context
-- **Temporary quality profiles** – use lower quality profiles for missing items, upgrade later
+- **Temporary quality profiles** – use lower quality profiles for missing items, upgrade later with flexible mapping
 
 ### 📊 Quality & Metadata Management
 - **RSS sync automation** – schedule periodic RSS feed refreshes across all Arr instances
 - **Queue management** – auto-refresh download queues to keep Arr instances in sync
 - **Custom format enforcement** – automatically remove torrents not meeting minimum CF scores
-- **Quality profile switching** – dynamically change profiles for missing vs. upgrade searches
+- **Quality profile switching** – dynamically change profiles for missing vs. upgrade searches with per-profile mapping
+- **Interactive profile configuration** – test Arr connections and select quality profiles from dropdowns in WebUI
+- **Auto-reset profiles** – force reset temp profiles on startup or after configurable timeouts
 - **Year-based search ordering** – prioritize searches by release date (newest first or reverse)
 
 ### 🌱 Seeding & Tracker Control
@@ -91,8 +93,9 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 ### 💻 First-Party Web UI
 - **Live process monitoring** – see all running Arr managers and their current activity
 - **Log viewer** – tail logs in real-time with filtering and search
-- **Arr insights** – view movies, series, albums with filtering by year, quality, status
-- **Config editor** – edit configuration directly from the UI
+- **Arr insights** – view movies, series, albums with filtering by year, quality, status, and quality profiles
+- **Config editor** – edit configuration directly from the UI with validation and helpful tooltips
+- **Test connections** – validate Arr credentials and load quality profiles with one click
 - **Restart controls** – restart individual processes or the entire application
 - **Dark/light theme** – customizable UI appearance
 - **Token authentication** – optional API protection with bearer tokens
@@ -100,35 +103,7 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 ## 📌 State of the Project
 The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
 
-## 🆕 What's New in This Branch
 
-This development branch includes major improvements to quality profile management, stability features, and WebUI enhancements:
-
-### 🎯 Enhanced Temporary Quality Profiles
-Completely redesigned temp quality profile system with better control and usability:
-- **Interactive profile mapping** – Set up main-to-temp profile mappings with a user-friendly UI instead of manual JSON editing
-- **Test connection button** – Validate your Arr credentials and instantly load available quality profiles from dropdowns
-- **Auto-reset options** – Force reset temp profiles on startup or auto-reset after a configurable timeout
-- **Per-profile control** – Map each main quality profile to different temp profiles (e.g., `Ultra-HD → Web-DL`, `HD-1080p → HDTV-720p`)
-- **Better reliability** – Configurable retry attempts for profile switch API calls
-- **Quality profile display** – See quality profiles for all media in Radarr/Sonarr/Lidarr WebUI views
-
-**Migration:** Existing configs automatically upgrade from v1 → v2, converting old list-based profiles to new mapping format with backup.
-
-### ✨ Automatic Process Recovery
-Your Arr managers (Radarr/Sonarr/Lidarr) now automatically restart if they crash, with built-in protection against restart loops. Configure max restart attempts and timing from the WebUI. Existing configs automatically upgrade from v2 → v3 with your settings backed up.
-
-### 🏷️ Better Configuration Validation
-Arr instance names now enforce proper format (`Radarr-Movies`, `Sonarr-TV`) with helpful error messages if you enter an invalid name.
-
-### 🐛 Bug Fixes & UI Improvements
-- Fixed config modal issues and data loading in popups
-- Improved Python 3.11 compatibility (lowered from 3.12 requirement)
-- Better pagination for grouped instance views
-- Improved quality profile fetching and display across all Arr types
-- Episode counts now visible in Sonarr series groups
-
----
 
 ## ⚡ Quickstart
 qBitrr supports Python 3.12+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
