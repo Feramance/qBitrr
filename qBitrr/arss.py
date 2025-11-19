@@ -147,24 +147,34 @@ class Arr:
         run_logs(self.logger, self._name)
 
         if not QBIT_DISABLED:
-            categories = self.manager.qbit_manager.client.torrent_categories.categories
             try:
-                categ = categories[self.category]
-                path = categ["savePath"]
-                if path:
-                    self.logger.trace("Category exists with save path [%s]", path)
-                    self.completed_folder = pathlib.Path(path)
-                else:
-                    self.logger.trace("Category exists without save path")
+                categories = self.manager.qbit_manager.client.torrent_categories.categories
+                try:
+                    categ = categories[self.category]
+                    path = categ["savePath"]
+                    if path:
+                        self.logger.trace("Category exists with save path [%s]", path)
+                        self.completed_folder = pathlib.Path(path)
+                    else:
+                        self.logger.trace("Category exists without save path")
+                        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                            self.category
+                        )
+                except KeyError:
                     self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                         self.category
                     )
-            except KeyError:
+                    self.manager.qbit_manager.client.torrent_categories.create_category(
+                        self.category, save_path=self.completed_folder
+                    )
+            except Exception as e:
+                self.logger.warning(
+                    "Could not connect to qBittorrent during initialization for %s: %s. Will retry when process starts.",
+                    self._name,
+                    str(e).split("\n")[0] if "\n" in str(e) else str(e),  # First line only
+                )
                 self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                     self.category
-                )
-                self.manager.qbit_manager.client.torrent_categories.create_category(
-                    self.category, save_path=self.completed_folder
                 )
         else:
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
