@@ -99,15 +99,12 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
       setFiles(list);
       if (list.length) {
         setSelected((prev) => {
+          // Keep current selection if it's still valid
           if (prev && list.includes(prev)) {
             return prev;
           }
-          // Default to "All Logs" if available, otherwise Main.log, otherwise first file
-          const allLogs = list.find((file) => file === "All Logs") ?? null;
-          if (allLogs) return allLogs;
-          const mainLog =
-            list.find((file) => file.toLowerCase() === "main.log") ?? null;
-          return mainLog ?? list[0];
+          // Default to "All Logs" (first in list), fallback to first file if not available
+          return list.find((file) => file === "All Logs") ?? list[0];
         });
       } else {
         setSelected("");
