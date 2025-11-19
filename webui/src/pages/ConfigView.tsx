@@ -276,6 +276,47 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
+  {
+    label: "Auto-Restart Processes",
+    path: ["Settings", "AutoRestartProcesses"],
+    type: "checkbox",
+  },
+  {
+    label: "Max Process Restarts",
+    path: ["Settings", "MaxProcessRestarts"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Max Process Restarts must be at least 1.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Process Restart Window (s)",
+    path: ["Settings", "ProcessRestartWindow"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Process Restart Window must be at least 1 second.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Process Restart Delay (s)",
+    path: ["Settings", "ProcessRestartDelay"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Process Restart Delay must be a non-negative number.";
+      }
+      return undefined;
+    },
+  },
 
 ];
 

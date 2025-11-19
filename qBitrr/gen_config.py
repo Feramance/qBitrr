@@ -90,7 +90,7 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        1,
+        3,
     )
     _gen_default_line(
         settings,
@@ -210,6 +210,39 @@ def _add_settings_section(config: TOMLDocument):
         ],
         "AutoUpdateCron",
         ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Automatically restart worker processes that fail or crash",
+            "Set to false to disable auto-restart (processes will only log failures)",
+        ],
+        "AutoRestartProcesses",
+        True,
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Maximum number of restart attempts per process within the restart window",
+            "Prevents infinite restart loops for processes that crash immediately",
+        ],
+        "MaxProcessRestarts",
+        5,
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Time window (seconds) for tracking restart attempts",
+            "If a process restarts MaxProcessRestarts times within this window, auto-restart is disabled for that process",
+        ],
+        "ProcessRestartWindow",
+        300,
+    )
+    _gen_default_line(
+        settings,
+        "Delay (seconds) before attempting to restart a failed process",
+        "ProcessRestartDelay",
+        5,
     )
     config.add("Settings", settings)
 
@@ -936,6 +969,66 @@ def _migrate_webui_config(config: MyConfig) -> bool:
     return migrated
 
 
+def _migrate_process_restart_settings(config: MyConfig) -> bool:
+    """
+    Add process auto-restart settings to existing configs.
+
+    Migration runs if:
+    - ConfigVersion < 3 (versions 1 or 2)
+
+    After migration, ConfigVersion will be set to 3 by apply_config_migrations().
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    # Check if migration already applied
+    current_version = get_config_version(config)
+    if current_version >= 3:
+        return False  # Already migrated
+
+    # Ensure Settings section exists
+    if "Settings" not in config.config:
+        config.config["Settings"] = table()
+
+    settings = config.config["Settings"]
+    changes_made = False
+
+    # Add AutoRestartProcesses if missing
+    if "AutoRestartProcesses" not in settings:
+        settings["AutoRestartProcesses"] = True
+        changes_made = True
+        logger.info("Added AutoRestartProcesses = true (default: enabled)")
+
+    # Add MaxProcessRestarts if missing
+    if "MaxProcessRestarts" not in settings:
+        settings["MaxProcessRestarts"] = 5
+        changes_made = True
+        logger.info("Added MaxProcessRestarts = 5 (default)")
+
+    # Add ProcessRestartWindow if missing
+    if "ProcessRestartWindow" not in settings:
+        settings["ProcessRestartWindow"] = 300
+        changes_made = True
+        logger.info("Added ProcessRestartWindow = 300 seconds (5 minutes)")
+
+    # Add ProcessRestartDelay if missing
+    if "ProcessRestartDelay" not in settings:
+        settings["ProcessRestartDelay"] = 5
+        changes_made = True
+        logger.info("Added ProcessRestartDelay = 5 seconds")
+
+    if changes_made:
+        print("Migration v2→v3: Added process auto-restart configuration settings")
+
+    return changes_made
+
+
 def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
     """
     Migrate from list-based profile config to dict-based mappings.
@@ -1193,12 +1286,16 @@ def apply_config_migrations(config: MyConfig) -> None:
         else:
             print("WARNING: Could not create config backup, proceeding with migration anyway")
 
-    # Apply migrations
+    # Apply migrations in order
     if _migrate_webui_config(config):
         changes_made = True
 
-    # NEW: Migrate quality profile mappings from list to dict format
+    # NEW: Migrate quality profile mappings from list to dict format (v1 → v2)
     if _migrate_quality_profile_mappings(config):
+        changes_made = True
+
+    # NEW: Add process auto-restart settings (v2 → v3)
+    if _migrate_process_restart_settings(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)

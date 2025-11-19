@@ -5,7 +5,7 @@
 [Settings]
 # Internal config schema version - DO NOT MODIFY
 # This is managed automatically by qBitrr for config migrations
-ConfigVersion = 1
+ConfigVersion = 3
 
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
@@ -59,9 +59,27 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 FFprobeAutoUpdate = true
 
 # Automatically attempt to update qBitrr on a schedule
+# Set to true to enable the auto-update worker.
 AutoUpdateEnabled = false
-# Cron expression describing when to check for updates (default weekly at 03:00 on Sunday)
+
+# Cron expression describing when to check for updates
+# Default is weekly Sunday at 03:00 (0 3 * * 0).
 AutoUpdateCron = "0 3 * * 0"
+
+# Automatically restart worker processes that fail or crash
+# Set to false to disable auto-restart (processes will only log failures)
+AutoRestartProcesses = true
+
+# Maximum number of restart attempts per process within the restart window
+# Prevents infinite restart loops for processes that crash immediately
+MaxProcessRestarts = 5
+
+# Time window (seconds) for tracking restart attempts
+# If a process restarts MaxProcessRestarts times within this window, auto-restart is disabled for that process
+ProcessRestartWindow = 300
+
+# Delay (seconds) before attempting to restart a failed process
+ProcessRestartDelay = 5
 
 
 
