@@ -84,6 +84,9 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 - **Smart restart mechanism** – uses `os.execv()` for true in-place restarts (no supervisor needed)
 - **Cross-platform compatibility** – works in Docker, systemd, native installs, Windows, Linux, macOS
 - **Graceful shutdown** – cleanly closes databases, flushes logs, terminates child processes
+- **Process auto-restart** – automatically restarts crashed Arr manager processes with crash loop protection
+- **Crash loop detection** – prevents infinite restart loops with configurable max restart limits and time windows
+- **Configurable restart behavior** – control restart delays, maximum attempts, and monitoring windows via WebUI
 
 ### 💻 First-Party Web UI
 - **Live process monitoring** – see all running Arr managers and their current activity
@@ -96,6 +99,21 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 
 ## 📌 State of the Project
 The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
+
+## 🆕 What's New in This Branch
+
+This development branch includes stability improvements and new self-healing features:
+
+### ✨ Automatic Process Recovery
+Your Arr managers (Radarr/Sonarr/Lidarr) now automatically restart if they crash, with built-in protection against restart loops. Configure max restart attempts and timing from the WebUI. Existing configs automatically upgrade with your settings backed up.
+
+### 🏷️ Better Configuration Validation
+Arr instance names now enforce proper format (`Radarr-Movies`, `Sonarr-TV`) with helpful error messages if you enter an invalid name.
+
+### 🐛 Bug Fixes
+Fixed config modal issues, improved Python 3.11 compatibility, and general stability improvements.
+
+---
 
 ## ⚡ Quickstart
 qBitrr supports Python 3.12+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
@@ -215,6 +233,7 @@ sudo systemctl status qbitrr
 
 2. **Configure Arr instances** (Radarr/Sonarr/Lidarr):
    - Each instance needs: `URI`, `APIKey`, `Category`
+   - **Naming format:** Instance names must follow pattern `(Radarr|Sonarr|Lidarr)-<name>` (e.g., `Radarr-Movies`, `Sonarr-TV4K`)
    - **Important:** Use matching categories in Arr's download client settings
    - **Tagging:** Ensure Arr instances tag their downloads so qBitrr can track them
 
@@ -695,6 +714,52 @@ curl -X POST http://localhost:6969/api/arr/radarr-movies/restart
 ```
 
 **For systemd users:** See [SYSTEMD_SERVICE.md](SYSTEMD_SERVICE.md) for automatic restart configuration.
+
+---
+
+### 🔁 Process Auto-Restart & Crash Loop Protection
+
+Your Arr manager processes (Radarr/Sonarr/Lidarr) automatically restart if they crash, preventing downtime. Built-in protection stops restart loops if a process keeps failing.
+
+#### ⚙️ Configuration
+
+**Basic Setup:**
+```toml
+[Settings]
+AutoRestartProcesses = true        # Enable automatic restart
+MaxProcessRestarts = 5              # Stop trying after 5 crashes
+ProcessRestartWindow = 300          # Within 5 minutes
+ProcessRestartDelay = 5             # Wait 5 seconds before restarting
+```
+
+**What this means:**
+- If a process crashes fewer than 5 times in 5 minutes, it auto-restarts
+- If it crashes 5+ times in 5 minutes, qBitrr stops trying and logs an error
+- After the 5-minute window passes, the counter resets and auto-restart resumes
+
+**Configure via WebUI:**
+1. Navigate to **Config** tab
+2. Find the **Process Management** section
+3. Adjust restart behavior to your preference
+4. Save and restart qBitrr
+
+#### 📊 Monitoring
+
+**Via WebUI:**
+- **Processes tab** shows all running managers with restart history
+- Manually restart individual processes if needed
+
+**Via Logs:**
+```bash
+# See restart activity
+tail -f ~/logs/Main.log | grep restart        # Native
+docker logs -f qbitrr | grep restart          # Docker
+sudo journalctl -u qbitrr -f | grep restart   # Systemd
+```
+
+#### 🆕 First-Time Setup
+
+Existing configs automatically upgrade to version 3 on first startup. A timestamped backup is created before any changes. No manual action needed!
 
 ---
 
