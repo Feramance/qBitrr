@@ -102,16 +102,31 @@ The long-term plan is still to ship a C# rewrite, but the Python edition isn't g
 
 ## 🆕 What's New in This Branch
 
-This development branch includes stability improvements and new self-healing features:
+This development branch includes major improvements to quality profile management, stability features, and WebUI enhancements:
+
+### 🎯 Enhanced Temporary Quality Profiles
+Completely redesigned temp quality profile system with better control and usability:
+- **Interactive profile mapping** – Set up main-to-temp profile mappings with a user-friendly UI instead of manual JSON editing
+- **Test connection button** – Validate your Arr credentials and instantly load available quality profiles from dropdowns
+- **Auto-reset options** – Force reset temp profiles on startup or auto-reset after a configurable timeout
+- **Per-profile control** – Map each main quality profile to different temp profiles (e.g., `Ultra-HD → Web-DL`, `HD-1080p → HDTV-720p`)
+- **Better reliability** – Configurable retry attempts for profile switch API calls
+- **Quality profile display** – See quality profiles for all media in Radarr/Sonarr/Lidarr WebUI views
+
+**Migration:** Existing configs automatically upgrade from v1 → v2, converting old list-based profiles to new mapping format with backup.
 
 ### ✨ Automatic Process Recovery
-Your Arr managers (Radarr/Sonarr/Lidarr) now automatically restart if they crash, with built-in protection against restart loops. Configure max restart attempts and timing from the WebUI. Existing configs automatically upgrade with your settings backed up.
+Your Arr managers (Radarr/Sonarr/Lidarr) now automatically restart if they crash, with built-in protection against restart loops. Configure max restart attempts and timing from the WebUI. Existing configs automatically upgrade from v2 → v3 with your settings backed up.
 
 ### 🏷️ Better Configuration Validation
 Arr instance names now enforce proper format (`Radarr-Movies`, `Sonarr-TV`) with helpful error messages if you enter an invalid name.
 
-### 🐛 Bug Fixes
-Fixed config modal issues, improved Python 3.11 compatibility, and general stability improvements.
+### 🐛 Bug Fixes & UI Improvements
+- Fixed config modal issues and data loading in popups
+- Improved Python 3.11 compatibility (lowered from 3.12 requirement)
+- Better pagination for grouped instance views
+- Improved quality profile fetching and display across all Arr types
+- Episode counts now visible in Sonarr series groups
 
 ---
 
@@ -365,10 +380,24 @@ Unmonitored = false               # Include unmonitored items
 [Radarr-Movies.EntrySearch]
 UseTempForMissing = true
 KeepTempProfile = false
-MainQualityProfile = ["Ultra-HD", "HD-1080p"]
-TempQualityProfile = ["Web-DL", "HDTV-720p"]
+
+# New: Map each main profile to a temp profile
+QualityProfileMappings = { "Ultra-HD" = "Web-DL", "HD-1080p" = "HDTV-720p" }
+
+# Auto-reset options
+ForceResetTempProfiles = false           # Reset all on startup
+TempProfileResetTimeoutMinutes = 0       # Auto-reset after timeout (0 = disabled)
+ProfileSwitchRetryAttempts = 3           # Retry failed profile switches
+
 # Searches missing items with temp profile, switches back after import
 ```
+
+**Configure via WebUI:**
+1. Edit your Arr instance in the Config tab
+2. Click "Test Connection" to load available quality profiles
+3. Add profile mappings with the interactive UI (no JSON editing needed!)
+4. Select main and temp profiles from dropdowns
+5. Save and restart
 
 ---
 
