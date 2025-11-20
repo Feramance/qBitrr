@@ -4,7 +4,7 @@ import pathlib
 from functools import reduce
 from typing import Any, TypeVar
 
-from tomlkit import comment, document, nl, parse, table
+from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
@@ -755,7 +755,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
             'Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}',
         ],
         "QualityProfileMappings",
-        {},
+        inline_table(),
     )
     _gen_default_line(
         search_table,
@@ -1094,8 +1094,10 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
             }
 
             if mappings:
-                # Set new format
-                config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = mappings
+                # Set new format - use tomlkit's inline_table to ensure it's rendered as inline dict
+                inline_mappings = inline_table()
+                inline_mappings.update(mappings)
+                config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
                 changes_made = True
                 logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
 
@@ -1221,7 +1223,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
     # Validate EntrySearch sections for all Arr instances
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     entry_search_defaults = {
-        "QualityProfileMappings": {},
+        "QualityProfileMappings": inline_table(),
         "ForceResetTempProfiles": False,
         "TempProfileResetTimeoutMinutes": 0,
         "ProfileSwitchRetryAttempts": 3,
@@ -1240,8 +1242,8 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
                 for field, default in entry_search_defaults.items():
                     if field not in entry_search:
                         if field == "QualityProfileMappings":
-                            # Create as a subsection/table
-                            entry_search[field] = table()
+                            # Create as inline table (inline dict) not a section
+                            entry_search[field] = inline_table()
                         else:
                             # Add as a simple value
                             entry_search[field] = default

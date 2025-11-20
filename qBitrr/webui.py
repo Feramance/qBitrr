@@ -27,13 +27,23 @@ from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
+    from tomlkit import inline_table, table
+
     keys = dotted_key.split(".")
     cur = doc
     for k in keys[:-1]:
         if k not in cur or not isinstance(cur[k], dict):
-            cur[k] = {}
+            cur[k] = table()
         cur = cur[k]
-    cur[keys[-1]] = value
+
+    # Convert plain Python dicts to inline tables for proper TOML serialization
+    # This ensures dicts are rendered as inline {key = "value"} not as sections [key]
+    if isinstance(value, dict) and not hasattr(value, "as_string"):
+        inline = inline_table()
+        inline.update(value)
+        cur[keys[-1]] = inline
+    else:
+        cur[keys[-1]] = value
 
 
 def _toml_delete(doc, dotted_key: str) -> None:
