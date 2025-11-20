@@ -434,35 +434,33 @@ class Arr:
             f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
         )
         
-        if self.quality_profile_mappings:
-            # New format: direct dictionary mapping
-            self.main_quality_profiles = list(self.quality_profile_mappings.keys())
-            self.temp_quality_profiles = list(self.quality_profile_mappings.values())
-        else:
-            # Old format: separate lists
-            self.main_quality_profiles = CONFIG.get(
+        if not self.quality_profile_mappings:
+            # Old format: separate lists - convert to dict
+            main_profiles = CONFIG.get(
                 f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
             )
-            if not isinstance(self.main_quality_profiles, list):
-                self.main_quality_profiles = [self.main_quality_profiles]
-            self.temp_quality_profiles = CONFIG.get(
+            if not isinstance(main_profiles, list):
+                main_profiles = [main_profiles] if main_profiles else []
+            temp_profiles = CONFIG.get(
                 f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
             )
-            if not isinstance(self.temp_quality_profiles, list):
-                self.temp_quality_profiles = [self.temp_quality_profiles]
+            if not isinstance(temp_profiles, list):
+                temp_profiles = [temp_profiles] if temp_profiles else []
+            
+            # Convert lists to dictionary
+            if main_profiles and temp_profiles and len(main_profiles) == len(temp_profiles):
+                self.quality_profile_mappings = dict(zip(main_profiles, temp_profiles))
 
         self.use_temp_for_missing = (
             CONFIG.get(f"{name}.EntrySearch.UseTempForMissing", fallback=False)
-            and self.main_quality_profiles
-            and self.temp_quality_profiles
+            and self.quality_profile_mappings
         )
         self.keep_temp_profile = CONFIG.get(f"{name}.EntrySearch.KeepTempProfile", fallback=False)
 
         if self.use_temp_for_missing:
             self.logger.info(
-                "Temp quality profile mode enabled: Main profiles=%s, Temp profiles=%s, Keep temp=%s",
-                self.main_quality_profiles,
-                self.temp_quality_profiles,
+                "Temp quality profile mode enabled: Mappings=%s, Keep temp=%s",
+                self.quality_profile_mappings,
                 self.keep_temp_profile,
             )
             self.temp_quality_profile_ids = self.parse_quality_profiles()
@@ -5629,9 +5627,8 @@ class Arr:
         temp_quality_profile_ids: dict[int, int] = {}
 
         self.logger.debug(
-            "Parsing quality profiles - Main: %s, Temp: %s",
-            self.main_quality_profiles,
-            self.temp_quality_profiles,
+            "Parsing quality profile mappings: %s",
+            self.quality_profile_mappings,
         )
 
         while True:
@@ -5666,45 +5663,36 @@ class Arr:
                 profiles = []
                 break
 
-        for n in self.main_quality_profiles:
-            pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
-            main_name = pair[0]
-            temp_name = pair[1]
+        # Build a lookup dict for profile name -> ID
+        profile_name_to_id = {p["name"]: p["id"] for p in profiles}
+        self.logger.trace("Available profiles: %s", profile_name_to_id)
 
-            main_found = False
-            temp_found = False
+        # Convert name mappings to ID mappings
+        for main_name, temp_name in self.quality_profile_mappings.items():
+            main_id = profile_name_to_id.get(main_name)
+            temp_id = profile_name_to_id.get(temp_name)
 
-            for p in profiles:
-                if p["name"] == pair[0]:
-                    pair[0] = p["id"]
-                    main_found = True
-                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-                if p["name"] == pair[1]:
-                    pair[1] = p["id"]
-                    temp_found = True
-                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-
-            if not main_found:
+            if main_id is None:
                 self.logger.error(
                     "Main quality profile '%s' not found in available profiles. Available: %s",
                     main_name,
-                    [p["name"] for p in profiles],
+                    list(profile_name_to_id.keys()),
                 )
-            if not temp_found:
+            if temp_id is None:
                 self.logger.error(
                     "Temp quality profile '%s' not found in available profiles. Available: %s",
                     temp_name,
-                    [p["name"] for p in profiles],
+                    list(profile_name_to_id.keys()),
                 )
 
-            if main_found and temp_found:
-                temp_quality_profile_ids[pair[0]] = pair[1]
+            if main_id is not None and temp_id is not None:
+                temp_quality_profile_ids[main_id] = temp_id
                 self.logger.info(
                     "Quality profile mapping: '%s' (ID:%d) → '%s' (ID:%d)",
                     main_name,
-                    pair[0],
+                    main_id,
                     temp_name,
-                    pair[1],
+                    temp_id,
                 )
             else:
                 self.logger.warning(
