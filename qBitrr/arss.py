@@ -433,7 +433,7 @@ class Arr:
         self.quality_profile_mappings = CONFIG.get(
             f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
         )
-        
+
         if not self.quality_profile_mappings:
             # Old format: separate lists - convert to dict
             main_profiles = CONFIG.get(
@@ -446,7 +446,7 @@ class Arr:
             )
             if not isinstance(temp_profiles, list):
                 temp_profiles = [temp_profiles] if temp_profiles else []
-            
+
             # Convert lists to dictionary
             if main_profiles and temp_profiles and len(main_profiles) == len(temp_profiles):
                 self.quality_profile_mappings = dict(zip(main_profiles, temp_profiles))
