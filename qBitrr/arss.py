@@ -5667,6 +5667,7 @@ class Arr:
                         "foreign_keys": 1,
                         "ignore_check_constraints": 0,
                         "synchronous": 0,
+                        "read_uncommitted": 1,
                     },
                     timeout=15,
                 )
@@ -5691,6 +5692,7 @@ class Arr:
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
                 "synchronous": 0,
+                "read_uncommitted": 1,
             },
             timeout=15,
         )
@@ -5753,6 +5755,7 @@ class Arr:
                     "foreign_keys": 1,
                     "ignore_check_constraints": 0,
                     "synchronous": 0,
+                    "read_uncommitted": 1,
                 },
                 timeout=15,
             )
