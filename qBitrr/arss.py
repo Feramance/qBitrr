@@ -1873,12 +1873,36 @@ class Arr:
                 condition = self.series_file_model.Searched == False
             else:
                 condition = self.series_file_model.Upgrade == False
-            for entry_ in (
-                self.series_file_model.select()
-                .where(condition)
-                .order_by(self.series_file_model.EntryId.asc())
-                .execute()
-            ):
+
+            # Collect series entries with their priority based on episode reasons
+            # Missing > CustomFormat > Quality > Upgrade
+            series_entries = []
+            for entry_ in self.series_file_model.select().where(condition).execute():
+                # Get the highest priority reason from this series' episodes
+                reason_priority_map = {
+                    "Missing": 1,
+                    "CustomFormat": 2,
+                    "Quality": 3,
+                    "Upgrade": 4,
+                }
+                # Find the minimum priority (highest importance) reason for this series
+                min_priority = 5  # Default
+                episode_reasons = (
+                    self.model_file.select(self.model_file.Reason)
+                    .where(self.model_file.SeriesId == entry_.EntryId)
+                    .execute()
+                )
+                for ep in episode_reasons:
+                    if ep.Reason:
+                        priority = reason_priority_map.get(ep.Reason, 5)
+                        min_priority = min(min_priority, priority)
+
+                series_entries.append((entry_, min_priority))
+
+            # Sort by priority, then by EntryId
+            series_entries.sort(key=lambda x: (x[1], x[0].EntryId))
+
+            for entry_, _ in series_entries:
                 self.logger.trace("Adding %s to search list", entry_.Title)
                 entries.append([entry_, False, False])
             return entries
