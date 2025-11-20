@@ -1605,10 +1605,25 @@ class Arr:
 
     def _search_todays(self, condition):
         if self.prioritize_todays_release:
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
