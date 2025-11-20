@@ -429,16 +429,27 @@ class Arr:
         except Exception:
             self.logger.debug("Failed to get version")
 
-        self.main_quality_profiles = CONFIG.get(
-            f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+        # Try new QualityProfileMappings format first (dict), then fall back to old format (lists)
+        self.quality_profile_mappings = CONFIG.get(
+            f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
         )
-        if not isinstance(self.main_quality_profiles, list):
-            self.main_quality_profiles = [self.main_quality_profiles]
-        self.temp_quality_profiles = CONFIG.get(
-            f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
-        )
-        if not isinstance(self.temp_quality_profiles, list):
-            self.temp_quality_profiles = [self.temp_quality_profiles]
+        
+        if self.quality_profile_mappings:
+            # New format: direct dictionary mapping
+            self.main_quality_profiles = list(self.quality_profile_mappings.keys())
+            self.temp_quality_profiles = list(self.quality_profile_mappings.values())
+        else:
+            # Old format: separate lists
+            self.main_quality_profiles = CONFIG.get(
+                f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+            )
+            if not isinstance(self.main_quality_profiles, list):
+                self.main_quality_profiles = [self.main_quality_profiles]
+            self.temp_quality_profiles = CONFIG.get(
+                f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
+            )
+            if not isinstance(self.temp_quality_profiles, list):
+                self.temp_quality_profiles = [self.temp_quality_profiles]
 
         self.use_temp_for_missing = (
             CONFIG.get(f"{name}.EntrySearch.UseTempForMissing", fallback=False)
