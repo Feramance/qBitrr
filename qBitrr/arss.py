@@ -448,7 +448,17 @@ class Arr:
         self.keep_temp_profile = CONFIG.get(f"{name}.EntrySearch.KeepTempProfile", fallback=False)
 
         if self.use_temp_for_missing:
+            self.logger.info(
+                "Temp quality profile mode enabled: Main profiles=%s, Temp profiles=%s, Keep temp=%s",
+                self.main_quality_profiles,
+                self.temp_quality_profiles,
+                self.keep_temp_profile,
+            )
             self.temp_quality_profile_ids = self.parse_quality_profiles()
+            self.logger.info(
+                "Parsed quality profile mappings: %s",
+                {f"{k}→{v}": f"(main→temp)" for k, v in self.temp_quality_profile_ids.items()},
+            )
 
         # Cache for valid quality profile IDs to avoid repeated API calls and warnings
         self._quality_profile_cache: dict[int, dict] = {}
@@ -2644,44 +2654,54 @@ class Arr:
                             data = None
                             quality_profile_id = db_entry.get("qualityProfileId")
                             self.logger.trace(
-                                "Temp quality profile [%s][%s]",
+                                "Temp quality profile check for '%s': searched=%s, current_profile_id=%s, keep_temp=%s",
+                                db_entry.get("title", "Unknown"),
                                 searched,
                                 quality_profile_id,
+                                self.keep_temp_profile,
                             )
                             if (
                                 searched
                                 and quality_profile_id in self.temp_quality_profile_ids.values()
                                 and not self.keep_temp_profile
                             ):
+                                new_profile_id = list(self.temp_quality_profile_ids.keys())[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        quality_profile_id
+                                    )
+                                ]
                                 data: JsonObject = {
-                                    "qualityProfileId": list(self.temp_quality_profile_ids.keys())[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            quality_profile_id
-                                        )
-                                    ]
+                                    "qualityProfileId": new_profile_id
                                 }
-                                self.logger.debug(
-                                    "Upgrading quality profile for %s to %s",
-                                    db_entry["title"],
-                                    list(self.temp_quality_profile_ids.keys())[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            db_entry["qualityProfileId"]
-                                        )
-                                    ],
+                                self.logger.info(
+                                    "Upgrading quality profile for '%s': %s (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
+                                    db_entry.get("title", "Unknown"),
+                                    quality_profile_id,
+                                    quality_profile_id,
+                                    new_profile_id,
                                 )
                             elif (
                                 not searched
                                 and quality_profile_id in self.temp_quality_profile_ids.keys()
                             ):
+                                new_profile_id = self.temp_quality_profile_ids[quality_profile_id]
                                 data: JsonObject = {
-                                    "qualityProfileId": self.temp_quality_profile_ids[
-                                        quality_profile_id
-                                    ]
+                                    "qualityProfileId": new_profile_id
                                 }
-                                self.logger.debug(
-                                    "Downgrading quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile_ids[quality_profile_id],
+                                self.logger.info(
+                                    "Downgrading quality profile for '%s': main profile (ID:%s) → temp profile (ID:%s) [Episode not searched yet]",
+                                    db_entry.get("title", "Unknown"),
+                                    quality_profile_id,
+                                    new_profile_id,
+                                )
+                            else:
+                                self.logger.trace(
+                                    "No quality profile change for '%s': searched=%s, profile_id=%s (in_temps=%s, in_mains=%s)",
+                                    db_entry.get("title", "Unknown"),
+                                    searched,
+                                    quality_profile_id,
+                                    quality_profile_id in self.temp_quality_profile_ids.values(),
+                                    quality_profile_id in self.temp_quality_profile_ids.keys(),
                                 )
                             if data:
                                 while True:
@@ -5601,17 +5621,25 @@ class Arr:
     def parse_quality_profiles(self) -> dict[int, int]:
         temp_quality_profile_ids: dict[int, int] = {}
 
+        self.logger.debug(
+            "Parsing quality profiles - Main: %s, Temp: %s",
+            self.main_quality_profiles,
+            self.temp_quality_profiles,
+        )
+
         while True:
             try:
                 profiles = self.client.get_quality_profile()
+                self.logger.debug("Fetched %d quality profiles from API", len(profiles))
                 break
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ):
+            ) as e:
                 # transient network/encoding issues; retry
+                self.logger.warning("Transient error fetching quality profiles, retrying: %s", type(e).__name__)
                 continue
             except PyarrServerError as e:
                 # Server-side error (e.g., Radarr DB disk I/O). Log and wait 5 minutes before retrying.
@@ -5631,15 +5659,55 @@ class Arr:
 
         for n in self.main_quality_profiles:
             pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
+            main_name = pair[0]
+            temp_name = pair[1]
+
+            main_found = False
+            temp_found = False
 
             for p in profiles:
                 if p["name"] == pair[0]:
                     pair[0] = p["id"]
+                    main_found = True
                     self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
                 if p["name"] == pair[1]:
                     pair[1] = p["id"]
+                    temp_found = True
                     self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-            temp_quality_profile_ids[pair[0]] = pair[1]
+
+            if not main_found:
+                self.logger.error(
+                    "Main quality profile '%s' not found in available profiles. Available: %s",
+                    main_name,
+                    [p["name"] for p in profiles],
+                )
+            if not temp_found:
+                self.logger.error(
+                    "Temp quality profile '%s' not found in available profiles. Available: %s",
+                    temp_name,
+                    [p["name"] for p in profiles],
+                )
+
+            if main_found and temp_found:
+                temp_quality_profile_ids[pair[0]] = pair[1]
+                self.logger.info(
+                    "Quality profile mapping: '%s' (ID:%d) → '%s' (ID:%d)",
+                    main_name,
+                    pair[0],
+                    temp_name,
+                    pair[1],
+                )
+            else:
+                self.logger.warning(
+                    "Skipping quality profile mapping for '%s' → '%s' due to missing profile(s)",
+                    main_name,
+                    temp_name,
+                )
+
+        if not temp_quality_profile_ids:
+            self.logger.error(
+                "No valid quality profile mappings created! Check your configuration."
+            )
 
         return temp_quality_profile_ids
 
