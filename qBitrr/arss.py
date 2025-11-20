@@ -3384,49 +3384,8 @@ class Arr:
                                 self.model_queue.EntryId == db_entry["id"]
                             ).execute()
 
-                        if self.use_temp_for_missing:
-                            quality_profile_id = db_entry.get("qualityProfileId")
-                            if (
-                                searched
-                                and quality_profile_id in self.temp_quality_profile_ids.values()
-                                and not self.keep_temp_profile
-                            ):
-                                db_entry["qualityProfileId"] = list(
-                                    self.temp_quality_profile_ids.keys()
-                                )[
-                                    list(self.temp_quality_profile_ids.values()).index(
-                                        quality_profile_id
-                                    )
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    db_entry["qualityProfileId"],
-                                )
-                            elif (
-                                not searched
-                                and not hasAllTracks
-                                and quality_profile_id in self.temp_quality_profile_ids.keys()
-                            ):
-                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                    quality_profile_id
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    db_entry["qualityProfileId"],
-                                )
-                            while True:
-                                try:
-                                    self.client.upd_album(db_entry)
-                                    break
-                                except (
-                                    requests.exceptions.ChunkedEncodingError,
-                                    requests.exceptions.ContentDecodingError,
-                                    requests.exceptions.ConnectionError,
-                                    JSONDecodeError,
-                                ):
-                                    continue
+                        # Note: Lidarr quality profiles are set at artist level, not album level.
+                        # Temp profile logic for Lidarr is handled in artist processing below.
 
                         title = db_entry.get("title", "Unknown Album")
                         monitored = db_entry.get("monitored", False)
@@ -3649,6 +3608,46 @@ class Arr:
                         sizeOnDisk = statistics.get("sizeOnDisk", 0)
                         # Artist is considered searched if it has albums and at least some have files
                         searched = albumCount > 0 and sizeOnDisk > 0
+
+                        # Temp profile management for Lidarr artists
+                        # Quality profiles in Lidarr are set at artist level, not album level
+                        if self.use_temp_for_missing and quality_profile_id:
+                            if (
+                                searched
+                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and not self.keep_temp_profile
+                            ):
+                                # Artist has files, switch from temp back to main profile
+                                main_profile_id = list(self.temp_quality_profile_ids.keys())[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        quality_profile_id
+                                    )
+                                ]
+                                artistMetadata["qualityProfileId"] = main_profile_id
+                                self.client.upd_artist(artistMetadata)
+                                quality_profile_id = main_profile_id
+                                self.logger.debug(
+                                    "Upgrading artist '%s' from temp profile (ID:%s) to main profile (ID:%s) [Has files]",
+                                    artistMetadata.get("artistName", "Unknown"),
+                                    quality_profile_id,
+                                    main_profile_id,
+                                )
+                            elif (
+                                not searched
+                                and sizeOnDisk == 0
+                                and quality_profile_id in self.temp_quality_profile_ids.keys()
+                            ):
+                                # Artist has no files yet, apply temp profile
+                                temp_profile_id = self.temp_quality_profile_ids[quality_profile_id]
+                                artistMetadata["qualityProfileId"] = temp_profile_id
+                                self.client.upd_artist(artistMetadata)
+                                quality_profile_id = temp_profile_id
+                                self.logger.debug(
+                                    "Downgrading artist '%s' from main profile (ID:%s) to temp profile (ID:%s) [No files yet]",
+                                    artistMetadata.get("artistName", "Unknown"),
+                                    quality_profile_id,
+                                    temp_profile_id,
+                                )
 
                         Title = artistMetadata.get("artistName")
                         Monitored = db_entry["monitored"]
