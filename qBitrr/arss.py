@@ -1915,10 +1915,26 @@ class Arr:
                     self.model_file.AirDateUtc
                     <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
                 )
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
@@ -1961,10 +1977,29 @@ class Arr:
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
+
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
-                .order_by(self.model_file.MovieFileId.asc())
+                .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
+                    self.model_file.MovieFileId.asc(),
+                )
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -1991,10 +2026,29 @@ class Arr:
                 else:
                     condition &= self.model_file.AlbumFileId == 0
                     condition &= self.model_file.Searched == False
+
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
-                .order_by(self.model_file.AlbumFileId.asc())
+                .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
+                    self.model_file.AlbumFileId.asc(),
+                )
                 .execute()
             ):
                 entries.append([entry, False, False])
