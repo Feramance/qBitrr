@@ -433,7 +433,7 @@ class Arr:
         self.quality_profile_mappings = CONFIG.get(
             f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
         )
-        
+
         if self.quality_profile_mappings:
             # New format: direct dictionary mapping
             self.main_quality_profiles = list(self.quality_profile_mappings.keys())
