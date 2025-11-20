@@ -24,6 +24,7 @@ def _get_database() -> SqliteDatabase:
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
                 "synchronous": 0,
+                "read_uncommitted": 1,
             },
             timeout=15,
             check_same_thread=False,
