@@ -2662,10 +2662,14 @@ class Arr:
                         if self.use_temp_for_missing:
                             data = None
                             quality_profile_id = db_entry.get("qualityProfileId")
+                            # Only apply temp profiles for truly missing content (no file)
+                            # Do NOT apply for quality/custom format unmet or upgrade searches
+                            has_file = episode.get("hasFile", False)
                             self.logger.trace(
-                                "Temp quality profile check for '%s': searched=%s, current_profile_id=%s, keep_temp=%s",
+                                "Temp quality profile check for '%s': searched=%s, has_file=%s, current_profile_id=%s, keep_temp=%s",
                                 db_entry.get("title", "Unknown"),
                                 searched,
+                                has_file,
                                 quality_profile_id,
                                 self.keep_temp_profile,
                             )
@@ -2689,6 +2693,7 @@ class Arr:
                                 )
                             elif (
                                 not searched
+                                and not has_file
                                 and quality_profile_id in self.temp_quality_profile_ids.keys()
                             ):
                                 new_profile_id = self.temp_quality_profile_ids[quality_profile_id]
@@ -3062,6 +3067,9 @@ class Arr:
 
                     if self.use_temp_for_missing:
                         quality_profile_id = db_entry.get("qualityProfileId")
+                        # Only apply temp profiles for truly missing content (no file)
+                        # Do NOT apply for quality/custom format unmet or upgrade searches
+                        has_file = db_entry.get("hasFile", False)
                         if (
                             searched
                             and quality_profile_id in self.temp_quality_profile_ids.values()
@@ -3081,6 +3089,7 @@ class Arr:
                             )
                         elif (
                             not searched
+                            and not has_file
                             and quality_profile_id in self.temp_quality_profile_ids.keys()
                         ):
                             db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
@@ -3396,6 +3405,7 @@ class Arr:
                                 )
                             elif (
                                 not searched
+                                and not hasAllTracks
                                 and quality_profile_id in self.temp_quality_profile_ids.keys()
                             ):
                                 db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
