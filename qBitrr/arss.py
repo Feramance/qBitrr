@@ -2670,9 +2670,7 @@ class Arr:
                                         quality_profile_id
                                     )
                                 ]
-                                data: JsonObject = {
-                                    "qualityProfileId": new_profile_id
-                                }
+                                data: JsonObject = {"qualityProfileId": new_profile_id}
                                 self.logger.info(
                                     "Upgrading quality profile for '%s': %s (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
                                     db_entry.get("title", "Unknown"),
@@ -2685,9 +2683,7 @@ class Arr:
                                 and quality_profile_id in self.temp_quality_profile_ids.keys()
                             ):
                                 new_profile_id = self.temp_quality_profile_ids[quality_profile_id]
-                                data: JsonObject = {
-                                    "qualityProfileId": new_profile_id
-                                }
+                                data: JsonObject = {"qualityProfileId": new_profile_id}
                                 self.logger.info(
                                     "Downgrading quality profile for '%s': main profile (ID:%s) → temp profile (ID:%s) [Episode not searched yet]",
                                     db_entry.get("title", "Unknown"),
@@ -5639,7 +5635,9 @@ class Arr:
                 JSONDecodeError,
             ) as e:
                 # transient network/encoding issues; retry
-                self.logger.warning("Transient error fetching quality profiles, retrying: %s", type(e).__name__)
+                self.logger.warning(
+                    "Transient error fetching quality profiles, retrying: %s", type(e).__name__
+                )
                 continue
             except PyarrServerError as e:
                 # Server-side error (e.g., Radarr DB disk I/O). Log and wait 5 minutes before retrying.
