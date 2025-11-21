@@ -44,6 +44,7 @@ from qBitrr.config import (
     SEARCH_ONLY,
     TAGLESS,
 )
+from qBitrr.db_lock import with_database_retry
 from qBitrr.errors import (
     DelayLoopException,
     NoConnectionrException,
@@ -4363,6 +4364,32 @@ class Arr:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+
+                # Periodic database health check (every 10th iteration)
+                if not hasattr(self, "_health_check_counter"):
+                    self._health_check_counter = 0
+
+                self._health_check_counter += 1
+                if self._health_check_counter >= 10:
+                    from qBitrr.db_lock import check_database_health
+                    from qBitrr.home_path import APPDATA_FOLDER
+
+                    db_path = APPDATA_FOLDER / "qbitrr.db"
+                    healthy, msg = check_database_health(db_path, self.logger)
+
+                    if not healthy:
+                        self.logger.error("Database health check failed: %s", msg)
+                        self.logger.warning("Attempting database recovery...")
+                        try:
+                            self._recover_database()
+                        except Exception as recovery_error:
+                            self.logger.error(
+                                "Database recovery failed: %s. Continuing with caution...",
+                                recovery_error,
+                            )
+
+                    self._health_check_counter = 0
+
                 self.api_calls()
                 self.refresh_download_queue()
                 for torrent in torrents:
@@ -4391,6 +4418,43 @@ class Arr:
             sys.exit(0)
         except DelayLoopException:
             raise
+
+    def _recover_database(self):
+        """
+        Attempt automatic database recovery when health check fails.
+
+        This method implements a progressive recovery strategy:
+        1. Try WAL checkpoint (least invasive)
+        2. Try full database repair if checkpoint fails
+        3. Log critical error if all recovery methods fail
+        """
+        from qBitrr.db_recovery import DatabaseRecoveryError, checkpoint_wal, repair_database
+        from qBitrr.home_path import APPDATA_FOLDER
+
+        db_path = APPDATA_FOLDER / "qbitrr.db"
+
+        # Step 1: Try WAL checkpoint (least invasive)
+        self.logger.info("Attempting WAL checkpoint...")
+        if checkpoint_wal(db_path, self.logger):
+            self.logger.info("WAL checkpoint successful - database recovered")
+            return
+
+        # Step 2: Try full repair (more invasive)
+        self.logger.warning("WAL checkpoint failed - attempting full database repair...")
+        try:
+            if repair_database(db_path, backup=True, logger_override=self.logger):
+                self.logger.info("Database repair successful")
+                return
+        except DatabaseRecoveryError as e:
+            self.logger.error("Database repair failed: %s", e)
+        except Exception as e:
+            self.logger.error("Unexpected error during database repair: %s", e)
+
+        # Step 3: All recovery methods failed
+        self.logger.critical(
+            "Database recovery failed - database may be corrupted. "
+            "Manual intervention may be required. Continuing with caution..."
+        )
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -5635,9 +5699,12 @@ class Arr:
                         entry["episodeId"] for entry in self.queue if entry.get("episodeId")
                     }
                     if self.model_queue:
-                        self.model_queue.delete().where(
-                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                        ).execute()
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
                 else:
                     for entry in self.queue:
                         if r := entry.get("seriesId"):
@@ -5646,9 +5713,12 @@ class Arr:
                         entry["seriesId"] for entry in self.queue if entry.get("seriesId")
                     }
                     if self.model_queue:
-                        self.model_queue.delete().where(
-                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                        ).execute()
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
             elif self.type == "radarr":
                 self.requeue_cache = {
                     entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -5657,9 +5727,12 @@ class Arr:
                     entry["movieId"] for entry in self.queue if entry.get("movieId")
                 }
                 if self.model_queue:
-                    self.model_queue.delete().where(
-                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    ).execute()
+                    with_database_retry(
+                        lambda: self.model_queue.delete()
+                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                        .execute(),
+                        logger=self.logger,
+                    )
             elif self.type == "lidarr":
                 self.requeue_cache = {
                     entry["id"]: entry["albumId"] for entry in self.queue if entry.get("albumId")
@@ -5668,9 +5741,12 @@ class Arr:
                     entry["albumId"] for entry in self.queue if entry.get("albumId")
                 }
                 if self.model_queue:
-                    self.model_queue.delete().where(
-                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    ).execute()
+                    with_database_retry(
+                        lambda: self.model_queue.delete()
+                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                        .execute(),
+                        logger=self.logger,
+                    )
 
         self._update_bad_queue_items()
 
