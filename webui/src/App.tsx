@@ -419,14 +419,6 @@ function AppShell(): JSX.Element {
         return;
       }
 
-      // R - Refresh current view
-      if (event.key === 'r' || event.key === 'R') {
-        event.preventDefault();
-        setReloadKey(prev => prev + 1);
-        push('Refreshed', 'success');
-        return;
-      }
-
       // ESC - Clear search
       if (event.key === 'Escape') {
         setSearchValue('');

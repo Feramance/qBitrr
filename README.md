@@ -51,13 +51,15 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 - **Custom format scoring** – search for releases meeting minimum custom format scores
 - **Overseerr/Ombi integration** – auto-pull and prioritize user requests from request management tools
 - **Smart search modes** – series-level or episode-level search for TV shows based on context
-- **Temporary quality profiles** – use lower quality profiles for missing items, upgrade later
+- **Temporary quality profiles** – use lower quality profiles for missing items, upgrade later with flexible mapping
 
 ### 📊 Quality & Metadata Management
 - **RSS sync automation** – schedule periodic RSS feed refreshes across all Arr instances
 - **Queue management** – auto-refresh download queues to keep Arr instances in sync
 - **Custom format enforcement** – automatically remove torrents not meeting minimum CF scores
-- **Quality profile switching** – dynamically change profiles for missing vs. upgrade searches
+- **Quality profile switching** – dynamically change profiles for missing vs. upgrade searches with per-profile mapping
+- **Interactive profile configuration** – test Arr connections and select quality profiles from dropdowns in WebUI
+- **Auto-reset profiles** – force reset temp profiles on startup or after configurable timeouts
 - **Year-based search ordering** – prioritize searches by release date (newest first or reverse)
 
 ### 🌱 Seeding & Tracker Control
@@ -84,18 +86,24 @@ qBitrr is the intelligent glue between qBittorrent and the *Arr ecosystem (Radar
 - **Smart restart mechanism** – uses `os.execv()` for true in-place restarts (no supervisor needed)
 - **Cross-platform compatibility** – works in Docker, systemd, native installs, Windows, Linux, macOS
 - **Graceful shutdown** – cleanly closes databases, flushes logs, terminates child processes
+- **Process auto-restart** – automatically restarts crashed Arr manager processes with crash loop protection
+- **Crash loop detection** – prevents infinite restart loops with configurable max restart limits and time windows
+- **Configurable restart behavior** – control restart delays, maximum attempts, and monitoring windows via WebUI
 
 ### 💻 First-Party Web UI
 - **Live process monitoring** – see all running Arr managers and their current activity
 - **Log viewer** – tail logs in real-time with filtering and search
-- **Arr insights** – view movies, series, albums with filtering by year, quality, status
-- **Config editor** – edit configuration directly from the UI
+- **Arr insights** – view movies, series, albums with filtering by year, quality, status, and quality profiles
+- **Config editor** – edit configuration directly from the UI with validation and helpful tooltips
+- **Test connections** – validate Arr credentials and load quality profiles with one click
 - **Restart controls** – restart individual processes or the entire application
 - **Dark/light theme** – customizable UI appearance
 - **Token authentication** – optional API protection with bearer tokens
 
 ## 📌 State of the Project
 The long-term plan is still to ship a C# rewrite, but the Python edition isn't going anywhere—it gets regular fixes and features, and the Web UI is now production-ready. Ideas and PRs are welcome! Head over to the [issue templates](.github/ISSUE_TEMPLATE) or the [PR checklist](.github/pull_request_template.md) to get started.
+
+
 
 ## ⚡ Quickstart
 qBitrr supports Python 3.12+ on Linux, macOS, and Windows. Run it natively or in Docker—whatever fits your stack.
@@ -215,6 +223,7 @@ sudo systemctl status qbitrr
 
 2. **Configure Arr instances** (Radarr/Sonarr/Lidarr):
    - Each instance needs: `URI`, `APIKey`, `Category`
+   - **Naming format:** Instance names must follow pattern `(Radarr|Sonarr|Lidarr)-<name>` (e.g., `Radarr-Movies`, `Sonarr-TV4K`)
    - **Important:** Use matching categories in Arr's download client settings
    - **Tagging:** Ensure Arr instances tag their downloads so qBitrr can track them
 
@@ -346,10 +355,24 @@ Unmonitored = false               # Include unmonitored items
 [Radarr-Movies.EntrySearch]
 UseTempForMissing = true
 KeepTempProfile = false
-MainQualityProfile = ["Ultra-HD", "HD-1080p"]
-TempQualityProfile = ["Web-DL", "HDTV-720p"]
+
+# New: Map each main profile to a temp profile
+QualityProfileMappings = { "Ultra-HD" = "Web-DL", "HD-1080p" = "HDTV-720p" }
+
+# Auto-reset options
+ForceResetTempProfiles = false           # Reset all on startup
+TempProfileResetTimeoutMinutes = 0       # Auto-reset after timeout (0 = disabled)
+ProfileSwitchRetryAttempts = 3           # Retry failed profile switches
+
 # Searches missing items with temp profile, switches back after import
 ```
+
+**Configure via WebUI:**
+1. Edit your Arr instance in the Config tab
+2. Click "Test Connection" to load available quality profiles
+3. Add profile mappings with the interactive UI (no JSON editing needed!)
+4. Select main and temp profiles from dropdowns
+5. Save and restart
 
 ---
 
@@ -695,6 +718,52 @@ curl -X POST http://localhost:6969/api/arr/radarr-movies/restart
 ```
 
 **For systemd users:** See [SYSTEMD_SERVICE.md](SYSTEMD_SERVICE.md) for automatic restart configuration.
+
+---
+
+### 🔁 Process Auto-Restart & Crash Loop Protection
+
+Your Arr manager processes (Radarr/Sonarr/Lidarr) automatically restart if they crash, preventing downtime. Built-in protection stops restart loops if a process keeps failing.
+
+#### ⚙️ Configuration
+
+**Basic Setup:**
+```toml
+[Settings]
+AutoRestartProcesses = true        # Enable automatic restart
+MaxProcessRestarts = 5              # Stop trying after 5 crashes
+ProcessRestartWindow = 300          # Within 5 minutes
+ProcessRestartDelay = 5             # Wait 5 seconds before restarting
+```
+
+**What this means:**
+- If a process crashes fewer than 5 times in 5 minutes, it auto-restarts
+- If it crashes 5+ times in 5 minutes, qBitrr stops trying and logs an error
+- After the 5-minute window passes, the counter resets and auto-restart resumes
+
+**Configure via WebUI:**
+1. Navigate to **Config** tab
+2. Find the **Process Management** section
+3. Adjust restart behavior to your preference
+4. Save and restart qBitrr
+
+#### 📊 Monitoring
+
+**Via WebUI:**
+- **Processes tab** shows all running managers with restart history
+- Manually restart individual processes if needed
+
+**Via Logs:**
+```bash
+# See restart activity
+tail -f ~/logs/Main.log | grep restart        # Native
+docker logs -f qbitrr | grep restart          # Docker
+sudo journalctl -u qbitrr -f | grep restart   # Systemd
+```
+
+#### 🆕 First-Time Setup
+
+Existing configs automatically upgrade to version 3 on first startup. A timestamped backup is created before any changes. No manual action needed!
 
 ---
 

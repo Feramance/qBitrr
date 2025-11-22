@@ -49,6 +49,8 @@ interface LidarrTrackRow {
   hasFile: boolean;
   monitored: boolean;
   reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
@@ -88,8 +90,18 @@ function LidarrAggregateView({
   const groupedDataCache = useRef<Array<{
     instance: string;
     artist: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
     albums: LidarrAggRow[];
   }>>([]);
+  const artistGroupCache = useRef<Map<string, {
+    instance: string;
+    artist: string;
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+    albums: LidarrAggRow[];
+    albumKeys: Set<string>;
+  }>>(new Map());
 
   // Create grouped data structure: instance > artist > albums - only rebuild if rows actually changed
   const groupedData = useMemo(() => {
@@ -98,31 +110,7 @@ function LidarrAggregateView({
       return groupedDataCache.current;
     }
 
-    // Check if content is identical (same length and album titles)
-    if (rows.length === prevRowsRef.current.length) {
-      let identical = true;
-      for (let i = 0; i < rows.length; i++) {
-        const curr = rows[i];
-        const prev = prevRowsRef.current[i];
-        const currAlbum = curr.album as Record<string, unknown>;
-        const prevAlbum = prev.album as Record<string, unknown>;
-        if (
-          curr.__instance !== prev.__instance ||
-          currAlbum?.["title"] !== prevAlbum?.["title"] ||
-          currAlbum?.["artistName"] !== prevAlbum?.["artistName"] ||
-          currAlbum?.["hasFile"] !== prevAlbum?.["hasFile"] ||
-          currAlbum?.["monitored"] !== prevAlbum?.["monitored"]
-        ) {
-          identical = false;
-          break;
-        }
-      }
-      if (identical) {
-        return groupedDataCache.current;
-      }
-    }
-
-    // Content changed, rebuild grouped structure
+    // Build instance > artist > albums map
     const instanceMap = new Map<string, Map<string, LidarrAggRow[]>>();
 
     rows.forEach(row => {
@@ -143,22 +131,70 @@ function LidarrAggregateView({
     const result: Array<{
       instance: string;
       artist: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
       albums: LidarrAggRow[];
     }> = [];
 
+    const newArtistGroupCache = new Map<string, {
+      instance: string;
+      artist: string;
+      qualityProfileId?: number | null;
+      qualityProfileName?: string | null;
+      albums: LidarrAggRow[];
+      albumKeys: Set<string>;
+    }>();
+
     instanceMap.forEach((artistMap, instance) => {
       artistMap.forEach((albums, artist) => {
-        result.push({
+        const artistKey = `${instance}-${artist}`;
+
+        // Build set of album keys for this artist
+        const albumKeys = new Set<string>();
+        albums.forEach(album => {
+          const albumData = album.album as Record<string, unknown>;
+          const albumKey = `${albumData?.["title"]}`;
+          albumKeys.add(albumKey);
+        });
+
+        // Check if this artist group is in cache and unchanged
+        const cached = artistGroupCache.current.get(artistKey);
+        if (cached && cached.albumKeys.size === albumKeys.size) {
+          let unchanged = true;
+          for (const key of albumKeys) {
+            if (!cached.albumKeys.has(key)) {
+              unchanged = false;
+              break;
+            }
+          }
+          if (unchanged) {
+            // Reuse cached artist group (prevents count flickering)
+            result.push(cached);
+            newArtistGroupCache.set(artistKey, cached);
+            return;
+          }
+        }
+
+        // Build new artist group
+        const firstAlbum = albums[0];
+        const albumData = firstAlbum?.album as Record<string, unknown> | undefined;
+        const artistGroup = {
           instance,
           artist,
+          qualityProfileId: (albumData?.["qualityProfileId"] as number | null | undefined) ?? null,
+          qualityProfileName: (albumData?.["qualityProfileName"] as string | null | undefined) ?? null,
           albums,
-        });
+          albumKeys,
+        };
+        result.push(artistGroup);
+        newArtistGroupCache.set(artistKey, artistGroup);
       });
     });
 
     // Update caches
     prevRowsRef.current = rows;
     groupedDataCache.current = result;
+    artistGroupCache.current = newArtistGroupCache;
 
     return result;
   }, [rows]);
@@ -240,6 +276,15 @@ function LidarrAggregateView({
         size: 100,
       },
       {
+        accessorKey: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const profileName = info.getValue() as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
+      },
+      {
         accessorKey: "reason",
         header: "Reason",
         cell: (info) => {
@@ -300,6 +345,9 @@ function LidarrAggregateView({
                 <span className="artist-title">{artistGroup.artist}</span>
                 <span className="artist-instance">({artistGroup.instance})</span>
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
+                {artistGroup.qualityProfileName ? (
+                  <span className="artist-quality">• {artistGroup.qualityProfileName}</span>
+                ) : null}
               </summary>
               <div className="artist-content">
                 {artistGroup.albums.map((albumEntry) => {
@@ -476,6 +524,8 @@ interface LidarrInstanceViewProps {
   onRestart: () => void;
   lastUpdated: string | null;
   groupLidarr: boolean;
+  instances: ArrInfo[];
+  selection: string;
 }
 
 function LidarrInstanceView({
@@ -491,7 +541,13 @@ function LidarrInstanceView({
   onRestart,
   lastUpdated,
   groupLidarr,
+  instances,
+  selection,
 }: LidarrInstanceViewProps): JSX.Element {
+  // Separate pagination state for flat (album) view
+  const [flatPage, setFlatPage] = useState(0);
+  const FLAT_PAGE_SIZE = 50;
+
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
     if (onlyMissing) {
@@ -518,13 +574,38 @@ function LidarrInstanceView({
   }, [filteredAlbums, reasonFilter]);
 
   const totalAlbums = useMemo(() => allAlbums.length, [allAlbums]);
-  const isFiltered = reasonFilter !== "all";
+  const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = reasonFilteredAlbums.length;
+
+  // Count total tracks for instance view
+  const totalTracks = useMemo(() => {
+    let count = 0;
+    allAlbums.forEach(entry => {
+      const tracks = entry.tracks || [];
+      count += tracks.length;
+    });
+    return count;
+  }, [allAlbums]);
+
+  const filteredTracks = useMemo(() => {
+    let count = 0;
+    reasonFilteredAlbums.forEach(entry => {
+      const tracks = entry.tracks || [];
+      count += tracks.length;
+    });
+    return count;
+  }, [reasonFilteredAlbums]);
+
+  // Reset flat page when filters change
+  useEffect(() => {
+    setFlatPage(0);
+  }, [onlyMissing, reasonFilter]);
 
   const prevFilteredAlbumsRef = useRef<LidarrAlbumEntry[]>([]);
   const groupedAlbumsCache = useRef<Array<{
     artist: string;
     albums: LidarrAlbumEntry[];
+    qualityProfileName?: string | null;
   }>>([]);
 
   // Group albums by artist for hierarchical view - only rebuild if filtered albums changed
@@ -544,10 +625,16 @@ function LidarrInstanceView({
       artistMap.get(artist)!.push(albumEntry);
     });
 
-    const result = Array.from(artistMap.entries()).map(([artist, albums]) => ({
-      artist,
-      albums
-    }));
+    const result = Array.from(artistMap.entries()).map(([artist, albums]) => {
+      // Get quality profile from first album (all albums by same artist typically share quality profile)
+      const firstAlbum = albums[0]?.album as Record<string, unknown> | undefined;
+      const qualityProfileName = (firstAlbum?.["qualityProfileName"] as string | null | undefined) ?? null;
+      return {
+        artist,
+        albums,
+        qualityProfileName,
+      };
+    });
 
     prevFilteredAlbumsRef.current = reasonFilteredAlbums;
     groupedAlbumsCache.current = result;
@@ -613,6 +700,16 @@ function LidarrInstanceView({
         size: 100,
       },
       {
+        id: "qualityProfileName",
+        header: "Quality Profile",
+        cell: (info) => {
+          const albumData = info.row.original.album as Record<string, unknown>;
+          const profileName = albumData?.["qualityProfileName"] as string | null | undefined;
+          return profileName || "—";
+        },
+        size: 150,
+      },
+      {
         id: "reason",
         header: "Reason",
         cell: (info) => {
@@ -627,8 +724,29 @@ function LidarrInstanceView({
     []
   );
 
+  // Pagination for flat view
+  const flatTotalPages = Math.max(1, Math.ceil(reasonFilteredAlbums.length / FLAT_PAGE_SIZE));
+  const flatSafePage = Math.min(flatPage, Math.max(0, flatTotalPages - 1));
+  const paginatedAlbums = useMemo(() => {
+    return reasonFilteredAlbums.slice(flatSafePage * FLAT_PAGE_SIZE, (flatSafePage + 1) * FLAT_PAGE_SIZE);
+  }, [reasonFilteredAlbums, flatSafePage]);
+
+  // Pagination for grouped view (paginate by artist groups, not backend pages)
+  const GROUPED_PAGE_SIZE = 50;
+  const [groupedPage, setGroupedPage] = useState(0);
+  const groupedTotalPages = Math.max(1, Math.ceil(groupedAlbums.length / GROUPED_PAGE_SIZE));
+  const groupedSafePage = Math.min(groupedPage, Math.max(0, groupedTotalPages - 1));
+  const paginatedGroupedAlbums = useMemo(() => {
+    return groupedAlbums.slice(groupedSafePage * GROUPED_PAGE_SIZE, (groupedSafePage + 1) * GROUPED_PAGE_SIZE);
+  }, [groupedAlbums, groupedSafePage]);
+
+  // Reset grouped page when filters change
+  useEffect(() => {
+    setGroupedPage(0);
+  }, [onlyMissing, reasonFilter]);
+
   const table = useReactTable({
-    data: reasonFilteredAlbums.slice(page * pageSize, page * pageSize + pageSize),
+    data: paginatedAlbums,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -638,18 +756,28 @@ function LidarrInstanceView({
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div className="hint">
-          {data?.counts
-            ? `Available: ${data.counts.available ?? 0} • Monitored: ${
-                data.counts.monitored ?? 0
-              }`
-            : ""}
-          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
-          {isFiltered && totalAlbums > 0 && (
+          {data?.counts ? (
             <>
-              {" "}• <strong>Filtered:</strong> {filteredCount.toLocaleString()} of{" "}
-              {totalAlbums.toLocaleString()}
+              <strong>Available:</strong>{" "}
+              {(data.counts.available ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Monitored:</strong>{" "}
+              {(data.counts.monitored ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Missing:</strong>{" "}
+              {((data.counts.monitored ?? 0) - (data.counts.available ?? 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })} •{" "}
+              <strong>Total:</strong>{" "}
+              {totalAlbums.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              {isFiltered && filteredCount < totalAlbums && (
+                <>
+                  {" "}• <strong>Filtered:</strong>{" "}
+                  {filteredCount.toLocaleString(undefined, { maximumFractionDigits: 0 })} of{" "}
+                  {totalAlbums.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                </>
+              )}
             </>
+          ) : (
+            "Loading album information..."
           )}
+          {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RestartIcon} />
@@ -663,11 +791,18 @@ function LidarrInstanceView({
         </div>
       ) : groupLidarr ? (
         <div className="lidarr-hierarchical-view">
-          {groupedAlbums.map((artistGroup) => (
+          {paginatedGroupedAlbums.map((artistGroup) => {
+            // Get instance name from selection
+            const instanceName = instances.find(i => i.category === selection)?.name || selection;
+            return (
             <details key={artistGroup.artist} className="artist-details">
               <summary className="artist-summary">
                 <span className="artist-title">{artistGroup.artist}</span>
+                <span className="artist-instance">({instanceName})</span>
                 <span className="artist-count">({artistGroup.albums.length} albums)</span>
+                {artistGroup.qualityProfileName ? (
+                  <span className="artist-quality">• {artistGroup.qualityProfileName}</span>
+                ) : null}
               </summary>
               <div className="artist-content">
                 {artistGroup.albums.map((albumEntry) => {
@@ -751,13 +886,14 @@ function LidarrInstanceView({
                       )}
                     </div>
                   </details>
-                  );
+                   );
                 })}
               </div>
             </details>
-          ))}
+            );
+          })}
         </div>
-      ) : allAlbums.length ? (
+      ) : !groupLidarr && allAlbums.length ? (
         <div className="table-wrapper">
           <table className="responsive-table">
             <thead>
@@ -798,29 +934,51 @@ function LidarrInstanceView({
               })}
             </tbody>
           </table>
+          {flatTotalPages > 1 && (
+            <div className="pagination">
+              <div>
+                Page {flatSafePage + 1} of {flatTotalPages} ({reasonFilteredAlbums.length.toLocaleString()} albums · page size {FLAT_PAGE_SIZE})
+              </div>
+              <div className="inline">
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.max(0, flatSafePage - 1))}
+                  disabled={flatSafePage === 0 || loading}
+                >
+                  Prev
+                </button>
+                <button
+                  className="btn"
+                  onClick={() => setFlatPage(Math.min(flatTotalPages - 1, flatSafePage + 1))}
+                  disabled={flatSafePage >= flatTotalPages - 1 || loading}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="hint">No albums found.</div>
       )}
 
-      {reasonFilteredAlbums.length > pageSize && (
+      {groupLidarr && groupedAlbums.length > 0 && (
         <div className="pagination">
           <div>
-            Page {page + 1} of {totalPages} ({reasonFilteredAlbums.length.toLocaleString()} items · page size{" "}
-            {pageSize})
+            Page {groupedSafePage + 1} of {groupedTotalPages} ({groupedAlbums.length.toLocaleString()} artists · page size {GROUPED_PAGE_SIZE})
           </div>
           <div className="inline">
             <button
               className="btn"
-              onClick={() => onPageChange(Math.max(0, page - 1))}
-              disabled={page === 0 || loading}
+              onClick={() => setGroupedPage(Math.max(0, groupedSafePage - 1))}
+              disabled={groupedSafePage === 0 || loading}
             >
               Prev
             </button>
             <button
               className="btn"
-              onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))}
-              disabled={page >= totalPages - 1 || loading}
+              onClick={() => setGroupedPage(Math.min(groupedTotalPages - 1, groupedSafePage + 1))}
+              disabled={groupedSafePage >= groupedTotalPages - 1 || loading}
             >
               Next
             </button>
@@ -842,7 +1000,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const { liveArr, groupLidarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
-  const [selection, setSelection] = useState<string | "">("aggregate");
+  const [selection, setSelection] = useState<string | "">("");
   const [instanceData, setInstanceData] = useState<LidarrAlbumsResponse | null>(null);
   const [instancePage, setInstancePage] = useState(0);
   const [instanceQuery, setInstanceQuery] = useState("");
@@ -855,6 +1013,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const instancePagesRef = useRef<Record<number, LidarrAlbumEntry[]>>({});
   const globalSearchRef = useRef(globalSearch);
   const backendReadyWarnedRef = useRef(false);
+  const prevSelectionRef = useRef<string | "">(selection);
 
   // Smart data sync for instance albums
   const instanceAlbumSync = useDataSync<LidarrAlbumEntry>({
@@ -1135,6 +1294,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         const artistName = (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
         const albumTitle = (albumData?.["title"] as string | undefined) || "Unknown Album";
         const reason = albumData?.["reason"] as string | null | undefined;
+        const qualityProfileId = albumData?.["qualityProfileId"] as number | null | undefined;
+        const qualityProfileName = albumData?.["qualityProfileName"] as string | null | undefined;
         const tracks = albumEntry.tracks || [];
 
         if (tracks && tracks.length > 0) {
@@ -1149,6 +1310,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               hasFile: track.hasFile || false,
               monitored: track.monitored || false,
               reason,
+              qualityProfileId,
+              qualityProfileName,
             });
           });
         }
@@ -1228,16 +1391,25 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   useEffect(() => {
     if (!active) return;
     if (!selection || selection === "aggregate") return;
-    instancePagesRef.current = {};
-    setInstancePages({});
-    setInstanceTotalPages(1);
-    setInstancePage(0);
+
+    const selectionChanged = prevSelectionRef.current !== selection;
+
+    // Reset page and cache only when selection changes
+    if (selectionChanged) {
+      instancePagesRef.current = {};
+      setInstancePages({});
+      setInstanceTotalPages(1);
+      setInstancePage(0);
+      prevSelectionRef.current = selection;
+    }
+
+    // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, {
+    void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
       preloadAll: true,
       showLoading: true,
     });
-  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
+  }, [active, selection, fetchInstance, instancePage]);
 
   useEffect(() => {
     if (!active) return;
@@ -1249,7 +1421,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     if (selection === "aggregate" && liveArr) {
       void loadAggregate({ showLoading: false });
     }
-  }, selection === "aggregate" && liveArr ? 10000 : null);
+  }, selection === "aggregate" && liveArr ? 1000 : null);
 
   useEffect(() => {
     if (!active) return;
@@ -1373,6 +1545,10 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     });
     return rows;
   }, [instancePages]);
+
+  const currentPageAlbums = useMemo(() => {
+    return instancePages[instancePage] ?? [];
+  }, [instancePages, instancePage]);
 
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
@@ -1504,7 +1680,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 page={instancePage}
                 totalPages={instanceTotalPages}
                 pageSize={instancePageSize}
-                allAlbums={allInstanceAlbums}
+                allAlbums={groupLidarr ? currentPageAlbums : allInstanceAlbums}
                 onlyMissing={onlyMissing}
                 reasonFilter={reasonFilter}
                 onPageChange={(page) => {
@@ -1516,6 +1692,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
                 groupLidarr={groupLidarr}
+                instances={instances}
+                selection={selection as string}
               />
             )}
           </div>

@@ -44,6 +44,7 @@ from qBitrr.config import (
     SEARCH_ONLY,
     TAGLESS,
 )
+from qBitrr.db_lock import with_database_retry
 from qBitrr.errors import (
     DelayLoopException,
     NoConnectionrException,
@@ -147,24 +148,34 @@ class Arr:
         run_logs(self.logger, self._name)
 
         if not QBIT_DISABLED:
-            categories = self.manager.qbit_manager.client.torrent_categories.categories
             try:
-                categ = categories[self.category]
-                path = categ["savePath"]
-                if path:
-                    self.logger.trace("Category exists with save path [%s]", path)
-                    self.completed_folder = pathlib.Path(path)
-                else:
-                    self.logger.trace("Category exists without save path")
+                categories = self.manager.qbit_manager.client.torrent_categories.categories
+                try:
+                    categ = categories[self.category]
+                    path = categ["savePath"]
+                    if path:
+                        self.logger.trace("Category exists with save path [%s]", path)
+                        self.completed_folder = pathlib.Path(path)
+                    else:
+                        self.logger.trace("Category exists without save path")
+                        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
+                            self.category
+                        )
+                except KeyError:
                     self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                         self.category
                     )
-            except KeyError:
+                    self.manager.qbit_manager.client.torrent_categories.create_category(
+                        self.category, save_path=self.completed_folder
+                    )
+            except Exception as e:
+                self.logger.warning(
+                    "Could not connect to qBittorrent during initialization for %s: %s. Will retry when process starts.",
+                    self._name,
+                    str(e).split("\n")[0] if "\n" in str(e) else str(e),  # First line only
+                )
                 self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                     self.category
-                )
-                self.manager.qbit_manager.client.torrent_categories.create_category(
-                    self.category, save_path=self.completed_folder
                 )
         else:
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
@@ -419,26 +430,45 @@ class Arr:
         except Exception:
             self.logger.debug("Failed to get version")
 
-        self.main_quality_profiles = CONFIG.get(
-            f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+        # Try new QualityProfileMappings format first (dict), then fall back to old format (lists)
+        self.quality_profile_mappings = CONFIG.get(
+            f"{self._name}.EntrySearch.QualityProfileMappings", fallback={}
         )
-        if not isinstance(self.main_quality_profiles, list):
-            self.main_quality_profiles = [self.main_quality_profiles]
-        self.temp_quality_profiles = CONFIG.get(
-            f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
-        )
-        if not isinstance(self.temp_quality_profiles, list):
-            self.temp_quality_profiles = [self.temp_quality_profiles]
+
+        if not self.quality_profile_mappings:
+            # Old format: separate lists - convert to dict
+            main_profiles = CONFIG.get(
+                f"{self._name}.EntrySearch.MainQualityProfile", fallback=None
+            )
+            if not isinstance(main_profiles, list):
+                main_profiles = [main_profiles] if main_profiles else []
+            temp_profiles = CONFIG.get(
+                f"{self._name}.EntrySearch.TempQualityProfile", fallback=None
+            )
+            if not isinstance(temp_profiles, list):
+                temp_profiles = [temp_profiles] if temp_profiles else []
+
+            # Convert lists to dictionary
+            if main_profiles and temp_profiles and len(main_profiles) == len(temp_profiles):
+                self.quality_profile_mappings = dict(zip(main_profiles, temp_profiles))
 
         self.use_temp_for_missing = (
             CONFIG.get(f"{name}.EntrySearch.UseTempForMissing", fallback=False)
-            and self.main_quality_profiles
-            and self.temp_quality_profiles
+            and self.quality_profile_mappings
         )
         self.keep_temp_profile = CONFIG.get(f"{name}.EntrySearch.KeepTempProfile", fallback=False)
 
         if self.use_temp_for_missing:
+            self.logger.info(
+                "Temp quality profile mode enabled: Mappings=%s, Keep temp=%s",
+                self.quality_profile_mappings,
+                self.keep_temp_profile,
+            )
             self.temp_quality_profile_ids = self.parse_quality_profiles()
+            self.logger.info(
+                "Parsed quality profile mappings: %s",
+                {f"{k}→{v}": f"(main→temp)" for k, v in self.temp_quality_profile_ids.items()},
+            )
 
         # Cache for valid quality profile IDs to avoid repeated API calls and warnings
         self._quality_profile_cache: dict[int, dict] = {}
@@ -698,6 +728,9 @@ class Arr:
             return True
         except requests.RequestException:
             self.logger.warning("Could not connect to %s", self.uri)
+            # Clear the cache to ensure we retry on next check
+            if 1 in self.expiring_bool.container:
+                self.expiring_bool.remove(1)
         return False
 
     @staticmethod
@@ -1573,10 +1606,25 @@ class Arr:
 
     def _search_todays(self, condition):
         if self.prioritize_todays_release:
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
@@ -1826,12 +1874,36 @@ class Arr:
                 condition = self.series_file_model.Searched == False
             else:
                 condition = self.series_file_model.Upgrade == False
-            for entry_ in (
-                self.series_file_model.select()
-                .where(condition)
-                .order_by(self.series_file_model.EntryId.asc())
-                .execute()
-            ):
+
+            # Collect series entries with their priority based on episode reasons
+            # Missing > CustomFormat > Quality > Upgrade
+            series_entries = []
+            for entry_ in self.series_file_model.select().where(condition).execute():
+                # Get the highest priority reason from this series' episodes
+                reason_priority_map = {
+                    "Missing": 1,
+                    "CustomFormat": 2,
+                    "Quality": 3,
+                    "Upgrade": 4,
+                }
+                # Find the minimum priority (highest importance) reason for this series
+                min_priority = 5  # Default
+                episode_reasons = (
+                    self.model_file.select(self.model_file.Reason)
+                    .where(self.model_file.SeriesId == entry_.EntryId)
+                    .execute()
+                )
+                for ep in episode_reasons:
+                    if ep.Reason:
+                        priority = reason_priority_map.get(ep.Reason, 5)
+                        min_priority = min(min_priority, priority)
+
+                series_entries.append((entry_, min_priority))
+
+            # Sort by priority, then by EntryId
+            series_entries.sort(key=lambda x: (x[1], x[0].EntryId))
+
+            for entry_, _ in series_entries:
                 self.logger.trace("Adding %s to search list", entry_.Title)
                 entries.append([entry_, False, False])
             return entries
@@ -1883,10 +1955,26 @@ class Arr:
                     self.model_file.AirDateUtc
                     <= datetime(month=12, day=31, year=int(self.search_current_year)).date()
                 )
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
                 .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
@@ -1929,10 +2017,29 @@ class Arr:
                     condition &= self.model_file.Searched == False
             if self.search_by_year:
                 condition &= self.model_file.Year == self.search_current_year
+
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
-                .order_by(self.model_file.MovieFileId.asc())
+                .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
+                    self.model_file.MovieFileId.asc(),
+                )
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -1959,10 +2066,29 @@ class Arr:
                 else:
                     condition &= self.model_file.AlbumFileId == 0
                     condition &= self.model_file.Searched == False
+
+            # Order searches by priority: Missing > CustomFormat > Quality > Upgrade
+            # Use CASE to assign priority values to each reason
+            from peewee import Case
+
+            reason_priority = Case(
+                None,
+                (
+                    (self.model_file.Reason == "Missing", 1),
+                    (self.model_file.Reason == "CustomFormat", 2),
+                    (self.model_file.Reason == "Quality", 3),
+                    (self.model_file.Reason == "Upgrade", 4),
+                ),
+                5,  # Default priority for other reasons
+            )
+
             for entry in (
                 self.model_file.select()
                 .where(condition)
-                .order_by(self.model_file.AlbumFileId.asc())
+                .order_by(
+                    reason_priority.asc(),  # Primary: order by reason priority
+                    self.model_file.AlbumFileId.asc(),
+                )
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -2616,7 +2742,7 @@ class Arr:
                             else False
                         )
                         if (
-                            episode["hasFile"]
+                            episode.get("hasFile", False)
                             and not (self.quality_unmet_search and QualityUnmet)
                             and not (
                                 self.custom_format_unmet_search and customFormat < minCustomFormat
@@ -2630,45 +2756,56 @@ class Arr:
                         if self.use_temp_for_missing:
                             data = None
                             quality_profile_id = db_entry.get("qualityProfileId")
+                            # Only apply temp profiles for truly missing content (no file)
+                            # Do NOT apply for quality/custom format unmet or upgrade searches
+                            has_file = episode.get("hasFile", False)
                             self.logger.trace(
-                                "Temp quality profile [%s][%s]",
+                                "Temp quality profile check for '%s': searched=%s, has_file=%s, current_profile_id=%s, keep_temp=%s",
+                                db_entry.get("title", "Unknown"),
                                 searched,
+                                has_file,
                                 quality_profile_id,
+                                self.keep_temp_profile,
                             )
                             if (
                                 searched
                                 and quality_profile_id in self.temp_quality_profile_ids.values()
                                 and not self.keep_temp_profile
                             ):
-                                data: JsonObject = {
-                                    "qualityProfileId": list(self.temp_quality_profile_ids.keys())[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            quality_profile_id
-                                        )
-                                    ]
-                                }
-                                self.logger.debug(
-                                    "Upgrading quality profile for %s to %s",
-                                    db_entry["title"],
-                                    list(self.temp_quality_profile_ids.keys())[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            db_entry["qualityProfileId"]
-                                        )
-                                    ],
+                                new_profile_id = list(self.temp_quality_profile_ids.keys())[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        quality_profile_id
+                                    )
+                                ]
+                                data: JsonObject = {"qualityProfileId": new_profile_id}
+                                self.logger.info(
+                                    "Upgrading quality profile for '%s': %s (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
+                                    db_entry.get("title", "Unknown"),
+                                    quality_profile_id,
+                                    quality_profile_id,
+                                    new_profile_id,
                                 )
                             elif (
                                 not searched
+                                and not has_file
                                 and quality_profile_id in self.temp_quality_profile_ids.keys()
                             ):
-                                data: JsonObject = {
-                                    "qualityProfileId": self.temp_quality_profile_ids[
-                                        quality_profile_id
-                                    ]
-                                }
-                                self.logger.debug(
-                                    "Downgrading quality profile for %s to %s",
-                                    db_entry["title"],
-                                    self.temp_quality_profile_ids[quality_profile_id],
+                                new_profile_id = self.temp_quality_profile_ids[quality_profile_id]
+                                data: JsonObject = {"qualityProfileId": new_profile_id}
+                                self.logger.info(
+                                    "Downgrading quality profile for '%s': main profile (ID:%s) → temp profile (ID:%s) [Episode not searched yet]",
+                                    db_entry.get("title", "Unknown"),
+                                    quality_profile_id,
+                                    new_profile_id,
+                                )
+                            else:
+                                self.logger.trace(
+                                    "No quality profile change for '%s': searched=%s, profile_id=%s (in_temps=%s, in_mains=%s)",
+                                    db_entry.get("title", "Unknown"),
+                                    searched,
+                                    quality_profile_id,
+                                    quality_profile_id in self.temp_quality_profile_ids.values(),
+                                    quality_profile_id in self.temp_quality_profile_ids.keys(),
                                 )
                             if data:
                                 while True:
@@ -2705,7 +2842,7 @@ class Arr:
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if not episode["hasFile"]:
+                        if not episode.get("hasFile", False):
                             # Episode is missing a file - always mark as Missing
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
@@ -2910,12 +3047,27 @@ class Arr:
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
 
+                        # Get quality profile info
+                        qualityProfileName = None
+                        if quality_profile_id:
+                            try:
+                                if quality_profile_id not in self._quality_profile_cache:
+                                    profile = self.client.get_quality_profile(quality_profile_id)
+                                    self._quality_profile_cache[quality_profile_id] = profile
+                                qualityProfileName = self._quality_profile_cache[
+                                    quality_profile_id
+                                ].get("name")
+                            except Exception:
+                                pass
+
                         to_update = {
                             self.series_file_model.Monitored: Monitored,
                             self.series_file_model.Title: Title,
                             self.series_file_model.Searched: searched,
                             self.series_file_model.Upgrade: False,
                             self.series_file_model.MinCustomFormatScore: minCustomFormat,
+                            self.series_file_model.QualityProfileId: quality_profile_id,
+                            self.series_file_model.QualityProfileName: qualityProfileName,
                         }
 
                         self.logger.debug(
@@ -2932,6 +3084,8 @@ class Arr:
                             Monitored=Monitored,
                             Upgrade=False,
                             MinCustomFormatScore=minCustomFormat,
+                            QualityProfileId=quality_profile_id,
+                            QualityProfileName=qualityProfileName,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId], update=to_update
                         )
@@ -3007,6 +3161,9 @@ class Arr:
 
                     if self.use_temp_for_missing:
                         quality_profile_id = db_entry.get("qualityProfileId")
+                        # Only apply temp profiles for truly missing content (no file)
+                        # Do NOT apply for quality/custom format unmet or upgrade searches
+                        has_file = db_entry.get("hasFile", False)
                         if (
                             searched
                             and quality_profile_id in self.temp_quality_profile_ids.values()
@@ -3026,6 +3183,7 @@ class Arr:
                             )
                         elif (
                             not searched
+                            and not has_file
                             and quality_profile_id in self.temp_quality_profile_ids.keys()
                         ):
                             db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
@@ -3057,6 +3215,20 @@ class Arr:
                     qualityMet = not QualityUnmet if db_entry["hasFile"] else False
                     customFormatMet = customFormat >= minCustomFormat
 
+                    # Get quality profile info
+                    qualityProfileId = db_entry.get("qualityProfileId")
+                    qualityProfileName = None
+                    if qualityProfileId:
+                        try:
+                            if qualityProfileId not in self._quality_profile_cache:
+                                profile = self.client.get_quality_profile(qualityProfileId)
+                                self._quality_profile_cache[qualityProfileId] = profile
+                            qualityProfileName = self._quality_profile_cache[qualityProfileId].get(
+                                "name"
+                            )
+                        except Exception:
+                            pass
+
                     if not db_entry["hasFile"]:
                         # Movie is missing a file - always mark as Missing
                         reason = "Missing"
@@ -3082,6 +3254,8 @@ class Arr:
                         self.model_file.CustomFormatScore: customFormat,
                         self.model_file.CustomFormatMet: customFormatMet,
                         self.model_file.Reason: reason,
+                        self.model_file.QualityProfileId: qualityProfileId,
+                        self.model_file.QualityProfileName: qualityProfileName,
                     }
 
                     if request:
@@ -3111,6 +3285,8 @@ class Arr:
                         CustomFormatScore=customFormat,
                         CustomFormatMet=customFormatMet,
                         Reason=reason,
+                        QualityProfileId=qualityProfileId,
+                        QualityProfileName=qualityProfileName,
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
                 else:
@@ -3302,48 +3478,8 @@ class Arr:
                                 self.model_queue.EntryId == db_entry["id"]
                             ).execute()
 
-                        if self.use_temp_for_missing:
-                            quality_profile_id = db_entry.get("qualityProfileId")
-                            if (
-                                searched
-                                and quality_profile_id in self.temp_quality_profile_ids.values()
-                                and not self.keep_temp_profile
-                            ):
-                                db_entry["qualityProfileId"] = list(
-                                    self.temp_quality_profile_ids.keys()
-                                )[
-                                    list(self.temp_quality_profile_ids.values()).index(
-                                        quality_profile_id
-                                    )
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    db_entry["qualityProfileId"],
-                                )
-                            elif (
-                                not searched
-                                and quality_profile_id in self.temp_quality_profile_ids.keys()
-                            ):
-                                db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                    quality_profile_id
-                                ]
-                                self.logger.debug(
-                                    "Updating quality profile for %s to %s",
-                                    db_entry["title"],
-                                    db_entry["qualityProfileId"],
-                                )
-                            while True:
-                                try:
-                                    self.client.upd_album(db_entry)
-                                    break
-                                except (
-                                    requests.exceptions.ChunkedEncodingError,
-                                    requests.exceptions.ContentDecodingError,
-                                    requests.exceptions.ConnectionError,
-                                    JSONDecodeError,
-                                ):
-                                    continue
+                        # Note: Lidarr quality profiles are set at artist level, not album level.
+                        # Temp profile logic for Lidarr is handled in artist processing below.
 
                         title = db_entry.get("title", "Unknown Album")
                         monitored = db_entry.get("monitored", False)
@@ -3366,6 +3502,26 @@ class Arr:
                         albumFileId = 1 if hasAllTracks else 0  # Use 1/0 to indicate presence
                         qualityMet = not QualityUnmet if hasAllTracks else False
                         customFormatMet = customFormat >= minCustomFormat
+
+                        # Get quality profile info from artist (Lidarr albums inherit from artist)
+                        qualityProfileId = None
+                        qualityProfileName = None
+                        try:
+                            artist_id = db_entry.get("artistId")
+                            if artist_id:
+                                # Try to get from already-fetched artist data if available
+                                artist_data = self.client.get_artist(artist_id)
+                                qualityProfileId = artist_data.get("qualityProfileId")
+                                if qualityProfileId:
+                                    # Fetch quality profile from cache or API
+                                    if qualityProfileId not in self._quality_profile_cache:
+                                        profile = self.client.get_quality_profile(qualityProfileId)
+                                        self._quality_profile_cache[qualityProfileId] = profile
+                                    qualityProfileName = self._quality_profile_cache[
+                                        qualityProfileId
+                                    ].get("name")
+                        except Exception:
+                            pass
 
                         if not hasAllTracks:
                             # Album is missing tracks - always mark as Missing
@@ -3396,6 +3552,8 @@ class Arr:
                             self.model_file.ArtistId: artistId,
                             self.model_file.ForeignAlbumId: foreignAlbumId,
                             self.model_file.ReleaseDate: releaseDate,
+                            self.model_file.QualityProfileId: qualityProfileId,
+                            self.model_file.QualityProfileName: qualityProfileName,
                         }
 
                         if request:
@@ -3428,6 +3586,8 @@ class Arr:
                             CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
+                            QualityProfileId=qualityProfileId,
+                            QualityProfileName=qualityProfileName,
                         ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
 
@@ -3543,6 +3703,46 @@ class Arr:
                         # Artist is considered searched if it has albums and at least some have files
                         searched = albumCount > 0 and sizeOnDisk > 0
 
+                        # Temp profile management for Lidarr artists
+                        # Quality profiles in Lidarr are set at artist level, not album level
+                        if self.use_temp_for_missing and quality_profile_id:
+                            if (
+                                searched
+                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and not self.keep_temp_profile
+                            ):
+                                # Artist has files, switch from temp back to main profile
+                                main_profile_id = list(self.temp_quality_profile_ids.keys())[
+                                    list(self.temp_quality_profile_ids.values()).index(
+                                        quality_profile_id
+                                    )
+                                ]
+                                artistMetadata["qualityProfileId"] = main_profile_id
+                                self.client.upd_artist(artistMetadata)
+                                quality_profile_id = main_profile_id
+                                self.logger.debug(
+                                    "Upgrading artist '%s' from temp profile (ID:%s) to main profile (ID:%s) [Has files]",
+                                    artistMetadata.get("artistName", "Unknown"),
+                                    quality_profile_id,
+                                    main_profile_id,
+                                )
+                            elif (
+                                not searched
+                                and sizeOnDisk == 0
+                                and quality_profile_id in self.temp_quality_profile_ids.keys()
+                            ):
+                                # Artist has no files yet, apply temp profile
+                                temp_profile_id = self.temp_quality_profile_ids[quality_profile_id]
+                                artistMetadata["qualityProfileId"] = temp_profile_id
+                                self.client.upd_artist(artistMetadata)
+                                quality_profile_id = temp_profile_id
+                                self.logger.debug(
+                                    "Downgrading artist '%s' from main profile (ID:%s) to temp profile (ID:%s) [No files yet]",
+                                    artistMetadata.get("artistName", "Unknown"),
+                                    quality_profile_id,
+                                    temp_profile_id,
+                                )
+
                         Title = artistMetadata.get("artistName")
                         Monitored = db_entry["monitored"]
 
@@ -3625,7 +3825,7 @@ class Arr:
                 ):
                     continue
         except PyarrResourceNotFound as e:
-            self.logger.error("Connection Error: " + e.message)
+            self.logger.error("Connection Error: %s", str(e))
             raise DelayLoopException(length=300, type=self._name)
         return res
 
@@ -4164,6 +4364,32 @@ class Arr:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+
+                # Periodic database health check (every 10th iteration)
+                if not hasattr(self, "_health_check_counter"):
+                    self._health_check_counter = 0
+
+                self._health_check_counter += 1
+                if self._health_check_counter >= 10:
+                    from qBitrr.db_lock import check_database_health
+                    from qBitrr.home_path import APPDATA_FOLDER
+
+                    db_path = APPDATA_FOLDER / "qbitrr.db"
+                    healthy, msg = check_database_health(db_path, self.logger)
+
+                    if not healthy:
+                        self.logger.error("Database health check failed: %s", msg)
+                        self.logger.warning("Attempting database recovery...")
+                        try:
+                            self._recover_database()
+                        except Exception as recovery_error:
+                            self.logger.error(
+                                "Database recovery failed: %s. Continuing with caution...",
+                                recovery_error,
+                            )
+
+                    self._health_check_counter = 0
+
                 self.api_calls()
                 self.refresh_download_queue()
                 for torrent in torrents:
@@ -4192,6 +4418,43 @@ class Arr:
             sys.exit(0)
         except DelayLoopException:
             raise
+
+    def _recover_database(self):
+        """
+        Attempt automatic database recovery when health check fails.
+
+        This method implements a progressive recovery strategy:
+        1. Try WAL checkpoint (least invasive)
+        2. Try full database repair if checkpoint fails
+        3. Log critical error if all recovery methods fail
+        """
+        from qBitrr.db_recovery import DatabaseRecoveryError, checkpoint_wal, repair_database
+        from qBitrr.home_path import APPDATA_FOLDER
+
+        db_path = APPDATA_FOLDER / "qbitrr.db"
+
+        # Step 1: Try WAL checkpoint (least invasive)
+        self.logger.info("Attempting WAL checkpoint...")
+        if checkpoint_wal(db_path, self.logger):
+            self.logger.info("WAL checkpoint successful - database recovered")
+            return
+
+        # Step 2: Try full repair (more invasive)
+        self.logger.warning("WAL checkpoint failed - attempting full database repair...")
+        try:
+            if repair_database(db_path, backup=True, logger_override=self.logger):
+                self.logger.info("Database repair successful")
+                return
+        except DatabaseRecoveryError as e:
+            self.logger.error("Database repair failed: %s", e)
+        except Exception as e:
+            self.logger.error("Unexpected error during database repair: %s", e)
+
+        # Step 3: All recovery methods failed
+        self.logger.critical(
+            "Database recovery failed - database may be corrupted. "
+            "Manual intervention may be required. Continuing with caution..."
+        )
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -5436,9 +5699,12 @@ class Arr:
                         entry["episodeId"] for entry in self.queue if entry.get("episodeId")
                     }
                     if self.model_queue:
-                        self.model_queue.delete().where(
-                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                        ).execute()
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
                 else:
                     for entry in self.queue:
                         if r := entry.get("seriesId"):
@@ -5447,9 +5713,12 @@ class Arr:
                         entry["seriesId"] for entry in self.queue if entry.get("seriesId")
                     }
                     if self.model_queue:
-                        self.model_queue.delete().where(
-                            self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                        ).execute()
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
             elif self.type == "radarr":
                 self.requeue_cache = {
                     entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -5458,9 +5727,12 @@ class Arr:
                     entry["movieId"] for entry in self.queue if entry.get("movieId")
                 }
                 if self.model_queue:
-                    self.model_queue.delete().where(
-                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    ).execute()
+                    with_database_retry(
+                        lambda: self.model_queue.delete()
+                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                        .execute(),
+                        logger=self.logger,
+                    )
             elif self.type == "lidarr":
                 self.requeue_cache = {
                     entry["id"]: entry["albumId"] for entry in self.queue if entry.get("albumId")
@@ -5469,9 +5741,12 @@ class Arr:
                     entry["albumId"] for entry in self.queue if entry.get("albumId")
                 }
                 if self.model_queue:
-                    self.model_queue.delete().where(
-                        self.model_queue.EntryId.not_in(list(self.queue_file_ids))
-                    ).execute()
+                    with_database_retry(
+                        lambda: self.model_queue.delete()
+                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                        .execute(),
+                        logger=self.logger,
+                    )
 
         self._update_bad_queue_items()
 
@@ -5529,17 +5804,26 @@ class Arr:
     def parse_quality_profiles(self) -> dict[int, int]:
         temp_quality_profile_ids: dict[int, int] = {}
 
+        self.logger.debug(
+            "Parsing quality profile mappings: %s",
+            self.quality_profile_mappings,
+        )
+
         while True:
             try:
                 profiles = self.client.get_quality_profile()
+                self.logger.debug("Fetched %d quality profiles from API", len(profiles))
                 break
             except (
                 requests.exceptions.ChunkedEncodingError,
                 requests.exceptions.ContentDecodingError,
                 requests.exceptions.ConnectionError,
                 JSONDecodeError,
-            ):
+            ) as e:
                 # transient network/encoding issues; retry
+                self.logger.warning(
+                    "Transient error fetching quality profiles, retrying: %s", type(e).__name__
+                )
                 continue
             except PyarrServerError as e:
                 # Server-side error (e.g., Radarr DB disk I/O). Log and wait 5 minutes before retrying.
@@ -5557,17 +5841,48 @@ class Arr:
                 profiles = []
                 break
 
-        for n in self.main_quality_profiles:
-            pair = [n, self.temp_quality_profiles[self.main_quality_profiles.index(n)]]
+        # Build a lookup dict for profile name -> ID
+        profile_name_to_id = {p["name"]: p["id"] for p in profiles}
+        self.logger.trace("Available profiles: %s", profile_name_to_id)
 
-            for p in profiles:
-                if p["name"] == pair[0]:
-                    pair[0] = p["id"]
-                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-                if p["name"] == pair[1]:
-                    pair[1] = p["id"]
-                    self.logger.trace("Quality profile %s:%s", p["name"], p["id"])
-            temp_quality_profile_ids[pair[0]] = pair[1]
+        # Convert name mappings to ID mappings
+        for main_name, temp_name in self.quality_profile_mappings.items():
+            main_id = profile_name_to_id.get(main_name)
+            temp_id = profile_name_to_id.get(temp_name)
+
+            if main_id is None:
+                self.logger.error(
+                    "Main quality profile '%s' not found in available profiles. Available: %s",
+                    main_name,
+                    list(profile_name_to_id.keys()),
+                )
+            if temp_id is None:
+                self.logger.error(
+                    "Temp quality profile '%s' not found in available profiles. Available: %s",
+                    temp_name,
+                    list(profile_name_to_id.keys()),
+                )
+
+            if main_id is not None and temp_id is not None:
+                temp_quality_profile_ids[main_id] = temp_id
+                self.logger.info(
+                    "Quality profile mapping: '%s' (ID:%d) → '%s' (ID:%d)",
+                    main_name,
+                    main_id,
+                    temp_name,
+                    temp_id,
+                )
+            else:
+                self.logger.warning(
+                    "Skipping quality profile mapping for '%s' → '%s' due to missing profile(s)",
+                    main_name,
+                    temp_name,
+                )
+
+        if not temp_quality_profile_ids:
+            self.logger.error(
+                "No valid quality profile mappings created! Check your configuration."
+            )
 
         return temp_quality_profile_ids
 
@@ -5595,6 +5910,7 @@ class Arr:
                         "foreign_keys": 1,
                         "ignore_check_constraints": 0,
                         "synchronous": 0,
+                        "read_uncommitted": 1,
                     },
                     timeout=15,
                 )
@@ -5603,7 +5919,11 @@ class Arr:
                     class Meta:
                         database = self.torrent_db
 
-                self.torrent_db.connect()
+                # Connect with retry logic for transient I/O errors
+                with_database_retry(
+                    lambda: self.torrent_db.connect(),
+                    logger=self.logger,
+                )
                 self.torrent_db.create_tables([Torrents])
                 self.torrents = Torrents
             self.search_setup_completed = True
@@ -5619,6 +5939,7 @@ class Arr:
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
                 "synchronous": 0,
+                "read_uncommitted": 1,
             },
             timeout=15,
         )
@@ -5635,7 +5956,11 @@ class Arr:
             class Meta:
                 database = self.db
 
-        self.db.connect()
+        # Connect with retry logic for transient I/O errors
+        with_database_retry(
+            lambda: self.db.connect(),
+            logger=self.logger,
+        )
 
         if db4:
 
@@ -5681,6 +6006,7 @@ class Arr:
                     "foreign_keys": 1,
                     "ignore_check_constraints": 0,
                     "synchronous": 0,
+                    "read_uncommitted": 1,
                 },
                 timeout=15,
             )
@@ -5689,7 +6015,11 @@ class Arr:
                 class Meta:
                     database = self.torrent_db
 
-            self.torrent_db.connect()
+            # Connect with retry logic for transient I/O errors
+            with_database_retry(
+                lambda: self.torrent_db.connect(),
+                logger=self.logger,
+            )
             self.torrent_db.create_tables([Torrents])
             self.torrents = Torrents
         else:

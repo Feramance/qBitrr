@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
-import { getConfig, updateConfig } from "../api/client";
+import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
@@ -276,6 +276,47 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
+  {
+    label: "Auto-Restart Processes",
+    path: ["Settings", "AutoRestartProcesses"],
+    type: "checkbox",
+  },
+  {
+    label: "Max Process Restarts",
+    path: ["Settings", "MaxProcessRestarts"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Max Process Restarts must be at least 1.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Process Restart Window (s)",
+    path: ["Settings", "ProcessRestartWindow"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 1) {
+        return "Process Restart Window must be at least 1 second.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Process Restart Delay (s)",
+    path: ["Settings", "ProcessRestartDelay"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Process Restart Delay must be a non-negative number.";
+      }
+      return undefined;
+    },
+  },
 
 ];
 
@@ -521,18 +562,22 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
-    label: "Main Quality Profile",
-    path: ["EntrySearch", "MainQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Force Reset Temp Profiles",
+    path: ["EntrySearch", "ForceResetTempProfiles"],
+    type: "checkbox",
+    description: "Reset all items using temp profiles to their original main profile on qBitrr startup",
   },
   {
-    label: "Temp Quality Profile",
-    path: ["EntrySearch", "TempQualityProfile"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    label: "Temp Profile Reset Timeout (Minutes)",
+    path: ["EntrySearch", "TempProfileResetTimeoutMinutes"],
+    type: "number",
+    description: "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
+  },
+  {
+    label: "Profile Switch Retry Attempts",
+    path: ["EntrySearch", "ProfileSwitchRetryAttempts"],
+    type: "number",
+    description: "Number of retry attempts for profile switch API calls (default: 3)",
   },
   {
     label: "Search By Series",
@@ -711,18 +756,6 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     path: ["Torrent", "ReSearchStalled"],
     type: "checkbox",
   },
-  {
-    label: "Remove Dead Trackers",
-    path: ["Torrent", "RemoveDeadTrackers"],
-    type: "checkbox",
-  },
-  {
-    label: "Remove Tracker Messages",
-    path: ["Torrent", "RemoveTrackerWithMessage"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
-  },
 ];
 
 const ARR_SEEDING_FIELDS: FieldDefinition[] = [
@@ -791,6 +824,19 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
+  },
+  {
+    label: "Remove Dead Trackers",
+    path: ["Torrent", "SeedingMode", "RemoveDeadTrackers"],
+    type: "checkbox",
+  },
+  {
+    label: "Remove Tracker Messages",
+    path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+    fullWidth: true,
   },
 ];
 
@@ -1112,8 +1158,10 @@ function ensureArrDefaults(type: string): ConfigDocument {
     SearchAgainOnSearchCompletion: true,
     UseTempForMissing: false,
     KeepTempProfile: false,
-    MainQualityProfile: [],
-    TempQualityProfile: [],
+    ForceResetTempProfiles: false,
+    TempProfileResetTimeoutMinutes: 0,
+    ProfileSwitchRetryAttempts: 3,
+    QualityProfileMappings: {},
   };
 
   if (isSonarr) {
@@ -1408,6 +1456,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           draft[key] = defaults;
         })
       );
+      // Open modal for immediate configuration
+      setActiveArrKey(key);
     },
     [formState]
   );
@@ -1759,6 +1809,8 @@ interface FieldGroupProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
+  qualityProfiles?: Array<{ id: number; name: string }>;
+  sectionKey?: string;
 }
 
 function FieldGroup({
@@ -1769,8 +1821,138 @@ function FieldGroup({
   onChange,
   onRenameSection,
   defaultOpen = false,
+  qualityProfiles = [],
+  sectionKey,
 }: FieldGroupProps): JSX.Element {
-  const sectionName = basePath[0] ?? "";
+  const sectionName = sectionKey ?? basePath[0] ?? "";
+
+  if (title === "Quality Profile Mappings") {
+    const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
+    const mappingEntries = Object.entries(mappings);
+
+    // Check if credentials exist (URI and APIKey)
+    const hasCredentials = Boolean(
+      getValue(state as ConfigDocument, ["URI"]) &&
+        getValue(state as ConfigDocument, ["APIKey"])
+    );
+    const hasProfiles = qualityProfiles.length > 0;
+
+    const handleAddMapping = () => {
+      const nextMappings = { ...mappings, "": "" };
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleUpdateMapping = (oldKey: string, newKey: string, newValue: string) => {
+      const nextMappings = { ...mappings };
+      if (oldKey !== newKey) {
+        delete nextMappings[oldKey];
+      }
+      if (newKey.trim()) {
+        nextMappings[newKey.trim()] = newValue.trim();
+      }
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    const handleDeleteMapping = (key: string) => {
+      const nextMappings = { ...mappings };
+      delete nextMappings[key];
+      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
+    };
+
+    return (
+      <details className="config-section" open={defaultOpen}>
+        <summary>{title}</summary>
+        <div className="config-section__body">
+          <div className="field-description" style={{ marginBottom: '1rem' }}>
+            Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
+          </div>
+
+          {!hasCredentials ? (
+            <div className="alert warning">
+              ⚠️ Please configure URI and API Key first, then click "Test Connection" to load quality profiles
+            </div>
+          ) : !hasProfiles ? (
+            <div className="alert info">
+              ℹ️ Click "Test Connection" above to load quality profiles from your {sectionName} instance
+            </div>
+          ) : (
+            <>
+              <div className="profile-mappings-grid">
+                {mappingEntries.map(([mainProfile, tempProfile], index) => (
+                  <div key={index} className="profile-mapping-row">
+                    <div className="field">
+                      <label>Main Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          mainProfile
+                            ? { value: mainProfile, label: mainProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            option?.value || "",
+                            tempProfile
+                          )
+                        }
+                        placeholder="Select main profile..."
+                        isClearable
+                        styles={getSelectStyles()}
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Temp Profile</label>
+                      <Select
+                        options={qualityProfiles.map((p) => ({
+                          value: p.name,
+                          label: p.name,
+                        }))}
+                        value={
+                          tempProfile
+                            ? { value: tempProfile, label: tempProfile }
+                            : null
+                        }
+                        onChange={(option) =>
+                          handleUpdateMapping(
+                            mainProfile,
+                            mainProfile,
+                            option?.value || ""
+                          )
+                        }
+                        placeholder="Select temp profile..."
+                        isClearable
+                        styles={getSelectStyles()}
+                        classNamePrefix="react-select"
+                      />
+                    </div>
+                    <button
+                      className="btn ghost icon-only"
+                      type="button"
+                      onClick={() => handleDeleteMapping(mainProfile)}
+                      title="Delete mapping"
+                    >
+                      <IconImage src={DeleteIcon} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="config-actions">
+                <button className="btn" type="button" onClick={handleAddMapping}>
+                  <IconImage src={AddIcon} />
+                  Add Profile Mapping
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </details>
+    );
+  }
 
   if (title === "Trackers") {
     const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
@@ -1824,6 +2006,17 @@ function FieldGroup({
         return null;
       }
       const tooltip = getTooltip([sectionName]);
+
+      // Determine expected prefix for Arr instances
+      let expectedPrefix: string | undefined;
+      if (sectionName.startsWith("Radarr")) {
+        expectedPrefix = "Radarr";
+      } else if (sectionName.startsWith("Sonarr")) {
+        expectedPrefix = "Sonarr";
+      } else if (sectionName.startsWith("Lidarr")) {
+        expectedPrefix = "Lidarr";
+      }
+
       return (
         <SectionNameField
           key={`${sectionName}.__name`}
@@ -1831,6 +2024,7 @@ function FieldGroup({
           tooltip={tooltip}
           currentName={sectionName}
           placeholder={field.placeholder}
+          expectedPrefix={expectedPrefix}
           onRename={(newName) => onRenameSection?.(sectionName, newName)}
         />
       );
@@ -1839,8 +2033,8 @@ function FieldGroup({
     const pathSegments = field.path ?? [];
     const path = [...basePath, ...pathSegments];
     const key = path.join('.');
-    const rawValue = field.path
-      ? getValue(state as ConfigDocument, field.path as string[])
+    const rawValue = path.length > 0
+      ? getValue(state as ConfigDocument, path)
       : undefined;
     const formatted =
       field.format?.(rawValue) ??
@@ -2019,6 +2213,7 @@ interface SectionNameFieldProps {
   currentName: string;
   placeholder?: string;
   tooltip?: string;
+  expectedPrefix?: string;
   onRename: (newName: string) => void;
 }
 
@@ -2027,6 +2222,7 @@ function SectionNameField({
   currentName,
   placeholder,
   tooltip,
+  expectedPrefix,
   onRename,
 }: SectionNameFieldProps): JSX.Element {
   const [value, setValue] = useState(currentName);
@@ -2043,8 +2239,28 @@ function SectionNameField({
       setValue(currentName);
       return;
     }
-    if (trimmed !== currentName) {
-      onRename(trimmed);
+
+    let adjustedName = trimmed;
+
+    // Enforce prefix if specified
+    if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
+      // If user entered something without the prefix, prepend it
+      adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
+    }
+
+    // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
+    const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
+    if (!formatRegex.test(adjustedName)) {
+      // Invalid format - show error and reset
+      alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
+      setValue(currentName);
+      return;
+    }
+
+    if (adjustedName !== currentName) {
+      onRename(adjustedName);
+    } else {
+      setValue(currentName); // Reset if no actual change
     }
   };
 
@@ -2153,6 +2369,112 @@ function ArrInstanceModal({
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
+  const { push } = useToast();
+
+  // State for test connection
+  const [testState, setTestState] = useState<{
+    testing: boolean;
+    result: TestConnectionResponse | null;
+  }>({ testing: false, result: null });
+
+  const [qualityProfiles, setQualityProfiles] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+
+  // Helper to get value from state
+  const getValue = (path: string[]): unknown => {
+    if (!state) return undefined;
+    // state is already the Arr instance object, not the full ConfigDocument
+    return get(state, path);
+  };
+
+  // Clear test state when URI or APIKey changes
+  useEffect(() => {
+    setTestState({ testing: false, result: null });
+    setQualityProfiles([]);
+  }, [getValue(["URI"]), getValue(["APIKey"])]);
+
+  // Auto-test connection when modal opens if credentials exist
+  useEffect(() => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    if (uri && apiKey && !testState.testing && !testState.result) {
+      // Auto-test silently (without toasts)
+      handleTestConnection(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Test connection handler
+  const handleTestConnection = async (silent = false) => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // Determine Arr type from keyName
+    const keyLower = keyName.toLowerCase();
+    const arrType = keyLower.includes("radarr")
+      ? "radarr"
+      : keyLower.includes("sonarr")
+        ? "sonarr"
+        : "lidarr";
+
+    if (!uri || !apiKey) {
+      if (!silent) {
+        push("Please configure URI and API Key first", "error");
+      }
+      return false;
+    }
+
+    setTestState({ testing: true, result: null });
+
+    try {
+      const result = await testArrConnection({ arrType, uri, apiKey });
+      setTestState({ testing: false, result });
+
+      if (result.success) {
+        // Cache quality profiles for dropdown use
+        if (result.qualityProfiles) {
+          setQualityProfiles(result.qualityProfiles);
+        }
+        if (!silent) {
+          push(`Connected to ${keyName} successfully!`, "success");
+        }
+        return true;
+      } else {
+        if (!silent) {
+          push(`Connection failed: ${result.message}`, "error");
+        }
+        return false;
+      }
+    } catch {
+      setTestState({ testing: false, result: null });
+      if (!silent) {
+        push("Test connection failed", "error");
+      }
+      return false;
+    }
+  };
+
+  // Handle save with connection test
+  const handleSave = async () => {
+    const uri = getValue(["URI"]) as string;
+    const apiKey = getValue(["APIKey"]) as string;
+
+    // If credentials exist, test connection before saving
+    if (uri && apiKey) {
+      const success = await handleTestConnection(false);
+      if (success) {
+        push("Configuration saved successfully", "success");
+        onClose();
+      }
+      // If unsuccessful, stay open so user can fix config
+    } else {
+      // No credentials to test, just close
+      onClose();
+    }
+  };
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -2176,26 +2498,70 @@ function ArrInstanceModal({
             title={null}
             fields={generalFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
             onRenameSection={onRename}
+            sectionKey={keyName}
             defaultOpen
           />
+          {testState.result && (
+            <div
+              className={`alert ${testState.result.success ? "success" : "error"}`}
+              style={{ margin: "16px 0" }}
+            >
+              {testState.result.success ? (
+                <>
+                  <strong>✓ {testState.result.message}</strong>
+                  {testState.result.systemInfo && (
+                    <div className="alert-details">
+                      Version: {testState.result.systemInfo.version}
+                      {testState.result.systemInfo.branch &&
+                        ` (${testState.result.systemInfo.branch})`}
+                    </div>
+                  )}
+                  {testState.result.qualityProfiles && (
+                    <div className="alert-details">
+                      Found {testState.result.qualityProfiles.length} quality
+                      profile(s)
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <strong>⚠️ Connection Failed</strong>
+                  <br />
+                  {testState.result.message}
+                </>
+              )}
+            </div>
+          )}
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
             defaultOpen
+          />
+          <FieldGroup
+            title="Quality Profile Mappings"
+            fields={[]}
+            state={state}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
+            defaultOpen
+            qualityProfiles={qualityProfiles}
           />
           {entryOmbiFields.length > 0 && (
             <FieldGroup
               title="Ombi Integration"
               fields={entryOmbiFields}
               state={state}
-              basePath={[keyName]}
-              onChange={onChange}
+              basePath={[]}
+              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+              sectionKey={keyName}
             />
           )}
           {entryOverseerrFields.length > 0 && (
@@ -2203,36 +2569,55 @@ function ArrInstanceModal({
               title="Overseerr Integration"
               fields={entryOverseerrFields}
               state={state}
-              basePath={[keyName]}
-              onChange={onChange}
+              basePath={[]}
+              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+              sectionKey={keyName}
             />
           )}
           <FieldGroup
             title="Torrent Handling"
             fields={torrentFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
           <FieldGroup
             title="Seeding"
             fields={seedingFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
           <FieldGroup
             title="Trackers"
             fields={trackerFields}
             state={state}
-            basePath={[keyName]}
-            onChange={onChange}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            sectionKey={keyName}
           />
         </div>
         <div className="modal-footer">
-          <button className="btn primary" type="button" onClick={onClose}>
+          <button
+            className="btn secondary"
+            type="button"
+            onClick={() => handleTestConnection(false)}
+            disabled={testState.testing}
+          >
+            {testState.testing ? (
+              <>
+                <IconImage src={RefreshIcon} />
+                Testing...
+              </>
+            ) : (
+              "Test"
+            )}
+          </button>
+          <button className="btn primary" type="button" onClick={handleSave}>
             <IconImage src={SaveIcon} />
-            Done
+            Save
           </button>
         </div>
       </div>
@@ -2259,7 +2644,7 @@ function SimpleConfigModal({
   onClose,
   showLiveSettings = false,
 }: SimpleConfigModalProps): JSX.Element | null {
-  const webUI = showLiveSettings ? useWebUI() : null;
+  const webUI = useWebUI();
 
   if (!state) return null;
   return (

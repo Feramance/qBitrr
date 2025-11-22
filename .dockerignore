@@ -23,3 +23,9 @@ venv/
 test.py
 webui/node_modules/
 webui/dist/
+
+# Exclude local config and logs to reduce build context size
+.config/
+logs/
+*.log
+*.md

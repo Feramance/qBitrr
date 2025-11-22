@@ -79,16 +79,8 @@ function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
 
 function getRefreshDelay(active: boolean, processes: ProcessInfo[]): number | null {
   if (!active) return null;
-  const hasActiveSearch = processes.some(
-    (proc) => proc.alive && proc.kind.toLowerCase() === "search"
-  );
-  if (hasActiveSearch) return 5000;
-  const hasQueueActivity = processes.some(
-    (proc) =>
-      typeof proc.queueCount === "number" && proc.queueCount > 0
-  );
-  if (hasQueueActivity) return 10000;
-  return 20000;
+  // Refresh every 1 second when active
+  return 1000;
 }
 
 interface ProcessesViewProps {
@@ -109,12 +101,14 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const { push } = useToast();
   const isFetching = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showLoading = true) => {
     if (isFetching.current) {
       return;
     }
     isFetching.current = true;
-    setLoading((prev) => (prev ? prev : true));
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
       const [processData, status] = await Promise.all([
         getProcesses(),
@@ -143,7 +137,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       );
     } finally {
       isFetching.current = false;
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [push]);
 
@@ -163,7 +159,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   useInterval(() => {
-    void load();
+    void load(false); // Auto-refresh without showing loading spinner
   }, refreshDelay);
 
   const handleRestart = useCallback(

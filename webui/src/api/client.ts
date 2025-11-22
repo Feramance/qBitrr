@@ -1,6 +1,7 @@
 import type {
   ArrListResponse,
   ConfigDocument,
+  ConfigResponseWithWarning,
   ConfigUpdatePayload,
   ConfigUpdateResponse,
   MetaResponse,
@@ -269,7 +270,22 @@ export async function restartArr(category: string): Promise<void> {
 }
 
 export async function getConfig(): Promise<ConfigDocument> {
-  return fetchJson<ConfigDocument>("/web/config");
+  // Response might be ConfigDocument OR ConfigResponseWithWarning
+  const response = await fetchJson<ConfigDocument | ConfigResponseWithWarning>("/web/config");
+
+  // Check if response contains a warning structure
+  if (response && typeof response === "object" && "warning" in response && "config" in response) {
+    // Response has warning structure - store warning for display
+    const warningResponse = response as ConfigResponseWithWarning;
+    if (warningResponse.warning?.message) {
+      sessionStorage.setItem("config_version_warning", warningResponse.warning.message);
+    }
+    // Return the actual config (always present in warning structure)
+    return warningResponse.config;
+  }
+
+  // Normal response - just a plain config object
+  return response as ConfigDocument;
 }
 
 export async function updateConfig(
@@ -310,4 +326,29 @@ export async function updateConfig(
 
 export async function triggerUpdate(): Promise<void> {
   await fetchJson<void>("/web/update", { method: "POST" });
+}
+
+export interface TestConnectionRequest {
+  arrType: "radarr" | "sonarr" | "lidarr";
+  uri: string;
+  apiKey: string;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  systemInfo?: {
+    version: string;
+    branch?: string;
+  };
+  qualityProfiles?: Array<{ id: number; name: string }>;
+}
+
+export async function testArrConnection(
+  request: TestConnectionRequest
+): Promise<TestConnectionResponse> {
+  return fetchJson("/web/arr/test-connection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }

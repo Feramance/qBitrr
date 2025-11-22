@@ -27,13 +27,23 @@ from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
+    from tomlkit import inline_table, table
+
     keys = dotted_key.split(".")
     cur = doc
     for k in keys[:-1]:
         if k not in cur or not isinstance(cur[k], dict):
-            cur[k] = {}
+            cur[k] = table()
         cur = cur[k]
-    cur[keys[-1]] = value
+
+    # Convert plain Python dicts to inline tables for proper TOML serialization
+    # This ensures dicts are rendered as inline {key = "value"} not as sections [key]
+    if isinstance(value, dict) and not hasattr(value, "as_string"):
+        inline = inline_table()
+        inline.update(value)
+        cur[keys[-1]] = inline
+    else:
+        cur[keys[-1]] = value
 
 
 def _toml_delete(doc, dotted_key: str) -> None:
@@ -446,6 +456,18 @@ class WebUI:
             page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
             movies = []
             for movie in page_items:
+                # Read quality profile from database
+                quality_profile_id = (
+                    getattr(movie, "QualityProfileId", None)
+                    if hasattr(model, "QualityProfileId")
+                    else None
+                )
+                quality_profile_name = (
+                    getattr(movie, "QualityProfileName", None)
+                    if hasattr(model, "QualityProfileName")
+                    else None
+                )
+
                 movies.append(
                     {
                         "id": movie.EntryId,
@@ -460,6 +482,8 @@ class WebUI:
                         "minCustomFormatScore": movie.MinCustomFormatScore,
                         "customFormatMet": self._safe_bool(movie.CustomFormatMet),
                         "reason": movie.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
                     }
                 )
         return {
@@ -486,6 +510,7 @@ class WebUI:
         has_file: bool | None = None,
         quality_met: bool | None = None,
         is_request: bool | None = None,
+        group_by_artist: bool = True,
     ) -> dict[str, Any]:
         if not self._ensure_arr_db(arr):
             return {
@@ -519,6 +544,10 @@ class WebUI:
             }
         page = max(page, 0)
         page_size = max(page_size, 1)
+
+        # Quality profiles are now stored in the database
+        # No need to fetch from API
+
         with db.connection_context():
             base_query = model.select()
 
@@ -573,10 +602,40 @@ class WebUI:
             if is_request is not None:
                 query = query.where(model.IsRequest == is_request)
 
-            total = query.count()
-            query = query.order_by(model.Title).paginate(page + 1, page_size)
             albums = []
-            for album in query:
+
+            if group_by_artist:
+                # Paginate by artists: Two-pass approach with Peewee
+                # First, get all distinct artist names from the filtered query
+                # Use a subquery to get distinct artists efficiently
+                artists_subquery = (
+                    query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
+                )
+
+                # Convert to list to avoid multiple iterations
+                all_artists = [row.ArtistTitle for row in artists_subquery]
+                total = len(all_artists)
+
+                # Paginate the artist list in Python
+                start_idx = page * page_size
+                end_idx = start_idx + page_size
+                paginated_artists = all_artists[start_idx:end_idx]
+
+                # Fetch all albums for these paginated artists
+                if paginated_artists:
+                    album_results = list(
+                        query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
+                            model.ArtistTitle, model.ReleaseDate
+                        )
+                    )
+                else:
+                    album_results = []
+            else:
+                # Flat mode: paginate by albums as before
+                total = query.count()
+                album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
+
+            for album in album_results:
                 # Always fetch tracks from database (Lidarr only)
                 track_model = getattr(arr, "track_file_model", None)
                 tracks_list = []
@@ -623,6 +682,10 @@ class WebUI:
 
                 track_missing_count = max(track_monitored_count - track_available_count, 0)
 
+                # Get quality profile from database model
+                quality_profile_id = getattr(album, "QualityProfileId", None)
+                quality_profile_name = getattr(album, "QualityProfileName", None)
+
                 # Build album data in Sonarr-like structure
                 album_item = {
                     "album": {
@@ -645,6 +708,8 @@ class WebUI:
                         "minCustomFormatScore": album.MinCustomFormatScore,
                         "customFormatMet": self._safe_bool(album.CustomFormatMet),
                         "reason": album.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
                     },
                     "totals": {
                         "available": track_available_count,
@@ -832,6 +897,7 @@ class WebUI:
         missing_condition = episodes_model.EpisodeFileId.is_null(True) | (
             episodes_model.EpisodeFileId == 0
         )
+
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -961,11 +1027,27 @@ class WebUI:
                             }
                             if not seasons:
                                 continue
+
+                        # Get quality profile for this series from database
+                        series_id = getattr(series, "EntryId", None)
+                        quality_profile_id = (
+                            getattr(series, "QualityProfileId", None)
+                            if hasattr(series_model, "QualityProfileId")
+                            else None
+                        )
+                        quality_profile_name = (
+                            getattr(series, "QualityProfileName", None)
+                            if hasattr(series_model, "QualityProfileName")
+                            else None
+                        )
+
                         payload.append(
                             {
                                 "series": {
-                                    "id": getattr(series, "EntryId", None),
+                                    "id": series_id,
                                     "title": getattr(series, "Title", "") or "",
+                                    "qualityProfileId": quality_profile_id,
+                                    "qualityProfileName": quality_profile_name,
                                 },
                                 "totals": {
                                     "available": series_available,
@@ -1062,7 +1144,15 @@ class WebUI:
                     seasons: dict[str, dict[str, Any]] = {}
                     series_monitored = 0
                     series_available = 0
+                    # Track quality profile from first episode (all episodes in a series share the same profile)
+                    quality_profile_id = None
+                    quality_profile_name = None
                     for ep in episodes_query.iterator():
+                        # Capture quality profile from first episode if available
+                        if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
+                            quality_profile_id = getattr(ep, "QualityProfileId", None)
+                        if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
+                            quality_profile_name = getattr(ep, "QualityProfileName", None)
                         season_value = getattr(ep, "SeasonNumber", None)
                         season_key = str(season_value) if season_value is not None else "unknown"
                         season_bucket = seasons.setdefault(
@@ -1109,6 +1199,35 @@ class WebUI:
                         seasons = {key: data for key, data in seasons.items() if data["episodes"]}
                         if not seasons:
                             continue
+
+                    # If quality profile is still None, fetch from Sonarr API
+                    if quality_profile_id is None and series_id is not None:
+                        try:
+                            client = getattr(arr, "client", None)
+                            if client and hasattr(client, "get_series"):
+                                series_data = client.get_series(series_id)
+                                if series_data:
+                                    quality_profile_id = series_data.get("qualityProfileId")
+                                    # Get quality profile name from cache or API
+                                    if quality_profile_id:
+                                        quality_cache = getattr(arr, "_quality_profile_cache", {})
+                                        if quality_profile_id in quality_cache:
+                                            quality_profile_name = quality_cache[
+                                                quality_profile_id
+                                            ].get("name")
+                                        elif hasattr(client, "get_quality_profile"):
+                                            try:
+                                                profile = client.get_quality_profile(
+                                                    quality_profile_id
+                                                )
+                                                quality_profile_name = (
+                                                    profile.get("name") if profile else None
+                                                )
+                                            except Exception:
+                                                pass
+                        except Exception:
+                            pass
+
                     payload.append(
                         {
                             "series": {
@@ -1121,6 +1240,8 @@ class WebUI:
                                         else str(series_id)
                                     )
                                 ),
+                                "qualityProfileId": quality_profile_id,
+                                "qualityProfileName": quality_profile_name,
                             },
                             "totals": {
                                 "available": series_available,
@@ -1617,9 +1738,8 @@ class WebUI:
         def _list_logs() -> list[str]:
             if not logs_root.exists():
                 return []
-            # Add "All Logs" as first option
             log_files = sorted(f.name for f in logs_root.glob("*.log*"))
-            return ["All Logs"] + log_files if log_files else []
+            return log_files
 
         @app.get("/api/logs")
         def api_logs():
@@ -1638,30 +1758,41 @@ class WebUI:
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
-            # Return last 2000 lines
+
+            # Stream full log file to support dynamic loading in LazyLog
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
+                content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Handle "All Logs" special case - serve the unified All.log file
-            if name == "All Logs":
-                name = "All.log"
-
-            # Regular single log file
+            # Public endpoint for Authentik bypass - no token required
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
+
+            # Stream full log file to support dynamic loading in LazyLog
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
+                content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/api/logs/<name>/download")
         def api_log_download(name: str):
@@ -1868,7 +1999,7 @@ class WebUI:
                     has_file=has_file,
                 )
             else:
-                # Grouped mode: return albums with tracks (always)
+                # Grouped mode: return albums with tracks, paginated by artist
                 payload = self._lidarr_albums_from_db(
                     arr,
                     q,
@@ -1878,6 +2009,7 @@ class WebUI:
                     has_file=has_file,
                     quality_met=quality_met,
                     is_request=is_request,
+                    group_by_artist=True,
                 )
             payload["category"] = category
             return jsonify(payload)
@@ -2141,6 +2273,23 @@ class WebUI:
                 except Exception:
                     pass
                 data = _toml_to_jsonable(CONFIG.config)
+
+                # Check config version and add warning if mismatch
+                from qBitrr.config_version import get_config_version, validate_config_version
+
+                is_valid, validation_result = validate_config_version(CONFIG)
+                if not is_valid:
+                    # Add version mismatch warning to response
+                    response_data = {
+                        "config": data,
+                        "warning": {
+                            "type": "config_version_mismatch",
+                            "message": validation_result,
+                            "currentVersion": get_config_version(CONFIG),
+                        },
+                    }
+                    return jsonify(response_data)
+
                 return jsonify(data)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
@@ -2151,6 +2300,15 @@ class WebUI:
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
+
+            # Prevent ConfigVersion from being modified by user
+            protected_keys = {"Settings.ConfigVersion"}
+            for key in protected_keys:
+                if key in changes:
+                    return (
+                        jsonify({"error": f"Cannot modify protected configuration key: {key}"}),
+                        403,
+                    )
 
             # Define key categories
             frontend_only_keys = {
@@ -2281,6 +2439,348 @@ class WebUI:
         @app.post("/web/config")
         def web_update_config():
             return _handle_config_update()
+
+        @app.post("/api/arr/test-connection")
+        def api_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            """
+            if (resp := require_token()) is not None:
+                return resp
+
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        # Generic error message - details logged above
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
+
+        @app.post("/web/arr/test-connection")
+        def web_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            Public endpoint (mirrors /api/arr/test-connection).
+            """
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        # Generic error message - details logged above
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
 
     def _reload_all(self):
         # Set rebuilding flag

@@ -10,6 +10,7 @@ qBitrr/arss.py
 qBitrr/auto_update.py
 qBitrr/bundled_data.py
 qBitrr/config.py
+qBitrr/config_version.py
 qBitrr/db_lock.py
 qBitrr/env_config.py
 qBitrr/errors.py
