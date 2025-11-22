@@ -1,5 +1,71 @@
 # Changelog
 
+## v5.5.0 (22/11/2025)
+
+### 🚀 Features
+- [Add retry logic to database connection attempts](https://github.com/Feramance/qBitrr/commit/93239095b02c4ba306d2f9e095ab1c03f4a1f06f) - @Feramance
+- [Add automated SQLite error handling and recovery system](https://github.com/Feramance/qBitrr/commit/a2ce47913ed816917444f7a48a4ea62f0331450a) - @Feramance
+- [Add reason-based search ordering to Sonarr series searches](https://github.com/Feramance/qBitrr/commit/4ef2ad9be2e229681eac322aab978bf7755218fb) - @Feramance
+- [Add reason-based prioritization to today's releases search](https://github.com/Feramance/qBitrr/commit/82f48999cafeff7b83ba9b2e10500af151ccc444) - @Feramance
+- [Add reason-based search prioritization for Sonarr/Radarr/Lidarr](https://github.com/Feramance/qBitrr/commit/f72237da0c1b18eae6156c3c1d294ba4a10fdbdb) - @Feramance
+- [docs: Add temp quality profile improvements to README](https://github.com/Feramance/qBitrr/commit/798c75da73e032940e6fa529894ebf2fad5959b0) - @Feramance
+- [docs: Add branch-specific features to README](https://github.com/Feramance/qBitrr/commit/0abc7800784d19477b03ceea037aa884dc94a550) - @Feramance
+- [Add automatic process restart with crash loop protection and WebUI configuration](https://github.com/Feramance/qBitrr/commit/9a47262fd9526abcf1ec9fd4c664b12443f4ff10) - @Feramance
+- [Fix: Implement local pagination for grouped instance views](https://github.com/Feramance/qBitrr/commit/63092f0f14e252ea385f9fbb7b4a63b675096a02) - @Feramance
+- [Fix: Implement proper artist-based pagination for Lidarr grouped view](https://github.com/Feramance/qBitrr/commit/b4ba800e72f3f3385af89725c649c4b267bc47ad) - @Feramance
+
+### 🐛 Bug Fixes
+- [Fix KeyError for missing 'hasFile' key in episode data](https://github.com/Feramance/qBitrr/commit/98d18ad7d5fdf552acc6ee7b135cd0aabcbf673e) - @Feramance
+- [Fix AttributeError in PyarrResourceNotFound exception handling](https://github.com/Feramance/qBitrr/commit/29f7826ffb90e2409b1ff308830c2df95d25e8c6) - @Feramance
+- [fix: Handle qBittorrent connection failures during Arr instance initialization](https://github.com/Feramance/qBitrr/commit/b8125e1858ca9795e8bd5e787549d10d96f1b65d) - @Feramance
+- [fix: Simplify log view default selection to prioritize All Logs](https://github.com/Feramance/qBitrr/commit/1a4eba165c33c78e482321705e922e9d0e263024) - @Feramance
+- [Fixed make process and python versioning](https://github.com/Feramance/qBitrr/commit/5ba1c9ffa68cd918f5851b4f2d6b4e9a9bbd24cf) - @Feramance
+- [Frontend: Fix config view seeding fields and enforce Arr naming conventions](https://github.com/Feramance/qBitrr/commit/468824d343170d1238f4732a6255096b4d8332dc) - @Feramance
+- [Frontend: Fix Lidarr tracks table column widths for consistency](https://github.com/Feramance/qBitrr/commit/7d90ef9b647c7785214ebb8ee4a3daa27f4e3a89) - @Feramance
+- [Frontend: Fix Lidarr tracks table column widths for consistency](https://github.com/Feramance/qBitrr/commit/b6e182299c890c8b877ffad0a8074f841e2ee466) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/6360501f834a3ec6f166b48c4f369be5b2f19529) - @Feramance
+- [docs: Integrate branch features into main README](https://github.com/Feramance/qBitrr/commit/9b0bcaa078d323bf148f00cdf29db1899d79f029) - @Feramance
+
+### ♻️ Refactoring
+- [Refactor: Use dictionary internally for quality profile mappings](https://github.com/Feramance/qBitrr/commit/85e10fa515290f23a35548611091037755e590e4) - @Feramance
+
+### 🎨 Styling
+- [Frontend: Bring instance views to feature parity with aggregate views](https://github.com/Feramance/qBitrr/commit/67828ca56197845691a827d7b2b3ebe01ac3e3d7) - @Feramance
+
+### 🔧 Maintenance
+- [Removed extra files](https://github.com/Feramance/qBitrr/commit/be4c39fd2c452cafbe2e03abdf08220d2673feeb) - @Feramance
+- [Complete database connection retry coverage](https://github.com/Feramance/qBitrr/commit/e245e1a8948b080c29d96abaf89b12b45b80af04) - @Feramance
+- [Bump actions/checkout from 5 to 6 (#209)](https://github.com/Feramance/qBitrr/commit/3107928ec31c943b4e403a83bf11351f04f9b881) - @Feramance
+- [Fix: Correct Lidarr temp profile logic to operate at artist level, not album level](https://github.com/Feramance/qBitrr/commit/691aa5feff2aa3546e3030da94636e43a5909f78) - @Feramance
+- [Fix: Only apply temp profiles to missing content, not quality/CF unmet searches](https://github.com/Feramance/qBitrr/commit/0ece118b31ec8caeb73376731dd8fca4bfe106d8) - @Feramance
+- [Fix: Ensure QualityProfileMappings serializes as inline dict instead of TOML section](https://github.com/Feramance/qBitrr/commit/3b8b7961c8632918b3dbb574673be15ee5bd562c) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/2082d422abaac54d2d9f05498f6ec8550d0ac977) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/de3564be21e37385314d7181473d779a91f57679) - @Feramance
+- [Fix: Support new QualityProfileMappings config format in addition to legacy lists](https://github.com/Feramance/qBitrr/commit/280ea784ee8e11363b57b7b64728336a4c4df155) - @Feramance
+- [Apply black formatting to temp quality profile logging changes](https://github.com/Feramance/qBitrr/commit/88be7f3bd40e3daa974f531f48b09d01c68a644c) - @Feramance
+- [Enhance logging for temp quality profile feature with detailed initialization, parsing, and switching logs](https://github.com/Feramance/qBitrr/commit/452554d0c470808f364df46d92bef9c4a25daede) - @Feramance
+- [Apply read_uncommitted mode to search activity database and unignore log files](https://github.com/Feramance/qBitrr/commit/04be56d4e2b81a86eb5339218106fb4b7933f636) - @Feramance
+- [Enable read_uncommitted mode for SQLite databases to reduce lock contention](https://github.com/Feramance/qBitrr/commit/b4b428eacec73eebebf76d137c001c086c11090c) - @Feramance
+- [Simplify log viewer by removing 'All Logs' option and defaulting to 'All.log' file](https://github.com/Feramance/qBitrr/commit/2048fc7af6719d9ae49669d1c381bf3a6bef8933) - @Feramance
+- [Enforce Arr instance naming format: (Rad|Son|Lid)arr-.+](https://github.com/Feramance/qBitrr/commit/e8b438ac05d55237e2662830af988053daf613c5) - @Feramance
+- [Fix: Restore instance name field in Arr config modals](https://github.com/Feramance/qBitrr/commit/63e1fd17e6cce1ca01c0013b385950a8213fac0b) - @Feramance
+- [Fix: Resolve Arr config data not loading in modal popups](https://github.com/Feramance/qBitrr/commit/639ca10253de39c40c9f12b4b4c981f164113528) - @Feramance
+- [Lower minimum Python version requirement from 3.12 to 3.11 for broader compatibility](https://github.com/Feramance/qBitrr/commit/1c7838ac0b1ff9adccef0e5fc4514c4015873391) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/f1cffdfb092efb368a3c3f4e68a6873fc5da3737) - @Feramance
+- [Fix: Update package-lock.json and broaden .dockerignore exclusions](https://github.com/Feramance/qBitrr/commit/6e77b180c906610cc72fc7abe73582eba7b710ea) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/35f9a543535c909c025c097b71bda43d7c328975) - @Feramance
+- [Remove unecessary files](https://github.com/Feramance/qBitrr/commit/ec6da9bdb55a1b18aa3743ee2745da2f6e7365e3) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/40f3299c0c8221d127f257e460b5e07b00b8458f) - @Feramance
+- [Bump js-yaml from 4.1.0 to 4.1.1 in /webui (#208)](https://github.com/Feramance/qBitrr/commit/dd03c806cfd6aa55c4ad4c3bf0c6520f21cabbcd) - @Feramance
+- [Delete FINAL_TEST_RESULTS.md](https://github.com/Feramance/qBitrr/commit/01a4078062630377ebd8c40c5f4496550b9a2b3a) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/0ad31376335dce195d2dbce486ef2fcb807f5ad2) - @Feramance
+- [Fix: Show Lidarr grouped view info even with single page](https://github.com/Feramance/qBitrr/commit/a945333eaeb5a7c1fbc18e38fdc6735b5fa71b02) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/f9020683afe36f371621d71b6da8dcfc28f28686) - @Feramance
+
+---
+
 ## v5.4.5 (05/11/2025)
 
 ### 🐛 Bug Fixes
