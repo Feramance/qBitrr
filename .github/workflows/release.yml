@@ -462,73 +462,72 @@ jobs:
 
         print(f"Found {len(commits)} commits to include in changelog")
 
-            # Read existing changelog
-            with open('CHANGELOG.md', 'r') as f:
-                content = f.read()
+        # Read existing changelog
+        with open('CHANGELOG.md', 'r') as f:
+            content = f.read()
 
-            # Find the position to insert new entry
-            date_str = datetime.now().strftime('%d/%m/%Y')
-            header = f"## v{version} ({date_str})\n"
+        # Find the position to insert new entry
+        date_str = datetime.now().strftime('%d/%m/%Y')
+        header = f"## v{version} ({date_str})\n"
 
-            if header not in content:
-                if not commits:
-                    print("❌ ERROR: No commits found for changelog generation!")
-                    sys.exit(1)
+        if header not in content:
+            if not commits:
+                print("❌ ERROR: No commits found for changelog generation!")
+                sys.exit(1)
 
-                # Group commits by category
-                grouped = {}
-                for commit in commits[:50]:  # Limit to 50 commits
-                    if not commit.strip():
-                        continue
-                    try:
-                        hash_val, msg = commit.split(' ', 1)
-                        category = categorize_commit(msg)
-                        if category not in grouped:
-                            grouped[category] = []
-                        grouped[category].append(f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance")
-                    except ValueError:
-                        print(f"⚠ Skipping malformed commit line: {commit}")
-                        continue
+            # Group commits by category
+            grouped = {}
+            for commit in commits[:50]:  # Limit to 50 commits
+                if not commit.strip():
+                    continue
+                try:
+                    hash_val, msg = commit.split(' ', 1)
+                    category = categorize_commit(msg)
+                    if category not in grouped:
+                        grouped[category] = []
+                    grouped[category].append(f"- [{msg}](https://github.com/Feramance/qBitrr/commit/{hash_val}) - @Feramance")
+                except ValueError:
+                    print(f"⚠ Skipping malformed commit line: {commit}")
+                    continue
 
-                # Build entry with groups
-                entry = header
-                group_order = [
-                    '🚀 Features',
-                    '🐛 Bug Fixes',
-                    '📝 Documentation',
-                    '♻️ Refactoring',
-                    '🎨 Styling',
-                    '⚡ Performance',
-                    '🔧 Maintenance'
-                ]
+            # Build entry with groups
+            entry = header
+            group_order = [
+                '🚀 Features',
+                '🐛 Bug Fixes',
+                '📝 Documentation',
+                '♻️ Refactoring',
+                '🎨 Styling',
+                '⚡ Performance',
+                '🔧 Maintenance'
+            ]
 
-                for group in group_order:
-                    if group in grouped:
-                        entry += f"\n### {group}\n"
-                        for commit_line in grouped[group]:
-                            entry += f"{commit_line}\n"
+            for group in group_order:
+                if group in grouped:
+                    entry += f"\n### {group}\n"
+                    for commit_line in grouped[group]:
+                        entry += f"{commit_line}\n"
 
-                if not grouped:
-                    print("❌ ERROR: No commits were categorized!")
-                    sys.exit(1)
+            if not grouped:
+                print("❌ ERROR: No commits were categorized!")
+                sys.exit(1)
 
-                entry += "\n---\n\n"
+            entry += "\n---\n\n"
 
-                # Insert after "# Changelog\n\n"
-                changelog_start = content.find("# Changelog\n\n")
-                if changelog_start >= 0:
-                    insert_pos = changelog_start + len("# Changelog\n\n")
-                    new_content = content[:insert_pos] + entry + content[insert_pos:]
+            # Insert after "# Changelog\n\n"
+            changelog_start = content.find("# Changelog\n\n")
+            if changelog_start >= 0:
+                insert_pos = changelog_start + len("# Changelog\n\n")
+                new_content = content[:insert_pos] + entry + content[insert_pos:]
 
-                    with open('CHANGELOG.md', 'w') as f:
-                        f.write(new_content)
-                    print(f"✓ Manually generated changelog for v{version}")
-                else:
-                    print("⚠ Could not find changelog header")
+                with open('CHANGELOG.md', 'w') as f:
+                    f.write(new_content)
+                print(f"✓ Manually generated changelog for v{version}")
             else:
-                print(f"✓ Changelog for v{version} already exists")
+                print("⚠ Could not find changelog header")
+        else:
+            print(f"✓ Changelog for v{version} already exists")
         PYEOF
-        fi
 
         # Verify changelog was updated
         if ! git diff --quiet CHANGELOG.md; then
