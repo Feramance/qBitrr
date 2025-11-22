@@ -2742,7 +2742,7 @@ class Arr:
                             else False
                         )
                         if (
-                            episode["hasFile"]
+                            episode.get("hasFile", False)
                             and not (self.quality_unmet_search and QualityUnmet)
                             and not (
                                 self.custom_format_unmet_search and customFormat < minCustomFormat
@@ -2842,7 +2842,7 @@ class Arr:
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
 
-                        if not episode["hasFile"]:
+                        if not episode.get("hasFile", False):
                             # Episode is missing a file - always mark as Missing
                             reason = "Missing"
                         elif self.quality_unmet_search and QualityUnmet:
