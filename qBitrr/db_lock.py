@@ -153,6 +153,75 @@ def with_database_retry(
             time.sleep(delay)
 
 
+class ResilientSqliteDatabase:
+    """
+    Wrapper for Peewee SqliteDatabase that adds retry logic to connection attempts.
+
+    This solves the issue where disk I/O errors occur during database connection
+    (specifically when setting PRAGMAs), before query-level retry logic can help.
+    """
+
+    def __init__(self, database, max_retries=5, backoff=0.5):
+        """
+        Args:
+            database: Peewee SqliteDatabase instance to wrap
+            max_retries: Maximum connection retry attempts
+            backoff: Initial backoff delay in seconds
+        """
+        self._db = database
+        self._max_retries = max_retries
+        self._backoff = backoff
+
+    def __getattr__(self, name):
+        """Delegate all attribute access to the wrapped database."""
+        return getattr(self._db, name)
+
+    def connect(self, reuse_if_open=False):
+        """
+        Connect to database with retry logic for transient I/O errors.
+
+        Args:
+            reuse_if_open: If True, return without error if already connected
+
+        Returns:
+            Result from underlying database.connect()
+        """
+        import random
+        import sqlite3
+        import time
+
+        from peewee import DatabaseError, OperationalError
+
+        last_error = None
+        delay = self._backoff
+
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                return self._db.connect(reuse_if_open=reuse_if_open)
+            except (OperationalError, DatabaseError, sqlite3.OperationalError) as e:
+                error_msg = str(e).lower()
+
+                # Only retry on transient I/O errors
+                if "disk i/o error" in error_msg or "database is locked" in error_msg:
+                    last_error = e
+
+                    if attempt < self._max_retries:
+                        # Add jitter to prevent thundering herd
+                        jittered_delay = delay * (1 + random.uniform(-0.25, 0.25))
+                        time.sleep(jittered_delay)
+                        delay = min(delay * 2, 10.0)  # Exponential backoff, max 10s
+                    else:
+                        # Final attempt failed
+                        raise
+                else:
+                    # Non-transient error, fail immediately
+                    raise
+
+        # Should never reach here, but just in case
+        if last_error:
+            raise last_error
+
+
 def check_database_health(db_path: Path, logger=None) -> tuple[bool, str]:
     """
     Perform lightweight SQLite integrity check.
