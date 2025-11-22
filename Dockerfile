@@ -11,7 +11,7 @@ FROM python:3.14
 
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
-LABEL Version="5.2.0"
+LABEL Version="5.5.2"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
 # Env used by the script to determine if it's inside a docker -
@@ -25,7 +25,7 @@ RUN pip install --quiet -U pip wheel
 WORKDIR /app
 COPY . /app
 COPY --from=webui-build /src/qBitrr/static/ /app/qBitrr/static/
-RUN pip install --quiet ".[fast]"
+RUN rm -rf qBitrr2.egg-info *.egg-info && pip install --quiet ".[fast]"
 
 WORKDIR /config
 

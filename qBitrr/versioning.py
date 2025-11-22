@@ -24,18 +24,26 @@ def normalize_version(raw: str | None) -> str | None:
 def is_newer_version(candidate: str | None, current: str | None = None) -> bool:
     if not candidate:
         return False
+    normalized_candidate = normalize_version(candidate)
     normalized_current = normalize_version(current or patched_version)
     if not normalized_current:
         return True
+    if not normalized_candidate:
+        return False
     try:
-        latest_version = version_parser.parse(candidate)
+        latest_version = version_parser.parse(normalized_candidate)
         current_version = version_parser.parse(normalized_current)
         return latest_version > current_version
     except Exception:
-        return candidate != normalized_current
+        return normalized_candidate != normalized_current
 
 
 def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -> dict[str, Any]:
+    """Fetch latest non-draft, non-prerelease from GitHub.
+
+    Note: The /releases/latest endpoint excludes drafts by default, but we
+    explicitly check to be defensive and provide clear error messages.
+    """
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     headers = {"Accept": "application/vnd.github+json"}
     try:
@@ -55,6 +63,31 @@ def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -
             "error": message,
         }
 
+    # Validate release is not draft/prerelease
+    is_draft = payload.get("draft", False)
+    is_prerelease = payload.get("prerelease", False)
+
+    if is_draft:
+        return {
+            "raw_tag": None,
+            "normalized": None,
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases",
+            "update_available": False,
+            "error": "Latest release is a draft (not yet published)",
+        }
+
+    if is_prerelease:
+        # Could make this configurable via settings in the future
+        return {
+            "raw_tag": None,
+            "normalized": None,
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases",
+            "update_available": False,
+            "error": "Latest release is a prerelease (beta/rc)",
+        }
+
     raw_tag = (payload.get("tag_name") or payload.get("name") or "").strip()
     normalized = normalize_version(raw_tag)
     changelog = payload.get("body") or ""
@@ -66,5 +99,38 @@ def fetch_latest_release(repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10) -
         "changelog": changelog,
         "changelog_url": changelog_url,
         "update_available": update_available,
+        "error": None,
+    }
+
+
+def fetch_release_by_tag(
+    tag: str, repo: str = DEFAULT_REPOSITORY, *, timeout: int = 10
+) -> dict[str, Any]:
+    """Fetch a specific release by tag name."""
+    # Ensure tag starts with 'v'
+    if not tag.startswith(("v", "V")):
+        tag = f"v{tag}"
+
+    url = f"https://api.github.com/repos/{repo}/releases/tags/{tag}"
+    headers = {"Accept": "application/vnd.github+json"}
+    try:
+        response = requests.get(url, headers=headers, timeout=timeout)
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as exc:
+        message = str(exc)
+        if len(message) > 200:
+            message = f"{message[:197]}..."
+        return {
+            "changelog": "",
+            "changelog_url": f"https://github.com/{repo}/releases/tag/{tag}",
+            "error": message,
+        }
+
+    changelog = payload.get("body") or ""
+    changelog_url = payload.get("html_url") or f"https://github.com/{repo}/releases/tag/{tag}"
+    return {
+        "changelog": changelog,
+        "changelog_url": changelog_url,
         "error": None,
     }

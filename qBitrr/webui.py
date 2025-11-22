@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 import threading
+import time
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -15,24 +16,34 @@ from flask import Flask, jsonify, redirect, request, send_file
 from peewee import fn
 
 from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
-from qBitrr.bundled_data import patched_version
+from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.logger import run_logs
 from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
 )
-from qBitrr.versioning import fetch_latest_release
+from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
 def _toml_set(doc, dotted_key: str, value: Any):
+    from tomlkit import inline_table, table
+
     keys = dotted_key.split(".")
     cur = doc
     for k in keys[:-1]:
         if k not in cur or not isinstance(cur[k], dict):
-            cur[k] = {}
+            cur[k] = table()
         cur = cur[k]
-    cur[keys[-1]] = value
+
+    # Convert plain Python dicts to inline tables for proper TOML serialization
+    # This ensures dicts are rendered as inline {key = "value"} not as sections [key]
+    if isinstance(value, dict) and not hasattr(value, "as_string"):
+        inline = inline_table()
+        inline.update(value)
+        cur[keys[-1]] = inline
+    else:
+        cur[keys[-1]] = value
 
 
 def _toml_delete(doc, dotted_key: str) -> None:
@@ -88,6 +99,17 @@ class WebUI:
         werkzeug_logger.handlers.clear()
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
+
+        # Add cache control for static files to support config reload
+        @self.app.after_request
+        def add_cache_headers(response):
+            # Prevent caching of index.html and service worker to ensure fresh config loads
+            if request.path in ("/static/index.html", "/ui", "/static/sw.js", "/sw.js"):
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+            return response
+
         # Security token (optional) - auto-generate and persist if empty
         self.token = CONFIG.get("WebUI.Token", fallback=None)
         if not self.token:
@@ -104,13 +126,19 @@ class WebUI:
         self._version_cache = {
             "current_version": patched_version,
             "latest_version": None,
-            "changelog": "",
+            "changelog": "",  # Latest version changelog
+            "current_version_changelog": "",  # Current version changelog
             "changelog_url": f"https://github.com/{self._github_repo}/releases",
             "repository_url": f"https://github.com/{self._github_repo}",
             "homepage_url": f"https://github.com/{self._github_repo}",
             "update_available": False,
             "last_checked": None,
             "error": None,
+            "installation_type": "unknown",
+            "binary_download_url": None,
+            "binary_download_name": None,
+            "binary_download_size": None,
+            "binary_download_error": None,
         }
         self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
         self._update_state = {
@@ -120,6 +148,7 @@ class WebUI:
             "completed_at": None,
         }
         self._update_thread: threading.Thread | None = None
+        self._rebuilding_arrs = False
         self._register_routes()
         static_root = Path(__file__).with_name("static")
         if not (static_root / "index.html").exists():
@@ -129,6 +158,11 @@ class WebUI:
             )
         self._thread: threading.Thread | None = None
         self._use_dev_server: bool | None = None
+
+        # Shutdown control for graceful restart
+        self._shutdown_event = threading.Event()
+        self._restart_requested = False
+        self._server = None  # Will hold Waitress server reference
 
     def _fetch_version_info(self) -> dict[str, Any]:
         info = fetch_latest_release(self._github_repo)
@@ -144,23 +178,45 @@ class WebUI:
             "error": None,
         }
 
+    def _fetch_current_version_changelog(self) -> dict[str, Any]:
+        """Fetch changelog for the current running version."""
+        current_ver = tagged_version
+        if not current_ver:
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": "No current version",
+            }
+
+        info = fetch_release_by_tag(current_ver, self._github_repo)
+        if info.get("error"):
+            self.logger.debug("Failed to fetch current version changelog: %s", info["error"])
+            # Fallback to generic releases page
+            return {
+                "changelog": "",
+                "changelog_url": f"https://github.com/{self._github_repo}/releases",
+                "error": info["error"],
+            }
+
+        return {
+            "changelog": info.get("changelog") or "",
+            "changelog_url": info.get("changelog_url")
+            or f"https://github.com/{self._github_repo}/releases/tag/v{current_ver}",
+            "error": None,
+        }
+
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
         now = datetime.utcnow()
-        fetch_required = force
         with self._version_lock:
             if not force and now < self._version_cache_expiry:
                 snapshot = dict(self._version_cache)
                 snapshot["update_state"] = dict(self._update_state)
                 return snapshot
-            if not force:
-                fetch_required = True
             # optimistic expiry to avoid concurrent fetches
             self._version_cache_expiry = now + timedelta(minutes=5)
 
-        if fetch_required:
-            latest_info = self._fetch_version_info()
-        else:
-            latest_info = {}
+        latest_info = self._fetch_version_info()
+        current_ver_info = self._fetch_current_version_changelog()
 
         with self._version_lock:
             if latest_info:
@@ -174,8 +230,32 @@ class WebUI:
                     self._version_cache["update_available"] = bool(latest_info["update_available"])
                 if "error" in latest_info:
                     self._version_cache["error"] = latest_info["error"]
+            # Store current version changelog
+            if current_ver_info and not current_ver_info.get("error"):
+                self._version_cache["current_version_changelog"] = (
+                    current_ver_info.get("changelog") or ""
+                )
+
             self._version_cache["current_version"] = patched_version
             self._version_cache["last_checked"] = now.isoformat()
+
+            # Add installation type and binary download info
+            from qBitrr.auto_update import get_binary_download_url, get_installation_type
+
+            install_type = get_installation_type()
+            self._version_cache["installation_type"] = install_type
+
+            # If binary and update available, get download URL
+            if install_type == "binary" and self._version_cache.get("update_available"):
+                latest_version = self._version_cache.get("latest_version")
+                if latest_version:
+                    binary_info = get_binary_download_url(latest_version, self.logger)
+                    self._version_cache["binary_download_url"] = binary_info.get("url")
+                    self._version_cache["binary_download_name"] = binary_info.get("name")
+                    self._version_cache["binary_download_size"] = binary_info.get("size")
+                    if binary_info.get("error"):
+                        self._version_cache["binary_download_error"] = binary_info["error"]
+
             # Extend cache validity if fetch succeeded; otherwise allow quick retry.
             if not latest_info or latest_info.get("error"):
                 self._version_cache_expiry = now + timedelta(minutes=5)
@@ -376,6 +456,18 @@ class WebUI:
             page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
             movies = []
             for movie in page_items:
+                # Read quality profile from database
+                quality_profile_id = (
+                    getattr(movie, "QualityProfileId", None)
+                    if hasattr(model, "QualityProfileId")
+                    else None
+                )
+                quality_profile_name = (
+                    getattr(movie, "QualityProfileName", None)
+                    if hasattr(model, "QualityProfileName")
+                    else None
+                )
+
                 movies.append(
                     {
                         "id": movie.EntryId,
@@ -390,6 +482,8 @@ class WebUI:
                         "minCustomFormatScore": movie.MinCustomFormatScore,
                         "customFormatMet": self._safe_bool(movie.CustomFormatMet),
                         "reason": movie.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
                     }
                 )
         return {
@@ -405,6 +499,369 @@ class WebUI:
             "page_size": page_size,
             "movies": movies,
         }
+
+    def _lidarr_albums_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+        quality_met: bool | None = None,
+        is_request: bool | None = None,
+        group_by_artist: bool = True,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        model = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
+        if model is None or db is None:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                    "quality_met": 0,
+                    "requests": 0,
+                },
+                "total": 0,
+                "page": max(page, 0),
+                "page_size": max(page_size, 1),
+                "albums": [],
+            }
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+
+        # Quality profiles are now stored in the database
+        # No need to fetch from API
+
+        with db.connection_context():
+            base_query = model.select()
+
+            # Calculate counts
+            monitored_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.Monitored == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            available_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(
+                    (model.Monitored == True)  # noqa: E712
+                    & (model.AlbumFileId.is_null(False))
+                    & (model.AlbumFileId != 0)
+                )
+                .scalar()
+                or 0
+            )
+            missing_count = max(monitored_count - available_count, 0)
+            quality_met_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.QualityMet == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+            request_count = (
+                model.select(fn.COUNT(model.EntryId))
+                .where(model.IsRequest == True)  # noqa: E712
+                .scalar()
+                or 0
+            )
+
+            # Build filtered query
+            query = base_query
+            if search:
+                query = query.where(model.Title.contains(search))
+            if monitored is not None:
+                query = query.where(model.Monitored == monitored)
+            if has_file is not None:
+                if has_file:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(False)) & (model.AlbumFileId != 0)
+                    )
+                else:
+                    query = query.where(
+                        (model.AlbumFileId.is_null(True)) | (model.AlbumFileId == 0)
+                    )
+            if quality_met is not None:
+                query = query.where(model.QualityMet == quality_met)
+            if is_request is not None:
+                query = query.where(model.IsRequest == is_request)
+
+            albums = []
+
+            if group_by_artist:
+                # Paginate by artists: Two-pass approach with Peewee
+                # First, get all distinct artist names from the filtered query
+                # Use a subquery to get distinct artists efficiently
+                artists_subquery = (
+                    query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
+                )
+
+                # Convert to list to avoid multiple iterations
+                all_artists = [row.ArtistTitle for row in artists_subquery]
+                total = len(all_artists)
+
+                # Paginate the artist list in Python
+                start_idx = page * page_size
+                end_idx = start_idx + page_size
+                paginated_artists = all_artists[start_idx:end_idx]
+
+                # Fetch all albums for these paginated artists
+                if paginated_artists:
+                    album_results = list(
+                        query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
+                            model.ArtistTitle, model.ReleaseDate
+                        )
+                    )
+                else:
+                    album_results = []
+            else:
+                # Flat mode: paginate by albums as before
+                total = query.count()
+                album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
+
+            for album in album_results:
+                # Always fetch tracks from database (Lidarr only)
+                track_model = getattr(arr, "track_file_model", None)
+                tracks_list = []
+                track_monitored_count = 0
+                track_available_count = 0
+
+                if track_model:
+                    try:
+                        # Query tracks from database for this album
+                        track_query = (
+                            track_model.select()
+                            .where(track_model.AlbumId == album.EntryId)
+                            .order_by(track_model.TrackNumber)
+                        )
+                        track_count = track_query.count()
+                        self.logger.debug(
+                            f"Album {album.EntryId} ({album.Title}): Found {track_count} tracks in database"
+                        )
+
+                        for track in track_query:
+                            is_monitored = self._safe_bool(track.Monitored)
+                            has_file = self._safe_bool(track.HasFile)
+
+                            if is_monitored:
+                                track_monitored_count += 1
+                            if has_file:
+                                track_available_count += 1
+
+                            tracks_list.append(
+                                {
+                                    "id": track.EntryId,
+                                    "trackNumber": track.TrackNumber,
+                                    "title": track.Title,
+                                    "duration": track.Duration,
+                                    "hasFile": has_file,
+                                    "trackFileId": track.TrackFileId,
+                                    "monitored": is_monitored,
+                                }
+                            )
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
+                        )
+
+                track_missing_count = max(track_monitored_count - track_available_count, 0)
+
+                # Get quality profile from database model
+                quality_profile_id = getattr(album, "QualityProfileId", None)
+                quality_profile_name = getattr(album, "QualityProfileName", None)
+
+                # Build album data in Sonarr-like structure
+                album_item = {
+                    "album": {
+                        "id": album.EntryId,
+                        "title": album.Title,
+                        "artistId": album.ArtistId,
+                        "artistName": album.ArtistTitle,
+                        "monitored": self._safe_bool(album.Monitored),
+                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                        "foreignAlbumId": album.ForeignAlbumId,
+                        "releaseDate": (
+                            album.ReleaseDate.isoformat()
+                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
+                        ),
+                        "qualityMet": self._safe_bool(album.QualityMet),
+                        "isRequest": self._safe_bool(album.IsRequest),
+                        "upgrade": self._safe_bool(album.Upgrade),
+                        "customFormatScore": album.CustomFormatScore,
+                        "minCustomFormatScore": album.MinCustomFormatScore,
+                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                        "reason": album.Reason,
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
+                    },
+                    "totals": {
+                        "available": track_available_count,
+                        "monitored": track_monitored_count,
+                        "missing": track_missing_count,
+                    },
+                    "tracks": tracks_list,
+                }
+
+                albums.append(album_item)
+        return {
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+                "quality_met": quality_met_count,
+                "requests": request_count,
+            },
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "albums": albums,
+        }
+
+    def _lidarr_tracks_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+        has_file: bool | None = None,
+    ) -> dict[str, Any]:
+        if not self._ensure_arr_db(arr):
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
+        track_model = getattr(arr, "track_file_model", None)
+        album_model = getattr(arr, "model_file", None)
+
+        if not track_model or not album_model:
+            return {
+                "counts": {
+                    "available": 0,
+                    "monitored": 0,
+                    "missing": 0,
+                },
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
+
+        try:
+            # Join tracks with albums to get artist/album info
+            query = (
+                track_model.select(
+                    track_model,
+                    album_model.Title.alias("AlbumTitle"),
+                    album_model.ArtistTitle,
+                    album_model.ArtistId,
+                )
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(True)
+            )
+
+            # Apply filters
+            if monitored is not None:
+                query = query.where(track_model.Monitored == monitored)
+            if has_file is not None:
+                query = query.where(track_model.HasFile == has_file)
+            if search:
+                query = query.where(
+                    (track_model.Title.contains(search))
+                    | (album_model.Title.contains(search))
+                    | (album_model.ArtistTitle.contains(search))
+                )
+
+            # Get counts
+            available_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == True)
+                .count()
+            )
+            monitored_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.Monitored == True)
+                .count()
+            )
+            missing_count = (
+                track_model.select()
+                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                .where(track_model.HasFile == False)
+                .count()
+            )
+
+            total = query.count()
+
+            # Apply pagination
+            query = query.order_by(
+                album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
+            ).paginate(page + 1, page_size)
+
+            tracks = []
+            for track in query:
+                tracks.append(
+                    {
+                        "id": track.EntryId,
+                        "trackNumber": track.TrackNumber,
+                        "title": track.Title,
+                        "duration": track.Duration,
+                        "hasFile": track.HasFile,
+                        "trackFileId": track.TrackFileId,
+                        "monitored": track.Monitored,
+                        "albumId": track.AlbumId,
+                        "albumTitle": track.AlbumTitle,
+                        "artistTitle": track.ArtistTitle,
+                        "artistId": track.ArtistId,
+                    }
+                )
+
+            return {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "tracks": tracks,
+            }
+        except Exception as e:
+            self.logger.error(f"Error fetching Lidarr tracks: {e}")
+            return {
+                "counts": {"available": 0, "monitored": 0, "missing": 0},
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+                "tracks": [],
+            }
 
     def _sonarr_series_from_db(
         self,
@@ -440,6 +897,7 @@ class WebUI:
         missing_condition = episodes_model.EpisodeFileId.is_null(True) | (
             episodes_model.EpisodeFileId == 0
         )
+
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -510,10 +968,14 @@ class WebUI:
                             episodes_model.EpisodeNumber.asc(),
                         )
                         episodes = episodes_query.iterator()
+                        episodes_list = list(episodes)
+                        self.logger.debug(
+                            f"[Sonarr Series] Series {getattr(series, 'Title', 'unknown')} (ID {getattr(series, 'EntryId', '?')}) has {len(episodes_list)} episodes (missing_only={missing_only})"
+                        )
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
                         series_available = 0
-                        for ep in episodes:
+                        for ep in episodes_list:
                             season_value = getattr(ep, "SeasonNumber", None)
                             season_key = (
                                 str(season_value) if season_value is not None else "unknown"
@@ -549,6 +1011,7 @@ class WebUI:
                                         "monitored": is_monitored,
                                         "hasFile": has_file,
                                         "airDateUtc": air_value,
+                                        "reason": getattr(ep, "Reason", None),
                                     }
                                 )
                         for bucket in seasons.values():
@@ -564,11 +1027,27 @@ class WebUI:
                             }
                             if not seasons:
                                 continue
+
+                        # Get quality profile for this series from database
+                        series_id = getattr(series, "EntryId", None)
+                        quality_profile_id = (
+                            getattr(series, "QualityProfileId", None)
+                            if hasattr(series_model, "QualityProfileId")
+                            else None
+                        )
+                        quality_profile_name = (
+                            getattr(series, "QualityProfileName", None)
+                            if hasattr(series_model, "QualityProfileName")
+                            else None
+                        )
+
                         payload.append(
                             {
                                 "series": {
-                                    "id": getattr(series, "EntryId", None),
+                                    "id": series_id,
                                     "title": getattr(series, "Title", "") or "",
+                                    "qualityProfileId": quality_profile_id,
+                                    "qualityProfileName": quality_profile_name,
                                 },
                                 "totals": {
                                     "available": series_available,
@@ -665,7 +1144,15 @@ class WebUI:
                     seasons: dict[str, dict[str, Any]] = {}
                     series_monitored = 0
                     series_available = 0
+                    # Track quality profile from first episode (all episodes in a series share the same profile)
+                    quality_profile_id = None
+                    quality_profile_name = None
                     for ep in episodes_query.iterator():
+                        # Capture quality profile from first episode if available
+                        if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
+                            quality_profile_id = getattr(ep, "QualityProfileId", None)
+                        if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
+                            quality_profile_name = getattr(ep, "QualityProfileName", None)
                         season_value = getattr(ep, "SeasonNumber", None)
                         season_key = str(season_value) if season_value is not None else "unknown"
                         season_bucket = seasons.setdefault(
@@ -698,6 +1185,7 @@ class WebUI:
                                 "monitored": is_monitored,
                                 "hasFile": has_file,
                                 "airDateUtc": air_value,
+                                "reason": getattr(ep, "Reason", None),
                             }
                         )
                     for bucket in seasons.values():
@@ -711,6 +1199,35 @@ class WebUI:
                         seasons = {key: data for key, data in seasons.items() if data["episodes"]}
                         if not seasons:
                             continue
+
+                    # If quality profile is still None, fetch from Sonarr API
+                    if quality_profile_id is None and series_id is not None:
+                        try:
+                            client = getattr(arr, "client", None)
+                            if client and hasattr(client, "get_series"):
+                                series_data = client.get_series(series_id)
+                                if series_data:
+                                    quality_profile_id = series_data.get("qualityProfileId")
+                                    # Get quality profile name from cache or API
+                                    if quality_profile_id:
+                                        quality_cache = getattr(arr, "_quality_profile_cache", {})
+                                        if quality_profile_id in quality_cache:
+                                            quality_profile_name = quality_cache[
+                                                quality_profile_id
+                                            ].get("name")
+                                        elif hasattr(client, "get_quality_profile"):
+                                            try:
+                                                profile = client.get_quality_profile(
+                                                    quality_profile_id
+                                                )
+                                                quality_profile_name = (
+                                                    profile.get("name") if profile else None
+                                                )
+                                            except Exception:
+                                                pass
+                        except Exception:
+                            pass
+
                     payload.append(
                         {
                             "series": {
@@ -723,6 +1240,8 @@ class WebUI:
                                         else str(series_id)
                                     )
                                 ),
+                                "qualityProfileId": quality_profile_id,
+                                "qualityProfileName": quality_profile_name,
                             },
                             "totals": {
                                 "available": series_available,
@@ -733,17 +1252,30 @@ class WebUI:
                         }
                     )
 
-        return {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": missing_count,
-            },
-            "total": total_series,
-            "page": resolved_page,
-            "page_size": page_size,
-            "series": payload,
-        }
+            result = {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total_series,
+                "page": resolved_page,
+                "page_size": page_size,
+                "series": payload,
+            }
+            if payload:
+                first_series = payload[0]
+                first_seasons = first_series.get("seasons", {})
+                total_episodes_in_response = sum(
+                    len(season.get("episodes", [])) for season in first_seasons.values()
+                )
+                self.logger.info(
+                    f"[Sonarr API] Returning {len(payload)} series, "
+                    f"first series '{first_series.get('series', {}).get('title', '?')}' has "
+                    f"{len(first_seasons)} seasons, {total_episodes_in_response} episodes "
+                    f"(missing_only={missing_only})"
+                )
+            return result
 
     # Routes
     def _register_routes(self):
@@ -792,7 +1324,31 @@ class WebUI:
         @app.get("/ui")
         def ui_index():
             # Serve UI without requiring a token; API remains protected
-            return redirect("/static/index.html")
+            # Add cache-busting parameter based on config reload timestamp
+            from flask import make_response
+
+            response = make_response(redirect("/static/index.html"))
+            # Prevent caching of the UI entry point
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
+
+        @app.get("/sw.js")
+        def service_worker():
+            # Service worker must be served directly (not redirected) for PWA support
+            # This allows the endpoint to be whitelisted in auth proxies (e.g., Authentik)
+            import os
+
+            from flask import send_from_directory
+
+            static_dir = os.path.join(os.path.dirname(__file__), "static")
+            response = send_from_directory(static_dir, "sw.js")
+            # Prevent caching of the service worker to ensure updates are picked up
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+            return response
 
         def _processes_payload() -> dict[str, Any]:
             procs = []
@@ -1035,6 +1591,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": bool(p.is_alive()),
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -1045,6 +1602,7 @@ class WebUI:
                             "kind": kind,
                             "pid": getattr(p, "pid", None),
                             "alive": False,
+                            "rebuilding": self._rebuilding_arrs,
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
@@ -1180,7 +1738,8 @@ class WebUI:
         def _list_logs() -> list[str]:
             if not logs_root.exists():
                 return []
-            return sorted(f.name for f in logs_root.glob("*.log*"))
+            log_files = sorted(f.name for f in logs_root.glob("*.log*"))
+            return log_files
 
         @app.get("/api/logs")
         def api_logs():
@@ -1199,25 +1758,41 @@ class WebUI:
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
-            # Return last 2000 lines
+
+            # Stream full log file to support dynamic loading in LazyLog
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
+                content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            # Public endpoint for Authentik bypass - no token required
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
+
+            # Stream full log file to support dynamic loading in LazyLog
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore").splitlines()
-                tail = "\n".join(content[-2000:])
+                content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                tail = ""
-            return send_file(io.BytesIO(tail.encode("utf-8")), mimetype="text/plain")
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
 
         @app.get("/api/logs/<name>/download")
         def api_log_download(name: str):
@@ -1379,11 +1954,71 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
+        @app.get("/web/lidarr/<category>/albums")
+        def web_lidarr_albums(category: str):
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != "lidarr":
+                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = request.args.get("page_size", default=50, type=int)
+            monitored = (
+                self._safe_bool(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            has_file = (
+                self._safe_bool(request.args.get("has_file"))
+                if "has_file" in request.args
+                else None
+            )
+            quality_met = (
+                self._safe_bool(request.args.get("quality_met"))
+                if "quality_met" in request.args
+                else None
+            )
+            is_request = (
+                self._safe_bool(request.args.get("is_request"))
+                if "is_request" in request.args
+                else None
+            )
+            flat_mode = self._safe_bool(request.args.get("flat_mode", False))
+
+            if flat_mode:
+                # Flat mode: return tracks directly
+                payload = self._lidarr_tracks_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                )
+            else:
+                # Grouped mode: return albums with tracks, paginated by artist
+                payload = self._lidarr_albums_from_db(
+                    arr,
+                    q,
+                    page,
+                    page_size,
+                    monitored=monitored,
+                    has_file=has_file,
+                    quality_met=quality_met,
+                    is_request=is_request,
+                    group_by_artist=True,
+                )
+            payload["category"] = category
+            return jsonify(payload)
+
         def _arr_list_payload() -> dict[str, Any]:
             items = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     items.append({"category": category, "name": name, "type": t})
@@ -1427,6 +2062,65 @@ class WebUI:
                 return jsonify({"error": message}), 409
             return jsonify({"status": "started"})
 
+        @app.get("/api/download-update")
+        def api_download_update():
+            """Redirect to binary download URL for current platform."""
+            if (resp := require_token()) is not None:
+                return resp
+
+            from qBitrr.auto_update import get_installation_type
+
+            install_type = get_installation_type()
+
+            if install_type != "binary":
+                return jsonify({"error": "Download only available for binary installations"}), 400
+
+            # Get latest version info
+            version_info = self._ensure_version_info()
+
+            if not version_info.get("update_available"):
+                return jsonify({"error": "No update available"}), 404
+
+            download_url = version_info.get("binary_download_url")
+            if not download_url:
+                error = version_info.get(
+                    "binary_download_error", "No binary available for your platform"
+                )
+                return jsonify({"error": error}), 404
+
+            # Redirect to GitHub download URL
+            from flask import redirect
+
+            return redirect(download_url)
+
+        @app.get("/web/download-update")
+        def web_download_update():
+            """Redirect to binary download URL for current platform."""
+            from qBitrr.auto_update import get_installation_type
+
+            install_type = get_installation_type()
+
+            if install_type != "binary":
+                return jsonify({"error": "Download only available for binary installations"}), 400
+
+            # Get latest version info
+            version_info = self._ensure_version_info()
+
+            if not version_info.get("update_available"):
+                return jsonify({"error": "No update available"}), 404
+
+            download_url = version_info.get("binary_download_url")
+            if not download_url:
+                error = version_info.get(
+                    "binary_download_error", "No binary available for your platform"
+                )
+                return jsonify({"error": error}), 404
+
+            # Redirect to GitHub download URL
+            from flask import redirect
+
+            return redirect(download_url)
+
         def _status_payload() -> dict[str, Any]:
             qb = {
                 "alive": bool(self.manager.is_alive),
@@ -1441,7 +2135,7 @@ class WebUI:
             arrs = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
-                if t in ("radarr", "sonarr"):
+                if t in ("radarr", "sonarr", "lidarr"):
                     # Determine liveness based on child search/torrent processes
                     alive = False
                     for loop in ("search", "torrent"):
@@ -1579,19 +2273,81 @@ class WebUI:
                 except Exception:
                     pass
                 data = _toml_to_jsonable(CONFIG.config)
+
+                # Check config version and add warning if mismatch
+                from qBitrr.config_version import get_config_version, validate_config_version
+
+                is_valid, validation_result = validate_config_version(CONFIG)
+                if not is_valid:
+                    # Add version mismatch warning to response
+                    response_data = {
+                        "config": data,
+                        "warning": {
+                            "type": "config_version_mismatch",
+                            "message": validation_result,
+                            "currentVersion": get_config_version(CONFIG),
+                        },
+                    }
+                    return jsonify(response_data)
+
                 return jsonify(data)
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
 
-        @app.post("/api/config")
-        def api_update_config():
-            if (resp := require_token()) is not None:
-                return resp
+        def _handle_config_update():
+            """Common handler for config updates with intelligent reload detection."""
             body = request.get_json(silent=True) or {}
             changes: dict[str, Any] = body.get("changes", {})
             if not isinstance(changes, dict):
                 return jsonify({"error": "changes must be an object"}), 400
-            # Apply changes
+
+            # Prevent ConfigVersion from being modified by user
+            protected_keys = {"Settings.ConfigVersion"}
+            for key in protected_keys:
+                if key in changes:
+                    return (
+                        jsonify({"error": f"Cannot modify protected configuration key: {key}"}),
+                        403,
+                    )
+
+            # Define key categories
+            frontend_only_keys = {
+                "WebUI.LiveArr",
+                "WebUI.GroupSonarr",
+                "WebUI.GroupLidarr",
+                "WebUI.Theme",
+            }
+            webui_restart_keys = {
+                "WebUI.Host",
+                "WebUI.Port",
+                "WebUI.Token",
+            }
+
+            # Analyze changes to determine reload strategy
+            affected_arr_instances = set()
+            has_global_changes = False
+            has_webui_changes = False
+            has_frontend_only_changes = False
+
+            for key in changes.keys():
+                if key in frontend_only_keys:
+                    has_frontend_only_changes = True
+                elif key in webui_restart_keys:
+                    has_webui_changes = True
+                elif key.startswith("WebUI."):
+                    # Unknown WebUI key, treat as webui change for safety
+                    has_webui_changes = True
+                elif match := re.match(
+                    r"^(Radarr|Sonarr|Lidarr|Animarr)[^.]*\.(.+)$", key, re.IGNORECASE
+                ):
+                    # Arr instance specific change
+                    instance_name = key.split(".")[0]
+                    affected_arr_instances.add(instance_name)
+                else:
+                    # Settings.*, qBit.*, or unknown - requires full reload
+                    has_global_changes = True
+
+            # Apply all changes to config
             for key, val in changes.items():
                 if val is None:
                     _toml_delete(CONFIG.config, key)
@@ -1602,64 +2358,683 @@ class WebUI:
                 if key == "WebUI.Token":
                     # Update in-memory token immediately
                     self.token = str(val) if val is not None else ""
-            # Persist
-            CONFIG.save()
+
+            # Persist config
             try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            # Live-reload: rebuild Arr instances and restart processes
-            self._reload_all()
-            return jsonify({"status": "ok"})
+                CONFIG.save()
+            except Exception as e:
+                return jsonify({"error": f"Failed to save config: {e}"}), 500
+
+            # Determine reload strategy
+            reload_type = "none"
+            affected_instances_list = []
+
+            if has_global_changes:
+                # Global settings changed - full reload required
+                # This affects ALL instances (qBit settings, loop timers, etc.)
+                reload_type = "full"
+                self.logger.notice("Global settings changed, performing full reload")
+                try:
+                    self.manager.configure_auto_update()
+                except Exception:
+                    self.logger.exception("Failed to refresh auto update configuration")
+                self._reload_all()
+
+            elif len(affected_arr_instances) >= 1:
+                # One or more Arr instances changed - reload each individually
+                # NEVER trigger global reload for Arr-only changes
+                reload_type = "multi_arr" if len(affected_arr_instances) > 1 else "single_arr"
+                affected_instances_list = sorted(affected_arr_instances)
+
+                self.logger.notice(
+                    f"Reloading {len(affected_instances_list)} Arr instance(s): {', '.join(affected_instances_list)}"
+                )
+
+                # Reload each affected instance in sequence
+                for instance_name in affected_instances_list:
+                    self._reload_arr_instance(instance_name)
+
+            elif has_webui_changes:
+                # Only WebUI settings changed - restart WebUI
+                reload_type = "webui"
+                self.logger.notice("WebUI settings changed, restarting WebUI server")
+                # Run restart in background thread to avoid blocking response
+                restart_thread = threading.Thread(
+                    target=self._restart_webui, name="WebUIRestart", daemon=True
+                )
+                restart_thread.start()
+
+            elif has_frontend_only_changes:
+                # Only frontend settings changed - no reload
+                reload_type = "frontend"
+                self.logger.debug("Frontend-only settings changed, no reload required")
+
+            # Build response
+            response_data = {
+                "status": "ok",
+                "configReloaded": reload_type not in ("none", "frontend"),
+                "reloadType": reload_type,
+                "affectedInstances": affected_instances_list,
+            }
+
+            response = jsonify(response_data)
+
+            # Add headers for cache control
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+
+            # Legacy header for compatibility
+            if reload_type in ("full", "single_arr", "multi_arr", "webui"):
+                response.headers["X-Config-Reloaded"] = "true"
+
+            return response
+
+        @app.post("/api/config")
+        def api_update_config():
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_config_update()
 
         @app.post("/web/config")
         def web_update_config():
-            body = request.get_json(silent=True) or {}
-            changes: dict[str, Any] = body.get("changes", {})
-            if not isinstance(changes, dict):
-                return jsonify({"error": "changes must be an object"}), 400
-            for key, val in changes.items():
-                if val is None:
-                    _toml_delete(CONFIG.config, key)
-                    if key == "WebUI.Token":
-                        self.token = ""
-                    continue
-                _toml_set(CONFIG.config, key, val)
-                if key == "WebUI.Token":
-                    self.token = str(val) if val is not None else ""
-            CONFIG.save()
+            return _handle_config_update()
+
+        @app.post("/api/arr/test-connection")
+        def api_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            """
+            if (resp := require_token()) is not None:
+                return resp
+
             try:
-                self.manager.configure_auto_update()
-            except Exception:
-                self.logger.exception("Failed to refresh auto update configuration")
-            self._reload_all()
-            return jsonify({"status": "ok"})
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        # Generic error message - details logged above
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
+
+        @app.post("/web/arr/test-connection")
+        def web_arr_test_connection():
+            """
+            Test connection to Arr instance without saving config.
+            Accepts temporary URI/APIKey and returns connection status + quality profiles.
+            Public endpoint (mirrors /api/arr/test-connection).
+            """
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info(f"Using existing Arr instance: {group_name}")
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        f"System status retrieved: {system_info.get('version', 'unknown')}"
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error(f"Server error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error(f"Connection test failed: {error_msg}")
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        # Generic error message - details logged above
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
 
     def _reload_all(self):
-        # Stop current processes
-        for p in list(self.manager.child_processes):
-            try:
-                p.kill()
-            except Exception:
-                pass
-            try:
-                p.terminate()
-            except Exception:
-                pass
-        self.manager.child_processes.clear()
-        # Rebuild arr manager from config and spawn fresh
-        from qBitrr.arss import ArrManager
+        # Set rebuilding flag
+        self._rebuilding_arrs = True
+        try:
+            # Stop current processes
+            for p in list(self.manager.child_processes):
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+                try:
+                    p.terminate()
+                except Exception:
+                    pass
+            self.manager.child_processes.clear()
 
-        self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
-        self.manager.configure_auto_update()
-        # Spawn and start new processes
-        for arr in self.manager.arr_manager.managed_objects.values():
-            _, procs = arr.spawn_child_processes()
+            # Delete database files for all arr instances before rebuilding
+            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                for arr in self.manager.arr_manager.managed_objects.values():
+                    try:
+                        if hasattr(arr, "search_db_file") and arr.search_db_file:
+                            # Delete main database file
+                            if arr.search_db_file.exists():
+                                self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                                arr.search_db_file.unlink()
+                                self.logger.success(f"Deleted database file for {arr._name}")
+                            # Delete WAL file (Write-Ahead Log)
+                            wal_file = arr.search_db_file.with_suffix(".db-wal")
+                            if wal_file.exists():
+                                self.logger.info(f"Deleting WAL file: {wal_file}")
+                                wal_file.unlink()
+                            # Delete SHM file (Shared Memory)
+                            shm_file = arr.search_db_file.with_suffix(".db-shm")
+                            if shm_file.exists():
+                                self.logger.info(f"Deleting SHM file: {shm_file}")
+                                shm_file.unlink()
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Failed to delete database files for {arr._name}: {e}"
+                        )
+
+            # Rebuild arr manager from config and spawn fresh
+            from qBitrr.arss import ArrManager
+
+            self.manager.arr_manager = ArrManager(self.manager).build_arr_instances()
+            self.manager.configure_auto_update()
+            # Spawn and start new processes
+            for arr in self.manager.arr_manager.managed_objects.values():
+                _, procs = arr.spawn_child_processes()
+                for p in procs:
+                    try:
+                        p.start()
+                    except Exception:
+                        pass
+        finally:
+            # Clear rebuilding flag
+            self._rebuilding_arrs = False
+
+    def _restart_webui(self):
+        """
+        Gracefully restart the WebUI server without affecting Arr processes.
+        This is used when WebUI.Host, WebUI.Port, or WebUI.Token changes.
+        """
+        self.logger.notice("WebUI restart requested (config changed)")
+
+        # Reload config values
+        try:
+            CONFIG.load()
+        except Exception as e:
+            self.logger.warning(f"Failed to reload config: {e}")
+
+        # Update in-memory values
+        new_host = CONFIG.get("WebUI.Host", fallback="0.0.0.0")
+        new_port = CONFIG.get("WebUI.Port", fallback=6969)
+        new_token = CONFIG.get("WebUI.Token", fallback=None)
+
+        # Check if restart is actually needed
+        needs_restart = new_host != self.host or new_port != self.port
+
+        # Token can be updated without restart
+        if new_token != self.token:
+            self.token = new_token
+            self.logger.info("WebUI token updated")
+
+        if not needs_restart:
+            self.logger.info("WebUI Host/Port unchanged, restart not required")
+            return
+
+        # Update host/port
+        self.host = new_host
+        self.port = new_port
+
+        # Signal restart
+        self._restart_requested = True
+        self._shutdown_event.set()
+
+        self.logger.info(f"WebUI will restart on {self.host}:{self.port}")
+
+    def _stop_arr_instance(self, arr, category: str):
+        """Stop and cleanup a single Arr instance."""
+        self.logger.info(f"Stopping Arr instance: {category}")
+
+        # Stop processes
+        for loop_kind in ("search", "torrent"):
+            proc_attr = f"process_{loop_kind}_loop"
+            process = getattr(arr, proc_attr, None)
+            if process is not None:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                try:
+                    process.terminate()
+                except Exception:
+                    pass
+                try:
+                    self.manager.child_processes.remove(process)
+                except Exception:
+                    pass
+                self.logger.debug(f"Stopped {loop_kind} process for {category}")
+
+        # Delete database files
+        try:
+            if hasattr(arr, "search_db_file") and arr.search_db_file:
+                if arr.search_db_file.exists():
+                    self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                    arr.search_db_file.unlink()
+                    self.logger.success(
+                        f"Deleted database file for {getattr(arr, '_name', category)}"
+                    )
+                # Delete WAL and SHM files
+                for suffix in (".db-wal", ".db-shm"):
+                    aux_file = arr.search_db_file.with_suffix(suffix)
+                    if aux_file.exists():
+                        self.logger.debug(f"Deleting auxiliary file: {aux_file}")
+                        aux_file.unlink()
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to delete database files for {getattr(arr, '_name', category)}: {e}"
+            )
+
+        # Remove from managed_objects
+        self.manager.arr_manager.managed_objects.pop(category, None)
+        self.manager.arr_manager.groups.discard(getattr(arr, "_name", ""))
+        self.manager.arr_manager.uris.discard(getattr(arr, "uri", ""))
+        self.manager.arr_manager.arr_categories.discard(category)
+
+        self.logger.success(f"Stopped and cleaned up Arr instance: {category}")
+
+    def _start_arr_instance(self, instance_name: str):
+        """Create and start a single Arr instance."""
+        self.logger.info(f"Starting Arr instance: {instance_name}")
+
+        # Check if instance is managed
+        if not CONFIG.get(f"{instance_name}.Managed", fallback=False):
+            self.logger.info(f"Instance {instance_name} is not managed, skipping")
+            return
+
+        # Determine client class based on name
+        client_cls = None
+        if re.match(r"^(Rad|rad)arr", instance_name):
+            from pyarr import RadarrAPI
+
+            client_cls = RadarrAPI
+        elif re.match(r"^(Son|son|Anim|anim)arr", instance_name):
+            from pyarr import SonarrAPI
+
+            client_cls = SonarrAPI
+        elif re.match(r"^(Lid|lid)arr", instance_name):
+            from pyarr import LidarrAPI
+
+            client_cls = LidarrAPI
+        else:
+            self.logger.error(f"Unknown Arr type for instance: {instance_name}")
+            return
+
+        try:
+            # Create new Arr instance
+            from qBitrr.arss import Arr
+            from qBitrr.errors import SkipException
+
+            new_arr = Arr(instance_name, self.manager.arr_manager, client_cls=client_cls)
+
+            # Register in manager
+            self.manager.arr_manager.groups.add(instance_name)
+            self.manager.arr_manager.uris.add(new_arr.uri)
+            self.manager.arr_manager.managed_objects[new_arr.category] = new_arr
+            self.manager.arr_manager.arr_categories.add(new_arr.category)
+
+            # Spawn and start processes
+            _, procs = new_arr.spawn_child_processes()
             for p in procs:
                 try:
                     p.start()
-                except Exception:
-                    pass
+                    self.logger.debug(f"Started process (PID: {p.pid}) for {instance_name}")
+                except Exception as e:
+                    self.logger.error(f"Failed to start process for {instance_name}: {e}")
+
+            self.logger.success(
+                f"Started Arr instance: {instance_name} (category: {new_arr.category})"
+            )
+
+        except SkipException:
+            self.logger.info(f"Instance {instance_name} skipped (not managed or disabled)")
+        except Exception as e:
+            self.logger.error(f"Failed to start Arr instance {instance_name}: {e}", exc_info=True)
+
+    def _reload_arr_instance(self, instance_name: str):
+        """Reload a single Arr instance without affecting others."""
+        self.logger.notice(f"Reloading Arr instance: {instance_name}")
+
+        if not hasattr(self.manager, "arr_manager") or not self.manager.arr_manager:
+            self.logger.warning("Cannot reload Arr instance: ArrManager not initialized")
+            return
+
+        managed_objects = self.manager.arr_manager.managed_objects
+
+        # Find the instance by name (key is category, so search by _name attribute)
+        old_arr = None
+        old_category = None
+        for category, arr in list(managed_objects.items()):
+            if getattr(arr, "_name", None) == instance_name:
+                old_arr = arr
+                old_category = category
+                break
+
+        # Check if instance exists in config
+        instance_exists_in_config = instance_name in CONFIG.sections()
+
+        # Handle deletion case
+        if not instance_exists_in_config:
+            if old_arr:
+                self.logger.info(f"Instance {instance_name} removed from config, stopping...")
+                self._stop_arr_instance(old_arr, old_category)
+            else:
+                self.logger.debug(f"Instance {instance_name} not found in config or memory")
+            return
+
+        # Handle update/addition
+        if old_arr:
+            # Update existing - stop old processes first
+            self.logger.info(f"Updating existing Arr instance: {instance_name}")
+            self._stop_arr_instance(old_arr, old_category)
+        else:
+            self.logger.info(f"Adding new Arr instance: {instance_name}")
+
+        # Small delay to ensure cleanup completes
+        time.sleep(0.5)
+
+        # Create new instance
+        self._start_arr_instance(instance_name)
+
+        self.logger.success(f"Successfully reloaded Arr instance: {instance_name}")
 
     def start(self):
         if self._thread and self._thread.is_alive():
@@ -1672,10 +3047,24 @@ class WebUI:
 
     def _serve(self):
         try:
+            # Reset shutdown event at start
+            self._shutdown_event.clear()
+
             if self._should_use_dev_server():
                 self.logger.info("Using Flask development server for WebUI")
-                self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
+                # Flask dev server - will exit on KeyboardInterrupt
+                try:
+                    self.app.run(
+                        host=self.host,
+                        port=self.port,
+                        debug=False,
+                        use_reloader=False,
+                        threaded=True,
+                    )
+                except (KeyboardInterrupt, SystemExit):
+                    pass
                 return
+
             try:
                 from waitress import serve as waitress_serve
             except Exception:
@@ -1685,15 +3074,32 @@ class WebUI:
                 )
                 self.app.run(host=self.host, port=self.port, debug=False, use_reloader=False)
                 return
+
             self.logger.info("Using Waitress WSGI server for WebUI")
+
+            # For graceful restart capability, we need to use waitress_serve with channels
+            # However, for now we'll use the simpler approach and just run the server
+            # Restart capability will require stopping the entire process
             waitress_serve(
                 self.app,
                 host=self.host,
                 port=self.port,
                 ident="qBitrr-WebUI",
             )
-        except Exception:  # pragma: no cover - defensive logging
+
+        except KeyboardInterrupt:
+            self.logger.info("WebUI interrupted")
+        except Exception:
             self.logger.exception("WebUI server terminated unexpectedly")
+        finally:
+            self._server = None
+
+            # If restart was requested, start a new server
+            if self._restart_requested:
+                self._restart_requested = False
+                self.logger.info("Restarting WebUI server...")
+                time.sleep(0.5)  # Brief pause
+                self.start()  # Restart
 
     def _should_use_dev_server(self) -> bool:
         if self._use_dev_server is not None:

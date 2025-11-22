@@ -41,6 +41,19 @@ body:
     render: shell
   validations:
     required: true
+- type: textarea
+  id: files
+  attributes:
+    label: Required files
+    description: |
+      **Attach the following files (drag and drop into this text area):**
+      1. `All.log` - Complete log file from your logs directory
+      2. `config.toml` - Your configuration file (mask sensitive data like tokens, passwords, URLs)
+
+      These files are essential for debugging. Without them, we may not be able to help.
+    placeholder: Drag and drop All.log and config.toml here
+  validations:
+    required: true
 - type: input
   id: version
   attributes:
@@ -70,6 +83,10 @@ body:
     label: Pre-flight checklist
     options:
     - label: I searched existing issues and discussions.
+      required: true
+    - label: I have attached the complete `All.log` file (not just excerpts).
+      required: true
+    - label: I have attached my `config.toml` with sensitive information masked.
       required: true
     - label: Logging is enabled and the attached logs cover the failure.
       required: true

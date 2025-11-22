@@ -20,6 +20,13 @@ class MoviesFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
 
 
 class EpisodeFilesModel(Model):
@@ -42,6 +49,13 @@ class EpisodeFilesModel(Model):
     MinCustomFormatScore = IntegerField(null=True)
     CustomFormatMet = BooleanField(default=False)
     Reason = TextField(null=True)
+    # Quality profile from Arr API (inherited from series)
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
 
 
 class SeriesFilesModel(Model):
@@ -51,6 +65,9 @@ class SeriesFilesModel(Model):
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
 
 
 class MovieQueueModel(Model):
@@ -59,6 +76,60 @@ class MovieQueueModel(Model):
 
 
 class EpisodeQueueModel(Model):
+    EntryId = IntegerField(unique=True)
+    Completed = BooleanField(default=False)
+
+
+class AlbumFilesModel(Model):
+    Title = CharField()
+    Monitored = BooleanField()
+    ForeignAlbumId = CharField()
+    ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    EntryId = IntegerField(unique=True)
+    Searched = BooleanField(default=False)
+    AlbumFileId = IntegerField()
+    IsRequest = BooleanField(default=False)
+    QualityMet = BooleanField(default=False)
+    Upgrade = BooleanField(default=False)
+    CustomFormatScore = IntegerField(null=True)
+    MinCustomFormatScore = IntegerField(null=True)
+    CustomFormatMet = BooleanField(default=False)
+    Reason = TextField(null=True)
+    ArtistId = IntegerField(null=False)
+    ArtistTitle = TextField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
+    # Profile switching state tracking
+    LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
+    CurrentProfileId = IntegerField(null=True)
+    OriginalProfileId = IntegerField(null=True)
+
+
+class TrackFilesModel(Model):
+    EntryId = IntegerField(primary_key=True)
+    AlbumId = IntegerField(null=False)
+    TrackNumber = IntegerField(null=True)
+    Title = TextField(null=True)
+    Duration = IntegerField(null=True)  # Duration in seconds
+    HasFile = BooleanField(default=False)
+    TrackFileId = IntegerField(null=True)
+    Monitored = BooleanField(default=False)
+
+
+class ArtistFilesModel(Model):
+    EntryId = IntegerField(primary_key=True)
+    Title = TextField(null=True)
+    Monitored = BooleanField(null=True)
+    Searched = BooleanField(default=False)
+    Upgrade = BooleanField(default=False)
+    MinCustomFormatScore = IntegerField(null=True)
+    # Quality profile from Arr API
+    QualityProfileId = IntegerField(null=True)
+    QualityProfileName = TextField(null=True)
+
+
+class AlbumQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
 

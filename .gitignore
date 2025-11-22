@@ -23,3 +23,5 @@ test.py
 /qBitrr/static/*
 !/qBitrr/static/.gitkeep
 AGENTS.md
+compose.yml
+/docs/

@@ -4,7 +4,7 @@ import pathlib
 from functools import reduce
 from typing import Any, TypeVar
 
-from tomlkit import comment, document, nl, parse, table
+from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
@@ -51,9 +51,15 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "WebUI theme (light or dark)",
+        "Group Lidarr albums by artist in views",
+        "GroupLidarr",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "WebUI theme (Light or Dark)",
         "Theme",
-        "dark",
+        "Dark",
     )
     config.add("WebUI", web_settings)
 
@@ -77,6 +83,15 @@ def generate_doc() -> TOMLDocument:
 
 def _add_settings_section(config: TOMLDocument):
     settings = table()
+    _gen_default_line(
+        settings,
+        [
+            "Internal config schema version - DO NOT MODIFY",
+            "This is managed automatically by qBitrr for config migrations",
+        ],
+        "ConfigVersion",
+        3,
+    )
     _gen_default_line(
         settings,
         "Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE",
@@ -196,6 +211,39 @@ def _add_settings_section(config: TOMLDocument):
         "AutoUpdateCron",
         ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
     )
+    _gen_default_line(
+        settings,
+        [
+            "Automatically restart worker processes that fail or crash",
+            "Set to false to disable auto-restart (processes will only log failures)",
+        ],
+        "AutoRestartProcesses",
+        True,
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Maximum number of restart attempts per process within the restart window",
+            "Prevents infinite restart loops for processes that crash immediately",
+        ],
+        "MaxProcessRestarts",
+        5,
+    )
+    _gen_default_line(
+        settings,
+        [
+            "Time window (seconds) for tracking restart attempts",
+            "If a process restarts MaxProcessRestarts times within this window, auto-restart is disabled for that process",
+        ],
+        "ProcessRestartWindow",
+        300,
+    )
+    _gen_default_line(
+        settings,
+        "Delay (seconds) before attempting to restart a failed process",
+        "ProcessRestartDelay",
+        5,
+    )
     config.add("Settings", settings)
 
 
@@ -239,7 +287,7 @@ def _add_qbit_section(config: TOMLDocument):
 
 
 def _add_category_sections(config: TOMLDocument):
-    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K"]:
+    for c in ["Sonarr-TV", "Sonarr-Anime", "Radarr-1080", "Radarr-4K", "Lidarr-Music"]:
         _gen_default_cat(c, config)
 
 
@@ -303,6 +351,14 @@ def _gen_default_cat(category: str, config: TOMLDocument):
             [
                 "Not a preferred word upgrade for existing episode file(s)",
                 "Not an upgrade for existing episode file(s)",
+                "Unable to determine if file is a sample",
+            ]
+        )
+    elif "lidarr" in category.lower():
+        messages.extend(
+            [
+                "Not a preferred word upgrade for existing track file(s)",
+                "Not an upgrade for existing track file(s)",
                 "Unable to determine if file is a sample",
             ]
         )
@@ -640,12 +696,14 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "SearchLimit",
             5,
         )
-    _gen_default_line(
-        search_table,
-        "It will order searches by the year the EPISODE was first aired",
-        "SearchByYear",
-        True,
-    )
+    # SearchByYear doesn't apply to Lidarr (music albums)
+    if "lidarr" not in category.lower():
+        _gen_default_line(
+            search_table,
+            "It will order searches by the year the EPISODE was first aired",
+            "SearchByYear",
+            True,
+        )
     _gen_default_line(
         search_table,
         "Reverse search order (Start searching oldest to newest)",
@@ -691,6 +749,34 @@ def _gen_default_search_table(category: str, cat_default: Table):
     _gen_default_line(search_table, "Don't change back to main profile", "KeepTempProfile", False)
     _gen_default_line(
         search_table,
+        [
+            "Quality profile mappings for temp profile switching (Main Profile Name -> Temp Profile Name)",
+            "Profile names must match exactly as they appear in your Arr instance",
+            'Example: QualityProfileMappings = {"HD-1080p" = "SD", "HD-720p" = "SD"}',
+        ],
+        "QualityProfileMappings",
+        inline_table(),
+    )
+    _gen_default_line(
+        search_table,
+        "Reset all items using temp profiles to their original main profile on qBitrr startup",
+        "ForceResetTempProfiles",
+        False,
+    )
+    _gen_default_line(
+        search_table,
+        "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
+        "TempProfileResetTimeoutMinutes",
+        0,
+    )
+    _gen_default_line(
+        search_table,
+        "Number of retry attempts for profile switch API calls (default: 3)",
+        "ProfileSwitchRetryAttempts",
+        3,
+    )
+    _gen_default_line(
+        search_table,
         "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",
         "MainQualityProfile",
         [],
@@ -719,8 +805,10 @@ def _gen_default_search_table(category: str, cat_default: Table):
             "PrioritizeTodaysReleases",
             True,
         )
-    _gen_default_ombi_table(category, search_table)
-    _gen_default_overseerr_table(category, search_table)
+    # Ombi and Overseerr don't support music requests
+    if "lidarr" not in category.lower():
+        _gen_default_ombi_table(category, search_table)
+        _gen_default_overseerr_table(category, search_table)
     cat_default.add("EntrySearch", search_table)
 
 
@@ -881,6 +969,162 @@ def _migrate_webui_config(config: MyConfig) -> bool:
     return migrated
 
 
+def _migrate_process_restart_settings(config: MyConfig) -> bool:
+    """
+    Add process auto-restart settings to existing configs.
+
+    Migration runs if:
+    - ConfigVersion < 3 (versions 1 or 2)
+
+    After migration, ConfigVersion will be set to 3 by apply_config_migrations().
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    # Check if migration already applied
+    current_version = get_config_version(config)
+    if current_version >= 3:
+        return False  # Already migrated
+
+    # Ensure Settings section exists
+    if "Settings" not in config.config:
+        config.config["Settings"] = table()
+
+    settings = config.config["Settings"]
+    changes_made = False
+
+    # Add AutoRestartProcesses if missing
+    if "AutoRestartProcesses" not in settings:
+        settings["AutoRestartProcesses"] = True
+        changes_made = True
+        logger.info("Added AutoRestartProcesses = true (default: enabled)")
+
+    # Add MaxProcessRestarts if missing
+    if "MaxProcessRestarts" not in settings:
+        settings["MaxProcessRestarts"] = 5
+        changes_made = True
+        logger.info("Added MaxProcessRestarts = 5 (default)")
+
+    # Add ProcessRestartWindow if missing
+    if "ProcessRestartWindow" not in settings:
+        settings["ProcessRestartWindow"] = 300
+        changes_made = True
+        logger.info("Added ProcessRestartWindow = 300 seconds (5 minutes)")
+
+    # Add ProcessRestartDelay if missing
+    if "ProcessRestartDelay" not in settings:
+        settings["ProcessRestartDelay"] = 5
+        changes_made = True
+        logger.info("Added ProcessRestartDelay = 5 seconds")
+
+    if changes_made:
+        print("Migration v2→v3: Added process auto-restart configuration settings")
+
+    return changes_made
+
+
+def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
+    """
+    Migrate from list-based profile config to dict-based mappings.
+
+    Migration runs if:
+    - ConfigVersion is missing (old config), OR
+    - ConfigVersion == 1 (baseline version before this feature)
+
+    After migration, ConfigVersion will be set to 2 by apply_config_migrations().
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    # Check if migration already applied
+    current_version = get_config_version(config)
+    if current_version >= 2:
+        return False  # Already migrated
+
+    # At this point, ConfigVersion is either missing (returns 1 as default) or explicitly 1
+    # Both cases need migration if old format exists
+
+    changes_made = False
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+
+    for arr_type in arr_types:
+        # Find all Arr instances (e.g., "Radarr-Movies", "Sonarr-TV")
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            entry_search_key = f"{key}.EntrySearch"
+            entry_search_section = config.get(entry_search_key, fallback=None)
+            if not entry_search_section:
+                continue
+
+            # Check for old format
+            main_profiles = config.get(f"{entry_search_key}.MainQualityProfile", fallback=None)
+            temp_profiles = config.get(f"{entry_search_key}.TempQualityProfile", fallback=None)
+
+            # Skip if no old format found
+            if not main_profiles or not temp_profiles:
+                continue
+
+            # Validate list lengths match
+            if len(main_profiles) != len(temp_profiles):
+                logger.error(
+                    f"Cannot migrate {key}: MainQualityProfile ({len(main_profiles)}) "
+                    f"and TempQualityProfile ({len(temp_profiles)}) have different lengths"
+                )
+                continue
+
+            # Create mappings dict, filtering out empty/None values
+            mappings = {
+                str(main).strip(): str(temp).strip()
+                for main, temp in zip(main_profiles, temp_profiles)
+                if main and temp and str(main).strip() and str(temp).strip()
+            }
+
+            if mappings:
+                # Set new format - use tomlkit's inline_table to ensure it's rendered as inline dict
+                inline_mappings = inline_table()
+                inline_mappings.update(mappings)
+                config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
+                changes_made = True
+                logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
+
+                # Remove old format
+                del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
+                del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
+                logger.debug(f"Removed legacy profile lists from {key}")
+
+    return changes_made
+
+
+def _normalize_theme_value(value: Any) -> str:
+    """
+    Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
+    """
+    if value is None:
+        return "Dark"
+    value_str = str(value).strip().lower()
+    if value_str == "light":
+        return "Light"
+    elif value_str == "dark":
+        return "Dark"
+    else:
+        # Default to Dark if invalid value
+        return "Dark"
+
+
 def _validate_and_fill_config(config: MyConfig) -> bool:
     """
     Validate configuration and fill in missing values with defaults.
@@ -914,6 +1158,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate Settings section
     settings_defaults = [
+        ("ConfigVersion", 1),  # Internal version, DO NOT expose to WebUI
         ("ConsoleLevel", "INFO"),
         ("Logging", True),
         ("CompletedDownloadFolder", "CHANGE_ME"),
@@ -944,11 +1189,22 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Token", ""),
         ("LiveArr", True),
         ("GroupSonarr", True),
-        ("Theme", "dark"),
+        ("GroupLidarr", True),
+        ("Theme", "Dark"),
     ]
 
     for key, default in webui_defaults:
         if ensure_value("WebUI", key, default):
+            changed = True
+
+    # Normalize Theme value to always be capitalized (Light or Dark)
+    ensure_section("WebUI")
+    webui_section = config.config["WebUI"]
+    if "Theme" in webui_section:
+        current_theme = webui_section["Theme"]
+        normalized_theme = _normalize_theme_value(current_theme)
+        if current_theme != normalized_theme:
+            webui_section["Theme"] = normalized_theme
             changed = True
 
     # Validate qBit section
@@ -964,6 +1220,35 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         if ensure_value("qBit", key, default):
             changed = True
 
+    # Validate EntrySearch sections for all Arr instances
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+    entry_search_defaults = {
+        "QualityProfileMappings": inline_table(),
+        "ForceResetTempProfiles": False,
+        "TempProfileResetTimeoutMinutes": 0,
+        "ProfileSwitchRetryAttempts": 3,
+    }
+
+    for arr_type in arr_types:
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            # Check if this Arr instance has an EntrySearch section
+            if "EntrySearch" in config.config[str(key)]:
+                entry_search = config.config[str(key)]["EntrySearch"]
+
+                # Add missing fields directly to the existing section
+                for field, default in entry_search_defaults.items():
+                    if field not in entry_search:
+                        if field == "QualityProfileMappings":
+                            # Create as inline table (inline dict) not a section
+                            entry_search[field] = inline_table()
+                        else:
+                            # Add as a simple value
+                            entry_search[field] = default
+                        changed = True
+
     return changed
 
 
@@ -972,14 +1257,56 @@ def apply_config_migrations(config: MyConfig) -> None:
     Apply all configuration migrations and validations.
     Saves the config if any changes were made.
     """
+    from qBitrr.config_version import (
+        EXPECTED_CONFIG_VERSION,
+        backup_config,
+        get_config_version,
+        set_config_version,
+        validate_config_version,
+    )
+
     changes_made = False
 
-    # Apply migrations
+    # Validate config version
+    is_valid, validation_result = validate_config_version(config)
+
+    if not is_valid:
+        # Config version is newer than expected - log error but continue
+        print(f"WARNING: {validation_result}")
+        print("Continuing with potentially incompatible config...")
+
+    # Check if migration is needed
+    current_version = get_config_version(config)
+    needs_migration = current_version < EXPECTED_CONFIG_VERSION
+
+    if needs_migration:
+        print(f"Config schema upgrade needed (v{current_version} -> v{EXPECTED_CONFIG_VERSION})")
+        # Create backup before migration
+        backup_path = backup_config(config.path)
+        if backup_path:
+            print(f"Config backup created: {backup_path}")
+        else:
+            print("WARNING: Could not create config backup, proceeding with migration anyway")
+
+    # Apply migrations in order
     if _migrate_webui_config(config):
         changes_made = True
 
-    # Validate and fill config
+    # NEW: Migrate quality profile mappings from list to dict format (v1 → v2)
+    if _migrate_quality_profile_mappings(config):
+        changes_made = True
+
+    # NEW: Add process auto-restart settings (v2 → v3)
+    if _migrate_process_restart_settings(config):
+        changes_made = True
+
+    # Validate and fill config (this also ensures ConfigVersion field exists)
     if _validate_and_fill_config(config):
+        changes_made = True
+
+    # Update config version if migration was needed
+    if needs_migration and current_version < EXPECTED_CONFIG_VERSION:
+        set_config_version(config, EXPECTED_CONFIG_VERSION)
         changes_made = True
 
     # Save if changes were made
