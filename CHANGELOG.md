@@ -1,5 +1,13 @@
 # Changelog
 
+## v5.5.2 (22/11/2025)
+
+### 🐛 Bug Fixes
+- [[patch] Trigger automated release workflow](https://github.com/Feramance/qBitrr/commit/b8b6c9533d23255acb6d872f0a5ebb8dfc985763) - @Feramance
+- [Fix KeyError for missing 'customFormatScore' in Radarr movie file data](https://github.com/Feramance/qBitrr/commit/41f99b3add1d1b507e9fe20dfbc537bbfe3e1f46) - @Feramance
+
+---
+
 ## v5.5.1 (22/11/2025)
 
 ### 🚀 Features
