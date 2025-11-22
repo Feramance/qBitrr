@@ -1,6 +1,6 @@
 # Changelog
 
-## v5.5.0 (22/11/2025)
+## v5.5.1 (22/11/2025)
 
 ### 🚀 Features
 - [Add retry logic to database connection attempts](https://github.com/Feramance/qBitrr/commit/93239095b02c4ba306d2f9e095ab1c03f4a1f06f) - @Feramance
