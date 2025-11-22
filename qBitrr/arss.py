@@ -3825,7 +3825,7 @@ class Arr:
                 ):
                     continue
         except PyarrResourceNotFound as e:
-            self.logger.error("Connection Error: " + e.message)
+            self.logger.error("Connection Error: %s", str(e))
             raise DelayLoopException(length=300, type=self._name)
         return res
 
