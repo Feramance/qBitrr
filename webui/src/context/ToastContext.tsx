@@ -38,9 +38,8 @@ export function ToastProvider({ children }: PropsWithChildren): JSX.Element {
     (message: string, kind: ToastKind = "info") => {
       const id = ++toastCounter;
       setToasts((prev) => [...prev, { id, message, kind }]);
-      // Auto dismiss - longer duration for errors
-      const duration = kind === "error" ? 8000 : 3500;
-      window.setTimeout(() => dismiss(id), duration);
+      // Auto dismiss
+      window.setTimeout(() => dismiss(id), 3500);
     },
     [dismiss]
   );

@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
-import { produce } from "immer";
-import equal from "fast-deep-equal";
-import { get, set } from "lodash-es";
-import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
+import { getConfig, updateConfig } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
 import Select from "react-select";
@@ -49,7 +45,7 @@ interface ValidationError {
   message: string;
 }
 
-const SERVARR_SECTION_REGEX = /(rad|son|anim|lid)arr/i;
+const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
 
 // Helper function for react-select theme-aware styles
 const getSelectStyles = () => {
@@ -276,47 +272,6 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
-  {
-    label: "Auto-Restart Processes",
-    path: ["Settings", "AutoRestartProcesses"],
-    type: "checkbox",
-  },
-  {
-    label: "Max Process Restarts",
-    path: ["Settings", "MaxProcessRestarts"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 1) {
-        return "Max Process Restarts must be at least 1.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Process Restart Window (s)",
-    path: ["Settings", "ProcessRestartWindow"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 1) {
-        return "Process Restart Window must be at least 1 second.";
-      }
-      return undefined;
-    },
-  },
-  {
-    label: "Process Restart Delay (s)",
-    path: ["Settings", "ProcessRestartDelay"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0) {
-        return "Process Restart Delay must be a non-negative number.";
-      }
-      return undefined;
-    },
-  },
 
 ];
 
@@ -352,6 +307,9 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     secure: true,
     fullWidth: true,
   },
+  { label: "Live Arr", path: ["WebUI", "LiveArr"], type: "checkbox" },
+  { label: "Group Sonarr by Series", path: ["WebUI", "GroupSonarr"], type: "checkbox" },
+  { label: "Theme", path: ["WebUI", "Theme"], type: "select", options: ["Light", "Dark"] },
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
@@ -562,22 +520,18 @@ const ARR_ENTRY_SEARCH_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
-    label: "Force Reset Temp Profiles",
-    path: ["EntrySearch", "ForceResetTempProfiles"],
-    type: "checkbox",
-    description: "Reset all items using temp profiles to their original main profile on qBitrr startup",
+    label: "Main Quality Profile",
+    path: ["EntrySearch", "MainQualityProfile"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
   },
   {
-    label: "Temp Profile Reset Timeout (Minutes)",
-    path: ["EntrySearch", "TempProfileResetTimeoutMinutes"],
-    type: "number",
-    description: "Timeout in minutes after which items with temp profiles are automatically reset to main profile (0 = disabled)",
-  },
-  {
-    label: "Profile Switch Retry Attempts",
-    path: ["EntrySearch", "ProfileSwitchRetryAttempts"],
-    type: "number",
-    description: "Number of retry attempts for profile switch API calls (default: 3)",
+    label: "Temp Quality Profile",
+    path: ["EntrySearch", "TempQualityProfile"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
   },
   {
     label: "Search By Series",
@@ -756,6 +710,18 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     path: ["Torrent", "ReSearchStalled"],
     type: "checkbox",
   },
+  {
+    label: "Remove Dead Trackers",
+    path: ["Torrent", "RemoveDeadTrackers"],
+    type: "checkbox",
+  },
+  {
+    label: "Remove Tracker Messages",
+    path: ["Torrent", "RemoveTrackerWithMessage"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+  },
 ];
 
 const ARR_SEEDING_FIELDS: FieldDefinition[] = [
@@ -824,19 +790,6 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
-  },
-  {
-    label: "Remove Dead Trackers",
-    path: ["Torrent", "SeedingMode", "RemoveDeadTrackers"],
-    type: "checkbox",
-  },
-  {
-    label: "Remove Tracker Messages",
-    path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
-    fullWidth: true,
   },
 ];
 
@@ -934,7 +887,6 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
 function getArrFieldSets(arrKey: string) {
   const lower = arrKey.toLowerCase();
   const isSonarr = lower.includes("sonarr");
-  const isLidarr = lower.includes("lidarr");
   const generalFields = [...ARR_GENERAL_FIELDS];
   const entryFields = ARR_ENTRY_SEARCH_FIELDS.filter((field) => {
     if (!field.path) {
@@ -950,17 +902,10 @@ function getArrFieldSets(arrKey: string) {
         return false;
       }
     }
-    if (isLidarr) {
-      // Lidarr doesn't support SearchByYear (music albums don't have the same year-based search)
-      if (joined === "EntrySearch.SearchByYear") {
-        return false;
-      }
-    }
     return true;
   });
-  // Ombi and Overseerr don't support music requests, so hide them for Lidarr
-  const entryOmbiFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
-  const entryOverseerrFields = isLidarr ? [] : [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
+  const entryOmbiFields = [...ARR_ENTRY_SEARCH_OMBI_FIELDS];
+  const entryOverseerrFields = [...ARR_ENTRY_SEARCH_OVERSEERR_FIELDS];
   const torrentFields = [...ARR_TORRENT_FIELDS];
   const seedingFields = [...ARR_SEEDING_FIELDS];
   const trackerFields = [...ARR_TRACKER_FIELDS];
@@ -1089,12 +1034,18 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   return errors;
 }
 
-// Note: cloneConfig is no longer needed - using immer's produce for immutable updates
+function cloneConfig(config: ConfigDocument | null): ConfigDocument | null {
+  return config ? JSON.parse(JSON.stringify(config)) : null;
+}
 
-// Utility wrappers around lodash for ConfigDocument operations
 function getValue(doc: ConfigDocument | null, path: string[]): unknown {
   if (!doc) return undefined;
-  return get(doc, path);
+  let cur: unknown = doc;
+  for (const key of path) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return cur;
 }
 
 function setValue(
@@ -1102,11 +1053,19 @@ function setValue(
   path: string[],
   value: unknown
 ): void {
-  set(doc, path, value);
+  let cur: Record<string, unknown> = doc;
+  path.forEach((key, idx) => {
+    if (idx === path.length - 1) {
+      cur[key] = value;
+    } else {
+      if (typeof cur[key] !== "object" || cur[key] === null) {
+        cur[key] = {};
+      }
+      cur = cur[key] as Record<string, unknown>;
+    }
+  });
 }
 
-// Custom flatten to create dot-notation keys (e.g., "Settings.FreeSpace")
-// Note: lodash's flatten is for arrays; this is a specialized object flattener
 function flatten(doc: ConfigDocument, prefix: string[] = []): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(doc)) {
@@ -1124,23 +1083,16 @@ function ensureArrDefaults(type: string): ConfigDocument {
   const lowerType = type.toLowerCase();
   const isSonarr = lowerType.includes("sonarr");
   const isRadarr = lowerType.includes("radarr");
-  const isLidarr = lowerType.includes("lidarr");
-
+  const is4k = lowerType.includes("4k");
   const arrErrorCodes = isRadarr
     ? [
-        "Not a preferred word upgrade for existing movie file(s)",
         "Not an upgrade for existing movie file(s)",
-        "Unable to determine if file is a sample",
-      ]
-    : isLidarr
-    ? [
-        "Not a preferred word upgrade for existing album file(s)",
-        "Not an upgrade for existing album file(s)",
+        "Not a preferred word upgrade for existing movie file(s)",
         "Unable to determine if file is a sample",
       ]
     : [
-        "Not a preferred word upgrade for existing episode file(s)",
         "Not an upgrade for existing episode file(s)",
+        "Not a preferred word upgrade for existing episode file(s)",
         "Unable to determine if file is a sample",
       ];
 
@@ -1158,10 +1110,8 @@ function ensureArrDefaults(type: string): ConfigDocument {
     SearchAgainOnSearchCompletion: true,
     UseTempForMissing: false,
     KeepTempProfile: false,
-    ForceResetTempProfiles: false,
-    TempProfileResetTimeoutMinutes: 0,
-    ProfileSwitchRetryAttempts: 3,
-    QualityProfileMappings: {},
+    MainQualityProfile: [],
+    TempQualityProfile: [],
   };
 
   if (isSonarr) {
@@ -1175,13 +1125,14 @@ function ensureArrDefaults(type: string): ConfigDocument {
     OmbiURI: "CHANGE_ME",
     OmbiAPIKey: "CHANGE_ME",
     ApprovedOnly: true,
+    Is4K: is4k,
   };
   entrySearch.Overseerr = {
     SearchOverseerrRequests: false,
     OverseerrURI: "CHANGE_ME",
     OverseerrAPIKey: "CHANGE_ME",
     ApprovedOnly: true,
-    Is4K: false,
+    Is4K: is4k,
   };
 
   const torrent: Record<string, unknown> = {
@@ -1202,9 +1153,7 @@ function ensureArrDefaults(type: string): ConfigDocument {
       "music video",
       "comandotorrents.com",
     ],
-    FileExtensionAllowlist: isLidarr
-      ? [".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".ape", ".wma", ".!qB", ".parts", ".log", ".cue"]
-      : [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
+    FileExtensionAllowlist: [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
     AutoDelete: false,
     IgnoreTorrentsYoungerThan: 600,
     MaximumETA: 604800,
@@ -1262,8 +1211,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     try {
       const config = await getConfig();
       setOriginalConfig(config);
-      // Deep clone config for form state (immer will handle immutability from here)
-      setFormState(config ? JSON.parse(JSON.stringify(config)) : null);
+      setFormState(cloneConfig(config));
     } catch (error) {
       push(
         error instanceof Error
@@ -1283,6 +1231,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const handleFieldChange = useCallback(
     (path: string[], def: FieldDefinition, raw: unknown) => {
       if (!formState) return;
+      const next = cloneConfig(formState) ?? {};
       const parsed =
         def.parse?.(raw as string | boolean) ??
         (def.type === "number"
@@ -1290,11 +1239,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           : def.type === "checkbox"
           ? Boolean(raw)
           : raw);
-      setFormState(
-        produce(formState, (draft) => {
-          setValue(draft, path, parsed);
-        })
-      );
+      setValue(next, path, parsed);
+      setFormState(next);
     },
     [formState]
   );
@@ -1308,7 +1254,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
-      type: "radarr" | "sonarr" | "lidarr" | "other";
+      type: "radarr" | "sonarr" | "other";
       items: Array<[string, ConfigDocument]>;
     }> = [];
     const sorted = [...arrSections].sort((a, b) =>
@@ -1316,7 +1262,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     );
     const radarr: Array<[string, ConfigDocument]> = [];
     const sonarr: Array<[string, ConfigDocument]> = [];
-    const lidarr: Array<[string, ConfigDocument]> = [];
     const others: Array<[string, ConfigDocument]> = [];
     for (const entry of sorted) {
       const [key] = entry;
@@ -1325,16 +1270,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         radarr.push(entry);
       } else if (keyLower.startsWith("sonarr")) {
         sonarr.push(entry);
-      } else if (keyLower.startsWith("lidarr")) {
-        lidarr.push(entry);
       } else {
         others.push(entry);
       }
     }
-    // Always show Radarr, Sonarr, and Lidarr sections even if empty
-    groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
-    groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
-    groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
+    if (radarr.length) {
+      groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
+    }
+    if (sonarr.length) {
+      groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
+    }
     if (others.length) {
       groups.push({ label: "Other Instances", type: "other", items: others });
     }
@@ -1354,31 +1299,20 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     const flattenedOriginal = flatten(originalConfig);
     const flattenedCurrent = flatten(formState);
 
-    // Keys that are managed dynamically and should not trigger dirty state
-    const liveKeys = new Set([
-      "WebUI.LiveArr",
-      "WebUI.GroupSonarr",
-      "WebUI.GroupLidarr",
-      "WebUI.Theme",
-    ]);
-
     let dirty = false;
     for (const [key, value] of Object.entries(flattenedCurrent)) {
-      // Skip live WebUI settings
-      if (liveKeys.has(key)) continue;
-
       const originalValue = flattenedOriginal[key];
-      // Use fast-deep-equal for accurate comparison (handles arrays, objects, etc.)
-      if (!equal(value, originalValue)) {
+      const changed =
+        Array.isArray(value) || Array.isArray(originalValue)
+          ? JSON.stringify(value ?? []) !== JSON.stringify(originalValue ?? [])
+          : value !== originalValue;
+      if (changed) {
         dirty = true;
         break;
       }
     }
     if (!dirty) {
       for (const key of Object.keys(flattenedOriginal)) {
-        // Skip live WebUI settings
-        if (liveKeys.has(key)) continue;
-
         if (!(key in flattenedCurrent)) {
           dirty = true;
           break;
@@ -1438,7 +1372,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [activeArrKey, arrSections]);
 
   const addArrInstance = useCallback(
-    (type: "radarr" | "sonarr" | "lidarr") => {
+    (type: "radarr" | "sonarr") => {
       if (!formState) return;
       const prefix = type.charAt(0).toUpperCase() + type.slice(1);
       let index = 1;
@@ -1447,17 +1381,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         index += 1;
         key = `${prefix}-${index}`;
       }
+      const next = cloneConfig(formState) ?? {};
       const defaults = ensureArrDefaults(type);
       if (defaults && typeof defaults === "object") {
         (defaults as Record<string, unknown>).Name = key;
       }
-      setFormState(
-        produce(formState, (draft) => {
-          draft[key] = defaults;
-        })
-      );
-      // Open modal for immediate configuration
-      setActiveArrKey(key);
+      next[key] = defaults;
+      setFormState(next);
     },
     [formState]
   );
@@ -1465,7 +1395,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     (key: string) => {
       if (!formState) return;
       const keyLower = key.toLowerCase();
-      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr") && !keyLower.startsWith("lidarr")) {
+      if (!keyLower.startsWith("radarr") && !keyLower.startsWith("sonarr")) {
         return;
       }
       const confirmed = window.confirm(
@@ -1474,14 +1404,12 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       if (!confirmed) {
         return;
       }
-      if (!(key in formState)) {
+      const next = cloneConfig(formState) ?? {};
+      if (!(key in next)) {
         return;
       }
-      setFormState(
-        produce(formState, (draft) => {
-          delete draft[key];
-        })
-      );
+      delete next[key];
+      setFormState(next);
       if (activeArrKey === key) {
         setActiveArrKey(null);
       }
@@ -1501,16 +1429,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         push(`An instance named "${newName}" already exists`, "error");
         return;
       }
-      setFormState(
-        produce(formState, (draft) => {
-          const section = draft[oldName];
-          delete draft[oldName];
-          draft[newName] = section;
-          if (section && typeof section === "object") {
-            (section as Record<string, unknown>).Name = newName;
-          }
-        })
-      );
+      const next = cloneConfig(formState) ?? {};
+      const section = next[oldName];
+      delete next[oldName];
+      next[newName] = section;
+      if (section && typeof section === "object") {
+        (section as Record<string, unknown>).Name = newName;
+      }
+      setFormState(next);
       if (activeArrKey === oldName) {
         setActiveArrKey(newName);
       }
@@ -1540,8 +1466,12 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       const changes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(flattenedCurrent)) {
         const originalValue = flattenedOriginal[key];
-        // Use fast-deep-equal for accurate comparison
-        if (!equal(value, originalValue)) {
+        const changed =
+          Array.isArray(value) || Array.isArray(originalValue)
+            ? JSON.stringify(value ?? []) !==
+              JSON.stringify(originalValue ?? [])
+            : value !== originalValue;
+        if (changed) {
           changes[key] = value;
         }
       }
@@ -1555,35 +1485,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setSaving(false);
         return;
       }
-      const { configReloaded, reloadType, affectedInstances } = await updateConfig({ changes });
-
-      // Build appropriate success message
-      let message = "Configuration saved";
-      if (reloadType === "full") {
-        message += " • All instances reloaded";
-      } else if (reloadType === "multi_arr" && affectedInstances?.length) {
-        message += ` • Reloaded ${affectedInstances.length} instances: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "single_arr" && affectedInstances?.length) {
-        message += ` • Reloaded: ${affectedInstances.join(", ")}`;
-      } else if (reloadType === "webui") {
-        message += " • WebUI restarting...";
-      } else if (reloadType === "frontend") {
-        message += " • Theme/display settings updated";
-      }
-      push(message, "success");
-
-      // Only clear browser cache if backend reloaded (non-frontend-only changes)
-      if (configReloaded && 'caches' in window) {
-        try {
-          const cacheNames = await caches.keys();
-          await Promise.all(
-            cacheNames.map(cacheName => caches.delete(cacheName))
-          );
-        } catch (error) {
-          console.warn('Failed to clear caches:', error);
-        }
-      }
-
+      await updateConfig({ changes });
+      push("Configuration saved", "success");
       await loadConfig();
     } catch (error) {
       push(
@@ -1649,15 +1552,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        <span className="config-arr-group__count">
                          {group.items.length}
                        </span>
-                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr") && (
-                          <button
-                            className="btn small"
-                            type="button"
-                            onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr")}
-                          >
-                            <IconImage src={AddIcon} />
-                            Add Instance
-                          </button>
+                       {(group.type === "radarr" || group.type === "sonarr") && (
+                         <button
+                           className="btn small"
+                           type="button"
+                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
+                         >
+                           <IconImage src={AddIcon} />
+                           Add Instance
+                         </button>
                        )}
                      </summary>
                     <div className="config-arr-grid">
@@ -1665,7 +1568,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                         const uri = getValue(value as ConfigDocument, ["URI"]);
                         const category = getValue(value as ConfigDocument, ["Category"]);
                         const managed = getValue(value as ConfigDocument, ["Managed"]);
-                        const canDelete = group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr";
+                        const canDelete = group.type === "radarr" || group.type === "sonarr";
                         return (
                           <div className="card config-card config-arr-card" key={key}>
                             <div className="card-header">{key}</div>
@@ -1755,7 +1658,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           basePath={[]}
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
-          showLiveSettings={true}
         />
       ) : null}
       {isQbitOpen ? (
@@ -1809,8 +1711,6 @@ interface FieldGroupProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRenameSection?: (oldName: string, newName: string) => void;
   defaultOpen?: boolean;
-  qualityProfiles?: Array<{ id: number; name: string }>;
-  sectionKey?: string;
 }
 
 function FieldGroup({
@@ -1821,138 +1721,8 @@ function FieldGroup({
   onChange,
   onRenameSection,
   defaultOpen = false,
-  qualityProfiles = [],
-  sectionKey,
 }: FieldGroupProps): JSX.Element {
-  const sectionName = sectionKey ?? basePath[0] ?? "";
-
-  if (title === "Quality Profile Mappings") {
-    const mappings = (getValue(state as ConfigDocument, ["EntrySearch", "QualityProfileMappings"]) ?? {}) as Record<string, string>;
-    const mappingEntries = Object.entries(mappings);
-
-    // Check if credentials exist (URI and APIKey)
-    const hasCredentials = Boolean(
-      getValue(state as ConfigDocument, ["URI"]) &&
-        getValue(state as ConfigDocument, ["APIKey"])
-    );
-    const hasProfiles = qualityProfiles.length > 0;
-
-    const handleAddMapping = () => {
-      const nextMappings = { ...mappings, "": "" };
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    const handleUpdateMapping = (oldKey: string, newKey: string, newValue: string) => {
-      const nextMappings = { ...mappings };
-      if (oldKey !== newKey) {
-        delete nextMappings[oldKey];
-      }
-      if (newKey.trim()) {
-        nextMappings[newKey.trim()] = newValue.trim();
-      }
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    const handleDeleteMapping = (key: string) => {
-      const nextMappings = { ...mappings };
-      delete nextMappings[key];
-      onChange([...basePath, "EntrySearch", "QualityProfileMappings"], {} as FieldDefinition, nextMappings);
-    };
-
-    return (
-      <details className="config-section" open={defaultOpen}>
-        <summary>{title}</summary>
-        <div className="config-section__body">
-          <div className="field-description" style={{ marginBottom: '1rem' }}>
-            Map main quality profile names to temporary profile names. Items will be downgraded to the temp profile when not found, then upgraded back to the main profile when available.
-          </div>
-
-          {!hasCredentials ? (
-            <div className="alert warning">
-              ⚠️ Please configure URI and API Key first, then click "Test Connection" to load quality profiles
-            </div>
-          ) : !hasProfiles ? (
-            <div className="alert info">
-              ℹ️ Click "Test Connection" above to load quality profiles from your {sectionName} instance
-            </div>
-          ) : (
-            <>
-              <div className="profile-mappings-grid">
-                {mappingEntries.map(([mainProfile, tempProfile], index) => (
-                  <div key={index} className="profile-mapping-row">
-                    <div className="field">
-                      <label>Main Profile</label>
-                      <Select
-                        options={qualityProfiles.map((p) => ({
-                          value: p.name,
-                          label: p.name,
-                        }))}
-                        value={
-                          mainProfile
-                            ? { value: mainProfile, label: mainProfile }
-                            : null
-                        }
-                        onChange={(option) =>
-                          handleUpdateMapping(
-                            mainProfile,
-                            option?.value || "",
-                            tempProfile
-                          )
-                        }
-                        placeholder="Select main profile..."
-                        isClearable
-                        styles={getSelectStyles()}
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Temp Profile</label>
-                      <Select
-                        options={qualityProfiles.map((p) => ({
-                          value: p.name,
-                          label: p.name,
-                        }))}
-                        value={
-                          tempProfile
-                            ? { value: tempProfile, label: tempProfile }
-                            : null
-                        }
-                        onChange={(option) =>
-                          handleUpdateMapping(
-                            mainProfile,
-                            mainProfile,
-                            option?.value || ""
-                          )
-                        }
-                        placeholder="Select temp profile..."
-                        isClearable
-                        styles={getSelectStyles()}
-                        classNamePrefix="react-select"
-                      />
-                    </div>
-                    <button
-                      className="btn ghost icon-only"
-                      type="button"
-                      onClick={() => handleDeleteMapping(mainProfile)}
-                      title="Delete mapping"
-                    >
-                      <IconImage src={DeleteIcon} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="config-actions">
-                <button className="btn" type="button" onClick={handleAddMapping}>
-                  <IconImage src={AddIcon} />
-                  Add Profile Mapping
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </details>
-    );
-  }
+  const sectionName = basePath[0] ?? "";
 
   if (title === "Trackers") {
     const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
@@ -2006,17 +1776,6 @@ function FieldGroup({
         return null;
       }
       const tooltip = getTooltip([sectionName]);
-
-      // Determine expected prefix for Arr instances
-      let expectedPrefix: string | undefined;
-      if (sectionName.startsWith("Radarr")) {
-        expectedPrefix = "Radarr";
-      } else if (sectionName.startsWith("Sonarr")) {
-        expectedPrefix = "Sonarr";
-      } else if (sectionName.startsWith("Lidarr")) {
-        expectedPrefix = "Lidarr";
-      }
-
       return (
         <SectionNameField
           key={`${sectionName}.__name`}
@@ -2024,7 +1783,6 @@ function FieldGroup({
           tooltip={tooltip}
           currentName={sectionName}
           placeholder={field.placeholder}
-          expectedPrefix={expectedPrefix}
           onRename={(newName) => onRenameSection?.(sectionName, newName)}
         />
       );
@@ -2033,8 +1791,8 @@ function FieldGroup({
     const pathSegments = field.path ?? [];
     const path = [...basePath, ...pathSegments];
     const key = path.join('.');
-    const rawValue = path.length > 0
-      ? getValue(state as ConfigDocument, path)
+    const rawValue = field.path
+      ? getValue(state as ConfigDocument, field.path as string[])
       : undefined;
     const formatted =
       field.format?.(rawValue) ??
@@ -2087,26 +1845,12 @@ function FieldGroup({
       // Special handling for Theme field - apply immediately without save
       const isThemeField = field.label === "Theme" && path.join('.') === "WebUI.Theme";
 
-      // Normalize the formatted value for theme field (case-insensitive)
-      let displayValue = formatted;
-      if (isThemeField && typeof formatted === "string") {
-        const normalizedLower = formatted.toLowerCase();
-        if (normalizedLower === "light") {
-          displayValue = "Light";
-        } else if (normalizedLower === "dark") {
-          displayValue = "Dark";
-        } else {
-          // Default to Dark if invalid
-          displayValue = "Dark";
-        }
-      }
-
       return (
         <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
           <Select
             options={(field.options ?? []).map(o => ({ value: o, label: o }))}
-            value={displayValue ? { value: displayValue, label: displayValue } : null}
+            value={formatted ? { value: formatted, label: formatted } : null}
             onChange={(option) => {
               const newValue = option?.value || "";
               onChange(path, field, newValue);
@@ -2213,7 +1957,6 @@ interface SectionNameFieldProps {
   currentName: string;
   placeholder?: string;
   tooltip?: string;
-  expectedPrefix?: string;
   onRename: (newName: string) => void;
 }
 
@@ -2222,7 +1965,6 @@ function SectionNameField({
   currentName,
   placeholder,
   tooltip,
-  expectedPrefix,
   onRename,
 }: SectionNameFieldProps): JSX.Element {
   const [value, setValue] = useState(currentName);
@@ -2239,28 +1981,8 @@ function SectionNameField({
       setValue(currentName);
       return;
     }
-
-    let adjustedName = trimmed;
-
-    // Enforce prefix if specified
-    if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
-      // If user entered something without the prefix, prepend it
-      adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
-    }
-
-    // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
-    const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
-    if (!formatRegex.test(adjustedName)) {
-      // Invalid format - show error and reset
-      alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
-      setValue(currentName);
-      return;
-    }
-
-    if (adjustedName !== currentName) {
-      onRename(adjustedName);
-    } else {
-      setValue(currentName); // Reset if no actual change
+    if (trimmed !== currentName) {
+      onRename(trimmed);
     }
   };
 
@@ -2369,112 +2091,6 @@ function ArrInstanceModal({
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
-  const { push } = useToast();
-
-  // State for test connection
-  const [testState, setTestState] = useState<{
-    testing: boolean;
-    result: TestConnectionResponse | null;
-  }>({ testing: false, result: null });
-
-  const [qualityProfiles, setQualityProfiles] = useState<
-    Array<{ id: number; name: string }>
-  >([]);
-
-  // Helper to get value from state
-  const getValue = (path: string[]): unknown => {
-    if (!state) return undefined;
-    // state is already the Arr instance object, not the full ConfigDocument
-    return get(state, path);
-  };
-
-  // Clear test state when URI or APIKey changes
-  useEffect(() => {
-    setTestState({ testing: false, result: null });
-    setQualityProfiles([]);
-  }, [getValue(["URI"]), getValue(["APIKey"])]);
-
-  // Auto-test connection when modal opens if credentials exist
-  useEffect(() => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
-
-    if (uri && apiKey && !testState.testing && !testState.result) {
-      // Auto-test silently (without toasts)
-      handleTestConnection(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run on mount
-
-  // Test connection handler
-  const handleTestConnection = async (silent = false) => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
-
-    // Determine Arr type from keyName
-    const keyLower = keyName.toLowerCase();
-    const arrType = keyLower.includes("radarr")
-      ? "radarr"
-      : keyLower.includes("sonarr")
-        ? "sonarr"
-        : "lidarr";
-
-    if (!uri || !apiKey) {
-      if (!silent) {
-        push("Please configure URI and API Key first", "error");
-      }
-      return false;
-    }
-
-    setTestState({ testing: true, result: null });
-
-    try {
-      const result = await testArrConnection({ arrType, uri, apiKey });
-      setTestState({ testing: false, result });
-
-      if (result.success) {
-        // Cache quality profiles for dropdown use
-        if (result.qualityProfiles) {
-          setQualityProfiles(result.qualityProfiles);
-        }
-        if (!silent) {
-          push(`Connected to ${keyName} successfully!`, "success");
-        }
-        return true;
-      } else {
-        if (!silent) {
-          push(`Connection failed: ${result.message}`, "error");
-        }
-        return false;
-      }
-    } catch {
-      setTestState({ testing: false, result: null });
-      if (!silent) {
-        push("Test connection failed", "error");
-      }
-      return false;
-    }
-  };
-
-  // Handle save with connection test
-  const handleSave = async () => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
-
-    // If credentials exist, test connection before saving
-    if (uri && apiKey) {
-      const success = await handleTestConnection(false);
-      if (success) {
-        push("Configuration saved successfully", "success");
-        onClose();
-      }
-      // If unsuccessful, stay open so user can fix config
-    } else {
-      // No credentials to test, just close
-      onClose();
-    }
-  };
-
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -2498,126 +2114,59 @@ function ArrInstanceModal({
             title={null}
             fields={generalFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            basePath={[keyName]}
+            onChange={onChange}
             onRenameSection={onRename}
-            sectionKey={keyName}
             defaultOpen
           />
-          {testState.result && (
-            <div
-              className={`alert ${testState.result.success ? "success" : "error"}`}
-              style={{ margin: "16px 0" }}
-            >
-              {testState.result.success ? (
-                <>
-                  <strong>✓ {testState.result.message}</strong>
-                  {testState.result.systemInfo && (
-                    <div className="alert-details">
-                      Version: {testState.result.systemInfo.version}
-                      {testState.result.systemInfo.branch &&
-                        ` (${testState.result.systemInfo.branch})`}
-                    </div>
-                  )}
-                  {testState.result.qualityProfiles && (
-                    <div className="alert-details">
-                      Found {testState.result.qualityProfiles.length} quality
-                      profile(s)
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <strong>⚠️ Connection Failed</strong>
-                  <br />
-                  {testState.result.message}
-                </>
-              )}
-            </div>
-          )}
           <FieldGroup
             title="Entry Search"
             fields={entryFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
+            basePath={[keyName]}
+            onChange={onChange}
             defaultOpen
           />
           <FieldGroup
-            title="Quality Profile Mappings"
-            fields={[]}
+            title="Ombi Integration"
+            fields={entryOmbiFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
-            defaultOpen
-            qualityProfiles={qualityProfiles}
+            basePath={[keyName]}
+            onChange={onChange}
           />
-          {entryOmbiFields.length > 0 && (
-            <FieldGroup
-              title="Ombi Integration"
-              fields={entryOmbiFields}
-              state={state}
-              basePath={[]}
-              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-              sectionKey={keyName}
-            />
-          )}
-          {entryOverseerrFields.length > 0 && (
-            <FieldGroup
-              title="Overseerr Integration"
-              fields={entryOverseerrFields}
-              state={state}
-              basePath={[]}
-              onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-              sectionKey={keyName}
-            />
-          )}
+          <FieldGroup
+            title="Overseerr Integration"
+            fields={entryOverseerrFields}
+            state={state}
+            basePath={[keyName]}
+            onChange={onChange}
+          />
           <FieldGroup
             title="Torrent Handling"
             fields={torrentFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
+            basePath={[keyName]}
+            onChange={onChange}
           />
           <FieldGroup
             title="Seeding"
             fields={seedingFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
+            basePath={[keyName]}
+            onChange={onChange}
           />
           <FieldGroup
             title="Trackers"
             fields={trackerFields}
             state={state}
-            basePath={[]}
-            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            sectionKey={keyName}
+            basePath={[keyName]}
+            onChange={onChange}
           />
         </div>
         <div className="modal-footer">
-          <button
-            className="btn secondary"
-            type="button"
-            onClick={() => handleTestConnection(false)}
-            disabled={testState.testing}
-          >
-            {testState.testing ? (
-              <>
-                <IconImage src={RefreshIcon} />
-                Testing...
-              </>
-            ) : (
-              "Test"
-            )}
-          </button>
-          <button className="btn primary" type="button" onClick={handleSave}>
+          <button className="btn primary" type="button" onClick={onClose}>
             <IconImage src={SaveIcon} />
-            Save
+            Done
           </button>
         </div>
       </div>
@@ -2632,7 +2181,6 @@ interface SimpleConfigModalProps {
   basePath: string[];
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
-  showLiveSettings?: boolean;
 }
 
 function SimpleConfigModal({
@@ -2642,10 +2190,7 @@ function SimpleConfigModal({
   basePath,
   onChange,
   onClose,
-  showLiveSettings = false,
 }: SimpleConfigModalProps): JSX.Element | null {
-  const webUI = useWebUI();
-
   if (!state) return null;
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -2672,57 +2217,6 @@ function SimpleConfigModal({
             onChange={onChange}
             defaultOpen
           />
-          {showLiveSettings && webUI && (
-            <div className="field-group">
-              <h3 className="field-group-title">Live Settings</h3>
-              <div className="field-group-content">
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.liveArr}
-                      onChange={(e) => webUI.setLiveArr(e.target.checked)}
-                    />
-                    {" "}Live Arr Updates
-                  </label>
-                  <p className="field-description">Enable real-time updates for Arr views</p>
-                </div>
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupSonarr}
-                      onChange={(e) => webUI.setGroupSonarr(e.target.checked)}
-                    />
-                    {" "}Group Sonarr by Series
-                  </label>
-                  <p className="field-description">Group Sonarr episodes by series in views</p>
-                </div>
-                <div className="field">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={webUI.groupLidarr}
-                      onChange={(e) => webUI.setGroupLidarr(e.target.checked)}
-                    />
-                    {" "}Group Lidarr by Artist
-                  </label>
-                  <p className="field-description">Group Lidarr albums by artist in views</p>
-                </div>
-                <div className="field">
-                  <label>Theme</label>
-                  <select
-                    value={webUI.theme}
-                    onChange={(e) => webUI.setTheme(e.target.value as "light" | "dark")}
-                  >
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                  </select>
-                  <p className="field-description">WebUI theme (Light or Dark)</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
