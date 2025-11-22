@@ -6015,7 +6015,11 @@ class Arr:
                 class Meta:
                     database = self.torrent_db
 
-            self.torrent_db.connect()
+            # Connect with retry logic for transient I/O errors
+            with_database_retry(
+                lambda: self.torrent_db.connect(),
+                logger=self.logger,
+            )
             self.torrent_db.create_tables([Torrents])
             self.torrents = Torrents
         else:

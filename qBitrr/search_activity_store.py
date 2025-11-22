@@ -5,6 +5,7 @@ from typing import Any
 
 from peewee import Model, SqliteDatabase, TextField
 
+from qBitrr.db_lock import with_database_retry
 from qBitrr.home_path import APPDATA_FOLDER
 
 _DB_LOCK = RLock()
@@ -46,7 +47,8 @@ class SearchActivity(BaseModel):
 def _ensure_tables() -> None:
     db = _get_database()
     with _DB_LOCK:
-        db.connect(reuse_if_open=True)
+        # Connect with retry logic for transient I/O errors
+        with_database_retry(lambda: db.connect(reuse_if_open=True))
         db.create_tables([SearchActivity], safe=True)
 
 
@@ -68,7 +70,8 @@ def fetch_search_activities() -> dict[str, dict[str, str | None]]:
     _ensure_tables()
     activities: dict[str, dict[str, str | None]] = {}
     db = _get_database()
-    db.connect(reuse_if_open=True)
+    # Connect with retry logic for transient I/O errors
+    with_database_retry(lambda: db.connect(reuse_if_open=True))
     try:
         query = SearchActivity.select()
     except Exception:
