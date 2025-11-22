@@ -3131,7 +3131,7 @@ class Arr:
                                 if db_entry["hasFile"]:
                                     customFormat = self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
-                                    )["customFormatScore"]
+                                    ).get("customFormatScore", 0)
                                 else:
                                     customFormat = 0
                             break
