@@ -620,16 +620,32 @@ class Arr:
                 self.search_api_command = "MissingEpisodeSearch"
 
         if not QBIT_DISABLED and not TAGLESS:
-            self.manager.qbit_manager.client.torrents_create_tags(
-                [
-                    "qBitrr-allowed_seeding",
-                    "qBitrr-ignored",
-                    "qBitrr-imported",
-                    "qBitrr-allowed_stalled",
-                ]
-            )
+            try:
+                self.manager.qbit_manager.client.torrents_create_tags(
+                    [
+                        "qBitrr-allowed_seeding",
+                        "qBitrr-ignored",
+                        "qBitrr-imported",
+                        "qBitrr-allowed_stalled",
+                    ]
+                )
+            except qbittorrentapi.exceptions.APIConnectionError as e:
+                self.logger.warning(
+                    "Could not connect to qBittorrent during initialization for %s: %s. "
+                    "Will retry when process starts.",
+                    self._name,
+                    str(e).split("\n")[0],  # Only log first line of error
+                )
         elif not QBIT_DISABLED and TAGLESS:
-            self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-ignored"])
+            try:
+                self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-ignored"])
+            except qbittorrentapi.exceptions.APIConnectionError as e:
+                self.logger.warning(
+                    "Could not connect to qBittorrent during initialization for %s: %s. "
+                    "Will retry when process starts.",
+                    self._name,
+                    str(e).split("\n")[0],  # Only log first line of error
+                )
         self.search_setup_completed = False
         self.model_file: Model | None = None
         self.series_file_model: Model | None = None
