@@ -29,14 +29,6 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Enable the background worker that periodically checks for qBitrr updates.",
   "Settings.AutoUpdateCron":
     "Cron expression describing when to check for updates (default weekly Sunday at 03:00).",
-  "Settings.AutoRestartProcesses":
-    "Automatically restart worker processes that crash unexpectedly. Recommended to keep enabled for reliability.",
-  "Settings.MaxProcessRestarts":
-    "Maximum number of times a worker process can be restarted within the restart window before auto-restart is disabled. Prevents infinite crash loops.",
-  "Settings.ProcessRestartWindow":
-    "Time window in seconds for tracking restart attempts. If MaxProcessRestarts is exceeded within this window, auto-restart is disabled for that process.",
-  "Settings.ProcessRestartDelay":
-    "Delay in seconds before restarting a crashed worker process. Gives time for transient issues to resolve.",
   "WebUI.Host":
     "Interface address for the built-in WebUI. 0.0.0.0 binds on all interfaces.",
   "WebUI.Port": "Port number for the built-in WebUI.",

@@ -5,35 +5,17 @@ const CACHE_NAME = `qbitrr-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `qbitrr-runtime-v${CACHE_VERSION}`;
 
 // Assets to cache on install
-// Keep this empty to avoid installation failures in various deployment scenarios
-const PRECACHE_URLS = [];
+const PRECACHE_URLS = [
+  '/',
+  '/index.html',
+];
 
 // Install event - precache essential assets
 self.addEventListener('install', (event) => {
-  // Force immediate activation, don't wait for caching
-  self.skipWaiting();
-
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        // Try to cache each URL individually, don't fail if one fails
-        if (PRECACHE_URLS.length === 0) {
-          return Promise.resolve();
-        }
-        return Promise.allSettled(
-          PRECACHE_URLS.map((url) =>
-            cache.add(url).catch((err) => {
-              console.warn(`Failed to cache ${url}:`, err);
-              return null;
-            })
-          )
-        );
-      })
-      .catch((err) => {
-        console.error('ServiceWorker install failed:', err);
-        // Don't throw - allow installation to complete
-        return Promise.resolve();
-      })
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -57,11 +39,6 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-GET requests
   if (request.method !== 'GET') {
-    return;
-  }
-
-  // Skip log file requests - they can be very large and shouldn't be cached
-  if (url.pathname.startsWith('/web/logs/') && !url.pathname.endsWith('/download')) {
     return;
   }
 
