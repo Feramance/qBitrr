@@ -1312,6 +1312,7 @@ class Arr:
                             self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
                 else:
                     for object_id in object_ids:
+                        episode_found = False
                         while True:
                             try:
                                 data = self.client.get_episode(object_id)
@@ -1341,6 +1342,7 @@ class Arr:
                                     )
                                 else:
                                     self.logger.notice("Re-Searching episode: %s", object_id)
+                                episode_found = True
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
@@ -1350,22 +1352,34 @@ class Arr:
                                 AttributeError,
                             ):
                                 continue
+                            except PyarrResourceNotFound as e:
+                                self.logger.warning(
+                                    "Episode %s not found in Sonarr (likely removed): %s",
+                                    object_id,
+                                    str(e),
+                                )
+                                break
 
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
-                        while True:
-                            try:
-                                self.client.post_command("EpisodeSearch", episodeIds=[object_id])
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
-                        if self.persistent_queue:
-                            self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+                        if episode_found:
+                            while True:
+                                try:
+                                    self.client.post_command(
+                                        "EpisodeSearch", episodeIds=[object_id]
+                                    )
+                                    break
+                                except (
+                                    requests.exceptions.ChunkedEncodingError,
+                                    requests.exceptions.ContentDecodingError,
+                                    requests.exceptions.ConnectionError,
+                                    JSONDecodeError,
+                                ):
+                                    continue
+                            if self.persistent_queue:
+                                self.persistent_queue.insert(
+                                    EntryId=object_id
+                                ).on_conflict_ignore()
             elif self.type == "radarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 movie_found = False
@@ -1418,6 +1432,7 @@ class Arr:
                         self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "lidarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
+                album_found = False
                 while True:
                     try:
                         data = self.client.get_album(object_id)
@@ -1434,6 +1449,7 @@ class Arr:
                             )
                         else:
                             self.logger.notice("Re-Searching album: %s", object_id)
+                        album_found = True
                         break
                     except (
                         requests.exceptions.ChunkedEncodingError,
@@ -1443,21 +1459,27 @@ class Arr:
                         AttributeError,
                     ):
                         continue
+                    except PyarrResourceNotFound as e:
+                        self.logger.warning(
+                            "Album %s not found in Lidarr (likely removed): %s", object_id, str(e)
+                        )
+                        break
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
-                while True:
-                    try:
-                        self.client.post_command("AlbumSearch", albumIds=[object_id])
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
-                if self.persistent_queue:
-                    self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+                if album_found:
+                    while True:
+                        try:
+                            self.client.post_command("AlbumSearch", albumIds=[object_id])
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+                    if self.persistent_queue:
+                        self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
 
     def _process_errored(self) -> None:
         # Recheck all torrents marked for rechecking.
