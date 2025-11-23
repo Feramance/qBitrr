@@ -1,19 +1,33 @@
 import type {
   ArrListResponse,
   ConfigDocument,
+  ConfigResponseWithWarning,
   ConfigUpdatePayload,
+  ConfigUpdateResponse,
   MetaResponse,
   LogsListResponse,
   ProcessesResponse,
   RadarrMoviesResponse,
   RestartResponse,
   SonarrSeriesResponse,
+  LidarrAlbumsResponse,
+  LidarrAlbum,
   StatusResponse,
 } from "./types";
 
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
 const MAX_AUTH_RETRIES = 1;
+
+// Request deduplication cache
+const inflightRequests = new Map<string, Promise<unknown>>();
+
+function createRequestKey(input: RequestInfo | URL, init?: RequestInit): string {
+  const url = input instanceof Request ? input.url : String(input);
+  const method = init?.method || "GET";
+  const body = init?.body ? String(init.body) : "";
+  return `${method}:${url}:${body}`;
+}
 
 function resolveToken(): string | null {
   for (const key of TOKEN_STORAGE_KEYS) {
@@ -81,6 +95,25 @@ async function fetchWithAuthRetry<T>(
 }
 
 async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
+  // Only deduplicate GET requests (safe to share)
+  const method = init?.method || "GET";
+  if (method === "GET") {
+    const key = createRequestKey(input, init);
+    const existingRequest = inflightRequests.get(key) as Promise<T> | undefined;
+
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const promise = fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response))
+      .finally(() => {
+        inflightRequests.delete(key);
+      });
+
+    inflightRequests.set(key, promise);
+    return promise;
+  }
+
   return fetchWithAuthRetry<T>(input, init, (response) => handleJson<T>(response));
 }
 
@@ -210,6 +243,25 @@ export async function getSonarrSeries(
   );
 }
 
+export async function getLidarrAlbums(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string
+): Promise<LidarrAlbumsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  // Always include tracks
+  params.set("include_tracks", "true");
+  return fetchJson<LidarrAlbumsResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
+  );
+}
+
 export async function restartArr(category: string): Promise<void> {
   await fetchJson<void>(
     `/web/arr/${encodeURIComponent(category)}/restart`,
@@ -218,18 +270,85 @@ export async function restartArr(category: string): Promise<void> {
 }
 
 export async function getConfig(): Promise<ConfigDocument> {
-  return fetchJson<ConfigDocument>("/web/config");
+  // Response might be ConfigDocument OR ConfigResponseWithWarning
+  const response = await fetchJson<ConfigDocument | ConfigResponseWithWarning>("/web/config");
+
+  // Check if response contains a warning structure
+  if (response && typeof response === "object" && "warning" in response && "config" in response) {
+    // Response has warning structure - store warning for display
+    const warningResponse = response as ConfigResponseWithWarning;
+    if (warningResponse.warning?.message) {
+      sessionStorage.setItem("config_version_warning", warningResponse.warning.message);
+    }
+    // Return the actual config (always present in warning structure)
+    return warningResponse.config;
+  }
+
+  // Normal response - just a plain config object
+  return response as ConfigDocument;
 }
 
 export async function updateConfig(
   payload: ConfigUpdatePayload
-): Promise<void> {
-  await fetchJson<void>("/web/config", {
+): Promise<ConfigUpdateResponse> {
+  const token = resolveToken();
+  const response = await fetch("/web/config", buildInit({
     method: "POST",
     body: JSON.stringify(payload),
-  });
+  }, token));
+
+  if (!response.ok) {
+    let detail: unknown = null;
+    try {
+      detail = await response.json();
+    } catch {
+      // ignore
+    }
+    let message = `${response.status} ${response.statusText}`;
+    if (
+      detail &&
+      typeof detail === "object" &&
+      "error" in detail &&
+      typeof (detail as Record<string, unknown>).error === "string"
+    ) {
+      const errorText = (detail as Record<string, unknown>).error as string;
+      if (errorText.trim()) {
+        message = errorText;
+      }
+    }
+    throw new Error(message);
+  }
+
+  // Parse response body with full type information
+  const data = await response.json() as ConfigUpdateResponse;
+  return data;
 }
 
 export async function triggerUpdate(): Promise<void> {
   await fetchJson<void>("/web/update", { method: "POST" });
+}
+
+export interface TestConnectionRequest {
+  arrType: "radarr" | "sonarr" | "lidarr";
+  uri: string;
+  apiKey: string;
+}
+
+export interface TestConnectionResponse {
+  success: boolean;
+  message: string;
+  systemInfo?: {
+    version: string;
+    branch?: string;
+  };
+  qualityProfiles?: Array<{ id: number; name: string }>;
+}
+
+export async function testArrConnection(
+  request: TestConnectionRequest
+): Promise<TestConnectionResponse> {
+  return fetchJson("/web/arr/test-connection", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }

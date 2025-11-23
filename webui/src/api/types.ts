@@ -1,4 +1,4 @@
-export type ArrType = "radarr" | "sonarr" | string;
+export type ArrType = "radarr" | "sonarr" | "lidarr" | string;
 
 export interface ProcessInfo {
   category: string;
@@ -6,6 +6,7 @@ export interface ProcessInfo {
   kind: string;
   pid: number | null;
   alive: boolean;
+  rebuilding?: boolean;
   searchSummary?: string;
   searchTimestamp?: string;
   queueCount?: number;
@@ -33,6 +34,7 @@ export interface ArrListResponse {
       monitored: number;
       missing?: number;
     };
+    lidarr?: LidarrCounts;
   };
   ready?: boolean;
 }
@@ -70,6 +72,9 @@ export interface RadarrMovie {
   year?: number;
   monitored?: boolean;
   hasFile?: boolean;
+  reason?: string | null;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
   [key: string]: unknown;
 }
 
@@ -90,6 +95,7 @@ export interface SonarrEpisode {
   monitored?: boolean;
   hasFile?: boolean;
   airDateUtc?: string;
+  reason?: string | null;
   [key: string]: unknown;
 }
 
@@ -101,7 +107,10 @@ export interface SonarrSeason {
 }
 
 export interface SonarrSeriesEntry {
-  series: Record<string, unknown>;
+  series: Record<string, unknown> & {
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+  };
   totals: {
     available: number;
     monitored: number;
@@ -123,6 +132,92 @@ export interface SonarrSeriesResponse {
   series: SonarrSeriesEntry[];
 }
 
+export interface LidarrCounts {
+  available: number;
+  monitored: number;
+}
+
+export interface LidarrTrack {
+  id?: number;
+  trackNumber?: number;
+  title?: string;
+  duration?: number;
+  hasFile?: boolean;
+  trackFileId?: number | null;
+  monitored?: boolean;
+  albumId?: number;
+  albumTitle?: string;
+  artistTitle?: string;
+  artistId?: number;
+}
+
+export interface LidarrAlbum {
+  id?: number;
+  title?: string;
+  artistId?: number;
+  artistName?: string;
+  releaseDate?: string;
+  monitored?: boolean;
+  hasFile?: boolean;
+  reason?: string | null;
+  tracks?: LidarrTrack[];
+  trackCount?: number;
+  trackFileCount?: number;
+  percentOfTracks?: number;
+  qualityProfileId?: number | null;
+  qualityProfileName?: string | null;
+  [key: string]: unknown;
+}
+
+export interface LidarrAlbumEntry {
+  album: Record<string, unknown> & {
+    qualityProfileId?: number | null;
+    qualityProfileName?: string | null;
+  };
+  totals: {
+    available: number;
+    monitored: number;
+    missing?: number;
+  };
+  tracks: LidarrTrack[];
+  [key: string]: unknown;
+}
+
+export interface LidarrAlbumsResponse {
+  category: string;
+  counts: LidarrCounts;
+  total: number;
+  page: number;
+  page_size: number;
+  albums: LidarrAlbumEntry[];
+}
+
+export interface LidarrTracksResponse {
+  category: string;
+  counts: {
+    available: number;
+    monitored: number;
+    missing: number;
+  };
+  total: number;
+  page: number;
+  page_size: number;
+  tracks: LidarrTrack[];
+}
+
+export interface ConfigVersionWarning {
+  type: "config_version_mismatch";
+  message: string;
+  currentVersion: number;
+}
+
+export interface ConfigResponseWithWarning {
+  config: Record<string, unknown>;
+  warning: ConfigVersionWarning;
+}
+
+// ConfigDocument is always a plain object with string keys
+// The warning structure is handled internally by getConfig()
 export type ConfigDocument = Record<string, unknown>;
 
 export interface ConfigUpdatePayload {
@@ -140,11 +235,24 @@ export interface MetaResponse {
   current_version: string;
   latest_version: string | null;
   update_available: boolean;
-  changelog: string | null;
+  changelog: string | null; // Latest version changelog
+  current_version_changelog: string | null; // Current version changelog
   changelog_url: string | null;
   repository_url: string;
   homepage_url: string;
   last_checked: string | null;
   error?: string | null;
   update_state: UpdateState;
+  installation_type: "git" | "pip" | "binary" | "unknown";
+  binary_download_url: string | null;
+  binary_download_name: string | null;
+  binary_download_size: number | null;
+  binary_download_error: string | null;
+}
+
+export interface ConfigUpdateResponse {
+  status: string;
+  configReloaded: boolean;
+  reloadType: "none" | "frontend" | "webui" | "single_arr" | "multi_arr" | "full";
+  affectedInstances: string[];
 }
