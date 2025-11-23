@@ -1257,6 +1257,7 @@ class Arr:
                 object_ids = list(object_id)
                 self.logger.trace("Requeue cache entry list: %s", object_ids)
                 if self.series_search:
+                    series_id = None
                     while True:
                         try:
                             data = self.client.get_series(object_ids[0])
@@ -1283,25 +1284,32 @@ class Arr:
                         ):
                             continue
                         except PyarrResourceNotFound as e:
-                            self.logger.debug(e)
-                            self.logger.error("PyarrResourceNotFound: %s", object_ids[0])
+                            self.logger.warning(
+                                "Series %s not found in Sonarr (likely removed): %s",
+                                object_ids[0],
+                                str(e),
+                            )
+                            break
                     for object_id in object_ids:
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
-                    self.logger.trace("Research series id: %s", series_id)
-                    while True:
-                        try:
-                            self.client.post_command(self.search_api_command, seriesId=series_id)
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
-                    if self.persistent_queue and series_id:
-                        self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
+                    if series_id:
+                        self.logger.trace("Research series id: %s", series_id)
+                        while True:
+                            try:
+                                self.client.post_command(
+                                    self.search_api_command, seriesId=series_id
+                                )
+                                break
+                            except (
+                                requests.exceptions.ChunkedEncodingError,
+                                requests.exceptions.ContentDecodingError,
+                                requests.exceptions.ConnectionError,
+                                JSONDecodeError,
+                            ):
+                                continue
+                        if self.persistent_queue:
+                            self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
                 else:
                     for object_id in object_ids:
                         while True:
@@ -1360,6 +1368,7 @@ class Arr:
                             self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "radarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
+                movie_found = False
                 while True:
                     try:
                         data = self.client.get_movie(object_id)
@@ -1376,6 +1385,7 @@ class Arr:
                             )
                         else:
                             self.logger.notice("Re-Searching movie: %s", object_id)
+                        movie_found = True
                         break
                     except (
                         requests.exceptions.ChunkedEncodingError,
@@ -1385,21 +1395,27 @@ class Arr:
                         AttributeError,
                     ):
                         continue
+                    except PyarrResourceNotFound as e:
+                        self.logger.warning(
+                            "Movie %s not found in Radarr (likely removed): %s", object_id, str(e)
+                        )
+                        break
                 if object_id in self.queue_file_ids:
                     self.queue_file_ids.remove(object_id)
-                while True:
-                    try:
-                        self.client.post_command("MoviesSearch", movieIds=[object_id])
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
-                if self.persistent_queue:
-                    self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+                if movie_found:
+                    while True:
+                        try:
+                            self.client.post_command("MoviesSearch", movieIds=[object_id])
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ):
+                            continue
+                    if self.persistent_queue:
+                        self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
             elif self.type == "lidarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 while True:
@@ -3825,8 +3841,29 @@ class Arr:
                 ):
                     continue
         except PyarrResourceNotFound as e:
-            self.logger.error("Connection Error: %s", str(e))
-            raise DelayLoopException(length=300, type=self._name)
+            # Queue item not found - this is expected when Arr has already auto-imported
+            # and removed the item, or if it was manually removed. Clean up internal tracking.
+            self.logger.warning(
+                "Queue item %s not found in Arr (likely already imported/removed): %s",
+                id_,
+                str(e),
+            )
+            # Clean up internal tracking data for this queue entry
+            if id_ in self.requeue_cache:
+                # Remove associated media IDs from queue_file_ids
+                media_ids = self.requeue_cache[id_]
+                if isinstance(media_ids, set):
+                    self.queue_file_ids.difference_update(media_ids)
+                elif media_ids in self.queue_file_ids:
+                    self.queue_file_ids.discard(media_ids)
+                # Remove from requeue_cache
+                del self.requeue_cache[id_]
+            # Remove from cache (downloadId -> queue entry ID mapping)
+            # We need to find and remove the cache entry by value (queue ID)
+            cache_keys_to_remove = [k for k, v in self.cache.items() if v == id_]
+            for key in cache_keys_to_remove:
+                del self.cache[key]
+            return None
         return res
 
     def file_is_probeable(self, file: pathlib.Path) -> bool:
