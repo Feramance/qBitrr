@@ -3080,11 +3080,13 @@ class WebUI:
             # For graceful restart capability, we need to use waitress_serve with channels
             # However, for now we'll use the simpler approach and just run the server
             # Restart capability will require stopping the entire process
+            # Use poll() instead of select() to avoid file descriptor limit issues
             waitress_serve(
                 self.app,
                 host=self.host,
                 port=self.port,
                 ident="qBitrr-WebUI",
+                asyncore_use_poll=True,
             )
 
         except KeyboardInterrupt:

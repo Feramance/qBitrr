@@ -2727,6 +2727,35 @@ class Arr:
                             JSONDecodeError,
                         ):
                             continue
+
+                    # Validate episode object has required fields
+                    if not episode or not isinstance(episode, dict):
+                        self.logger.warning(
+                            "Invalid episode object returned from API for episode ID %s: %s",
+                            db_entry.get("id"),
+                            type(episode).__name__,
+                        )
+                        return
+
+                    required_fields = [
+                        "id",
+                        "seriesId",
+                        "seasonNumber",
+                        "episodeNumber",
+                        "title",
+                        "airDateUtc",
+                        "episodeFileId",
+                    ]
+                    missing_fields = [field for field in required_fields if field not in episode]
+                    if missing_fields:
+                        self.logger.warning(
+                            "Episode %s missing required fields %s. Episode data: %s",
+                            db_entry.get("id"),
+                            missing_fields,
+                            episode,
+                        )
+                        return
+
                     if episode.get("monitored", True) or self.search_unmonitored:
                         while True:
                             try:
@@ -2874,24 +2903,24 @@ class Arr:
                                     ):
                                         continue
 
-                        EntryId = episode["id"]
+                        EntryId = episode.get("id")
                         SeriesTitle = episode.get("series", {}).get("title")
-                        SeasonNumber = episode["seasonNumber"]
-                        Title = episode["title"]
-                        SeriesId = episode["seriesId"]
-                        EpisodeFileId = episode["episodeFileId"]
-                        EpisodeNumber = episode["episodeNumber"]
+                        SeasonNumber = episode.get("seasonNumber")
+                        Title = episode.get("title")
+                        SeriesId = episode.get("seriesId")
+                        EpisodeFileId = episode.get("episodeFileId")
+                        EpisodeNumber = episode.get("episodeNumber")
                         AbsoluteEpisodeNumber = (
-                            episode["absoluteEpisodeNumber"]
+                            episode.get("absoluteEpisodeNumber")
                             if "absoluteEpisodeNumber" in episode
                             else None
                         )
                         SceneAbsoluteEpisodeNumber = (
-                            episode["sceneAbsoluteEpisodeNumber"]
+                            episode.get("sceneAbsoluteEpisodeNumber")
                             if "sceneAbsoluteEpisodeNumber" in episode
                             else None
                         )
-                        AirDateUtc = episode["airDateUtc"]
+                        AirDateUtc = episode.get("airDateUtc")
                         Monitored = episode.get("monitored", True)
                         QualityMet = not QualityUnmet if db_entry["hasFile"] else False
                         customFormatMet = customFormat >= minCustomFormat
@@ -3164,9 +3193,13 @@ class Arr:
                         try:
                             if movieData:
                                 if not movieData.MinCustomFormatScore:
-                                    minCustomFormat = self.client.get_quality_profile(
-                                        db_entry["qualityProfileId"]
-                                    )["minFormatScore"]
+                                    profile = (
+                                        self.client.get_quality_profile(
+                                            db_entry["qualityProfileId"]
+                                        )
+                                        or {}
+                                    )
+                                    minCustomFormat = profile.get("minFormatScore", 0)
                                 else:
                                     minCustomFormat = movieData.MinCustomFormatScore
                                 if db_entry["hasFile"]:
@@ -3179,9 +3212,11 @@ class Arr:
                                 else:
                                     customFormat = 0
                             else:
-                                minCustomFormat = self.client.get_quality_profile(
-                                    db_entry["qualityProfileId"]
-                                )["minFormatScore"]
+                                profile = (
+                                    self.client.get_quality_profile(db_entry["qualityProfileId"])
+                                    or {}
+                                )
+                                minCustomFormat = profile.get("minFormatScore", 0)
                                 if db_entry["hasFile"]:
                                     customFormat = self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
@@ -6053,7 +6088,11 @@ class Arr:
                 class Meta:
                     database = self.db
 
-            self.db.create_tables([Files, Queue, PersistingQueue, Series])
+            try:
+                self.db.create_tables([Files, Queue, PersistingQueue, Series], safe=True)
+            except Exception as e:
+                self.logger.error("Failed to create database tables for Sonarr: %s", e)
+                raise
             self.series_file_model = Series
             self.artists_file_model = None
         elif db3 and self.type == "lidarr":
@@ -6062,12 +6101,20 @@ class Arr:
                 class Meta:
                     database = self.db
 
-            self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks])
+            try:
+                self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks], safe=True)
+            except Exception as e:
+                self.logger.error("Failed to create database tables for Lidarr: %s", e)
+                raise
             self.artists_file_model = Artists
             self.series_file_model = None  # Lidarr uses artists, not series
         else:
             # Radarr or any type without db3/db4 (series/artists/tracks models)
-            self.db.create_tables([Files, Queue, PersistingQueue])
+            try:
+                self.db.create_tables([Files, Queue, PersistingQueue], safe=True)
+            except Exception as e:
+                self.logger.error("Failed to create database tables for Radarr: %s", e)
+                raise
             self.artists_file_model = None
             self.series_file_model = None
 

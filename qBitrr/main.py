@@ -476,6 +476,18 @@ class qBitManager:
                 )
             for proc in list(self.child_processes):
                 try:
+                    # Check if process has already been started
+                    if proc.is_alive() or proc.exitcode is not None:
+                        meta = self._process_registry.get(proc, {})
+                        self.logger.warning(
+                            "Skipping start of already-started %s worker for category '%s' (alive=%s, exitcode=%s)",
+                            meta.get("role", "worker"),
+                            meta.get("category", "unknown"),
+                            proc.is_alive(),
+                            proc.exitcode,
+                        )
+                        continue
+
                     proc.start()
                     meta = self._process_registry.get(proc, {})
                     self.logger.debug(
