@@ -1,5 +1,31 @@
 # Changelog
 
+## v5.5.3 (24/11/2025)
+
+### 🚀 Features
+- [fix: Add defensive error handling for API responses, database initialization, and process management](https://github.com/Feramance/qBitrr/commit/edd6897a016b25dc29e65f1508a418faa0d99ab6) - @Feramance
+- [Add PyarrResourceNotFound handling for Sonarr episode and Lidarr album re-searches](https://github.com/Feramance/qBitrr/commit/3ad77ae2432974573bbea35daaba61d9e1f53448) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] General updates and fixes](https://github.com/Feramance/qBitrr/commit/e55d1e36bfab87ed89c372bd87325e9b90a34006) - @Feramance
+- [Fix excessive delay and memory leak when queue items are already removed from Arr](https://github.com/Feramance/qBitrr/commit/f1f2c58d65809e1b39467d051f95dd7123c10566) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/eb3e43997f64f94d8b08e915bdaa45f7ad2e036d) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump typescript-eslint from 8.46.3 to 8.47.0 in /webui (#215)](https://github.com/Feramance/qBitrr/commit/64553a1187d1a74895c05efb73d9f1b8ff1cb593) - @Feramance
+- [Build(deps-dev): Bump @vitejs/plugin-react from 5.1.0 to 5.1.1 in /webui (#217)](https://github.com/Feramance/qBitrr/commit/d71c4695aa4bb6a44a40ba1667803ebe058147c8) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.66.0 to 7.66.1 in /webui (#216)](https://github.com/Feramance/qBitrr/commit/db30128c62476812b158caacee59dadc23790053) - @Feramance
+- [Build(deps-dev): Bump @types/node from 24.10.0 to 24.10.1 in /webui (#213)](https://github.com/Feramance/qBitrr/commit/71408a598cf7982a6b86219ffa22abdadf985a70) - @Feramance
+- [Build(deps): Bump @mantine/dates from 8.3.7 to 8.3.9 in /webui (#214)](https://github.com/Feramance/qBitrr/commit/faabc6198dc89c137a791932d9c84db51fa3b508) - @Feramance
+- [Build(deps): Bump @mantine/core from 8.3.7 to 8.3.9 in /webui (#212)](https://github.com/Feramance/qBitrr/commit/a17e6e2d038420356d6eabdec14943618f1edb41) - @Feramance
+- [bug: Initialization with qbittorrent down failure](https://github.com/Feramance/qBitrr/commit/8bcaf89bf57a715b9c360e73eaae0ab8f43991ea) - @Feramance
+- [Bump react and @types/react in /webui (#194)](https://github.com/Feramance/qBitrr/commit/29aa21b13f13cb53a9051929b97e2e01e0810fa9) - @Feramance
+- [Bump react-dom and @types/react-dom in /webui (#196)](https://github.com/Feramance/qBitrr/commit/0a2858c36f836020e222067e7b9fcadafe0cc1a0) - @Feramance
+
+---
+
 ## v5.5.2 (22/11/2025)
 
 ### 🐛 Bug Fixes
