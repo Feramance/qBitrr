@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from qBitrr.db_recovery import checkpoint_wal, repair_database
 from qBitrr.home_path import APPDATA_FOLDER
 
 if os.name == "nt":  # pragma: no cover - platform specific
@@ -99,6 +100,8 @@ def with_database_retry(
     - sqlite3.IntegrityError (data constraint violations)
     - sqlite3.ProgrammingError (SQL syntax errors)
 
+    On detecting database corruption, attempts automatic recovery before retrying.
+
     Args:
         func: Callable to execute (should take no arguments)
         retries: Maximum number of retry attempts (default: 5)
@@ -118,6 +121,8 @@ def with_database_retry(
     import time
 
     attempt = 0
+    corruption_recovery_attempted = False
+
     while True:
         try:
             return func()
@@ -127,6 +132,61 @@ def with_database_retry(
             # Don't retry on non-transient errors
             if "syntax" in error_msg or "constraint" in error_msg:
                 raise
+
+            # Detect corruption and attempt recovery (only once)
+            if not corruption_recovery_attempted and (
+                "disk image is malformed" in error_msg
+                or "database disk image is malformed" in error_msg
+                or "database corruption" in error_msg
+            ):
+                corruption_recovery_attempted = True
+                if logger:
+                    logger.error(
+                        "Database corruption detected: %s. Attempting automatic recovery...",
+                        e,
+                    )
+
+                recovery_succeeded = False
+                try:
+                    db_path = APPDATA_FOLDER / "qbitrr.db"
+
+                    # Step 1: Try WAL checkpoint (least invasive)
+                    if logger:
+                        logger.info("Attempting WAL checkpoint...")
+                    if checkpoint_wal(db_path, logger):
+                        if logger:
+                            logger.info("WAL checkpoint successful - retrying operation")
+                        recovery_succeeded = True
+                    else:
+                        # Step 2: Try full repair (more invasive)
+                        if logger:
+                            logger.warning(
+                                "WAL checkpoint failed - attempting full database repair..."
+                            )
+                        if repair_database(db_path, backup=True, logger_override=logger):
+                            if logger:
+                                logger.info("Database repair successful - retrying operation")
+                            recovery_succeeded = True
+
+                except Exception as recovery_error:
+                    if logger:
+                        logger.error(
+                            "Database recovery error: %s",
+                            recovery_error,
+                        )
+
+                if recovery_succeeded:
+                    # Reset attempt counter after successful recovery
+                    attempt = 0
+                    time.sleep(1)  # Brief pause before retry
+                    continue
+
+                # If we reach here, recovery failed - log and continue with normal retry
+                if logger:
+                    logger.critical(
+                        "Automatic database recovery failed. "
+                        "Manual intervention may be required. Attempting normal retry..."
+                    )
 
             attempt += 1
             if attempt >= retries:
@@ -161,16 +221,18 @@ class ResilientSqliteDatabase:
     (specifically when setting PRAGMAs), before query-level retry logic can help.
     """
 
-    def __init__(self, database, max_retries=5, backoff=0.5):
+    def __init__(self, database, max_retries=5, backoff=0.5, logger=None):
         """
         Args:
             database: Peewee SqliteDatabase instance to wrap
             max_retries: Maximum connection retry attempts
             backoff: Initial backoff delay in seconds
+            logger: Optional logger instance for logging recovery attempts
         """
         self._db = database
         self._max_retries = max_retries
         self._backoff = backoff
+        self._logger = logger
 
     def __getattr__(self, name):
         """Delegate all attribute access to the wrapped database."""
@@ -194,6 +256,7 @@ class ResilientSqliteDatabase:
 
         last_error = None
         delay = self._backoff
+        corruption_recovery_attempted = False
 
         for attempt in range(1, self._max_retries + 1):
             try:
@@ -201,8 +264,77 @@ class ResilientSqliteDatabase:
             except (OperationalError, DatabaseError, sqlite3.OperationalError) as e:
                 error_msg = str(e).lower()
 
-                # Only retry on transient I/O errors
-                if "disk i/o error" in error_msg or "database is locked" in error_msg:
+                # Detect corruption and attempt recovery (only once)
+                if not corruption_recovery_attempted and (
+                    "disk image is malformed" in error_msg
+                    or "database disk image is malformed" in error_msg
+                    or "database corruption" in error_msg
+                ):
+                    corruption_recovery_attempted = True
+                    if self._logger:
+                        self._logger.error(
+                            "Database corruption detected during connection: %s. "
+                            "Attempting automatic recovery...",
+                            e,
+                        )
+
+                    recovery_succeeded = False
+                    try:
+                        db_path = APPDATA_FOLDER / "qbitrr.db"
+
+                        # Close current connection if any
+                        try:
+                            if not self._db.is_closed():
+                                self._db.close()
+                        except Exception:
+                            pass  # Ignore errors closing corrupted connection
+
+                        # Step 1: Try WAL checkpoint
+                        if self._logger:
+                            self._logger.info("Attempting WAL checkpoint...")
+                        if checkpoint_wal(db_path, self._logger):
+                            if self._logger:
+                                self._logger.info(
+                                    "WAL checkpoint successful - retrying connection"
+                                )
+                            recovery_succeeded = True
+                        else:
+                            # Step 2: Try full repair
+                            if self._logger:
+                                self._logger.warning(
+                                    "WAL checkpoint failed - attempting full database repair..."
+                                )
+                            if repair_database(db_path, backup=True, logger_override=self._logger):
+                                if self._logger:
+                                    self._logger.info(
+                                        "Database repair successful - retrying connection"
+                                    )
+                                recovery_succeeded = True
+
+                    except Exception as recovery_error:
+                        if self._logger:
+                            self._logger.error(
+                                "Database recovery error: %s",
+                                recovery_error,
+                            )
+
+                    if recovery_succeeded:
+                        time.sleep(1)
+                        continue
+
+                    # Recovery failed - log and continue with normal retry
+                    if self._logger:
+                        self._logger.critical(
+                            "Automatic database recovery failed. "
+                            "Manual intervention may be required."
+                        )
+
+                # Retry on transient I/O errors
+                if (
+                    "disk i/o error" in error_msg
+                    or "database is locked" in error_msg
+                    or "disk image is malformed" in error_msg
+                ):
                     last_error = e
 
                     if attempt < self._max_retries:
