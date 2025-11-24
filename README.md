@@ -900,7 +900,7 @@ Manually move torrents here to trigger a proper recheck operation.
 [Settings]
 Tagless = true
 ```
-Run qBitrr without requiring Arr instances to tag their torrents. Less precise but works without Arr configuration changes.
+Disables qBitrr from tagging torrents in qBittorrent. Use this if you prefer to manage qBittorrent tags manually or avoid tag clutter.
 
 ---
 
