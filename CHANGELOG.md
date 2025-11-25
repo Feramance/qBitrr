@@ -1,5 +1,21 @@
 # Changelog
 
+## v5.5.5 (25/11/2025)
+
+### 🚀 Features
+- [[patch] Add qBitrr logo to README, WebUI header, and favicon](https://github.com/Feramance/qBitrr/commit/3ed6e223e7de65e8c1483207338cc96ca020415f) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] Automated DB recovery](https://github.com/Feramance/qBitrr/commit/40025aea9d5621dcbe7d5031b051fc6127def7ec) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/60e9e33e9a76582796b81d1ab8f3a111ca27d095) - @Feramance
+
+### 🔧 Maintenance
+- [Enhance database lock retry logic with automatic corruption recovery](https://github.com/Feramance/qBitrr/commit/c0308901a6d1d2cc6deeaf7e80dfc871895cd6a7) - @Feramance
+
+---
+
 ## v5.5.3 (24/11/2025)
 
 ### 🚀 Features
