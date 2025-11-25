@@ -1,4 +1,4 @@
-# qBitrr
+# <img src="assets/logov2-clean.png" alt="qBitrr Logo" width="40" style="vertical-align: middle;"/> qBitrr
 
 [![PyPI](https://img.shields.io/pypi/v/qBitrr2?label=PyPI)](https://pypi.org/project/qBitrr2/)
 [![Downloads](https://img.shields.io/pypi/dm/qBitrr2)](https://pypi.org/project/qBitrr2/)

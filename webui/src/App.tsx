@@ -19,6 +19,7 @@ import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
 import ConfigIcon from "./icons/gear.svg";
+import LogoIcon from "./icons/logo.svg";
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
 
@@ -515,6 +516,7 @@ function AppShell(): JSX.Element {
         <div className="appbar__inner">
           <div className="appbar__title">
             <h1>qBitrr</h1>
+            <img src={LogoIcon} alt="qBitrr Logo" style={{ width: '32px', height: '32px', marginLeft: '8px' }} />
             <span className="appbar__version" title={versionTitle}>
               {displayVersion}
             </span>
