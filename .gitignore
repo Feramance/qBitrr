@@ -1,26 +1,67 @@
+# Configuration
 /config.toml
+.config
+
+# IDEs
 .idea
+.run/
+.vscode/
+
+# Testing
 /qBitrr/testing/test.py
-/qBitrr.egg-info/
-/build/
-/dist/
-.env
-.venv/
-venv/
-/webui/node_modules/
-/webui/dist/
+/qBitrr/testing/
+test.py
 /.github/workflows/test.yml
+
+# Python
+/qBitrr.egg-info/
 __pycache__/
 *.py[cod]
-/qBitrr/testing/
+*.so
+*.egg
+*.egg-info/
+.Python
+
+# Build artifacts
+/build/
+/dist/
 build.bat
 /main.*/
 /main.exe
-.run/
-.vscode/
-test.py
-.config
+
+# Virtual environments
+.env
+.venv/
+venv/
+env/
+ENV/
+
+# WebUI
+/webui/node_modules/
+/webui/dist/
+
+# Static files (except placeholder)
 /qBitrr/static/*
 !/qBitrr/static/.gitkeep
+
+# Documentation build artifacts
+/site/
+.cache/
+*.log
+
+# MkDocs
+/.mkdocs_cache/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Development
 AGENTS.md
 compose.yml
+opencodetmp/
