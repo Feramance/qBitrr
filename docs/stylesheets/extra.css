@@ -1,0 +1,53 @@
+/* Custom CSS variables - removed to use theme colors from mkdocs.yml */
+:root {
+  /* Accent color for links and highlights */
+  --md-accent-fg-color: #00d9ff;
+}
+
+/* Material theme logo improvements - crisp high-DPI rendering */
+.md-header__button.md-logo img,
+.md-logo img {
+  height: 48px;
+  width: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* Use smooth for high-res PNGs */
+  image-rendering: auto;
+}
+
+/* Ensure logo is crisp on high-DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .md-header__button.md-logo img,
+  .md-logo img {
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+.md-header__title {
+  display: flex;
+  align-items: center;
+}
+
+.md-header__title img {
+  height: 32px;
+  margin-right: 8px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: transform 0.2s;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}

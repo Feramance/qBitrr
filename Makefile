@@ -57,6 +57,12 @@ Commands:
   bumpdeps                   Run script bumping dependencies.
   newenv                     Create or replace this project's virtual environment.
   syncenv                    Sync this project's virtual environment to Red's latest dependencies.
+  docs-install               Install documentation dependencies.
+  docs-serve                 Serve documentation locally with hot reload.
+  docs-build                 Build documentation site.
+  docs-deploy                Deploy documentation to GitHub Pages.
+  docs-clean                 Clean documentation build artifacts.
+  docs-check                 Check documentation links.
 endef
 export HELP_BODY
 
@@ -91,3 +97,29 @@ syncenv:
 	@$(WEBUI_BUILD)
 help:
 	@echo "$$HELP_BODY"
+
+# Documentation
+.PHONY: docs-install docs-serve docs-build docs-deploy docs-clean docs-check
+
+docs-install:
+	"$(VENV_PYTHON)" -m pip install -r requirements.docs.txt
+
+docs-serve:
+	"$(VENV_PYTHON)" -m mkdocs serve --dev-addr 127.0.0.1:8000
+
+docs-build:
+	"$(VENV_PYTHON)" -m mkdocs build
+
+docs-build-strict:
+	"$(VENV_PYTHON)" -m mkdocs build --strict
+
+docs-deploy:
+	"$(VENV_PYTHON)" -m mkdocs gh-deploy --force
+
+docs-clean:
+	rm -rf site/
+
+docs-check:
+	"$(VENV_PYTHON)" -m mkdocs build --strict
+	@echo "Link checking requires linkchecker to be installed: pip install linkchecker"
+	@command -v linkchecker >/dev/null 2>&1 && linkchecker site/ || echo "Skipping link check (linkchecker not installed)"
