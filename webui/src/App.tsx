@@ -18,10 +18,11 @@ import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
+import LidarrIcon from "./icons/lidarr.svg";
 import ConfigIcon from "./icons/gear.svg";
 import LogoIcon from "./icons/logo.svg";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "config";
 
 interface NavTab {
   id: Tab;
@@ -302,7 +303,7 @@ function AppShell(): JSX.Element {
       if (event.key >= '1' && event.key <= '5' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'config'];
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'config'];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -456,6 +457,7 @@ function AppShell(): JSX.Element {
       { id: "logs", label: "Logs", icon: LogsIcon },
       { id: "radarr", label: "Radarr", icon: RadarrIcon },
       { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
+      { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
       { id: "config", label: "Config", icon: ConfigIcon },
     ],
     []
@@ -612,6 +614,7 @@ function AppShell(): JSX.Element {
           {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
           {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
           {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+          {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
           {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
         </Suspense>
       </main>
