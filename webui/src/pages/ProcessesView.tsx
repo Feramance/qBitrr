@@ -234,6 +234,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       const name = (proc.name ?? "").toLowerCase();
       if (category.includes("radarr") || name.includes("radarr")) return "Radarr";
       if (category.includes("sonarr") || name.includes("sonarr")) return "Sonarr";
+      if (category.includes("lidarr") || name.includes("lidarr")) return "Lidarr";
       if (
         category.includes("qbit") ||
         category.includes("qbittorrent") ||
@@ -255,7 +256,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       instances.get(instanceKey)!.push(proc);
     });
 
-    const appOrder = ["Radarr", "Sonarr", "qBittorrent", "Other"];
+    const appOrder = ["Radarr", "Sonarr", "Lidarr", "qBittorrent", "Other"];
 
     const result: AppGroup[] = Array.from(appBuckets.entries())
       .map(([app, instances]) => {
