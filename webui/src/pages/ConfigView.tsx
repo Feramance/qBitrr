@@ -45,7 +45,7 @@ interface ValidationError {
   message: string;
 }
 
-const SERVARR_SECTION_REGEX = /(rad|son|anim)arr/i;
+const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
 
 // Helper function for react-select theme-aware styles
 const getSelectStyles = () => {
@@ -1254,7 +1254,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
-      type: "radarr" | "sonarr" | "other";
+      type: "radarr" | "sonarr" | "lidarr" | "other";
       items: Array<[string, ConfigDocument]>;
     }> = [];
     const sorted = [...arrSections].sort((a, b) =>
@@ -1262,6 +1262,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     );
     const radarr: Array<[string, ConfigDocument]> = [];
     const sonarr: Array<[string, ConfigDocument]> = [];
+    const lidarr: Array<[string, ConfigDocument]> = [];
     const others: Array<[string, ConfigDocument]> = [];
     for (const entry of sorted) {
       const [key] = entry;
@@ -1270,16 +1271,15 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         radarr.push(entry);
       } else if (keyLower.startsWith("sonarr")) {
         sonarr.push(entry);
+      } else if (keyLower.startsWith("lidarr")) {
+        lidarr.push(entry);
       } else {
         others.push(entry);
       }
     }
-    if (radarr.length) {
-      groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
-    }
-    if (sonarr.length) {
-      groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
-    }
+    groups.push({ label: "Radarr Instances", type: "radarr", items: radarr });
+    groups.push({ label: "Sonarr Instances", type: "sonarr", items: sonarr });
+    groups.push({ label: "Lidarr Instances", type: "lidarr", items: lidarr });
     if (others.length) {
       groups.push({ label: "Other Instances", type: "other", items: others });
     }
@@ -1372,7 +1372,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [activeArrKey, arrSections]);
 
   const addArrInstance = useCallback(
-    (type: "radarr" | "sonarr") => {
+    (type: "radarr" | "sonarr" | "lidarr") => {
       if (!formState) return;
       const prefix = type.charAt(0).toUpperCase() + type.slice(1);
       let index = 1;
@@ -1552,11 +1552,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                        <span className="config-arr-group__count">
                          {group.items.length}
                        </span>
-                       {(group.type === "radarr" || group.type === "sonarr") && (
+                        {(group.type === "radarr" || group.type === "sonarr" || group.type === "lidarr") && (
                          <button
                            className="btn small"
                            type="button"
-                           onClick={() => addArrInstance(group.type as "radarr" | "sonarr")}
+                            onClick={() => addArrInstance(group.type as "radarr" | "sonarr" | "lidarr")}
                          >
                            <IconImage src={AddIcon} />
                            Add Instance
