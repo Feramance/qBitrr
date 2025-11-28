@@ -18,15 +18,29 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       // Register service worker for PWA support
+      // Note: Service workers require HTTPS or localhost. The /sw.js endpoint can be
+      // whitelisted in auth proxies (e.g., Authentik) to enable PWA features.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then((registration) => {
-              console.log('ServiceWorker registered:', registration);
-            })
-            .catch((error) => {
-              console.log('ServiceWorker registration failed:', error);
-            });
+        window.addEventListener('load', async () => {
+          try {
+            // Check if service worker file is accessible (not behind auth redirect)
+            const swResponse = await fetch('/sw.js', { method: 'HEAD', credentials: 'same-origin' });
+            if (!swResponse.ok || swResponse.status === 401 || swResponse.status === 403) {
+              console.debug('ServiceWorker not available: requires whitelisting /sw.js in auth proxy');
+              return;
+            }
+
+            // Attempt registration
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('ServiceWorker registered successfully');
+          } catch (error) {
+            // Silently fail on insecure contexts or other errors
+            if (error.name === 'SecurityError' || error.name === 'TypeError') {
+              console.debug('ServiceWorker not available (requires HTTPS or localhost)');
+            } else {
+              console.debug('ServiceWorker registration failed:', error.message);
+            }
+          }
         });
       }
     </script>
