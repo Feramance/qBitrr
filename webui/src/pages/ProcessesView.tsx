@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import {
   getProcesses,
+  getStatus,
   rebuildArrs,
   restartAllProcesses,
   restartProcess,
 } from "../api/client";
-import type { ProcessInfo } from "../api/types";
+import type { ProcessInfo, StatusResponse } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
@@ -56,6 +57,7 @@ function isProcessEqual(a: ProcessInfo, b: ProcessInfo): boolean {
     a.kind === b.kind &&
     a.pid === b.pid &&
     a.alive === b.alive &&
+    (a.rebuilding ?? false) === (b.rebuilding ?? false) &&
     (a.searchSummary ?? "") === (b.searchSummary ?? "") &&
     (a.searchTimestamp ?? "") === (b.searchTimestamp ?? "") &&
     (a.queueCount ?? null) === (b.queueCount ?? null) &&
@@ -77,16 +79,8 @@ function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
 
 function getRefreshDelay(active: boolean, processes: ProcessInfo[]): number | null {
   if (!active) return null;
-  const hasActiveSearch = processes.some(
-    (proc) => proc.alive && proc.kind.toLowerCase() === "search"
-  );
-  if (hasActiveSearch) return 5000;
-  const hasQueueActivity = processes.some(
-    (proc) =>
-      typeof proc.queueCount === "number" && proc.queueCount > 0
-  );
-  if (hasQueueActivity) return 10000;
-  return 20000;
+  // Refresh every 1 second when active
+  return 1000;
 }
 
 interface ProcessesViewProps {
@@ -98,6 +92,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [restartingAll, setRestartingAll] = useState(false);
   const [rebuildingArrs, setRebuildingArrs] = useState(false);
+  const [statusData, setStatusData] = useState<StatusResponse | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     message: string;
@@ -106,15 +101,20 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const { push } = useToast();
   const isFetching = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (showLoading = true) => {
     if (isFetching.current) {
       return;
     }
     isFetching.current = true;
-    setLoading((prev) => (prev ? prev : true));
+    if (showLoading) {
+      setLoading(true);
+    }
     try {
-      const data = await getProcesses();
-      const next = (data.processes ?? []).map((process) => {
+      const [processData, status] = await Promise.all([
+        getProcesses(),
+        getStatus(),
+      ]);
+      const next = (processData.processes ?? []).map((process) => {
         if (typeof process.searchSummary === "string") {
           const sanitized = sanitizeSearchSummary(process.searchSummary);
           return {
@@ -127,6 +127,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       setProcesses((prev) =>
         areProcessListsEqual(prev, next) ? prev : next
       );
+      setStatusData(status);
     } catch (error) {
       push(
         error instanceof Error
@@ -136,7 +137,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       );
     } finally {
       isFetching.current = false;
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   }, [push]);
 
@@ -156,7 +159,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   useInterval(() => {
-    void load();
+    void load(false); // Auto-refresh without showing loading spinner
   }, refreshDelay);
 
   const handleRestart = useCallback(
@@ -224,9 +227,14 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   }, [load, push]);
 
   const groupedProcesses = useMemo(() => {
-    type InstanceGroup = { name: string; items: ProcessInfo[] };
-    type AppGroup = { app: string; instances: InstanceGroup[] };
-
+    interface Instance {
+      name: string;
+      items: ProcessInfo[];
+    }
+    interface AppGroup {
+      app: string;
+      instances: Instance[];
+    }
     const appBuckets = new Map<string, Map<string, ProcessInfo[]>>();
 
     const classifyApp = (proc: ProcessInfo): string => {
@@ -246,8 +254,20 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       return "Other";
     };
 
+    // Check which Arr types are configured
+    const arrs = statusData?.arrs ?? [];
+    const hasRadarr = arrs.some((arr) => arr.type === "radarr");
+    const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
+    const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
+
     processes.forEach((proc) => {
       const app = classifyApp(proc);
+
+      // Skip Arr processes if that Arr type is not configured
+      if (app === "Radarr" && !hasRadarr) return;
+      if (app === "Sonarr" && !hasSonarr) return;
+      if (app === "Lidarr" && !hasLidarr) return;
+
       if (!appBuckets.has(app)) appBuckets.set(app, new Map());
       const instances = appBuckets.get(app)!;
       const instanceKey =
@@ -279,7 +299,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
 
     return result;
-  }, [processes]);
+  }, [processes, statusData]);
 
   const handleRestartGroup = useCallback(
     async (items: ProcessInfo[]) => {
@@ -360,6 +380,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                     </div>
                     <div className="process-chip__detail">
                       {(() => {
+                        if (item.rebuilding) {
+                          return "Rebuilding";
+                        }
                         const kindLower = item.kind.toLowerCase();
                         if (kindLower === "search") {
                           const summary = item.searchSummary ?? "";

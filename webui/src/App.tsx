@@ -7,13 +7,14 @@ import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
-import { getMeta, getStatus, triggerUpdate, getConfig } from "./api/client";
-import type { MetaResponse } from "./api/types";
+import { getMeta, getStatus, triggerUpdate } from "./api/client";
+import type { MetaResponse, StatusResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
 import RefreshIcon from "./icons/refresh-arrow.svg";
 import UpdateIcon from "./icons/up-arrow.svg";
+import DownloadIcon from "./icons/download.svg";
 import ProcessesIcon from "./icons/process.svg";
 import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
@@ -41,6 +42,74 @@ function formatVersionLabel(value: string | null | undefined): string {
   return trimmed[0] === "v" || trimmed[0] === "V" ? trimmed : `v${trimmed}`;
 }
 
+interface WelcomeModalProps {
+  currentVersion: string;
+  changelog: string | null;
+  changelogUrl: string | null;
+  repositoryUrl: string;
+  onClose: () => void;
+}
+
+function WelcomeModal({
+  currentVersion,
+  changelog,
+  changelogUrl,
+  repositoryUrl,
+  onClose,
+}: WelcomeModalProps): JSX.Element {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="welcome-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="welcome-title">
+            🎉 Welcome to qBitrr {formatVersionLabel(currentVersion)}!
+          </h2>
+        </div>
+        <div className="modal-body changelog-modal__body">
+          <div className="changelog-meta">
+            <p style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+              You've been updated to version <strong>{formatVersionLabel(currentVersion)}</strong>.
+              Here's what's new in this release:
+            </p>
+          </div>
+          <div className="changelog-section">
+            <h3>Release Notes</h3>
+            <pre className="changelog-body">
+              {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
+            </pre>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <div className="changelog-links">
+            {(changelogUrl || repositoryUrl) && (
+              <a
+                className="btn ghost small"
+                href={changelogUrl ?? repositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IconImage src={ExternalIcon} />
+                View Full Release on GitHub
+              </a>
+            )}
+          </div>
+          <div className="changelog-buttons">
+            <button className="btn primary" type="button" onClick={onClose}>
+              Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ChangelogModalProps {
   currentVersion: string;
   latestVersion: string | null;
@@ -49,6 +118,11 @@ interface ChangelogModalProps {
   repositoryUrl: string;
   updateState: MetaResponse["update_state"] | null | undefined;
   updating: boolean;
+  installationType: MetaResponse["installation_type"];
+  binaryDownloadUrl: string | null;
+  binaryDownloadName: string | null;
+  binaryDownloadSize: number | null;
+  binaryDownloadError: string | null;
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -61,6 +135,11 @@ function ChangelogModal({
   repositoryUrl,
   updateState,
   updating,
+  installationType,
+  binaryDownloadUrl,
+  binaryDownloadName,
+  binaryDownloadSize,
+  binaryDownloadError,
   onClose,
   onUpdate,
 }: ChangelogModalProps): JSX.Element {
@@ -69,20 +148,21 @@ function ChangelogModal({
   const completedLabel = updateState?.completed_at
     ? new Date(updateState.completed_at).toLocaleString()
     : null;
+  const isBinaryInstall = installationType === "binary";
 
   // Start countdown when update completes successfully
   useEffect(() => {
     if (updateState?.last_result === "success" && updateState?.completed_at) {
-      setCountdown(10);
+      let countdown = 10;
+      setCountdown(countdown);
       const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(timer);
-            window.location.reload();
-            return null;
-          }
-          return prev - 1;
-        });
+        countdown -= 1;
+        if (countdown <= 0) {
+          clearInterval(timer);
+          window.location.reload();
+        } else {
+          setCountdown(countdown);
+        }
       }, 1000);
       return () => clearInterval(timer);
     }
@@ -170,19 +250,48 @@ function ChangelogModal({
             )}
           </div>
           <div className="changelog-buttons">
-            <button className="btn ghost" type="button" onClick={onClose}>
-              <IconImage src={CloseIcon} />
-              Close
-            </button>
-            <button
-              className="btn primary"
-              type="button"
-              onClick={onUpdate}
-              disabled={updateDisabled}
-            >
-              <IconImage src={UpdateIcon} />
-              {updateDisabled ? "Updating..." : "Update Now"}
-            </button>
+            {isBinaryInstall ? (
+              binaryDownloadError ? (
+                <div className="update-status text-danger" style={{ marginBottom: '0.5rem' }}>
+                  {binaryDownloadError}
+                </div>
+              ) : binaryDownloadUrl ? (
+                <>
+                  <a
+                    className="btn primary"
+                    href={`/web/download-update`}
+                    download={binaryDownloadName ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <IconImage src={DownloadIcon} />
+                    Download Update
+                    {binaryDownloadSize && binaryDownloadSize > 0 ? (
+                      <span style={{ marginLeft: '0.5rem', opacity: 0.8, fontSize: '0.875rem' }}>
+                        ({(binaryDownloadSize / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    ) : null}
+                  </a>
+                  <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+                    Binary installation detected. Download and manually replace the executable.
+                  </div>
+                </>
+              ) : (
+                <div className="update-status text-danger">
+                  Unable to fetch binary download URL. Please update manually.
+                </div>
+              )
+            ) : (
+              <button
+                className="btn primary"
+                type="button"
+                onClick={onUpdate}
+                disabled={updateDisabled}
+              >
+                <IconImage src={UpdateIcon} />
+                {updateDisabled ? "Updating..." : "Update Now"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -194,7 +303,7 @@ function AppShell(): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
   const [configDirty, setConfigDirty] = useState(false);
   const { push } = useToast();
-  const { value: searchValue, setValue: setSearchValue } = useSearch();
+  const { setValue: setSearchValue } = useSearch();
   const { viewDensity, setViewDensity } = useWebUI();
   const isOnline = useNetworkStatus();
   const [meta, setMeta] = useState<MetaResponse | null>(null);
@@ -208,6 +317,8 @@ function AppShell(): JSX.Element {
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [statusData, setStatusData] = useState<StatusResponse | null>(null);
+  const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
   // Theme is now managed by WebUIContext and applied automatically
 
@@ -258,6 +369,30 @@ function AppShell(): JSX.Element {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
 
+  // Check for new version on first launch - show welcome popup with changelog
+  useEffect(() => {
+    if (!meta?.current_version) {
+      return;
+    }
+
+    const lastSeenVersion = localStorage.getItem("lastSeenVersion");
+    const currentVersion = meta.current_version;
+
+    // Show welcome popup if this is a new version (but not on very first install)
+    if (lastSeenVersion && lastSeenVersion !== currentVersion) {
+      // Ensure we have changelog data before showing popup
+      if (!meta.current_version_changelog && !meta.changelog) {
+        void refreshMeta({ force: true, silent: true });
+      }
+      setShowWelcomeChangelog(true);
+    }
+
+    // Store current version as last seen when user opens the app (first install)
+    if (!lastSeenVersion) {
+      localStorage.setItem("lastSeenVersion", currentVersion);
+    }
+  }, [meta?.current_version, meta?.changelog, refreshMeta]);
+
   // Network status notifications
   useEffect(() => {
     if (!isOnline) {
@@ -285,22 +420,14 @@ function AppShell(): JSX.Element {
         return;
       }
 
-      // R - Refresh current view
-      if (event.key === 'r' || event.key === 'R') {
-        event.preventDefault();
-        setReloadKey(prev => prev + 1);
-        push('Refreshed', 'success');
-        return;
-      }
-
       // ESC - Clear search
       if (event.key === 'Escape') {
         setSearchValue('');
         return;
       }
 
-      // Number keys 1-5 for tab switching
-      if (event.key >= '1' && event.key <= '5' && !isMod) {
+      // Number keys 1-6 for tab switching
+      if (event.key >= '1' && event.key <= '6' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
         const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'config'];
@@ -328,6 +455,7 @@ function AppShell(): JSX.Element {
         // Force reload all data by incrementing the reload key
         setReloadKey((prev) => prev + 1);
         void refreshMeta({ force: true });
+        void refreshStatus();
       }
     };
 
@@ -336,6 +464,23 @@ function AppShell(): JSX.Element {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshMeta]);
+
+  const refreshStatus = useCallback(async () => {
+    try {
+      const status = await getStatus();
+      setStatusData(status);
+    } catch {
+      // Silently fail - status is not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStatus();
+    const id = window.setInterval(() => {
+      void refreshStatus();
+    }, 5 * 1000); // Refresh every 5 seconds for more dynamic tab loading
+    return () => window.clearInterval(id);
+  }, [refreshStatus]);
 
   useEffect(() => {
     if (!meta?.update_state?.in_progress && !backendRestarting) {
@@ -410,6 +555,7 @@ function AppShell(): JSX.Element {
         if (cancelled) {
           return;
         }
+        setStatusData(status);
         const readyHint =
           status.ready ?? (Array.isArray(status.arrs) && status.arrs.length > 0);
         if (readyHint) {
@@ -481,6 +627,14 @@ function AppShell(): JSX.Element {
   }
   const versionTitle = versionTitleParts.length ? versionTitleParts.join(" • ") : undefined;
 
+  // Redirect to processes if active tab is no longer available
+  useEffect(() => {
+    const tabExists = tabs.some((tab) => tab.id === activeTab);
+    if (!tabExists && tabs.length > 0) {
+      setActiveTab("processes");
+    }
+  }, [tabs, activeTab]);
+
   const handleCheckUpdates = useCallback(() => {
     void refreshMeta({ force: true });
   }, [refreshMeta]);
@@ -495,6 +649,14 @@ function AppShell(): JSX.Element {
   const handleCloseChangelog = useCallback(() => {
     setShowChangelog(false);
   }, []);
+
+  const handleCloseWelcomeChangelog = useCallback(() => {
+    setShowWelcomeChangelog(false);
+    // Mark this version as seen
+    if (meta?.current_version) {
+      localStorage.setItem("lastSeenVersion", meta.current_version);
+    }
+  }, [meta?.current_version]);
 
   const handleTriggerUpdate = useCallback(async () => {
     setUpdateBusy(true);
@@ -627,8 +789,22 @@ function AppShell(): JSX.Element {
           repositoryUrl={repositoryUrl}
           updateState={updateState}
           updating={updateBusy}
+          installationType={meta.installation_type}
+          binaryDownloadUrl={meta.binary_download_url}
+          binaryDownloadName={meta.binary_download_name}
+          binaryDownloadSize={meta.binary_download_size}
+          binaryDownloadError={meta.binary_download_error}
           onClose={handleCloseChangelog}
           onUpdate={handleTriggerUpdate}
+        />
+      ) : null}
+      {showWelcomeChangelog && meta ? (
+        <WelcomeModal
+          currentVersion={meta.current_version}
+          changelog={meta.current_version_changelog || meta.changelog}
+          changelogUrl={changelogUrl}
+          repositoryUrl={repositoryUrl}
+          onClose={handleCloseWelcomeChangelog}
         />
       ) : null}
     </div>
