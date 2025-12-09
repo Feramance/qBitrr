@@ -421,4 +421,4 @@ Or explore other settings:
 
 - [Configuration Overview](index.md)
 - [Torrent Settings](torrents.md)
-- [Search Settings](search.md)
+- [Search Settings](search/index.md)

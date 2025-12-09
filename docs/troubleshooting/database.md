@@ -259,14 +259,13 @@ sqlite3.OperationalError: database is locked
 === "Wait for Lock Release"
     qBitrr automatically retries locked operations with exponential backoff:
 
-    ```python
-    # Internal retry logic (automatic)
+    **Internal retry logic (automatic):**
+
     - Attempt 1: Wait 0.5s
     - Attempt 2: Wait 1.0s
     - Attempt 3: Wait 2.0s
     - Attempt 4: Wait 4.0s
     - Attempt 5: Wait 8.0s (max 10s)
-    ```
 
     If locks persist beyond 5 retries:
 
@@ -1019,3 +1018,44 @@ If repair fails, delete database and rebuild:
 rm ~/config/qbitrr.db
 docker start qbitrr  # Rebuilds from Arr APIs
 ```
+
+---
+
+## Related Documentation
+
+### Troubleshooting
+- [Common Issues](common-issues.md) - General troubleshooting guide
+- [Debug Logging](debug-logging.md) - Enable detailed logging for diagnosis
+- [Docker Troubleshooting](docker.md) - Docker-specific issues
+- [Path Mapping](path-mapping.md) - File access problems
+- [Performance Tuning](performance.md) - Optimize qBitrr performance
+
+### Configuration
+- [Configuration Guide](../configuration/index.md) - All configuration options
+- [Environment Variables](../configuration/environment.md) - ENV var configuration
+
+### Advanced
+- [API Reference](../reference/api.md) - Direct database access via API
+- [Development Guide](../development/index.md) - Database schema details
+
+---
+
+## Need Help?
+
+If database issues persist after following this guide:
+
+1. **Collect Information**:
+   - qBitrr version: `docker exec qbitrr qbitrr --version`
+   - Database size: `ls -lh ~/config/*.db*`
+   - Recent errors: `tail -n 100 ~/config/logs/Main.log`
+
+2. **Try Emergency Recovery**:
+   - Stop qBitrr
+   - Backup database
+   - Delete database (forces rebuild)
+   - Restart qBitrr
+
+3. **Get Support**:
+   - [GitHub Issues](https://github.com/Drapersniper/qBitrr/issues) - Report database bugs
+   - [FAQ](../faq.md) - Check for known database issues
+   - Provide: qBitrr version, error messages, database size, storage type (local/NFS/SMB)

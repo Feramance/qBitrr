@@ -550,4 +550,4 @@ GET /api/processes
 - **Monitor Processes**: [WebUI Processes View](../webui/processes.md)
 - **View Logs**: [WebUI Logs View](../webui/logs.md)
 - **Troubleshooting**: [Common Issues](../troubleshooting/common-issues.md)
-- **Advanced Topics**: [Architecture Overview](../advanced/architecture.md)
+- **Advanced Topics**: [Development Guide - Architecture](../development/index.md#architecture)

@@ -437,7 +437,7 @@ qbitrr  # Run in foreground to see errors
 
 ### Need More Help?
 
-- [Configuration Reference](../reference/config-schema.md)
+- [Configuration Reference](../configuration/config-file.md)
 - [Common Issues](../troubleshooting/common-issues.md)
 - [FAQ](../faq.md)
 - [GitHub Discussions](https://github.com/Feramance/qBitrr/discussions)

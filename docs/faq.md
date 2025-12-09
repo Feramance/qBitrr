@@ -164,7 +164,7 @@ Reduce resource usage:
 3. **Disable verbose logging**: Set log level to INFO or WARNING
 4. **Limit concurrent searches**: Reduce `SearchLimit` per instance
 
-[Performance tuning →](advanced/performance.md)
+[Performance tuning →](troubleshooting/performance.md)
 
 ### Docker path issues
 
@@ -237,7 +237,7 @@ Not directly, but you can:
 
 ### How do I contribute to qBitrr?
 
-See the [Contributing Guide](development/contributing.md) for:
+See the [Development Guide](development/index.md) for:
 
 - Code style guidelines
 - Development setup
@@ -249,6 +249,415 @@ See the [Contributing Guide](development/contributing.md) for:
 - [GitHub Issues](https://github.com/Feramance/qBitrr/issues) for bugs
 - [GitHub Discussions](https://github.com/Feramance/qBitrr/discussions) for feature ideas
 
+### How do I backup my qBitrr configuration?
+
+Backup these files/folders:
+
+```bash
+# Essential
+~/config/config.toml      # Configuration file
+~/config/qBitrr.db        # Database
+
+# Optional
+~/config/logs/            # Log files (if needed)
+```
+
+**Docker backup:**
+```bash
+docker cp qbitrr:/config/config.toml ./config.toml.backup
+docker cp qbitrr:/config/qBitrr.db ./qBitrr.db.backup
+```
+
+### Can I run qBitrr on NAS devices?
+
+Yes! qBitrr runs on many NAS platforms:
+
+- **Synology**: Docker or native Python
+- **QNAP**: Container Station (Docker)
+- **Unraid**: Community Applications
+- **TrueNAS**: Jails or Docker
+
+[NAS installation guide →](getting-started/installation/docker.md#nas-devices)
+
+### Does qBitrr work with VPN?
+
+Yes, qBitrr works with VPN setups. Common configurations:
+
+1. **qBittorrent behind VPN**: qBitrr and Arr instances access qBit normally
+2. **All containers in VPN**: Ensure proper network configuration
+3. **Split tunnel**: Route only torrent traffic through VPN
+
+The key is that qBitrr must be able to reach qBittorrent and Arr instances on the network.
+
+### What's the difference between instant import and Arr's import?
+
+**Arr's default behavior:**
+- Scans download folder every 1-15 minutes
+- Import delay: 1-15 minutes after download completes
+
+**qBitrr's instant import:**
+- Monitors qBittorrent events in real-time
+- Triggers import command immediately (within seconds)
+- Import delay: 5-10 seconds after download completes
+
+Result: **2-15 minutes faster** import to your library.
+
+### Can qBitrr delete torrents automatically?
+
+Yes, with seeding rules:
+
+```toml
+[Radarr-Movies.Torrent.SeedingMode]
+MaxUploadRatio = 2.0          # Delete after 2.0 ratio
+MaxSeedingTime = 604800       # Or after 7 days
+RemoveTorrent = 3             # Remove when EITHER met
+```
+
+Options for `RemoveTorrent`:
+- `-1` = Never remove
+- `1` = Remove when ratio met
+- `2` = Remove when time met
+- `3` = Remove when EITHER met
+- `4` = Remove when BOTH met
+
+[Seeding configuration →](configuration/seeding.md)
+
+### How does FFprobe validation work?
+
+FFprobe validates media files before import:
+
+1. **Download completes** in qBittorrent
+2. **qBitrr runs FFprobe** to check file integrity
+3. **If valid**: Trigger import to Arr
+4. **If invalid**: Mark as failed, blacklist, re-search
+
+Benefits:
+- Prevents importing corrupt files
+- Detects fake/sample files
+- Verifies codec compatibility
+
+```toml
+[Settings]
+EnableFFprobe = true
+FFprobeAutoUpdate = true  # Auto-download FFprobe
+```
+
+### What happens when disk space is low?
+
+With disk space management enabled:
+
+```toml
+[Settings]
+FreeSpace = "50G"           # Threshold
+FreeSpaceFolder = "/downloads"
+AutoPauseResume = true
+```
+
+**Behavior:**
+1. Disk space drops below 50GB
+2. qBitrr pauses all torrents
+3. Arr imports completed downloads (frees space)
+4. Space increases above threshold
+5. qBitrr resumes torrents automatically
+
+[Disk space management →](features/disk-space.md)
+
+### Can I use qBitrr with Prowlarr?
+
+Yes! Prowlarr manages indexers for Radarr/Sonarr/Lidarr. qBitrr works alongside Prowlarr:
+
+- **Prowlarr**: Manages indexers, syncs to Arr instances
+- **qBitrr**: Monitors torrents, triggers imports, automates searches
+
+They complement each other - no conflicts.
+
+### Does qBitrr support Usenet?
+
+No, qBitrr is specifically designed for torrents via qBittorrent. For Usenet:
+
+- Arr instances handle Usenet natively (SABnzbd/NZBGet)
+- qBitrr only monitors qBittorrent categories
+
+### How do I migrate from another tool?
+
+Common migrations:
+
+**From qBittorrent-Manager:**
+1. Install qBitrr
+2. Port your category/tag configuration
+3. Disable old manager
+4. Verify qBitrr detects torrents
+
+**From manual scripts:**
+1. Identify what scripts do
+2. Configure equivalent qBitrr features
+3. Test in parallel
+4. Remove scripts once verified
+
+[Migration guide →](getting-started/migration.md)
+
+### Can I customize search behavior?
+
+Yes, extensive search customization:
+
+```toml
+[Radarr-Movies.EntrySearch]
+SearchMissing = true              # Auto-search missing
+SearchByYear = true               # Order by release year
+SearchInReverse = false           # Newest first
+SearchLimit = 10                  # Max concurrent
+SearchRequestsEvery = 300         # Check every 5 min
+DoUpgradeSearch = true            # Search for upgrades
+CustomFormatUnmetSearch = true    # Enforce CF scores
+```
+
+[Search configuration →](configuration/search/index.md)
+
+### What are custom formats and how does qBitrr use them?
+
+Custom Formats (CF) are Radarr/Sonarr scoring rules for releases. qBitrr can:
+
+1. **Enforce minimum scores**: Remove torrents below threshold
+2. **Search for CF improvements**: Find releases with better scores
+3. **Force quality standards**: Block non-compliant releases
+
+```toml
+[Radarr-Movies.EntrySearch]
+CustomFormatUnmetSearch = true     # Search for CF improvements
+ForceMinimumCustomFormat = true    # Remove below threshold
+```
+
+[Custom format guide →](features/custom-formats.md)
+
+### How do I handle ratio requirements on private trackers?
+
+Configure per-tracker seeding rules:
+
+```toml
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "PrivateHD"
+URI = "https://tracker.privatehd.com"
+MaxUploadRatio = 3.0      # Higher ratio for private
+MaxSeedingTime = 1209600  # 14 days minimum
+RemoveTorrent = 4         # Must meet BOTH requirements
+```
+
+This ensures you maintain good standing on private trackers.
+
+[Private tracker setup →](advanced/index.md#private-tracker-configuration)
+
+### Can I schedule searches at specific times?
+
+Currently, searches run on intervals:
+
+```toml
+SearchRequestsEvery = 300  # Every 5 minutes
+```
+
+For advanced scheduling, consider:
+- Using cron to restart qBitrr at specific times
+- Adjusting intervals based on your indexer limits
+- Request integration for on-demand searches
+
+### How do I troubleshoot "No connection" errors?
+
+**For qBittorrent:**
+```bash
+# Test connection
+curl -u admin:password http://localhost:8080/api/v2/app/version
+
+# Check if running
+docker ps | grep qbittorrent
+```
+
+**For Arr instances:**
+```bash
+# Test API
+curl -H "X-Api-Key: YOUR_KEY" http://localhost:7878/api/v3/system/status
+
+# Check if running
+docker ps | grep radarr
+```
+
+**Common fixes:**
+1. Use container names in Docker (not `localhost`)
+2. Verify ports are correct
+3. Check firewall rules
+4. Ensure services are running
+
+[Connection troubleshooting →](troubleshooting/common-issues.md#connection-issues)
+
+### Does qBitrr support Windows?
+
+Yes! Installation options:
+
+1. **Docker Desktop**: Recommended for Windows
+2. **pip install**: Requires Python 3.11+
+
+**Note:** Pre-built binaries are not currently available. Use Docker or pip installation methods.
+
+**Windows-specific notes:**
+- Use Windows paths (e.g., `C:\Downloads`)
+- PowerShell or CMD for commands
+- Docker Desktop requires WSL2
+
+[Windows installation →](getting-started/installation/pip.md#windows)
+
+### How often should I update qBitrr?
+
+Update frequency depends on your needs:
+
+- **Stable releases**: Every 1-2 months
+- **Security updates**: Immediately
+- **Feature updates**: When you need new features
+- **Development builds**: Only for testing
+
+Enable auto-updates:
+```toml
+[Settings]
+AutoUpdateEnabled = true
+AutoUpdateCron = "0 3 * * 0"  # Sundays at 3 AM
+```
+
+[Auto-update guide →](features/auto-updates.md)
+
+### Can I use qBitrr with Plex/Jellyfin/Emby?
+
+Yes! qBitrr works with any media server:
+
+1. qBitrr → manages qBittorrent torrents
+2. Radarr/Sonarr/Lidarr → organizes media
+3. Plex/Jellyfin/Emby → serves media to users
+
+qBitrr doesn't interact directly with media servers - it works through the Arr stack.
+
+### What's the performance impact of qBitrr?
+
+Typical resource usage:
+
+- **CPU**: 1-5% average (spikes during scans)
+- **RAM**: 100-300 MB
+- **Disk**: ~50 MB (application + database)
+- **Network**: Minimal (API calls only)
+
+For 100+ torrents:
+- CPU: 5-10% during checks
+- RAM: 300-500 MB
+
+[Performance tuning →](troubleshooting/performance.md)
+
+### How do I report bugs?
+
+Before reporting:
+
+1. **Check logs** for error messages
+2. **Search existing issues** on GitHub
+3. **Try latest version** (bug might be fixed)
+
+When reporting:
+
+1. Go to [GitHub Issues](https://github.com/Feramance/qBitrr/issues)
+2. Click "New Issue"
+3. Include:
+   - qBitrr version
+   - Installation method
+   - Error logs (redact sensitive info)
+   - Steps to reproduce
+   - Expected vs actual behavior
+
+### Can I contribute without coding?
+
+Yes! Non-code contributions:
+
+- **Documentation**: Improve guides and examples
+- **Testing**: Test new features and report issues
+- **Support**: Help others in Discussions
+- **Feedback**: Suggest improvements
+- **Translations**: Help translate (future feature)
+
+[Contributing guide →](development/index.md)
+
 ---
 
-**Still have questions?** Ask in [GitHub Discussions](https://github.com/Feramance/qBitrr/discussions) or check the [Troubleshooting Guide](troubleshooting/index.md).
+## Quick Reference
+
+### Essential Commands
+
+```bash
+# Start qBitrr
+qbitrr                              # pip/native
+docker start qbitrr                 # Docker
+sudo systemctl start qbitrr         # Systemd
+
+# View logs
+docker logs -f qbitrr               # Docker
+journalctl -u qbitrr -f             # Systemd
+tail -f ~/config/logs/Main.log      # Native
+
+# Access WebUI
+http://localhost:6969/ui
+```
+
+### Essential Configuration
+
+```toml
+# Minimum config
+[Settings.Qbittorrent]
+Host = "http://localhost:8080"
+Username = "admin"
+Password = "adminpass"
+
+[Radarr-Movies]
+URI = "http://localhost:7878"
+APIKey = "your-api-key"
+Category = "radarr-movies"
+```
+
+### Common File Locations
+
+- **Config**: `~/config/config.toml` or `/config/config.toml`
+- **Database**: `~/config/qBitrr.db` or `/config/qBitrr.db`
+- **Logs**: `~/config/logs/` or `/config/logs/`
+- **WebUI**: `http://localhost:6969/ui`
+
+---
+
+## Related Documentation
+
+### Getting Started
+- [Installation Guide](getting-started/installation/index.md)
+- [Quick Start](getting-started/quickstart.md)
+- [First Run Configuration](getting-started/first-run.md)
+
+### Configuration
+- [Complete Configuration Reference](configuration/config-file.md)
+- [qBittorrent Setup](configuration/qbittorrent.md)
+- [Arr Configuration](configuration/arr/index.md)
+- [Search Settings](configuration/search/index.md)
+
+### Features
+- [Automated Search](features/automated-search.md)
+- [Instant Imports](features/instant-imports.md)
+- [Health Monitoring](features/health-monitoring.md)
+- [Custom Formats](features/custom-formats.md)
+
+### Troubleshooting
+- [Common Issues](troubleshooting/common-issues.md)
+- [Docker Problems](troubleshooting/docker.md)
+- [Performance Tuning](troubleshooting/performance.md)
+- [Path Mapping](troubleshooting/path-mapping.md)
+
+### Advanced
+- [Advanced Topics](advanced/index.md)
+- [CLI Reference](reference/cli.md)
+- [API Documentation](reference/api.md)
+- [Development Guide](development/index.md)
+
+---
+
+## Need More Help?
+
+- 💬 **Community Support**: [GitHub Discussions](https://github.com/Feramance/qBitrr/discussions)
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/Feramance/qBitrr/issues)
+- 📚 **Documentation**: You're reading it!
+- 🚀 **Quick Start**: [5-minute setup guide](getting-started/quickstart.md)

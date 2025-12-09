@@ -388,7 +388,7 @@ Modern React-based dashboard for monitoring and management.
 - **Real-time updates** - Live status of all torrents and Arr instances
 - **Process monitoring** - View active processes and their status
 - **Log viewer** - Browse and search logs from the web interface
-- **Configuration editor** - Edit config.toml via web UI (coming soon)
+- **Configuration editor** - Edit config.toml via web UI
 - **Statistics** - Dashboard with download stats and health metrics
 - **Mobile responsive** - Works on phones and tablets
 
@@ -583,7 +583,14 @@ RemoveTorrent = 2  # Time-based only
 Detailed guides for each feature:
 
 - [Health Monitoring](health-monitoring.md) - Comprehensive torrent health checks
-- More feature guides coming soon...
+- [Instant Imports](instant-imports.md) - Fast media library updates
+- [Automated Search](automated-search.md) - Missing content automation
+- [Quality Upgrades](quality-upgrades.md) - Automatic quality improvements
+- [Custom Formats](custom-formats.md) - Advanced quality scoring
+- [Request Integration](request-integration.md) - Overseerr/Ombi integration
+- [Process Management](process-management.md) - Automatic restart handling
+- [Disk Space Management](disk-space.md) - Free space monitoring
+- [Auto Updates](auto-updates.md) - Automatic version updates
 
 ---
 
@@ -593,3 +600,38 @@ Detailed guides for each feature:
 - [Troubleshooting](../troubleshooting/index.md) - Common issues and solutions
 - [FAQ](../faq.md) - Frequently asked questions
 - [GitHub Issues](https://github.com/Drapersniper/qBitrr/issues) - Report bugs or request features
+
+---
+
+## Related Documentation
+
+### Feature Guides
+- [Health Monitoring](health-monitoring.md) - Comprehensive torrent health checks
+- [Instant Imports](instant-imports.md) - Fast media library updates
+- [Automated Search](automated-search.md) - Missing content automation
+- [Quality Upgrades](quality-upgrades.md) - Automatic quality improvements
+- [Custom Formats](custom-formats.md) - Advanced quality scoring
+- [Request Integration](request-integration.md) - Overseerr/Ombi integration
+- [Process Management](process-management.md) - Automatic restart handling
+- [Disk Space Management](disk-space.md) - Free space monitoring
+
+### Configuration
+- [Arr Configuration](../configuration/arr/index.md) - Radarr/Sonarr/Lidarr setup
+- [Search Configuration](../configuration/search/index.md) - Search automation settings
+- [Seeding Configuration](../configuration/seeding.md) - Seeding rules and limits
+- [Torrent Configuration](../configuration/torrents.md) - Torrent handling options
+
+### Getting Started
+- [Quick Start Guide](../getting-started/quickstart.md) - Set up your first feature
+- [Installation](../getting-started/installation/index.md) - Install qBitrr
+- [First Run](../getting-started/first-run.md) - Initial configuration
+
+---
+
+## Next Steps
+
+1. **Choose Your Features** - Review the features above and decide which ones fit your workflow
+2. **Configure Settings** - Follow the [Configuration Guide](../configuration/index.md) to enable features
+3. **Test & Monitor** - Use the [WebUI](../webui/index.md) to monitor feature performance
+4. **Optimize** - Tune thresholds and delays based on your setup
+5. **Get Support** - Check [Troubleshooting](../troubleshooting/index.md) if issues arise
