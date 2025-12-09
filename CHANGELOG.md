@@ -1,5 +1,24 @@
 # Changelog
 
+## v5.6.1 (09/12/2025)
+
+### 🚀 Features
+- [[minor] Complete comprehensive MkDocs documentation](https://github.com/Feramance/qBitrr/commit/acbd8576db24a456f3d46c3d4a3e54074c5f5815) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] Fix release workflow job dependencies to access prepare_release outputs](https://github.com/Feramance/qBitrr/commit/789d148ed45b3fe9e9203b63b8466f5e9da0ae0e) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump typescript-eslint from 8.48.0 to 8.48.1 in /webui (#230)](https://github.com/Feramance/qBitrr/commit/afd815d597caca16db478573ea0b24a112aede3b) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.0 to 19.2.1 in /webui (#229)](https://github.com/Feramance/qBitrr/commit/49c4db76dba214207fefffa8a8155800016e9a9f) - @Feramance
+- [Build(deps-dev): Bump vite from 7.2.6 to 7.2.7 in /webui (#228)](https://github.com/Feramance/qBitrr/commit/9d768374c35edbdc5c7952bd4fa1808cbb1ce062) - @Feramance
+- [Build(deps): Bump react from 19.2.0 to 19.2.1 in /webui (#227)](https://github.com/Feramance/qBitrr/commit/18d32930521f7d6cb01c084e476393e7ef6b15c9) - @Feramance
+- [Build(deps-dev): Bump @types/react from 19.2.6 to 19.2.7 in /webui (#226)](https://github.com/Feramance/qBitrr/commit/06cebd679079045201d0be59fbfc8294ee379ca1) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.47.0 to 8.48.0 in /webui (#223)](https://github.com/Feramance/qBitrr/commit/d5612a6c60993c5a1bb45b804ff2f1a70d16711b) - @Feramance
+- [Build(deps-dev): Bump vite from 7.2.2 to 7.2.6 in /webui (#222)](https://github.com/Feramance/qBitrr/commit/371fb6650ed7ecadf78e426889d8db6510fbcdc0) - @Feramance
+
+---
+
 ## v (09/12/2025)
 
 ### 🐛 Bug Fixes
