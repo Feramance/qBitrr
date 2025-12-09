@@ -475,4 +475,4 @@ result = untyped_library_function()  # type: ignore
 - [Contributing](contributing.md) - Contribution guidelines
 - [Development Guide](index.md) - Complete development setup
 - [Testing](testing.md) - Testing your code
-- [AGENTS.md](../../AGENTS.md) - AI agent coding guidelines
+- [AGENTS.md](https://github.com/Feramance/qBitrr/blob/master/AGENTS.md) - AI agent coding guidelines

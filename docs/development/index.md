@@ -258,7 +258,7 @@ make docs-build
 
 ### Documentation Structure
 
-See [docs/README.md](../README.md) for full guidelines.
+See [docs/README.md](https://github.com/Feramance/qBitrr/blob/master/docs/README.md) for full guidelines.
 
 ## Debugging
 
@@ -1125,9 +1125,9 @@ When testing changes manually:
 
 ### Development Guides
 
-- **AGENTS.md** - Comprehensive development guidelines for AI agents
-- **CONTRIBUTION.md** - Contribution guidelines and code of conduct
-- **API_DOCUMENTATION.md** - Complete API reference with examples
+- **[AGENTS.md](https://github.com/Feramance/qBitrr/blob/master/AGENTS.md)** - Comprehensive development guidelines for AI agents
+- **[CONTRIBUTION.md](https://github.com/Feramance/qBitrr/blob/master/CONTRIBUTION.md)** - Contribution guidelines and code of conduct
+- **[API_DOCUMENTATION.md](https://github.com/Feramance/qBitrr/blob/master/API_DOCUMENTATION.md)** - Complete API reference with examples
 
 ### External Documentation
 
@@ -1163,7 +1163,7 @@ We welcome contributions of all types:
 
 Contributors are recognized in:
 
-- **README.md** - Contributors section with avatars
+- **[README.md](https://github.com/Feramance/qBitrr/blob/master/README.md)** - Contributors section with avatars
 - **Release Notes** - Feature/fix attribution
 - **GitHub Contributors Graph** - Automatic tracking
 - **Special Thanks** - Major contributors get shoutouts

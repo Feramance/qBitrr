@@ -27,7 +27,7 @@ This guide helps you migrate from older versions of qBitrr or similar tools to t
    ```
 
 3. **Review release notes:**
-   - Check [CHANGELOG.md](../../CHANGELOG.md) for breaking changes
+   - Check [CHANGELOG.md](https://github.com/Feramance/qBitrr/blob/master/CHANGELOG.md) for breaking changes
    - Review [GitHub Releases](https://github.com/Feramance/qBitrr/releases) for version-specific notes
 
 ---
