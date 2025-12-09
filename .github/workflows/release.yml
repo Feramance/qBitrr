@@ -134,6 +134,7 @@ jobs:
     name: Publish Docker images
     runs-on: ubuntu-latest
     needs:
+    - prepare_release
     - create_release
     if: needs.prepare_release.result == 'success'
     env:
@@ -180,6 +181,7 @@ jobs:
     name: Build release binaries
     runs-on: ${{ matrix.os }}
     needs:
+    - prepare_release
     - create_release
     if: needs.prepare_release.result == 'success'
     strategy:
@@ -269,6 +271,7 @@ jobs:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs:
+    - prepare_release
     - docker_images
     - package_binaries
     if: needs.prepare_release.result == 'success'
@@ -318,6 +321,7 @@ jobs:
     name: Generate changelog and release notes
     runs-on: ubuntu-latest
     needs:
+    - prepare_release
     - publish_pypi
     if: needs.prepare_release.result == 'success'
     steps:
@@ -573,6 +577,7 @@ jobs:
     name: Publish GitHub release
     runs-on: ubuntu-latest
     needs:
+    - prepare_release
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
