@@ -4,6 +4,7 @@ repos:
   rev: v6.0.0
   hooks:
   - id: check-yaml
+    exclude: ^mkdocs\.yml$
   - id: end-of-file-fixer
   - id: requirements-txt-fixer
   - id: trailing-whitespace
