@@ -1,5 +1,15 @@
 # Changelog
 
+## v (09/12/2025)
+
+### 🐛 Bug Fixes
+- [[patch] Lidarr webui fixes](https://github.com/Feramance/qBitrr/commit/0884fc77e152c45057daaeb230a940217aeb4874) - @Feramance
+
+### 🔧 Maintenance
+- [Added some more assets and update release workflow](https://github.com/Feramance/qBitrr/commit/4a4f718163c472175994d33ec6f4e2d33ac31c65) - @Feramance
+
+---
+
 ## v (28/11/2025)
 
 ### 🐛 Bug Fixes
