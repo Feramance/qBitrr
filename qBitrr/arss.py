@@ -20,7 +20,7 @@ import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
 from packaging import version as version_parser
-from peewee import Model, SqliteDatabase
+from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
 from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
@@ -4475,6 +4475,11 @@ class Arr:
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
 
+                # Initialize database error tracking for exponential backoff
+                if not hasattr(self, "_db_error_count"):
+                    self._db_error_count = 0
+                    self._db_last_error_time = 0
+
                 # Periodic database health check (every 10th iteration)
                 if not hasattr(self, "_health_check_counter"):
                     self._health_check_counter = 0
@@ -4516,6 +4521,76 @@ class Arr:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
                 raise DelayLoopException(length=300, type="qbit")
+            except (OperationalError, DatabaseError) as e:
+                # Database errors after retry exhaustion - implement automatic recovery with backoff
+                error_msg = str(e).lower()
+                current_time = time.time()
+
+                # Track consecutive database errors for exponential backoff
+                if (
+                    current_time - self._db_last_error_time > 300
+                ):  # Reset if >5min since last error
+                    self._db_error_count = 0
+                self._db_error_count += 1
+                self._db_last_error_time = current_time
+
+                # Calculate exponential backoff: 2min, 5min, 10min, 20min, 30min (max)
+                delay_seconds = min(120 * (2 ** (self._db_error_count - 1)), 1800)
+
+                # Log detailed error information based on error type
+                if "disk i/o error" in error_msg:
+                    self.logger.critical(
+                        "Persistent database I/O error detected (consecutive error #%d). "
+                        "This indicates disk issues, filesystem corruption, or resource exhaustion. "
+                        "Attempting automatic recovery and retrying in %d seconds...",
+                        self._db_error_count,
+                        delay_seconds,
+                    )
+                elif "database is locked" in error_msg:
+                    self.logger.error(
+                        "Database locked error (consecutive error #%d). "
+                        "Retrying in %d seconds...",
+                        self._db_error_count,
+                        delay_seconds,
+                    )
+                elif "disk image is malformed" in error_msg:
+                    self.logger.critical(
+                        "Database corruption detected (consecutive error #%d). "
+                        "Attempting automatic recovery and retrying in %d seconds...",
+                        self._db_error_count,
+                        delay_seconds,
+                    )
+                else:
+                    self.logger.error(
+                        "Database error (consecutive error #%d): %s. " "Retrying in %d seconds...",
+                        self._db_error_count,
+                        error_msg,
+                        delay_seconds,
+                    )
+
+                # Attempt automatic recovery for critical errors
+                if "disk i/o error" in error_msg or "disk image is malformed" in error_msg:
+                    try:
+                        self.logger.warning(
+                            "Attempting enhanced database recovery (WAL checkpoint, repair, and verification)..."
+                        )
+                        self._enhanced_database_recovery()
+                        self.logger.info(
+                            "Database recovery completed successfully - will retry operation after delay"
+                        )
+                        # Reduce error count on successful recovery (but don't reset completely)
+                        self._db_error_count = max(0, self._db_error_count - 1)
+                    except Exception as recovery_error:
+                        self.logger.critical(
+                            "Automatic database recovery failed: %s. "
+                            "MANUAL INTERVENTION REQUIRED: Check disk health (smartctl), "
+                            "filesystem integrity (fsck), available space (df -h), "
+                            "Docker volume mounts, permissions, and system logs (dmesg).",
+                            recovery_error,
+                        )
+
+                # Delay processing to avoid hammering failing database
+                raise DelayLoopException(length=delay_seconds, type="database")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -4565,6 +4640,83 @@ class Arr:
             "Database recovery failed - database may be corrupted. "
             "Manual intervention may be required. Continuing with caution..."
         )
+
+    def _enhanced_database_recovery(self):
+        """
+        Enhanced automatic database recovery with additional filesystem checks.
+
+        This method is called when disk I/O errors persist after retry logic has been exhausted.
+        It implements a comprehensive recovery strategy:
+        1. Try WAL checkpoint (least invasive)
+        2. Try VACUUM to reclaim space and fix minor corruption
+        3. Try full database repair (dump/restore) if needed
+        4. Verify database integrity after recovery
+        """
+        from qBitrr.db_recovery import (
+            DatabaseRecoveryError,
+            checkpoint_wal,
+            repair_database,
+            vacuum_database,
+        )
+        from qBitrr.home_path import APPDATA_FOLDER
+
+        db_path = APPDATA_FOLDER / "qbitrr.db"
+
+        self.logger.info("Starting enhanced database recovery procedure...")
+
+        # Step 1: Try WAL checkpoint
+        self.logger.info("Step 1/3: Attempting WAL checkpoint...")
+        if checkpoint_wal(db_path, self.logger):
+            self.logger.info("WAL checkpoint successful")
+            # Try a quick health check
+            from qBitrr.db_lock import check_database_health
+
+            healthy, msg = check_database_health(db_path, self.logger)
+            if healthy:
+                self.logger.info("Database health verified - recovery complete")
+                return
+            else:
+                self.logger.warning(
+                    "WAL checkpoint completed but database still unhealthy: %s", msg
+                )
+
+        # Step 2: Try VACUUM (only if WAL didn't fully fix it)
+        self.logger.info("Step 2/3: Attempting VACUUM to reclaim space and fix minor issues...")
+        if vacuum_database(db_path, self.logger):
+            self.logger.info("VACUUM completed successfully")
+            from qBitrr.db_lock import check_database_health
+
+            healthy, msg = check_database_health(db_path, self.logger)
+            if healthy:
+                self.logger.info("Database health verified after VACUUM - recovery complete")
+                return
+            else:
+                self.logger.warning("VACUUM completed but database still unhealthy: %s", msg)
+
+        # Step 3: Try full repair (most invasive)
+        self.logger.warning("Step 3/3: Attempting full database repair (dump/restore)...")
+        try:
+            if repair_database(db_path, backup=True, logger_override=self.logger):
+                self.logger.info("Database repair successful")
+                # Final health check
+                from qBitrr.db_lock import check_database_health
+
+                healthy, msg = check_database_health(db_path, self.logger)
+                if healthy:
+                    self.logger.info("Database health verified after repair - recovery complete")
+                    return
+                else:
+                    self.logger.error("Repair completed but database still unhealthy: %s", msg)
+                    raise DatabaseRecoveryError(f"Database unhealthy after repair: {msg}")
+        except DatabaseRecoveryError as e:
+            self.logger.error("Database repair failed: %s", e)
+            raise
+        except Exception as e:
+            self.logger.error("Unexpected error during database repair: %s", e)
+            raise
+
+        # If we reach here, all recovery methods failed
+        raise DatabaseRecoveryError("All automatic recovery methods failed")
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
