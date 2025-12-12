@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.6.2 (12/12/2025)
+
+### 🚀 Features
+- [[patch] Fix: Implement automatic recovery and exponential backoff for databas… (#232)](https://github.com/Feramance/qBitrr/commit/c17d6ccc54f1d4638d6eff796edf1d9ae946ea9d) - @Feramance
+
+---
+
 ## v5.6.1 (09/12/2025)
 
 ### 🚀 Features
