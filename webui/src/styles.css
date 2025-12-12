@@ -117,8 +117,8 @@ body {
     background-clip: text;
 }
 .appbar__logo {
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     object-fit: contain;
     image-rendering: auto;
     flex-shrink: 0;
