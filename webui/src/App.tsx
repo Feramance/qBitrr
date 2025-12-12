@@ -680,7 +680,7 @@ function AppShell(): JSX.Element {
         <div className="appbar__inner">
           <div className="appbar__title">
             <h1>qBitrr</h1>
-            <img src={LogoIcon} alt="qBitrr Logo" style={{ width: '32px', height: '32px', marginLeft: '8px' }} />
+            <IconImage src={LogoIcon} alt="qBitrr Logo" className="appbar__logo" />
             <span className="appbar__version" title={versionTitle}>
               {displayVersion}
             </span>

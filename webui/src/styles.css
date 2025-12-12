@@ -102,7 +102,7 @@ body {
 }
 .appbar__title {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 10px;
     flex-wrap: wrap;
 }
@@ -115,6 +115,18 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+}
+.appbar__logo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    flex-shrink: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    pointer-events: none;
 }
 
 [data-theme="light"] .appbar h1 {
@@ -1434,6 +1446,9 @@ svg[height] {
 }
 
 @media (max-width: 640px) {
+    .appbar {
+        padding: 12px 16px;
+    }
     .appbar__inner {
         flex-direction: column;
         align-items: stretch;
@@ -1446,6 +1461,11 @@ svg[height] {
     }
     .appbar__title {
         gap: 8px;
+        justify-content: center;
+    }
+    .appbar__logo {
+        width: 32px;
+        height: 32px;
     }
     .nav {
         gap: 6px;
@@ -1457,8 +1477,30 @@ svg[height] {
 }
 
 @media (max-width: 420px) {
+    .appbar {
+        padding: 10px 12px;
+    }
+    .appbar__logo {
+        width: 28px;
+        height: 28px;
+    }
+    .appbar h1 {
+        font-size: 18px;
+    }
+    .appbar__version {
+        font-size: 10px;
+    }
     .nav button {
         flex-basis: 100%;
+    }
+}
+
+/* High-DPI displays (Retina, etc.) - ensure crisp logo rendering */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .appbar__logo {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+        image-rendering: auto;
     }
 }
 
@@ -3285,6 +3327,11 @@ svg[height] {
 [data-density="compact"] .appbar__title h1 {
     font-size: 15px !important;
     margin: 0 !important;
+}
+
+[data-density="compact"] .appbar__logo {
+    width: 28px !important;
+    height: 28px !important;
 }
 
 [data-density="compact"] .appbar__version {
