@@ -744,13 +744,13 @@ function AppShell(): JSX.Element {
               GitHub
             </a>
             <a
-              href={`${repositoryUrl}/wiki`}
+              href="https://feramance.github.io/qBitrr/"
               target="_blank"
               rel="noreferrer"
               className="btn small ghost"
             >
               <IconImage src={ExternalIcon} />
-              Wiki
+              Docs
             </a>
           </div>
         </div>
