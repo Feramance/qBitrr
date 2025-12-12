@@ -120,8 +120,7 @@ body {
     width: 36px;
     height: 36px;
     object-fit: contain;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
+    image-rendering: auto;
     flex-shrink: 0;
     user-select: none;
     -webkit-user-select: none;
@@ -1495,11 +1494,9 @@ svg[height] {
     }
 }
 
-/* High-DPI displays (Retina, etc.) - ensure crisp logo rendering */
+/* High-DPI displays (Retina, etc.) - ensure smooth SVG rendering */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .appbar__logo {
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: crisp-edges;
         image-rendering: auto;
     }
 }
