@@ -743,6 +743,15 @@ function AppShell(): JSX.Element {
               <IconImage src={ExternalIcon} />
               GitHub
             </a>
+            <a
+              href={`${repositoryUrl}/wiki`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn small ghost"
+            >
+              <IconImage src={ExternalIcon} />
+              Wiki
+            </a>
           </div>
         </div>
       </header>
