@@ -679,8 +679,8 @@ function AppShell(): JSX.Element {
       <header className="appbar">
         <div className="appbar__inner">
           <div className="appbar__title">
+            <IconImage src={LogoIcon} alt="qBitrr Logo" className="appbar__logo" />
             <h1>qBitrr</h1>
-            <img src={LogoIcon} alt="qBitrr Logo" style={{ width: '32px', height: '32px', marginLeft: '8px' }} />
             <span className="appbar__version" title={versionTitle}>
               {displayVersion}
             </span>
@@ -742,6 +742,15 @@ function AppShell(): JSX.Element {
             >
               <IconImage src={ExternalIcon} />
               GitHub
+            </a>
+            <a
+              href="https://feramance.github.io/qBitrr/"
+              target="_blank"
+              rel="noreferrer"
+              className="btn small ghost"
+            >
+              <IconImage src={ExternalIcon} />
+              Docs
             </a>
           </div>
         </div>

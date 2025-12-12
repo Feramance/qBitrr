@@ -133,18 +133,27 @@ def with_database_retry(
             if "syntax" in error_msg or "constraint" in error_msg:
                 raise
 
-            # Detect corruption and attempt recovery (only once)
+            # Detect corruption or persistent I/O errors and attempt recovery (only once)
             if not corruption_recovery_attempted and (
                 "disk image is malformed" in error_msg
                 or "database disk image is malformed" in error_msg
                 or "database corruption" in error_msg
+                or "disk i/o error" in error_msg
             ):
                 corruption_recovery_attempted = True
                 if logger:
-                    logger.error(
-                        "Database corruption detected: %s. Attempting automatic recovery...",
-                        e,
-                    )
+                    if "disk i/o error" in error_msg:
+                        logger.error(
+                            "Persistent database I/O error detected: %s. "
+                            "This may indicate disk issues, filesystem problems, or database corruption. "
+                            "Attempting automatic recovery...",
+                            e,
+                        )
+                    else:
+                        logger.error(
+                            "Database corruption detected: %s. Attempting automatic recovery...",
+                            e,
+                        )
 
                 recovery_succeeded = False
                 try:
@@ -184,15 +193,19 @@ def with_database_retry(
                 # If we reach here, recovery failed - log and continue with normal retry
                 if logger:
                     logger.critical(
-                        "Automatic database recovery failed. "
-                        "Manual intervention may be required. Attempting normal retry..."
+                        "Automatic database recovery FAILED. "
+                        "Both WAL checkpoint and full database repair were unsuccessful. "
+                        "This indicates serious underlying issues. "
+                        "Attempting normal retry, but manual intervention will likely be required."
                     )
 
             attempt += 1
             if attempt >= retries:
                 if logger:
-                    logger.error(
-                        "Database operation failed after %s attempts: %s",
+                    logger.critical(
+                        "Database operation EXHAUSTED %s retry attempts. "
+                        "Error: %s. "
+                        "This will be re-raised to the calling code for handling.",
                         retries,
                         e,
                     )
@@ -264,11 +277,12 @@ class ResilientSqliteDatabase:
             except (OperationalError, DatabaseError, sqlite3.OperationalError) as e:
                 error_msg = str(e).lower()
 
-                # Detect corruption and attempt recovery (only once)
+                # Detect corruption or persistent I/O errors and attempt recovery (only once)
                 if not corruption_recovery_attempted and (
                     "disk image is malformed" in error_msg
                     or "database disk image is malformed" in error_msg
                     or "database corruption" in error_msg
+                    or "disk i/o error" in error_msg
                 ):
                     corruption_recovery_attempted = True
                     if self._logger:
