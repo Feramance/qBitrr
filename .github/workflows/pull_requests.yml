@@ -94,7 +94,7 @@ jobs:
       shell: pwsh
       run: "Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip\n"
     - name: Upload Artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: automated-build-${{ steps.archieve.outputs.NAME }}
         path: ${{ steps.archieve.outputs.NAME }}.*
