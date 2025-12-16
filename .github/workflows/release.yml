@@ -667,6 +667,28 @@ jobs:
           echo "⚠ Release ${TAG} does not exist, cannot publish"
           exit 1
         fi
+
+    - name: Clean up old draft releases
+      if: always()
+      env:
+        GH_TOKEN: ${{ secrets.PAT }}
+      run: |
+        echo "Checking for stale draft releases..."
+
+        # Get all draft releases
+        gh api repos/${{ github.repository }}/releases \
+          --jq '.[] | select(.draft == true) | "\(.tag_name)|\(.id)"' | \
+        while IFS='|' read -r tag release_id; do
+          # Check if a published release with the same tag exists
+          if gh release view "${tag}" --repo ${{ github.repository }} 2>/dev/null | grep -q "^draft:[[:space:]]*false"; then
+            echo "Found published release for ${tag}, deleting draft release ID ${release_id}..."
+            gh api -X DELETE "repos/${{ github.repository }}/releases/${release_id}" || echo "⚠ Failed to delete draft ${release_id}"
+          else
+            echo "Draft release ${tag} has no published counterpart, keeping it"
+          fi
+        done
+
+        echo "✓ Draft cleanup complete"
 concurrency:
   group: release
   cancel-in-progress: false
