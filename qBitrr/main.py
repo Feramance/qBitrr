@@ -397,6 +397,8 @@ class qBitManager:
     def _complete_startup(self) -> None:
         started_at = monotonic()
         try:
+            # Initialize all qBit instances before Arr managers
+            self._initialize_qbit_instances()
             arr_manager = ArrManager(self)
             self.arr_manager = arr_manager
             arr_manager.build_arr_instances()
@@ -440,6 +442,104 @@ class qBitManager:
                 # self.max_supported_version,
             )
             sys.exit(1)
+
+    def _initialize_qbit_instances(self) -> None:
+        """
+        Initialize all qBittorrent instances from config.
+
+        Scans config for [qBit] and [qBit-XXX] sections, initializes clients,
+        and populates multi-instance dictionaries. The default [qBit] section
+        is registered as "default" instance.
+        """
+        if QBIT_DISABLED or SEARCH_ONLY:
+            self.logger.debug("qBit disabled or search-only mode; skipping instance init")
+            return
+
+        # Default instance already initialized in __init__
+        self.logger.info("Initialized qBit instance: default")
+
+        # Scan for additional instances (qBit-XXX sections)
+        for section in CONFIG.sections():
+            if section.startswith("qBit-") and section != "qBit":
+                instance_name = section.replace("qBit-", "", 1)
+                try:
+                    self._init_instance(section, instance_name)
+                    self.logger.info("Initialized qBit instance: %s", instance_name)
+                except Exception as e:
+                    self.logger.error(
+                        "Failed to initialize qBit instance '%s': %s", instance_name, e
+                    )
+                    self.instance_health[instance_name] = False
+
+        self.logger.info("Total qBit instances initialized: %d", len(self.clients))
+
+    def _init_instance(self, section_name: str, instance_name: str) -> None:
+        """
+        Initialize a single qBittorrent instance.
+
+        Args:
+            section_name: Config section name (e.g., "qBit-Seedbox")
+            instance_name: Short instance identifier (e.g., "Seedbox")
+
+        Raises:
+            Exception: If connection fails or version is unsupported
+        """
+        host = CONFIG.get(f"{section_name}.Host", fallback="localhost")
+        port = CONFIG.get(f"{section_name}.Port", fallback=8105)
+        username = CONFIG.get(f"{section_name}.UserName", fallback=None)
+        password = CONFIG.get(f"{section_name}.Password", fallback=None)
+
+        self.logger.debug(
+            "Connecting to qBit instance '%s': %s:%s (user: %s)",
+            instance_name,
+            host,
+            port,
+            username,
+        )
+
+        client = qbittorrentapi.Client(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            SIMPLE_RESPONSES=False,
+        )
+
+        # Test connection and get version
+        try:
+            version = version_parser.parse(client.app_version())
+            self.logger.debug("Instance '%s' version: %s", instance_name, version)
+        except Exception as e:
+            self.logger.error(
+                "Could not connect to qBit instance '%s' at %s:%s: %s",
+                instance_name,
+                host,
+                port,
+                e,
+            )
+            raise
+
+        # Validate version
+        if version < self.min_supported_version:
+            self.logger.critical(
+                "Instance '%s' version %s is below minimum supported %s",
+                instance_name,
+                version,
+                self.min_supported_version,
+            )
+            raise ValueError(
+                f"Unsupported qBittorrent version {version} for instance {instance_name}"
+            )
+
+        # Register instance
+        self.clients[instance_name] = client
+        self.qbit_versions[instance_name] = version
+        self.instance_metadata[instance_name] = {
+            "host": host,
+            "port": port,
+            "username": username,
+        }
+        self.instance_health[instance_name] = True
 
     # @response_text(str)
     # @login_required
