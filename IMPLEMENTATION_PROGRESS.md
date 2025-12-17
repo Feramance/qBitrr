@@ -11,13 +11,13 @@
 | Phase | Status | Progress | Time Spent | Notes |
 |-------|--------|----------|------------|-------|
 | Phase 1: Database Schema | ✅ Complete | 100% | 1.25h | TorrentLibrary model + query updates |
-| Phase 2: qBitManager Multi-Instance | 🚧 In Progress | 83% | 2.5h | Dicts, init, health complete; API routing pending |
+| Phase 2: qBitManager Multi-Instance | ✅ Complete | 100% | 3.0h | Multi-client infra, init, health, API routing |
 | Phase 3: Arr Multi-Instance Scanning | ⏳ Pending | 0% | 0h | - |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
 | Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
-**Overall Progress**: 28% (Phase 1 complete, Phase 2 at 83%)
+**Overall Progress**: 33% (2/6 phases complete)
 
 ---
 
@@ -90,13 +90,17 @@
 - **Time**: 1.0h
 - **Commit**: `435cfe54`
 
-### 2.4 Update qBit API Call Routing
-- **Status**: 🚧 In Progress
+### 2.4 Update qBit API Call Routing ✅ DONE
+- **Status**: ✅ Complete
 - **Changes**:
-  - [ ] Identify all `self.client.*` calls in main.py
-  - [ ] Add `instance_name` parameter to proxy methods
-  - [ ] Route to `self.clients[instance_name]`
-  - [ ] Maintain backward compatibility
+  - [x] Add `get_client()` helper method for instance routing
+  - [x] Update `app_version()` with instance_name parameter
+  - [x] Update `transfer_info()` with instance_name parameter
+  - [x] Route all calls through `get_client()`
+  - [x] Maintain backward compatibility with default="default"
+- **Time**: 0.5h
+- **Commit**: `6ea52bb4`
+- **Notes**: Main.py has minimal direct client usage; most routing will be in Arr classes
 
 ---
 
@@ -202,6 +206,8 @@
 4. `e833d55a` - Phase 2.1: Add multi-client dictionaries to qBitManager
 5. `e84e27ea` - Phase 2.2: Implement instance initialization methods
 6. `435cfe54` - Phase 2.3: Add instance health checking methods
+7. `8157a82f` - docs: Update progress tracker with Phase 2.1-2.3 completion
+8. `6ea52bb4` - Phase 2.4: Add instance routing for qBit API calls in main.py
 
 ---
 
@@ -242,14 +248,14 @@ _None yet_
     - All TAGLESS mode queries now include QbitInstance condition
     - 100% backward compatible (default="default")
 
-- 🚧 **Phase 2 In Progress** (2.5h so far, 83% complete): Multi-instance infrastructure
-  - ✅ Phase 2.1: Multi-client dictionaries added (clients, versions, metadata, health)
+- ✅ **Phase 2 Complete** (3.0h): Multi-instance infrastructure in qBitManager
+  - ✅ Phase 2.1: Multi-client dictionaries (clients, versions, metadata, health)
   - ✅ Phase 2.2: Instance initialization (_initialize_qbit_instances, _init_instance)
-  - ✅ Phase 2.3: Health checking methods (is_instance_alive, get_all_instances, etc.)
-  - 🚧 Phase 2.4: API call routing (in progress)
+  - ✅ Phase 2.3: Health checking (is_instance_alive, get_all_instances, get_instance_info)
+  - ✅ Phase 2.4: API call routing (get_client, app_version, transfer_info with instance_name)
 
-**Next**: Complete Phase 2.4 - Route all qBit API calls through instance selector
+**Next**: Phase 3 - Arr class multi-instance torrent scanning
 
 **Database Migration**: ✅ NOT NEEDED - Databases are recreated on restart/update per user constraint
 
-**Last Updated**: 2025-12-17 (Phase 2 at 83%)
+**Last Updated**: 2025-12-17 (Phase 2 complete, starting Phase 3)
