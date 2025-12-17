@@ -12,12 +12,12 @@
 |-------|--------|----------|------------|-------|
 | Phase 1: Database Schema | ✅ Complete | 100% | 1.25h | TorrentLibrary model + query updates |
 | Phase 2: qBitManager Multi-Instance | ✅ Complete | 100% | 3.0h | Multi-client infra, init, health, API routing |
-| Phase 3: Arr Multi-Instance Scanning | ⏳ Pending | 0% | 0h | - |
+| Phase 3: Arr Multi-Instance Scanning | 🚧 In Progress | 15% | 0.5h | Category creation complete |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
 | Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
-**Overall Progress**: 33% (2/6 phases complete)
+**Overall Progress**: 37% (2 complete, 1 in progress)
 
 ---
 
@@ -106,13 +106,15 @@
 
 ## Phase 3: Arr Class Updates (24-32 hours estimated)
 
-### 3.1 Category Creation on All Instances
-- **Status**: ⏳ Pending
+### 3.1 Category Creation on All Instances ✅ DONE
+- **Status**: ✅ Complete
 - **File**: `qBitrr/arss.py`
 - **Changes**:
-  - [ ] Create `_ensure_category_on_all_instances()` method
-  - [ ] Call from Arr.__init__()
-  - [ ] Handle failures gracefully
+  - [x] Create `_ensure_category_on_all_instances()` method
+  - [x] Call from Arr.__init__()
+  - [x] Handle failures gracefully
+- **Time**: 0.5h
+- **Commit**: `7acbc2a4`
 
 ### 3.2 Multi-Instance Torrent Scanning
 - **Status**: ⏳ Pending
@@ -208,6 +210,8 @@
 6. `435cfe54` - Phase 2.3: Add instance health checking methods
 7. `8157a82f` - docs: Update progress tracker with Phase 2.1-2.3 completion
 8. `6ea52bb4` - Phase 2.4: Add instance routing for qBit API calls in main.py
+9. `7cc2437f` - docs: Phase 2 complete - qBitManager multi-instance infrastructure
+10. `7acbc2a4` - Phase 3.1: Ensure Arr categories exist on all qBit instances
 
 ---
 
