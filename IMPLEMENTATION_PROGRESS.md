@@ -12,12 +12,12 @@
 |-------|--------|----------|------------|-------|
 | Phase 1: Database Schema | ✅ Complete | 100% | 1.25h | TorrentLibrary model + query updates |
 | Phase 2: qBitManager Multi-Instance | ✅ Complete | 100% | 3.0h | Multi-client infra, init, health, API routing |
-| Phase 3: Arr Multi-Instance Scanning | 🚧 In Progress | 15% | 0.5h | Category creation complete |
+| Phase 3: Arr Multi-Instance Scanning | 🚧 In Progress | 40% | 1.5h | Infrastructure ready, integration pending |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
 | Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
-**Overall Progress**: 37% (2 complete, 1 in progress)
+**Overall Progress**: 43% (2 complete, Phase 3 infrastructure done)
 
 ---
 
@@ -117,12 +117,15 @@
 - **Commit**: `7acbc2a4`
 
 ### 3.2 Multi-Instance Torrent Scanning
-- **Status**: ⏳ Pending
+- **Status**: 🚧 Partial
 - **Changes**:
-  - [ ] Create `process_torrents_multi_instance()` method
-  - [ ] Iterate over all instances
-  - [ ] Get torrents by category from each instance
-  - [ ] Process with instance context
+  - [x] Create `_get_torrents_from_all_instances()` helper method
+  - [x] Iterate over all instances
+  - [x] Get torrents by category from each instance
+  - [ ] Integrate into `process_torrents()` main loop (deferred)
+- **Time**: 1.0h
+- **Commit**: `d0e8a37f`
+- **Notes**: Helper method complete. Full integration into 4500+ line process_torrents requires extensive testing.
 
 ### 3.3 Update Torrent Operations
 - **Status**: ⏳ Pending
@@ -212,6 +215,8 @@
 8. `6ea52bb4` - Phase 2.4: Add instance routing for qBit API calls in main.py
 9. `7cc2437f` - docs: Phase 2 complete - qBitManager multi-instance infrastructure
 10. `7acbc2a4` - Phase 3.1: Ensure Arr categories exist on all qBit instances
+11. `2723a8f5` - docs: Update progress - Phase 3.1 complete
+12. `d0e8a37f` - Phase 3.2: Add _get_torrents_from_all_instances helper method
 
 ---
 
