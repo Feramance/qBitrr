@@ -4524,6 +4524,60 @@ class Arr:
 
         return payload
 
+    def _get_torrents_from_all_instances(
+        self,
+    ) -> list[tuple[str, qbittorrentapi.TorrentDictionary]]:
+        """
+        Get torrents from ALL qBittorrent instances for this Arr's category.
+
+        Returns:
+            list[tuple[str, TorrentDictionary]]: List of (instance_name, torrent) tuples
+        """
+        all_torrents = []
+        qbit_manager = self.manager.qbit_manager
+
+        for instance_name in qbit_manager.get_all_instances():
+            if not qbit_manager.is_instance_alive(instance_name):
+                self.logger.debug(
+                    "Skipping unhealthy instance '%s' during torrent scan", instance_name
+                )
+                continue
+
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                continue
+
+            try:
+                torrents = client.torrents.info(
+                    status_filter="all",
+                    category=self.category,
+                    sort="added_on",
+                    reverse=False,
+                )
+                # Tag each torrent with its instance name
+                for torrent in torrents:
+                    if hasattr(torrent, "category"):
+                        all_torrents.append((instance_name, torrent))
+
+                self.logger.trace(
+                    "Retrieved %d torrents from instance '%s' for category '%s'",
+                    len(torrents),
+                    instance_name,
+                    self.category,
+                )
+            except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
+                self.logger.warning(
+                    "Failed to get torrents from instance '%s': %s", instance_name, e
+                )
+                continue
+
+        self.logger.debug(
+            "Total torrents across %d instances: %d",
+            len(qbit_manager.get_all_instances()),
+            len(all_torrents),
+        )
+        return all_torrents
+
     def process_torrents(self):
         try:
             try:
