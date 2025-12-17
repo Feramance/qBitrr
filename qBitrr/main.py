@@ -541,6 +541,74 @@ class qBitManager:
         }
         self.instance_health[instance_name] = True
 
+    def is_instance_alive(self, instance_name: str = "default") -> bool:
+        """
+        Check if a specific qBittorrent instance is alive and responding.
+
+        Args:
+            instance_name: The instance identifier (default: "default")
+
+        Returns:
+            bool: True if instance is healthy and responding, False otherwise
+        """
+        if instance_name not in self.clients:
+            self.logger.warning("Instance '%s' not found in clients", instance_name)
+            return False
+
+        client = self.clients[instance_name]
+        if client is None:
+            return False
+
+        try:
+            # Quick health check - just get app version
+            client.app_version()
+            self.instance_health[instance_name] = True
+            return True
+        except Exception as e:
+            self.logger.debug("Instance '%s' health check failed: %s", instance_name, e)
+            self.instance_health[instance_name] = False
+            return False
+
+    def get_all_instances(self) -> list[str]:
+        """
+        Get list of all configured qBittorrent instance names.
+
+        Returns:
+            list[str]: List of instance identifiers (e.g., ["default", "Seedbox"])
+        """
+        return list(self.clients.keys())
+
+    def get_healthy_instances(self) -> list[str]:
+        """
+        Get list of all healthy (responding) qBittorrent instances.
+
+        Returns:
+            list[str]: List of healthy instance identifiers
+        """
+        return [name for name in self.clients.keys() if self.is_instance_alive(name)]
+
+    def get_instance_info(self, instance_name: str = "default") -> dict:
+        """
+        Get metadata about a specific qBittorrent instance.
+
+        Args:
+            instance_name: The instance identifier (default: "default")
+
+        Returns:
+            dict: Instance metadata including host, port, version, health status
+        """
+        if instance_name not in self.clients:
+            return {"error": f"Instance '{instance_name}' not found"}
+
+        metadata = self.instance_metadata.get(instance_name, {})
+        return {
+            "name": instance_name,
+            "host": metadata.get("host"),
+            "port": metadata.get("port"),
+            "version": str(self.qbit_versions.get(instance_name, "unknown")),
+            "healthy": self.instance_health.get(instance_name, False),
+        }
+
     # @response_text(str)
     # @login_required
     def app_version(self, **kwargs):
@@ -560,15 +628,26 @@ class qBitManager:
 
     @property
     def is_alive(self) -> bool:
+        """
+        Check if the default qBittorrent instance is alive.
+
+        Backward-compatible property that delegates to is_instance_alive("default").
+        Uses caching via expiring_bool to avoid excessive health checks.
+        """
         try:
             if self.client is None:
                 return False
             if 1 in self.expiring_bool:
                 return True
-            self.client.app_version()
-            self.logger.trace("Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port)
-            self.expiring_bool.add(1)
-            return True
+            # Delegate to instance health check
+            alive = self.is_instance_alive("default")
+            if alive:
+                self.logger.trace(
+                    "Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port
+                )
+                self.expiring_bool.add(1)
+                return True
+            self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)
         except requests.RequestException:
             self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)
         self.should_delay_torrent_scan = True
