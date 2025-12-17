@@ -102,6 +102,11 @@ class qBitManager:
         self._validated_version = False
         self.client = None
         self.current_qbit_version = None
+        # Multi-instance support
+        self.clients: dict[str, qbittorrentapi.Client] = {}
+        self.qbit_versions: dict[str, VersionClass] = {}
+        self.instance_metadata: dict[str, dict] = {}
+        self.instance_health: dict[str, bool] = {}
         if not (QBIT_DISABLED or SEARCH_ONLY):
             self.client = qbittorrentapi.Client(
                 host=self.qBit_Host,
@@ -120,6 +125,15 @@ class qBitManager:
                     e,
                 )
             self._version_validator()
+            # Register default instance in multi-instance dictionaries
+            self.clients["default"] = self.client
+            self.qbit_versions["default"] = self.current_qbit_version
+            self.instance_metadata["default"] = {
+                "host": self.qBit_Host,
+                "port": self.qBit_Port,
+                "username": self.qBit_UserName,
+            }
+            self.instance_health["default"] = self._validated_version
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = {}
         self.name_cache = {}
