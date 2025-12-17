@@ -137,7 +137,14 @@ class AlbumQueueModel(Model):
 class TorrentLibrary(Model):
     Hash = TextField(null=False)
     Category = TextField(null=False)
+    QbitInstance = TextField(
+        null=False, default="default"
+    )  # Multi-qBit v3.0: Track which instance
     AllowedSeeding = BooleanField(default=False)
     Imported = BooleanField(default=False)
     AllowedStalled = BooleanField(default=False)
     FreeSpacePaused = BooleanField(default=False)
+
+    class Meta:
+        # Multi-qBit v3.0: Compound unique constraint (same hash can exist on different instances)
+        indexes = ((("Hash", "QbitInstance"), True),)  # Unique constraint on (Hash, QbitInstance)
