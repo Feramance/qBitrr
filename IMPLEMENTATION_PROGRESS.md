@@ -11,13 +11,13 @@
 | Phase | Status | Progress | Time Spent | Notes |
 |-------|--------|----------|------------|-------|
 | Phase 1: Database Schema | ✅ Complete | 100% | 1.25h | TorrentLibrary model + query updates |
-| Phase 2: qBitManager Multi-Instance | ⏳ Pending | 0% | 0h | - |
+| Phase 2: qBitManager Multi-Instance | 🚧 In Progress | 83% | 2.5h | Dicts, init, health complete; API routing pending |
 | Phase 3: Arr Multi-Instance Scanning | ⏳ Pending | 0% | 0h | - |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
 | Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
-**Overall Progress**: 17% (1/6 phases complete)
+**Overall Progress**: 28% (Phase 1 complete, Phase 2 at 83%)
 
 ---
 
@@ -56,30 +56,47 @@
 
 ## Phase 2: qBitManager Multi-Instance Support (16-24 hours estimated)
 
-### 2.1 Add Multi-Client Dictionary
-- **Status**: ⏳ Pending
+### 2.1 Add Multi-Client Dictionary ✅ DONE
+- **Status**: ✅ Complete
 - **File**: `qBitrr/main.py`
 - **Changes**:
-  - [ ] Add `self.clients: dict[str, qbittorrentapi.Client]`
-  - [ ] Add `self.qbit_versions: dict[str, VersionClass]`
-  - [ ] Add `self.instance_metadata: dict[str, dict]`
-  - [ ] Add `self.instance_health: dict[str, bool]`
-  - [ ] Keep backward compatibility with `self.client`
+  - [x] Add `self.clients: dict[str, qbittorrentapi.Client]`
+  - [x] Add `self.qbit_versions: dict[str, VersionClass]`
+  - [x] Add `self.instance_metadata: dict[str, dict]`
+  - [x] Add `self.instance_health: dict[str, bool]`
+  - [x] Keep backward compatibility with `self.client`
+- **Time**: 0.5h
+- **Commit**: `e833d55a`
 
-### 2.2 Implement Instance Initialization
-- **Status**: ⏳ Pending
+### 2.2 Implement Instance Initialization ✅ DONE
+- **Status**: ✅ Complete
 - **Changes**:
-  - [ ] Create `_initialize_qbit_instances()` method
-  - [ ] Create `_init_instance()` method
-  - [ ] Parse config for [qBit-XXX] sections
-  - [ ] Initialize all clients
+  - [x] Create `_initialize_qbit_instances()` method
+  - [x] Create `_init_instance()` method
+  - [x] Parse config for [qBit-XXX] sections
+  - [x] Initialize all clients
+  - [x] Call during startup in `_complete_startup()`
+- **Time**: 1.0h
+- **Commit**: `e84e27ea`
 
-### 2.3 Add Health Checking
-- **Status**: ⏳ Pending
+### 2.3 Add Health Checking ✅ DONE
+- **Status**: ✅ Complete
 - **Changes**:
-  - [ ] Create `is_instance_alive(instance_name)` method
-  - [ ] Create `get_all_instances()` method
-  - [ ] Update existing `is_alive` property for backward compat
+  - [x] Create `is_instance_alive(instance_name)` method
+  - [x] Create `get_all_instances()` method
+  - [x] Create `get_healthy_instances()` method
+  - [x] Create `get_instance_info()` method
+  - [x] Update existing `is_alive` property for backward compat
+- **Time**: 1.0h
+- **Commit**: `435cfe54`
+
+### 2.4 Update qBit API Call Routing
+- **Status**: 🚧 In Progress
+- **Changes**:
+  - [ ] Identify all `self.client.*` calls in main.py
+  - [ ] Add `instance_name` parameter to proxy methods
+  - [ ] Route to `self.clients[instance_name]`
+  - [ ] Maintain backward compatibility
 
 ---
 
@@ -181,7 +198,10 @@
 
 1. `c8e5fa51` - Phase 1.1: Add QbitInstance field to TorrentLibrary model
 2. `7b96dc7b` - Update implementation plan: clarify no database migration needed
-3. (pending) - Phase 1.2: Update all TorrentLibrary queries with instance context
+3. `10c862b1` - Phase 1.2: Update all database queries with instance context
+4. `e833d55a` - Phase 2.1: Add multi-client dictionaries to qBitManager
+5. `e84e27ea` - Phase 2.2: Implement instance initialization methods
+6. `435cfe54` - Phase 2.3: Add instance health checking methods
 
 ---
 
@@ -222,8 +242,14 @@ _None yet_
     - All TAGLESS mode queries now include QbitInstance condition
     - 100% backward compatible (default="default")
 
-**Ready for Phase 2**: qBitManager multi-instance initialization
+- 🚧 **Phase 2 In Progress** (2.5h so far, 83% complete): Multi-instance infrastructure
+  - ✅ Phase 2.1: Multi-client dictionaries added (clients, versions, metadata, health)
+  - ✅ Phase 2.2: Instance initialization (_initialize_qbit_instances, _init_instance)
+  - ✅ Phase 2.3: Health checking methods (is_instance_alive, get_all_instances, etc.)
+  - 🚧 Phase 2.4: API call routing (in progress)
+
+**Next**: Complete Phase 2.4 - Route all qBit API calls through instance selector
 
 **Database Migration**: ✅ NOT NEEDED - Databases are recreated on restart/update per user constraint
 
-**Last Updated**: 2025-12-17 (Phase 1 complete)
+**Last Updated**: 2025-12-17 (Phase 2 at 83%)
