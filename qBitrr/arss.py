@@ -147,35 +147,35 @@ class Arr:
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
 
+        # Set completed_folder path (used for category creation and file monitoring)
         if not QBIT_DISABLED:
             try:
+                # Check default instance for existing category configuration
                 categories = self.manager.qbit_manager.client.torrent_categories.categories
-                try:
-                    categ = categories[self.category]
-                    path = categ["savePath"]
-                    if path:
-                        self.logger.trace("Category exists with save path [%s]", path)
-                        self.completed_folder = pathlib.Path(path)
-                    else:
-                        self.logger.trace("Category exists without save path")
-                        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-                            self.category
-                        )
-                except KeyError:
+                categ = categories.get(self.category)
+                if categ and categ.get("savePath"):
+                    self.logger.trace("Category exists with save path [%s]", categ["savePath"])
+                    self.completed_folder = pathlib.Path(categ["savePath"])
+                else:
+                    self.logger.trace("Category does not exist or lacks save path")
                     self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                         self.category
                     )
-                    self.manager.qbit_manager.client.torrent_categories.create_category(
-                        self.category, save_path=self.completed_folder
-                    )
             except Exception as e:
                 self.logger.warning(
-                    "Could not connect to qBittorrent during initialization for %s: %s. Will retry when process starts.",
+                    "Could not connect to qBittorrent during initialization for %s: %s. Using default path.",
                     self._name,
-                    str(e).split("\n")[0] if "\n" in str(e) else str(e),  # First line only
+                    str(e).split("\n")[0] if "\n" in str(e) else str(e),
                 )
                 self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
                     self.category
+                )
+            # Ensure category exists on ALL instances (deferred to avoid __init__ failures)
+            try:
+                self._ensure_category_on_all_instances()
+            except Exception as e:
+                self.logger.warning(
+                    "Could not ensure category on all instances during init: %s", e
                 )
         else:
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
@@ -672,6 +672,57 @@ class Arr:
             )
         )
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def _ensure_category_on_all_instances(self) -> None:
+        """
+        Ensure the Arr category exists on ALL qBittorrent instances.
+
+        Creates the category with the completed_folder save path on each instance.
+        Logs errors but continues if individual instances fail.
+        """
+        if QBIT_DISABLED:
+            return
+
+        qbit_manager = self.manager.qbit_manager
+        all_instances = qbit_manager.get_all_instances()
+
+        self.logger.debug(
+            "Ensuring category '%s' exists on %d qBit instance(s)",
+            self.category,
+            len(all_instances),
+        )
+
+        for instance_name in all_instances:
+            try:
+                client = qbit_manager.get_client(instance_name)
+                if client is None:
+                    self.logger.warning(
+                        "Skipping category creation on instance '%s' (client unavailable)",
+                        instance_name,
+                    )
+                    continue
+
+                categories = client.torrent_categories.categories
+                if self.category not in categories:
+                    client.torrent_categories.create_category(
+                        self.category, save_path=str(self.completed_folder)
+                    )
+                    self.logger.info(
+                        "Created category '%s' on instance '%s'", self.category, instance_name
+                    )
+                else:
+                    self.logger.debug(
+                        "Category '%s' already exists on instance '%s'",
+                        self.category,
+                        instance_name,
+                    )
+            except Exception as e:
+                self.logger.error(
+                    "Failed to ensure category '%s' on instance '%s': %s",
+                    self.category,
+                    instance_name,
+                    str(e).split("\n")[0] if "\n" in str(e) else str(e),
+                )
 
     @staticmethod
     def _humanize_request_tag(tag: str) -> str | None:
