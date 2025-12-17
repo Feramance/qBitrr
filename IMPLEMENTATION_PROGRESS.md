@@ -15,13 +15,13 @@
 | Phase 3: Arr Multi-Instance Scanning | ⏳ Pending | 0% | 0h | - |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
-| Phase 6: Migration & Testing | ⏳ Pending | 0% | 0h | - |
+| Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
 **Overall Progress**: 0% (0/6 phases complete)
 
 ---
 
-## Phase 1: Database Schema Updates (6-8 hours estimated)
+## Phase 1: Database Schema Updates (4-6 hours estimated)
 
 ### 1.1 Update TorrentLibrary Model ✅ DONE
 - **Status**: ✅ Complete
@@ -40,9 +40,14 @@
   - [ ] Find all TorrentLibrary.get() calls
   - [ ] Find all TorrentLibrary.select() calls
   - [ ] Find all TorrentLibrary.delete() calls
+  - [ ] Find all TorrentLibrary.update() calls
   - [ ] Add instance context to all queries
+  - [ ] Pass instance_name through call chains
 - **Time**: 0h
-- **Notes**: Database migration not needed - DBs recreated on restart
+- **Notes**:
+  - Database migration not needed - DBs recreated on restart/update
+  - Extensive usage in arss.py (in_tags, add_tags, remove_tags methods)
+  - Need to add instance parameter to tag management methods
 
 
 
@@ -145,15 +150,19 @@
 
 ---
 
-## Phase 6: Migration & Testing (8-12 hours estimated)
+## Phase 6: Config Migration & Testing (6-8 hours estimated)
 
-### 6.1 Config Migration
+### 6.1 Config Migration (Database Migration NOT Needed)
 - **Status**: ⏳ Pending
-- **File**: `qBitrr/config.py`
+- **File**: `qBitrr/config.py`, `qBitrr/config_version.py`
 - **Changes**:
-  - [ ] Create `_migrate_to_multi_qbit_v4()` function
-  - [ ] Bump config version to 4
-  - [ ] Run database migration
+  - [ ] Create `_migrate_config_v3_to_v4()` function (optional)
+  - [ ] Bump CURRENT_CONFIG_VERSION to 4 in config_version.py
+  - [ ] Add informational message about multi-qBit support
+- **Notes**:
+  - ✅ No database migration code needed (DBs recreated on restart/update)
+  - Config migration only needed if ConfigVersion bump is required
+  - Existing single-instance configs work without changes
 
 ### 6.2 Testing
 - **Status**: ⏳ Pending
@@ -183,9 +192,11 @@ _None yet_
 
 1. ✅ Create feature branch
 2. ✅ Create progress tracking file
-3. 🚧 Update TorrentLibrary model in tables.py
-4. Create database migration function
-5. Test migration on sample database
+3. ✅ Update TorrentLibrary model in tables.py
+4. 🚧 Update all database queries with instance context (Phase 1.2)
+5. Implement qBitManager multi-instance support (Phase 2)
+
+**Note**: Database migration is NOT needed - DBs are recreated on restart/update
 
 ---
 
@@ -203,8 +214,11 @@ _None yet_
 
 - ✅ **Phase 1.1 Complete**: TorrentLibrary model updated with QbitInstance field and compound unique index
 - 🚧 **Phase 1.2 In Progress**: Need to update all database queries to include instance context
-  - Found extensive usage in arss.py (~20+ query locations)
+  - Found extensive usage in arss.py (~20+ query locations in TAGLESS mode)
+  - Methods to update: `in_tags()`, `add_tags()`, `remove_tags()` - all query TorrentLibrary
   - Need to pass `instance_name` parameter through call chains
   - This is a prerequisite for Phase 2 (qBitManager multi-instance support)
+
+**Database Migration**: ✅ NOT NEEDED - Databases are recreated on restart/update per user constraint
 
 **Last Updated**: 2025-12-17 (Phase 1.1 complete, Phase 1.2 starting)

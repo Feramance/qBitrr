@@ -92,7 +92,7 @@ Category = "sonarr"
 
 ## Implementation Phases
 
-### Phase 1: Database Schema Updates (6-8 hours)
+### Phase 1: Database Schema Updates (4-6 hours)
 
 #### 1.1 Update Database Models
 
@@ -114,42 +114,9 @@ class TorrentLibrary(Model):
         )
 ```
 
-**Migration Logic in `qBitrr/config.py`:**
+**✅ No Migration Logic Needed:**
 
-```python
-def migrate_database_v4():
-    """Migrate database for multi-qBit support"""
-    from qBitrr.tables import db
-
-    try:
-        # Add QbitInstance column with default value
-        db.execute_sql('''
-            ALTER TABLE torrentlibrary
-            ADD COLUMN QbitInstance TEXT DEFAULT "default"
-        ''')
-
-        # Update existing records to use default instance
-        db.execute_sql('''
-            UPDATE torrentlibrary
-            SET QbitInstance = "default"
-            WHERE QbitInstance IS NULL OR QbitInstance = ""
-        ''')
-
-        # Drop old unique constraint on Hash
-        db.execute_sql('DROP INDEX IF EXISTS torrentlibrary_hash')
-
-        # Create new compound unique index
-        db.execute_sql('''
-            CREATE UNIQUE INDEX IF NOT EXISTS torrent_hash_instance
-            ON torrentlibrary(Hash, QbitInstance)
-        ''')
-
-        logger.info("Database migrated to v4 (multi-qBit support)")
-        return True
-    except Exception as e:
-        logger.error("Database migration failed: %s", e)
-        return False
-```
+Per user constraint: qBitrr databases are recreated on restart/update. The new schema will be applied automatically when users upgrade. No ALTER TABLE or migration code is required.
 
 #### 1.2 Update All Database Queries
 
@@ -726,42 +693,51 @@ export function QbitInstancesView({ active }: { active: boolean }) {
 
 ---
 
-### Phase 6: Migration & Backward Compatibility (8-12 hours)
+### Phase 6: Config Migration & Testing (6-8 hours)
 
-#### 6.1 Config Migration v3 → v4
+#### 6.1 Config Migration (Database Migration NOT Needed)
 
-**File: `qBitrr/config.py`**
+**✅ User Constraint: Databases recreated on restart/update**
+
+Database migration code is NOT required because:
+- qBitrr databases are SQLite files that get recreated on version changes
+- New schema will be applied automatically via Peewee model definitions
+- Existing torrents will be rediscovered and repopulated with new schema
+
+**Config migration may still be needed:**
+
+**File: `qBitrr/config.py`** (if ConfigVersion bump is needed)
 
 ```python
-def _migrate_to_multi_qbit_v4(config: MyConfig) -> bool:
+def _migrate_config_v3_to_v4(config: MyConfig) -> None:
     """
-    Migrate to multi-qBit v4.
+    Migrate config from v3 to v4 (multi-qBit support).
 
     Changes:
-    - Database schema updated to track (Hash, QbitInstance) tuples
-    - All qBit instances treated equally
-    - No config changes needed (100% backward compatible)
+    - No config file changes required (100% backward compatible)
+    - Database schema updated automatically (no migration code needed)
+    - Log informational message about multi-qBit support
     """
     from qBitrr.config_version import get_config_version
 
     current_version = get_config_version(config)
     if current_version >= 4:
-        return False
+        return
 
-    # Run database migration
-    from qBitrr.main import migrate_database_v4
-    success = migrate_database_v4()
+    # No actual migration needed - just bump version and inform user
+    print("✓ Config migrated v3→v4: Multi-qBittorrent support enabled")
+    print("  - Database schema will be automatically updated")
+    print("  - Add [qBit-Name] sections to config for additional instances")
+    print("  - Configure multiple download clients in Radarr/Sonarr")
+    print("  - qBitrr will monitor ALL configured instances equally")
+```
 
-    if success:
-        print("✓ Migration v3→v4: Multi-qBittorrent support enabled")
-        print("  - Database schema updated")
-        print("  - All configured qBit instances will be monitored")
-        print("  - Configure additional instances via [qBit-Name] sections")
-    else:
-        print("✗ Migration v3→v4: Database migration failed")
-        print("  Please check logs and report this issue")
+**Update ConfigVersion:**
 
-    return success
+**File: `qBitrr/config_version.py`**
+
+```python
+CURRENT_CONFIG_VERSION = 4  # Bumped for multi-qBit support
 ```
 
 #### 6.2 Backward Compatibility
@@ -771,7 +747,8 @@ The implementation maintains 100% backward compatibility:
 1. **Single instance configs**: Continue to work without changes
 2. **`self.client` reference**: Points to default instance
 3. **Existing API endpoints**: `/api/status` returns `qbit` field for default instance
-4. **Database**: Existing records migrated to `QbitInstance = "default"`
+4. **Database**: New instances use `QbitInstance = "default"` for backward compat
+5. **No config changes**: Existing single-instance setups work as-is
 
 ---
 
@@ -836,23 +813,23 @@ Category = "sonarr"
 
 | Phase | Effort | Description |
 |-------|--------|-------------|
-| 1 | 6-8h | Database schema updates + migration |
+| 1 | 4-6h | Database schema updates (no migration code needed) |
 | 2 | 16-24h | qBitManager multi-instance initialization |
 | 3 | 24-32h | Arr class updates (scan all instances) |
 | 4 | 10-14h | WebUI backend updates |
 | 5 | 12-18h | Frontend updates |
-| 6 | 8-12h | Migration logic + testing |
-| **Total** | **76-108h** | **~2 weeks** |
+| 6 | 6-8h | Testing (no migration code needed) |
+| **Total** | **72-102h** | **~2 weeks** |
 
 ---
 
 ## Testing Strategy
 
 ### Unit Tests
-- Database migration (add QbitInstance column)
 - Compound unique constraint (Hash, QbitInstance)
 - Instance initialization (multiple clients)
 - Health checking per instance
+- Database queries with instance context
 
 ### Integration Tests
 - Torrent discovery across instances
@@ -863,15 +840,18 @@ Category = "sonarr"
 
 ### Manual Tests
 - Fresh install with 2+ qBit instances
-- Migration from v3 single instance
+- Upgrade from v3 (database recreated with new schema)
 - One instance goes offline (others continue)
 - Same torrent hash on different instances
 - WebUI displays all instances correctly
+- Single instance config still works (backward compat)
 
 ---
 
 **Status**: ✅ Plan Complete - Ready for Implementation
 **Version**: 3.0
 **Architecture**: Equal Multi-Instance Monitoring
-**Backward Compatible**: ✅ Yes (automatic migration)
+**Backward Compatible**: ✅ Yes (100% backward compatible)
 **User Configuration**: Minimal (just add [qBit-Name] sections)
+**Database Migration**: ❌ Not needed (DBs recreated on restart/update)
+**Config Migration**: ⚠️ May be needed (for ConfigVersion bump only)
