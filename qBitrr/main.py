@@ -609,10 +609,29 @@ class qBitManager:
             "healthy": self.instance_health.get(instance_name, False),
         }
 
+    def get_client(self, instance_name: str = "default") -> qbittorrentapi.Client | None:
+        """
+        Get qBittorrent client for a specific instance.
+
+        Args:
+            instance_name: The instance identifier (default: "default")
+
+        Returns:
+            qbittorrentapi.Client | None: Client instance, or None if not found/unhealthy
+        """
+        if instance_name not in self.clients:
+            self.logger.warning("Instance '%s' not found in clients", instance_name)
+            return None
+        return self.clients[instance_name]
+
     # @response_text(str)
     # @login_required
-    def app_version(self, **kwargs):
-        return self.client._get(
+    def app_version(self, instance_name: str = "default", **kwargs):
+        """Get qBittorrent app version for a specific instance."""
+        client = self.get_client(instance_name)
+        if client is None:
+            return None
+        return client._get(
             _name=APINames.Application,
             _method="version",
             _retries=0,
@@ -620,11 +639,21 @@ class qBitManager:
             **kwargs,
         )
 
-    def transfer_info(self, **kwargs):
-        """Proxy transfer info requests to the underlying qBittorrent client."""
-        if self.client is None:
+    def transfer_info(self, instance_name: str = "default", **kwargs):
+        """
+        Proxy transfer info requests to a specific qBittorrent instance.
+
+        Args:
+            instance_name: The instance identifier (default: "default")
+            **kwargs: Additional arguments to pass to transfer_info
+
+        Returns:
+            dict: Transfer info or connection status
+        """
+        client = self.get_client(instance_name)
+        if client is None:
             return {"connection_status": "disconnected"}
-        return self.client.transfer_info(**kwargs)
+        return client.transfer_info(**kwargs)
 
     @property
     def is_alive(self) -> bool:
