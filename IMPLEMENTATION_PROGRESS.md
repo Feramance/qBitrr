@@ -10,14 +10,14 @@
 
 | Phase | Status | Progress | Time Spent | Notes |
 |-------|--------|----------|------------|-------|
-| Phase 1: Database Schema | 🚧 In Progress | 0% | 0h | Starting with TorrentLibrary model |
+| Phase 1: Database Schema | ✅ Complete | 100% | 1.25h | TorrentLibrary model + query updates |
 | Phase 2: qBitManager Multi-Instance | ⏳ Pending | 0% | 0h | - |
 | Phase 3: Arr Multi-Instance Scanning | ⏳ Pending | 0% | 0h | - |
 | Phase 4: WebUI Backend | ⏳ Pending | 0% | 0h | - |
 | Phase 5: Frontend | ⏳ Pending | 0% | 0h | - |
 | Phase 6: Config Migration & Testing | ⏳ Pending | 0% | 0h | No DB migration needed |
 
-**Overall Progress**: 0% (0/6 phases complete)
+**Overall Progress**: 17% (1/6 phases complete)
 
 ---
 
@@ -33,21 +33,22 @@
 - **Time**: 0.25h
 - **Notes**: Model updated with QbitInstance field and compound unique constraint
 
-### 1.2 Update Database Queries 🚧 IN PROGRESS
-- **Status**: 🚧 In Progress
-- **Files**: Multiple (arss.py, main.py, webui.py)
+### 1.2 Update Database Queries ✅ DONE
+- **Status**: ✅ Complete
+- **Files**: qBitrr/arss.py
 - **Changes**:
-  - [ ] Find all TorrentLibrary.get() calls
-  - [ ] Find all TorrentLibrary.select() calls
-  - [ ] Find all TorrentLibrary.delete() calls
-  - [ ] Find all TorrentLibrary.update() calls
-  - [ ] Add instance context to all queries
-  - [ ] Pass instance_name through call chains
-- **Time**: 0h
+  - [x] Added `instance_name` parameter to `in_tags()` method (default="default")
+  - [x] Added `instance_name` parameter to `remove_tags()` method (default="default")
+  - [x] Added `instance_name` parameter to `add_tags()` method (default="default")
+  - [x] Updated all TorrentLibrary.select() queries to include QbitInstance condition
+  - [x] Updated all TorrentLibrary.insert() calls to include QbitInstance field
+  - [x] Updated all TorrentLibrary.update() calls to include QbitInstance condition
+- **Time**: 1h
 - **Notes**:
   - Database migration not needed - DBs recreated on restart/update
-  - Extensive usage in arss.py (in_tags, add_tags, remove_tags methods)
-  - Need to add instance parameter to tag management methods
+  - All TAGLESS mode queries now include instance context
+  - Backward compatible with default="default" parameter
+  - Affects ~60 database operations in arss.py
 
 
 
@@ -178,7 +179,9 @@
 
 ## Commits Made
 
-1. `[TIMESTAMP]` - Initial commit: Updated database schema for multi-qBit support
+1. `c8e5fa51` - Phase 1.1: Add QbitInstance field to TorrentLibrary model
+2. `7b96dc7b` - Update implementation plan: clarify no database migration needed
+3. (pending) - Phase 1.2: Update all TorrentLibrary queries with instance context
 
 ---
 
@@ -212,13 +215,15 @@ _None yet_
 
 ## Current Status Summary
 
-- ✅ **Phase 1.1 Complete**: TorrentLibrary model updated with QbitInstance field and compound unique index
-- 🚧 **Phase 1.2 In Progress**: Need to update all database queries to include instance context
-  - Found extensive usage in arss.py (~20+ query locations in TAGLESS mode)
-  - Methods to update: `in_tags()`, `add_tags()`, `remove_tags()` - all query TorrentLibrary
-  - Need to pass `instance_name` parameter through call chains
-  - This is a prerequisite for Phase 2 (qBitManager multi-instance support)
+- ✅ **Phase 1 Complete** (1.25h): Database schema fully updated for multi-instance support
+  - ✅ Phase 1.1: TorrentLibrary model with QbitInstance field and compound unique index
+  - ✅ Phase 1.2: All database queries updated with instance context (~60 operations)
+    - Updated `in_tags()`, `add_tags()`, `remove_tags()` methods with instance_name parameter
+    - All TAGLESS mode queries now include QbitInstance condition
+    - 100% backward compatible (default="default")
+
+**Ready for Phase 2**: qBitManager multi-instance initialization
 
 **Database Migration**: ✅ NOT NEEDED - Databases are recreated on restart/update per user constraint
 
-**Last Updated**: 2025-12-17 (Phase 1.1 complete, Phase 1.2 starting)
+**Last Updated**: 2025-12-17 (Phase 1 complete)

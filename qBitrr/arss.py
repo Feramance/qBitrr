@@ -785,7 +785,9 @@ class Arr:
         """Returns True if the State is categorized as Downloading."""
         return torrent.state_enum in (TorrentStates.DOWNLOADING, TorrentStates.PAUSED_DOWNLOAD)
 
-    def in_tags(self, torrent: TorrentDictionary, tag: str) -> bool:
+    def in_tags(
+        self, torrent: TorrentDictionary, tag: str, instance_name: str = "default"
+    ) -> bool:
         return_value = False
         if TAGLESS:
             if tag == "qBitrr-ignored":
@@ -796,15 +798,20 @@ class Arr:
                     .where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     )
                     .execute()
                 )
                 if not query:
                     self.torrents.insert(
-                        Hash=torrent.hash, Category=torrent.category
+                        Hash=torrent.hash,
+                        Category=torrent.category,
+                        QbitInstance=instance_name,
                     ).on_conflict_ignore().execute()
-                condition = (self.torrents.Hash == torrent.hash) & (
-                    self.torrents.Category == torrent.category
+                condition = (
+                    (self.torrents.Hash == torrent.hash)
+                    & (self.torrents.Category == torrent.category)
+                    & (self.torrents.QbitInstance == instance_name)
                 )
                 if tag == "qBitrr-allowed_seeding":
                     condition &= self.torrents.AllowedSeeding == True
@@ -832,7 +839,9 @@ class Arr:
             self.logger.trace("Tag %s not in %s", tag, torrent.name)
             return False
 
-    def remove_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+    def remove_tags(
+        self, torrent: TorrentDictionary, tags: list, instance_name: str = "default"
+    ) -> None:
         for tag in tags:
             self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         if TAGLESS:
@@ -842,32 +851,39 @@ class Arr:
                     .where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     )
                     .execute()
                 )
                 if not query:
                     self.torrents.insert(
-                        Hash=torrent.hash, Category=torrent.category
+                        Hash=torrent.hash,
+                        Category=torrent.category,
+                        QbitInstance=instance_name,
                     ).on_conflict_ignore().execute()
                 if tag == "qBitrr-allowed_seeding":
                     self.torrents.update(AllowedSeeding=False).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-imported":
                     self.torrents.update(Imported=False).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-allowed_stalled":
                     self.torrents.update(AllowedStalled=False).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-free_space_paused":
                     self.torrents.update(FreeSpacePaused=False).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
         else:
             with contextlib.suppress(Exception):
@@ -883,7 +899,9 @@ class Arr:
                     ),
                 )
 
-    def add_tags(self, torrent: TorrentDictionary, tags: list) -> None:
+    def add_tags(
+        self, torrent: TorrentDictionary, tags: list, instance_name: str = "default"
+    ) -> None:
         for tag in tags:
             self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         if TAGLESS:
@@ -893,32 +911,39 @@ class Arr:
                     .where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     )
                     .execute()
                 )
                 if not query:
                     self.torrents.insert(
-                        Hash=torrent.hash, Category=torrent.category
+                        Hash=torrent.hash,
+                        Category=torrent.category,
+                        QbitInstance=instance_name,
                     ).on_conflict_ignore().execute()
                 if tag == "qBitrr-allowed_seeding":
                     self.torrents.update(AllowedSeeding=True).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-imported":
                     self.torrents.update(Imported=True).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-allowed_stalled":
                     self.torrents.update(AllowedStalled=True).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
                 elif tag == "qBitrr-free_space_paused":
                     self.torrents.update(FreeSpacePaused=True).where(
                         (self.torrents.Hash == torrent.hash)
                         & (self.torrents.Category == torrent.category)
+                        & (self.torrents.QbitInstance == instance_name)
                     ).execute()
         else:
             with contextlib.suppress(Exception):
