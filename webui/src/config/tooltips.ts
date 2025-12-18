@@ -53,6 +53,16 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "qBit.UserName": "qBittorrent WebUI username.",
   "qBit.Password":
     "qBittorrent WebUI password. Remove this if authentication is bypassed for the host.",
+  "qBit.Version5": "Enable if using qBittorrent v5.x or later for proper API compatibility.",
+
+  "Disabled":
+    "Disable this qBittorrent instance (headless mode for search-only setups).",
+  "Host": "qBittorrent WebUI host or IP address.",
+  "Port": "qBittorrent WebUI port.",
+  "UserName": "qBittorrent WebUI username.",
+  "Password":
+    "qBittorrent WebUI password. Remove this if authentication is bypassed for the host.",
+  "Version5": "Enable if using qBittorrent v5.x or later for proper API compatibility.",
 
   "ARR.Managed": "Toggle whether this Servarr instance is actively managed by qBitrr.",
   "ARR.URI":
@@ -157,6 +167,13 @@ export function getTooltip(path: string[]): string | undefined {
   const joined = path.join(".");
   if (FIELD_TOOLTIPS[joined]) return FIELD_TOOLTIPS[joined];
   if (path.length > 1) {
+    // Check for qBit-specific tooltips
+    const isQbitInstance = path[0] && /^qBit(-.*)?$/i.test(path[0]);
+    if (isQbitInstance) {
+      const qbitPrefix = ["qBit", ...path.slice(1)].join(".");
+      if (FIELD_TOOLTIPS[qbitPrefix]) return FIELD_TOOLTIPS[qbitPrefix];
+    }
+
     const withArrPrefix = ["ARR", ...path.slice(1)].join(".");
     if (FIELD_TOOLTIPS[withArrPrefix]) return FIELD_TOOLTIPS[withArrPrefix];
     const entrySearchPrefix = ["EntrySearch", ...path.slice(2)].join(".");

@@ -10,7 +10,7 @@ qBitrr now supports **multiple qBittorrent instances simultaneously**! Each Arr 
 - ✅ **Category-Based Management**: Torrents are managed based on their category, not their instance
 - ✅ **Instance Health Monitoring**: Track the health status of each qBittorrent instance
 - ✅ **Backward Compatible**: Existing single-instance configs work without changes
-- ✅ **WebUI Support**: View all instances in the web interface
+- ✅ **WebUI Support**: View, configure, add, and delete instances directly from the web interface
 
 ### Architecture
 
@@ -253,6 +253,49 @@ services:
 ---
 
 ## 🔍 WebUI Support
+
+### Configuration Management
+
+The qBitrr WebUI provides a user-friendly interface for managing multiple qBittorrent instances:
+
+**Features**:
+- ✅ **View all instances**: See all configured qBit instances with their status, host, and version
+- ✅ **Add instances**: Click "Add Instance" to create new qBittorrent connections
+- ✅ **Configure instances**: Edit host, port, credentials, and version settings
+- ✅ **Delete instances**: Remove secondary instances (default instance cannot be deleted)
+- ✅ **Rename instances**: Change instance names while preserving configuration
+- ✅ **Real-time validation**: Form validation ensures configuration correctness
+
+**Accessing the Config Editor**:
+1. Navigate to `http://your-qbitrr-host:6969/ui`
+2. Click on "Config" in the navigation
+3. Scroll to "qBittorrent Instances" section
+4. Use "Add Instance", "Configure", or "Delete" buttons to manage instances
+
+**Instance Cards**:
+Each instance card displays:
+- Instance name (e.g., "qBit", "qBit-seedbox")
+- Status: Enabled/Disabled
+- Host and port (e.g., "192.168.1.100:8080")
+- qBittorrent version (v4.x or v5.x+)
+
+**Adding a New Instance**:
+1. Click "Add Instance" button
+2. Configure the instance:
+   - **Display Name**: Rename from default "qBit-1" to your custom name (e.g., "qBit-seedbox")
+   - **Host**: qBittorrent WebUI host or IP
+   - **Port**: qBittorrent WebUI port
+   - **Username**: Optional authentication username
+   - **Password**: Optional authentication password
+   - **Version 5**: Check if using qBittorrent v5.x or later
+   - **Disabled**: Check to temporarily disable this instance
+3. Click "Done" to save
+
+**Best Practices**:
+- Use descriptive instance names (e.g., `qBit-seedbox`, `qBit-vpn`, `qBit-local`)
+- Test connectivity by checking the status indicators after saving
+- Enable "Version 5" checkbox for qBittorrent 5.x+ to ensure API compatibility
+- Use "Disabled" checkbox to temporarily disable instances without deleting configuration
 
 ### Status Endpoint
 
