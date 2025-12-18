@@ -324,6 +324,279 @@ Ok.
 
 ---
 
+## Multi-qBittorrent Support (v3.0+)
+
+!!! success "New in v3.0"
+    qBitrr now supports managing torrents across **multiple qBittorrent instances** simultaneously! This enables load balancing, redundancy, VPN isolation, and more.
+
+### Overview
+
+With multi-instance support, you can configure multiple qBittorrent instances and qBitrr will:
+
+- ✅ Monitor torrents across **all instances** for each Arr category
+- ✅ Track instance health and automatically skip offline instances
+- ✅ Allow torrents to be managed regardless of which instance they're on
+- ✅ Maintain 100% backward compatibility with single-instance setups
+
+### How It Works
+
+**Key Concept:** Each Arr instance (Radarr/Sonarr/Lidarr) monitors ALL qBittorrent instances. Torrents are identified by **category**, not by which instance they're on.
+
+**Example:**
+- Radarr can send downloads to ANY available qBit instance
+- qBitrr monitors ALL instances for torrents in the `radarr-movies` category
+- If a Radarr torrent appears on `default` or `seedbox`, qBitrr manages it the same way
+
+### Configuration Syntax
+
+The default instance is always `[qBit]`. Additional instances use `[qBit-NAME]` syntax:
+
+```toml
+[qBit]  # Default instance (REQUIRED)
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "adminpass"
+
+[qBit-seedbox]  # Additional instance (OPTIONAL)
+Host = "192.168.1.100"
+Port = 8080
+UserName = "admin"
+Password = "seedboxpass"
+
+[qBit-vpn]  # Another instance (OPTIONAL)
+Host = "10.8.0.2"
+Port = 8080
+UserName = "admin"
+Password = "vpnpass"
+Version5 = true  # This instance uses qBittorrent 5.x
+```
+
+!!! warning "Important: Use Dash Notation"
+    Additional instances MUST use dash (`-`) notation, NOT dot (`.`) notation:
+
+    - ✅ **Correct:** `[qBit-seedbox]`
+    - ❌ **Wrong:** `[qBit.seedbox]` (creates nested TOML tables)
+
+### Use Cases
+
+#### 1. Home + Seedbox Setup
+
+Combine local qBittorrent for fast downloads with remote seedbox for long-term seeding:
+
+```toml
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "localpass"
+
+[qBit-seedbox]
+Host = "seedbox.example.com"
+Port = 8080
+UserName = "admin"
+Password = "seedboxpass"
+```
+
+#### 2. Multiple VPN Endpoints
+
+Run different qBittorrent instances behind different VPN connections:
+
+```toml
+[qBit]
+Host = "10.8.0.2"  # US VPN
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-eu]
+Host = "10.8.0.3"  # EU VPN
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-asia]
+Host = "10.8.0.4"  # Asia VPN
+Port = 8080
+UserName = "admin"
+Password = "password"
+```
+
+#### 3. Docker Multi-Container
+
+Isolate different trackers or content types in separate containers:
+
+```toml
+[qBit]
+Host = "qbittorrent-public"  # Docker container for public torrents
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-private]
+Host = "qbittorrent-private"  # Docker container for private trackers
+Port = 8080
+UserName = "admin"
+Password = "password"
+```
+
+**Docker Compose:**
+```yaml
+services:
+  qbittorrent-public:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent-public
+    ports:
+      - "8080:8080"
+    networks:
+      - media
+
+  qbittorrent-private:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent-private
+    ports:
+      - "8081:8080"
+    networks:
+      - media
+
+  qbitrr:
+    image: feramance/qbitrr:latest
+    networks:
+      - media
+    volumes:
+      - ./config:/config
+```
+
+### Instance Health Monitoring
+
+qBitrr automatically monitors the health of each instance and handles failures gracefully:
+
+- **Healthy instances:** Torrents are processed normally
+- **Offline instances:** Skipped during each scan loop
+- **Failed instances:** Logged but don't block processing of other instances
+
+Check instance health via the WebUI or API:
+
+```bash
+curl http://localhost:6969/api/status | jq '.qbitInstances'
+```
+
+Response:
+```json
+{
+  "default": {
+    "alive": true,
+    "host": "localhost",
+    "port": 8080,
+    "version": "4.6.0"
+  },
+  "seedbox": {
+    "alive": true,
+    "host": "192.168.1.100",
+    "port": 8080,
+    "version": "4.5.5"
+  },
+  "vpn": {
+    "alive": false,
+    "host": "10.8.0.2",
+    "port": 8080,
+    "version": null,
+    "error": "Connection timeout"
+  }
+}
+```
+
+### Performance Considerations
+
+Each instance adds ~50-200ms overhead per scan loop. Recommended settings:
+
+| Instances | Recommended `LoopSleepTimer` |
+|-----------|------------------------------|
+| 1-3       | 5 (default)                  |
+| 4-5       | 10                           |
+| 6+        | 15                           |
+
+Update in `[Settings]`:
+```toml
+[Settings]
+LoopSleepTimer = 10  # Increase for multiple instances
+```
+
+### Troubleshooting Multi-Instance
+
+#### Instance Not Detected
+
+**Symptoms:** Only `default` instance appears in `/api/status`
+
+**Solutions:**
+
+1. ✅ Check section name uses dash: `[qBit-NAME]` not `[qBit.NAME]`
+2. ✅ Verify connectivity: `curl http://HOST:PORT/api/v2/app/version`
+3. ✅ Check credentials match qBittorrent settings
+4. ✅ Review logs for "Failed to initialize instance" messages
+
+#### Torrents Not Processing on Secondary Instance
+
+**Symptoms:** Torrents on `seedbox` ignored, only `default` processed
+
+**Solutions:**
+
+1. ✅ Verify category exists on all instances (qBitrr creates them automatically)
+2. ✅ Check category spelling is exact (case-sensitive)
+3. ✅ Confirm torrents have correct Arr tags
+4. ✅ Check instance is healthy in `/api/status`
+
+#### Category Creation Fails
+
+**Symptoms:** "Failed to create category on instance X" in logs
+
+**Solutions:**
+
+1. ✅ Verify qBittorrent user has category creation permissions
+2. ✅ Check qBittorrent version compatibility
+3. ✅ Create category manually in qBittorrent Web UI as workaround
+4. ✅ Verify qBittorrent has write access to category save paths
+
+### Migration from Single to Multi-Instance
+
+Migrating from a single qBittorrent instance to multiple is seamless:
+
+**Step 1:** Backup config
+```bash
+cp ~/config/config.toml ~/config/config.toml.backup
+```
+
+**Step 2:** Add new instance sections to `config.toml`
+```toml
+[qBit-seedbox]
+Host = "192.168.1.100"
+Port = 8080
+UserName = "admin"
+Password = "password"
+```
+
+**Step 3:** Restart qBitrr
+```bash
+systemctl restart qbitrr  # OR docker restart qbitrr
+```
+
+**Step 4:** Verify detection
+```bash
+curl http://localhost:6969/api/status | jq '.qbitInstances'
+```
+
+!!! info "No Database Migration Required"
+    The database automatically recreates on restart with the new schema. All torrents will be re-scanned and tracked across all instances.
+
+### Additional Resources
+
+For complete documentation on multi-instance support, see:
+
+- [Multi-qBittorrent v3.0 User Guide](../../MULTI_QBIT_V3_USER_GUIDE.md)
+- [API Documentation](../reference/api.md#multi-instance-endpoints)
+
+---
+
 ## Advanced Configuration
 
 ### Custom TLS/SSL

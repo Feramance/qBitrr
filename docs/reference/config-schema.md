@@ -53,21 +53,27 @@ WebUIToken = "your-secret-token-here"
 
 ### Qbittorrent Subsection
 
+!!! info "Multi-Instance Support (v3.0+)"
+    This section describes the legacy single-instance `[qBit]` configuration. For multi-instance support, see the [Multi-qBittorrent](#multi-qbittorrent-instances-v30) section below.
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `Host` | string | **required** | qBittorrent URL (e.g., `http://localhost:8080`) |
 | `Username` | string | **required** | qBittorrent username |
 | `Password` | string | **required** | qBittorrent password |
 | `Version5` | bool | `false` | Use qBittorrent API v5 |
+| `Disabled` | bool | `false` | Run in headless mode (search only, no torrent management) |
 
 **Example:**
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://qbittorrent:8080"
-Username = "admin"
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
 Password = "adminadmin"
 Version5 = true
+Disabled = false
 ```
 
 ### Advanced Settings
@@ -436,6 +442,187 @@ MinimumSeedTime = 259200
 MinimumRatio = 2.0
 AutoReSearch = false
 ```
+
+---
+
+## Multi-qBittorrent Instances (v3.0+)
+
+!!! success "New Feature"
+    qBitrr v3.0 introduces support for managing torrents across multiple qBittorrent instances simultaneously.
+
+### Configuration Syntax
+
+The default instance is always `[qBit]` (required). Additional instances use `[qBit-NAME]` syntax:
+
+```toml
+[qBit]  # Default instance (REQUIRED)
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "password"
+Version5 = false
+
+[qBit-seedbox]  # Additional instance (OPTIONAL)
+Host = "192.168.1.100"
+Port = 8080
+UserName = "admin"
+Password = "seedboxpass"
+Version5 = false
+
+[qBit-vpn]  # Another instance (OPTIONAL)
+Host = "10.8.0.2"
+Port = 8080
+UserName = "admin"
+Password = "vpnpass"
+Version5 = true
+```
+
+### Instance Naming Rules
+
+!!! warning "Important: Use Dash Notation"
+    Additional instances MUST use dash (`-`) notation, NOT dot (`.`) notation:
+
+    - ✅ **Correct:** `[qBit-seedbox]`, `[qBit-remote]`, `[qBit-vpn]`
+    - ❌ **Wrong:** `[qBit.seedbox]` (creates nested TOML tables)
+
+### Instance Configuration Fields
+
+Each `[qBit-*]` section supports the same fields as `[qBit]`:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `Host` | string | **required** | qBittorrent URL or IP |
+| `Port` | int | **required** | qBittorrent Web UI port |
+| `UserName` | string | **required** | Authentication username |
+| `Password` | string | **required** | Authentication password |
+| `Version5` | bool | `false` | Use qBittorrent API v5 |
+| `Disabled` | bool | `false` | Disable this specific instance |
+
+### How Multi-Instance Works
+
+- Each Arr instance monitors **all** qBittorrent instances
+- Torrents are identified by **category**, not by instance location
+- Categories are automatically created on all instances during startup
+- Instance health is monitored; offline instances are skipped gracefully
+- No Arr configuration changes needed - multi-instance is automatic
+
+### Example: Home + Seedbox
+
+```toml
+[Settings]
+ConfigVersion = 3
+
+[qBit]  # Local qBittorrent
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "localpass"
+
+[qBit-seedbox]  # Remote seedbox
+Host = "seedbox.example.com"
+Port = 8080
+UserName = "admin"
+Password = "seedboxpass"
+
+[Radarr]  # Radarr monitors BOTH instances
+URI = "http://localhost:7878"
+APIKey = "radarr-api-key"
+Category = "radarr-movies"
+```
+
+### Example: Multi-VPN Setup
+
+```toml
+[qBit]  # US VPN endpoint
+Host = "10.8.0.2"
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-eu]  # EU VPN endpoint
+Host = "10.8.0.3"
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-asia]  # Asia VPN endpoint
+Host = "10.8.0.4"
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[Sonarr]  # Monitors all VPN instances
+URI = "http://localhost:8989"
+APIKey = "sonarr-api-key"
+Category = "sonarr-tv"
+```
+
+### Performance Tuning
+
+For multiple instances, increase `LoopSleepTimer` in `[Settings]`:
+
+| Instances | Recommended `LoopSleepTimer` |
+|-----------|------------------------------|
+| 1-3       | 5 (default)                  |
+| 4-5       | 10                           |
+| 6+        | 15                           |
+
+```toml
+[Settings]
+LoopSleepTimer = 10  # Increase for 4-5 instances
+```
+
+### Database Considerations
+
+- **No migration required:** Database auto-recreates on restart with new schema
+- **Compound index:** Torrents uniquely identified by `(Hash, QbitInstance)` tuple
+- **Backward compatible:** Single-instance setups work unchanged (default="default")
+
+### API Endpoints
+
+Multi-instance information is available via the WebUI API:
+
+**Status Endpoint:**
+```bash
+GET /api/status
+```
+
+**Response:**
+```json
+{
+  "qbit": {"alive": true, "host": "localhost", "port": 8080, "version": "4.6.0"},
+  "qbitInstances": {
+    "default": {"alive": true, "host": "localhost", "port": 8080, "version": "4.6.0"},
+    "seedbox": {"alive": true, "host": "192.168.1.100", "port": 8080, "version": "4.5.5"}
+  },
+  "arrs": [...],
+  "ready": true
+}
+```
+
+**Distribution Endpoint:**
+```bash
+GET /api/torrents/distribution
+```
+
+**Response:**
+```json
+{
+  "distribution": {
+    "radarr-movies": {"default": 25, "seedbox": 43},
+    "sonarr-tv": {"default": 15, "seedbox": 67}
+  }
+}
+```
+
+### Additional Resources
+
+For complete multi-instance documentation, see:
+
+- [qBittorrent Configuration: Multi-Instance](../configuration/qbittorrent.md#multi-qbittorrent-support-v30)
+- [Multi-qBittorrent v3.0 User Guide](../../MULTI_QBIT_V3_USER_GUIDE.md)
+
+---
 
 ## Related Documentation
 

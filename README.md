@@ -67,6 +67,7 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
 
 ## ✨ Key Features
 
+- **🚀 Multi-qBittorrent Support (v3.0+)** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation
 - **🚑 Torrent Health Monitoring** – Detect stalled/failed downloads, auto-blacklist, trigger re-searches
 - **🔍 Automated Search** – Missing media, quality upgrades, custom format scoring
 - **🎯 Request Integration** – Pull requests from Overseerr/Ombi, prioritize user-requested media
@@ -101,6 +102,28 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
    [Settings]
    CompletedDownloadFolder = "/path/to/completed"
    ```
+
+### 🆕 Multi-qBittorrent (v3.0+)
+
+Manage torrents across multiple qBittorrent instances:
+
+```toml
+[qBit]  # Default instance (required)
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "password"
+
+[qBit-seedbox]  # Additional instance (optional)
+Host = "192.168.1.100"
+Port = 8080
+UserName = "admin"
+Password = "seedboxpass"
+```
+
+See [Multi-qBittorrent Guide](MULTI_QBIT_V3_USER_GUIDE.md) for complete documentation.
+
+---
 
 See [Configuration Guide](https://feramance.github.io/qBitrr/configuration/) and [config.example.toml](config.example.toml) for all available options.
 

@@ -109,6 +109,7 @@ Theme = "Dark"
 
 
 [qBit]
+# Default qBittorrent instance (REQUIRED)
 # If this is enabled qBitrr can run in headless mode where it will only process searches.
 # If media search is enabled in their individual categories
 # This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
@@ -125,6 +126,46 @@ UserName = "CHANGE_ME"
 
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "CHANGE_ME"
+
+# Set to true if using qBittorrent v5.x or later
+# Version5 = false
+
+
+# ============================================================
+# MULTI-QBITTORRENT SUPPORT (v3.0+)
+# ============================================================
+# You can configure multiple qBittorrent instances using the [qBit-NAME] syntax.
+# Each Arr instance will monitor ALL qBit instances for torrents in its category.
+# This allows load balancing, redundancy, and VPN isolation.
+#
+# IMPORTANT: Use dash (-) notation, NOT dot (.) notation!
+#   ✅ CORRECT: [qBit-seedbox]
+#   ❌ WRONG:   [qBit.seedbox]
+#
+# Examples:
+#
+# [qBit-seedbox]
+# Host = "192.168.1.100"
+# Port = 8080
+# UserName = "admin"
+# Password = "seedboxpass"
+# Version5 = false
+#
+# [qBit-vpn]
+# Host = "10.8.0.2"
+# Port = 8080
+# UserName = "admin"
+# Password = "vpnpass"
+# Version5 = true
+#
+# [qBit-remote]
+# Host = "remote.example.com"
+# Port = 8443
+# UserName = "admin"
+# Password = "remotepass"
+#
+# For more information, see: MULTI_QBIT_V3_USER_GUIDE.md
+# ============================================================
 
 
 [Sonarr-TV]

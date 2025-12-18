@@ -2122,6 +2122,7 @@ class WebUI:
             return redirect(download_url)
 
         def _status_payload() -> dict[str, Any]:
+            # Legacy single-instance qBit info (for backward compatibility)
             qb = {
                 "alive": bool(self.manager.is_alive),
                 "host": self.manager.qBit_Host,
@@ -2132,6 +2133,18 @@ class WebUI:
                     else None
                 ),
             }
+
+            # Multi-instance qBit info
+            qbit_instances = {}
+            for instance_name in self.manager.get_all_instances():
+                info = self.manager.get_instance_info(instance_name)
+                qbit_instances[instance_name] = {
+                    "alive": self.manager.is_instance_alive(instance_name),
+                    "host": info.get("host", ""),
+                    "port": info.get("port", 0),
+                    "version": info.get("version", None),
+                }
+
             arrs = []
             for k, arr in _managed_objects().items():
                 t = getattr(arr, "type", None)
@@ -2150,7 +2163,12 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
-            return {"qbit": qb, "arrs": arrs, "ready": _ensure_arr_manager_ready()}
+            return {
+                "qbit": qb,  # Legacy single-instance (default) for backward compatibility
+                "qbitInstances": qbit_instances,  # Multi-instance info
+                "arrs": arrs,
+                "ready": _ensure_arr_manager_ready(),
+            }
 
         @app.get("/api/status")
         def api_status():
@@ -2161,6 +2179,35 @@ class WebUI:
         @app.get("/web/status")
         def web_status():
             return jsonify(_status_payload())
+
+        @app.get("/api/torrents/distribution")
+        def api_torrents_distribution():
+            """Get torrent distribution across qBit instances grouped by category"""
+            if (resp := require_token()) is not None:
+                return resp
+
+            distribution = {}
+            for instance_name in self.manager.get_all_instances():
+                if not self.manager.is_instance_alive(instance_name):
+                    continue
+
+                try:
+                    client = self.manager.get_client(instance_name)
+                    torrents = client.torrents.info()
+
+                    # Group by category
+                    for torrent in torrents:
+                        category = getattr(torrent, "category", "uncategorized")
+                        if category not in distribution:
+                            distribution[category] = {}
+                        if instance_name not in distribution[category]:
+                            distribution[category][instance_name] = 0
+                        distribution[category][instance_name] += 1
+                except Exception:
+                    # Skip instances that fail
+                    pass
+
+            return jsonify({"distribution": distribution})
 
         @app.get("/api/token")
         def api_token():
