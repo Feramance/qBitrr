@@ -620,7 +620,7 @@ GET /api/torrents/distribution
 For complete multi-instance documentation, see:
 
 - [qBittorrent Configuration: Multi-Instance](../configuration/qbittorrent.md#multi-qbittorrent-support-v30)
-- [Multi-qBittorrent v3.0 User Guide](../../MULTI_QBIT_V3_USER_GUIDE.md)
+- [Multi-qBittorrent v3.0 User Guide](../advanced/multi-qbittorrent.md)
 
 ---
 
