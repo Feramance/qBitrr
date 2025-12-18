@@ -552,9 +552,9 @@ systemctl start qbitrr  # OR docker start qbitrr
 ## 📞 Support
 
 ### Documentation
-- **Main README**: [README.md](README.md)
-- **API Documentation**: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
-- **Implementation Progress**: [IMPLEMENTATION_PROGRESS.md](IMPLEMENTATION_PROGRESS.md)
+- **Main README**: [Home](../index.md)
+- **API Documentation**: [API Reference](../reference/api.md)
+- **Implementation Progress**: [GitHub Repository](https://github.com/Feramance/qBitrr/blob/feature/multi-qbit-v3/IMPLEMENTATION_PROGRESS.md)
 
 ### Getting Help
 - **GitHub Issues**: https://github.com/Feramance/qBitrr/issues
