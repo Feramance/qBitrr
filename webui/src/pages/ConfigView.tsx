@@ -384,12 +384,6 @@ const QBIT_FIELDS: FieldDefinition[] = [
   },
   { label: "UserName", path: ["UserName"], type: "text" },
   { label: "Password", path: ["Password"], type: "password", secure: true },
-  {
-    label: "Version 5",
-    path: ["Version5"],
-    type: "checkbox",
-    description: "Enable if using qBittorrent v5.x or later",
-  },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
@@ -1523,7 +1517,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       Port: 8080,
       UserName: "",
       Password: "",
-      Version5: false,
     };
     setFormState(
       produce(formState, (draft) => {
@@ -1756,7 +1749,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                   const host = getValue(value as ConfigDocument, ["Host"]);
                   const port = getValue(value as ConfigDocument, ["Port"]);
                   const disabled = getValue(value as ConfigDocument, ["Disabled"]);
-                  const version5 = getValue(value as ConfigDocument, ["Version5"]);
                   const isDefault = key === "qBit";
                   return (
                     <div className="card config-card config-arr-card" key={key}>
@@ -1773,10 +1765,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                           <div className="config-arr-summary__item">
                             <dt>Host</dt>
                             <dd>{host ? `${String(host)}:${port ?? 8080}` : "-"}</dd>
-                          </div>
-                          <div className="config-arr-summary__item">
-                            <dt>Version</dt>
-                            <dd>{version5 ? "v5.x+" : "v4.x"}</dd>
                           </div>
                         </dl>
                         <div className="config-arr-actions">

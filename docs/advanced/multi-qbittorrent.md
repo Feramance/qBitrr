@@ -277,7 +277,6 @@ Each instance card displays:
 - Instance name (e.g., "qBit", "qBit-seedbox")
 - Status: Enabled/Disabled
 - Host and port (e.g., "192.168.1.100:8080")
-- qBittorrent version (v4.x or v5.x+)
 
 **Adding a New Instance**:
 1. Click "Add Instance" button
@@ -287,14 +286,12 @@ Each instance card displays:
    - **Port**: qBittorrent WebUI port
    - **Username**: Optional authentication username
    - **Password**: Optional authentication password
-   - **Version 5**: Check if using qBittorrent v5.x or later
    - **Disabled**: Check to temporarily disable this instance
 3. Click "Done" to save
 
 **Best Practices**:
 - Use descriptive instance names (e.g., `qBit-seedbox`, `qBit-vpn`, `qBit-local`)
 - Test connectivity by checking the status indicators after saving
-- Enable "Version 5" checkbox for qBittorrent 5.x+ to ensure API compatibility
 - Use "Disabled" checkbox to temporarily disable instances without deleting configuration
 
 ### Status Endpoint

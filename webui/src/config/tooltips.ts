@@ -53,7 +53,6 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "qBit.UserName": "qBittorrent WebUI username.",
   "qBit.Password":
     "qBittorrent WebUI password. Remove this if authentication is bypassed for the host.",
-  "qBit.Version5": "Enable if using qBittorrent v5.x or later for proper API compatibility.",
 
   "Disabled":
     "Disable this qBittorrent instance (headless mode for search-only setups).",
@@ -62,7 +61,6 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "UserName": "qBittorrent WebUI username.",
   "Password":
     "qBittorrent WebUI password. Remove this if authentication is bypassed for the host.",
-  "Version5": "Enable if using qBittorrent v5.x or later for proper API compatibility.",
 
   "ARR.Managed": "Toggle whether this Servarr instance is actively managed by qBitrr.",
   "ARR.URI":

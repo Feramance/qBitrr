@@ -127,9 +127,6 @@ UserName = "CHANGE_ME"
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "CHANGE_ME"
 
-# Set to true if using qBittorrent v5.x or later
-# Version5 = false
-
 
 # ============================================================
 # MULTI-QBITTORRENT SUPPORT (v3.0+)
@@ -149,14 +146,12 @@ Password = "CHANGE_ME"
 # Port = 8080
 # UserName = "admin"
 # Password = "seedboxpass"
-# Version5 = false
 #
 # [qBit-vpn]
 # Host = "10.8.0.2"
 # Port = 8080
 # UserName = "admin"
 # Password = "vpnpass"
-# Version5 = true
 #
 # [qBit-remote]
 # Host = "remote.example.com"
