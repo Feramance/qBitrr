@@ -1735,79 +1735,77 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               </div>
             </details>
           </section>
-          {qbitSections.length ? (
-            <section className="config-arr-group">
-              <details className="config-arr-group__details" open>
-                <summary>
-                  <span>qBittorrent Instances</span>
-                  <span className="config-arr-group__count">
-                    {qbitSections.length}
-                  </span>
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={addQbitInstance}
-                  >
-                    <IconImage src={AddIcon} />
-                    Add Instance
-                  </button>
-                </summary>
-                <div className="config-arr-grid">
-                  {qbitSections.map(([key, value]) => {
-                    const host = getValue(value as ConfigDocument, ["Host"]);
-                    const port = getValue(value as ConfigDocument, ["Port"]);
-                    const disabled = getValue(value as ConfigDocument, ["Disabled"]);
-                    const version5 = getValue(value as ConfigDocument, ["Version5"]);
-                    const isDefault = key === "qBit";
-                    return (
-                      <div className="card config-card config-arr-card" key={key}>
-                        <div className="card-header">
-                          {key}
-                          {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default)</span>}
-                        </div>
-                        <div className="card-body">
-                          <dl className="config-arr-summary">
-                            <div className="config-arr-summary__item">
-                              <dt>Status</dt>
-                              <dd>{disabled ? "Disabled" : "Enabled"}</dd>
-                            </div>
-                            <div className="config-arr-summary__item">
-                              <dt>Host</dt>
-                              <dd>{host ? `${String(host)}:${port ?? 8080}` : "-"}</dd>
-                            </div>
-                            <div className="config-arr-summary__item">
-                              <dt>Version</dt>
-                              <dd>{version5 ? "v5.x+" : "v4.x"}</dd>
-                            </div>
-                          </dl>
-                          <div className="config-arr-actions">
-                            {!isDefault ? (
-                              <button
-                                className="btn danger"
-                                type="button"
-                                onClick={() => deleteQbitInstance(key)}
-                              >
-                                <IconImage src={DeleteIcon} />
-                                Delete
-                              </button>
-                            ) : null}
-                            <button
-                              className="btn primary"
-                              type="button"
-                              onClick={() => setActiveQbitKey(key)}
-                            >
-                              <IconImage src={ConfigureIcon} />
-                              Configure
-                            </button>
+          <section className="config-arr-group">
+            <details className="config-arr-group__details" open>
+              <summary>
+                <span>qBittorrent Instances</span>
+                <span className="config-arr-group__count">
+                  {qbitSections.length}
+                </span>
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={addQbitInstance}
+                >
+                  <IconImage src={AddIcon} />
+                  Add Instance
+                </button>
+              </summary>
+              <div className="config-arr-grid">
+                {qbitSections.map(([key, value]) => {
+                  const host = getValue(value as ConfigDocument, ["Host"]);
+                  const port = getValue(value as ConfigDocument, ["Port"]);
+                  const disabled = getValue(value as ConfigDocument, ["Disabled"]);
+                  const version5 = getValue(value as ConfigDocument, ["Version5"]);
+                  const isDefault = key === "qBit";
+                  return (
+                    <div className="card config-card config-arr-card" key={key}>
+                      <div className="card-header">
+                        {key}
+                        {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default)</span>}
+                      </div>
+                      <div className="card-body">
+                        <dl className="config-arr-summary">
+                          <div className="config-arr-summary__item">
+                            <dt>Status</dt>
+                            <dd>{disabled ? "Disabled" : "Enabled"}</dd>
                           </div>
+                          <div className="config-arr-summary__item">
+                            <dt>Host</dt>
+                            <dd>{host ? `${String(host)}:${port ?? 8080}` : "-"}</dd>
+                          </div>
+                          <div className="config-arr-summary__item">
+                            <dt>Version</dt>
+                            <dd>{version5 ? "v5.x+" : "v4.x"}</dd>
+                          </div>
+                        </dl>
+                        <div className="config-arr-actions">
+                          {!isDefault ? (
+                            <button
+                              className="btn danger"
+                              type="button"
+                              onClick={() => deleteQbitInstance(key)}
+                            >
+                              <IconImage src={DeleteIcon} />
+                              Delete
+                            </button>
+                          ) : null}
+                          <button
+                            className="btn primary"
+                            type="button"
+                            onClick={() => setActiveQbitKey(key)}
+                          >
+                            <IconImage src={ConfigureIcon} />
+                            Configure
+                          </button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </details>
-            </section>
-          ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          </section>
           {groupedArrSections.length ? (
             <div className="config-arr-groups">
               {groupedArrSections.map((group) => (
