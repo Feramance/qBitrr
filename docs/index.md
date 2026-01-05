@@ -17,25 +17,25 @@
   <div class="feature-card">
     <h3>🚀 Getting Started</h3>
     <p>Install qBitrr and get your first torrent monitored in minutes.</p>
-    <a href="getting-started/index.md">Get Started →</a>
+    <a href="getting-started/">Get Started →</a>
   </div>
 
   <div class="feature-card">
     <h3>⚙️ Configuration</h3>
     <p>Configure qBittorrent, Arr instances, and fine-tune your automation.</p>
-    <a href="configuration/index.md">Configure →</a>
+    <a href="configuration/">Configure →</a>
   </div>
 
   <div class="feature-card">
     <h3>✨ Features</h3>
     <p>Explore health monitoring, automated search, quality upgrades, and more.</p>
-    <a href="features/index.md">Explore Features →</a>
+    <a href="features/">Explore Features →</a>
   </div>
 
   <div class="feature-card">
     <h3>🔧 Troubleshooting</h3>
     <p>Resolve common issues and optimize your qBitrr installation.</p>
-    <a href="troubleshooting/index.md">Troubleshoot →</a>
+    <a href="troubleshooting/">Troubleshoot →</a>
   </div>
 </div>
 
@@ -121,7 +121,7 @@
     qbitrr
     ```
 
-[View detailed installation instructions →](getting-started/installation/index.md)
+[View detailed installation instructions →](getting-started/installation/)
 
 ## Why qBitrr?
 
@@ -294,7 +294,7 @@ Perfect for personal Plex/Jellyfin/Emby servers:
 - Basic quality management
 - Request integration for family/friends
 
-[**Example Setup →**](getting-started/quickstart.md#home-media-server)
+[**Example Setup →**](getting-started/quickstart/#scenario-1-simple-home-server)
 
 ---
 
@@ -308,7 +308,7 @@ For users with extensive libraries and quality requirements:
 - Per-tracker seeding rules
 - Overseerr integration for public access
 
-[**Example Setup →**](getting-started/quickstart.md#power-user-setup)
+[**Example Setup →**](getting-started/quickstart/#scenario-3-power-user-with-quality-control)
 
 ---
 
@@ -322,7 +322,7 @@ Manage shared seedboxes with multiple users:
 - Per-user quality profiles
 - Centralized monitoring via WebUI
 
-[**Example Setup →**](getting-started/quickstart.md#shared-seedbox)
+[**Example Setup →**](getting-started/quickstart/#scenario-4-docker-compose-full-stack)
 
 ---
 
@@ -336,7 +336,7 @@ Optimize for private tracker requirements:
 - Long-term seeding with automatic cleanup
 - Import verification with FFprobe
 
-[**Example Setup →**](advanced/index.md#private-tracker-configuration)
+[**Example Setup →**](advanced/custom-trackers/#private-tracker-strict-rules)
 
 ---
 
@@ -358,7 +358,7 @@ Optimize for private tracker requirements:
 - **v5.3** - Overseerr request integration
 - **v5.2** - Auto-restart and self-healing features
 
-[**Full Changelog →**](changelog.md)
+[**Full Changelog →**](changelog/)
 
 ### Roadmap
 
@@ -381,13 +381,13 @@ Optimize for private tracker requirements:
 - **📚 Documentation**: You're reading it!
 - **💬 Discussions**: [GitHub Discussions](https://github.com/Feramance/qBitrr/discussions) - Ask questions, share setups
 - **🐛 Issues**: [GitHub Issues](https://github.com/Feramance/qBitrr/issues) - Report bugs, request features
-- **💡 FAQ**: [Frequently Asked Questions](faq.md) - Common questions answered
+- **💡 FAQ**: [Frequently Asked Questions](faq/) - Common questions answered
 
 ### Contributing
 
 qBitrr is open source and welcomes contributions:
 
-- **Code**: [Development Guide](development/index.md)
+- **Code**: [Development Guide](development/)
 - **Docs**: Improve this documentation
 - **Translations**: Help translate qBitrr
 - **Testing**: Test new features and report issues
@@ -407,24 +407,24 @@ If qBitrr saves you time and improves your media management:
 
 ### First Time User?
 
-1. [Getting Started Guide →](getting-started/index.md)
-2. [Installation →](getting-started/installation/index.md)
-3. [First Run Configuration →](getting-started/first-run.md)
-4. [Quick Start →](getting-started/quickstart.md)
+1. [Getting Started Guide →](getting-started/)
+2. [Installation →](getting-started/installation/)
+3. [First Run Configuration →](getting-started/first-run/)
+4. [Quick Start →](getting-started/quickstart/)
 
 ### Already Installed?
 
-1. [Configuration Reference →](configuration/index.md)
-2. [Feature Guides →](features/index.md)
-3. [WebUI Documentation →](webui/index.md)
-4. [Troubleshooting →](troubleshooting/index.md)
+1. [Configuration Reference →](configuration/)
+2. [Feature Guides →](features/)
+3. [WebUI Documentation →](webui/)
+4. [Troubleshooting →](troubleshooting/)
 
 ### Advanced User?
 
-1. [Advanced Topics →](advanced/index.md)
-2. [API Reference →](reference/api.md)
-3. [Development →](development/index.md)
-4. [CLI Reference →](reference/cli.md)
+1. [Advanced Topics →](advanced/)
+2. [API Reference →](reference/api/)
+3. [Development →](development/)
+4. [CLI Reference →](reference/cli/)
 
 ---
 
@@ -463,4 +463,4 @@ copies of the Software.
 
 ---
 
-**Ready to get started?** [Install qBitrr Now →](getting-started/installation/index.md)
+**Ready to get started?** [Install qBitrr Now →](getting-started/installation/)
