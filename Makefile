@@ -19,7 +19,9 @@ ifeq ($(OS),Windows_NT)
 		echo ""; \
 	)
 	VENV_PYTHON := ./.venv/Scripts/python.exe
-	WEBUI_BUILD := if exist "$(WEBUI_DIR)\package.json" (pushd "$(WEBUI_DIR)" && npm ci && npm run build && popd)
+	WEBUI_BUILD := if [ -f "$(WEBUI_DIR)/package.json" ]; then \
+		cd "$(WEBUI_DIR)" && npm ci && npm run build; \
+	fi
 else
 	PYTHON ?= $(shell \
 		if command -v python3 >/dev/null 2>&1; then \
@@ -88,12 +90,11 @@ newenv:
 	"$(VENV_PYTHON)" -m pip install --upgrade setuptools==69.5.1
 	"$(VENV_PYTHON)" -m pip install --upgrade wheel
 	"$(VENV_PYTHON)" -m pip install --upgrade pre-commit
-	$(MAKE) syncenv
+	"$(MAKE)" syncenv
 syncenv:
 	"$(VENV_PYTHON)" -m pip install --upgrade pip
 	"$(VENV_PYTHON)" -m pip install -e ".[all]"
 	"$(VENV_PYTHON)" -m pre_commit install
-	pre-commit install
 	@$(WEBUI_BUILD)
 help:
 	@echo "$$HELP_BODY"
