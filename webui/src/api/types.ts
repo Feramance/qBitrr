@@ -46,8 +46,24 @@ export interface QbitStatus {
   version: string | null;
 }
 
+export interface QbitInstance {
+  alive: boolean;
+  host: string;
+  port: number;
+  version: string | null;
+}
+
+export interface TorrentDistribution {
+  distribution: {
+    [category: string]: {
+      [instanceName: string]: number;
+    };
+  };
+}
+
 export interface StatusResponse {
-  qbit: QbitStatus;
+  qbit: QbitStatus;  // Legacy single-instance (default) for backward compatibility
+  qbitInstances: { [instanceName: string]: QbitInstance };  // Multi-instance info
   arrs: ArrInfo[];
   ready?: boolean;
 }

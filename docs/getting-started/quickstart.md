@@ -91,6 +91,27 @@ APIKey = "your_radarr_api_key"  # From Radarr Settings > General > Security
     - **Sonarr**: Settings → General → Security → API Key
     - **Lidarr**: Settings → General → Security → API Key
 
+!!! success "Multi-qBittorrent Support (v3.0+)"
+    qBitrr can now manage torrents across **multiple qBittorrent instances**!
+
+    To add additional instances, use the `[qBit-NAME]` syntax in your config:
+
+    ```toml
+    [qBit]  # Default instance (required)
+    Host = "localhost"
+    Port = 8080
+    UserName = "admin"
+    Password = "password"
+
+    [qBit-seedbox]  # Additional instance (optional)
+    Host = "192.168.1.100"
+    Port = 8080
+    UserName = "admin"
+    Password = "seedboxpass"
+    ```
+
+    See [qBittorrent Configuration](../configuration/qbittorrent.md#multi-qbittorrent-support-v30) for complete details.
+
 ## Step 4: Configure Categories & Tags
 
 qBitrr **requires** your Arr downloads to be tagged so it knows which torrents to monitor.

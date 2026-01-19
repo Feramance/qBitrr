@@ -50,6 +50,7 @@ interface ValidationError {
 }
 
 const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
+const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 
 // Helper function for react-select theme-aware styles
 const getSelectStyles = () => {
@@ -355,10 +356,11 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
 ];
 
 const QBIT_FIELDS: FieldDefinition[] = [
-  { label: "Disabled", path: ["qBit", "Disabled"], type: "checkbox" },
+  { label: "Display Name", type: "text", placeholder: "qBit-seedbox", sectionName: true },
+  { label: "Disabled", path: ["Disabled"], type: "checkbox" },
   {
     label: "Host",
-    path: ["qBit", "Host"],
+    path: ["Host"],
     type: "text",
     required: true,
     validate: (value) => {
@@ -370,7 +372,7 @@ const QBIT_FIELDS: FieldDefinition[] = [
   },
   {
     label: "Port",
-    path: ["qBit", "Port"],
+    path: ["Port"],
     type: "number",
     validate: (value) => {
       const port = typeof value === "number" ? value : Number(value);
@@ -380,8 +382,8 @@ const QBIT_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
-  { label: "UserName", path: ["qBit", "UserName"], type: "text" },
-  { label: "Password", path: ["qBit", "Password"], type: "password" },
+  { label: "UserName", path: ["UserName"], type: "text" },
+  { label: "Password", path: ["Password"], type: "password", secure: true },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
@@ -1071,20 +1073,23 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   const rootContext: ValidationContext = { root: formState };
   validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
   validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
-  validateFieldGroup(errors, QBIT_FIELDS, formState, [], rootContext);
+
   for (const [key, value] of Object.entries(formState)) {
-    if (!SERVARR_SECTION_REGEX.test(key) || !value || typeof value !== "object") {
-      continue;
+    if (QBIT_SECTION_REGEX.test(key) && value && typeof value === "object") {
+      const section = value as ConfigDocument;
+      const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
+      validateFieldGroup(errors, QBIT_FIELDS, section, [key], sectionContext);
+    } else if (SERVARR_SECTION_REGEX.test(key) && value && typeof value === "object") {
+      const section = value as ConfigDocument;
+      const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
+      const fieldSets = getArrFieldSets(key);
+      validateFieldGroup(errors, fieldSets.generalFields, section, [key], sectionContext);
+      validateFieldGroup(errors, fieldSets.entryFields, section, [key], sectionContext);
+      validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [key], sectionContext);
+      validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [key], sectionContext);
+      validateFieldGroup(errors, fieldSets.torrentFields, section, [key], sectionContext);
+      validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
     }
-    const section = value as ConfigDocument;
-    const sectionContext: ValidationContext = { root: formState, section, sectionKey: key };
-    const fieldSets = getArrFieldSets(key);
-    validateFieldGroup(errors, fieldSets.generalFields, section, [key], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryFields, section, [key], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryOmbiFields, section, [key], sectionContext);
-    validateFieldGroup(errors, fieldSets.entryOverseerrFields, section, [key], sectionContext);
-    validateFieldGroup(errors, fieldSets.torrentFields, section, [key], sectionContext);
-    validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
   }
   return errors;
 }
@@ -1305,6 +1310,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       SERVARR_SECTION_REGEX.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
+
+  const qbitSections = useMemo(() => {
+    if (!formState) return [] as Array<[string, ConfigDocument]>;
+    return Object.entries(formState).filter(([key, value]) =>
+      QBIT_SECTION_REGEX.test(key) && value && typeof value === "object"
+    ) as Array<[string, ConfigDocument]>;
+  }, [formState]);
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
@@ -1341,9 +1353,9 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     return groups;
   }, [arrSections]);
   const [activeArrKey, setActiveArrKey] = useState<string | null>(null);
+  const [activeQbitKey, setActiveQbitKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
-  const [isQbitOpen, setQbitOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -1411,13 +1423,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || isSettingsOpen || isWebSettingsOpen || isQbitOpen);
+    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setActiveArrKey(null);
+        setActiveQbitKey(null);
         setSettingsOpen(false);
-        setQbitOpen(false);
+        setWebSettingsOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1428,7 +1441,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, isSettingsOpen, isWebSettingsOpen, isQbitOpen]);
+  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -1490,6 +1503,58 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     [formState, activeArrKey, push]
   );
 
+  const addQbitInstance = useCallback(() => {
+    if (!formState) return;
+    let index = 1;
+    let key = `qBit-${index}`;
+    while (formState[key]) {
+      index += 1;
+      key = `qBit-${index}`;
+    }
+    const defaults: ConfigDocument = {
+      Disabled: false,
+      Host: "localhost",
+      Port: 8080,
+      UserName: "",
+      Password: "",
+    };
+    setFormState(
+      produce(formState, (draft) => {
+        draft[key] = defaults;
+      })
+    );
+    setActiveQbitKey(key);
+  }, [formState]);
+
+  const deleteQbitInstance = useCallback(
+    (key: string) => {
+      if (!formState) return;
+      if (key === "qBit") {
+        push("Cannot delete the default qBit instance", "error");
+        return;
+      }
+      const confirmed = window.confirm(
+        `Delete ${key}? This action cannot be undone.`
+      );
+      if (!confirmed) {
+        return;
+      }
+      if (!(key in formState)) {
+        return;
+      }
+      setFormState(
+        produce(formState, (draft) => {
+          delete draft[key];
+        })
+      );
+      if (activeQbitKey === key) {
+        setActiveQbitKey(null);
+      }
+      push(`${key} removed`, "success");
+    },
+    [formState, activeQbitKey, push]
+  );
+
   const handleRenameSection = useCallback(
     (oldName: string, rawNewName: string) => {
       if (!formState) return;
@@ -1516,6 +1581,35 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
     },
     [formState, push, activeArrKey]
+  );
+
+  const handleRenameQbitSection = useCallback(
+    (oldName: string, rawNewName: string) => {
+      if (!formState) return;
+      const newName = rawNewName.trim();
+      if (!newName || newName === oldName) {
+        return;
+      }
+      if (oldName === "qBit" && newName !== "qBit") {
+        push("Cannot rename the default qBit instance. Create a new instance instead.", "error");
+        return;
+      }
+      if (formState[newName]) {
+        push(`An instance named "${newName}" already exists`, "error");
+        return;
+      }
+      setFormState(
+        produce(formState, (draft) => {
+          const section = draft[oldName];
+          delete draft[oldName];
+          draft[newName] = section;
+        })
+      );
+      if (activeQbitKey === oldName) {
+        setActiveQbitKey(newName);
+      }
+    },
+    [formState, push, activeQbitKey]
   );
 
   const handleSubmit = useCallback(async () => {
@@ -1631,11 +1725,72 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                   description="Web UI configuration"
                   onConfigure={() => setWebSettingsOpen(true)}
                 />
-                <ConfigSummaryCard
-                  title="qBit"
-                  description="qBittorrent connection details"
-                  onConfigure={() => setQbitOpen(true)}
-                />
+              </div>
+            </details>
+          </section>
+          <section className="config-arr-group">
+            <details className="config-arr-group__details" open>
+              <summary>
+                <span>qBittorrent Instances</span>
+                <span className="config-arr-group__count">
+                  {qbitSections.length}
+                </span>
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={addQbitInstance}
+                >
+                  <IconImage src={AddIcon} />
+                  Add Instance
+                </button>
+              </summary>
+              <div className="config-arr-grid">
+                {qbitSections.map(([key, value]) => {
+                  const host = getValue(value as ConfigDocument, ["Host"]);
+                  const port = getValue(value as ConfigDocument, ["Port"]);
+                  const disabled = getValue(value as ConfigDocument, ["Disabled"]);
+                  const isDefault = key === "qBit";
+                  return (
+                    <div className="card config-card config-arr-card" key={key}>
+                      <div className="card-header">
+                        {key}
+                        {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default)</span>}
+                      </div>
+                      <div className="card-body">
+                        <dl className="config-arr-summary">
+                          <div className="config-arr-summary__item">
+                            <dt>Status</dt>
+                            <dd>{disabled ? "Disabled" : "Enabled"}</dd>
+                          </div>
+                          <div className="config-arr-summary__item">
+                            <dt>Host</dt>
+                            <dd>{host ? `${String(host)}:${port ?? 8080}` : "-"}</dd>
+                          </div>
+                        </dl>
+                        <div className="config-arr-actions">
+                          {!isDefault ? (
+                            <button
+                              className="btn danger"
+                              type="button"
+                              onClick={() => deleteQbitInstance(key)}
+                            >
+                              <IconImage src={DeleteIcon} />
+                              Delete
+                            </button>
+                          ) : null}
+                          <button
+                            className="btn primary"
+                            type="button"
+                            onClick={() => setActiveQbitKey(key)}
+                          >
+                            <IconImage src={ConfigureIcon} />
+                            Configure
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </details>
           </section>
@@ -1758,14 +1913,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           showLiveSettings={true}
         />
       ) : null}
-      {isQbitOpen ? (
-        <SimpleConfigModal
-          title="qBit"
-          fields={QBIT_FIELDS}
-          state={formState}
-          basePath={[]}
+      {activeQbitKey && formState ? (
+        <QbitInstanceModal
+          keyName={activeQbitKey}
+          state={(formState[activeQbitKey] as ConfigDocument) ?? null}
           onChange={handleFieldChange}
-          onClose={() => setQbitOpen(false)}
+          onRename={handleRenameQbitSection}
+          onClose={() => setActiveQbitKey(null)}
         />
       ) : null}
     </>
@@ -2242,19 +2396,40 @@ function SectionNameField({
 
     let adjustedName = trimmed;
 
-    // Enforce prefix if specified
-    if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
-      // If user entered something without the prefix, prepend it
-      adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
-    }
+    // Check if this is a qBit instance
+    const isQbitInstance = QBIT_SECTION_REGEX.test(currentName);
 
-    // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
-    const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
-    if (!formatRegex.test(adjustedName)) {
-      // Invalid format - show error and reset
-      alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
-      setValue(currentName);
-      return;
+    if (isQbitInstance) {
+      // qBit instances must follow qBit-NAME format (or just "qBit" for default)
+      if (trimmed === "qBit") {
+        // Allow default name
+        adjustedName = "qBit";
+      } else if (!trimmed.startsWith("qBit-")) {
+        // If user entered something without the prefix, prepend it
+        adjustedName = `qBit-${trimmed}`;
+      }
+
+      // Validate format
+      if (adjustedName !== "qBit" && !adjustedName.match(/^qBit-.+$/)) {
+        alert(`qBit instance name must match format: qBit-NAME\nExample: qBit-seedbox`);
+        setValue(currentName);
+        return;
+      }
+    } else {
+      // Enforce prefix if specified (for Arr instances)
+      if (expectedPrefix && !trimmed.startsWith(expectedPrefix)) {
+        // If user entered something without the prefix, prepend it
+        adjustedName = expectedPrefix + (trimmed.startsWith("-") ? trimmed : `-${trimmed}`);
+      }
+
+      // Enforce format: (Rad|Son|Lid)arr-.+ (prefix-suffix with at least one character after dash)
+      const formatRegex = /^(Radarr|Sonarr|Lidarr)-.+$/;
+      if (!formatRegex.test(adjustedName)) {
+        // Invalid format - show error and reset
+        alert(`Instance name must match format: ${expectedPrefix || '(Rad|Son|Lid)arr'}-(name)\nExample: ${expectedPrefix || 'Radarr'}-Movies`);
+        setValue(currentName);
+        return;
+      }
     }
 
     if (adjustedName !== currentName) {
@@ -2618,6 +2793,70 @@ function ArrInstanceModal({
           <button className="btn primary" type="button" onClick={handleSave}>
             <IconImage src={SaveIcon} />
             Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface QbitInstanceModalProps {
+  keyName: string;
+  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
+  onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
+  onRename: (oldName: string, newName: string) => void;
+  onClose: () => void;
+}
+
+function QbitInstanceModal({
+  keyName,
+  state,
+  onChange,
+  onRename,
+  onClose,
+}: QbitInstanceModalProps): JSX.Element {
+  const isDefault = keyName === "qBit";
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qbit-instance-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="qbit-instance-modal-title">
+            Configure <code>{keyName}</code>
+            {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default Instance)</span>}
+          </h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body">
+          <FieldGroup
+            title={null}
+            fields={QBIT_FIELDS}
+            state={state}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            onRenameSection={isDefault ? undefined : onRename}
+            sectionKey={keyName}
+            defaultOpen
+          />
+          {isDefault && (
+            <div className="alert info" style={{ marginTop: '16px' }}>
+              ℹ️ This is the default qBittorrent instance (required). To add additional instances, use the "Add Instance" button.
+            </div>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button className="btn primary" type="button" onClick={onClose}>
+            <IconImage src={SaveIcon} />
+            Done
           </button>
         </div>
       </div>

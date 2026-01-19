@@ -15,6 +15,7 @@
 - [Lidarr Endpoints](#-lidarr-endpoints)
 - [Process Management](#-process-management)
 - [Arr Instance Management](#-arr-instance-management)
+- [qBittorrent Management](#-qbittorrent-management) ✨ New in v3.0
 - [Logs](#-logs)
 - [Configuration](#-configuration)
 - [Meta & Updates](#-meta--updates)
@@ -29,6 +30,7 @@
 
 The qBitrr WebUI exposes a comprehensive REST API for:
 - 🎬 Managing and querying Radarr/Sonarr/Lidarr instances
+- 🖥️ Monitoring qBittorrent instances (v3.0+)
 - 📊 Monitoring process status and activity
 - 📝 Viewing and searching logs
 - ⚙️ Updating configuration
@@ -609,14 +611,34 @@ GET /api/status
 GET /web/status
 ```
 
-Get readiness status and available Arr instances.
+Get readiness status, qBittorrent instance information, and available Arr instances.
 
 #### Response Structure
 
 ```json
 {
   "ready": true,
-  "arrs": ["movies", "tv-shows", "anime", "music"]
+  "arrs": ["movies", "tv-shows", "anime", "music"],
+  "qbit": {
+    "alive": true,
+    "host": "localhost",
+    "port": 8080,
+    "version": "4.6.0"
+  },
+  "qbitInstances": {
+    "default": {
+      "alive": true,
+      "host": "localhost",
+      "port": 8080,
+      "version": "4.6.0"
+    },
+    "seedbox": {
+      "alive": true,
+      "host": "192.168.1.100",
+      "port": 8080,
+      "version": "4.5.5"
+    }
+  }
 }
 ```
 
@@ -626,14 +648,33 @@ Get readiness status and available Arr instances.
 |-------|------|-------------|
 | `ready` | boolean | Whether backend is fully initialized |
 | `arrs` | array | List of configured Arr instance categories |
+| `qbit` | object | Default qBittorrent instance info (legacy field) |
+| `qbitInstances` | object | All qBittorrent instances (v3.0+) |
+
+**qBit instance object fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `alive` | boolean | Whether instance is reachable |
+| `host` | string | qBittorrent host/IP |
+| `port` | number | qBittorrent WebUI port |
+| `version` | string/null | qBittorrent version or null if offline |
+| `error` | string | Error message (only present if `alive` is false) |
 
 #### Example
 
 ```bash
+# Simple status check
 curl "http://localhost:6969/web/status"
+
+# Full status with qBittorrent info
+curl "http://localhost:6969/api/status"
 ```
 
-**Use case:** Check this endpoint before making other API calls to ensure qBitrr is ready.
+**Use cases:**
+- Check this endpoint before making other API calls to ensure qBitrr is ready
+- Monitor qBittorrent instance health (v3.0+)
+- Verify all configured instances are online
 
 ---
 
@@ -779,6 +820,85 @@ curl -X POST "http://localhost:6969/web/arr/rebuild"
 ```
 
 > 💡 **Use case:** Rebuild when Arr data seems stale or after major configuration changes.
+
+---
+
+## 🖥️ qBittorrent Management
+
+### 📊 Torrent Distribution (v3.0+)
+
+**Endpoint:**
+```
+GET /api/torrents/distribution
+```
+
+Get torrent count distribution across all qBittorrent instances, grouped by category.
+
+#### Response Structure
+
+```json
+{
+  "distribution": {
+    "radarr-movies": {
+      "default": 25,
+      "seedbox": 43,
+      "remote": 0
+    },
+    "sonarr-tv": {
+      "default": 15,
+      "seedbox": 67,
+      "remote": 12
+    },
+    "lidarr-music": {
+      "default": 8,
+      "seedbox": 23
+    }
+  }
+}
+```
+
+#### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `distribution` | object | Torrent counts by category and instance |
+
+**Distribution object structure:**
+```
+distribution[category][instance_name] = torrent_count
+```
+
+Where:
+- `category`: Arr category name (e.g., `radarr-movies`, `sonarr-tv`)
+- `instance_name`: qBittorrent instance name (e.g., `default`, `seedbox`, `vpn`)
+- `torrent_count`: Number of torrents in that category on that instance
+
+#### Example
+
+```bash
+curl "http://localhost:6969/api/torrents/distribution"
+```
+
+```python
+import requests
+
+response = requests.get("http://localhost:6969/api/torrents/distribution")
+distribution = response.json()["distribution"]
+
+# Show torrents per instance for each category
+for category, instances in distribution.items():
+    print(f"{category}:")
+    for instance, count in instances.items():
+        print(f"  {instance}: {count} torrents")
+```
+
+**Use cases:**
+- Monitor load balancing across multiple qBittorrent instances
+- Identify which instances are handling most torrents
+- Verify torrents are distributed as expected
+- Track instance usage for capacity planning
+
+**Note:** This endpoint is only available when using multiple qBittorrent instances (v3.0+). For single-instance setups, all torrents will be under the `default` instance.
 
 ---
 
