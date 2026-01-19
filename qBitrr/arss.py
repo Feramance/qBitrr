@@ -1064,7 +1064,16 @@ class Arr:
                 if not results:
                     break
                 for entry in results:
+                    # NOTE: 'type' field is not documented in official Overseerr API spec
+                    # but exists in practice. May break if Overseerr changes API.
                     type__ = entry.get("type")
+                    if not type__:
+                        self.logger.debug(
+                            "Overseerr request missing 'type' field (entry ID: %s). "
+                            "This may indicate an API change.",
+                            entry.get("id", "unknown"),
+                        )
+                        continue
                     if type__ == "movie":
                         id__ = entry.get("media", {}).get("tmdbId")
                     elif type__ == "tv":
@@ -1074,6 +1083,8 @@ class Arr:
                     if not id__ or type_ != type__:
                         continue
                     media = entry.get("media") or {}
+                    # NOTE: 'status4k' field is not documented in official Overseerr API spec
+                    # but exists for 4K request tracking. Falls back to 'status' for non-4K.
                     status_key = "status4k" if entry.get("is4k") else "status"
                     status_value = _normalize_media_status(media.get(status_key))
                     if entry.get("is4k"):
@@ -1096,7 +1107,7 @@ class Arr:
                         try:
                             if type_ == "movie":
                                 _entry = self.session.get(
-                                    url=f"{self.overseerr_uri}/api/v1/movies/{id__}",
+                                    url=f"{self.overseerr_uri}/api/v1/movie/{id__}",
                                     headers={"X-Api-Key": self.overseerr_api_key},
                                     timeout=5,
                                 )
