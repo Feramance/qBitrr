@@ -6925,6 +6925,18 @@ class Arr:
 
     def run_search_loop(self) -> NoReturn:
         run_logs(self.logger)
+        self.logger.info(
+            "Search loop starting for %s (SearchMissing=%s, DoUpgradeSearch=%s, "
+            "QualityUnmetSearch=%s, CustomFormatUnmetSearch=%s, "
+            "Overseerr=%s, Ombi=%s)",
+            self._name,
+            self.search_missing,
+            self.do_upgrade_search,
+            self.quality_unmet_search,
+            self.custom_format_unmet_search,
+            self.overseerr_requests,
+            self.ombi_search_requests,
+        )
         try:
             if not (
                 self.search_missing
@@ -6947,6 +6959,7 @@ class Arr:
             totcommands = -1
             self.db_update_processed = False
             event = self.manager.qbit_manager.shutdown_event
+            self.logger.info("Search loop initialized successfully, entering main loop")
             while not event.is_set():
                 if self.loop_completed:
                     years_index = 0
@@ -7093,6 +7106,16 @@ class Arr:
         except KeyboardInterrupt:
             self.logger.hnotice("Detected Ctrl+C - Terminating process")
             sys.exit(0)
+        except Exception as e:
+            self.logger.critical(
+                "Search loop crashed unexpectedly for %s: %s",
+                self._name,
+                e,
+                exc_info=True,
+            )
+            raise
+        finally:
+            self.logger.warning("Search loop terminated for %s", self._name)
 
     def run_torrent_loop(self) -> NoReturn:
         run_logs(self.logger)
