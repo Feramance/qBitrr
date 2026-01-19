@@ -86,6 +86,7 @@ class qBitManager:
     def __init__(self):
         self._name = "Manager"
         self.shutdown_event = Event()
+        self.database_restart_event = Event()  # Signal for coordinated database recovery restart
         self.qBit_Host = CONFIG.get("qBit.Host", fallback="localhost")
         self.qBit_Port = CONFIG.get("qBit.Port", fallback=8105)
         self.qBit_UserName = CONFIG.get("qBit.UserName", fallback=None)
@@ -763,6 +764,60 @@ class qBitManager:
                     ", ".join(f"{role}({cat})" for role, cat in failed_processes),
                 )
             while not self.shutdown_event.is_set():
+                # Check for database restart signal
+                if self.database_restart_event.is_set():
+                    self.logger.critical(
+                        "Database restart signal detected - terminating ALL processes for coordinated restart..."
+                    )
+                    # Terminate all child processes
+                    for proc in list(self.child_processes):
+                        if proc.is_alive():
+                            self.logger.warning(
+                                "Terminating %s process for database recovery",
+                                self._process_registry.get(proc, {}).get("role", "worker"),
+                            )
+                            proc.terminate()
+                    # Wait for processes to terminate
+                    time.sleep(2)
+                    # Force kill any that didn't terminate
+                    for proc in list(self.child_processes):
+                        if proc.is_alive():
+                            self.logger.error(
+                                "Force killing %s process",
+                                self._process_registry.get(proc, {}).get("role", "worker"),
+                            )
+                            proc.kill()
+                    # Clear all processes
+                    self.child_processes.clear()
+                    self._process_registry.clear()
+                    # Clear the event
+                    self.database_restart_event.clear()
+                    # Restart all Arr instances
+                    self.logger.critical("Restarting all Arr instances after database recovery...")
+                    if hasattr(self, "arr_manager") and self.arr_manager:
+                        for arr in self.arr_manager.managed_objects.values():
+                            try:
+                                worker_count, procs = arr.spawn_child_processes()
+                                for proc in procs:
+                                    role = (
+                                        "search"
+                                        if getattr(arr, "process_search_loop", None) is proc
+                                        else "torrent"
+                                    )
+                                    self._process_registry[proc] = {
+                                        "category": getattr(arr, "category", ""),
+                                        "name": getattr(arr, "_name", ""),
+                                        "role": role,
+                                    }
+                                self.logger.info(
+                                    "Respawned %d process(es) for %s", worker_count, arr._name
+                                )
+                            except Exception as e:
+                                self.logger.exception(
+                                    "Failed to respawn processes for %s: %s", arr._name, e
+                                )
+                    continue
+
                 any_alive = False
                 for proc in list(self.child_processes):
                     if proc.is_alive():

@@ -4780,10 +4780,12 @@ class Arr:
                 if time_since_first_error > 300:  # 5 minutes
                     self.logger.critical(
                         "Database errors have persisted for %.1f minutes. "
-                        "Triggering process restart to attempt recovery...",
+                        "Signaling coordinated restart of ALL processes for database recovery...",
                         time_since_first_error / 60,
                     )
-                    # Force process restart by exiting with error code
+                    # Signal all processes to restart (shared database affects everyone)
+                    self.manager.qbit_manager.database_restart_event.set()
+                    # Exit this process - main will restart all
                     sys.exit(1)
 
                 # Calculate exponential backoff: 2min, 5min, 10min, 20min, 30min (max)
