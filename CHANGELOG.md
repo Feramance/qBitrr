@@ -1,5 +1,44 @@
 # Changelog
 
+## v5.7.0 (19/01/2026)
+
+### 🚀 Features
+- [[minor] Merge PRs #239, #240, #242, #247: Multi-qBittorrent support and dependency updates](https://github.com/Feramance/qBitrr/commit/ff6447eaa49dcc24b771e0f6bb88c7e0b37b9201) - @Feramance
+
+### 🐛 Bug Fixes
+- [Fix gitignore](https://github.com/Feramance/qBitrr/commit/233b5adf2eb19c5ed0d613e6eb381fd64b6f05ac) - @Feramance
+- [Fix Makefile for cross-platform Windows compatibility](https://github.com/Feramance/qBitrr/commit/dc515b6335b8c4cfc6f07f96adb5b19d65ecd303) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump js-yaml from 4.1.0 to 4.1.1 in /webui (#265)](https://github.com/Feramance/qBitrr/commit/39f36e63a61e837a76f2d9c64ff7cbe28e95e6b1) - @Feramance
+- [Build(deps-dev): Bump vite from 7.3.0 to 7.3.1 in /webui (#261)](https://github.com/Feramance/qBitrr/commit/62a6b6d1828eb2708016cf5f1c124d5aeb820449) - @Feramance
+- [Build(deps-dev): Bump @types/react from 19.2.7 to 19.2.8 in /webui (#262)](https://github.com/Feramance/qBitrr/commit/1906fd03f4f8088e7985b5254032600537b4c9e1) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.69.0 to 7.71.1 in /webui (#260)](https://github.com/Feramance/qBitrr/commit/a0e60cbb95999a6b0c116220be1df09c35df0110) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.52.0 to 8.53.0 in /webui (#259)](https://github.com/Feramance/qBitrr/commit/86b98947940408b11ce2b332938811c0fa5f290d) - @Feramance
+- [Build(deps): Bump @mantine/dates from 8.3.11 to 8.3.12 in /webui (#254)](https://github.com/Feramance/qBitrr/commit/bc3c17c7e5602f6371d56797b2ff56c8abfaa446) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 8.3.11 to 8.3.12 in /webui (#255)](https://github.com/Feramance/qBitrr/commit/7b9d9c2af84e02e8cadf04b780a6cf2d90af249f) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.51.0 to 8.52.0 in /webui (#253)](https://github.com/Feramance/qBitrr/commit/0f5eb1db5aa6e22659f820725cf7a7f35a67c3e3) - @Feramance
+- [Update links in documentation for consistency (#252)](https://github.com/Feramance/qBitrr/commit/a8fb9bf063013d84cbfbd7d91fa9ac92cdff604c) - @Feramance
+- [Build(deps): Bump @mantine/dates from 8.3.10 to 8.3.11 in /webui (#249)](https://github.com/Feramance/qBitrr/commit/e92b1d4d00d1d4c7aec8b13755aeb82c2be19ffe) - @Feramance
+- [Build(deps): Bump immer from 11.1.0 to 11.1.3 in /webui (#250)](https://github.com/Feramance/qBitrr/commit/119d495f9cdc992b35f1227f66a044960f1d84cc) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 8.3.10 to 8.3.11 in /webui (#248)](https://github.com/Feramance/qBitrr/commit/fcb62dc352024b45414d4e823e46bc9f956cbb71) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.50.1 to 8.51.0 in /webui (#246)](https://github.com/Feramance/qBitrr/commit/859bc2ce822c2a1993e55f6b5d4856beadd02904) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.50.0 to 8.50.1 in /webui (#244)](https://github.com/Feramance/qBitrr/commit/7680c0843f74f3665df593f3e211bce6328c6399) - @Feramance
+- [Build(deps): Bump immer from 11.0.1 to 11.1.0 in /webui (#243)](https://github.com/Feramance/qBitrr/commit/58afdeaa88615e0e8cade39aa577723c354886c2) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.68.0 to 7.69.0 in /webui (#241)](https://github.com/Feramance/qBitrr/commit/acc03a5d021322282de9cfe6b420bb137b470487) - @Feramance
+- [Fix: Resolve package-lock.json merge conflicts and dependency sync](https://github.com/Feramance/qBitrr/commit/dbc4a89181fcfad428713b5afb4ed217bb5fc6ff) - @Feramance
+- [Build(deps): Bump immer from 10.2.0 to 11.0.1 in /webui (#225)](https://github.com/Feramance/qBitrr/commit/7fd8a07c3f9e233c852ba629cc3a2dd3ec99c0a4) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.66.1 to 7.67.0 in /webui (#224)](https://github.com/Feramance/qBitrr/commit/6d772c8a90e1519b9a9a2f658f229e7cf982ab46) - @Feramance
+- [Build(deps): Bump actions/upload-artifact from 5 to 6 (#234)](https://github.com/Feramance/qBitrr/commit/3c9b4ecf160dc352de8e6cb08c4689163a52abaa) - @Feramance
+- [Build(deps): Bump actions/upload-pages-artifact from 3 to 4 (#231)](https://github.com/Feramance/qBitrr/commit/7bac285e8591f56fabf497c604e664635d650499) - @Feramance
+- [Fix: Clean up draft releases after publishing](https://github.com/Feramance/qBitrr/commit/567064f2bf1bcb95464892e01922cf5d2a5e50b5) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.1 to 19.2.3 in /webui (#238)](https://github.com/Feramance/qBitrr/commit/2daaf055a522318412b81c3476e6c83e429902fd) - @Feramance
+- [Build(deps-dev): Bump @eslint/js from 9.39.1 to 9.39.2 in /webui (#237)](https://github.com/Feramance/qBitrr/commit/d619b6697a5701ef0fcf4253960a5ef4ad22da13) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.48.1 to 8.49.0 in /webui (#236)](https://github.com/Feramance/qBitrr/commit/98d8f1dd3677cbd2d1a878b513fa86b282ed17b7) - @Feramance
+- [Build(deps): Bump react from 19.2.1 to 19.2.3 in /webui (#235)](https://github.com/Feramance/qBitrr/commit/cbe4695efa1d8683d0e845ce8e25ff498df36079) - @Feramance
+
+---
+
 ## v5.6.2 (12/12/2025)
 
 ### 🚀 Features
