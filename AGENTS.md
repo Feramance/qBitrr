@@ -132,6 +132,126 @@
 - **WebUI Token**: If `Settings.WebUIToken` is set, all `/api/*` calls require `X-API-Token` header
 - **Database Locks**: Use `db_lock.py:locked_database()` context manager for all Peewee queries to avoid conflicts
 
+## Documentation Maintenance
+
+**CRITICAL**: When implementing new features or modifying existing functionality, documentation MUST be updated simultaneously to maintain accuracy.
+
+### Required Documentation Updates
+
+When making code changes, update the following documentation as applicable:
+
+#### 1. User-Facing Documentation (`docs/` directory)
+- **Configuration files** (`docs/configuration/*.md`):
+  - Add/update config option descriptions
+  - Provide example values and use cases
+  - Document defaults and valid ranges
+  - Include troubleshooting tips
+
+- **Feature documentation** (`docs/features/*.md`):
+  - Explain how the feature works
+  - Provide step-by-step setup instructions
+  - Add FAQ entries for common questions
+  - Include screenshots/examples where helpful
+
+- **Specific files requiring updates**:
+  - `docs/configuration/quality-profiles.md` – for temp profile changes
+  - `docs/features/automated-search.md` – for search behavior changes
+  - `docs/configuration/arr/radarr.md`, `sonarr.md`, `lidarr.md` – Arr-specific features
+
+#### 2. Code Documentation
+- **Docstrings**: Add/update for all new public functions and classes
+- **Inline comments**: Explain complex logic, design decisions, edge cases
+- **Type hints**: Required for all function signatures
+
+#### 3. Configuration Examples
+- **`config.example.toml`**: Update with new config options and examples
+- **`qBitrr/gen_config.py`**: Add new config fields with descriptions
+
+#### 4. API Documentation
+- **`API_DOCUMENTATION.md`**: Update if adding/changing WebUI API endpoints
+- **OpenAPI/Swagger**: Update specs if applicable
+
+### Documentation Quality Standards
+
+- **Accuracy**: Docs must reflect actual behavior (test before documenting)
+- **Completeness**: Cover all config options, edge cases, and common scenarios
+- **Clarity**: Use clear language; avoid jargon; provide examples
+- **Maintenance**: Remove outdated info; mark deprecated features
+- **Searchability**: Use consistent terminology; include keywords
+
+### Documentation Workflow
+
+1. **During Development**:
+   - Draft documentation as you write code
+   - Note design decisions and edge cases
+   - Create examples for common use cases
+
+2. **Before PR**:
+   - Review all affected documentation files
+   - Test examples and code snippets
+   - Check for broken links or references
+   - Ensure consistency with existing docs
+
+3. **PR Review**:
+   - Documentation changes are reviewed alongside code
+   - Reviewers verify accuracy and completeness
+   - Update based on feedback
+
+### Examples of Required Updates
+
+**Adding a new config option:**
+```markdown
+# In docs/configuration/quality-profiles.md
+
+## ForceResetTempProfiles
+
+**Type:** Boolean
+**Default:** `false`
+**Added in:** v5.x.x
+
+Resets all items using temporary profiles back to their main profiles when qBitrr starts.
+
+**Example:**
+```toml
+[Radarr.EntrySearch]
+ForceResetTempProfiles = true
+```
+
+**Use Case:** Useful after testing temp profiles or resolving profile mapping issues.
+```
+
+**Updating feature behavior:**
+```markdown
+# In docs/features/automated-search.md
+
+## Temporary Profile Switching
+
+**How it works:**
+- Items without files are automatically switched to a temporary quality profile
+- This increases the chances of finding content (lower quality = more available releases)
+- Once content is found, items are switched back to the main profile
+- Supports timeout-based automatic resets and startup resets
+
+**FAQ:**
+Q: Why is my Sonarr series on a temp profile when some episodes have files?
+A: Missing episodes take priority. If ANY episodes are missing, the entire series uses the temp profile to maximize chances of finding the missing content.
+```
+
+### Documentation Checklist
+
+Before submitting changes, verify:
+
+- [ ] All new config options documented in `docs/configuration/`
+- [ ] Feature behavior explained in `docs/features/`
+- [ ] Examples added to `config.example.toml`
+- [ ] Docstrings added for new functions/classes
+- [ ] Inline comments explain complex logic
+- [ ] API changes documented in `API_DOCUMENTATION.md`
+- [ ] README.md updated if user-visible changes
+- [ ] CHANGELOG.md or release notes prepared
+
+**Remember:** Outdated documentation is worse than no documentation. Keep it current!
+
 ---
 
 > **Note**: Follow this guide for all contributions. Questions? Check `API_DOCUMENTATION.md`, README.md, or open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).

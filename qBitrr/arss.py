@@ -465,10 +465,32 @@ class Arr:
                 self.keep_temp_profile,
             )
             self.temp_quality_profile_ids = self.parse_quality_profiles()
+            # Create reverse mapping (temp_id → main_id) for O(1) lookups
+            self.main_quality_profile_ids = {
+                v: k for k, v in self.temp_quality_profile_ids.items()
+            }
+            self.profile_switch_retry_attempts = CONFIG.get(
+                f"{name}.EntrySearch.ProfileSwitchRetryAttempts", fallback=3
+            )
+            self.temp_profile_timeout_minutes = CONFIG.get(
+                f"{name}.EntrySearch.TempProfileResetTimeoutMinutes", fallback=0
+            )
             self.logger.info(
                 "Parsed quality profile mappings: %s",
                 {f"{k}→{v}": f"(main→temp)" for k, v in self.temp_quality_profile_ids.items()},
             )
+            if self.temp_profile_timeout_minutes > 0:
+                self.logger.info(
+                    f"Temp profile timeout enabled: {self.temp_profile_timeout_minutes} minutes"
+                )
+
+            # Check if we should reset all temp profiles on startup
+            force_reset = CONFIG.get(f"{name}.EntrySearch.ForceResetTempProfiles", fallback=False)
+            if force_reset:
+                self.logger.info(
+                    "ForceResetTempProfiles enabled - resetting all temp profiles on startup"
+                )
+                self._reset_all_temp_profiles()
 
         # Cache for valid quality profile IDs to avoid repeated API calls and warnings
         self._quality_profile_cache: dict[int, dict] = {}
@@ -2918,6 +2940,10 @@ class Arr:
                             # Only apply temp profiles for truly missing content (no file)
                             # Do NOT apply for quality/custom format unmet or upgrade searches
                             has_file = episode.get("hasFile", False)
+                            profile_switch_timestamp = None
+                            original_profile_for_db = None
+                            current_profile_for_db = None
+
                             self.logger.trace(
                                 "Temp quality profile check for '%s': searched=%s, has_file=%s, current_profile_id=%s, keep_temp=%s",
                                 db_entry.get("title", "Unknown"),
@@ -2928,22 +2954,31 @@ class Arr:
                             )
                             if (
                                 searched
-                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and quality_profile_id in self.main_quality_profile_ids.keys()
                                 and not self.keep_temp_profile
                             ):
-                                new_profile_id = list(self.temp_quality_profile_ids.keys())[
-                                    list(self.temp_quality_profile_ids.values()).index(
-                                        quality_profile_id
-                                    )
-                                ]
-                                data: JsonObject = {"qualityProfileId": new_profile_id}
-                                self.logger.info(
-                                    "Upgrading quality profile for '%s': %s (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
-                                    db_entry.get("title", "Unknown"),
-                                    quality_profile_id,
-                                    quality_profile_id,
-                                    new_profile_id,
+                                new_profile_id = self.main_quality_profile_ids.get(
+                                    quality_profile_id
                                 )
+                                if new_profile_id is None:
+                                    self.logger.warning(
+                                        f"Profile ID {quality_profile_id} not found in current temp→main mappings. "
+                                        "Config may have changed. Skipping profile upgrade."
+                                    )
+                                else:
+                                    data: JsonObject = {"qualityProfileId": new_profile_id}
+                                    self.logger.info(
+                                        "Upgrading quality profile for '%s': temp profile (ID:%s) → main profile (ID:%s) [Episode searched, reverting to main]",
+                                        db_entry.get("title", "Unknown"),
+                                        quality_profile_id,
+                                        new_profile_id,
+                                    )
+                                # Reverting to main - clear tracking fields
+                                from datetime import datetime
+
+                                profile_switch_timestamp = datetime.now()
+                                original_profile_for_db = None
+                                current_profile_for_db = None
                             elif (
                                 not searched
                                 and not has_file
@@ -2957,6 +2992,12 @@ class Arr:
                                     quality_profile_id,
                                     new_profile_id,
                                 )
+                                # Downgrading to temp - track original and switch time
+                                from datetime import datetime
+
+                                profile_switch_timestamp = datetime.now()
+                                original_profile_for_db = quality_profile_id
+                                current_profile_for_db = new_profile_id
                             else:
                                 self.logger.trace(
                                     "No quality profile change for '%s': searched=%s, profile_id=%s (in_temps=%s, in_mains=%s)",
@@ -2967,17 +3008,33 @@ class Arr:
                                     quality_profile_id in self.temp_quality_profile_ids.keys(),
                                 )
                             if data:
-                                while True:
+                                profile_update_success = False
+                                for attempt in range(self.profile_switch_retry_attempts):
                                     try:
                                         self.client.upd_episode(episode["id"], data)
+                                        profile_update_success = True
                                         break
                                     except (
                                         requests.exceptions.ChunkedEncodingError,
                                         requests.exceptions.ContentDecodingError,
                                         requests.exceptions.ConnectionError,
                                         JSONDecodeError,
-                                    ):
+                                    ) as e:
+                                        if attempt == self.profile_switch_retry_attempts - 1:
+                                            self.logger.error(
+                                                "Failed to update episode profile after %d attempts: %s",
+                                                self.profile_switch_retry_attempts,
+                                                e,
+                                            )
+                                            break
+                                        time.sleep(1)
                                         continue
+
+                                # If profile update failed, don't track the change
+                                if not profile_update_success:
+                                    profile_switch_timestamp = None
+                                    original_profile_for_db = None
+                                    current_profile_for_db = None
 
                         EntryId = episode.get("id")
                         SeriesTitle = episode.get("series", {}).get("title")
@@ -3035,6 +3092,14 @@ class Arr:
                             self.model_file.CustomFormatMet: customFormatMet,
                             self.model_file.Reason: reason,
                         }
+
+                        # Add profile tracking fields if temp profile feature is enabled
+                        if self.use_temp_for_missing and profile_switch_timestamp is not None:
+                            to_update[self.model_file.LastProfileSwitchTime] = (
+                                profile_switch_timestamp
+                            )
+                            to_update[self.model_file.OriginalProfileId] = original_profile_for_db
+                            to_update[self.model_file.CurrentProfileId] = current_profile_for_db
 
                         self.logger.debug(
                             "Updating database entry | %s | S%02dE%03d [Searched:%s][Upgrade:%s][QualityMet:%s][CustomFormatMet:%s]",
@@ -3152,46 +3217,42 @@ class Arr:
                             searched = totalEpisodeCount == episodeFileCount
                         else:
                             searched = (episodeCount + monitoredEpisodeCount) == episodeFileCount
+                        # Sonarr series-level temp profile logic
+                        # NOTE: Sonarr only supports quality profiles at the series level (not episode level).
+                        # Individual episodes inherit the series profile. This is intentional and correct.
+                        # If ANY episodes are missing, the entire series uses temp profile to maximize
+                        # the chance of finding missing content (priority #1).
                         if self.use_temp_for_missing:
                             try:
                                 quality_profile_id = db_entry.get("qualityProfileId")
                                 if (
                                     searched
-                                    and quality_profile_id
-                                    in self.temp_quality_profile_ids.values()
+                                    and quality_profile_id in self.main_quality_profile_ids.keys()
                                     and not self.keep_temp_profile
                                 ):
-                                    db_entry["qualityProfileId"] = list(
-                                        self.temp_quality_profile_ids.keys()
-                                    )[
-                                        list(self.temp_quality_profile_ids.values()).index(
-                                            quality_profile_id
-                                        )
-                                    ]
+                                    new_main_id = self.main_quality_profile_ids[quality_profile_id]
+                                    db_entry["qualityProfileId"] = new_main_id
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        db_entry["qualityProfileId"],
+                                        new_main_id,
                                     )
                                 elif (
                                     not searched
                                     and quality_profile_id in self.temp_quality_profile_ids.keys()
                                 ):
-                                    db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                        quality_profile_id
-                                    ]
+                                    new_temp_id = self.temp_quality_profile_ids[quality_profile_id]
+                                    db_entry["qualityProfileId"] = new_temp_id
                                     self.logger.debug(
                                         "Updating quality profile for %s to %s",
                                         db_entry["title"],
-                                        self.temp_quality_profile_ids[
-                                            db_entry["qualityProfileId"]
-                                        ],
+                                        new_temp_id,
                                     )
                             except KeyError:
                                 self.logger.warning(
                                     "Check quality profile settings for %s", db_entry["title"]
                                 )
-                            while True:
+                            for attempt in range(self.profile_switch_retry_attempts):
                                 try:
                                     self.client.upd_series(db_entry)
                                     break
@@ -3200,7 +3261,15 @@ class Arr:
                                     requests.exceptions.ContentDecodingError,
                                     requests.exceptions.ConnectionError,
                                     JSONDecodeError,
-                                ):
+                                ) as e:
+                                    if attempt == self.profile_switch_retry_attempts - 1:
+                                        self.logger.error(
+                                            "Failed to update series profile after %d attempts: %s",
+                                            self.profile_switch_retry_attempts,
+                                            e,
+                                        )
+                                        break
+                                    time.sleep(1)
                                     continue
 
                         Title = seriesMetadata.get("title")
@@ -3324,6 +3393,10 @@ class Arr:
                             self.model_queue.EntryId == db_entry["id"]
                         ).execute()
 
+                    profile_switch_timestamp = None
+                    original_profile_for_db = None
+                    current_profile_for_db = None
+
                     if self.use_temp_for_missing:
                         quality_profile_id = db_entry.get("qualityProfileId")
                         # Only apply temp profiles for truly missing content (no file)
@@ -3331,45 +3404,68 @@ class Arr:
                         has_file = db_entry.get("hasFile", False)
                         if (
                             searched
-                            and quality_profile_id in self.temp_quality_profile_ids.values()
+                            and quality_profile_id in self.main_quality_profile_ids.keys()
                             and not self.keep_temp_profile
                         ):
-                            db_entry["qualityProfileId"] = list(
-                                self.temp_quality_profile_ids.keys()
-                            )[
-                                list(self.temp_quality_profile_ids.values()).index(
-                                    quality_profile_id
-                                )
-                            ]
+                            new_main_id = self.main_quality_profile_ids[quality_profile_id]
+                            db_entry["qualityProfileId"] = new_main_id
                             self.logger.debug(
                                 "Updating quality profile for %s to %s",
                                 db_entry["title"],
-                                db_entry["qualityProfileId"],
+                                new_main_id,
                             )
+                            # Reverting to main - clear tracking fields
+                            from datetime import datetime
+
+                            profile_switch_timestamp = datetime.now()
+                            original_profile_for_db = None
+                            current_profile_for_db = None
                         elif (
                             not searched
                             and not has_file
                             and quality_profile_id in self.temp_quality_profile_ids.keys()
                         ):
-                            db_entry["qualityProfileId"] = self.temp_quality_profile_ids[
-                                quality_profile_id
-                            ]
+                            new_temp_id = self.temp_quality_profile_ids[quality_profile_id]
+                            db_entry["qualityProfileId"] = new_temp_id
                             self.logger.debug(
                                 "Updating quality profile for %s to %s",
                                 db_entry["title"],
-                                db_entry["qualityProfileId"],
+                                new_temp_id,
                             )
-                        while True:
+                            # Downgrading to temp - track original and switch time
+                            from datetime import datetime
+
+                            profile_switch_timestamp = datetime.now()
+                            original_profile_for_db = quality_profile_id
+                            current_profile_for_db = new_temp_id
+
+                        profile_update_success = False
+                        for attempt in range(self.profile_switch_retry_attempts):
                             try:
                                 self.client.upd_movie(db_entry)
+                                profile_update_success = True
                                 break
                             except (
                                 requests.exceptions.ChunkedEncodingError,
                                 requests.exceptions.ContentDecodingError,
                                 requests.exceptions.ConnectionError,
                                 JSONDecodeError,
-                            ):
+                            ) as e:
+                                if attempt == self.profile_switch_retry_attempts - 1:
+                                    self.logger.error(
+                                        "Failed to update movie profile after %d attempts: %s",
+                                        self.profile_switch_retry_attempts,
+                                        e,
+                                    )
+                                    break
+                                time.sleep(1)
                                 continue
+
+                        # If profile update failed, don't track the change
+                        if not profile_update_success:
+                            profile_switch_timestamp = None
+                            original_profile_for_db = None
+                            current_profile_for_db = None
 
                     title = db_entry["title"]
                     monitored = db_entry["monitored"]
@@ -3422,6 +3518,12 @@ class Arr:
                         self.model_file.QualityProfileId: qualityProfileId,
                         self.model_file.QualityProfileName: qualityProfileName,
                     }
+
+                    # Add profile tracking fields if temp profile feature is enabled
+                    if self.use_temp_for_missing and profile_switch_timestamp is not None:
+                        to_update[self.model_file.LastProfileSwitchTime] = profile_switch_timestamp
+                        to_update[self.model_file.OriginalProfileId] = original_profile_for_db
+                        to_update[self.model_file.CurrentProfileId] = current_profile_for_db
 
                     if request:
                         to_update[self.model_file.IsRequest] = request
@@ -3870,18 +3972,17 @@ class Arr:
 
                         # Temp profile management for Lidarr artists
                         # Quality profiles in Lidarr are set at artist level, not album level
+                        # NOTE: Lidarr uses sizeOnDisk instead of hasFile because the Lidarr API
+                        # doesn't provide a hasFile boolean at artist level. sizeOnDisk > 0 is
+                        # equivalent to hasFile=True for Lidarr.
                         if self.use_temp_for_missing and quality_profile_id:
                             if (
                                 searched
-                                and quality_profile_id in self.temp_quality_profile_ids.values()
+                                and quality_profile_id in self.main_quality_profile_ids.keys()
                                 and not self.keep_temp_profile
                             ):
                                 # Artist has files, switch from temp back to main profile
-                                main_profile_id = list(self.temp_quality_profile_ids.keys())[
-                                    list(self.temp_quality_profile_ids.values()).index(
-                                        quality_profile_id
-                                    )
-                                ]
+                                main_profile_id = self.main_quality_profile_ids[quality_profile_id]
                                 artistMetadata["qualityProfileId"] = main_profile_id
                                 self.client.upd_artist(artistMetadata)
                                 quality_profile_id = main_profile_id
@@ -6213,6 +6314,15 @@ class Arr:
             self.files_to_explicitly_delete = iter(_path_filter.copy())
 
     def parse_quality_profiles(self) -> dict[int, int]:
+        """
+        Parse quality profile name mappings into ID mappings.
+
+        Converts the configured profile name mappings (e.g., {"HD-1080p": "SD"})
+        into ID mappings (e.g., {2: 1}) for faster lookups during profile switching.
+
+        Returns:
+            dict[int, int]: Mapping of main_profile_id → temp_profile_id
+        """
         temp_quality_profile_ids: dict[int, int] = {}
 
         self.logger.debug(
@@ -6296,6 +6406,171 @@ class Arr:
             )
 
         return temp_quality_profile_ids
+
+    def _reset_all_temp_profiles(self):
+        """Reset all items using temp profiles back to their original main profiles on startup."""
+        reset_count = 0
+
+        try:
+            # Get all items from Arr instance
+            if self._name.lower().startswith("radarr"):
+                items = self.client.get_movie()
+                item_type = "movie"
+            elif self._name.lower().startswith("sonarr") or self._name.lower().startswith(
+                "animarr"
+            ):
+                items = self.client.get_series()
+                item_type = "series"
+            elif self._name.lower().startswith("lidarr"):
+                items = self.client.get_artist()
+                item_type = "artist"
+            else:
+                self.logger.warning(f"Unknown Arr type for temp profile reset: {self._name}")
+                return
+
+            self.logger.info(f"Checking {len(items)} {item_type}s for temp profile resets...")
+
+            for item in items:
+                profile_id = item.get("qualityProfileId")
+
+                # Check if item is currently using a temp profile
+                if profile_id in self.main_quality_profile_ids.keys():
+                    # This is a temp profile - get the original main profile
+                    original_id = self.main_quality_profile_ids[profile_id]
+                    item["qualityProfileId"] = original_id
+
+                    # Update via API with retry logic
+                    for attempt in range(self.profile_switch_retry_attempts):
+                        try:
+                            if item_type == "movie":
+                                self.client.upd_movie(item)
+                            elif item_type == "series":
+                                self.client.upd_series(item)
+                            elif item_type == "artist":
+                                self.client.upd_artist(item)
+
+                            reset_count += 1
+                            self.logger.info(
+                                f"Reset {item_type} '{item.get('title', item.get('artistName', 'Unknown'))}' "
+                                f"from temp profile (ID:{profile_id}) to main profile (ID:{original_id})"
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            if attempt == self.profile_switch_retry_attempts - 1:
+                                self.logger.error(
+                                    f"Failed to reset {item_type} profile after {self.profile_switch_retry_attempts} attempts: {e}"
+                                )
+                            else:
+                                time.sleep(1)
+                                continue
+
+            if reset_count > 0:
+                self.logger.info(
+                    f"ForceResetTempProfiles: Reset {reset_count} {item_type}s from temp to main profiles"
+                )
+            else:
+                self.logger.info(
+                    f"ForceResetTempProfiles: No {item_type}s found using temp profiles"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error during temp profile reset: {e}", exc_info=True)
+
+    def _check_temp_profile_timeouts(self):
+        """Check for items with temp profiles that have exceeded the timeout and reset them."""
+        if self.temp_profile_timeout_minutes == 0:
+            return  # Feature disabled
+
+        from datetime import timedelta
+
+        timeout_threshold = datetime.now() - timedelta(minutes=self.temp_profile_timeout_minutes)
+        reset_count = 0
+
+        try:
+            # Query database for items with expired temp profiles
+            db1, db2, db3, db4, db5 = self._get_models()
+
+            # Determine which model to use
+            if self._name.lower().startswith("radarr"):
+                model = self.movies_file_model
+                item_type = "movie"
+            elif self._name.lower().startswith("sonarr") or self._name.lower().startswith(
+                "animarr"
+            ):
+                model = self.model_file  # episodes
+                item_type = "episode"
+            elif self._name.lower().startswith("lidarr"):
+                model = self.artists_file_model
+                item_type = "artist"
+            else:
+                return
+
+            # Find items with temp profiles that have exceeded timeout
+            expired_items = model.select().where(
+                (model.LastProfileSwitchTime.is_null(False))
+                & (model.LastProfileSwitchTime < timeout_threshold)
+                & (model.CurrentProfileId.is_null(False))
+                & (model.OriginalProfileId.is_null(False))
+            )
+
+            for db_item in expired_items:
+                entry_id = db_item.EntryId
+                current_profile = db_item.CurrentProfileId
+                original_profile = db_item.OriginalProfileId
+
+                # Verify current profile is still a temp profile in our mappings
+                if current_profile not in self.main_quality_profile_ids.keys():
+                    # Not a temp profile anymore, clear tracking
+                    model.update(
+                        LastProfileSwitchTime=None, CurrentProfileId=None, OriginalProfileId=None
+                    ).where(model.EntryId == entry_id).execute()
+                    continue
+
+                # Reset to original profile via Arr API
+                try:
+                    if item_type == "movie":
+                        item = self.client.get_movie(entry_id)
+                        item["qualityProfileId"] = original_profile
+                        self.client.upd_movie(item)
+                    elif item_type == "episode":
+                        # For episodes, we need to update the series
+                        series_id = db_item.SeriesId
+                        series = self.client.get_series(series_id)
+                        series["qualityProfileId"] = original_profile
+                        self.client.upd_series(series)
+                    elif item_type == "artist":
+                        artist = self.client.get_artist(entry_id)
+                        artist["qualityProfileId"] = original_profile
+                        self.client.upd_artist(artist)
+
+                    # Clear tracking fields in database
+                    model.update(
+                        LastProfileSwitchTime=None, CurrentProfileId=None, OriginalProfileId=None
+                    ).where(model.EntryId == entry_id).execute()
+
+                    reset_count += 1
+                    self.logger.info(
+                        f"Timeout reset: {item_type} ID {entry_id} from temp profile (ID:{current_profile}) "
+                        f"to main profile (ID:{original_profile}) after {self.temp_profile_timeout_minutes} minutes"
+                    )
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Failed to reset {item_type} ID {entry_id} after timeout: {e}"
+                    )
+
+            if reset_count > 0:
+                self.logger.info(
+                    f"TempProfileTimeout: Reset {reset_count} {item_type}s from temp to main profiles"
+                )
+
+        except Exception as e:
+            self.logger.error(f"Error checking temp profile timeouts: {e}", exc_info=True)
 
     def register_search_mode(self):
         if self.search_setup_completed:
@@ -6684,6 +6959,11 @@ class Arr:
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
                     self.db_update()
+
+                    # Check for expired temp profiles if feature is enabled
+                    if self.use_temp_for_missing and self.temp_profile_timeout_minutes > 0:
+                        self._check_temp_profile_timeouts()
+
                     # self.run_request_search()
                     try:
                         if self.search_by_year:

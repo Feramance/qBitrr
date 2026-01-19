@@ -1079,11 +1079,242 @@ Overseerr/Ombi workflow:
 
 ---
 
+## Temporary Profile Troubleshooting
+
+### Why did my item stay on temp profile after searching?
+
+**Answer:** If a search was performed but no suitable release was found, the item remains on the temp profile to continue searching with lowered requirements.
+
+**What happens:**
+
+1. Item switches to temp profile (e.g., SD instead of HD-1080p)
+2. qBitrr performs search
+3. No releases match temp profile criteria (e.g., no SD releases available either)
+4. Profile stays as temp for future search attempts
+5. Once a release is found and downloaded, profile reverts to main
+
+**Solution:** This is expected behavior. The temp profile will remain active until:
+
+- Content is found and downloaded
+- `TempProfileResetTimeoutMinutes` timeout expires (if configured)
+- `ForceResetTempProfiles=true` triggers on qBitrr restart
+- You manually reset the profile in Arr
+
+---
+
+### Why is my Sonarr series on a temp profile when some episodes have files?
+
+**Answer:** Missing episodes take priority. If ANY episodes are missing, the entire series uses the temp profile to maximize chances of finding the missing content.
+
+**How it works:**
+
+Sonarr only supports quality profiles at the **series level** (not episode level). All episodes inherit the series profile. This is a Sonarr limitation, not a qBitrr design choice.
+
+**Example:**
+
+```
+Series: Breaking Bad
+Episodes:
+  ✅ S01E01 - Has file
+  ✅ S01E02 - Has file
+  ❌ S01E03 - Missing
+  ✅ S01E04 - Has file
+  ❌ S01E05 - Missing
+```
+
+**qBitrr logic:**
+
+- ANY episodes missing → Series uses temp profile
+- Entire series switched to "HDTV-720p" (from "WEB-DL 1080p")
+- Search for S01E03 and S01E05 with lowered quality
+- Once all episodes downloaded → Series reverts to main profile
+
+**Why this is correct:**
+
+1. **Finding missing content is priority #1** - Get the episodes first
+2. **Sonarr prevents downgrades** - Won't replace existing HD files with SD
+3. **Custom Format protection** - Won't import lower CF score than existing
+4. **Series-level only option** - Individual episode profiles not supported by Sonarr
+
+**Solution:** This is expected and correct behavior. Existing high-quality episodes are protected; only missing episodes will download at lower quality.
+
+---
+
+### Temp profiles not switching at all?
+
+**Check these:**
+
+1. **Verify exact profile names:**
+   ```bash
+   curl -H "X-Api-Key: your-key" http://localhost:8686/api/v1/qualityprofile
+   ```
+   Profile names in config must match API response exactly (case-sensitive).
+
+2. **Check UseTempForMissing enabled:**
+   ```toml
+   UseTempForMissing = true
+   ```
+
+3. **Verify mappings configured:**
+   ```toml
+   QualityProfileMappings = {"Main Profile" = "Temp Profile"}
+   ```
+
+4. **Review logs:**
+   ```bash
+   grep -i "temp\|profile" ~/logs/Radarr-Movies.log
+   ```
+
+---
+
+### Profiles stuck on temp permanently?
+
+**Solutions:**
+
+1. **Enable auto-reset timeout:**
+   ```toml
+   TempProfileResetTimeoutMinutes = 10080  # 7 days
+   ```
+
+2. **Force reset on startup:**
+   ```toml
+   ForceResetTempProfiles = true
+   ```
+   Restart qBitrr.
+
+3. **Manual reset in Arr:**
+   - Go to Movies/Series/Artists
+   - Bulk select items
+   - Edit → Quality Profile → Select main profile
+
+---
+
+### API errors during profile switches?
+
+**Increase retry attempts:**
+
+```toml
+ProfileSwitchRetryAttempts = 5  # Up from default 3
+```
+
+**Check Arr connectivity:**
+
+```bash
+# Test Arr API
+curl -H "X-Api-Key: your-key" http://localhost:7878/api/v3/qualityprofile
+
+# Check qBitrr logs
+tail -f ~/logs/Radarr-Movies.log | grep -i "failed\|error"
+```
+
+---
+
+## FAQ
+
+### Q: Should I use temp profiles for all content types?
+
+**A:** No. Recommended by use case:
+
+- **Lidarr (Music)**: ✅ **Highly recommended** - Many albums lack lossless
+- **Radarr (Movies)**: ⚠️ **Optional** - Use for 4K → 1080p fallback
+- **Sonarr (TV)**: ⚠️ **Optional** - Use for WEB-DL → HDTV fallback on new episodes
+
+**General rule:** Only enable if you frequently encounter missing content due to quality requirements being too strict.
+
+---
+
+### Q: What's the difference between temp profiles and just lowering my main profile?
+
+**A:** Temp profiles enable automatic upgrades:
+
+**Without temp profiles (lowered main profile):**
+
+1. Set Lidarr profile to "Any (MP3-320)"
+2. Downloads MP3 for all albums
+3. **Never searches for FLAC upgrades**
+4. Stuck with MP3 forever
+
+**With temp profiles:**
+
+1. Main profile: "Lossless (FLAC)"
+2. Temp profile: "Any (MP3-320)"
+3. Missing album → Switch to temp → Download MP3
+4. Switch back to main → **Continue searching for FLAC**
+5. FLAC becomes available → Automatic upgrade
+
+**Benefit:** Get content now, upgrade automatically later.
+
+---
+
+### Q: Can I have different timeout values for different Arr instances?
+
+**A:** Yes! Configure per-instance:
+
+```toml
+[Radarr-4K.EntrySearch]
+TempProfileResetTimeoutMinutes = 43200  # 30 days for 4K
+
+[Sonarr-TV.EntrySearch]
+TempProfileResetTimeoutMinutes = 1440  # 1 day for TV
+
+[Lidarr-Music.EntrySearch]
+TempProfileResetTimeoutMinutes = 10080  # 7 days for music
+```
+
+---
+
+### Q: Does KeepTempProfile=true prevent all upgrades?
+
+**A:** Yes. When `KeepTempProfile=true`:
+
+- Download completes
+- Profile stays as temp
+- No automatic switch back to main
+- Upgrade searches use temp profile criteria (lower quality)
+- Manual intervention required to restore main profile
+
+**Recommendation:** Always use `KeepTempProfile=false` unless you intentionally want to accept lower quality permanently.
+
+---
+
+### Q: What happens if I delete a profile that's referenced in my mappings?
+
+**A:** qBitrr handles this gracefully:
+
+1. Profile deleted in Arr
+2. qBitrr logs warning: "Profile 'ProfileName' not found"
+3. Skips that mapping
+4. Continues with other valid mappings
+
+**No crashes or errors.** Fix by updating your config to use valid profile names.
+
+---
+
+### Q: Can I use the same temp profile for multiple main profiles?
+
+**A:** Yes! Example:
+
+```toml
+QualityProfileMappings = {
+  "Ultra-HD (4K)" = "HD-1080p",
+  "HD-1080p" = "HD-720p",
+  "HD-720p" = "SD"
+}
+```
+
+This creates a quality hierarchy:
+- 4K → 1080p fallback
+- 1080p → 720p fallback
+- 720p → SD fallback
+
+---
+
 ## See Also
 
 - [Instant Imports](instant-imports.md) - Fast media import
 - [Health Monitoring](health-monitoring.md) - Torrent health checks
 - [Custom Formats](custom-formats.md) - Advanced filtering
+- [Quality Profiles](../configuration/quality-profiles.md) - Detailed temp profile configuration
 - [Radarr Configuration](../configuration/arr/radarr.md) - Radarr setup
 - [Sonarr Configuration](../configuration/arr/sonarr.md) - Sonarr setup
 - [Lidarr Configuration](../configuration/arr/lidarr.md) - Lidarr setup
