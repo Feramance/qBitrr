@@ -152,6 +152,8 @@ class qBitManager:
         self._process_restart_counts: dict[tuple[str, str], list[float]] = (
             {}
         )  # (category, role) -> [timestamps]
+        self._failed_spawn_attempts: dict[tuple[str, str], int] = {}  # Track failed spawn attempts
+        self._pending_spawns: list[tuple] = []  # (arr_instance, meta) tuples to retry
         self.auto_restart_enabled = CONFIG.get("Settings.AutoRestartProcesses", fallback=True)
         self.max_process_restarts = CONFIG.get("Settings.MaxProcessRestarts", fallback=5)
         self.process_restart_window = CONFIG.get("Settings.ProcessRestartWindow", fallback=300)
@@ -759,10 +761,22 @@ class qBitManager:
                 )
             if failed_processes:
                 self.logger.critical(
-                    "FAILED to start %d worker process(es): %s - Check logs above for details",
+                    "FAILED to start %d worker process(es): %s - Will retry periodically",
                     len(failed_processes),
                     ", ".join(f"{role}({cat})" for role, cat in failed_processes),
                 )
+                # Track failed processes for retry
+                for role, category in failed_processes:
+                    key = (category, role)
+                    self._failed_spawn_attempts[key] = self._failed_spawn_attempts.get(key, 0) + 1
+                    # Add to retry queue if not already there
+                    if hasattr(self, "arr_manager") and self.arr_manager:
+                        for arr in self.arr_manager.managed_objects.values():
+                            if arr.category == category:
+                                self._pending_spawns.append(
+                                    (arr, {"category": category, "role": role})
+                                )
+                                break
             while not self.shutdown_event.is_set():
                 # Check for database restart signal
                 if self.database_restart_event.is_set():
@@ -859,6 +873,75 @@ class qBitManager:
                     self._process_registry.pop(proc, None)
                     with contextlib.suppress(ValueError):
                         self.child_processes.remove(proc)
+
+                # Retry failed process spawns
+                if self._pending_spawns and self.auto_restart_enabled:
+                    retry_spawns = []
+                    for arr, meta in self._pending_spawns:
+                        category = meta.get("category", "")
+                        role = meta.get("role", "")
+                        key = (category, role)
+                        attempts = self._failed_spawn_attempts.get(key, 0)
+
+                        # Exponential backoff: 30s, 60s, 120s, 240s, 480s (max 8min)
+                        # Retry indefinitely but with increasing delays
+                        self.logger.info(
+                            "Retrying spawn of %s worker for '%s' (attempt #%d)...",
+                            role,
+                            category,
+                            attempts + 1,
+                        )
+
+                        try:
+                            worker_count, procs = arr.spawn_child_processes()
+                            if worker_count > 0:
+                                for proc in procs:
+                                    proc_role = (
+                                        "search"
+                                        if getattr(arr, "process_search_loop", None) is proc
+                                        else "torrent"
+                                    )
+                                    if proc_role == role:  # Only start the one we're retrying
+                                        try:
+                                            proc.start()
+                                            time.sleep(0.1)
+                                            if proc.is_alive():
+                                                self.logger.info(
+                                                    "Successfully spawned %s worker for '%s' on retry (PID: %s)",
+                                                    role,
+                                                    category,
+                                                    proc.pid,
+                                                )
+                                                self._process_registry[proc] = meta
+                                                # Clear failed attempts on success
+                                                self._failed_spawn_attempts.pop(key, None)
+                                            else:
+                                                self.logger.error(
+                                                    "Retry spawn failed: %s worker for '%s' died immediately",
+                                                    role,
+                                                    category,
+                                                )
+                                                retry_spawns.append((arr, meta))
+                                                self._failed_spawn_attempts[key] = attempts + 1
+                                        except Exception as exc:
+                                            self.logger.error(
+                                                "Retry spawn failed for %s worker '%s': %s",
+                                                role,
+                                                category,
+                                                exc,
+                                            )
+                                            retry_spawns.append((arr, meta))
+                                            self._failed_spawn_attempts[key] = attempts + 1
+                        except Exception as exc:
+                            self.logger.error(
+                                "Failed to respawn processes for retry: %s",
+                                exc,
+                            )
+                            retry_spawns.append((arr, meta))
+                            self._failed_spawn_attempts[key] = attempts + 1
+
+                    # Update pending spawns list
+                    self._pending_spawns = retry_spawns
 
                 if not self.child_processes:
                     if not any_alive:
