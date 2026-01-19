@@ -294,11 +294,11 @@ Edit the generated `config.toml` file:
 **Minimum required configuration:**
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://localhost:8080"
-Username = "admin"
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
 Password = "adminpass"
-Version5 = false  # Set to true for qBittorrent 5.x
 
 [Radarr-Movies]
 URI = "http://localhost:7878"

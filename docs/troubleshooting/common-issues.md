@@ -88,38 +88,36 @@ This page covers the most frequently encountered issues with qBitrr and their so
 
 ---
 
-#### Symptom: "API version mismatch" or "Invalid request"
+#### Symptom: Connection errors or API failures
 
 **Possible Causes:**
 
-- qBittorrent version doesn't match `Version5` setting
-- Using qBittorrent 5.x without setting `Version5 = true`
+- Incorrect host or port configuration
+- Authentication credentials are wrong
+- qBittorrent WebUI is not enabled
+- Network connectivity issues
 
 **Solutions:**
 
-1. **Check qBittorrent version:**
-   - Open qBittorrent → **Help** → **About qBittorrent**
-   - Note the version number (e.g., 4.6.7 or 5.0.1)
+1. **Verify qBittorrent is running and accessible:**
+   - Open qBittorrent WebUI in a browser: `http://localhost:8080`
+   - Check **Tools** → **Options** → **Web UI** is enabled
 
-2. **Update config accordingly:**
-
-   **For qBittorrent 5.x:**
+2. **Check configuration:**
    ```toml
    [qBit]
    Host = "localhost"
    Port = 8080
    UserName = "admin"
    Password = "password"
-   Version5 = true  # Required!
    ```
 
-   **For qBittorrent 4.x:**
-   ```toml
-   [qBit]
-   Version5 = false  # Or omit entirely
+3. **Test connectivity manually:**
+   ```bash
+   curl http://localhost:8080/api/v2/app/version
    ```
 
-3. **Restart qBitrr after config change**
+4. **Restart qBitrr after config change**
 
 ---
 
@@ -292,14 +290,17 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
    SearchMissing = true
    ```
 
-2. **Check search delay:**
+2. **Verify automated searches are enabled:**
+   ```toml
+   [Radarr-Movies.EntrySearch]
+   SearchMissing = true  # Enable automated searches
+   SearchRequestsEvery = 300  # Run search loop every 5 minutes
+   ```
+
+   Note: `SearchLoopDelay` controls the delay **between individual searches** in a batch, not whether searches are enabled.
    ```toml
    [Settings]
-   SearchLoopDelay = -1  # -1 disables search loop!
-   ```
-   Set to a positive value (seconds between search cycles):
-   ```toml
-   SearchLoopDelay = 300  # 5 minutes
+   SearchLoopDelay = -1  # Default: 30s between each search
    ```
 
 3. **Verify Arr has missing media:**

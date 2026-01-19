@@ -219,7 +219,7 @@ SearchMissing = true
 # Include unmonitored movies in searches
 Unmonitored = false
 
-# Maximum concurrent searches (Radarr default: 3, max: 10)
+# Maximum concurrent searches qBitrr will queue (Radarr default limit: 3, max: 10)
 SearchLimit = 5
 
 # Order searches by movie release year

@@ -1,6 +1,6 @@
-# CONTRIBUTION.md – Coding Guide
+# AGENTS.md – Agent Coding Guide
 
-> **Purpose**: qBitrr orchestrates qBittorrent ↔ Radarr/Sonarr/Lidarr communication, handling torrent health checks, instant imports, smart cleanup, and request automation. This guide ensures contributors maintain consistency across Python backend and React frontend.
+> **Purpose**: qBitrr orchestrates qBittorrent ↔ Radarr/Sonarr/Lidarr communication, handling torrent health checks, instant imports, smart cleanup, and request automation. This guide ensures AI agents/contributors maintain consistency across Python backend and React frontend.
 
 ## Project Overview
 - **Language**: Python 3.12+ (backend), TypeScript + React 18 (WebUI)
