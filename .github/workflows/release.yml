@@ -362,6 +362,7 @@ jobs:
         python3 <<'PYEOF'
         import os
         import subprocess
+        import sys
         from datetime import datetime
 
         def categorize_commit(message):
