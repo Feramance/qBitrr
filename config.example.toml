@@ -216,7 +216,7 @@ SearchByYear = true
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
-# Delay between request searches in seconds
+# Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).
 SearchRequestsEvery = 300
 
 # Search media which already have a file in hopes of finding a better quality version.
@@ -462,7 +462,7 @@ SearchByYear = true
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
-# Delay between request searches in seconds
+# Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).
 SearchRequestsEvery = 300
 
 # Search media which already have a file in hopes of finding a better quality version.
@@ -705,7 +705,7 @@ SearchByYear = true
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
-# Delay between request searches in seconds
+# Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).
 SearchRequestsEvery = 300
 
 # Search media which already have a file in hopes of finding a better quality version.
@@ -979,7 +979,7 @@ SearchByYear = true
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
-# Delay between request searches in seconds
+# Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).
 SearchRequestsEvery = 300
 
 # Search media which already have a file in hopes of finding a better quality version.
@@ -1244,7 +1244,7 @@ SearchMissing = true
 # Reverse search order (Start searching oldest to newest)
 SearchInReverse = false
 
-# Delay between request searches in seconds
+# Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).
 SearchRequestsEvery = 300
 
 # Search media which already have a file in hopes of finding a better quality version.

@@ -73,11 +73,12 @@ graph TB
 
 qBitrr polls request systems at regular intervals:
 
-1. **Check Interval**: Controlled by `SearchRequestsEvery` (default: every 3 event loops)
-2. **Batch Requests**: Fetches all requests in a single API call
+1. **Check Interval**: Controlled by `SearchRequestsEvery` (default: 300 seconds / 5 minutes)
+2. **Batch Requests**: Fetches all pending requests in a single API call
 3. **Filter Requests**: Applies approval status, release date, availability filters
 4. **Trigger Searches**: Commands Radarr/Sonarr to search for matching content
-5. **Respect Search Limits**: Total concurrent searches limited by `SearchLimit`
+5. **Delay Between Requests**: Waits `SearchLoopDelay` seconds between individual search commands (default: 30s)
+6. **Repeat Cycle**: After processing all requests, waits `SearchRequestsEvery` seconds before checking for new requests
 
 ---
 
@@ -96,7 +97,7 @@ Category = "radarr-movies"
 
 [Radarr-Movies.EntrySearch]
 SearchMissing = true  # REQUIRED: Enables search functionality
-SearchRequestsEvery = 3  # Check requests every 3 loops
+SearchRequestsEvery = 300  # Check for new requests every 5 minutes (300 seconds)
 SearchLimit = 5  # Max concurrent searches
 
 # Choose ONE request system:
@@ -124,7 +125,7 @@ Request integration **requires** these settings in `[EntrySearch]`:
 | Setting | Required | Purpose |
 |---------|----------|---------|
 | `SearchMissing` | ✅ Yes | Enables search functionality |
-| `SearchRequestsEvery` | ❌ Optional | Polling frequency (default: 3) |
+| `SearchRequestsEvery` | ❌ Optional | Request check interval in seconds (default: 300) |
 | `SearchLimit` | ❌ Optional | Max concurrent searches (default: 5) |
 
 ---
@@ -338,18 +339,24 @@ ApprovedOnly = true
 
 Adjust `SearchRequestsEvery` based on request volume:
 
-| Request Volume | `SearchRequestsEvery` | Effective Interval |
-|----------------|------------------------|---------------------|
-| Low (<10/day) | 5 | ~1-2 minutes |
-| Medium (10-50/day) | 3 | ~30-60 seconds |
-| High (50+/day) | 2 | ~20-40 seconds |
+| Request Volume | `SearchRequestsEvery` | Check Frequency |
+|----------------|------------------------|-----------------|
+| Low (<10/day) | 600 | Every 10 minutes |
+| Medium (10-50/day) | 300 | Every 5 minutes (default) |
+| High (50+/day) | 120 | Every 2 minutes |
+| Very High (100+/day) | 60 | Every minute |
 
 **Example:**
 ```toml
 [Radarr-Movies.EntrySearch]
 SearchMissing = true
-SearchRequestsEvery = 5  # Check every 5 loops (lower frequency)
+SearchRequestsEvery = 600  # Check for new requests every 10 minutes
 ```
+
+!!! tip "Balance Responsiveness vs Load"
+    - **Lower values** = More responsive to new requests, but more API calls
+    - **Higher values** = Less API load, but slower to process new requests
+    - Consider your user expectations and system resources
 
 ---
 

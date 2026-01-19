@@ -752,7 +752,10 @@ def _gen_default_search_table(category: str, cat_default: Table):
         False,
     )
     _gen_default_line(
-        search_table, "Delay between request searches in seconds", "SearchRequestsEvery", 300
+        search_table,
+        "Delay (in seconds) between checking for new Overseerr/Ombi requests. Does NOT affect delay between individual search commands (use Settings.SearchLoopDelay for that).",
+        "SearchRequestsEvery",
+        300,
     )
     _gen_default_line(
         search_table,

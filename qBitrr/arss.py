@@ -365,7 +365,7 @@ class Arr:
             f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
         )
         self.search_requests_every_x_seconds = CONFIG.get(
-            f"{name}.EntrySearch.SearchRequestsEvery", fallback=1800
+            f"{name}.EntrySearch.SearchRequestsEvery", fallback=300
         )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
         if self.ombi_search_requests or self.overseerr_requests:
@@ -7005,7 +7005,8 @@ class Arr:
                     if self.use_temp_for_missing and self.temp_profile_timeout_minutes > 0:
                         self._check_temp_profile_timeouts()
 
-                    # self.run_request_search()
+                    # Check for new Overseerr/Ombi requests and trigger searches
+                    self.run_request_search()
                     try:
                         if self.search_by_year:
                             if years.index(self.search_current_year) != years_count - 1:

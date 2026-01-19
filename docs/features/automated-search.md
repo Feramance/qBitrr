@@ -33,12 +33,12 @@ graph TD
     B --> C{Items found?}
     C -->|Yes| D[Sort by priority/date]
     D --> E[Search first item]
-    E --> F[Wait SearchRequestsEvery seconds]
+    E --> F[Wait SearchLoopDelay seconds]
     F --> G{More items?}
     G -->|Yes| E
     G -->|No| H{SearchAgainOnSearchCompletion?}
     H -->|false| I[Stop searching]
-    H -->|true| J[Delay for SearchLoopDelay]
+    H -->|true| J[Delay, then restart loop]
     J --> B
     C -->|No| H
 ```
@@ -49,9 +49,13 @@ graph TD
 2. Filters based on your configuration (monitored, specials, etc.)
 3. Sorts items by priority (year, release date, etc.)
 4. Sends search command to Arr for each item
-5. Waits `SearchRequestsEvery` seconds between searches
+5. Waits `SearchLoopDelay` seconds between individual searches (default: 30s)
 6. Repeats until all missing items are searched
 7. Optionally restarts loop to find newly available releases
+
+!!! note "SearchRequestsEvery vs SearchLoopDelay"
+    - **SearchLoopDelay** (global setting): Delay between individual search commands for missing media
+    - **SearchRequestsEvery** (per-Arr setting): Delay between complete request check cycles for Overseerr/Ombi
 
 ---
 
@@ -64,14 +68,19 @@ Enable automated search in the `[<Arr>-<Name>.EntrySearch]` section:
 # Enable searching for missing movies
 SearchMissing = true
 
-# Delay between searches (seconds)
-SearchRequestsEvery = 300  # 5 minutes
-
 # Restart loop after completion
 SearchAgainOnSearchCompletion = true
 ```
 
-That's the minimum! qBitrr will now search for missing movies every 5 minutes.
+Then configure the delay between individual search commands globally:
+
+```toml
+[Settings]
+# Delay between individual search commands (seconds, -1 = use default 30s)
+SearchLoopDelay = 30
+```
+
+That's the minimum! qBitrr will now continuously search for missing movies with a 30-second delay between each search command.
 
 ---
 
@@ -112,29 +121,34 @@ SearchRequestsEvery = 300  # 5 minutes in seconds
 **Type:** Integer (seconds)
 **Default:** `300` (5 minutes)
 
-Delay between individual search commands sent to Arr.
+⚠️ **This setting ONLY applies to Overseerr/Ombi request integration.**
+
+Controls how frequently qBitrr checks for new requests from Overseerr/Ombi and triggers searches.
+
+**What it does:**
+- After processing all pending requests, qBitrr waits this many seconds before checking for new requests again
+- Does NOT affect regular missing media searches (those use `SearchLoopDelay` for individual delays)
 
 **Why delay?**
 
-- Respects indexer rate limits
-- Prevents API spam
-- Reduces Arr load
-- Avoids triggering anti-abuse measures
+- Prevents excessive API calls to Overseerr/Ombi
+- Reduces Arr load from constant request checks
+- Balances responsiveness vs resource usage
 
 **Recommended values:**
 
 <div class="grid cards" markdown>
 
-- :material-tortoise:{ .lg .middle style="color: #51cf66" } **Conservative (600s / 10 min)**
+- :material-tortoise:{ .lg .middle style="color: #51cf66" } **Low Activity (600s / 10 min)**
 
     ---
 
-    **Safe for all indexers**
+    **For infrequent requests**
 
-    - ✅ Respects all rate limits
-    - ✅ Zero risk of abuse flags
-    - ⚠️ Slow library filling
-    - **Use for:** Public trackers, strict indexers
+    - ✅ Minimal API load
+    - ✅ Low resource usage
+    - ⚠️ Slower to process new requests
+    - **Use for:** Small user base, occasional requests
 
 - :material-scale-balance:{ .lg .middle style="color: #4dabf7" } **Balanced (300s / 5 min)** ⭐
 
@@ -142,41 +156,41 @@ Delay between individual search commands sent to Arr.
 
     **Default - works well for most setups**
 
-    - ✅ 12 requests/hour
-    - ✅ Compatible with most indexers
-    - ⚠️ Moderate fill speed
-    - **Use for:** General purpose, mixed indexers
+    - ✅ Checks every 5 minutes
+    - ✅ Reasonable responsiveness
+    - ✅ Minimal overhead
+    - **Use for:** General purpose, moderate request volume
 
-- :material-rabbit:{ .lg .middle style="color: #ffa94d" } **Aggressive (180s / 3 min)**
-
-    ---
-
-    **Fast - watch for rate limits**
-
-    - ⚠️ 20 requests/hour
-    - ⚠️ May hit public tracker limits
-    - ✅ Quick library filling
-    - **Use for:** Private trackers, generous limits
-
-- :material-rocket-launch:{ .lg .middle style="color: #ff6b6b" } **Very Aggressive (60s / 1 min)**
+- :material-rabbit:{ .lg .middle style="color: #ffa94d" } **High Activity (120s / 2 min)**
 
     ---
 
-    **Risk of hitting limits**
+    **Fast response to new requests**
 
-    - ❌ 60 requests/hour
-    - ❌ Will exceed many indexer limits
-    - ✅ Fastest possible filling
-    - **Use for:** High-limit private trackers only
+    - ✅ Quick processing of incoming requests
+    - ⚠️ More frequent API calls
+    - ✅ Better user experience
+    - **Use for:** Active user base, many requests
+
+- :material-rocket-launch:{ .lg .middle style="color: #ff6b6b" } **Very High Activity (60s / 1 min)**
+
+    ---
+
+    **Near-instant request processing**
+
+    - ✅ Fastest possible response time
+    - ⚠️ Increased API load
+    - ⚠️ Higher resource usage
+    - **Use for:** Very active communities, high request volume
 
 </div>
 
-!!! warning "Indexer Rate Limits"
-    Many indexers limit API calls. Common limits:
+!!! info "Request Volume Considerations"
+    Adjust based on your request patterns:
 
-    - Public trackers: 100-300 requests/hour
-    - Private trackers: Varies widely
-    - Newznab: Often 100 requests/day
+    - **Low volume (<10 requests/day)**: 300-600s works well
+    - **Medium volume (10-50 requests/day)**: 120-300s recommended
+    - **High volume (50+ requests/day)**: 60-120s for responsiveness
 
     Calculate: `3600 / SearchRequestsEvery = requests per hour`
 

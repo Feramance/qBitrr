@@ -88,7 +88,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "EntrySearch.SearchInReverse":
     "Reverse search order (search oldest to newest instead of newest to oldest).",
   "EntrySearch.SearchRequestsEvery":
-    "Delay, in seconds, between submitting individual search requests.",
+    "Delay, in seconds, between checking for new Overseerr/Ombi requests. After processing all pending requests, qBitrr waits this long before checking again. Default: 300 seconds (5 minutes).",
   "EntrySearch.DoUpgradeSearch":
     "Search for improved releases even if a file already exists.",
   "EntrySearch.QualityUnmetSearch":
