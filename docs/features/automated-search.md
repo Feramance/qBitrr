@@ -29,7 +29,7 @@ Instead of manually clicking "Search All Missing" in Radarr/Sonarr/Lidarr, qBitr
 
 ```mermaid
 graph TD
-    A[qBitrr starts] --> B[Query Arr for missing items]
+    A[qBitrr starts] --> B[Update qBitrr database from Arrs]
     B --> C{Items found?}
     C -->|Yes| D[Sort by priority/date]
     D --> E[Search first item]
@@ -37,8 +37,9 @@ graph TD
     F --> G{More items?}
     G -->|Yes| E
     G -->|No| H{SearchAgainOnSearchCompletion?}
-    H -->|true| B
     H -->|false| I[Stop searching]
+    H -->|true| J[Delay for SearchLoopDelay]
+    J --> B
     C -->|No| H
 ```
 
