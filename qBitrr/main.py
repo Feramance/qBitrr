@@ -696,6 +696,8 @@ class qBitManager:
                 self.logger.warning(
                     "Startup thread still running after 60s; managing available workers."
                 )
+            started_processes = []
+            failed_processes = []
             for proc in list(self.child_processes):
                 try:
                     # Check if process has already been started
@@ -710,19 +712,56 @@ class qBitManager:
                         )
                         continue
 
-                    proc.start()
                     meta = self._process_registry.get(proc, {})
-                    self.logger.debug(
-                        "Started %s worker for category '%s'",
+                    self.logger.info(
+                        "Starting %s worker for category '%s'...",
                         meta.get("role", "worker"),
                         meta.get("category", "unknown"),
                     )
+                    proc.start()
+
+                    # Verify process actually started (give it a moment)
+                    time.sleep(0.1)
+                    if proc.is_alive():
+                        self.logger.info(
+                            "Successfully started %s worker for category '%s' (PID: %s)",
+                            meta.get("role", "worker"),
+                            meta.get("category", "unknown"),
+                            proc.pid,
+                        )
+                        started_processes.append((meta.get("role"), meta.get("category")))
+                    else:
+                        self.logger.error(
+                            "Process %s worker for category '%s' started but immediately died (exitcode: %s)",
+                            meta.get("role", "worker"),
+                            meta.get("category", "unknown"),
+                            proc.exitcode,
+                        )
+                        failed_processes.append((meta.get("role"), meta.get("category")))
                 except Exception as exc:
-                    self.logger.exception(
-                        "Failed to start worker process %s",
-                        getattr(proc, "name", repr(proc)),
+                    meta = self._process_registry.get(proc, {})
+                    self.logger.critical(
+                        "FAILED to start %s worker for category '%s': %s",
+                        meta.get("role", "worker"),
+                        meta.get("category", "unknown"),
+                        exc,
                         exc_info=exc,
                     )
+                    failed_processes.append((meta.get("role"), meta.get("category")))
+
+            # Log summary
+            if started_processes:
+                self.logger.info(
+                    "Started %d worker process(es): %s",
+                    len(started_processes),
+                    ", ".join(f"{role}({cat})" for role, cat in started_processes),
+                )
+            if failed_processes:
+                self.logger.critical(
+                    "FAILED to start %d worker process(es): %s - Check logs above for details",
+                    len(failed_processes),
+                    ", ".join(f"{role}({cat})" for role, cat in failed_processes),
+                )
             while not self.shutdown_event.is_set():
                 any_alive = False
                 for proc in list(self.child_processes):
