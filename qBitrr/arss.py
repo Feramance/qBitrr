@@ -4767,8 +4767,24 @@ class Arr:
                     current_time - self._db_last_error_time > 300
                 ):  # Reset if >5min since last error
                     self._db_error_count = 0
+                    self._db_first_error_time = current_time
+
+                if not hasattr(self, "_db_first_error_time"):
+                    self._db_first_error_time = current_time
+
                 self._db_error_count += 1
                 self._db_last_error_time = current_time
+
+                # Check if errors have persisted for more than 5 minutes
+                time_since_first_error = current_time - self._db_first_error_time
+                if time_since_first_error > 300:  # 5 minutes
+                    self.logger.critical(
+                        "Database errors have persisted for %.1f minutes. "
+                        "Triggering process restart to attempt recovery...",
+                        time_since_first_error / 60,
+                    )
+                    # Force process restart by exiting with error code
+                    sys.exit(1)
 
                 # Calculate exponential backoff: 2min, 5min, 10min, 20min, 30min (max)
                 delay_seconds = min(120 * (2 ** (self._db_error_count - 1)), 1800)
