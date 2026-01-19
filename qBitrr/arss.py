@@ -4763,13 +4763,15 @@ class Arr:
                 current_time = time.time()
 
                 # Track consecutive database errors for exponential backoff
+                # Initialize tracking on first error ever
+                if not hasattr(self, "_db_first_error_time"):
+                    self._db_first_error_time = current_time
+
+                # Reset if >5min since last error (new error sequence)
                 if (
                     current_time - self._db_last_error_time > 300
                 ):  # Reset if >5min since last error
                     self._db_error_count = 0
-                    self._db_first_error_time = current_time
-
-                if not hasattr(self, "_db_first_error_time"):
                     self._db_first_error_time = current_time
 
                 self._db_error_count += 1

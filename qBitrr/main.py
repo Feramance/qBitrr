@@ -773,9 +773,14 @@ class qBitManager:
                     if hasattr(self, "arr_manager") and self.arr_manager:
                         for arr in self.arr_manager.managed_objects.values():
                             if arr.category == category:
-                                self._pending_spawns.append(
-                                    (arr, {"category": category, "role": role})
+                                # Check if already in pending spawns (avoid duplicates)
+                                meta = {"category": category, "role": role, "name": arr._name}
+                                already_pending = any(
+                                    m.get("category") == category and m.get("role") == role
+                                    for _, m in self._pending_spawns
                                 )
+                                if not already_pending:
+                                    self._pending_spawns.append((arr, meta))
                                 break
             while not self.shutdown_event.is_set():
                 # Check for database restart signal
@@ -823,6 +828,31 @@ class qBitManager:
                                         "name": getattr(arr, "_name", ""),
                                         "role": role,
                                     }
+                                    # CRITICAL: Actually start the process!
+                                    try:
+                                        proc.start()
+                                        time.sleep(0.1)  # Brief pause to let process initialize
+                                        if proc.is_alive():
+                                            self.logger.info(
+                                                "Started %s worker for %s (PID: %s)",
+                                                role,
+                                                arr._name,
+                                                proc.pid,
+                                            )
+                                        else:
+                                            self.logger.error(
+                                                "Respawned %s worker for %s died immediately (exitcode: %s)",
+                                                role,
+                                                arr._name,
+                                                proc.exitcode,
+                                            )
+                                    except Exception as start_exc:
+                                        self.logger.error(
+                                            "Failed to start respawned %s worker for %s: %s",
+                                            role,
+                                            arr._name,
+                                            start_exc,
+                                        )
                                 self.logger.info(
                                     "Respawned %d process(es) for %s", worker_count, arr._name
                                 )
@@ -913,6 +943,9 @@ class qBitManager:
                                                     proc.pid,
                                                 )
                                                 self._process_registry[proc] = meta
+                                                # CRITICAL: Add to child_processes so it's monitored
+                                                if proc not in self.child_processes:
+                                                    self.child_processes.append(proc)
                                                 # Clear failed attempts on success
                                                 self._failed_spawn_attempts.pop(key, None)
                                             else:
