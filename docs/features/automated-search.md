@@ -123,12 +123,53 @@ Delay between individual search commands sent to Arr.
 
 **Recommended values:**
 
-| Setup Type | Seconds | Minutes | Reason |
-|------------|---------|---------|--------|
-| **Conservative** | 600 | 10 min | Safe for all indexers |
-| **Balanced** | 300 | 5 min | Default, works well |
-| **Aggressive** | 180 | 3 min | Fast, watch for rate limits |
-| **Very aggressive** | 60 | 1 min | Risk of hitting limits |
+<div class="grid cards" markdown>
+
+- :material-tortoise:{ .lg .middle style="color: #51cf66" } **Conservative (600s / 10 min)**
+
+    ---
+
+    **Safe for all indexers**
+
+    - ✅ Respects all rate limits
+    - ✅ Zero risk of abuse flags
+    - ⚠️ Slow library filling
+    - **Use for:** Public trackers, strict indexers
+
+- :material-scale-balance:{ .lg .middle style="color: #4dabf7" } **Balanced (300s / 5 min)** ⭐
+
+    ---
+
+    **Default - works well for most setups**
+
+    - ✅ 12 requests/hour
+    - ✅ Compatible with most indexers
+    - ⚠️ Moderate fill speed
+    - **Use for:** General purpose, mixed indexers
+
+- :material-rabbit:{ .lg .middle style="color: #ffa94d" } **Aggressive (180s / 3 min)**
+
+    ---
+
+    **Fast - watch for rate limits**
+
+    - ⚠️ 20 requests/hour
+    - ⚠️ May hit public tracker limits
+    - ✅ Quick library filling
+    - **Use for:** Private trackers, generous limits
+
+- :material-rocket-launch:{ .lg .middle style="color: #ff6b6b" } **Very Aggressive (60s / 1 min)**
+
+    ---
+
+    **Risk of hitting limits**
+
+    - ❌ 60 requests/hour
+    - ❌ Will exceed many indexer limits
+    - ✅ Fastest possible filling
+    - **Use for:** High-limit private trackers only
+
+</div>
 
 !!! warning "Indexer Rate Limits"
     Many indexers limit API calls. Common limits:
@@ -214,12 +255,39 @@ Reverse the search order.
 
 **Interaction with SearchByYear:**
 
+```mermaid
+flowchart TD
+    Start([Configure Search Order])
+
+    Start --> CheckYear{SearchByYear?}
+
+    CheckYear -->|true| YearTrue[Order by Year DESC<br/>2024 → 2023 → 2022...]
+    CheckYear -->|false| YearFalse[Order by Year ASC<br/>2020 → 2021 → 2022...]
+
+    YearTrue --> CheckReverse1{SearchInReverse?}
+    YearFalse --> CheckReverse2{SearchInReverse?}
+
+    CheckReverse1 -->|false| Result1[✅ Newest → Oldest<br/>2024, 2023, 2022...]
+    CheckReverse1 -->|true| Result2[✅ Oldest → Newest<br/>2020, 2021, 2022...]
+
+    CheckReverse2 -->|false| Result3[✅ Oldest → Newest<br/>2020, 2021, 2022...]
+    CheckReverse2 -->|true| Result4[✅ Newest → Oldest<br/>2024, 2023, 2022...]
+
+    style Result1 fill:#51cf66,stroke:#2f9e44,color:#000
+    style Result2 fill:#4dabf7,stroke:#1971c2,color:#000
+    style Result3 fill:#4dabf7,stroke:#1971c2,color:#000
+    style Result4 fill:#51cf66,stroke:#2f9e44,color:#000
+    style Start fill:#dee2e6,stroke:#495057,color:#000
+```
+
+**Quick Reference:**
+
 | SearchByYear | SearchInReverse | Result |
-|--------------|-----------------|--------|
-| `true` | `false` | Newest → Oldest |
+|:------------:|:---------------:|:------:|
+| `true` | `false` | **Newest → Oldest** (most common) |
 | `true` | `true` | Oldest → Newest |
 | `false` | `false` | Oldest → Newest |
-| `false` | `true` | Newest → Oldest |
+| `false` | `true` | **Newest → Oldest** |
 
 **Use cases:**
 
@@ -345,12 +413,63 @@ Control series vs episode search mode.
 
 **Comparison:**
 
-| Mode | Series Search | Episode Search |
-|------|---------------|----------------|
-| Speed | Faster (one search per series) | Slower (one per episode) |
-| Precision | Less precise | More precise |
-| Quality Control | Ignores QualityUnmetSearch | Respects all settings |
-| Use Case | Batch downloading | Selective upgrading |
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#4dabf7','primaryTextColor':'#000','primaryBorderColor':'#1971c2','lineColor':'#868e96','secondaryColor':'#51cf66','tertiaryColor':'#ffa94d'}}}%%
+graph LR
+    subgraph Series["🎬 Series Search"]
+        direction TB
+        S1["⚡ Speed: FAST<br/>(1 search per series)"]
+        S2["🎯 Precision: LOWER<br/>(bulk matching)"]
+        S3["⚙️ Quality Control: LIMITED<br/>(ignores QualityUnmetSearch)"]
+        S4["📦 Use Case:<br/>Batch downloading<br/>entire series/seasons"]
+    end
+
+    subgraph Episode["📺 Episode Search"]
+        direction TB
+        E1["🐌 Speed: SLOWER<br/>(1 search per episode)"]
+        E2["🎯 Precision: HIGHER<br/>(exact matching)"]
+        E3["⚙️ Quality Control: FULL<br/>(respects all settings)"]
+        E4["🔍 Use Case:<br/>Selective upgrading<br/>missing episodes"]
+    end
+
+    Series -.->|vs| Episode
+
+    style Series fill:#e7f5ff,stroke:#1971c2,stroke-width:2px
+    style Episode fill:#d3f9d8,stroke:#2f9e44,stroke-width:2px
+```
+
+**Decision Guide:**
+
+<div class="grid cards" markdown>
+
+- :material-fast-forward:{ .lg .middle style="color: #4dabf7" } **Use Series Search When:**
+
+    ---
+
+    - ✅ Entire series/season is missing
+    - ✅ Fast bulk downloads needed
+    - ✅ Quality doesn't matter (grab anything)
+    - ⚠️ You don't need upgrade searches
+
+- :material-target:{ .lg .middle style="color: #51cf66" } **Use Episode Search When:**
+
+    ---
+
+    - ✅ Only specific episodes missing
+    - ✅ Quality precision matters
+    - ✅ Upgrading existing files
+    - ✅ Respecting QualityUnmetSearch settings
+
+- :material-auto-fix:{ .lg .middle style="color: #ffa94d" } **Use Smart Mode (Default):**
+
+    ---
+
+    - ⭐ **Automatic selection** based on context
+    - ✅ Series search for bulk missing
+    - ✅ Episode search for selective needs
+    - ✅ Best balance of speed + precision
+
+</div>
 
 **Smart mode logic:**
 
@@ -830,13 +949,50 @@ Calculate how long to search through your missing queue:
 Total Time = (Number of Missing Items) × (SearchRequestsEvery)
 ```
 
-**Examples:**
+**Performance Visualization:**
 
-| Missing Items | SearchRequestsEvery | Total Time |
-|---------------|---------------------|------------|
-| 100 movies | 300s (5 min) | 500 minutes (8.3 hours) |
-| 500 movies | 180s (3 min) | 1,500 minutes (25 hours) |
-| 1000 episodes | 300s (5 min) | 5,000 minutes (83 hours / 3.5 days) |
+```mermaid
+gantt
+    title Search Queue Completion Time Examples
+    dateFormat X
+    axisFormat %H hours
+
+    section 100 Movies
+    Balanced (300s) - 8.3h :done, a1, 0, 8
+    Aggressive (180s) - 5h :crit, a2, 0, 5
+    Very Aggressive (60s) - 1.7h :active, a3, 0, 2
+
+    section 500 Movies
+    Balanced (300s) - 25h :done, b1, 0, 25
+    Aggressive (180s) - 15h :crit, b2, 0, 15
+    Very Aggressive (60s) - 8.3h :active, b3, 0, 8
+
+    section 1000 Episodes
+    Balanced (300s) - 83h (3.5 days) :done, c1, 0, 83
+    Aggressive (180s) - 50h (2.1 days) :crit, c2, 0, 50
+    Very Aggressive (60s) - 16.7h :active, c3, 0, 17
+```
+
+**Quick Reference Table:**
+
+| Missing Items | SearchRequestsEvery | Total Time | Requests/Hour |
+|:-------------:|:-------------------:|:----------:|:-------------:|
+| 100 movies | 300s (5 min) | **8.3 hours** | 12/hr |
+| 100 movies | 180s (3 min) | **5 hours** | 20/hr |
+| 100 movies | 60s (1 min) | **1.7 hours** ⚠️ | 60/hr |
+| 500 movies | 300s (5 min) | **25 hours** | 12/hr |
+| 500 movies | 180s (3 min) | **15 hours** | 20/hr |
+| 1000 episodes | 300s (5 min) | **83 hours** (3.5 days) | 12/hr |
+| 1000 episodes | 180s (3 min) | **50 hours** (2.1 days) | 20/hr |
+
+!!! tip "Performance Calculation"
+    **Formula:** `Total Time = Missing Items × SearchRequestsEvery / 60` (minutes)
+
+    **Rate Limit Check:** `Requests/Hour = 3600 / SearchRequestsEvery`
+
+    - ✅ Safe: < 20 requests/hour
+    - ⚠️ Moderate risk: 20-40 requests/hour
+    - ❌ High risk: > 40 requests/hour
 
 **With continuous searching (`SearchAgainOnSearchCompletion = true`):**
 

@@ -17,6 +17,88 @@ Health monitoring is one of qBitrr's core features. It watches all torrents mana
 - **File validation** - Uses FFprobe to verify media files
 - **Import status** - Tracks Arr instance import progress
 
+### Torrent Health States
+
+```mermaid
+stateDiagram-v2
+    [*] --> Detected: Torrent added to qBittorrent
+
+    Detected --> Downloading: Peers found, downloading
+    Detected --> Stalled: No peers, speed = 0
+
+    Downloading --> Healthy: Speed good, ETA acceptable
+    Downloading --> Slow: Speed low, ETA > MaximumETA
+    Downloading --> Stalled: Lost all peers
+
+    Healthy --> Completed: 100% downloaded
+    Slow --> Completed: Eventually finishes
+
+    Stalled --> Downloading: Peers reconnect
+    Stalled --> Failed: StalledDelay exceeded
+
+    Slow --> Failed: DoNotRemoveSlow=false && ETA too high
+
+    Completed --> Validating: FFprobe check
+
+    Validating --> Importing: File valid
+    Validating --> Failed: Corruption detected
+
+    Importing --> Imported: Arr import successful
+    Importing --> Failed: Import failed
+
+    Imported --> Seeding: SeedingMode enabled
+    Imported --> Cleanup: SeedingMode disabled
+
+    Seeding --> Cleanup: Seed requirements met
+
+    Failed --> Blacklisted: Add to Arr blacklist
+    Blacklisted --> ReSearch: ReSearch enabled
+    Blacklisted --> Removed: ReSearch disabled
+
+    Cleanup --> Removed: Delete from qBittorrent
+    ReSearch --> Removed: Trigger new search
+
+    Removed --> [*]: Torrent lifecycle complete
+
+    note right of Healthy
+        Green status
+        Normal operation
+    end note
+
+    note right of Slow
+        Yellow status
+        Monitored closely
+    end note
+
+    note right of Stalled
+        Orange status
+        Grace period active
+    end note
+
+    note right of Failed
+        Red status
+        Blacklist triggered
+    end note
+```
+
+**State Descriptions:**
+
+- **Detected** - qBitrr discovers torrent in qBittorrent
+- **Downloading** - Active download in progress
+- **Healthy** - Meeting all health thresholds
+- **Slow** - Download speed below expectations
+- **Stalled** - No progress, waiting for StalledDelay
+- **Completed** - 100% downloaded, awaiting validation
+- **Validating** - FFprobe checking media files
+- **Importing** - Arr instance importing files
+- **Imported** - Successfully imported to media library
+- **Seeding** - Meeting seeding requirements
+- **Failed** - Health check failed, blacklisting
+- **Blacklisted** - Added to Arr blacklist
+- **ReSearch** - Triggering new search for alternative
+- **Cleanup** - Deleting from qBittorrent
+- **Removed** - Lifecycle complete
+
 ---
 
 ## Stalled Torrent Detection
@@ -43,15 +125,71 @@ ReSearchStalled = false  # false = remove only, true = search then remove
 
 ### Stalled Delay Values
 
-| Value | Behavior |
-|-------|----------|
-| `-1` | **Disabled** - Never remove stalled torrents |
-| `0` | **Immediate** - Remove as soon as detected |
-| `15` | **Default** - Wait 15 minutes |
-| `30` | **Conservative** - Wait 30 minutes |
-| `60` | **Very patient** - Wait 1 hour |
+<div class="grid cards" markdown>
 
-**Recommended:** `15` for movies/TV, `30` for music (slower trackers)
+- :material-cancel:{ .lg .middle style="color: #868e96" } **`-1` Disabled**
+
+    ---
+
+    **Never remove stalled torrents**
+
+    - ⚠️ Dead torrents remain forever
+    - ⚠️ Wastes storage and bandwidth
+    - ✅ Useful for debugging
+    - **Use when:** Testing or troubleshooting
+
+- :material-clock-fast:{ .lg .middle style="color: #ff6b6b" } **`0` Immediate**
+
+    ---
+
+    **Remove as soon as detected**
+
+    - ❌ Very aggressive
+    - ❌ May remove good torrents
+    - ⚠️ Needs time to connect to peers
+    - **Use when:** Never recommended
+
+- :material-check-circle:{ .lg .middle style="color: #51cf66" } **`15` Default** ⭐
+
+    ---
+
+    **Wait 15 minutes**
+
+    - ✅ Balanced approach
+    - ✅ Gives peers time to connect
+    - ✅ Quick failure detection
+    - **Use for:** Movies, TV shows
+
+- :material-clock-time-eight:{ .lg .middle style="color: #4dabf7" } **`30` Conservative**
+
+    ---
+
+    **Wait 30 minutes**
+
+    - ✅ Patient with slow trackers
+    - ✅ Reduces false positives
+    - ⚠️ Slower failure response
+    - **Use for:** Music, private trackers
+
+- :material-clock-time-twelve:{ .lg .middle style="color: #ffa94d" } **`60` Very Patient**
+
+    ---
+
+    **Wait 1 hour**
+
+    - ✅ Maximum patience
+    - ✅ Best for rare content
+    - ❌ Very slow failure detection
+    - **Use for:** Niche/rare releases
+
+</div>
+
+**Recommended Settings:**
+
+- **Movies/TV:** `15` minutes (default)
+- **Music:** `30` minutes (slower trackers)
+- **Private Trackers:** `30-45` minutes (conservative)
+- **Rare Content:** `60` minutes (very patient)
 
 ---
 
@@ -125,14 +263,86 @@ If `MaximumETA = 18000` (5 hours), this torrent would be marked as failed.
 
 ### Recommended MaximumETA Values
 
-| Content Type | Recommended | Reason |
-|--------------|-------------|--------|
-| **Movies** | `86400` (24h) | Large files, decent availability |
-| **TV Episodes** | `43200` (12h) | Smaller files, good availability |
-| **Anime** | `86400` (24h) | Slower trackers, niche content |
-| **Music** | `172800` (48h) | Rare albums, private trackers |
-| **4K Content** | `172800` (48h) | Very large files |
-| **Disabled** | `-1` | Never fail based on ETA |
+<div class="grid cards" markdown>
+
+- :material-movie-open:{ .lg .middle style="color: #4dabf7" } **Movies - `86400` (24h)**
+
+    ---
+
+    **Standard movies, decent availability**
+
+    - ✅ Typical size: 2-8 GB
+    - ✅ Good tracker coverage
+    - ✅ Balanced timeout
+    - **Example:** 1080p Blu-ray rips
+
+- :material-television:{ .lg .middle style="color: #51cf66" } **TV Episodes - `43200` (12h)**
+
+    ---
+
+    **Smaller files, good availability**
+
+    - ✅ Typical size: 500 MB - 2 GB
+    - ✅ Fast release times
+    - ✅ Many seeders
+    - **Example:** 1080p TV episodes
+
+- :material-ninja:{ .lg .middle style="color: #ffa94d" } **Anime - `86400` (24h)**
+
+    ---
+
+    **Slower trackers, niche content**
+
+    - ⚠️ Fewer seeders
+    - ⚠️ Specialized trackers
+    - ✅ Fansubbed content
+    - **Example:** Seasonal anime releases
+
+- :material-music:{ .lg .middle style="color: #ae3ec9" } **Music - `172800` (48h)**
+
+    ---
+
+    **Rare albums, private trackers**
+
+    - ⚠️ Often rare/niche
+    - ⚠️ Slower propagation
+    - ✅ High quality formats
+    - **Example:** FLAC albums, vinyl rips
+
+- :material-video-4k-box:{ .lg .middle style="color: #ff6b6b" } **4K Content - `172800` (48h)**
+
+    ---
+
+    **Very large files, limited seeders**
+
+    - ⚠️ Size: 20-100 GB
+    - ⚠️ Fewer sources
+    - ✅ Longer download times
+    - **Example:** 4K UHD remuxes
+
+- :material-cancel:{ .lg .middle style="color: #868e96" } **Disabled - `-1`**
+
+    ---
+
+    **Never fail based on ETA**
+
+    - ⚠️ Torrents may run indefinitely
+    - ✅ Useful for rare content
+    - ❌ May waste bandwidth
+    - **Use when:** Willing to wait forever
+
+</div>
+
+**Formula:** `MaximumETA = Expected Download Time × 2` (safety margin)
+
+**Quick Reference:**
+
+| Content | Seconds | Hours | Days |
+|:--------|--------:|------:|-----:|
+| TV Episodes | `43200` | 12h | 0.5d |
+| Movies/Anime | `86400` | 24h | 1d |
+| Music/4K | `172800` | 48h | 2d |
+| Very Rare | `604800` | 168h | 7d |
 
 ---
 
@@ -349,31 +559,117 @@ MaximumDeletablePercentage = 0.99  # Protect near-complete
 
 ### Balancing Aggressiveness
 
-**Aggressive (fast replacement):**
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#ff6b6b','primaryTextColor':'#000','primaryBorderColor':'#c92a2a','lineColor':'#868e96','secondaryColor':'#51cf66','tertiaryColor':'#4dabf7'}}}%%
+graph LR
+    subgraph Aggressive["⚡ Aggressive (Fast Replacement)"]
+        direction TB
+        A1["✅ Faster media availability"]
+        A2["✅ Less time wasted on dead torrents"]
+        A3["✅ Quick failure detection"]
+        A4["❌ May remove salvageable downloads"]
+        A5["❌ Higher indexer API usage"]
+        A6["❌ More re-searches needed"]
+    end
 
-- ✅ Faster media availability
-- ✅ Less wasted time on dead torrents
-- ❌ May prematurely remove salvageable downloads
-- ❌ Higher indexer API usage
+    subgraph Balanced["⚖️ Balanced (Default)"]
+        direction TB
+        B1["✅ Good availability speed"]
+        B2["✅ Reasonable timeout periods"]
+        B3["✅ Moderate API usage"]
+        B4["✅ Works for most setups"]
+        B5["⚠️ May need tuning"]
+    end
 
-```toml
-StalledDelay = 10
-MaximumETA = 21600  # 6 hours
-DoNotRemoveSlow = false
+    subgraph Conservative["🐢 Conservative (Patient Approach)"]
+        direction TB
+        C1["✅ Gives torrents more time"]
+        C2["✅ Lower indexer API usage"]
+        C3["✅ Fewer false positives"]
+        C4["❌ Slower media availability"]
+        C5["❌ May waste time on dead torrents"]
+        C6["❌ Storage used longer"]
+    end
+
+    Aggressive -.->|tune based on results| Balanced
+    Balanced -.->|tune based on results| Conservative
+
+    style Aggressive fill:#ffe3e3,stroke:#c92a2a,stroke-width:2px
+    style Balanced fill:#d3f9d8,stroke:#2f9e44,stroke-width:2px
+    style Conservative fill:#e7f5ff,stroke:#1971c2,stroke-width:2px
 ```
 
-**Conservative (patient approach):**
+**Configuration Comparison:**
 
-- ✅ Gives torrents more time to succeed
-- ✅ Lower indexer API usage
-- ❌ Slower media availability
-- ❌ May waste time on dead torrents
+<div class="grid cards" markdown>
 
-```toml
-StalledDelay = 30
-MaximumETA = 172800  # 48 hours
-DoNotRemoveSlow = true
-```
+- :material-flash:{ .lg .middle style="color: #ff6b6b" } **Aggressive**
+
+    ---
+
+    ```toml
+    StalledDelay = 10
+    MaximumETA = 21600  # 6 hours
+    DoNotRemoveSlow = false
+    MaximumDeletablePercentage = 0.95
+    IgnoreTorrentsYoungerThan = 120
+    ```
+
+    **Best for:**
+
+    - Fast internet connections
+    - Public trackers with many alternatives
+    - Users who prioritize speed over patience
+    - High-availability content (new movies/TV)
+
+- :material-scale-balance:{ .lg .middle style="color: #51cf66" } **Balanced** ⭐
+
+    ---
+
+    ```toml
+    StalledDelay = 15
+    MaximumETA = 86400  # 24 hours
+    DoNotRemoveSlow = true
+    MaximumDeletablePercentage = 0.99
+    IgnoreTorrentsYoungerThan = 180
+    ```
+
+    **Best for:**
+
+    - Most users (default)
+    - Mixed public/private trackers
+    - Standard internet speeds
+    - General media libraries
+
+- :material-tortoise:{ .lg .middle style="color: #4dabf7" } **Conservative**
+
+    ---
+
+    ```toml
+    StalledDelay = 30
+    MaximumETA = 172800  # 48 hours
+    DoNotRemoveSlow = true
+    MaximumDeletablePercentage = 0.99
+    IgnoreTorrentsYoungerThan = 300
+    ```
+
+    **Best for:**
+
+    - Slow/shared internet connections
+    - Private trackers only
+    - Rare/niche content
+    - Limited indexer API quotas
+
+</div>
+
+**Decision Guide:**
+
+1. **Start with Balanced** (default settings)
+2. **Monitor for 1 week** - Check logs for premature removals
+3. **Adjust based on results:**
+   - Too many good torrents removed → **Move toward Conservative**
+   - Too many dead torrents sitting → **Move toward Aggressive**
+4. **Fine-tune individual settings** as needed
 
 ---
 

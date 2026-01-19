@@ -170,6 +170,47 @@ Cutoff: FLAC
 - Continues searching for FLAC upgrade
 - Automatically replaces MP3 with FLAC when found
 
+```mermaid
+flowchart TD
+    Start([Content Added to Arr]) --> Check{Has<br/>File?}
+    Check -->|Yes| Done([No Action Needed])
+    Check -->|No| Profile{Current<br/>Profile<br/>Mapped?}
+
+    Profile -->|No| Search1[Search with<br/>Current Profile]
+    Profile -->|Yes| Switch1[Switch to<br/>Temp Profile]
+
+    Switch1 --> Search2[Search with<br/>Lower Requirements]
+    Search2 --> Found{Content<br/>Found?}
+
+    Found -->|Yes| Download[Download &<br/>Import]
+    Found -->|No| Wait1[Wait for<br/>Next Search]
+
+    Download --> Switch2[Switch Back to<br/>Main Profile]
+    Switch2 --> Upgrade[Enable Upgrade<br/>Search]
+
+    Upgrade --> Monitor{Better<br/>Quality<br/>Available?}
+    Monitor -->|Yes| Download2[Download<br/>Upgrade]
+    Monitor -->|No| Wait2[Keep<br/>Monitoring]
+
+    Download2 --> Replace[Replace<br/>Lower Quality]
+    Replace --> Done2([Mission Complete])
+
+    Wait1 --> Timeout{Timeout<br/>Reached?}
+    Timeout -->|Yes| Switch3[Reset to<br/>Main Profile]
+    Timeout -->|No| Search2
+    Switch3 --> Search1
+
+    Wait2 --> Monitor
+    Search1 --> Done
+
+    style Start fill:#4dabf7
+    style Download fill:#51cf66
+    style Download2 fill:#51cf66
+    style Done2 fill:#51cf66
+    style Switch1 fill:#ffa94d
+    style Switch2 fill:#4dabf7
+```
+
 ---
 
 ### Configuration
@@ -382,12 +423,41 @@ Automatically reset temp profiles to main profiles after X minutes.
 
 **Common values:**
 
-| Minutes | Duration | Use Case |
-|---------|----------|----------|
-| `0` | Disabled | Manual reset only |
-| `1440` | 1 day | Quick retry |
-| `10080` | 7 days | Weekly upgrade check |
-| `43200` | 30 days | Monthly check |
+<div class="grid cards" markdown>
+
+-   :material-clock-outline:{ .lg .middle } **Disabled (0 minutes)**
+
+    ---
+
+    Manual reset only. Temp profiles remain until explicitly reset.
+
+    **Use when:** You want full control over profile resets.
+
+-   :material-clock-fast:{ .lg .middle } **1 Day (1440 minutes)**
+
+    ---
+
+    Quick retry for new releases.
+
+    **Use when:** Content releases frequently (TV shows).
+
+-   :material-clock:{ .lg .middle } **7 Days (10080 minutes)**
+
+    ---
+
+    Weekly upgrade check.
+
+    **Use when:** Balanced approach for most content.
+
+-   :material-clock-time-eight:{ .lg .middle } **30 Days (43200 minutes)**
+
+    ---
+
+    Monthly upgrade check.
+
+    **Use when:** Rare content (4K movies, obscure music).
+
+</div>
 
 **Example:**
 
@@ -398,11 +468,22 @@ TempProfileResetTimeoutMinutes = 10080
 
 **Workflow:**
 
-1. Day 0: Missing album, switch to temp profile, download MP3
-2. Day 1-6: Album stays with temp profile
-3. Day 7: qBitrr resets to main profile (FLAC)
-4. Upgrade search triggered
-5. If FLAC available, downloads and replaces MP3
+```mermaid
+graph LR
+    A[Day 0: Missing Album] --> B[Switch to Temp Profile<br/>MP3-320]
+    B --> C[Download MP3]
+    C --> D[Days 1-6:<br/>Album on Temp]
+    D --> E[Day 7: Timeout<br/>Expires]
+    E --> F[Reset to Main<br/>Profile FLAC]
+    F --> G{FLAC<br/>Available?}
+    G -->|Yes| H[Download FLAC<br/>Replace MP3]
+    G -->|No| I[Keep MP3<br/>Retry Later]
+
+    style A fill:#ff6b6b
+    style C fill:#51cf66
+    style F fill:#4dabf7
+    style H fill:#51cf66
+```
 
 ---
 
@@ -448,14 +529,34 @@ DoUpgradeSearch = true
 
 **Process:**
 
-1. Add album to Lidarr with "Lossless (FLAC)" profile
-2. qBitrr searches → No FLAC releases found
-3. qBitrr switches album to "Lossy (MP3-320)" profile
-4. Arr finds MP3-320 release
-5. Downloads and imports MP3
-6. qBitrr switches album back to "Lossless (FLAC)"
-7. Continuous upgrade searches active
-8. When FLAC becomes available → Downloads and replaces MP3
+```mermaid
+sequenceDiagram
+    participant User
+    participant Lidarr
+    participant qBitrr
+    participant Indexer
+
+    User->>Lidarr: Add Album<br/>Profile: Lossless (FLAC)
+    Lidarr->>qBitrr: Notify Missing Album
+    qBitrr->>Indexer: Search for FLAC
+    Indexer-->>qBitrr: No FLAC Found
+
+    Note over qBitrr: Switch to Temp Profile
+    qBitrr->>Lidarr: Update Profile<br/>→ Lossy (MP3-320)
+    qBitrr->>Indexer: Search for MP3
+    Indexer-->>qBitrr: MP3-320 Available
+    qBitrr->>Lidarr: Download MP3-320
+
+    Lidarr->>qBitrr: Import Complete
+    Note over qBitrr: Switch Back to Main
+    qBitrr->>Lidarr: Update Profile<br/>→ Lossless (FLAC)
+
+    loop Upgrade Search
+        qBitrr->>Indexer: Check for FLAC
+        Indexer-->>qBitrr: FLAC Available!
+        qBitrr->>Lidarr: Download & Replace
+    end
+```
 
 ---
 
@@ -476,13 +577,35 @@ DoUpgradeSearch = true
 
 **Process:**
 
-1. Add movie with "Ultra-HD" profile
-2. No 4K releases found
-3. Switch to "HD-1080p" temporarily
-4. Download 1080p version
-5. Switch back to "Ultra-HD"
-6. After 30 days: Retry 4K search
-7. If 4K available: Upgrade
+```mermaid
+stateDiagram-v2
+    [*] --> Missing: Movie Added<br/>(Ultra-HD Profile)
+
+    Missing --> SearchingUHD: qBitrr Searches<br/>for 4K
+    SearchingUHD --> TempProfile: No 4K Found<br/>Switch to HD-1080p
+
+    TempProfile --> Downloading: 1080p Found
+    Downloading --> Downloaded: Import Complete
+
+    Downloaded --> MainProfile: Switch Back<br/>to Ultra-HD
+    MainProfile --> Waiting: Upgrade Search<br/>Active
+
+    Waiting --> Checking: 30 Days<br/>Elapsed
+    Checking --> Upgrading: 4K Available
+    Checking --> Waiting: Still No 4K
+
+    Upgrading --> [*]: 4K Downloaded
+
+    note right of TempProfile
+        Temporary profile allows
+        getting content now
+    end note
+
+    note right of MainProfile
+        Original profile restored
+        for upgrade search
+    end note
+```
 
 ---
 

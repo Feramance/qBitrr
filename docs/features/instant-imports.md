@@ -241,6 +241,85 @@ FFprobeAutoUpdate = true
 
 ---
 
+## Complete Import Workflow
+
+### Full Sequence with Validation
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Arr as Radarr
+    participant qBT as qBittorrent
+    participant qBitrr
+    participant FFprobe
+    participant FS as File System
+
+    Note over User,FS: Complete Movie Download Workflow
+
+    User->>Arr: Add "The Matrix (1999)"
+    Arr->>Arr: Search indexers
+    Arr->>qBT: Send .torrent file
+    qBT->>qBT: Start downloading
+
+    loop Every LoopSleepTimer seconds
+        qBitrr->>qBT: Check torrent status
+        alt Still downloading
+            qBT-->>qBitrr: Progress: 45%, Speed: 5 MB/s
+            Note over qBitrr: Continue monitoring
+        end
+    end
+
+    qBT->>qBT: Download complete (100%)
+    qBT->>FS: Write files to disk
+
+    qBitrr->>qBT: Check status (next loop)
+    qBT-->>qBitrr: State: seeding, Progress: 100%
+
+    alt FFprobe Enabled
+        qBitrr->>FS: Read media file
+        qBitrr->>FFprobe: Validate codec/duration
+
+        alt File Valid
+            FFprobe-->>qBitrr: ✅ Valid MKV, 2h 16m, H.264
+            Note over qBitrr: Proceed to import
+        else File Corrupt
+            FFprobe-->>qBitrr: ❌ Corruption detected
+            qBitrr->>Arr: POST /api/v3/queue/blacklist
+            qBitrr->>qBT: Delete torrent + files
+            qBitrr->>Arr: POST /api/v3/command (MoviesSearch)
+            Note over Arr: Search for alternative
+        end
+    end
+
+    qBitrr->>Arr: POST /api/v3/command<br/>{"name": "DownloadsRefresh"}
+    Arr->>qBT: Query download queue
+    qBT-->>Arr: Completed: The Matrix (1999)
+
+    alt Import Mode: Copy
+        Arr->>FS: Copy files to /movies/The Matrix (1999)/
+        Note over qBT: Torrent continues seeding
+    else Import Mode: Move
+        Arr->>FS: Move files to /movies/The Matrix (1999)/
+        Arr->>qBT: Remove torrent (files moved)
+    end
+
+    Arr->>Arr: Rename, add metadata
+    Arr-->>User: ✅ Movie available in library
+
+    Note over User,FS: Total time: ~10 seconds after download
+```
+
+**Key Steps:**
+
+1. **Monitoring Loop**: qBitrr polls qBittorrent every `LoopSleepTimer` seconds
+2. **Completion Detection**: Detects 100% progress + seeding state
+3. **Validation**: FFprobe checks file integrity (if enabled)
+4. **Import Trigger**: Sends `DownloadsRefresh` command to Arr
+5. **File Transfer**: Arr copies or moves files based on `importMode`
+6. **Finalization**: Arr renames, adds metadata, updates library
+
+---
+
 ## Import Workflow Examples
 
 ### Example 1: Movie Download (Radarr)
@@ -384,36 +463,93 @@ ApprovedOnly = true
 
 ### Fast Connection (100 Mbps)
 
-| Step | Time | Cumulative |
-|------|------|------------|
-| Search & select release | 5s | 5s |
-| qBittorrent starts download | 2s | 7s |
-| Download 5GB movie | 400s | 407s (6m 47s) |
-| **qBitrr detects completion** | **5s** | **412s (6m 52s)** |
-| **FFprobe validation** | **3s** | **415s (6m 55s)** |
-| **qBitrr triggers import** | **1s** | **416s (6m 56s)** |
-| **Arr imports file** | **4s** | **420s (7m)** |
+```mermaid
+gantt
+    title Fast Connection (100 Mbps) - 5GB Movie Download Timeline
+    dateFormat X
+    axisFormat %M:%S
 
-**Without qBitrr:** +5 minutes wait for Arr scan = **12 minutes total**
-**With qBitrr:** **7 minutes total**
+    section Without qBitrr
+    Search & select :done, s1, 0, 5
+    Start download :done, s2, 5, 7
+    Download 5GB :done, s3, 7, 407
+    ⏰ Wait for Arr scan :crit, s4, 407, 707
+    Arr imports :done, s5, 707, 712
 
-**Savings:** 5 minutes per download
+    section With qBitrr
+    Search & select :done, q1, 0, 5
+    Start download :done, q2, 5, 7
+    Download 5GB :done, q3, 7, 407
+    ⚡ qBitrr detects :active, q4, 407, 412
+    FFprobe validation :active, q5, 412, 415
+    Trigger import :active, q6, 415, 416
+    Arr imports :done, q7, 416, 420
+```
+
+**Comparison:**
+
+<div class="grid cards" markdown>
+
+- :material-close-circle:{ .lg .middle style="color: #ff6b6b" } **Without qBitrr**
+
+    ---
+
+    - Search & select: 5s
+    - Start download: 2s
+    - Download 5GB: 400s (6m 47s)
+    - **⏰ Wait for Arr scan: 300s (5m)** ← WASTED TIME
+    - Arr imports: 5s
+    - **TOTAL: 712s (11m 52s)**
+
+- :material-check-circle:{ .lg .middle style="color: #51cf66" } **With qBitrr**
+
+    ---
+
+    - Search & select: 5s
+    - Start download: 2s
+    - Download 5GB: 400s (6m 47s)
+    - **⚡ qBitrr detects: 5s**
+    - **FFprobe validation: 3s**
+    - **Trigger import: 1s**
+    - Arr imports: 4s
+    - **TOTAL: 420s (7m)**
+
+</div>
+
+**Savings:** `712s - 420s = 292s` → **4 minutes 52 seconds faster** (41% reduction)
 
 ---
 
 ### Slow Connection (10 Mbps)
 
-| Step | Time | Cumulative |
-|------|------|------------|
-| Search & select release | 5s | 5s |
-| Download 5GB movie | 4000s | 4005s (66m 45s) |
-| **qBitrr detects** | **5s** | **4010s (66m 50s)** |
-| **Validation + Import** | **5s** | **4015s (66m 55s)** |
+```mermaid
+gantt
+    title Slow Connection (10 Mbps) - 5GB Movie Download Timeline
+    dateFormat X
+    axisFormat %H hours
 
-**Without qBitrr:** +5 minutes = **72 minutes total**
-**With qBitrr:** **67 minutes total**
+    section Without qBitrr
+    Search :done, s1, 0, 0
+    Download 5GB :done, s2, 0, 67
+    ⏰ Wait for scan :crit, s3, 67, 72
+    Import :done, s4, 72, 72
 
-**Savings:** Still 5 minutes, regardless of download speed!
+    section With qBitrr
+    Search :done, q1, 0, 0
+    Download 5GB :done, q2, 0, 67
+    ⚡ Detect + Import :active, q3, 67, 67
+```
+
+**Comparison:**
+
+| Metric | Without qBitrr | With qBitrr | Savings |
+|:-------|---------------:|------------:|--------:|
+| Search & select | 5s | 5s | - |
+| Download 5GB movie | 4000s (66m 40s) | 4000s (66m 40s) | - |
+| **Post-download wait** | **300s (5m)** | **10s** | **290s (4m 50s)** |
+| **TOTAL** | **4305s (71m 45s)** | **4015s (66m 55s)** | **290s (4m 50s)** |
+
+**Key Insight:** Time savings are **constant (~5 minutes)** regardless of download speed!
 
 ---
 
@@ -643,40 +779,90 @@ Host = "qbittorrent"  # Container name
 
 ## Comparison: With vs Without qBitrr
 
-### Traditional Setup (No qBitrr)
+```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#ff6b6b','primaryTextColor':'#000','primaryBorderColor':'#c92a2a','lineColor':'#868e96','secondaryColor':'#51cf66','tertiaryColor':'#4dabf7'}}}%%
+sequenceDiagram
+    participant User
+    participant Arr as Radarr/Sonarr
+    participant qBT as qBittorrent
+    participant qBitrr
 
-```
-User requests movie
-↓ (30s search)
-Radarr sends to qBittorrent
-↓ (400s download)
-Download completes
-↓ ⏰ (300s WAITING for Arr scan)
-Arr scans queue
-↓ (5s import)
-Movie available
-━━━━━━━━━━━━━━━━
-TOTAL: ~735s (12 minutes 15 seconds)
+    rect rgb(255, 243, 191)
+        Note over User,Arr: Traditional Setup (No qBitrr)
+        User->>Arr: Request movie
+        Arr->>Arr: Search (30s)
+        Arr->>qBT: Send torrent
+        qBT->>qBT: Download (400s)
+        qBT->>qBT: Complete ✅
+        Note over qBT,Arr: ⏰ WAITING 300s for periodic scan
+        Arr->>qBT: Periodic scan (every 5min)
+        Arr->>Arr: Import (5s)
+        Arr-->>User: Movie available
+        Note over User,Arr: TOTAL: 735s (12m 15s)
+    end
+
+    rect rgb(211, 249, 216)
+        Note over User,qBitrr: With qBitrr (Instant Import)
+        User->>Arr: Request movie
+        Arr->>Arr: Search (30s)
+        Arr->>qBT: Send torrent
+        qBT->>qBT: Download (400s)
+        qBT->>qBT: Complete ✅
+        qBitrr->>qBT: ⚡ Detect completion (5s)
+        qBitrr->>qBitrr: FFprobe validate (3s)
+        qBitrr->>Arr: Trigger import NOW (1s)
+        Arr->>Arr: Import (4s)
+        Arr-->>User: Movie available
+        Note over User,qBitrr: TOTAL: 443s (7m 23s)
+    end
 ```
 
-### With qBitrr
+**Visual Comparison:**
 
-```
-User requests movie
-↓ (30s search)
-Radarr sends to qBittorrent
-↓ (400s download)
-Download completes
-↓ ⚡ (5s qBitrr detects)
-↓ (3s FFprobe validates)
-↓ (1s qBitrr triggers import)
-↓ (5s Arr imports)
-Movie available
-━━━━━━━━━━━━━━━━
-TOTAL: ~444s (7 minutes 24 seconds)
-```
+<div class="grid cards" markdown>
 
-**Improvement:** 5 minutes faster (40% reduction)
+- :material-close-octagon:{ .lg .middle style="color: #ff6b6b" } **Traditional Setup**
+
+    ---
+
+    **Without qBitrr**
+
+    - ❌ User requests → 30s search
+    - ⏬ Download → 400s
+    - **⏰ IDLE WAIT → 300s** (avg)
+    - ✅ Import → 5s
+    - **TOTAL: ~735s (12m 15s)**
+
+    ---
+
+    **Bottleneck:** Periodic scanning interval
+
+- :material-lightning-bolt:{ .lg .middle style="color: #51cf66" } **qBitrr Setup**
+
+    ---
+
+    **With instant imports**
+
+    - ✅ User requests → 30s search
+    - ⏬ Download → 400s
+    - **⚡ Instant detect → 5s**
+    - **🔍 Validate → 3s**
+    - **📥 Trigger → 1s**
+    - ✅ Import → 4s
+    - **TOTAL: ~443s (7m 23s)**
+
+    ---
+
+    **Advantage:** No waiting, instant action
+
+</div>
+
+**Improvement Analysis:**
+
+- **Time Saved:** `735s - 443s = 292s` → **4 minutes 52 seconds**
+- **Percentage Faster:** `(292 / 735) × 100 = 39.7%` → **~40% faster**
+- **Per-download Benefit:** Constant 5-minute savings (regardless of download speed)
+- **Annual Impact (100 downloads/year):** `100 × 292s = 29,200s` → **8.1 hours saved per year**
 
 ---
 
