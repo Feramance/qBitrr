@@ -50,7 +50,7 @@ qBitrr provides a REST API through its WebUI component, accessible by default at
 
 ## Authentication
 
-If `Settings.WebUIToken` is configured, all `/api/*` endpoints require authentication.
+If `WebUI.Token` is configured, all `/api/*` endpoints require authentication.
 
 **Header:**
 ```

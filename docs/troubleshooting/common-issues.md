@@ -300,7 +300,7 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
    Note: `SearchLoopDelay` controls the delay **between individual searches** in a batch, not whether searches are enabled.
    ```toml
    [Settings]
-   SearchLoopDelay = -1  # Default: 30s between each search
+   SearchLoopDelay = -1  # -1 = uses default 30s between each search
    ```
 
 3. **Verify Arr has missing media:**

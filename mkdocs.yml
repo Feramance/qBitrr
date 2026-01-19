@@ -235,6 +235,7 @@ nav:
 - Advanced:
   - advanced/index.md
   - Architecture: advanced/architecture.md
+  - Multi-qBittorrent: advanced/multi-qbittorrent.md
   - Database Schema: advanced/database.md
   - Event Loops: advanced/event-loops.md
   - FFprobe Integration: advanced/ffprobe.md

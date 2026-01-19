@@ -344,7 +344,7 @@ Optimize for private tracker requirements:
 
 ### Current Version
 
-**Latest Release**: v5.5.5 (December 2024)
+**Latest Release**: v5.7.0 (January 2025)
 
 - ✅ Production ready
 - ✅ Active development

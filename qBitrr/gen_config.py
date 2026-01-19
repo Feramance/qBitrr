@@ -385,48 +385,56 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         "CaseSensitiveMatches",
         False,
     )
-    if "anime" not in category.lower():
-        _gen_default_line(
-            torrent_table,
-            [
-                "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
-                "These regex need to be escaped, that's why you see so many backslashes.",
-            ],
-            "FolderExclusionRegex",
-            [
-                r"\bextras?\b",
-                r"\bfeaturettes?\b",
-                r"\bsamples?\b",
-                r"\bscreens?\b",
-                r"\bnc(ed|op)?(\\d+)?\b",
-            ],
-        )
+    # Set folder exclusions based on category type
+    if "anime" in category.lower():
+        # Anime-specific exclusions (includes OVA, specials, NCOP/NCED)
+        folder_exclusions = [
+            r"\bextras?\b",
+            r"\bfeaturettes?\b",
+            r"\bsamples?\b",
+            r"\bscreens?\b",
+            r"\bspecials?\b",
+            r"\bova\b",
+            r"\bnc(ed|op)?(\\d+)?\b",
+        ]
+    elif "lidarr" in category.lower():
+        # Music-specific exclusions (no NCOP/NCED, no featurettes)
+        folder_exclusions = [
+            r"\bextras?\b",
+            r"\bsamples?\b",
+            r"\bscreens?\b",
+        ]
     else:
-        _gen_default_line(
-            torrent_table,
-            [
-                "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
-                "These regex need to be escaped, that's why you see so many backslashes.",
-            ],
-            "FolderExclusionRegex",
-            [
-                r"\bextras?\b",
-                r"\bfeaturettes?\b",
-                r"\bsamples?\b",
-                r"\bscreens?\b",
-                r"\bspecials?\b",
-                r"\bova\b",
-                r"\bnc(ed|op)?(\\d+)?\b",
-            ],
-        )
+        # Standard video exclusions (movies/TV shows)
+        folder_exclusions = [
+            r"\bextras?\b",
+            r"\bfeaturettes?\b",
+            r"\bsamples?\b",
+            r"\bscreens?\b",
+            r"\bnc(ed|op)?(\\d+)?\b",
+        ]
+
     _gen_default_line(
         torrent_table,
         [
             "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
             "These regex need to be escaped, that's why you see so many backslashes.",
         ],
-        "FileNameExclusionRegex",
-        [
+        "FolderExclusionRegex",
+        folder_exclusions,
+    )
+    # Set filename exclusions based on category type
+    if "lidarr" in category.lower():
+        # Music-specific exclusions (no NCOP/NCED, no "music video" since that's actual music content)
+        filename_exclusions = [
+            r"\bsample\b",
+            r"brarbg.com\b",
+            r"\btrailer\b",
+            r"comandotorrents.com",
+        ]
+    else:
+        # Video exclusions (movies/TV/anime)
+        filename_exclusions = [
             r"\bncop\\d+?\b",
             r"\bnced\\d+?\b",
             r"\bsample\b",
@@ -434,13 +442,40 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
             r"\btrailer\b",
             r"music video",
             r"comandotorrents.com",
+        ]
+
+    _gen_default_line(
+        torrent_table,
+        [
+            "These regex values will match any folder where the full name matches the specified values here, comma separated strings.",
+            "These regex need to be escaped, that's why you see so many backslashes.",
         ],
+        "FileNameExclusionRegex",
+        filename_exclusions,
     )
+    # Set appropriate file extensions based on category type
+    if "lidarr" in category.lower():
+        file_extensions = [
+            ".mp3",
+            ".flac",
+            ".m4a",
+            ".aac",
+            ".ogg",
+            ".opus",
+            ".wav",
+            ".ape",
+            ".wma",
+            ".!qB",
+            ".parts",
+        ]
+    else:
+        file_extensions = [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"]
+
     _gen_default_line(
         torrent_table,
         "Only files with these extensions will be allowed to be downloaded, comma separated strings or regex, leave it empty to allow all extensions",
         "FileExtensionAllowlist",
-        [".mp4", ".mkv", ".sub", ".ass", ".srt", ".!qB", ".parts"],
+        file_extensions,
     )
     _gen_default_line(
         torrent_table,
@@ -698,9 +733,15 @@ def _gen_default_search_table(category: str, cat_default: Table):
         )
     # SearchByYear doesn't apply to Lidarr (music albums)
     if "lidarr" not in category.lower():
+        if "sonarr" in category.lower():
+            search_by_year_comment = (
+                "It will order searches by the year the episode was first aired"
+            )
+        else:
+            search_by_year_comment = "It will order searches by the year the movie was released"
         _gen_default_line(
             search_table,
-            "It will order searches by the year the EPISODE was first aired",
+            search_by_year_comment,
             "SearchByYear",
             True,
         )
@@ -715,8 +756,7 @@ def _gen_default_search_table(category: str, cat_default: Table):
     )
     _gen_default_line(
         search_table,
-        "Search movies which already have a file in the database in hopes of finding a "
-        "better quality version.",
+        "Search media which already have a file in hopes of finding a better quality version.",
         "DoUpgradeSearch",
         False,
     )

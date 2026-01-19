@@ -297,8 +297,9 @@ CheckInterval = 60          # Seconds between torrent checks
 MaxConcurrentChecks = 10    # Max parallel health checks
 RetentionDays = 30          # Days to keep old data
 WebUIPort = 6969            # WebUI port
-WebUIHost = "0.0.0.0"       # WebUI bind address
-WebUIToken = ""             # Optional API token
+[WebUI]
+Host = "0.0.0.0"            # WebUI bind address
+Token = ""                  # Optional API token
 ```
 
 ### qBittorrent
@@ -696,7 +697,7 @@ Name = "Radarr-Movies"
 URI = "http://radarr:7878"
 APIKey = "${RADARR_API_KEY}"
 Category = "radarr"
-ImportMode = "Hardlink"
+importMode = "Auto"
 
 [Radarr-Movies.EntrySearch]
 SearchMissing = true

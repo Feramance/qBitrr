@@ -159,7 +159,7 @@ Password = "CHANGE_ME"
 # UserName = "admin"
 # Password = "remotepass"
 #
-# For more information, see: MULTI_QBIT_V3_USER_GUIDE.md
+# For more information, see: docs/advanced/multi-qbittorrent.md
 # ============================================================
 
 
@@ -219,7 +219,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in hopes of finding a better quality version.
+# Search media which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -465,7 +465,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in hopes of finding a better quality version.
+# Search media which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -687,8 +687,6 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 
 
 [Radarr-1080.EntrySearch]
-# All these settings depends on SearchMissing being True
-
 # Should search for Missing files?
 SearchMissing = true
 
@@ -701,7 +699,7 @@ Unmonitored = false
 # That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
 SearchLimit = 5
 
-# It will order searches by the year the EPISODE was first aired
+# It will order searches by the year the movie was released
 SearchByYear = true
 
 # Reverse search order (Start searching oldest to newest)
@@ -710,7 +708,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in hopes of finding a better quality version.
+# Search media which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -963,8 +961,6 @@ ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a 
 
 
 [Radarr-4K.EntrySearch]
-# All these settings depends on SearchMissing being True
-
 # Should search for Missing files?
 SearchMissing = true
 
@@ -977,7 +973,7 @@ Unmonitored = false
 # That being said I've been daily driving 10 simultaneous tasks for quite a while now with no issues.
 SearchLimit = 5
 
-# It will order searches by the year the EPISODE was first aired
+# It will order searches by the year the movie was released
 SearchByYear = true
 
 # Reverse search order (Start searching oldest to newest)
@@ -986,7 +982,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in hopes of finding a better quality version.
+# Search media which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
@@ -1251,7 +1247,7 @@ SearchInReverse = false
 # Delay between request searches in seconds
 SearchRequestsEvery = 300
 
-# Search movies which already have a file in the database in hopes of finding a better quality version.
+# Search media which already have a file in hopes of finding a better quality version.
 DoUpgradeSearch = false
 
 # Do a quality unmet search for existing entries.
