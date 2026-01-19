@@ -4774,31 +4774,39 @@ class Arr:
                 delay_seconds = min(120 * (2 ** (self._db_error_count - 1)), 1800)
 
                 # Log detailed error information based on error type
+                # Use escalating severity: WARNING (1-2 errors), ERROR (3-4), CRITICAL (5+)
+                if self._db_error_count <= 2:
+                    log_func = self.logger.warning
+                elif self._db_error_count <= 4:
+                    log_func = self.logger.error
+                else:
+                    log_func = self.logger.critical
+
                 if "disk i/o error" in error_msg:
-                    self.logger.critical(
-                        "Persistent database I/O error detected (consecutive error #%d). "
-                        "This indicates disk issues, filesystem corruption, or resource exhaustion. "
+                    log_func(
+                        "Database I/O error detected (consecutive error #%d). "
+                        "This may indicate disk issues, filesystem corruption, or resource exhaustion. "
                         "Attempting automatic recovery and retrying in %d seconds...",
                         self._db_error_count,
                         delay_seconds,
                     )
                 elif "database is locked" in error_msg:
-                    self.logger.error(
+                    log_func(
                         "Database locked error (consecutive error #%d). "
                         "Retrying in %d seconds...",
                         self._db_error_count,
                         delay_seconds,
                     )
                 elif "disk image is malformed" in error_msg:
-                    self.logger.critical(
+                    log_func(
                         "Database corruption detected (consecutive error #%d). "
                         "Attempting automatic recovery and retrying in %d seconds...",
                         self._db_error_count,
                         delay_seconds,
                     )
                 else:
-                    self.logger.error(
-                        "Database error (consecutive error #%d): %s. " "Retrying in %d seconds...",
+                    log_func(
+                        "Database error (consecutive error #%d): %s. Retrying in %d seconds...",
                         self._db_error_count,
                         error_msg,
                         delay_seconds,
