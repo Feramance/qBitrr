@@ -106,7 +106,6 @@ Host = "hostname"           # Required
 Port = 8080                 # Required
 Username = "admin"          # Optional
 Password = "password"       # Optional
-Version5 = true             # Optional (for qBit 5.x+)
 ```
 
 ### Arr Configuration (Unchanged)
@@ -573,7 +572,7 @@ systemctl start qbitrr  # OR docker start qbitrr
 
 ### Q: Does this work with qBittorrent 5.x?
 
-**A**: Yes! Set `Version5 = true` in the instance configuration.
+**A**: Yes! qBitrr automatically detects and supports both qBittorrent 4.x and 5.x versions.
 
 ### Q: How many instances can I have?
 

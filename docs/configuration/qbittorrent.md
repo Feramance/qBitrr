@@ -87,48 +87,6 @@ Password = ""      # Leave empty
 
 ---
 
-## qBittorrent Version Configuration
-
-qBittorrent made significant API changes in version 5.x. qBitrr needs to know which version you're running to use the correct API endpoints.
-
-### qBittorrent 4.x (Default)
-
-qBitrr assumes qBittorrent 4.x by default. No additional configuration needed.
-
-```toml
-[qBit]
-Host = "localhost"
-Port = 8080
-UserName = "admin"
-Password = "password"
-# Version5 is not set - defaults to false (qBittorrent 4.x)
-```
-
-!!! info "Last Validated 4.x Version"
-    qBitrr has been tested with qBittorrent **4.6.7**. Newer 4.x versions should work but may have untested edge cases.
-
-### qBittorrent 5.x
-
-If you're running qBittorrent 5.0.0 or newer, **you must set** `Version5 = true`:
-
-```toml
-[qBit]
-Host = "localhost"
-Port = 8080
-UserName = "admin"
-Password = "password"
-Version5 = true  # Required for qBittorrent 5.x
-```
-
-!!! warning "API Compatibility"
-    Using the wrong `Version5` setting will cause API errors. Check your qBittorrent version:
-
-    - **qBittorrent → Help → About** to see your version
-    - Set `Version5 = true` if version is ≥ 5.0.0
-    - Leave it unset or `false` for versions < 5.0.0
-
----
-
 ## Headless Mode
 
 qBitrr can run in "headless mode" where it **only processes searches** without managing qBittorrent torrents. This is useful if you use a different download client (like Sabnzbd/NZBGet) but still want qBitrr's automated search features.
@@ -272,21 +230,7 @@ Ok.
 
 ---
 
-#### "API version mismatch" or "Invalid request"
 
-**Causes:**
-
-- qBittorrent version doesn't match `Version5` setting
-- API endpoint changes between versions
-
-**Solutions:**
-
-1. ✅ Check qBittorrent version: **Help** → **About**
-2. ✅ Set `Version5 = true` if running qBittorrent 5.x
-3. ✅ Remove or set `Version5 = false` if running qBittorrent 4.x
-4. ✅ Check qBitrr logs for specific API errors
-
----
 
 #### Docker: "Name or service not known"
 
@@ -349,7 +293,7 @@ With multi-instance support, you can configure multiple qBittorrent instances an
 
 ### Configuration Syntax
 
-The default instance is always `[qBit]`. Additional instances use `[qBit-NAME]` syntax:
+The default instance is always `[qBit]` (required). Additional instances use the `[qBit-NAME]` syntax where NAME is your custom identifier:
 
 ```toml
 [qBit]  # Default instance (REQUIRED)
@@ -369,14 +313,48 @@ Host = "10.8.0.2"
 Port = 8080
 UserName = "admin"
 Password = "vpnpass"
-Version5 = true  # This instance uses qBittorrent 5.x
 ```
 
 !!! warning "Important: Use Dash Notation"
     Additional instances MUST use dash (`-`) notation, NOT dot (`.`) notation:
 
-    - ✅ **Correct:** `[qBit-seedbox]`
-    - ❌ **Wrong:** `[qBit.seedbox]` (creates nested TOML tables)
+    - ✅ **Correct:** `[qBit-seedbox]`, `[qBit-vpn]`, `[qBit-remote]`
+    - ❌ **Wrong:** `[qBit.seedbox]`, `[Seedbox]`, `[qbit-seedbox]` (case-sensitive!)
+
+### WebUI Configuration Management
+
+!!! tip "Easy Instance Management"
+    You can manage qBittorrent instances directly from the WebUI without manually editing the config file!
+
+qBitrr's WebUI provides a graphical interface for managing multiple qBittorrent instances:
+
+**Features:**
+- ✅ View all configured instances with status indicators
+- ✅ Add new instances with form validation
+- ✅ Edit existing instance settings (host, port, credentials)
+- ✅ Delete secondary instances (default instance cannot be deleted)
+- ✅ Rename instances while preserving configuration
+- ✅ Enable/disable instances without removing them
+
+**Accessing the Config Editor:**
+1. Navigate to `http://your-qbitrr-host:6969/ui`
+2. Click "Config" in the navigation menu
+3. Scroll to "qBittorrent Instances" section
+4. Use "Add Instance", "Configure", or "Delete" buttons
+
+**Adding a New Instance:**
+1. Click "Add Instance" button
+2. Fill in the form:
+   - **Display Name**: Custom identifier (e.g., "qBit-seedbox")
+   - **Host**: qBittorrent WebUI hostname or IP address
+   - **Port**: qBittorrent WebUI port (usually 8080)
+   - **Username**: qBittorrent authentication username (optional)
+   - **Password**: qBittorrent authentication password (optional)
+   - **Disabled**: Toggle to temporarily disable instance
+3. Click "Save" to apply changes
+4. Restart qBitrr to activate the new instance
+
+For more details, see the [WebUI Configuration Editor](../webui/config-editor.md) documentation.
 
 ### Use Cases
 
@@ -670,7 +648,6 @@ Host = "qbittorrent"
 Port = 8080
 UserName = "admin"
 Password = "my-secure-password"
-Version5 = true  # If using qBittorrent 5.x
 ```
 
 ### Headless Mode (Search Only)

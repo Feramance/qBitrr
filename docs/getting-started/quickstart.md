@@ -75,11 +75,11 @@ Find and edit your `config.toml` file:
 Here's the minimum configuration needed:
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://localhost:8080"  # Your qBittorrent URL
-Username = "admin"               # qBittorrent username
-Password = "adminpass"           # qBittorrent password
-Version5 = false                 # Set to true for qBittorrent 5.x
+[qBit]
+Host = "localhost"              # Your qBittorrent host
+Port = 8080                     # qBittorrent WebUI port
+UserName = "admin"              # qBittorrent username
+Password = "adminpass"          # qBittorrent password
 
 [Radarr-Movies]  # Or Sonarr-TV, Lidarr-Music
 URI = "http://localhost:7878"  # Your Radarr URL
@@ -219,11 +219,11 @@ Look for these messages:
 **Time:** 10 minutes
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://localhost:8080"
-Username = "admin"
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
 Password = "adminpass"
-Version5 = false
 
 [Radarr-Movies]
 URI = "http://localhost:7878"
@@ -249,11 +249,11 @@ importMode = "Auto"
 **Time:** 20 minutes
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://localhost:8080"
-Username = "admin"
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
 Password = "adminpass"
-Version5 = false
 
 [Settings]
 # Global settings
@@ -309,11 +309,11 @@ ReSearch = true
 **Time:** 45 minutes
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://qbittorrent:8080"  # Docker container name
-Username = "admin"
+[qBit]
+Host = "qbittorrent"  # Docker container name
+Port = 8080
+UserName = "admin"
 Password = "secure-password-here"
-Version5 = true  # Using qBittorrent 5.x
 
 [Settings]
 EnableFFprobe = true  # Validate files before import

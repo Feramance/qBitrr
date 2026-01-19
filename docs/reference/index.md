@@ -304,12 +304,11 @@ WebUIToken = ""             # Optional API token
 ### qBittorrent
 
 ```toml
-[Settings.Qbittorrent]
-Host = "http://localhost"   # qBittorrent URL
+[qBit]
+Host = "localhost"          # qBittorrent URL
 Port = 8080                 # qBittorrent port
-Username = "admin"          # qBit username
+UserName = "admin"          # qBit username
 Password = "adminadmin"     # qBit password
-Version5 = false            # Use v5 API
 ```
 
 ### Arr Instances
@@ -681,12 +680,11 @@ LogLevel = "INFO"
 FreeSpace = "50G"
 AutoPauseResume = true
 
-[Settings.Qbittorrent]
-Host = "http://qbittorrent"
+[qBit]
+Host = "qbittorrent"
 Port = 8080
-Username = "admin"
+UserName = "admin"
 Password = "your-secure-password"
-Version5 = true
 
 [WebUI]
 Host = "0.0.0.0"
@@ -724,8 +722,8 @@ See [Configuration File Reference](../configuration/config-file.md) for comprehe
 
 ### qBittorrent
 
-- **v4.x** - Fully supported (set `Version5 = false`)
-- **v5.x** - Fully supported (set `Version5 = true`)
+- **v4.x** - Fully supported (automatically detected)
+- **v5.x** - Fully supported (automatically detected)
 
 ### Arr Applications
 

@@ -123,20 +123,13 @@ ProcessRestartDelay = 5
 
 #### Major Changes
 
-- **qBittorrent 5.x support:** Requires `Version5 = true` flag
+- **qBittorrent 5.x support:** Automatic version detection (no config needed)
 - **Custom format enhancements:** Better CF score handling
 - **Search optimizations:** Smarter series vs. episode search
 
 #### Steps
 
-1. **Update qBittorrent config if using v5.x:**
-
-```toml
-[qBit]
-Version5 = true  # Only if using qBittorrent 5.x
-```
-
-2. **Review custom format settings:**
+1. **Review custom format settings:**
 
 ```toml
 [Radarr-Movies.EntrySearch]

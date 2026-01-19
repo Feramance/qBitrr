@@ -224,7 +224,7 @@ Total time to library: 20.5 minutes (26% faster)
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| 5.0+ | ✅ Fully Supported | Set `Version5 = true` |
+| 5.0+ | ✅ Fully Supported | Auto-detected |
 | 4.6.x | ✅ Fully Supported | Latest stable |
 | 4.5.x | ✅ Supported | Older stable |
 | 4.1-4.4 | ✅ Supported | Some features limited |

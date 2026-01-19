@@ -91,9 +91,6 @@ Host = "http://localhost:8080"
 # qBittorrent credentials
 Username = "admin"
 Password = "adminpass"
-
-# Set to true if using qBittorrent 5.x
-Version5 = false
 ```
 
 !!! tip "Finding Your qBittorrent URL"
@@ -158,11 +155,11 @@ CategoryRadarr = "radarr-movies"
 CategorySonarr = "sonarr-tv"
 CategoryLidarr = "lidarr-music"
 
-[Settings.Qbittorrent]
-Host = "http://localhost:8080"
-Username = "admin"
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
 Password = "adminpass"
-Version5 = false
 
 [Radarr-Movies]
 URI = "http://localhost:7878"
@@ -326,18 +323,7 @@ qbitrr:
 CategoryRadarr = "radarr"  # Must match Radarr's download client
 ```
 
-### 3. Wrong qBittorrent Version
-
-**Problem:** Using qBittorrent 5.x but `Version5 = false`
-
-**Solution:** Set the correct version:
-
-```toml
-[Settings.Qbittorrent]
-Version5 = true  # For qBittorrent 5.x
-```
-
-### 4. Missing Tags
+### 3. Missing Tags
 
 **Problem:** Torrents have tags but qBitrr has `Tagless = false`
 
@@ -345,7 +331,7 @@ Version5 = true  # For qBittorrent 5.x
 - Enable tagless mode: `Tagless = true`
 - Or configure tags in Arr download clients
 
-### 5. Invalid API Keys
+### 4. Invalid API Keys
 
 **Problem:** Copy-paste errors in API keys
 

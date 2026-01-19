@@ -86,7 +86,6 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
    Port = 8080
    UserName = "admin"
    Password = "adminpass"
-   Version5 = true  # qBittorrent 5.x
    ```
 
 2. **Add Arr instances**:

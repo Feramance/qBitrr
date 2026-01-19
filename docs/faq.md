@@ -52,10 +52,10 @@ Yes, but each instance needs:
 
 Check these common issues:
 
-1. **Categories don't match**: Your Arr download client category must match `Settings.CategoryRadarr` (or Sonarr/Lidarr) in config.toml
+1. **Categories don't match**: Your Arr download client category must match the category configured in your Arr instance section
 2. **Missing tags**: Arr downloads need tags configured
-3. **qBittorrent not connected**: Check connection settings in config
-4. **Wrong version setting**: Set `Settings.Qbittorrent.Version5 = true` for qBit 5.x
+3. **qBittorrent not connected**: Check connection settings in `[qBit]` section
+4. **Wrong credentials**: Verify username and password match qBittorrent settings
 
 ### How do I find my Arr API key?
 

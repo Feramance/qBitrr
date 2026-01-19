@@ -61,7 +61,6 @@ WebUIToken = "your-secret-token-here"
 | `Host` | string | **required** | qBittorrent URL (e.g., `http://localhost:8080`) |
 | `Username` | string | **required** | qBittorrent username |
 | `Password` | string | **required** | qBittorrent password |
-| `Version5` | bool | `false` | Use qBittorrent API v5 |
 | `Disabled` | bool | `false` | Run in headless mode (search only, no torrent management) |
 
 **Example:**
@@ -72,7 +71,6 @@ Host = "localhost"
 Port = 8080
 UserName = "admin"
 Password = "adminadmin"
-Version5 = true
 Disabled = false
 ```
 
@@ -393,11 +391,11 @@ RetentionDays = 30
 MaxConcurrentChecks = 10
 EnableFFprobe = true
 
-[Settings.Qbittorrent]
-Host = "http://qbittorrent:8080"
-Username = "admin"
+[qBit]
+Host = "qbittorrent"
+Port = 8080
+UserName = "admin"
 Password = "adminadmin"
-Version5 = true
 
 [[Radarr]]
 Name = "Radarr-1080p"
@@ -460,21 +458,18 @@ Host = "localhost"
 Port = 8080
 UserName = "admin"
 Password = "password"
-Version5 = false
 
 [qBit-seedbox]  # Additional instance (OPTIONAL)
 Host = "192.168.1.100"
 Port = 8080
 UserName = "admin"
 Password = "seedboxpass"
-Version5 = false
 
 [qBit-vpn]  # Another instance (OPTIONAL)
 Host = "10.8.0.2"
 Port = 8080
 UserName = "admin"
 Password = "vpnpass"
-Version5 = true
 ```
 
 ### Instance Naming Rules
@@ -495,7 +490,6 @@ Each `[qBit-*]` section supports the same fields as `[qBit]`:
 | `Port` | int | **required** | qBittorrent Web UI port |
 | `UserName` | string | **required** | Authentication username |
 | `Password` | string | **required** | Authentication password |
-| `Version5` | bool | `false` | Use qBittorrent API v5 |
 | `Disabled` | bool | `false` | Disable this specific instance |
 
 ### How Multi-Instance Works
