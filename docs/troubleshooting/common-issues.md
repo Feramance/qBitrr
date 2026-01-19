@@ -282,39 +282,51 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 
 #### Symptom: qBitrr runs but doesn't search for missing media
 
+**Root Cause:** SearchMissing is the master switch for all search features.
+
 **Solutions:**
 
-1. **Enable search in config:**
+1. **Enable SearchMissing (required):**
    ```toml
    [Radarr-Movies.EntrySearch]
-   SearchMissing = true
+   SearchMissing = true  # REQUIRED - master switch for all search features
    ```
 
-2. **Verify automated searches are enabled:**
-   ```toml
-   [Radarr-Movies.EntrySearch]
-   SearchMissing = true  # Enable automated searches
-   SearchRequestsEvery = 300  # Run search loop every 5 minutes
+   **Important:** DoUpgradeSearch, QualityUnmetSearch, CustomFormatUnmetSearch, and request processing (Overseerr/Ombi) will ONLY work if SearchMissing is enabled.
+
+2. **Check search loop startup in logs:**
+   ```bash
+   grep "Search loop starting\|Search loop initialized" ~/logs/Radarr-Movies.log
    ```
 
-   Note: `SearchLoopDelay` controls the delay **between individual searches** in a batch, not whether searches are enabled.
+   You should see:
+   ```
+   Search loop starting for Radarr-Movies (SearchMissing=True, ...)
+   Search loop initialized successfully, entering main loop
+   ```
+
+3. **If search loop crashes or exits unexpectedly:**
+   ```bash
+   grep "Search loop crashed\|Search loop terminated" ~/logs/Radarr-Movies.log
+   ```
+
+   If you see "Search loop crashed", check the full traceback above that line.
+
+4. **Common mistake - SearchLoopDelay:**
+
+   Note: `SearchLoopDelay` controls the delay **between individual searches** in a batch, not whether searches run.
    ```toml
    [Settings]
    SearchLoopDelay = -1  # -1 = uses default 30s between each search
    ```
 
-3. **Verify Arr has missing media:**
+5. **Verify Arr has missing media:**
    - Open Radarr/Sonarr → **Wanted** → **Missing**
    - If empty, there's nothing to search for
 
-4. **Check indexer connectivity:**
+6. **Check indexer connectivity:**
    - In Arr instance: **System** → **Status**
    - Ensure indexers are enabled and reachable
-
-5. **Review search logs:**
-   ```bash
-   tail -f ~/logs/Radarr-Movies.log | grep -i search
-   ```
 
 ---
 
