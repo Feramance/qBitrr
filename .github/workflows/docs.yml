@@ -15,6 +15,13 @@ on:
     - mkdocs.yml
     - requirements.docs.txt
   workflow_dispatch:
+  workflow_run:
+    workflows:
+    - Create a Release
+    types:
+    - completed
+    branches:
+    - master
 
 permissions:
   contents: write
@@ -59,7 +66,12 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages
     needs: build
-    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    if: |
+      github.ref == 'refs/heads/master' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name == 'push' ||
+       github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     runs-on: ubuntu-latest
     environment:
       name: github-pages
