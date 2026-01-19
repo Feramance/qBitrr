@@ -222,7 +222,7 @@ AlsoSearchSpecials = false
 # Include unmonitored episodes/series in searches
 Unmonitored = false
 
-# Maximum concurrent searches (Sonarr hardcoded cap: 3)
+# Maximum concurrent searches qBitrr will queue (Sonarr hardcoded cap: 3)
 SearchLimit = 5
 
 # Order searches by episode air year

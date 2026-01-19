@@ -303,7 +303,7 @@ When `false`:
 
 ---
 
-### SearchLimit (Sonarr only)
+### SearchLimit
 
 ```toml
 SearchLimit = 5
@@ -311,12 +311,16 @@ SearchLimit = 5
 
 **Type:** Integer
 **Default:** `5`
+**Applies to:** Radarr, Sonarr
 
-Maximum number of simultaneous search tasks.
+Maximum number of simultaneous search tasks qBitrr will queue for this Arr instance.
 
-**Note:** Sonarr has a hardcoded limit of 3 concurrent tasks, so values above 3 won't increase concurrency but qBitrr will queue them.
+**Important Notes:**
+- **Sonarr:** Has a hardcoded limit of 3 concurrent tasks. Values above 3 won't increase actual concurrency but qBitrr will queue them.
+- **Radarr:** Default limit is 3, but can be increased up to 10 by setting `THREAD_LIMIT` environment variable (unsupported by Radarr developers).
+- **Lidarr:** Does not support SearchLimit (Lidarr manages its own task queue internally).
 
-**Recommendation:** `5` (allows queueing beyond Sonarr's limit).
+**Recommendation:** `5` (allows queueing beyond default Arr limits).
 
 ---
 
