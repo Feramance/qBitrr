@@ -282,45 +282,20 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 
 #### Symptom: qBitrr runs but doesn't search for missing media
 
-**Root Cause:** The search loop process won't start if **all** search features are disabled.
-
 **Solutions:**
 
-1. **Enable at least ONE search feature:**
+1. **Enable search in config:**
    ```toml
    [Radarr-Movies.EntrySearch]
-   SearchMissing = true              # Search for missing media
-   # OR
-   DoUpgradeSearch = true            # Search for quality upgrades
-   # OR
-   QualityUnmetSearch = true         # Search for quality profile compliance
-   # OR
-   CustomFormatUnmetSearch = true    # Search for custom format compliance
-   # OR
-   [Radarr-Movies.EntrySearch.Overseerr]
-   SearchOverseerrRequests = true    # Process Overseerr requests
-   # OR
-   [Radarr-Movies.EntrySearch.Ombi]
-   SearchOmbiRequests = true         # Process Ombi requests
+   SearchMissing = true
    ```
 
-   **Important:** If ALL of the above are `false`, the search loop will not start at all, even after restarting qBitrr.
-
-2. **Check logs for warning message:**
-   ```bash
-   grep "Search loop disabled" ~/logs/Radarr-Movies.log
+2. **Verify automated searches are enabled:**
+   ```toml
+   [Radarr-Movies.EntrySearch]
+   SearchMissing = true  # Enable automated searches
+   SearchRequestsEvery = 300  # Run search loop every 5 minutes
    ```
-
-   If you see this warning, enable at least one search feature in your config.
-
-3. **Verify search loop is running:**
-   ```bash
-   # Check WebUI → Processes tab
-   # OR check logs:
-   tail -f ~/logs/Radarr-Movies.log | grep -i "search loop\|Starting search"
-   ```
-
-4. **Common mistake - SearchLoopDelay:**
 
    Note: `SearchLoopDelay` controls the delay **between individual searches** in a batch, not whether searches are enabled.
    ```toml
@@ -328,13 +303,18 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
    SearchLoopDelay = -1  # -1 = uses default 30s between each search
    ```
 
-5. **Verify Arr has missing media:**
+3. **Verify Arr has missing media:**
    - Open Radarr/Sonarr → **Wanted** → **Missing**
    - If empty, there's nothing to search for
 
-6. **Check indexer connectivity:**
+4. **Check indexer connectivity:**
    - In Arr instance: **System** → **Status**
    - Ensure indexers are enabled and reachable
+
+5. **Review search logs:**
+   ```bash
+   tail -f ~/logs/Radarr-Movies.log | grep -i search
+   ```
 
 ---
 

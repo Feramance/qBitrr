@@ -6954,12 +6954,6 @@ class Arr:
                 or self.ombi_search_requests
                 or self.overseerr_requests
             ):
-                self.logger.warning(
-                    "Search loop disabled: No search features enabled. "
-                    "Enable at least one: SearchMissing, DoUpgradeSearch, "
-                    "QualityUnmetSearch, CustomFormatUnmetSearch, "
-                    "SearchOverseerrRequests, or SearchOmbiRequests"
-                )
                 return None
             loop_timer = timedelta(minutes=15)
             timer = datetime.now()
@@ -7198,15 +7192,7 @@ class Arr:
 
     def spawn_child_processes(self):
         _temp = []
-        # Spawn search loop if ANY search feature is enabled
-        if (
-            self.search_missing
-            or self.do_upgrade_search
-            or self.quality_unmet_search
-            or self.custom_format_unmet_search
-            or self.ombi_search_requests
-            or self.overseerr_requests
-        ):
+        if self.search_missing:
             self.process_search_loop = pathos.helpers.mp.Process(
                 target=self.run_search_loop, daemon=False
             )
