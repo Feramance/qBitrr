@@ -73,7 +73,7 @@ qBitrr has multiple event loops with configurable timers:
 | Loop | Purpose | Config Key | Default | Recommended Range |
 |------|---------|------------|---------|-------------------|
 | **Main Loop** | Check torrents, trigger imports | `LoopSleepTimer` | 5s | 5-60s |
-| **Search Loop** | Automated searches | `SearchLoopDelay` | -1 (disabled) | 300-3600s |
+| **Search Loop** | Delay between individual searches | `SearchLoopDelay` | -1 (30s) | 10-120s |
 | **RSS Sync** | Refresh RSS feeds | `RssSyncTimer` | 15min | 5-60min |
 | **Refresh Downloads** | Update queue status | `RefreshDownloadsTimer` | 1min | 1-15min |
 | **Stalled Check** | Detect stalled torrents | `StalledDelay` | 15min | 10-60min |
@@ -134,43 +134,49 @@ LoopSleepTimer = 5  # Seconds between checks
 
     **Use when:** Large library, many torrents, limited CPU/memory
 
-### Search Loop Timer
+### Search Loop Delay
 
-**Controls:** Automated search frequency for missing/upgrade candidates.
+**Controls:** Delay between individual search commands when processing a batch of searches.
 
 ```toml
 [Settings]
-SearchLoopDelay = 3600  # Seconds between automated searches (-1 = disabled)
+SearchLoopDelay = -1  # Delay between each search (-1 = use default 30s)
 ```
+
+**How it works:**
+- When processing multiple missing items (e.g., 10 missing movies), this sets the delay between each individual search
+- `-1` (default): Uses 30 seconds between searches
+- Positive values: Uses that many seconds between searches
 
 **Tuning Guidance:**
 
-| Search Volume | Recommended Timer |
-|---------------|-------------------|
-| Light (< 10 searches/hour) | 1800s (30 min) |
-| Moderate (10-50/hour) | 3600s (1 hour) |
-| Heavy (> 50/hour) | 7200s (2 hours) |
-| Very heavy (> 100/hour) | Disable (-1), use cron instead |
+| Use Case | Recommended Value |
+|----------|-------------------|
+| Most setups (balanced) | -1 (30s default) |
+| Fast request processing | 10-15s |
+| Rate-limited indexers | 60-120s |
 
 **Impact:**
 
-- **Lower values**:
-  - ✅ Faster media acquisition
-  - ❌ High CPU during searches
-  - ❌ Arr API load spikes
-  - ❌ Risk of rate limiting
+- **Lower values (5-15s)**:
+  - ✅ Faster batch search completion
+  - ❌ May trigger indexer rate limits
+  - ❌ Higher indexer API usage
 
-- **Higher values**:
-  - ✅ Lower resource usage
-  - ✅ Reduced Arr API load
-  - ❌ Slower media acquisition
+- **Higher values (60-120s)**:
+  - ✅ Respects indexer rate limits
+  - ✅ Lower API usage
+  - ❌ Slower batch search completion
 
-**Alternative: Disable and Use Manual Searches**
+**Example:**
+Processing 10 missing movies:
+- `SearchLoopDelay = -1` → 30s × 10 = 5 minutes total
+- `SearchLoopDelay = 10` → 10s × 10 = 1.7 minutes total
+- `SearchLoopDelay = 60` → 60s × 10 = 10 minutes total
 
-```toml
-[Settings]
-SearchLoopDelay = -1  # Disable automated searches
-```
+!!! note "Search Frequency vs Search Delay"
+    `SearchLoopDelay` controls the delay **between individual searches** in a batch.
+    To control **how often** search loops run, use per-Arr `SearchRequestsEvery` settings.
 
 Trigger searches manually via:
 
@@ -254,11 +260,12 @@ RefreshDownloadsTimer = 1  # Minutes between queue refreshes
 ```toml
 [Settings]
 LoopSleepTimer = 30  # Increase from default 5s
-SearchLoopDelay = -1  # Disable automated searches
+SearchLoopDelay = 60  # Increase delay between searches to 60s
 
 [Radarr-Movies]
 RssSyncTimer = 30  # Increase from default 15 min
 RefreshDownloadsTimer = 5  # Increase from default 1 min
+SearchMissing = false  # Disable automated missing searches
 ```
 
 #### 2. Limit Concurrent Operations
@@ -456,11 +463,12 @@ If database exceeds 500 MB, consider:
 ```toml
 [Settings]
 LoopSleepTimer = 30  # Slower main loop
-SearchLoopDelay = -1  # Disable automated searches
+SearchLoopDelay = 60  # Increase delay between searches
 
 [Radarr-Movies]
 RssSyncTimer = 60  # Slower RSS sync
 RefreshDownloadsTimer = 10  # Slower queue refresh
+SearchMissing = false  # Disable automated searches
 ```
 
 **WebUI:**
@@ -646,7 +654,8 @@ Based on bottleneck:
 **CPU:**
 
 - Increase `LoopSleepTimer` to 30-60s
-- Disable `SearchLoopDelay` (-1)
+- Increase `SearchLoopDelay` to 60-120s
+- Disable automated searches (`SearchMissing = false`)
 - Increase `RssSyncTimer` to 30-60 min
 
 **Memory:**
@@ -701,13 +710,14 @@ Expected improvements:
 ```toml
 [Settings]
 LoopSleepTimer = 60  # Very slow loops
-SearchLoopDelay = -1  # Disable automated searches
+SearchLoopDelay = 120  # Long delay between searches
 LogLevel = "INFO"  # Minimal logging
 FFprobeAutoUpdate = false  # Skip verification
 
 [Radarr-Movies]
 RssSyncTimer = 60  # Slow RSS sync
 RefreshDownloadsTimer = 15  # Slow queue refresh
+SearchMissing = false  # Disable automated searches
 
 [WebUI]
 LiveArr = false  # Disable live updates
@@ -733,9 +743,12 @@ services:
 ```toml
 [Settings]
 LoopSleepTimer = 30
-SearchLoopDelay = -1
+SearchLoopDelay = 60  # Moderate delay between searches
 MaximumRollingLogFiles = 3  # Reduce log storage
 MaximumRollingLogSize = 5242880  # 5MB logs
+
+[Radarr-Movies]
+SearchMissing = false  # Disable automated searches
 
 [WebUI]
 LiveArr = false
@@ -825,7 +838,8 @@ After tuning (slow timers, disabled features):
 ### Performance Checklist
 
 - [ ] `LoopSleepTimer` appropriate for library size
-- [ ] `SearchLoopDelay` disabled or set to 1+ hour
+- [ ] `SearchLoopDelay` set to 30-120s (or use default -1)
+- [ ] Automated searches disabled if not needed (`SearchMissing = false`)
 - [ ] `RssSyncTimer` set to 30-60 min
 - [ ] `RefreshDownloadsTimer` set to 5-15 min
 - [ ] `LogLevel` set to INFO (not DEBUG)
@@ -841,7 +855,7 @@ After tuning (slow timers, disabled features):
 ```toml
 [Settings]
 LoopSleepTimer = 5
-SearchLoopDelay = 1800  # 30 min
+SearchLoopDelay = -1  # Default 30s between searches
 LogLevel = "INFO"
 
 [Radarr-Movies]
@@ -854,7 +868,7 @@ RefreshDownloadsTimer = 1
 ```toml
 [Settings]
 LoopSleepTimer = 15
-SearchLoopDelay = 3600  # 1 hour
+SearchLoopDelay = 60  # 60s between searches
 LogLevel = "INFO"
 
 [Radarr-Movies]
@@ -867,13 +881,14 @@ RefreshDownloadsTimer = 5
 ```toml
 [Settings]
 LoopSleepTimer = 60
-SearchLoopDelay = -1  # Disabled
+SearchLoopDelay = 120  # 120s between searches
 LogLevel = "INFO"
 MaximumRollingLogFiles = 5
 
 [Radarr-Movies]
 RssSyncTimer = 60
 RefreshDownloadsTimer = 10
+SearchMissing = false  # Disable automated searches
 
 [WebUI]
 LiveArr = false

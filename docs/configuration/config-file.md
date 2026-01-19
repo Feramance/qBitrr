@@ -360,13 +360,30 @@ SearchLoopDelay = -1
 ```
 
 **Type:** Integer (seconds)
-**Default:** `-1` (disabled)
+**Default:** `-1` (uses 30 seconds)
 
-**Deprecated in favor of per-instance `SearchRequestsEvery` settings.**
+Controls the delay **between individual search commands** when processing a batch of searches within a single search loop.
 
-When enabled, adds a global delay between all search operations across all Arr instances.
+**How it works:**
+- When set to `-1` (default): Uses 30 seconds between each search command
+- When set to a positive value: Uses that many seconds between each search command
+- Applies to both missing media searches and request searches (Overseerr/Ombi)
 
-**Recommendation:** Keep at `-1` and use per-instance `SearchRequestsEvery` instead.
+**Use cases:**
+- **Default (`-1`)**: Recommended for most setups - 30 second delay prevents overwhelming indexers
+- **Lower values (5-15)**: For faster request processing with high-quality indexers
+- **Higher values (60-120)**: For limited indexer API calls or rate-limited trackers
+
+**Example:**
+If you have 10 missing movies to search:
+- `SearchLoopDelay = -1` → 30 seconds between each movie search (5 minutes total)
+- `SearchLoopDelay = 10` → 10 seconds between each movie search (1.7 minutes total)
+- `SearchLoopDelay = 60` → 60 seconds between each movie search (10 minutes total)
+
+!!! warning "Indexer Rate Limits"
+    Setting this too low may trigger indexer rate limits. Most indexers allow 5-10 API calls per second, but spacing searches prevents hitting these limits.
+
+**Recommendation:** Keep at `-1` for the default 30-second delay, or adjust based on your indexer's rate limits.
 
 ---
 
