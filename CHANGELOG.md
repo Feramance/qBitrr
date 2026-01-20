@@ -1,5 +1,40 @@
 # Changelog
 
+## v5.7.1 (20/01/2026)
+
+### 🚀 Features
+- [feat: implement comprehensive temp profile switching system](https://github.com/Feramance/qBitrr/commit/5c795623e377bb381203fe82aa508d4fb8ca3692) - @Feramance
+- [feat: trigger docs workflow after successful release](https://github.com/Feramance/qBitrr/commit/07170f4c072e7f087f28d1e444e3c28bca7dcd87) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] Release v5.7.1 - Critical bug fixes and documentation improvements](https://github.com/Feramance/qBitrr/commit/756d90f5874fcf804bc4698743076170eac8bf86) - @Feramance
+- [fix: critical bugs and config/tooltip inconsistencies](https://github.com/Feramance/qBitrr/commit/c72a91adc02a1629989a89bd894c8af24427ef60) - @Feramance
+- [fix: correct Overseerr API movie endpoint path and add API field documentation](https://github.com/Feramance/qBitrr/commit/64b1f6e150c196968342760dbebca2857697485e) - @Feramance
+- [fix: enable request search and fix SearchRequestsEvery/SearchLoopDelay behavior](https://github.com/Feramance/qBitrr/commit/766131505fd788a2bc615efac0b8dab9b587b399) - @Feramance
+- [fix: critical bug fixes found in deep dive review](https://github.com/Feramance/qBitrr/commit/2aa0521d41ae332c711fac0f460206ccb9f32d3b) - @Feramance
+- [fix: continuously retry failed process starts instead of giving up](https://github.com/Feramance/qBitrr/commit/e0d86ef8f9d0bca672b21a851f6bf08ccd3d12ed) - @Feramance
+- [fix: restart ALL processes when database errors persist (coordinated recovery)](https://github.com/Feramance/qBitrr/commit/6d004a4056b2163d7b6adea187d9e01de5539095) - @Feramance
+- [fix: force process restart if database errors persist for >5 minutes](https://github.com/Feramance/qBitrr/commit/4940cc20949581eb009b95d6841470758cbf4b13) - @Feramance
+- [fix: add comprehensive process startup verification and diagnostics](https://github.com/Feramance/qBitrr/commit/0678ba5bec8ee4ad8a9dba989c1a8156745b5c62) - @Feramance
+- [fix: use escalating severity for database I/O errors instead of always CRITICAL](https://github.com/Feramance/qBitrr/commit/d87a176f69b3573f2c75042d2615bd1fc9c972cc) - @Feramance
+- [fix: add comprehensive search loop diagnostics and improve error logging](https://github.com/Feramance/qBitrr/commit/741fc3874a0a205806e8342e39e9c5a58b0b50be) - @Feramance
+- [fix: search loop not starting when SearchMissing is disabled](https://github.com/Feramance/qBitrr/commit/7645b853e49fbc00af3580755c60b3f439a832b2) - @Feramance
+- [fix: add missing sys import in release workflow changelog script](https://github.com/Feramance/qBitrr/commit/142ec10964c29c4f7d7c211c50e183f3ceeb5f05) - @Feramance
+
+### 📝 Documentation
+- [docs: add advanced configuration options (achieve 100% coverage)](https://github.com/Feramance/qBitrr/commit/05516c108ada5eccf9364bb955451c6c0df13b80) - @Feramance
+- [docs: fix critical functionality description mismatches](https://github.com/Feramance/qBitrr/commit/29735f5b991f49d4b7f14c72394887ac5318912c) - @Feramance
+- [docs: clarify SearchMissing as master switch for all search features](https://github.com/Feramance/qBitrr/commit/1f5b3935a990b5347b26cd2847780252f3e22bf0) - @Feramance
+- [docs: fix documentation inconsistencies across all files](https://github.com/Feramance/qBitrr/commit/107d605c1bbe5428a67d393eb02d505ab2cfa7c7) - @Feramance
+- [docs: enhance documentation with Mermaid diagrams and visual improvements](https://github.com/Feramance/qBitrr/commit/736019f0a57fc11f85dbc3a2f88c7e33dc129a83) - @Feramance
+
+### 🔧 Maintenance
+- [revert: incorrect search loop spawn condition change](https://github.com/Feramance/qBitrr/commit/e980502b4cdad23d0c8393482de51d3b1e43e79d) - @Feramance
+- [Search loop Update](https://github.com/Feramance/qBitrr/commit/cd1ab137e1c5c45ed4a464e9b1a39f4b553fdfe3) - @Feramance
+- [chore: reformat package-lock.json per pre-commit hooks](https://github.com/Feramance/qBitrr/commit/dde18e327f534c19126d11a863f38f18ce6486b5) - @Feramance
+
+---
+
 ## v5.7.0 (19/01/2026)
 
 ### 🚀 Features
