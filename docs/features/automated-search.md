@@ -95,17 +95,35 @@ SearchMissing = true
 **Type:** Boolean
 **Default:** `false`
 
-Master toggle for automated searching.
+**Master switch for ALL search functionality in qBitrr.**
 
 When `true`:
 
 - qBitrr searches for missing media
+- Request searches (Overseerr/Ombi) are enabled
+- Upgrade searches are enabled
+- Quality/Custom Format searches are enabled
 - All other EntrySearch settings become active
 - Search loop runs continuously
 
 When `false`:
 
-- No automated searching
+- **ALL search functionality is completely disabled**
+- Request integration will NOT work (even if `SearchOverseerrRequests=true`)
+- Upgrade searches will NOT run
+- Quality/CF searches will NOT run
+- qBitrr only manages existing torrents (no new searches)
+
+!!! warning "Dependency for All Search Features"
+
+    `SearchMissing` is the master switch that gates the entire search subsystem.
+
+    All search-related features require `SearchMissing=true`:
+    - Missing media searches
+    - Overseerr/Ombi request integration
+    - Upgrade searches (`DoUpgradeSearch`)
+    - Quality unmet searches (`QualityUnmetSearch`)
+    - Custom format searches (`CustomFormatUnmetSearch`)
 - You must manually trigger searches in Arr
 
 **Recommendation:** `true` for automated library management.
@@ -207,24 +225,51 @@ SearchAgainOnSearchCompletion = true
 **Type:** Boolean
 **Default:** `true`
 
-Restart search loop after all missing items are searched.
+Reset all items to "unsearched" status after completing a full search pass, enabling continuous re-searching.
 
-When `true`:
+!!! warning "This ERASES Search History"
 
-- Continuous searching
-- Finds newly released content
-- Automatically fills library as content becomes available
+    When enabled, qBitrr marks **ALL items as `Searched=False`** after each search loop completion, causing them to be re-searched from scratch.
 
-When `false`:
+**How It Works:**
 
-- One-time search through missing items
-- Stops after completing search list
-- Useful for initial library population
+1. qBitrr searches all missing/upgrade items
+2. When search list is exhausted **OR** 15-minute loop timer elapses:
+   - Sets `loop_completed = true`
+3. On next iteration:
+   - **Marks ALL items as `Searched=False` in database**
+   - Re-searches everything from the beginning
+4. Process repeats indefinitely
 
-**Use cases:**
+**When `true`**:
 
-- `true` - Ongoing library maintenance
-- `false` - One-time backfill of old content
+- ✅ Continuous re-searching for hard-to-find content
+- ✅ Automatically finds newly released content
+- ✅ Good for: new releases, rare content, ongoing upgrades
+- ⚠️ Warning: Generates excessive indexer hits for large libraries
+
+**When `false`**:
+
+- ✅ One-time search per item (reduced indexer load)
+- ✅ Search history preserved
+- ✅ Good for: established libraries, reducing API calls
+- ⚠️ Warning: Won't retry failed searches automatically
+
+**Example Behavior with `SearchAgainOnSearchCompletion = true`:**
+
+```
+Loop 1: Search movies 1-100 (all marked Searched=True)
+→ Loop completes
+→ Database reset: mark 1-100 as Searched=False
+Loop 2: Search movies 1-100 again (fresh searches)
+→ Loop completes
+→ Repeat forever
+```
+
+**Use Cases:**
+
+- **Enable (`true`)**: Ongoing library maintenance, hard-to-find content
+- **Disable (`false`)**: One-time backfill, reducing indexer abuse
 
 ---
 
@@ -237,15 +282,38 @@ SearchByYear = true
 ```
 
 **Type:** Boolean
-**Default:** `true` (Radarr), varies (Sonarr)
+**Default:** `true` (Radarr/Sonarr), `false` (Lidarr)
 
-Order search results by release year.
+Process searches one year at a time instead of all years simultaneously.
+
+!!! info "Year-Based Filtering, Not Just Ordering"
+
+    `SearchByYear` doesn't just sort by year—it **filters** searches to process only one year at a time.
+
+**How It Works:**
+
+1. qBitrr extracts all release years from your content (e.g., `[2020, 2021, 2022, 2023, 2024]`)
+2. Starts searching **ONLY** content from the first year (e.g., 2020)
+3. Waits for 15-minute loop timer
+4. Advances to next year, searches **ONLY** that year's content
+5. Repeats until all years are processed
+6. If `SearchAgainOnSearchCompletion=true`, restarts from first year
+
+**Year Order:**
+
+Determined by `SearchInReverse`:
+- `SearchInReverse=false`: Oldest → Newest (2020 → 2024)
+- `SearchInReverse=true`: Newest → Oldest (2024 → 2020)
 
 **Radarr:**
 
-- Orders movies by theatrical release year
-- `false` - Oldest first (1920s → 2020s)
-- `true` - Newest first (2020s → 1920s)
+- Uses theatrical release year (`releaseDate`)
+- Each year takes ~15 minutes to process before advancing
+
+**Sonarr:**
+
+- Uses first aired year (`firstAirDate`)
+- Each year processes all episodes from series that started that year
 
 **Sonarr:**
 
@@ -396,14 +464,28 @@ SearchLimit = 5
 **Default:** `5`
 **Applies to:** Radarr, Sonarr
 
-Maximum number of simultaneous search tasks qBitrr will queue for this Arr instance.
+Maximum number of active search commands allowed in the Arr instance's task queue.
 
-**Important Notes:**
-- **Sonarr:** Has a hardcoded limit of 3 concurrent tasks. Values above 3 won't increase actual concurrency but qBitrr will queue them.
-- **Radarr:** Default limit is 3, but can be increased up to 10 by setting `THREAD_LIMIT` environment variable (unsupported by Radarr developers).
-- **Lidarr:** Does not support SearchLimit (Lidarr manages its own task queue internally).
+**How It Works:**
 
-**Recommendation:** `5` (allows queueing beyond default Arr limits).
+qBitrr queries the Arr's `/api/v3/command` endpoint to count **active search tasks running in Radarr/Sonarr**. If the count reaches `SearchLimit`, qBitrr **pauses** sending new searches until the queue clears.
+
+**What this controls:**
+- ✅ Depth of Radarr/Sonarr's internal task queue
+- ✅ How many searches qBitrr allows to pile up in Arr
+
+**What this does NOT control:**
+- ❌ Number of torrents qBitrr searches simultaneously
+- ❌ Number of parallel API calls qBitrr makes
+- ❌ Queue size in qBitrr's database
+
+**Platform-Specific Limits:**
+
+- **Sonarr:** Hardcoded limit of 3 concurrent tasks. Setting `SearchLimit > 3` allows qBitrr to queue additional searches that Sonarr will process sequentially.
+- **Radarr:** Default limit is 3, configurable up to 10 via `THREAD_LIMIT` environment variable (unsupported by Radarr devs).
+- **Lidarr:** Does not support SearchLimit (Lidarr manages its own task queue).
+
+**Recommendation:** `5` (allows up to 5 pending searches in Arr's queue)
 
 ---
 
@@ -558,6 +640,34 @@ Search for media that hasn't met quality profile requirements.
 - `QualityUnmetSearch` - Only searches if quality target not met
 
 **Recommendation:** `true` to enforce quality standards.
+
+---
+
+## Search Type Interactions
+
+!!! danger "CRITICAL: DoUpgradeSearch Overrides Quality/CF Searches"
+
+    **`DoUpgradeSearch` takes precedence over `QualityUnmetSearch` and `CustomFormatUnmetSearch`.**
+
+    When `DoUpgradeSearch=true`:
+    - qBitrr searches **ALL items with files** for potential upgrades
+    - `QualityUnmetSearch` and `CustomFormatUnmetSearch` settings are **IGNORED**
+
+    When `DoUpgradeSearch=false`:
+    - qBitrr respects `QualityUnmetSearch` and `CustomFormatUnmetSearch`
+    - Only items failing quality/CF requirements are searched
+
+    **Recommendation:** Enable **EITHER** `DoUpgradeSearch` **OR** the quality/CF searches, **not both**.
+
+    **Configuration Matrix:**
+
+    | DoUpgradeSearch | QualityUnmetSearch | CustomFormatUnmetSearch | Behavior |
+    |:---------------:|:------------------:|:-----------------------:|:---------|
+    | ✅ `true` | any | any | Searches **ALL items with files** (broad upgrades) |
+    | ❌ `false` | ✅ `true` | ❌ `false` | Searches **items failing quality cutoff** only |
+    | ❌ `false` | ❌ `false` | ✅ `true` | Searches **items failing CF score** only |
+    | ❌ `false` | ✅ `true` | ✅ `true` | Searches **items failing EITHER** quality or CF |
+    | ❌ `false` | ❌ `false` | ❌ `false` | **No upgrade searches** (missing media only) |
 
 ---
 

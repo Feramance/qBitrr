@@ -240,8 +240,28 @@ MaximumETA = 3600  # 1 hour
 **How it works:**
 
 - qBitrr calculates remaining time based on download speed
-- If ETA > MaximumETA, torrent is removed
-- Helps remove stalled or very slow downloads
+- If ETA > MaximumETA, torrent is **marked for removal**
+- **Removal happens AFTER download completes** (`amount_left == 0`)
+- Prevents seeding slow torrents, but allows them to finish downloading
+
+!!! warning "Removal Timing"
+
+    **MaximumETA is enforced AFTER completion, not during download.**
+
+    1. During download: qBitrr calculates ETA
+    2. If ETA > MaximumETA: Torrent marked for removal
+    3. **Removal happens**: After `amount_left == 0` (download complete)
+
+    **Why:** Deleting incomplete downloads wastes bandwidth. qBitrr waits for completion, then removes if it took too long.
+
+    **Example:**
+    ```
+    MaximumETA = 3600  # 1 hour
+
+    Torrent downloads in 2 hours (exceeds limit)
+    → qBitrr allows it to finish downloading
+    → After completion, removes torrent (won't seed)
+    ```
 
 **Examples:**
 

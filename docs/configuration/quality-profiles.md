@@ -267,6 +267,28 @@ Enable temporary quality profile switching for missing media.
 
 **Recommendation:** Great for Lidarr (rare music), less needed for Radarr/Sonarr (better availability).
 
+!!! warning "Platform-Specific Behavior: Sonarr"
+
+    **Sonarr only supports quality profiles at the SERIES level, not episode level.**
+
+    **Consequence:** If ANY episode is missing, the ENTIRE series switches to temp profile.
+
+    **Example:**
+    ```
+    Series: "Breaking Bad" (62 episodes)
+    - Episodes 1-61: ✅ Downloaded
+    - Episode 62: ❌ Missing
+
+    With UseTempForMissing=true:
+    → Entire "Breaking Bad" series switches to temp profile
+    → ALL 62 episodes now subject to temp profile searches
+    → Increases chance of finding episode 62
+    ```
+
+    **Why this design:** Prioritizes finding missing content over maintaining strict quality for existing files. Once all episodes exist, series reverts to main profile.
+
+    **Radarr (Movies) & Lidarr (Music):** Profile switching works at the item level (movie/album) as expected.
+
 ---
 
 ### QualityProfileMappings

@@ -124,9 +124,24 @@ Request integration **requires** these settings in `[EntrySearch]`:
 
 | Setting | Required | Purpose |
 |---------|----------|---------|
-| `SearchMissing` | ✅ Yes | Enables search functionality |
+| `SearchMissing` | ✅ **CRITICAL** | **Master switch for ALL search functionality** |
 | `SearchRequestsEvery` | ❌ Optional | Request check interval in seconds (default: 300) |
 | `SearchLimit` | ❌ Optional | Max concurrent searches (default: 5) |
+
+!!! danger "CRITICAL: SearchMissing Dependency"
+
+    **`SearchMissing` MUST be `true` for request integration to work.**
+
+    When `SearchMissing=false`, qBitrr's search loop is **completely disabled**, preventing:
+
+    - ❌ Missing media searches
+    - ❌ Request searches (Overseerr/Ombi)
+    - ❌ Upgrade searches
+    - ❌ Quality/Custom Format searches
+
+    **Even if `SearchOverseerrRequests=true` or `SearchOmbiRequests=true`, requests will NOT be processed if `SearchMissing=false`.**
+
+    This is by design: `SearchMissing` is the master switch for qBitrr's entire search subsystem.
 
 ---
 
