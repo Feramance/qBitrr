@@ -1,4 +1,6 @@
 export const FIELD_TOOLTIPS: Record<string, string> = {
+  "Settings.ConfigVersion":
+    "Internal schema version managed automatically by qBitrr for config migrations. DO NOT manually modify this value.",
   "Settings.ConsoleLevel":
     "Level of logging; choose between CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE.",
   "Settings.Logging": "Enable writing log output to files.",
@@ -44,6 +46,7 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Optional bearer token required by the WebUI/API. Leave empty to disable authentication.",
    "WebUI.LiveArr": "Enable live updates for Arr views.",
    "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
+   "WebUI.GroupLidarr": "Group Lidarr views by artist and albums in collapsible sections.",
    "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
 
   "qBit.Disabled":
@@ -103,9 +106,9 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Switch to temporary profiles when searching for missing media.",
   "EntrySearch.KeepTempProfile": "Do not revert to the main profile after using the temp profile.",
   "EntrySearch.MainQualityProfile":
-    "Primary quality profile names, in the same order as the temporary profiles.",
+    "[DEPRECATED - Use QualityProfileMappings instead] Primary quality profile names, in the same order as the temporary profiles.",
   "EntrySearch.TempQualityProfile":
-    "Temporary quality profile names, paired with the primary profiles.",
+    "[DEPRECATED - Use QualityProfileMappings instead] Temporary quality profile names, paired with the primary profiles.",
   "EntrySearch.SearchBySeries":
     "Search by entire series instead of individual episodes when applicable.",
   "EntrySearch.PrioritizeTodaysReleases":
@@ -116,7 +119,6 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "EntrySearch.Ombi.OmbiURI": "Ombi server URL.",
   "EntrySearch.Ombi.OmbiAPIKey": "Ombi API key.",
   "EntrySearch.Ombi.ApprovedOnly": "Only process Ombi requests that are approved.",
-  "EntrySearch.Ombi.Is4K": "Treat this Ombi configuration as 4K specific.",
 
   "EntrySearch.Overseerr.SearchOverseerrRequests":
     "Pull Overseerr requests when SearchMissing is enabled.",

@@ -151,7 +151,7 @@ PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
     "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
 )
 IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get(
-    "Settings.IgnoreTorrentsYoungerThan", fallback=600
+    "Settings.IgnoreTorrentsYoungerThan", fallback=180
 )
 QBIT_DISABLED = (
     CONFIG.get("qBit.Disabled", fallback=False)

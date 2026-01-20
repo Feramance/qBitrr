@@ -6208,26 +6208,29 @@ class Arr:
     def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
     ) -> bool:
-        if (
+        # -1 = Never remove (regardless of ratio/time limits)
+        if self.seeding_mode_global_remove_torrent == -1:
+            return False
+        # 4 = AND (remove when BOTH ratio AND time limits met)
+        elif (
             self.seeding_mode_global_remove_torrent == 4
             and torrent.ratio >= ratio_limit
             and torrent.seeding_time >= seeding_time_limit
         ):
             return True
-        if self.seeding_mode_global_remove_torrent == 3 and (
+        # 3 = OR (remove when EITHER ratio OR time limit met)
+        elif self.seeding_mode_global_remove_torrent == 3 and (
             torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
         ):
             return True
+        # 2 = Time only (remove when seeding time limit met)
         elif (
             self.seeding_mode_global_remove_torrent == 2
             and torrent.seeding_time >= seeding_time_limit
         ):
             return True
+        # 1 = Ratio only (remove when upload ratio limit met)
         elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
-            return True
-        elif self.seeding_mode_global_remove_torrent == -1 and (
-            torrent.ratio >= ratio_limit and torrent.seeding_time >= seeding_time_limit
-        ):
             return True
         else:
             return False
