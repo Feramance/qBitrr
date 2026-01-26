@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.8.1 (26/01/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: Trigger release workflow after dockerhub-description fix](https://github.com/Feramance/qBitrr/commit/629e9de15e66ec0caf7808a31973d842eafe3e46) - @Feramance
+
+---
+
 ## v5.8.0 (26/01/2026)
 
 ### 🚀 Features
