@@ -7,8 +7,11 @@ Complete reference for qBitrr's SQLite database structure and operations.
 qBitrr uses **SQLite** with **Peewee ORM** for persistent state management.
 
 **Database Location:**
-- Native install: `~/config/qBitrr.db`
-- Docker: `/config/qBitrr.db`
+- Native install: `~/config/qBitManager/qbitrr.db`
+- Docker: `/config/qBitManager/qbitrr.db`
+
+!!! success "Single Consolidated Database (v5.8.0+)"
+    As of version 5.8.0, qBitrr uses a **single consolidated database** file for all Arr instances, replacing the previous per-instance database approach. This simplifies backups, reduces file overhead, and improves performance.
 
 **Why SQLite?**
 - Zero configuration required
@@ -16,12 +19,45 @@ qBitrr uses **SQLite** with **Peewee ORM** for persistent state management.
 - ACID compliant
 - Sufficient for qBitrr's write patterns
 - Cross-platform compatibility
+- WAL mode for concurrent access
 
-## Schema Definition
+## Database Architecture
 
-### Tables
+### Consolidated Database (v5.8.0+)
 
-qBitrr maintains three primary tables defined in `qBitrr/tables.py`:
+All Arr instances now share a single database file with **ArrInstance field** for data isolation:
+
+```
+qbitrr.db
+├── MoviesFilesModel      (ArrInstance: "Radarr-4K", "Radarr-1080", etc.)
+├── EpisodeFilesModel     (ArrInstance: "Sonarr-TV", "Sonarr-4K", etc.)
+├── AlbumFilesModel       (ArrInstance: "Lidarr", etc.)
+├── SeriesFilesModel      (ArrInstance: "Sonarr-TV", etc.)
+├── ArtistFilesModel      (ArrInstance: "Lidarr", etc.)
+├── TrackFilesModel       (ArrInstance: "Lidarr", etc.)
+├── MovieQueueModel       (ArrInstance: per-Radarr instance)
+├── EpisodeQueueModel     (ArrInstance: per-Sonarr instance)
+├── AlbumQueueModel       (ArrInstance: per-Lidarr instance)
+├── FilesQueued           (ArrInstance: cross-instance)
+├── TorrentLibrary        (ArrInstance: "TAGLESS" when enabled)
+└── SearchActivity        (WebUI activity tracking)
+```
+
+**Benefits:**
+- Single file to backup instead of 9+ separate databases
+- Simplified database management and maintenance
+- Better performance with shared connection pool
+- Reduced disk I/O overhead
+
+### Schema Definition
+
+All models include an **ArrInstance field** to isolate data by Arr instance:
+
+```sql
+ArrInstance = CharField(null=True, default="")
+```
+
+qBitrr maintains tables defined in `qBitrr/tables.py`:
 
 #### downloads
 
@@ -248,17 +284,28 @@ class EntryExpiry(Model):
 
 ### Initialization
 
-**File:** `qBitrr/main.py`
+**File:** `qBitrr/database.py`
 
-Database is initialized on first run:
+Database is initialized on first run using the centralized `get_database()` function:
 
 ```python
-from qBitrr.tables import init_database
+from qBitrr.database import get_database
 
 def main():
-    db_path = CONFIG.Settings.DataDir / "qBitrr.db"
-    init_database(db_path)  # Creates tables if not exist
+    db = get_database()  # Returns singleton instance
+    # Database is at: ~/config/qBitManager/qbitrr.db
+    # Tables are created automatically if they don't exist
 ```
+
+The `get_database()` function:
+
+1. Creates database at `APPDATA_FOLDER/qbitrr.db`
+2. Configures WAL mode and performance pragmas
+3. Binds all model classes to the database
+4. Creates all tables with `safe=True` (no error if exists)
+5. Returns the shared database instance
+
+**All Arr instances share this single database**, with isolation provided by the `ArrInstance` field in each model.
 
 ### Concurrency Control
 
@@ -301,34 +348,64 @@ with database.atomic():
 
 ### Migrations
 
-**File:** `qBitrr/config.py:apply_config_migrations()`
+#### Consolidated Database Migration (v5.7.x → v5.8.0)
 
-When schema changes between versions:
+**File:** `qBitrr/main.py:_delete_all_databases()`
+
+When upgrading to v5.8.0+, qBitrr performs a **clean slate migration**:
+
+1. **Deletes old per-instance databases** (Radarr-*.db, Sonarr-*.db, etc.)
+2. **Creates new consolidated database** (`qbitrr.db`)
+3. **Preserves the consolidated database** across future restarts
+4. **Re-syncs data** from Arr APIs automatically
 
 ```python
-def apply_config_migrations(db_version: int):
-    if db_version < 5:
-        # Add new column
-        migrator = SqliteMigrator(database)
+def _delete_all_databases() -> None:
+    """Delete old per-instance databases, preserve consolidated database."""
+    preserve_files = {"qbitrr.db", "Torrents.db"}
+
+    for db_file in glob.glob(str(APPDATA_FOLDER / "*.db*")):
+        if any(base in db_file for base in preserve_files):
+            continue  # Preserve consolidated database
+
+        os.remove(db_file)  # Delete old per-instance databases
+```
+
+This approach ensures:
+- ✅ Clean database schema (no migration conflicts)
+- ✅ Automatic data recovery from Arr APIs
+- ✅ No complex migration logic required
+
+#### Future Schema Changes
+
+When adding/modifying fields in future versions:
+
+```python
+# Example: Adding a new field to existing model
+from playhouse.migrate import SqliteMigrator, migrate
+
+def apply_database_migration_v9():
+    """Add NewField to ExistingModel (v8 → v9)."""
+    from qBitrr.database import get_database
+
+    db = get_database()
+    migrator = SqliteMigrator(db)
+
+    # Add new field with default value
+    new_field = CharField(null=True, default="")
+
+    with db.atomic():
         migrate(
-            migrator.add_column('downloads', 'retry_count',
-                              IntegerField(default=0))
+            migrator.add_column('moviesfilesmodel', 'NewField', new_field)
         )
-        db_version = 5
-
-    if db_version < 6:
-        # Add new table
-        EntryExpiry.create_table()
-        db_version = 6
-
-    return db_version
 ```
 
 **Best Practices:**
-- Always provide default values for new columns
+- Always provide `null=True` and `default` values for new columns
 - Test migrations on backup database first
-- Increment `CURRENT_CONFIG_VERSION` in code
+- Increment config version in `config_version.py`
 - Document migration in CHANGELOG.md
+- Consider adding migration to `apply_config_migrations()`
 
 ## Maintenance
 

@@ -65,6 +65,24 @@ services:
 
 Access the WebUI at `http://<host>:6969/ui` after startup.
 
+## 🆕 What's New in v5.8.0
+
+### Single Consolidated Database
+qBitrr now uses a **single `qbitrr.db` file** for all Arr instances, replacing the previous per-instance database approach.
+
+**Benefits:**
+- ✅ Single file to backup instead of 9+ separate databases
+- ✅ 78% code reduction in database initialization
+- ✅ Better performance with shared connection pool
+- ✅ Simplified database management
+
+**Migration:**
+- Automatic on first upgrade (5-30 minutes re-sync from Arr APIs)
+- Old databases deleted automatically
+- No manual intervention required
+
+[Full Migration Guide →](https://feramance.github.io/qBitrr/getting-started/migration/)
+
 ## ✨ Key Features
 
 - **🚀 Multi-qBittorrent Support (v3.0+)** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation

@@ -4,30 +4,48 @@ This guide covers SQLite database structure, common issues, recovery procedures,
 
 ## Overview
 
-qBitrr uses SQLite databases to maintain persistent state across restarts:
+qBitrr uses a **single consolidated SQLite database** to maintain persistent state across restarts:
 
 | Database File | Purpose | Location |
 |--------------|---------|----------|
-| `qbitrr.db` | Main application database (downloads, searches, torrents) | `~/config/` or `/config/` |
-| `{arr_name}.db` | Per-Arr search activity tracking | Same as qbitrr.db |
-| `*.db.lock` | Inter-process file locks | Same as qbitrr.db |
-| `*.db-wal` | Write-Ahead Log (WAL) files | Same as qbitrr.db |
-| `*.db-shm` | Shared memory files (WAL mode) | Same as qbitrr.db |
+| `qbitrr.db` | **Single consolidated database** for all Arr instances and WebUI data | `~/config/qBitManager/` or `/config/qBitManager/` |
+| `qbitrr.db-wal` | Write-Ahead Log (uncommitted changes) | Same directory |
+| `qbitrr.db-shm` | Shared memory index for WAL mode | Same directory |
+
+!!! success "Database Consolidation (v5.8.0+)"
+    As of version 5.8.0, qBitrr uses a **single `qbitrr.db` file** instead of separate per-instance databases. All data is isolated using the `ArrInstance` field in each table.
 
 !!! info "Database Modes"
     qBitrr uses SQLite's **WAL (Write-Ahead Logging)** mode for better concurrency and crash resilience. WAL mode creates `-wal` and `-shm` temporary files alongside the main database.
+
+### Migration from v5.7.x
+
+When upgrading from v5.7.x or earlier:
+
+1. **Old databases are automatically deleted** on first startup (Radarr-*.db, Sonarr-*.db, Lidarr.db, webui_activity.db)
+2. **New consolidated database is created** (`qbitrr.db`)
+3. **Data is automatically re-synced** from your Arr instances (takes 5-30 minutes depending on library size)
+4. **No manual intervention required** - this happens automatically
 
 ---
 
 ## Database Schema
 
-### Main Database Tables
+### Consolidated Database Tables
+
+!!! info "ArrInstance Field"
+    All tables include an **ArrInstance** field (added in v5.8.0) to isolate data by Arr instance within the single consolidated database:
+
+    ```sql
+    ArrInstance TEXT DEFAULT ""  -- Instance name (e.g., "Radarr-4K", "Sonarr-TV")
+    ```
 
 #### TorrentLibrary
 Tracks all managed torrents across qBittorrent.
 
 ```sql
 CREATE TABLE torrentlibrary (
+    ArrInstance TEXT DEFAULT "",     -- Arr instance name
     Hash TEXT NOT NULL,              -- qBittorrent torrent hash
     Category TEXT NOT NULL,          -- qBittorrent category
     AllowedSeeding BOOLEAN,          -- Can seed (passed health checks)
@@ -51,6 +69,7 @@ Tracks movie library state and search history.
 
 ```sql
 CREATE TABLE moviesfilesmodel (
+    ArrInstance TEXT DEFAULT "",     -- Arr instance name (e.g., "Radarr-4K")
     Title TEXT,
     Monitored BOOLEAN,
     TmdbId INTEGER,
@@ -210,18 +229,19 @@ CREATE TABLE albumqueuemodel (
 );
 ```
 
-### Per-Arr Search Databases
+### SearchActivity (WebUI)
+Tracks search activity for the WebUI dashboard.
 
-Each Arr instance has a separate search activity database (`{arr_name}.db`) with tables:
+```sql
+CREATE TABLE searchactivity (
+    category TEXT PRIMARY KEY,       -- Arr instance category
+    summary TEXT,                    -- Search summary/status
+    timestamp TEXT                   -- Last search timestamp
+);
+```
 
-#### DownloadsModel
-Tracks torrent download history and retry state.
-
-#### SearchModel
-Tracks manual and automated search attempts.
-
-#### EntryExpiry
-Tracks when downloads can be retried after failures.
+!!! note "Consolidated in v5.8.0"
+    Prior to v5.8.0, each Arr instance had separate database files. Now all data is in the single `qbitrr.db` file with the `ArrInstance` field providing isolation.
 
 ---
 
@@ -661,20 +681,23 @@ qBitrr automatically creates backups during recovery:
     # Stop qBitrr
     docker stop qbitrr
 
-    # Backup database
-    cp ~/config/qbitrr.db ~/backups/qbitrr-$(date +%Y%m%d).db
+    # Backup consolidated database (v5.8.0+)
+    cp ~/config/qBitManager/qbitrr.db ~/backups/qbitrr-$(date +%Y%m%d).db
 
-    # Backup per-Arr databases
-    cp ~/config/*.db ~/backups/
+    # Also backup WAL and SHM files for consistency
+    cp ~/config/qBitManager/qbitrr.db* ~/backups/
 
     # Restart
     docker start qbitrr
     ```
 
+    !!! tip "Single File Backup"
+        With the consolidated database, you only need to backup **one file** (`qbitrr.db`) instead of multiple per-instance databases!
+
 === "SQLite Backup Command"
     ```bash
     # Hot backup (no stop required, but slower)
-    sqlite3 ~/config/qbitrr.db << EOF
+    sqlite3 ~/config/qBitManager/qbitrr.db << EOF
     .backup /backups/qbitrr-$(date +%Y%m%d).db
     EOF
     ```
@@ -682,7 +705,7 @@ qBitrr automatically creates backups during recovery:
 === "Dump to SQL"
     ```bash
     # Human-readable backup
-    sqlite3 ~/config/qbitrr.db .dump > ~/backups/qbitrr-$(date +%Y%m%d).sql
+    sqlite3 ~/config/qBitManager/qbitrr.db .dump > ~/backups/qbitrr-$(date +%Y%m%d).sql
     ```
 
 ### Restore from Backup
