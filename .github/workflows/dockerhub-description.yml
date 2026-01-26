@@ -55,6 +55,7 @@ jobs:
       with:
         commit_message: 'docs: sync PKG-INFO description'
         file_pattern: qBitrr2.egg-info/PKG-INFO
+        add_options: -f
 
     - name: Update Docker Hub description
       uses: peter-evans/dockerhub-description@v5
