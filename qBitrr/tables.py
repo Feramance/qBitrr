@@ -3,6 +3,7 @@ from peewee import BooleanField, CharField, DateTimeField, IntegerField, Model, 
 
 class FilesQueued(Model):
     EntryId = IntegerField(primary_key=True, null=False, unique=True)
+    ArrInstance = CharField(null=True, default="")
 
 
 class MoviesFilesModel(Model):
@@ -10,6 +11,7 @@ class MoviesFilesModel(Model):
     Monitored = BooleanField()
     TmdbId = IntegerField()
     Year = IntegerField()
+    ArrInstance = CharField(null=True, default="")
     EntryId = IntegerField(unique=True)
     Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
@@ -34,6 +36,7 @@ class EpisodeFilesModel(Model):
     SeriesTitle = TextField(null=True)
     Title = TextField(null=True)
     SeriesId = IntegerField(null=False)
+    ArrInstance = CharField(null=True, default="")
     EpisodeFileId = IntegerField(null=True)
     EpisodeNumber = IntegerField(null=False)
     SeasonNumber = IntegerField(null=False)
@@ -62,6 +65,7 @@ class SeriesFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
     Title = TextField(null=True)
     Monitored = BooleanField(null=True)
+    ArrInstance = CharField(null=True, default="")
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
@@ -73,11 +77,13 @@ class SeriesFilesModel(Model):
 class MovieQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
+    ArrInstance = CharField(null=True, default="")
 
 
 class EpisodeQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
+    ArrInstance = CharField(null=True, default="")
 
 
 class AlbumFilesModel(Model):
@@ -86,6 +92,7 @@ class AlbumFilesModel(Model):
     ForeignAlbumId = CharField()
     ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     EntryId = IntegerField(unique=True)
+    ArrInstance = CharField(null=True, default="")
     Searched = BooleanField(default=False)
     AlbumFileId = IntegerField()
     IsRequest = BooleanField(default=False)
@@ -111,6 +118,7 @@ class TrackFilesModel(Model):
     AlbumId = IntegerField(null=False)
     TrackNumber = IntegerField(null=True)
     Title = TextField(null=True)
+    ArrInstance = CharField(null=True, default="")
     Duration = IntegerField(null=True)  # Duration in seconds
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
@@ -121,6 +129,7 @@ class ArtistFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
     Title = TextField(null=True)
     Monitored = BooleanField(null=True)
+    ArrInstance = CharField(null=True, default="")
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
@@ -132,6 +141,7 @@ class ArtistFilesModel(Model):
 class AlbumQueueModel(Model):
     EntryId = IntegerField(unique=True)
     Completed = BooleanField(default=False)
+    ArrInstance = CharField(null=True, default="")
 
 
 class TorrentLibrary(Model):
@@ -140,6 +150,7 @@ class TorrentLibrary(Model):
     QbitInstance = TextField(
         null=False, default="default"
     )  # Multi-qBit v3.0: Track which instance
+    ArrInstance = CharField(null=True, default="")
     AllowedSeeding = BooleanField(default=False)
     Imported = BooleanField(default=False)
     AllowedStalled = BooleanField(default=False)

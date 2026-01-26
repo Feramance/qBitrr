@@ -6615,159 +6615,43 @@ class Arr:
             self.logger.error(f"Error checking temp profile timeouts: {e}", exc_info=True)
 
     def register_search_mode(self):
+        """Initialize database models using the single shared database."""
         if self.search_setup_completed:
             return
 
-        db1, db2, db3, db4, db5 = self._get_models()
+        # Import the shared database
+        from qBitrr.database import get_database
 
-        if not (
-            self.search_missing
-            or self.do_upgrade_search
-            or self.quality_unmet_search
-            or self.custom_format_unmet_search
-            or self.ombi_search_requests
-            or self.overseerr_requests
-        ):
-            if db5 and getattr(self, "torrents", None) is None:
-                self.torrent_db = SqliteDatabase(None)
-                self.torrent_db.init(
-                    str(self._app_data_folder.joinpath("Torrents.db")),
-                    pragmas={
-                        "journal_mode": "wal",
-                        "cache_size": -64_000,
-                        "foreign_keys": 1,
-                        "ignore_check_constraints": 0,
-                        "synchronous": 0,
-                        "read_uncommitted": 1,
-                    },
-                    timeout=15,
-                )
+        self.db = get_database()
 
-                class Torrents(db5):
-                    class Meta:
-                        database = self.torrent_db
-
-                # Connect with retry logic for transient I/O errors
-                with_database_retry(
-                    lambda: self.torrent_db.connect(),
-                    logger=self.logger,
-                )
-                self.torrent_db.create_tables([Torrents])
-                self.torrents = Torrents
-            self.search_setup_completed = True
-            return
-
-        self.search_db_file.parent.mkdir(parents=True, exist_ok=True)
-        self.db = SqliteDatabase(None)
-        self.db.init(
-            str(self.search_db_file),
-            pragmas={
-                "journal_mode": "wal",
-                "cache_size": -64_000,
-                "foreign_keys": 1,
-                "ignore_check_constraints": 0,
-                "synchronous": 0,
-                "read_uncommitted": 1,
-            },
-            timeout=15,
+        # Get the appropriate model classes for this Arr type
+        file_model, queue_model, series_or_artist_model, track_model, torrent_model = (
+            self._get_models()
         )
 
-        class Files(db1):
-            class Meta:
-                database = self.db
+        # Set model references for this instance
+        self.model_file = file_model
+        self.model_queue = queue_model
+        self.persistent_queue = FilesQueued
 
-        class Queue(db2):
-            class Meta:
-                database = self.db
-
-        class PersistingQueue(FilesQueued):
-            class Meta:
-                database = self.db
-
-        # Connect with retry logic for transient I/O errors
-        with_database_retry(
-            lambda: self.db.connect(),
-            logger=self.logger,
-        )
-
-        if db4:
-
-            class Tracks(db4):
-                class Meta:
-                    database = self.db
-
-            self.track_file_model = Tracks
-        else:
+        # Set type-specific models
+        if self.type == "sonarr":
+            self.series_file_model = series_or_artist_model
+            self.artists_file_model = None
+            self.track_file_model = None
+        elif self.type == "lidarr":
+            self.series_file_model = None
+            self.artists_file_model = series_or_artist_model
+            self.track_file_model = track_model
+        else:  # radarr
+            self.series_file_model = None
+            self.artists_file_model = None
             self.track_file_model = None
 
-        if db3 and self.type == "sonarr":
+        # Set torrents model if TAGLESS is enabled
+        self.torrents = torrent_model if TAGLESS else None
 
-            class Series(db3):
-                class Meta:
-                    database = self.db
-
-            try:
-                self.db.create_tables([Files, Queue, PersistingQueue, Series], safe=True)
-            except Exception as e:
-                self.logger.error("Failed to create database tables for Sonarr: %s", e)
-                raise
-            self.series_file_model = Series
-            self.artists_file_model = None
-        elif db3 and self.type == "lidarr":
-
-            class Artists(db3):
-                class Meta:
-                    database = self.db
-
-            try:
-                self.db.create_tables([Files, Queue, PersistingQueue, Artists, Tracks], safe=True)
-            except Exception as e:
-                self.logger.error("Failed to create database tables for Lidarr: %s", e)
-                raise
-            self.artists_file_model = Artists
-            self.series_file_model = None  # Lidarr uses artists, not series
-        else:
-            # Radarr or any type without db3/db4 (series/artists/tracks models)
-            try:
-                self.db.create_tables([Files, Queue, PersistingQueue], safe=True)
-            except Exception as e:
-                self.logger.error("Failed to create database tables for Radarr: %s", e)
-                raise
-            self.artists_file_model = None
-            self.series_file_model = None
-
-        if db5:
-            self.torrent_db = SqliteDatabase(None)
-            self.torrent_db.init(
-                str(self._app_data_folder.joinpath("Torrents.db")),
-                pragmas={
-                    "journal_mode": "wal",
-                    "cache_size": -64_000,
-                    "foreign_keys": 1,
-                    "ignore_check_constraints": 0,
-                    "synchronous": 0,
-                    "read_uncommitted": 1,
-                },
-                timeout=15,
-            )
-
-            class Torrents(db5):
-                class Meta:
-                    database = self.torrent_db
-
-            # Connect with retry logic for transient I/O errors
-            with_database_retry(
-                lambda: self.torrent_db.connect(),
-                logger=self.logger,
-            )
-            self.torrent_db.create_tables([Torrents])
-            self.torrents = Torrents
-        else:
-            self.torrents = None
-
-        self.model_file = Files
-        self.model_queue = Queue
-        self.persistent_queue = PersistingQueue
+        self.logger.debug("Database initialization completed for %s", self._name)
         self.search_setup_completed = True
 
     def _get_models(
