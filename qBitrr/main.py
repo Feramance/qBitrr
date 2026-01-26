@@ -53,28 +53,34 @@ def _mask_secret(value: str | None) -> str:
 
 def _delete_all_databases() -> None:
     """
-    Delete all database files from the APPDATA_FOLDER on startup.
+    Delete old per-instance database files from the APPDATA_FOLDER on startup.
 
-    This includes:
-    - All .db files (SQLite databases)
-    - All .db-wal files (Write-Ahead Log files)
-    - All .db-shm files (Shared Memory files)
+    Preserves the consolidated database (qbitrr.db) and Torrents.db.
+    Deletes old per-instance databases and their WAL/SHM files.
     """
     db_patterns = ["*.db", "*.db-wal", "*.db-shm"]
     deleted_files = []
+    # Files to preserve (consolidated database)
+    preserve_files = {"qbitrr.db", "Torrents.db"}
 
     for pattern in db_patterns:
         for db_file in glob.glob(str(APPDATA_FOLDER.joinpath(pattern))):
+            base_name = os.path.basename(db_file)
+            # Preserve consolidated database and its WAL/SHM files
+            should_preserve = any(base_name.startswith(f) for f in preserve_files)
+            if should_preserve:
+                continue
+
             try:
                 os.remove(db_file)
-                deleted_files.append(os.path.basename(db_file))
+                deleted_files.append(base_name)
             except Exception as e:
                 logger.error("Failed to delete database file %s: %s", db_file, e)
 
     if deleted_files:
-        logger.info("Deleted database files on startup: %s", ", ".join(deleted_files))
+        logger.info("Deleted old database files on startup: %s", ", ".join(deleted_files))
     else:
-        logger.debug("No database files found to delete on startup")
+        logger.debug("No old database files found to delete on startup")
 
 
 class qBitManager:
