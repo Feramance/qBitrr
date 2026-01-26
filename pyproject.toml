@@ -28,7 +28,7 @@ target-version = ['py311']
 
 [tool.poetry]
 name = "pypi-public"
-version = "5.7.0"
+version = "5.7.1"
 description = "Intelligent automation for qBittorrent and *Arr apps (Radarr/Sonarr/Lidarr) - health monitoring, instant imports, quality upgrades, request integration"
 authors = ["Drapersniper", "Feramance"]
 readme = "README.md"
