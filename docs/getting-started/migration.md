@@ -34,6 +34,63 @@ This guide helps you migrate from older versions of qBitrr or similar tools to t
 
 ## Version-Specific Migration
 
+### Migrating to v5.8.0+ (Database Consolidation)
+
+!!! warning "Breaking Change: Database Consolidation"
+    Version 5.8.0 introduces **single consolidated database** architecture. Old per-instance databases will be automatically deleted and data will be re-synced from your Arr instances.
+
+#### What Changes
+
+**Before (v5.7.x and earlier):**
+```
+~/config/qBitManager/
+├── Radarr-4K.db
+├── Radarr-1080.db
+├── Sonarr-TV.db
+├── Sonarr-4K.db
+├── Lidarr.db
+└── webui_activity.db
+```
+
+**After (v5.8.0+):**
+```
+~/config/qBitManager/
+└── qbitrr.db  (single consolidated database)
+```
+
+#### Automatic Migration Process
+
+When you upgrade to v5.8.0+:
+
+1. **Old databases are deleted** on first startup
+   - Radarr-*.db, Sonarr-*.db, Lidarr.db, webui_activity.db
+   - You'll see: `Deleted old database files on startup: Radarr-4K.db, ...`
+
+2. **New consolidated database is created**
+   - Single `qbitrr.db` file with `ArrInstance` field for isolation
+   - You'll see: `Initialized single database: /config/qBitManager/qbitrr.db`
+
+3. **Data is automatically re-synced** from Arr instances
+   - Takes 5-30 minutes depending on library size
+   - Search history, queue state, and tracking data are rebuilt
+   - No manual intervention required
+
+#### Benefits
+
+- ✅ **Single file backup** instead of 9+ separate databases
+- ✅ **Simplified management** (one VACUUM, one integrity check)
+- ✅ **Better performance** (shared connection pool, reduced I/O)
+- ✅ **78% less database code** (easier maintenance)
+
+#### No Action Required
+
+The migration is **fully automatic**. Just update and restart qBitrr.
+
+!!! tip "First Startup May Take Longer"
+    Allow 5-30 minutes for initial re-sync from Arr APIs on first startup after upgrade.
+
+---
+
 ### Migrating from v4.x to v5.x
 
 #### Major Changes

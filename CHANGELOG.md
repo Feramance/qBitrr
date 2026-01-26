@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### 🚀 Features
+- **Database Consolidation**: All Arr instances now use a single `qbitrr.db` file instead of separate per-instance databases
+  - Reduced from 9+ database files to 1 unified database
+  - 78% code reduction in database initialization logic
+  - Added `ArrInstance` field to all models for per-instance data isolation
+  - Improved performance with single connection pool
+  - Simplified backup/restore operations
+
+### ⚠️ Breaking Changes
+- **First Startup**: On upgrade, old per-instance database files (Radarr-*.db, Sonarr-*.db, Lidarr.db, webui_activity.db) will be automatically deleted
+- **Data Re-sync**: qBitrr will automatically re-sync all data from your Radarr/Sonarr/Lidarr instances (5-30 minutes depending on library size)
+- **No Action Required**: This is automatic - the consolidated database will be created and populated on first startup
+
+### 🐛 Bug Fixes
+- Ensured consolidated database (`qbitrr.db`) persists across restarts
+- Old per-instance databases are cleaned up only on first startup after upgrade
+
+### 📝 Documentation
+- Added comprehensive database consolidation documentation
+- Documented breaking changes and upgrade process
+
+---
+
 ## v5.7.1 (20/01/2026)
 
 ### 🚀 Features
