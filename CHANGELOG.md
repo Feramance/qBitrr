@@ -1,5 +1,26 @@
 # Changelog
 
+## v5.8.0 (26/01/2026)
+
+### 🚀 Features
+- [[minor] fix: Add force flag to commit PKG-INFO in sync workflow](https://github.com/Feramance/qBitrr/commit/8be276f446b2f85761dc55604203ea2625aaa3ec) - @Feramance
+- [[minor] feat: Database consolidation - single unified database architecture](https://github.com/Feramance/qBitrr/commit/8e05317c268e53d4bac15156938bb5d894a62aa3) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/27d3abb834f6d1c05adce68c12f59edffb6011c9) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps): Bump @melloware/react-logviewer from 6.3.4 to 6.3.5 in /webui (#276)](https://github.com/Feramance/qBitrr/commit/83b7f1067407aa02e932091e2782407e046c00ae) - @Feramance
+- [Build(deps): Bump @mantine/dates from 8.3.12 to 8.3.13 in /webui (#271)](https://github.com/Feramance/qBitrr/commit/d34ffdafe779247f35619bfbf330a65253409652) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 8.3.12 to 8.3.13 in /webui (#275)](https://github.com/Feramance/qBitrr/commit/6d33b137c4da90c00b809955b286930eba380f0b) - @Feramance
+- [Build(deps-dev): Bump globals from 17.0.0 to 17.1.0 in /webui (#274)](https://github.com/Feramance/qBitrr/commit/118b4c751a1e48b58e415a090c677e0857ef298a) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.53.0 to 8.53.1 in /webui (#272)](https://github.com/Feramance/qBitrr/commit/29648ced383f473975e0e06c5d12a2dc43715dcc) - @Feramance
+- [Build(deps): Bump @mantine/core from 8.3.12 to 8.3.13 in /webui (#270)](https://github.com/Feramance/qBitrr/commit/c403b03df6c5493155c237d0dcf91edcc1af8568) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.0.9 to 25.0.10 in /webui (#269)](https://github.com/Feramance/qBitrr/commit/aef2bddb33415635261d030aaa84f5b15456d21f) - @Feramance
+- [Build(deps): Bump lodash-es from 4.17.21 to 4.17.23 in /webui (#268)](https://github.com/Feramance/qBitrr/commit/2bc34c01c4f8d8d71cfeb234fbbdcd557cfca02d) - @Feramance
+
+---
+
 ## Unreleased
 
 ### 🚀 Features
