@@ -113,6 +113,14 @@ const formatList = (value: unknown): string =>
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
+const REMOVE_TORRENT_OPTIONS = [
+  "Do not remove (-1)",
+  "On max upload ratio (1)",
+  "On max seeding time (2)",
+  "On ratio OR time (3)",
+  "On ratio AND time (4)",
+];
+
 
 
 
@@ -812,19 +820,18 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
   {
     label: "Remove Torrent (policy)",
     path: ["Torrent", "SeedingMode", "RemoveTorrent"],
-    type: "number",
-    validate: (value) => {
-      const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num)) {
-        return "Remove Torrent policy must be a number.";
-      }
-      if (num === -1) {
-        return undefined;
-      }
-      if (![1, 2, 3, 4].includes(num)) {
-        return "Remove Torrent policy must be -1, 1, 2, 3, or 4.";
-      }
-      return undefined;
+    type: "select",
+    options: REMOVE_TORRENT_OPTIONS,
+    parse: (value: string | boolean) => {
+      // Extract numeric value from option string like "Do not remove (-1)"
+      const str = String(value);
+      const match = str.match(/\((-?\d+)\)/);
+      return match ? Number(match[1]) : -1;
+    },
+    format: (value: unknown) => {
+      // Convert numeric value to option string
+      const num = typeof value === "number" ? value : Number(value ?? -1);
+      return REMOVE_TORRENT_OPTIONS.find(opt => opt.includes(`(${num})`)) || REMOVE_TORRENT_OPTIONS[0];
     },
   },
   {
