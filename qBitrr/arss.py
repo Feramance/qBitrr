@@ -1885,7 +1885,8 @@ class Arr:
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
             self.series_file_model.update(Searched=False, Upgrade=False).where(
-                self.series_file_model.Searched == True
+                (self.series_file_model.Searched == True)
+                & (self.series_file_model.ArrInstance == self._name)
             ).execute()
             while True:
                 try:
@@ -1901,7 +1902,8 @@ class Arr:
                 ):
                     continue
             self.series_file_model.delete().where(
-                self.series_file_model.EntryId.not_in(ids)
+                (self.series_file_model.EntryId.not_in(ids))
+                & (self.series_file_model.ArrInstance == self._name)
             ).execute()
             self.loop_completed = False
 
@@ -1929,7 +1931,9 @@ class Arr:
                     JSONDecodeError,
                 ) as e:
                     continue
-            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.model_file.delete().where(
+                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
+            ).execute()
             self.loop_completed = False
 
     def db_reset__movie_searched_state(self):
@@ -1939,7 +1943,7 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched == True
+                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
             ).execute()
             while True:
                 try:
@@ -1954,7 +1958,9 @@ class Arr:
                     JSONDecodeError,
                 ):
                     continue
-            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.model_file.delete().where(
+                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
+            ).execute()
             self.loop_completed = False
 
     def db_reset__album_searched_state(self):
@@ -1964,7 +1970,7 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched == True
+                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
             ).execute()
             while True:
                 try:
@@ -1981,7 +1987,9 @@ class Arr:
                     JSONDecodeError,
                 ):
                     continue
-            self.model_file.delete().where(self.model_file.EntryId.not_in(ids)).execute()
+            self.model_file.delete().where(
+                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
+            ).execute()
             self.loop_completed = False
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
@@ -2037,9 +2045,13 @@ class Arr:
                 if i1 is not None:
                     entries.append([i1, i2, i3])
             if not self.do_upgrade_search:
-                condition = self.series_file_model.Searched == False
+                condition = (self.series_file_model.Searched == False) & (
+                    self.series_file_model.ArrInstance == self._name
+                )
             else:
-                condition = self.series_file_model.Upgrade == False
+                condition = (self.series_file_model.Upgrade == False) & (
+                    self.series_file_model.ArrInstance == self._name
+                )
 
             # Collect series entries with their priority based on episode reasons
             # Missing > CustomFormat > Quality > Upgrade
@@ -2079,7 +2091,9 @@ class Arr:
         if not (self.search_missing or self.do_upgrade_search):
             return None
         elif self.type == "sonarr":
-            condition = self.model_file.AirDateUtc.is_null(False)
+            condition = (self.model_file.AirDateUtc.is_null(False)) & (
+                self.model_file.ArrInstance == self._name
+            )
             if not self.search_specials:
                 condition &= self.model_file.SeasonNumber != 0
             if self.do_upgrade_search:
@@ -2160,7 +2174,9 @@ class Arr:
         if not (self.search_missing or self.do_upgrade_search):
             return None
         if self.type == "radarr":
-            condition = self.model_file.Year.is_null(False)
+            condition = (self.model_file.Year.is_null(False)) & (
+                self.model_file.ArrInstance == self._name
+            )
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -2211,7 +2227,7 @@ class Arr:
                 entries.append([entry, False, False])
             return entries
         elif self.type == "lidarr":
-            condition = True  # Placeholder, will be refined
+            condition = self.model_file.ArrInstance == self._name
             if self.do_upgrade_search:
                 condition &= self.model_file.Upgrade == False
             else:
@@ -2264,7 +2280,9 @@ class Arr:
         entries = []
         self.logger.trace("Getting request files")
         if self.type == "sonarr":
-            condition = self.model_file.IsRequest == True
+            condition = (self.model_file.IsRequest == True) & (
+                self.model_file.ArrInstance == self._name
+            )
             condition &= self.model_file.AirDateUtc.is_null(False)
             condition &= self.model_file.EpisodeFileId == 0
             condition &= self.model_file.Searched == False
@@ -2282,7 +2300,9 @@ class Arr:
                 .execute()
             )
         elif self.type == "radarr":
-            condition = self.model_file.IsRequest == True
+            condition = (self.model_file.IsRequest == True) & (
+                self.model_file.ArrInstance == self._name
+            )
             condition &= self.model_file.Year.is_null(False)
             condition &= self.model_file.MovieFileId == 0
             condition &= self.model_file.Searched == False
@@ -4328,7 +4348,8 @@ class Arr:
                         file_model.AirDateUtc,
                     )
                     self.model_file.update(Searched=True, Upgrade=True).where(
-                        file_model.EntryId == file_model.EntryId
+                        (self.model_file.EntryId == file_model.EntryId)
+                        & (self.model_file.ArrInstance == self._name)
                     ).execute()
                     return True
                 active_commands = self.arr_db_query_commands_count()
@@ -4371,7 +4392,8 @@ class Arr:
                         ):
                             continue
                 self.model_file.update(Searched=True, Upgrade=True).where(
-                    file_model.EntryId == file_model.EntryId
+                    (self.model_file.EntryId == file_model.EntryId)
+                    & (self.model_file.ArrInstance == self._name)
                 ).execute()
                 reason_text = getattr(file_model, "Reason", None) or None
                 if reason_text:
@@ -4442,7 +4464,8 @@ class Arr:
                     ):
                         continue
                 self.model_file.update(Searched=True, Upgrade=True).where(
-                    file_model.EntryId == file_model.EntryId
+                    (self.model_file.EntryId == file_model.EntryId)
+                    & (self.model_file.ArrInstance == self._name)
                 ).execute()
                 self.logger.hnotice(
                     "%sSearching for: %s | %s | [id=%s]",
@@ -4482,7 +4505,8 @@ class Arr:
                     file_model.EntryId,
                 )
                 self.model_file.update(Searched=True, Upgrade=True).where(
-                    file_model.EntryId == file_model.EntryId
+                    (self.model_file.EntryId == file_model.EntryId)
+                    & (self.model_file.ArrInstance == self._name)
                 ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
@@ -4514,7 +4538,8 @@ class Arr:
                     ):
                         continue
             self.model_file.update(Searched=True, Upgrade=True).where(
-                file_model.EntryId == file_model.EntryId
+                (self.model_file.EntryId == file_model.EntryId)
+                & (self.model_file.ArrInstance == self._name)
             ).execute()
             reason_text = getattr(file_model, "Reason", None)
             if reason_text:
@@ -4567,7 +4592,8 @@ class Arr:
                     file_model.EntryId,
                 )
                 self.model_file.update(Searched=True, Upgrade=True).where(
-                    file_model.EntryId == file_model.EntryId
+                    (self.model_file.EntryId == file_model.EntryId)
+                    & (self.model_file.ArrInstance == self._name)
                 ).execute()
                 return True
             active_commands = self.arr_db_query_commands_count()
@@ -4600,7 +4626,8 @@ class Arr:
                     ):
                         continue
             self.model_file.update(Searched=True, Upgrade=True).where(
-                file_model.EntryId == file_model.EntryId
+                (self.model_file.EntryId == file_model.EntryId)
+                & (self.model_file.ArrInstance == self._name)
             ).execute()
             reason_text = getattr(file_model, "Reason", None)
             if reason_text:
@@ -6195,7 +6222,12 @@ class Arr:
 
             # Retrieve the model entry from the database
             model_entry = (
-                self.model_file.select().where(self.model_file.EntryId == entry_id).first()
+                self.model_file.select()
+                .where(
+                    (self.model_file.EntryId == entry_id)
+                    & (self.model_file.ArrInstance == self._name)
+                )
+                .first()
             )
             if not model_entry:
                 return False
@@ -6567,7 +6599,8 @@ class Arr:
 
             # Find items with temp profiles that have exceeded timeout
             expired_items = model.select().where(
-                (model.LastProfileSwitchTime.is_null(False))
+                (model.ArrInstance == self._name)
+                & (model.LastProfileSwitchTime.is_null(False))
                 & (model.LastProfileSwitchTime < timeout_threshold)
                 & (model.CurrentProfileId.is_null(False))
                 & (model.OriginalProfileId.is_null(False))
@@ -6583,7 +6616,9 @@ class Arr:
                     # Not a temp profile anymore, clear tracking
                     model.update(
                         LastProfileSwitchTime=None, CurrentProfileId=None, OriginalProfileId=None
-                    ).where(model.EntryId == entry_id).execute()
+                    ).where(
+                        (model.EntryId == entry_id) & (model.ArrInstance == self._name)
+                    ).execute()
                     continue
 
                 # Reset to original profile via Arr API
@@ -6606,7 +6641,9 @@ class Arr:
                     # Clear tracking fields in database
                     model.update(
                         LastProfileSwitchTime=None, CurrentProfileId=None, OriginalProfileId=None
-                    ).where(model.EntryId == entry_id).execute()
+                    ).where(
+                        (model.EntryId == entry_id) & (model.ArrInstance == self._name)
+                    ).execute()
 
                     reset_count += 1
                     self.logger.info(
