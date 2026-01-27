@@ -1756,11 +1756,8 @@ class Arr:
             try:
                 commands = self.client.get_command()
                 for command in commands:
-                    if (
-                        command["name"].endswith("Search")
-                        and command["status"] != "completed"
-                        and "Missing" not in command["name"]
-                    ):
+                    # Count all active search commands (including MissingEpisodeSearch)
+                    if command["name"].endswith("Search") and command["status"] != "completed":
                         search_commands = search_commands + 1
                 break
             except (

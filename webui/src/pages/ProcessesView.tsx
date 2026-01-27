@@ -24,7 +24,12 @@ const SEASON_TOKEN_REGEX = /\bSeason\s+\d+\b/i;
 function sanitizeSearchSummary(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "";
-  if (/^\d+\s+queued item/i.test(trimmed)) return "";
+
+  // Keep "X queued items" messages as-is (don't filter them out)
+  if (/^\d+\s+queued item/i.test(trimmed)) {
+    return trimmed;
+  }
+
   const normalized = trimmed.replace(/\s+/g, " ");
   const releaseMatch = normalized.match(
     /^(?<title>.+?)\s+(?<year>(?:19|20)\d{2})(?:\s+(?<rest>.*))?$/
