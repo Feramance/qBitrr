@@ -461,7 +461,8 @@ class WebUI:
             if is_request is not None:
                 query = query.where(model.IsRequest == is_request)
 
-            total = query.count()
+            # Total should be ALL items for this instance, not filtered results
+            total = base_query.count()
             page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
             movies = []
             for movie in page_items:
@@ -622,6 +623,9 @@ class WebUI:
 
             albums = []
 
+            # Total should be ALL albums for this instance, not filtered results
+            total = base_query.count()
+
             if group_by_artist:
                 # Paginate by artists: Two-pass approach with Peewee
                 # First, get all distinct artist names from the filtered query
@@ -632,7 +636,7 @@ class WebUI:
 
                 # Convert to list to avoid multiple iterations
                 all_artists = [row.ArtistTitle for row in artists_subquery]
-                total = len(all_artists)
+                len(all_artists)
 
                 # Paginate the artist list in Python
                 start_idx = page * page_size
@@ -650,7 +654,7 @@ class WebUI:
                     album_results = []
             else:
                 # Flat mode: paginate by albums as before
-                total = query.count()
+                # Note: total is already set to base_query.count() above
                 album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
 
             for album in album_results:
@@ -982,16 +986,22 @@ class WebUI:
             total_series = 0
 
             if series_model is not None:
-                series_query = series_model.select().where(
+                # Base query for ALL series in this instance (unfiltered)
+                base_series_query = series_model.select().where(
                     series_model.ArrInstance == arr_instance
                 )
+                # Total should be ALL series for this instance, not filtered results
+                total_series = base_series_query.count()
+
+                # Now build the filtered query for pagination
+                series_query = base_series_query
                 if search:
                     series_query = series_query.where(series_model.Title.contains(search))
                 if missing_only and missing_series_ids:
                     series_query = series_query.where(series_model.EntryId.in_(missing_series_ids))
-                total_series = series_query.count()
-                if total_series:
-                    max_pages = (total_series + page_size - 1) // page_size
+                filtered_series_count = series_query.count()
+                if filtered_series_count:
+                    max_pages = (filtered_series_count + page_size - 1) // page_size
                     if max_pages:
                         resolved_page = min(resolved_page, max_pages - 1)
                     resolved_page = max(resolved_page, 0)
