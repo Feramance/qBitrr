@@ -46,6 +46,52 @@ Yes, but each instance needs:
 - Different port for WebUI (default: 6969)
 - Different Arr instances or categories to monitor
 
+### Can I configure multiple Arr instances of the same type?
+
+**Yes!** qBitrr fully supports running multiple instances of the same Arr type (e.g., Radarr-4K, Radarr-1080p, Sonarr-TV, Sonarr-Anime) in a single qBitrr installation.
+
+**How it works:**
+
+- qBitrr maintains a single consolidated database for all Arr instances
+- Each instance's data is **completely isolated** using the `ArrInstance` field
+- Radarr-4K only sees 4K movies, Radarr-1080p only sees 1080p movies
+- Sonarr-TV only sees TV episodes, Sonarr-Anime only sees anime episodes
+- Each instance has its own search queue, profile mappings, and settings
+
+**Example configuration:**
+
+```toml
+[Radarr-4K]
+Category = "radarr-4k"
+URI = "http://localhost:7878"
+APIKey = "..."
+
+[Radarr-1080p]
+Category = "radarr-1080"
+URI = "http://localhost:7879"
+APIKey = "..."
+
+[Sonarr-TV]
+Category = "sonarr-tv"
+URI = "http://localhost:8989"
+APIKey = "..."
+
+[Sonarr-Anime]
+Category = "sonarr-anime"
+URI = "http://localhost:8990"
+APIKey = "..."
+```
+
+**Benefits:**
+
+- Separate quality profiles per use case (4K, 1080p, anime, etc.)
+- Independent search schedules and settings
+- Different seeding rules per category
+- Isolated upgrade searches
+- Single qBitrr instance manages everything
+
+**Important:** The `Category` field MUST be unique for each instance, and must match the download client category configured in your Arr instance.
+
 ## Configuration Questions
 
 ### Why aren't my torrents being monitored?
@@ -113,23 +159,28 @@ SearchLimit = 10
 
 ### Can I use multiple Radarr/Sonarr instances?
 
-Yes! Add multiple sections in config.toml:
+Yes! qBitrr fully supports multiple Arr instances of the same type (e.g., Radarr-4K and Radarr-1080p). Add multiple sections in config.toml:
 
 ```toml
 [Radarr-Movies]
+Category = "radarr-movies"
 URI = "http://localhost:7878"
 APIKey = "key1"
 
 [Radarr-4K]
+Category = "radarr-4k"
 URI = "http://localhost:7879"
 APIKey = "key2"
 
 [Sonarr-TV]
+Category = "sonarr-tv"
 URI = "http://localhost:8989"
 APIKey = "key3"
 ```
 
-Each instance runs in its own process.
+Each instance runs in its own process with completely isolated data. qBitrr maintains a single consolidated database but uses the `Category` field to ensure each instance only sees its own movies/series/albums.
+
+See [FAQ: Can I configure multiple Arr instances of the same type?](#can-i-configure-multiple-arr-instances-of-the-same-type) for detailed information about multi-instance data isolation.
 
 ### Does qBitrr support private trackers?
 
@@ -196,6 +247,26 @@ Check these:
 [Update troubleshooting →](troubleshooting/common-issues.md)
 
 ## WebUI Questions
+
+### What do the count numbers mean in the Arr views?
+
+When viewing movies/series/albums in the WebUI, you'll see several count indicators:
+
+- **Total**: The **total number of ALL items** for this Arr instance (unfiltered)
+- **Available**: Number of items with files downloaded
+- **Monitored**: Number of items marked as monitored
+- **Missing**: Number of monitored items without files
+
+**Important:** The "Total" count always shows ALL items in that Arr instance, regardless of any active filters (search, year range, quality met, etc.). This lets you see the true size of your library while filtering to specific subsets.
+
+**Example:**
+```
+Radarr-4K has 500 movies total
+Filter by year 2024: Shows 50 movies
+Total still displays: 500 (not 50)
+```
+
+If you have multiple Arr instances of the same type (e.g., Radarr-4K and Radarr-1080p), each instance shows counts only for its own data. They are completely isolated from each other.
 
 ### Can I change the WebUI port?
 
