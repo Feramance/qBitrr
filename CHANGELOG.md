@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.8.2 (27/01/2026)
+
+### 🐛 Bug Fixes
+- **WebUI Instance Filtering**: Fixed critical bug where WebUI showed data from all Arr instances instead of filtering by the selected instance ([#277](https://github.com/Feramance/qBitrr/issues/277), [PR #278](https://github.com/Feramance/qBitrr/pull/278))
+  - Added `ArrInstance` filtering to all WebUI database queries (Radarr, Sonarr, Lidarr pages)
+  - Fixed 14 model insert locations to tag records with correct `ArrInstance` value
+  - Automatic migration on startup removes old records without `ArrInstance` (qBitrr will repopulate from Arr instances)
+  - Added 11 database indexes on `ArrInstance` field for improved query performance
+
+### 🔧 Maintenance
+- **Documentation**: Expanded AGENTS.md with detailed release process and cleanup guidelines
+- **Cleanup**: Removed duplicate documentation files (now consolidated in `docs/` directory)
+
+---
+
 ## v5.8.1 (26/01/2026)
 
 ### 🐛 Bug Fixes
