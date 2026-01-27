@@ -1,5 +1,15 @@
 # Changelog
 
+## v5.8.6 (27/01/2026)
+
+### 🚀 Features
+- [[patch] fix: Add ArrInstance filters to remaining database queries (delete/get_or_none/select/queue)](https://github.com/Feramance/qBitrr/commit/a9ede60550173477cb7c4de8a2f4deceb67b530e) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] fix: Correct 'total' count in Arr views to show all items, not filtered results](https://github.com/Feramance/qBitrr/commit/9f4622994467aab358ab18d89144af6fc6f14ec7) - @Feramance
+
+---
+
 ## v5.8.5 (27/01/2026)
 
 ### 🚀 Features
