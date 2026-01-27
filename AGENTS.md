@@ -117,13 +117,267 @@
 - **Config Validation**: Test invalid TOML, missing required keys, edge cases (e.g., empty categories)
 - **WebUI Testing**: Check all tabs (Processes, Logs, Radarr/Sonarr/Lidarr, Config), test CRUD ops
 
+## Pre-Merge/Release Cleanup
+
+**CRITICAL**: Before merging PRs or creating releases, clean up ALL temporary files to keep the repository tidy.
+
+### Temporary Files to Remove
+
+**Always remove these file patterns:**
+- `*_TEST*.md` - Test plans, test results, test summaries
+- `*_RESULTS*.md` - Test results, benchmark results
+- `READY_FOR_*.md` - Merge checklists, release checklists
+- `*_PLAN.md` - Implementation plans, migration plans
+- `*_SUMMARY.md` - Development summaries, decision logs
+- `*_NOTES.md` - Development notes, meeting notes
+- `TODO.md`, `TASKS.md` - Temporary task lists (unless permanent project management)
+
+**Files to KEEP:**
+- `README.md` - Main project readme
+- `CHANGELOG.md` - Release history
+- `AGENTS.md` - AI agent coding guide
+- `.github/*.md` - GitHub templates (PR, issue, discussion)
+- `docs/**/*.md` - All permanent documentation (includes API docs, contribution guide, systemd guide)
+
+### Cleanup Commands
+
+```bash
+# 1. Find all temporary markdown files
+find . -name "*_TEST*.md" -o -name "*_RESULTS*.md" -o -name "READY_FOR_*.md" -o -name "*_PLAN.md" -o -name "*_SUMMARY.md" -o -name "*_NOTES.md"
+
+# 2. Review the list to ensure no permanent docs are caught
+
+# 3. Remove temporary files
+find . -name "*_TEST*.md" -o -name "*_RESULTS*.md" -o -name "READY_FOR_*.md" -o -name "*_PLAN.md" | xargs git rm
+
+# 4. Verify only permanent docs remain
+git ls-files "*.md" | grep -v "^docs/"
+
+# Expected output:
+# AGENTS.md
+# CHANGELOG.md
+# README.md
+# .github/pull_request_template.md
+# (plus any other permanent root-level docs)
+
+# 5. Commit cleanup
+git commit -m "chore: Remove temporary documentation files"
+```
+
+### Why This Matters
+
+1. **Repository Hygiene**: Keeps git history clean and focused on permanent documentation
+2. **Release Quality**: Prevents shipping development artifacts to end users
+3. **Search Clarity**: Reduces noise when searching documentation
+4. **Professional Image**: Shows attention to detail and proper project management
+5. **Storage Efficiency**: Reduces repository size over time
+
+### When to Clean Up
+
+- **Before merging feature branches to master**
+- **Before creating release tags**
+- **After completing major development work**
+- **During code review** (reviewer should check for temporary files)
+
+### Pre-Merge Checklist
+
+Before submitting a PR for final merge:
+
+- [ ] All temporary `*_TEST*.md`, `*_RESULTS*.md` files removed
+- [ ] All `READY_FOR_*.md` checklists removed
+- [ ] All `*_PLAN.md` planning docs removed
+- [ ] Only permanent documentation remains in root
+- [ ] `docs/` directory contains only user-facing documentation
+- [ ] Commit message references cleanup: `chore: Remove temporary documentation files`
+
 ## Release Process
-1. Merge PRs to `master` (pre-commit.ci auto-formats)
-2. Run `bump2version patch` (or minor/major)
-3. Push tags → triggers `.github/workflows/release.yml`:
-   - Publishes to PyPI (`qBitrr2`)
-   - Builds Docker image → `feramance/qbitrr:latest`, `feramance/qbitrr:5.x.x`
-4. GitHub Releases auto-generated via `.grenrc.yml`
+
+### Overview
+qBitrr uses **semantic versioning** (MAJOR.MINOR.PATCH) and automated release workflows. Releases are triggered by pushing version tags to GitHub.
+
+### Pre-Release Checklist
+
+**CRITICAL**: Complete ALL steps before releasing:
+
+1. **Clean Up Temporary Files**
+   ```bash
+   # Remove all temporary markdown files
+   find . -name "*_TEST*.md" -o -name "*_RESULTS*.md" -o -name "READY_FOR_*.md" -o -name "*_PLAN.md" | xargs git rm
+
+   # Common temporary files to check for:
+   # - READY_FOR_MERGE.md
+   # - COMPREHENSIVE_TEST_PLAN.md
+   # - TEST_RESULTS_FINAL.md
+   # - Any *_SUMMARY.md or *_NOTES.md files
+
+   # Verify only permanent docs remain:
+   git ls-files "*.md" | grep -v "^docs/"
+   # Should only show: README.md, CHANGELOG.md, AGENTS.md, .github/*.md
+   ```
+
+2. **Update CHANGELOG.md**
+   - Add new version section with date
+   - List all features, fixes, and breaking changes
+   - Group by type: `### Added`, `### Changed`, `### Fixed`, `### Removed`
+   - Follow [Keep a Changelog](https://keepachangelog.com/) format
+
+3. **Update Documentation**
+   - Ensure `docs/` has all feature documentation
+   - Update migration guide if breaking changes
+   - Test all code examples in docs
+
+4. **Verify Tests Pass**
+   - Run manual tests with live Arr instances
+   - Test Docker build: `docker build -t feramance/qbitrr:test .`
+   - Verify WebUI loads and functions correctly
+
+5. **Review PRs**
+   - All PRs merged to `master`
+   - pre-commit.ci has auto-formatted all code
+   - No pending breaking changes
+
+### Release Steps
+
+1. **Checkout Master Branch**
+   ```bash
+   git checkout master
+   git pull origin master
+   ```
+
+2. **Version Bump**
+   ```bash
+   # Determine version type:
+   # - patch: Bug fixes, minor improvements (5.8.0 → 5.8.1)
+   # - minor: New features, non-breaking changes (5.8.1 → 5.9.0)
+   # - major: Breaking changes (5.9.0 → 6.0.0)
+
+   bump2version patch  # or minor/major
+
+   # This automatically:
+   # - Updates version in setup.cfg, pyproject.toml, .bumpversion.cfg
+   # - Creates a git commit with version bump
+   # - Creates a git tag (e.g., v5.8.1)
+   ```
+
+3. **Push Changes and Tags**
+   ```bash
+   git push origin master
+   git push origin --tags
+   ```
+
+4. **GitHub Actions Triggered**
+
+   The `.github/workflows/release.yml` workflow automatically:
+
+   **a) Build Python Package**
+   - Builds WebUI: `cd webui && npm ci && npm run build`
+   - Copies WebUI to `qBitrr/static/`
+   - Builds Python wheel: `python setup.py sdist bdist_wheel`
+
+   **b) Publish to PyPI**
+   - Uploads to https://pypi.org/project/qBitrr2/
+   - Users can install: `pip install qBitrr2=={version}`
+
+   **c) Build Docker Images**
+   - Multi-stage build (Node → Python)
+   - Pushes to Docker Hub:
+     - `feramance/qbitrr:latest` (always latest stable)
+     - `feramance/qbitrr:5` (latest 5.x.x)
+     - `feramance/qbitrr:5.8` (latest 5.8.x)
+     - `feramance/qbitrr:5.8.1` (specific version)
+
+   **d) Create GitHub Release**
+   - Auto-generated via `.grenrc.yml`
+   - Includes changelog from CHANGELOG.md
+   - Attaches `.whl` and `.tar.gz` artifacts
+
+5. **Verify Release**
+   ```bash
+   # Check PyPI
+   pip install --upgrade qBitrr2
+   qbitrr --version
+
+   # Check Docker Hub
+   docker pull feramance/qbitrr:latest
+   docker run --rm feramance/qbitrr:latest qbitrr --version
+
+   # Check GitHub Release
+   # Visit: https://github.com/Feramance/qBitrr/releases
+   ```
+
+### Version Numbering Guidelines
+
+**MAJOR** (X.0.0) - Breaking changes:
+- Config schema changes requiring migration
+- Removed features or breaking API changes
+- Python version requirement changes
+- Database schema breaking changes
+
+**MINOR** (x.X.0) - New features:
+- New Arr instance types
+- New search features
+- New WebUI pages/features
+- Non-breaking config additions
+
+**PATCH** (x.x.X) - Bug fixes:
+- Bug fixes
+- Performance improvements
+- Documentation updates
+- Dependency updates (non-breaking)
+
+### Hotfix Release Process
+
+For urgent fixes to production:
+
+1. **Create Hotfix Branch**
+   ```bash
+   git checkout master
+   git checkout -b hotfix/fix-critical-bug
+   ```
+
+2. **Make Fix and Test**
+   - Implement minimal fix
+   - Test thoroughly
+   - Update CHANGELOG.md
+
+3. **Merge and Release**
+   ```bash
+   git checkout master
+   git merge hotfix/fix-critical-bug
+   bump2version patch
+   git push origin master --tags
+   ```
+
+### Rollback Procedure
+
+If a release has critical issues:
+
+1. **Create Rollback Tag**
+   ```bash
+   # Revert to previous version
+   git revert <commit-hash>
+   git push origin master
+   ```
+
+2. **Notify Users**
+   - Update GitHub Release with warning
+   - Post in GitHub Discussions
+   - Recommend downgrade: `pip install qBitrr2==5.8.0`
+
+### CI/CD Workflows
+
+- **`.github/workflows/release.yml`**: Triggered on tag push (v*)
+- **`.github/workflows/nightly.yml`**: Builds `nightly` Docker tag daily
+- **`.github/workflows/codeql.yml`**: Security scanning on push
+- **`.github/dependabot.yml`**: Weekly dependency updates
+
+### Release Artifacts
+
+Each release produces:
+- **PyPI Package**: `qBitrr2-{version}.tar.gz`, `qBitrr2-{version}-py3-none-any.whl`
+- **Docker Images**: Multi-architecture (amd64, arm64, armv7)
+- **GitHub Release**: Changelog + attachments
+- **Git Tag**: `v{version}` (e.g., v5.8.1)
 
 ## Common Pitfalls
 - **Qbittorrent API**: Both qBittorrent 4.x and 5.x are automatically detected and supported
@@ -168,7 +422,7 @@ When making code changes, update the following documentation as applicable:
 - **`qBitrr/gen_config.py`**: Add new config fields with descriptions
 
 #### 4. API Documentation
-- **`API_DOCUMENTATION.md`**: Update if adding/changing WebUI API endpoints
+- **`docs/reference/api.md`**: Update if adding/changing WebUI API endpoints
 - **OpenAPI/Swagger**: Update specs if applicable
 
 ### Documentation Quality Standards
@@ -246,7 +500,7 @@ Before submitting changes, verify:
 - [ ] Examples added to `config.example.toml`
 - [ ] Docstrings added for new functions/classes
 - [ ] Inline comments explain complex logic
-- [ ] API changes documented in `API_DOCUMENTATION.md`
+- [ ] API changes documented in `docs/reference/api.md`
 - [ ] README.md updated if user-visible changes
 - [ ] CHANGELOG.md or release notes prepared
 
@@ -254,4 +508,4 @@ Before submitting changes, verify:
 
 ---
 
-> **Note**: Follow this guide for all contributions. Questions? Check `API_DOCUMENTATION.md`, README.md, or open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).
+> **Note**: Follow this guide for all contributions. Questions? Check the [documentation](https://feramance.github.io/qBitrr/), README.md, or open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).
