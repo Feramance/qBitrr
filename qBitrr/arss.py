@@ -1434,7 +1434,9 @@ class Arr:
                             ):
                                 continue
                         if self.persistent_queue:
-                            self.persistent_queue.insert(EntryId=series_id).on_conflict_ignore()
+                            self.persistent_queue.insert(
+                                EntryId=series_id, ArrInstance=self._name
+                            ).on_conflict_ignore()
                 else:
                     for object_id in object_ids:
                         episode_found = False
@@ -1503,7 +1505,7 @@ class Arr:
                                     continue
                             if self.persistent_queue:
                                 self.persistent_queue.insert(
-                                    EntryId=object_id
+                                    EntryId=object_id, ArrInstance=self._name
                                 ).on_conflict_ignore()
             elif self.type == "radarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
@@ -1554,7 +1556,9 @@ class Arr:
                         ):
                             continue
                     if self.persistent_queue:
-                        self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+                        self.persistent_queue.insert(
+                            EntryId=object_id, ArrInstance=self._name
+                        ).on_conflict_ignore()
             elif self.type == "lidarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 album_found = False
@@ -1604,7 +1608,9 @@ class Arr:
                         ):
                             continue
                     if self.persistent_queue:
-                        self.persistent_queue.insert(EntryId=object_id).on_conflict_ignore()
+                        self.persistent_queue.insert(
+                            EntryId=object_id, ArrInstance=self._name
+                        ).on_conflict_ignore()
 
     def _process_errored(self) -> None:
         # Recheck all torrents marked for rechecking.
@@ -3146,6 +3152,7 @@ class Arr:
                             CustomFormatScore=customFormat,
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
+                            ArrInstance=self._name,
                         ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
                     else:
@@ -3325,6 +3332,7 @@ class Arr:
                             MinCustomFormatScore=minCustomFormat,
                             QualityProfileId=quality_profile_id,
                             QualityProfileName=qualityProfileName,
+                            ArrInstance=self._name,
                         ).on_conflict(
                             conflict_target=[self.series_file_model.EntryId], update=to_update
                         )
@@ -3565,6 +3573,7 @@ class Arr:
                         Reason=reason,
                         QualityProfileId=qualityProfileId,
                         QualityProfileName=qualityProfileName,
+                        ArrInstance=self._name,
                     ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                     db_commands.execute()
                 else:
@@ -3866,6 +3875,7 @@ class Arr:
                             Reason=reason,
                             QualityProfileId=qualityProfileId,
                             QualityProfileName=qualityProfileName,
+                            ArrInstance=self._name,
                         ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
                         db_commands.execute()
 
@@ -3902,6 +3912,7 @@ class Arr:
                                             HasFile=track.get("hasFile", False),
                                             TrackFileId=track.get("trackFileId", 0),
                                             Monitored=track_monitored,
+                                            ArrInstance=self._name,
                                         ).execute()
                                         track_insert_count += 1
 
@@ -4045,6 +4056,7 @@ class Arr:
                             Monitored=Monitored,
                             Upgrade=False,
                             MinCustomFormatScore=minCustomFormat,
+                            ArrInstance=self._name,
                         ).on_conflict(
                             conflict_target=[self.artists_file_model.EntryId], update=to_update
                         )
@@ -4342,10 +4354,10 @@ class Arr:
                     )
                     return False
                 self.persistent_queue.insert(
-                    EntryId=file_model.EntryId
+                    EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_ignore().execute()
                 self.model_queue.insert(
-                    Completed=False, EntryId=file_model.EntryId
+                    Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
                     while True:
@@ -4414,10 +4426,10 @@ class Arr:
                     )
                     return False
                 self.persistent_queue.insert(
-                    EntryId=file_model.EntryId
+                    EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_ignore().execute()
                 self.model_queue.insert(
-                    Completed=False, EntryId=file_model.EntryId
+                    Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_replace().execute()
                 while True:
                     try:
@@ -4485,10 +4497,12 @@ class Arr:
                     file_model.EntryId,
                 )
                 return False
-            self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
+            self.persistent_queue.insert(
+                EntryId=file_model.EntryId, ArrInstance=self._name
+            ).on_conflict_ignore().execute()
 
             self.model_queue.insert(
-                Completed=False, EntryId=file_model.EntryId
+                Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
             ).on_conflict_replace().execute()
             if file_model.EntryId:
                 while True:
@@ -4569,10 +4583,12 @@ class Arr:
                     file_model.EntryId,
                 )
                 return False
-            self.persistent_queue.insert(EntryId=file_model.EntryId).on_conflict_ignore().execute()
+            self.persistent_queue.insert(
+                EntryId=file_model.EntryId, ArrInstance=self._name
+            ).on_conflict_ignore().execute()
 
             self.model_queue.insert(
-                Completed=False, EntryId=file_model.EntryId
+                Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
             ).on_conflict_replace().execute()
             if file_model.EntryId:
                 while True:

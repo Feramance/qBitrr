@@ -74,6 +74,45 @@ def get_database() -> SqliteDatabase:
         # Create all tables
         _db.create_tables(models, safe=True)
 
+        # Run migrations
+        _migrate_arrinstance_field(models)
+
         logger.info("Initialized single database: %s", db_path)
 
     return _db
+
+
+def _migrate_arrinstance_field(models: list) -> None:
+    """
+    Migration: Remove records with empty ArrInstance field.
+
+    After database consolidation, old records don't have ArrInstance set.
+    Since we can't reliably determine which instance they belong to,
+    we delete them and let the application repopulate with correct values.
+    """
+    try:
+        deleted_count = 0
+        for model in models:
+            # Check if model has ArrInstance field
+            if hasattr(model, "ArrInstance"):
+                # Delete records where ArrInstance is NULL or empty string
+                query = model.delete().where(
+                    (model.ArrInstance.is_null()) | (model.ArrInstance == "")
+                )
+                count = query.execute()
+                if count > 0:
+                    logger.info(
+                        "Migrated %s: deleted %d records with empty ArrInstance",
+                        model.__name__,
+                        count,
+                    )
+                    deleted_count += count
+
+        if deleted_count > 0:
+            logger.warning(
+                "Database migration: Removed %d old records without ArrInstance. "
+                "qBitrr will repopulate data from Arr instances.",
+                deleted_count,
+            )
+    except Exception as e:
+        logger.error("Error during ArrInstance migration: %s", e)
