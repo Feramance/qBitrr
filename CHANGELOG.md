@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.8.5 (27/01/2026)
+
+### 🚀 Features
+- [[patch] fix: Add missing ArrInstance filters to all database queries after consolidation](https://github.com/Feramance/qBitrr/commit/f054ad8484b4e948d69b772d8d850acbbe250386) - @Feramance
+
+---
+
 ## v5.8.4 (27/01/2026)
 
 ### 🐛 Bug Fixes
