@@ -1,5 +1,22 @@
 # Changelog
 
+## v5.8.3 (27/01/2026)
+
+### 🚀 Features
+- [perf: Add database indexes on ArrInstance field](https://github.com/Feramance/qBitrr/commit/09473b24c53e7c9537b2d314212efab79260451d) - @Feramance
+- [fix: Add ArrInstance to all model inserts and migrate old data](https://github.com/Feramance/qBitrr/commit/4e03321085bb074cbab753fcec985c4975ff2987) - @Feramance
+- [fix: Add ArrInstance filtering to WebUI database queries](https://github.com/Feramance/qBitrr/commit/4805dd6333f0e3eeb4d9ce940f40352f0b4aec11) - @Feramance
+
+### 📝 Documentation
+- [docs: Expand AGENTS.md with detailed release process and cleanup guidelines](https://github.com/Feramance/qBitrr/commit/1db64bb800ee68e520aa27ab217b3b7fcefa7507) - @Feramance
+- [docs: Update migration guide with ArrInstance field details](https://github.com/Feramance/qBitrr/commit/dfe57de0bf58f87d802a8c0b3eae8fb7dbbeef77) - @Feramance
+
+### 🔧 Maintenance
+- [chore: Remove duplicate documentation files and clean up README](https://github.com/Feramance/qBitrr/commit/d222414a5b9940abdb57ab7780b4c13ff770b938) - @Feramance
+- [chore: Remove temporary test and merge documentation files](https://github.com/Feramance/qBitrr/commit/b1998ad5066ea029c39ce273c8692d7b4fa498ec) - @Feramance
+
+---
+
 ## v5.8.2 (27/01/2026)
 
 ### 🐛 Bug Fixes
