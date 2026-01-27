@@ -62,25 +62,33 @@ This guide helps you migrate from older versions of qBitrr or similar tools to t
 
 When you upgrade to v5.8.0+:
 
-1. **Old databases are deleted** on first startup
-   - Radarr-*.db, Sonarr-*.db, Lidarr.db, webui_activity.db
-   - You'll see: `Deleted old database files on startup: Radarr-4K.db, ...`
-
-2. **New consolidated database is created**
-   - Single `qbitrr.db` file with `ArrInstance` field for isolation
+1. **New consolidated database is created**
+   - Single `qbitrr.db` file with `ArrInstance` field for data isolation
    - You'll see: `Initialized single database: /config/qBitManager/qbitrr.db`
 
-3. **Data is automatically re-synced** from Arr instances
+2. **Old data is cleaned up** on first startup
+   - Records without `ArrInstance` field are automatically removed
+   - You'll see: `Database migration: Removed X old records without ArrInstance. qBitrr will repopulate data from Arr instances.`
+   - This ensures data integrity and prevents mixing data between instances
+
+3. **Performance indexes are created**
+   - Indexes on `ArrInstance` field improve WebUI query performance
+   - You'll see: `Created index: idx_arrinstance_moviesfilesmodel on moviesfilesmodel.ArrInstance` (×11)
+
+4. **Data is automatically re-synced** from Arr instances
    - Takes 5-30 minutes depending on library size
-   - Search history, queue state, and tracking data are rebuilt
+   - Search history, queue state, and tracking data are rebuilt from Arr APIs
+   - Each instance's data is properly tagged with its `ArrInstance` name
    - No manual intervention required
 
 #### Benefits
 
 - ✅ **Single file backup** instead of 9+ separate databases
 - ✅ **Simplified management** (one VACUUM, one integrity check)
-- ✅ **Better performance** (shared connection pool, reduced I/O)
+- ✅ **Better performance** (shared connection pool, reduced I/O, indexed queries)
 - ✅ **78% less database code** (easier maintenance)
+- ✅ **Proper data isolation** (`ArrInstance` field prevents data mixing)
+- ✅ **Optimized WebUI queries** (11 indexes on `ArrInstance` field)
 
 #### No Action Required
 
