@@ -394,20 +394,25 @@ class WebUI:
             }
         page = max(page, 0)
         page_size = max(page_size, 1)
+        arr_instance = getattr(arr, "_name", "")
         with db.connection_context():
-            base_query = model.select()
+            # Filter by ArrInstance
+            base_query = model.select().where(model.ArrInstance == arr_instance)
 
             # Calculate counts
             monitored_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.Monitored == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.Monitored == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
             available_count = (
                 model.select(fn.COUNT(model.EntryId))
                 .where(
-                    (model.Monitored == True)  # noqa: E712
+                    (model.ArrInstance == arr_instance)
+                    & (model.Monitored == True)  # noqa: E712
                     & (model.MovieFileId.is_null(False))
                     & (model.MovieFileId != 0)
                 )
@@ -417,13 +422,17 @@ class WebUI:
             missing_count = max(monitored_count - available_count, 0)
             quality_met_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.QualityMet == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.QualityMet == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
             request_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.IsRequest == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.IsRequest == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
@@ -544,24 +553,29 @@ class WebUI:
             }
         page = max(page, 0)
         page_size = max(page_size, 1)
+        arr_instance = getattr(arr, "_name", "")
 
         # Quality profiles are now stored in the database
         # No need to fetch from API
 
         with db.connection_context():
-            base_query = model.select()
+            # Filter by ArrInstance
+            base_query = model.select().where(model.ArrInstance == arr_instance)
 
             # Calculate counts
             monitored_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.Monitored == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.Monitored == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
             available_count = (
                 model.select(fn.COUNT(model.EntryId))
                 .where(
-                    (model.Monitored == True)  # noqa: E712
+                    (model.ArrInstance == arr_instance)
+                    & (model.Monitored == True)  # noqa: E712
                     & (model.AlbumFileId.is_null(False))
                     & (model.AlbumFileId != 0)
                 )
@@ -571,13 +585,17 @@ class WebUI:
             missing_count = max(monitored_count - available_count, 0)
             quality_met_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.QualityMet == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.QualityMet == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
             request_count = (
                 model.select(fn.COUNT(model.EntryId))
-                .where(model.IsRequest == True)  # noqa: E712
+                .where(
+                    (model.ArrInstance == arr_instance) & (model.IsRequest == True)
+                )  # noqa: E712
                 .scalar()
                 or 0
             )
@@ -772,8 +790,11 @@ class WebUI:
                 "tracks": [],
             }
 
+        arr_instance = getattr(arr, "_name", "")
+
         try:
             # Join tracks with albums to get artist/album info
+            # Filter by ArrInstance on both models
             query = (
                 track_model.select(
                     track_model,
@@ -782,7 +803,10 @@ class WebUI:
                     album_model.ArtistId,
                 )
                 .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(True)
+                .where(
+                    (track_model.ArrInstance == arr_instance)
+                    & (album_model.ArrInstance == arr_instance)
+                )
             )
 
             # Apply filters
@@ -797,17 +821,25 @@ class WebUI:
                     | (album_model.ArtistTitle.contains(search))
                 )
 
-            # Get counts
+            # Get counts with ArrInstance filter
             available_count = (
                 track_model.select()
                 .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(track_model.HasFile == True)
+                .where(
+                    (track_model.ArrInstance == arr_instance)
+                    & (album_model.ArrInstance == arr_instance)
+                    & (track_model.HasFile == True)
+                )
                 .count()
             )
             monitored_count = (
                 track_model.select()
                 .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(track_model.Monitored == True)
+                .where(
+                    (track_model.ArrInstance == arr_instance)
+                    & (album_model.ArrInstance == arr_instance)
+                    & (track_model.Monitored == True)
+                )
                 .count()
             )
             missing_count = (
@@ -894,6 +926,7 @@ class WebUI:
         page = max(page, 0)
         page_size = max(page_size, 1)
         resolved_page = page
+        arr_instance = getattr(arr, "_name", "")
         missing_condition = episodes_model.EpisodeFileId.is_null(True) | (
             episodes_model.EpisodeFileId == 0
         )
@@ -901,14 +934,18 @@ class WebUI:
         with db.connection_context():
             monitored_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                .where(episodes_model.Monitored == True)  # noqa: E712
+                .where(
+                    (episodes_model.ArrInstance == arr_instance)
+                    & (episodes_model.Monitored == True)  # noqa: E712
+                )
                 .scalar()
                 or 0
             )
             available_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
                 .where(
-                    (episodes_model.Monitored == True)  # noqa: E712
+                    (episodes_model.ArrInstance == arr_instance)
+                    & (episodes_model.Monitored == True)  # noqa: E712
                     & (episodes_model.EpisodeFileId.is_null(False))
                     & (episodes_model.EpisodeFileId != 0)
                 )
@@ -921,7 +958,11 @@ class WebUI:
                 missing_series_ids = [
                     row.SeriesId
                     for row in episodes_model.select(episodes_model.SeriesId)
-                    .where((episodes_model.Monitored == True) & missing_condition)  # noqa: E712
+                    .where(
+                        (episodes_model.ArrInstance == arr_instance)
+                        & (episodes_model.Monitored == True)  # noqa: E712
+                        & missing_condition
+                    )
                     .distinct()
                     if getattr(row, "SeriesId", None) is not None
                 ]
@@ -941,7 +982,9 @@ class WebUI:
             total_series = 0
 
             if series_model is not None:
-                series_query = series_model.select()
+                series_query = series_model.select().where(
+                    series_model.ArrInstance == arr_instance
+                )
                 if search:
                     series_query = series_query.where(series_model.Title.contains(search))
                 if missing_only and missing_series_ids:
@@ -959,7 +1002,8 @@ class WebUI:
                     )
                     for series in series_rows:
                         episodes_query = episodes_model.select().where(
-                            episodes_model.SeriesId == series.EntryId
+                            (episodes_model.ArrInstance == arr_instance)
+                            & (episodes_model.SeriesId == series.EntryId)
                         )
                         if missing_only:
                             episodes_query = episodes_query.where(missing_condition)
@@ -1060,7 +1104,9 @@ class WebUI:
 
             if not payload:
                 # Fallback: construct series payload from episode data (episode mode)
-                base_episode_query = episodes_model.select()
+                base_episode_query = episodes_model.select().where(
+                    episodes_model.ArrInstance == arr_instance
+                )
                 if search:
                     search_filters = []
                     if hasattr(episodes_model, "SeriesTitle"):
@@ -1129,7 +1175,9 @@ class WebUI:
                         episode_conditions.append(episodes_model.SeriesId == series_id)
                     if series_title is not None:
                         episode_conditions.append(episodes_model.SeriesTitle == series_title)
-                    episodes_query = episodes_model.select()
+                    episodes_query = episodes_model.select().where(
+                        episodes_model.ArrInstance == arr_instance
+                    )
                     if episode_conditions:
                         condition = episode_conditions[0]
                         for extra in episode_conditions[1:]:
