@@ -1835,7 +1835,10 @@ class Arr:
                         # Create a series entry for searching
                         series_model = (
                             self.series_file_model.select()
-                            .where(self.series_file_model.EntryId == series_id)
+                            .where(
+                                (self.series_file_model.EntryId == series_id)
+                                & (self.series_file_model.ArrInstance == self._name)
+                            )
                             .first()
                         )
                         if series_model:
@@ -2846,7 +2849,8 @@ class Arr:
                 if not series:
                     self.model_file: EpisodeFilesModel
                     episodeData = self.model_file.get_or_none(
-                        self.model_file.EntryId == db_entry["id"]
+                        (self.model_file.EntryId == db_entry["id"])
+                        & (self.model_file.ArrInstance == self._name)
                     )
                     while True:
                         try:
@@ -2965,7 +2969,8 @@ class Arr:
                         ):
                             searched = True
                             self.model_queue.update(Completed=True).where(
-                                self.model_queue.EntryId == episode["id"]
+                                (self.model_queue.EntryId == episode["id"])
+                                & (self.model_queue.ArrInstance == self._name)
                             ).execute()
 
                         if self.use_temp_for_missing:
@@ -3174,14 +3179,16 @@ class Arr:
                         db_commands.execute()
                     else:
                         db_commands = self.model_file.delete().where(
-                            self.model_file.EntryId == episode["id"]
+                            (self.model_file.EntryId == episode["id"])
+                            & (self.model_file.ArrInstance == self._name)
                         )
                         db_commands.execute()
                 else:
                     self.series_file_model: SeriesFilesModel
                     EntryId = db_entry["id"]
                     seriesData = self.series_file_model.get_or_none(
-                        self.series_file_model.EntryId == EntryId
+                        (self.series_file_model.EntryId == EntryId)
+                        & (self.series_file_model.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
                         while True:
@@ -3359,14 +3366,18 @@ class Arr:
                         # No need to recursively process episodes here to avoid duplication
                     else:
                         db_commands = self.series_file_model.delete().where(
-                            self.series_file_model.EntryId == EntryId
+                            (self.series_file_model.EntryId == EntryId)
+                            & (self.series_file_model.ArrInstance == self._name)
                         )
                         db_commands.execute()
 
             elif self.type == "radarr":
                 self.model_file: MoviesFilesModel
                 searched = False
-                movieData = self.model_file.get_or_none(self.model_file.EntryId == db_entry["id"])
+                movieData = self.model_file.get_or_none(
+                    (self.model_file.EntryId == db_entry["id"])
+                    & (self.model_file.ArrInstance == self._name)
+                )
                 if self.minimum_availability_check(db_entry) and (
                     db_entry["monitored"] or self.search_unmonitored
                 ):
@@ -3426,7 +3437,8 @@ class Arr:
                     ):
                         searched = True
                         self.model_queue.update(Completed=True).where(
-                            self.model_queue.EntryId == db_entry["id"]
+                            (self.model_queue.EntryId == db_entry["id"])
+                            & (self.model_queue.ArrInstance == self._name)
                         ).execute()
 
                     profile_switch_timestamp = None
@@ -3595,7 +3607,8 @@ class Arr:
                     db_commands.execute()
                 else:
                     db_commands = self.model_file.delete().where(
-                        self.model_file.EntryId == db_entry["id"]
+                        (self.model_file.EntryId == db_entry["id"])
+                        & (self.model_file.ArrInstance == self._name)
                     )
                     db_commands.execute()
             elif self.type == "lidarr":
@@ -3604,7 +3617,8 @@ class Arr:
                     self.model_file: AlbumFilesModel
                     searched = False
                     albumData = self.model_file.get_or_none(
-                        self.model_file.EntryId == db_entry["id"]
+                        (self.model_file.EntryId == db_entry["id"])
+                        & (self.model_file.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
                         while True:
@@ -3947,20 +3961,23 @@ class Arr:
                                 )
                     else:
                         db_commands = self.model_file.delete().where(
-                            self.model_file.EntryId == db_entry["id"]
+                            (self.model_file.EntryId == db_entry["id"])
+                            & (self.model_file.ArrInstance == self._name)
                         )
                         db_commands.execute()
                         # Also delete tracks for this album (Lidarr only)
                         if self.track_file_model:
                             self.track_file_model.delete().where(
-                                self.track_file_model.AlbumId == db_entry["id"]
+                                (self.track_file_model.AlbumId == db_entry["id"])
+                                & (self.track_file_model.ArrInstance == self._name)
                             ).execute()
                 else:
                     # Artist handling
                     self.artists_file_model: ArtistFilesModel
                     EntryId = db_entry["id"]
                     artistData = self.artists_file_model.get_or_none(
-                        self.artists_file_model.EntryId == EntryId
+                        (self.artists_file_model.EntryId == EntryId)
+                        & (self.artists_file_model.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
                         while True:
@@ -6300,7 +6317,10 @@ class Arr:
                     if self.model_queue:
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
@@ -6314,7 +6334,10 @@ class Arr:
                     if self.model_queue:
                         with_database_retry(
                             lambda: self.model_queue.delete()
-                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .where(
+                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                & (self.model_queue.ArrInstance == self._name)
+                            )
                             .execute(),
                             logger=self.logger,
                         )
