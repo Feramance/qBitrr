@@ -1126,8 +1126,8 @@ When testing changes manually:
 ### Development Guides
 
 - **[AGENTS.md](https://github.com/Feramance/qBitrr/blob/master/AGENTS.md)** - Comprehensive development guidelines for AI agents
-- **[CONTRIBUTION.md](https://github.com/Feramance/qBitrr/blob/master/CONTRIBUTION.md)** - Contribution guidelines and code of conduct
-- **[API_DOCUMENTATION.md](https://github.com/Feramance/qBitrr/blob/master/API_DOCUMENTATION.md)** - Complete API reference with examples
+- **[Contributing Guide](contributing.md)** - Contribution guidelines and code of conduct
+- **[API Reference](../reference/api.md)** - Complete API reference with examples
 
 ### External Documentation
 
@@ -1252,7 +1252,7 @@ Looking for something to work on? Check out issues labeled:
 ### Questions?
 
 - 💬 **Ask in Discussions** - [github.com/Feramance/qBitrr/discussions](https://github.com/Feramance/qBitrr/discussions)
-- 📧 **Email maintainers** - See CONTRIBUTION.md for contact info
+- 📧 **Email maintainers** - See [Contributing Guide](contributing.md) for contact info
 - 🐛 **Report bugs** - [github.com/Feramance/qBitrr/issues/new](https://github.com/Feramance/qBitrr/issues/new)
 
 ---

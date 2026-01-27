@@ -135,12 +135,9 @@
 **Files to KEEP:**
 - `README.md` - Main project readme
 - `CHANGELOG.md` - Release history
-- `CONTRIBUTION.md` - Contributor guide
 - `AGENTS.md` - AI agent coding guide
-- `API_DOCUMENTATION.md` - API reference
-- `SYSTEMD_SERVICE.md` - Systemd setup guide
 - `.github/*.md` - GitHub templates (PR, issue, discussion)
-- `docs/**/*.md` - All permanent documentation
+- `docs/**/*.md` - All permanent documentation (includes API docs, contribution guide, systemd guide)
 
 ### Cleanup Commands
 
@@ -158,11 +155,8 @@ git ls-files "*.md" | grep -v "^docs/"
 
 # Expected output:
 # AGENTS.md
-# API_DOCUMENTATION.md
 # CHANGELOG.md
-# CONTRIBUTION.md
 # README.md
-# SYSTEMD_SERVICE.md
 # .github/pull_request_template.md
 # (plus any other permanent root-level docs)
 
@@ -218,8 +212,7 @@ qBitrr uses **semantic versioning** (MAJOR.MINOR.PATCH) and automated release wo
 
    # Verify only permanent docs remain:
    git ls-files "*.md" | grep -v "^docs/"
-   # Should only show: README.md, CHANGELOG.md, CONTRIBUTION.md, AGENTS.md,
-   #                   API_DOCUMENTATION.md, SYSTEMD_SERVICE.md, .github/*.md
+   # Should only show: README.md, CHANGELOG.md, AGENTS.md, .github/*.md
    ```
 
 2. **Update CHANGELOG.md**
@@ -429,7 +422,7 @@ When making code changes, update the following documentation as applicable:
 - **`qBitrr/gen_config.py`**: Add new config fields with descriptions
 
 #### 4. API Documentation
-- **`API_DOCUMENTATION.md`**: Update if adding/changing WebUI API endpoints
+- **`docs/reference/api.md`**: Update if adding/changing WebUI API endpoints
 - **OpenAPI/Swagger**: Update specs if applicable
 
 ### Documentation Quality Standards
@@ -507,7 +500,7 @@ Before submitting changes, verify:
 - [ ] Examples added to `config.example.toml`
 - [ ] Docstrings added for new functions/classes
 - [ ] Inline comments explain complex logic
-- [ ] API changes documented in `API_DOCUMENTATION.md`
+- [ ] API changes documented in `docs/reference/api.md`
 - [ ] README.md updated if user-visible changes
 - [ ] CHANGELOG.md or release notes prepared
 
@@ -515,4 +508,4 @@ Before submitting changes, verify:
 
 ---
 
-> **Note**: Follow this guide for all contributions. Questions? Check `API_DOCUMENTATION.md`, README.md, or open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).
+> **Note**: Follow this guide for all contributions. Questions? Check the [documentation](https://feramance.github.io/qBitrr/), README.md, or open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).
