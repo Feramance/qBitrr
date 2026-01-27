@@ -152,23 +152,33 @@ function ChangelogModal({
 
   // Start countdown when update completes successfully
   useEffect(() => {
-    if (updateState?.last_result === "success" && updateState?.completed_at) {
-      const countdownRef = { current: 11 }; // Start at 11 so first tick shows 10
-      const timer = setInterval(() => {
-        countdownRef.current -= 1;
-        if (countdownRef.current <= 0) {
-          clearInterval(timer);
-          window.location.reload();
-        } else {
-          setCountdown(countdownRef.current);
-        }
-      }, 1000);
-      // Trigger first update immediately
-      setTimeout(() => setCountdown(10), 0);
-      return () => clearInterval(timer);
-    } else {
-      setCountdown(null);
+    const isSuccess = updateState?.last_result === "success" && updateState?.completed_at;
+
+    if (!isSuccess) {
+      // Reset countdown asynchronously
+      const timeout = setTimeout(() => setCountdown(null), 0);
+      return () => clearTimeout(timeout);
     }
+
+    // Start countdown
+    const countdownRef = { current: 11 };
+    const timer = setInterval(() => {
+      countdownRef.current -= 1;
+      if (countdownRef.current <= 0) {
+        clearInterval(timer);
+        window.location.reload();
+      } else {
+        setCountdown(countdownRef.current);
+      }
+    }, 1000);
+
+    // Initialize countdown display
+    const initTimeout = setTimeout(() => setCountdown(10), 0);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(initTimeout);
+    };
   }, [updateState?.last_result, updateState?.completed_at]);
 
   let statusClass = "";
