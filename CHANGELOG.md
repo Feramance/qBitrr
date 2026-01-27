@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.8.4 (27/01/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: Correct search command filtering in Arr instances and WebUI](https://github.com/Feramance/qBitrr/commit/e28fe45678ec79f520c265944c41ca9e649b8e24) - @Feramance
+
+---
+
 ## v5.8.3 (27/01/2026)
 
 ### 🚀 Features
