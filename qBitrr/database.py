@@ -76,6 +76,7 @@ def get_database() -> SqliteDatabase:
 
         # Run migrations
         _migrate_arrinstance_field(models)
+        _create_arrinstance_indexes(_db, models)
 
         logger.info("Initialized single database: %s", db_path)
 
@@ -116,3 +117,34 @@ def _migrate_arrinstance_field(models: list) -> None:
             )
     except Exception as e:
         logger.error("Error during ArrInstance migration: %s", e)
+
+
+def _create_arrinstance_indexes(db: SqliteDatabase, models: list) -> None:
+    """
+    Create database indexes on ArrInstance field for performance.
+
+    Indexes improve query performance when filtering by ArrInstance,
+    which is done on every WebUI page load.
+    """
+    try:
+        cursor = db.cursor()
+        for model in models:
+            if hasattr(model, "ArrInstance"):
+                table_name = model._meta.table_name
+                index_name = f"idx_arrinstance_{table_name}"
+
+                # Check if index already exists
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+                    (index_name,),
+                )
+                if cursor.fetchone():
+                    continue  # Index already exists
+
+                # Create index
+                cursor.execute(f"CREATE INDEX {index_name} ON {table_name}(ArrInstance)")
+                logger.info("Created index: %s on %s.ArrInstance", index_name, table_name)
+
+        db.commit()
+    except Exception as e:
+        logger.error("Error creating ArrInstance indexes: %s", e)
