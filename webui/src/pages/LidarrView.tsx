@@ -21,7 +21,6 @@ import {
 } from "@tanstack/react-table";
 import type {
   ArrInfo,
-  LidarrAlbum,
   LidarrAlbumEntry,
   LidarrAlbumsResponse,
 } from "../api/types";
@@ -531,13 +530,9 @@ interface LidarrInstanceViewProps {
 function LidarrInstanceView({
   loading,
   data,
-  page,
-  totalPages,
-  pageSize,
   allAlbums,
   onlyMissing,
   reasonFilter,
-  onPageChange,
   onRestart,
   lastUpdated,
   groupLidarr,
@@ -578,23 +573,24 @@ function LidarrInstanceView({
   const filteredCount = reasonFilteredAlbums.length;
 
   // Count total tracks for instance view
-  const totalTracks = useMemo(() => {
-    let count = 0;
-    allAlbums.forEach(entry => {
-      const tracks = entry.tracks || [];
-      count += tracks.length;
-    });
-    return count;
-  }, [allAlbums]);
+  // Track counts (for potential future use)
+  // const totalTracks = useMemo(() => {
+  //   let count = 0;
+  //   allAlbums.forEach(entry => {
+  //     const tracks = entry.tracks || [];
+  //     count += tracks.length;
+  //   });
+  //   return count;
+  // }, [allAlbums]);
 
-  const filteredTracks = useMemo(() => {
-    let count = 0;
-    reasonFilteredAlbums.forEach(entry => {
-      const tracks = entry.tracks || [];
-      count += tracks.length;
-    });
-    return count;
-  }, [reasonFilteredAlbums]);
+  // const filteredTracks = useMemo(() => {
+  //   let count = 0;
+  //   reasonFilteredAlbums.forEach(entry => {
+  //     const tracks = entry.tracks || [];
+  //     count += tracks.length;
+  //   });
+  //   return count;
+  // }, [reasonFilteredAlbums]);
 
   // Reset flat page when filters change
   useEffect(() => {

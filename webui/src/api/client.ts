@@ -11,7 +11,6 @@ import type {
   RestartResponse,
   SonarrSeriesResponse,
   LidarrAlbumsResponse,
-  LidarrAlbum,
   StatusResponse,
 } from "./types";
 

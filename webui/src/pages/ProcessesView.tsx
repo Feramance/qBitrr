@@ -82,7 +82,7 @@ function areProcessListsEqual(a: ProcessInfo[], b: ProcessInfo[]): boolean {
   return true;
 }
 
-function getRefreshDelay(active: boolean, processes: ProcessInfo[]): number | null {
+function getRefreshDelay(active: boolean): number | null {
   if (!active) return null;
   // Refresh every 1 second when active
   return 1000;
@@ -159,8 +159,8 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   }, [active, load]);
 
   const refreshDelay = useMemo(
-    () => getRefreshDelay(active, processes),
-    [active, processes]
+    () => getRefreshDelay(active),
+    [active]
   );
 
   useInterval(() => {
