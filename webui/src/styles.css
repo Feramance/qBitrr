@@ -2387,9 +2387,12 @@ svg[height] {
     padding: 14px;
     max-height: 360px;
     overflow-y: auto;
+    overflow-x: hidden;
     font-size: 13px;
     line-height: 1.5;
     transition: border-color 0.15s ease;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 [data-theme="dark"] .changelog-body {
@@ -2414,6 +2417,12 @@ svg[height] {
 }
 
 /* Markdown content styling */
+.markdown-content {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
@@ -2425,6 +2434,8 @@ svg[height] {
     font-weight: 600;
     line-height: 1.25;
     color: var(--on-surface);
+    overflow-wrap: break-word;
+    word-wrap: break-word;
 }
 
 .markdown-content h1:first-child,
@@ -2472,12 +2483,16 @@ svg[height] {
 
 .markdown-content pre {
     padding: 12px;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-width: 100%;
     font-size: 85%;
     line-height: 1.45;
     background-color: rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     margin-bottom: 0.75em;
+    word-wrap: normal;
+    white-space: pre;
 }
 
 [data-theme="dark"] .markdown-content pre {
@@ -2525,14 +2540,19 @@ svg[height] {
 
 .markdown-content table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
     margin-bottom: 0.75em;
+    display: block;
+    overflow-x: auto;
 }
 
 .markdown-content table th,
 .markdown-content table td {
     padding: 6px 13px;
     border: 1px solid var(--border);
+    word-wrap: break-word;
+    word-break: break-word;
 }
 
 .markdown-content table th {
