@@ -251,6 +251,8 @@ nav:
   - Docker Issues: troubleshooting/docker.md
   - Path Mapping: troubleshooting/path-mapping.md
   - Performance Issues: troubleshooting/performance.md
+  - Fixes:
+    - Database Corruption Fix: fixes/DATABASE_CORRUPTION_FIX.md
 
 - Development:
   - development/index.md

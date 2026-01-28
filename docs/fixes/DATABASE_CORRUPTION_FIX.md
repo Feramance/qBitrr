@@ -333,7 +333,7 @@ pragmas={
 - [SQLite PRAGMA synchronous](https://www.sqlite.org/pragma.html#pragma_synchronous)
 - [SQLite Write-Ahead Logging](https://www.sqlite.org/wal.html)
 - [SQLite How To Corrupt](https://www.sqlite.org/howtocorrupt.html)
-- [qBitrr Database Recovery Module](qBitrr/db_recovery.py)
+- [qBitrr Database Recovery Module](https://github.com/Feramance/qBitrr/blob/master/qBitrr/db_recovery.py)
 
 ---
 
