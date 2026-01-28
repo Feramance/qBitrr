@@ -7,6 +7,7 @@ import type {
   MetaResponse,
   LogsListResponse,
   ProcessesResponse,
+  QbitCategoriesResponse,
   RadarrMoviesResponse,
   RestartResponse,
   SonarrSeriesResponse,
@@ -159,6 +160,10 @@ export async function getMeta(params?: { force?: boolean }): Promise<MetaRespons
 
 export async function getStatus(): Promise<StatusResponse> {
   return fetchJson<StatusResponse>("/web/status");
+}
+
+export async function getQbitCategories(): Promise<QbitCategoriesResponse> {
+  return fetchJson<QbitCategoriesResponse>("/web/qbit/categories");
 }
 
 export async function getProcesses(): Promise<ProcessesResponse> {

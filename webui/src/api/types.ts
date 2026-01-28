@@ -61,6 +61,30 @@ export interface TorrentDistribution {
   };
 }
 
+export interface QbitCategorySeedingConfig {
+  maxRatio: number;
+  maxTime: number;
+  removeMode: number;
+  downloadLimit: number;
+  uploadLimit: number;
+}
+
+export interface QbitCategory {
+  category: string;
+  instance: string;
+  torrentCount: number;
+  seedingCount: number;
+  totalSize: number;
+  avgRatio: number;
+  avgSeedingTime: number;
+  seedingConfig: QbitCategorySeedingConfig;
+}
+
+export interface QbitCategoriesResponse {
+  categories: QbitCategory[];
+  ready: boolean;
+}
+
 export interface StatusResponse {
   qbit: QbitStatus;  // Legacy single-instance (default) for backward compatibility
   qbitInstances: { [instanceName: string]: QbitInstance };  // Multi-instance info

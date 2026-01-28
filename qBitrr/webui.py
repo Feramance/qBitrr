@@ -2092,6 +2092,74 @@ class WebUI:
         def web_arr_list():
             return jsonify(_arr_list_payload())
 
+        @app.get("/web/qbit/categories")
+        def web_qbit_categories():
+            """Get all qBit-managed categories with seeding statistics."""
+            if not self.manager.qbit_category_managers:
+                return jsonify({"categories": [], "ready": True})
+
+            categories_data = []
+
+            for instance_name, manager in self.manager.qbit_category_managers.items():
+                client = self.manager.get_client(instance_name)
+                if not client:
+                    continue
+
+                for category in manager.managed_categories:
+                    try:
+                        torrents = client.torrents_info(category=category)
+
+                        # Calculate statistics
+                        total_count = len(torrents)
+                        seeding_count = len(
+                            [t for t in torrents if t.state in ("uploading", "stalledUP")]
+                        )
+                        total_size = sum(t.size for t in torrents)
+                        avg_ratio = (
+                            sum(t.ratio for t in torrents) / total_count if total_count else 0
+                        )
+                        avg_seeding_time = (
+                            sum(t.seeding_time for t in torrents) / total_count
+                            if total_count
+                            else 0
+                        )
+
+                        # Get seeding config for this category
+                        seeding_config = manager.get_seeding_config(category)
+
+                        categories_data.append(
+                            {
+                                "category": category,
+                                "instance": instance_name,
+                                "torrentCount": total_count,
+                                "seedingCount": seeding_count,
+                                "totalSize": total_size,
+                                "avgRatio": round(avg_ratio, 2),
+                                "avgSeedingTime": avg_seeding_time,
+                                "seedingConfig": {
+                                    "maxRatio": seeding_config.get("MaxUploadRatio", -1),
+                                    "maxTime": seeding_config.get("MaxSeedingTime", -1),
+                                    "removeMode": seeding_config.get("RemoveTorrent", -1),
+                                    "downloadLimit": seeding_config.get(
+                                        "DownloadRateLimitPerTorrent", -1
+                                    ),
+                                    "uploadLimit": seeding_config.get(
+                                        "UploadRateLimitPerTorrent", -1
+                                    ),
+                                },
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.debug(
+                            "Error fetching category '%s' stats for instance '%s': %s",
+                            category,
+                            instance_name,
+                            e,
+                        )
+                        continue
+
+            return jsonify({"categories": categories_data, "ready": True})
+
         @app.get("/api/meta")
         def api_meta():
             if (resp := require_token()) is not None:

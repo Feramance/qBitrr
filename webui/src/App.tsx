@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Susp
 const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
 const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
 const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
+const QbitCategoriesView = lazy(() => import("./pages/QbitCategoriesView").then(module => ({ default: module.QbitCategoriesView })));
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
 import ReactMarkdown from "react-markdown";
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
@@ -21,10 +22,11 @@ import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
+import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import LogoIcon from "./icons/logo.svg";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbit" | "config";
 
 interface NavTab {
   id: Tab;
@@ -441,11 +443,11 @@ function AppShell(): JSX.Element {
         return;
       }
 
-      // Number keys 1-6 for tab switching
-      if (event.key >= '1' && event.key <= '6' && !isMod) {
+      // Number keys 1-7 for tab switching
+      if (event.key >= '1' && event.key <= '7' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'config'];
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'qbit', 'config'];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -617,6 +619,7 @@ function AppShell(): JSX.Element {
       { id: "radarr", label: "Radarr", icon: RadarrIcon },
       { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
       { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
+      { id: "qbit", label: "qBit Categories", icon: QbitIcon },
       { id: "config", label: "Config", icon: ConfigIcon },
     ],
     []
@@ -800,6 +803,7 @@ function AppShell(): JSX.Element {
             {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
             {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
             {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
+            {activeTab === "qbit" && <QbitCategoriesView key={`qbit-${reloadKey}`} active />}
             {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
           </div>
         </Suspense>
