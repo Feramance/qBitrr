@@ -18,7 +18,6 @@ import {
   useReactTable,
   getCoreRowModel,
   getSortedRowModel,
-  getPaginationRowModel,
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
@@ -73,8 +72,6 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
   onPageChange,
   onRefresh,
   lastUpdated,
-  sort,
-  onSort,
   summary,
   instanceCount,
   isAggFiltered = false,
@@ -241,7 +238,6 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   onlyMissing,
   reasonFilter,
   onPageChange,
-  onRefresh,
   onRestart,
   lastUpdated,
 }: RadarrInstanceViewProps): JSX.Element {
@@ -449,7 +445,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
-  const { liveArr, setLiveArr } = useWebUI();
+  const { liveArr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "aggregate">("");

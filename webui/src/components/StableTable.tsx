@@ -1,15 +1,14 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   type ColumnDef,
-  type Table,
 } from "@tanstack/react-table";
 
 interface StableTableProps<TData> {
   data: TData[];
-  columns: ColumnDef<TData, any>[];
+  columns: ColumnDef<TData, unknown>[];
   getRowKey?: (row: TData) => string;
 }
 

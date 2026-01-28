@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root,
 [data-theme="dark"] {
     --bg: #101114;
@@ -38,10 +42,12 @@ html {
 html,
 body {
     height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-    margin: 0;
     background: var(--bg);
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
@@ -49,6 +55,18 @@ body {
     text-rendering: optimizeLegibility;
     font-feature-settings: "kern" 1;
     font-kerning: normal;
+}
+#root {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+#root > div[data-density] {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 *::-webkit-scrollbar {
     width: 12px;
@@ -93,12 +111,14 @@ body {
 }
 .appbar__inner {
     width: 100%;
+    max-width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 0 16px;
+    padding: 0 20px;
     flex-wrap: wrap;
+    box-sizing: border-box;
 }
 .appbar__title {
     display: flex;
@@ -163,11 +183,15 @@ body {
     box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
 }
 .container {
+    width: 100%;
+    max-width: 100%;
     padding: 20px;
+    margin: 0 auto;
     display: grid;
     grid-template-columns: 1fr;
     gap: 20px;
     animation: fadeInUp 0.3s ease;
+    box-sizing: border-box;
 }
 
 .toolbar {
@@ -419,12 +443,20 @@ body {
 
 .btn.outline {
     background: transparent;
-    border-color: var(--border);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .btn.outline {
+    border-color: rgba(0, 0, 0, 0.15);
 }
 
 .btn.outline:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--primary-variant);
+}
+
+[data-theme="light"] .btn.outline:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.03);
 }
 
 .btn.active {

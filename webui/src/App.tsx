@@ -8,7 +8,7 @@ import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate } from "./api/client";
-import type { MetaResponse, StatusResponse } from "./api/types";
+import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
@@ -152,20 +152,33 @@ function ChangelogModal({
 
   // Start countdown when update completes successfully
   useEffect(() => {
-    if (updateState?.last_result === "success" && updateState?.completed_at) {
-      let countdown = 10;
-      setCountdown(countdown);
-      const timer = setInterval(() => {
-        countdown -= 1;
-        if (countdown <= 0) {
-          clearInterval(timer);
-          window.location.reload();
-        } else {
-          setCountdown(countdown);
-        }
-      }, 1000);
-      return () => clearInterval(timer);
+    const isSuccess = updateState?.last_result === "success" && updateState?.completed_at;
+
+    if (!isSuccess) {
+      // Reset countdown asynchronously
+      const timeout = setTimeout(() => setCountdown(null), 0);
+      return () => clearTimeout(timeout);
     }
+
+    // Start countdown
+    const countdownRef = { current: 11 };
+    const timer = setInterval(() => {
+      countdownRef.current -= 1;
+      if (countdownRef.current <= 0) {
+        clearInterval(timer);
+        window.location.reload();
+      } else {
+        setCountdown(countdownRef.current);
+      }
+    }, 1000);
+
+    // Initialize countdown display
+    const initTimeout = setTimeout(() => setCountdown(10), 0);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(initTimeout);
+    };
   }, [updateState?.last_result, updateState?.completed_at]);
 
   let statusClass = "";
@@ -317,7 +330,6 @@ function AppShell(): JSX.Element {
   const backendWarnedRef = useRef(false);
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [statusData, setStatusData] = useState<StatusResponse | null>(null);
   const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
 
   // Theme is now managed by WebUIContext and applied automatically
@@ -467,8 +479,7 @@ function AppShell(): JSX.Element {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const status = await getStatus();
-      setStatusData(status);
+      await getStatus();
     } catch {
       // Silently fail - status is not critical
     }
@@ -555,7 +566,6 @@ function AppShell(): JSX.Element {
         if (cancelled) {
           return;
         }
-        setStatusData(status);
         const readyHint =
           status.ready ?? (Array.isArray(status.arrs) && status.arrs.length > 0);
         if (readyHint) {

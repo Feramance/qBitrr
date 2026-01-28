@@ -1,5 +1,4 @@
 import {
-  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -13,7 +12,6 @@ import {
   getSonarrSeries,
   restartArr,
 } from "../api/client";
-import { StableTable } from "../components/StableTable";
 import {
   useReactTable,
   getCoreRowModel,
@@ -93,7 +91,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     register,
     clearHandler,
   } = useSearch();
-  const { liveArr, setLiveArr, groupSonarr, setGroupSonarr } = useWebUI();
+  const { liveArr, groupSonarr } = useWebUI();
 
   const [instances, setInstances] = useState<ArrInfo[]>([]);
   const [selection, setSelection] = useState<string | "">("");
@@ -376,7 +374,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
            const series = res.series ?? [];
           let episodeCount = 0;
           series.forEach((entry: SonarrSeriesEntry) => {
-            const seasonCount = Object.keys(entry.seasons ?? {}).length;
+            // const seasonCount = Object.keys(entry.seasons ?? {}).length;
             let entryEpisodeCount = 0;
             Object.values(entry.seasons ?? {}).forEach(season => {
               entryEpisodeCount += (season.episodes ?? []).length;
@@ -608,13 +606,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     1,
     Math.ceil(sortedAggRows.length / SONARR_AGG_PAGE_SIZE)
   );
-  const aggPageRows = useMemo(
-    () => sortedAggRows.slice(
-      aggPage * SONARR_AGG_PAGE_SIZE,
-      aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
-    ),
-    [sortedAggRows, aggPage]
-  );
+  // Paginated rows (for potential future use)
+  // const aggPageRows = useMemo(
+  //   () => sortedAggRows.slice(
+  //     aggPage * SONARR_AGG_PAGE_SIZE,
+  //     aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
+  //   ),
+  //   [sortedAggRows, aggPage]
+  // );
 
   const currentSeries = instancePages[instancePage] ?? [];
 
@@ -815,7 +814,6 @@ interface SonarrAggregateViewProps {
 function SonarrAggregateView({
   loading,
   rows,
-  total,
   page,
   totalPages,
   onPageChange,
@@ -1366,22 +1364,13 @@ function SonarrInstanceView({
   instances,
   selection,
 }: SonarrInstanceViewProps): JSX.Element {
-  const safePage = Math.min(page, Math.max(0, totalPages - 1));
 
   // Separate pagination state for flat (episode) view
   const [flatPage, setFlatPage] = useState(0);
   const FLAT_PAGE_SIZE = 50;
 
-  const prevSeriesRef = useRef<typeof series>([]);
-  const episodeRowsCache = useRef<SonarrAggRow[]>([]);
-
-  // Transform series to SonarrAggRow[] - only rebuild if series changed
+  // Transform series to SonarrAggRow[] - rebuild when series changes
   const episodeRows = useMemo(() => {
-    // Quick reference check
-    if (series === prevSeriesRef.current) {
-      return episodeRowsCache.current;
-    }
-
     const rows: SonarrAggRow[] = [];
     for (const entry of series) {
       const title = (entry.series?.["title"] as string | undefined) || "";
@@ -1406,8 +1395,6 @@ function SonarrInstanceView({
       });
     }
 
-    prevSeriesRef.current = series;
-    episodeRowsCache.current = rows;
     return rows;
   }, [series]);
 
@@ -1434,28 +1421,12 @@ function SonarrInstanceView({
 
   // Reset flat page when filters change
   useEffect(() => {
-    setFlatPage(0);
+    const timer = setTimeout(() => setFlatPage(0), 0);
+    return () => clearTimeout(timer);
   }, [onlyMissing, reasonFilter]);
 
-  const prevEpisodeRowsRef = useRef<SonarrAggRow[]>([]);
-  const groupedTableDataCache = useRef<Array<{
-    series: string;
-    qualityProfileId?: number | null;
-    qualityProfileName?: string | null;
-    subRows: Array<{
-      seasonNumber: string;
-      isSeason: boolean;
-      subRows: Array<SonarrAggRow & { isEpisode: boolean }>;
-    }>;
-  }>>([]);
-
-  // Group for hierarchical view - only rebuild if filteredEpisodeRows changed
+  // Group for hierarchical view - rebuild when filteredEpisodeRows changes
   const groupedTableData = useMemo(() => {
-    // Quick reference check
-    if (filteredEpisodeRows === prevEpisodeRowsRef.current) {
-      return groupedTableDataCache.current;
-    }
-
     const map = new Map<string, Map<string, SonarrAggRow[]>>();
     filteredEpisodeRows.forEach(row => {
       const seriesKey = row.series;
@@ -1481,8 +1452,6 @@ function SonarrInstanceView({
       };
     });
 
-    prevEpisodeRowsRef.current = filteredEpisodeRows;
-    groupedTableDataCache.current = result;
     return result;
   }, [filteredEpisodeRows]);
 
@@ -1508,7 +1477,8 @@ function SonarrInstanceView({
 
   // Reset grouped page when filters change
   useEffect(() => {
-    setGroupedPage(0);
+    const timer = setTimeout(() => setGroupedPage(0), 0);
+    return () => clearTimeout(timer);
   }, [onlyMissing, reasonFilter]);
 
   return (
