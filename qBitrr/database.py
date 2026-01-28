@@ -45,6 +45,8 @@ def get_database() -> SqliteDatabase:
                 "ignore_check_constraints": 0,
                 "synchronous": 1,  # NORMAL mode - balances safety and performance
                 "read_uncommitted": 1,
+                "wal_autocheckpoint": 1000,  # Checkpoint every 1000 pages
+                "journal_size_limit": 67108864,  # 64MB max WAL size
             },
             timeout=15,
         )

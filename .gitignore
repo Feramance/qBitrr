@@ -60,6 +60,13 @@ ENV/
 .DS_Store
 Thumbs.db
 
+# Test and session files
+session-ses_*.md
+test_database_*.py
+deep_database_test.py
+test_webui.sh
+/scripts/temp/
+
 # Development
 AGENTS.md
 compose.yml
