@@ -432,7 +432,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               </div>
               <div className="process-card__footer">
                 <button
-                  className="btn small outline"
+                  className="btn small"
                   onClick={() => void handleRestartGroup(items)}
                 >
                   Restart All
