@@ -443,12 +443,20 @@ body {
 
 .btn.outline {
     background: transparent;
-    border-color: var(--border);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .btn.outline {
+    border-color: rgba(0, 0, 0, 0.15);
 }
 
 .btn.outline:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.05);
     border-color: var(--primary-variant);
+}
+
+[data-theme="light"] .btn.outline:hover:not(:disabled) {
+    background: rgba(0, 0, 0, 0.03);
 }
 
 .btn.active {
