@@ -32,6 +32,7 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -119,6 +120,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const debouncedAggFilter = useDebounce(aggFilter, 300);
 
   // Smart data sync for aggregate episodes
   const aggEpisodeSync = useDataSync<SonarrAggRow>({
@@ -568,37 +570,43 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    let rows = aggRows;
-    if (aggFilter) {
-      const q = aggFilter.toLowerCase();
-      rows = rows.filter((row) => {
-        return (
-          row.series.toLowerCase().includes(q) ||
-          row.title.toLowerCase().includes(q) ||
-          row.__instance.toLowerCase().includes(q)
-        );
-      });
-    }
-    if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
-    }
-    if (reasonFilter !== "all") {
-      console.log(`[Sonarr Filter] Applying reason filter: "${reasonFilter}"`);
-      const beforeFilterCount = rows.length;
-      if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
-      } else {
-        rows = rows.filter((row) => row.reason === reasonFilter);
-      }
-      console.log(`[Sonarr Filter] Filtered from ${beforeFilterCount} to ${rows.length} episodes for reason "${reasonFilter}"`);
-      if (rows.length < 10) {
-        console.log(`[Sonarr Filter] Sample filtered rows:`, rows.slice(0, 5).map(r => ({ series: r.series, episode: r.episode, reason: r.reason })));
-      }
-    }
-    return rows;
-  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
+    // Combine all filters into a single pass for better performance
+    const q = debouncedAggFilter ? debouncedAggFilter.toLowerCase() : "";
+    const hasSearchFilter = Boolean(q);
+    const hasReasonFilter = reasonFilter !== "all";
 
-  const isAggFiltered = Boolean(aggFilter) || onlyMissing || reasonFilter !== "all";
+    return aggRows.filter((row) => {
+      // Search filter
+      if (hasSearchFilter) {
+        const series = row.series.toLowerCase();
+        const title = row.title.toLowerCase();
+        const instance = row.__instance.toLowerCase();
+        if (!series.includes(q) && !title.includes(q) && !instance.includes(q)) {
+          return false;
+        }
+      }
+
+      // Missing filter
+      if (onlyMissing && row.hasFile) {
+        return false;
+      }
+
+      // Reason filter
+      if (hasReasonFilter) {
+        if (reasonFilter === "Not being searched") {
+          if (row.reason !== "Not being searched" && row.reason) {
+            return false;
+          }
+        } else if (row.reason !== reasonFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [aggRows, debouncedAggFilter, onlyMissing, reasonFilter]);
+
+  const isAggFiltered = Boolean(debouncedAggFilter) || onlyMissing || reasonFilter !== "all";
 
   const sortedAggRows = filteredAggRows;
 
