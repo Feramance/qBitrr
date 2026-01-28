@@ -6,7 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from qBitrr.exceptions import DelayLoopException
+from qBitrr.errors import DelayLoopException
 
 if TYPE_CHECKING:
     from qbittorrentapi import TorrentDictionary
