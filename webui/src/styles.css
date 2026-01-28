@@ -465,6 +465,20 @@ body {
     border-color: var(--primary);
 }
 
+.copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.copy-btn svg {
+    flex-shrink: 0;
+}
+
+.copy-btn span {
+    font-size: 13px;
+}
 
 .field {
   display: flex;
@@ -1434,6 +1448,10 @@ svg[height] {
     }
 }
 
+.view-transition {
+    animation: fadeInUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -1964,6 +1982,40 @@ svg[height] {
 [data-theme="light"] .empty-state:hover {
     border-color: rgba(0, 113, 227, 0.4);
     background: linear-gradient(135deg, rgba(0, 113, 227, 0.04) 0%, rgba(0, 113, 227, 0.01) 100%);
+}
+
+.empty-state__icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state__icon svg {
+    width: 48px;
+    height: 48px;
+}
+
+.empty-state__content {
+    position: relative;
+    z-index: 1;
+}
+
+.empty-state__title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--on-surface);
+    margin: 0 0 8px 0;
+}
+
+.empty-state__message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 16px 0;
+    line-height: 1.5;
+}
+
+.empty-state__action {
+    margin-top: 16px;
 }
 
 .config-card {

@@ -794,12 +794,14 @@ function AppShell(): JSX.Element {
           ))}
         </nav>
         <Suspense fallback={<div className="loading">Loading...</div>}>
-          {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
-          {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
-          {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
-          {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
-          {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
-          {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
+          <div key={activeTab} className="view-transition">
+            {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
+            {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
+            {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
+            {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+            {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
+            {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
+          </div>
         </Suspense>
       </main>
       {showChangelog && meta ? (
