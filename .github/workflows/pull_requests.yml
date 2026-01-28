@@ -105,6 +105,11 @@ jobs:
     permissions:
       packages: write
       contents: read
+    strategy:
+      matrix:
+        platform:
+        - amd64
+        - arm64
     steps:
     - id: string
       uses: ASzc/change-string-case-action@v6
@@ -149,8 +154,3 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-    strategy:
-      matrix:
-        platform:
-        - amd64
-        - arm64

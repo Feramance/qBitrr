@@ -5,8 +5,8 @@ on:
     branches:
     - master
     paths-ignore:
-    - \'**.md\'
-    - \'.github/FUNDING.yml\'
+    - '**.md'
+    - .github/FUNDING.yml
 
 defaults:
   run:
