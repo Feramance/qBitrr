@@ -1,5 +1,26 @@
 # Changelog
 
+## v5.8.7 (28/01/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Database stability improvements and workflow fixes](https://github.com/Feramance/qBitrr/commit/9ad461a679ad02791e06125b40c85b96fe3f8657) - @Feramance
+- [[docs] Fix documentation build errors](https://github.com/Feramance/qBitrr/commit/c54f5bdac0673cd5e2908666545d75096ce03602) - @Feramance
+- [[ci] Fix GitHub Actions workflow syntax errors](https://github.com/Feramance/qBitrr/commit/661cf78f85d78cbfeec1ce486863f4c8a7a2f40c) - @Feramance
+- [[webui] Fix white borders on outline buttons](https://github.com/Feramance/qBitrr/commit/409229188c85bc7c010ca4af221e26ce17f96036) - @Feramance
+- [[webui] Fix full-width layout constraints](https://github.com/Feramance/qBitrr/commit/5077918f829f445588640cc625be60a55cd06f29) - @Feramance
+- [[webui] Fix remaining setState and ref access errors](https://github.com/Feramance/qBitrr/commit/506a32e8d92687c35ed9cc9f18af9e8cebac0234) - @Feramance
+
+### 🎨 Styling
+- [[docs] Improve documentation for multi-instance support and WebUI counts](https://github.com/Feramance/qBitrr/commit/050073f54e793751524d46902742a103e7dc7191) - @Feramance
+
+### 🔧 Maintenance
+- [[database] Enhance WAL configuration and organize documentation](https://github.com/Feramance/qBitrr/commit/f58d1048764142529a1f93b6cc9fb83bd90c0a5d) - @Feramance
+- [[database] CRITICAL FIX: Prevent database corruption by fixing synchronous setting](https://github.com/Feramance/qBitrr/commit/465c306dfa9395d757d961e70404277cc65e26e1) - @Feramance
+- [[webui] CRITICAL FIX: Restore missing props in SonarrInstanceView](https://github.com/Feramance/qBitrr/commit/b496094214c8a7f499972df690e10cc8ffbfc376) - @Feramance
+- [[webui] Install Tailwind CSS and fix all lint/build errors](https://github.com/Feramance/qBitrr/commit/54392ef28597ce162ffe35bb32359b2ef0d74fd0) - @Feramance
+
+---
+
 ## v5.8.6 (27/01/2026)
 
 ### 🚀 Features
