@@ -43,7 +43,7 @@ def get_database() -> SqliteDatabase:
                 "cache_size": -64_000,
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
-                "synchronous": 0,
+                "synchronous": 1,  # NORMAL mode - balances safety and performance
                 "read_uncommitted": 1,
             },
             timeout=15,
