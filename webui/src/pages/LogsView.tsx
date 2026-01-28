@@ -4,6 +4,7 @@ import { getConfig, getLogDownloadUrl, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
+import { CopyButton } from "../components/CopyButton";
 import Select, { type CSSObjectWithLabel, type OptionProps, type StylesConfig } from "react-select";
 
 interface LogOption {
@@ -226,6 +227,11 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 <IconImage src={DownloadIcon} />
                 Download
               </button>
+              <CopyButton
+                text={logContent}
+                label="Copy Logs"
+                onCopy={() => push("Logs copied to clipboard", "success")}
+              />
               <label className="hint inline" style={{ cursor: "pointer" }}>
                 <input
                   type="checkbox"
