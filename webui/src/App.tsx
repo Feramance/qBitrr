@@ -3,6 +3,7 @@ const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => 
 const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
 const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
+import ReactMarkdown from "react-markdown";
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
@@ -243,9 +244,11 @@ function ChangelogModal({
           </div>
           <div className="changelog-section">
             <h3>What's New</h3>
-            <pre className="changelog-body">
-              {changelog?.trim() ? changelog.trim() : "No changelog provided."}
-            </pre>
+            <div className="changelog-body markdown-content">
+              <ReactMarkdown>
+                {changelog?.trim() ? changelog.trim() : "No changelog provided."}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
         <div className="modal-footer">

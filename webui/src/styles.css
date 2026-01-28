@@ -2387,10 +2387,8 @@ svg[height] {
     padding: 14px;
     max-height: 360px;
     overflow-y: auto;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     font-size: 13px;
     line-height: 1.5;
-    white-space: pre-wrap;
     transition: border-color 0.15s ease;
 }
 
@@ -2413,6 +2411,141 @@ svg[height] {
 }
 .changelog-body::-webkit-scrollbar-thumb:hover {
     background: rgba(122, 162, 247, 0.5);
+}
+
+/* Markdown content styling */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--on-surface);
+}
+
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child,
+.markdown-content h4:first-child {
+    margin-top: 0;
+}
+
+.markdown-content h1 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.markdown-content h2 { font-size: 1.3em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.markdown-content h3 { font-size: 1.15em; }
+.markdown-content h4 { font-size: 1em; }
+
+.markdown-content p {
+    margin-top: 0;
+    margin-bottom: 0.75em;
+    line-height: 1.6;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    margin-top: 0;
+    margin-bottom: 0.75em;
+    padding-left: 2em;
+}
+
+.markdown-content li {
+    margin-bottom: 0.25em;
+    line-height: 1.5;
+}
+
+.markdown-content li > p {
+    margin-bottom: 0.25em;
+}
+
+.markdown-content code {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: rgba(122, 162, 247, 0.1);
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.markdown-content pre {
+    padding: 12px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    margin-bottom: 0.75em;
+}
+
+[data-theme="dark"] .markdown-content pre {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.markdown-content pre code {
+    background-color: transparent;
+    padding: 0;
+    margin: 0;
+    font-size: 100%;
+}
+
+.markdown-content blockquote {
+    margin: 0 0 0.75em 0;
+    padding: 0 1em;
+    color: var(--text-secondary);
+    border-left: 3px solid var(--border);
+}
+
+.markdown-content a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.markdown-content a:hover {
+    text-decoration: underline;
+}
+
+.markdown-content strong {
+    font-weight: 600;
+    color: var(--on-surface);
+}
+
+.markdown-content em {
+    font-style: italic;
+}
+
+.markdown-content hr {
+    height: 0;
+    margin: 1.5em 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0.75em;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+    padding: 6px 13px;
+    border: 1px solid var(--border);
+}
+
+.markdown-content table th {
+    font-weight: 600;
+    background-color: rgba(122, 162, 247, 0.05);
+}
+
+.markdown-content table tr:nth-child(2n) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .markdown-content table tr:nth-child(2n) {
+    background-color: rgba(255, 255, 255, 0.02);
 }
 .changelog-links {
     margin-right: auto;
