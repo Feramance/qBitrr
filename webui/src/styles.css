@@ -1325,6 +1325,24 @@ pre::-webkit-scrollbar-thumb:hover {
     border-color: rgba(122, 162, 247, 0.4);
     transform: scale(1.05);
 }
+.badge-qbit {
+    background: rgba(158, 206, 106, 0.15);
+    border-color: rgba(158, 206, 106, 0.25);
+    color: #9ece6a;
+}
+.badge-qbit:hover {
+    background: rgba(158, 206, 106, 0.25);
+    border-color: rgba(158, 206, 106, 0.4);
+}
+.badge-arr {
+    background: rgba(187, 154, 247, 0.15);
+    border-color: rgba(187, 154, 247, 0.25);
+    color: #bb9af7;
+}
+.badge-arr:hover {
+    background: rgba(187, 154, 247, 0.25);
+    border-color: rgba(187, 154, 247, 0.4);
+}
 
 .icon {
     display: inline-block;

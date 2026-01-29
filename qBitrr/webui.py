@@ -2094,19 +2094,80 @@ class WebUI:
 
         @app.get("/web/qbit/categories")
         def web_qbit_categories():
-            """Get all qBit-managed categories with seeding statistics."""
-            if not self.manager.qbit_category_managers:
-                return jsonify({"categories": [], "ready": True})
-
+            """Get all qBit-managed and Arr-managed categories with seeding statistics."""
             categories_data = []
 
-            for instance_name, manager in self.manager.qbit_category_managers.items():
-                client = self.manager.get_client(instance_name)
-                if not client:
-                    continue
+            # Add qBit-managed categories
+            if self.manager.qbit_category_managers:
+                for instance_name, manager in self.manager.qbit_category_managers.items():
+                    client = self.manager.get_client(instance_name)
+                    if not client:
+                        continue
 
-                for category in manager.managed_categories:
+                    for category in manager.managed_categories:
+                        try:
+                            torrents = client.torrents_info(category=category)
+
+                            # Calculate statistics
+                            total_count = len(torrents)
+                            seeding_count = len(
+                                [t for t in torrents if t.state in ("uploading", "stalledUP")]
+                            )
+                            total_size = sum(t.size for t in torrents)
+                            avg_ratio = (
+                                sum(t.ratio for t in torrents) / total_count if total_count else 0
+                            )
+                            avg_seeding_time = (
+                                sum(t.seeding_time for t in torrents) / total_count
+                                if total_count
+                                else 0
+                            )
+
+                            # Get seeding config for this category
+                            seeding_config = manager.get_seeding_config(category)
+
+                            categories_data.append(
+                                {
+                                    "category": category,
+                                    "instance": instance_name,
+                                    "managedBy": "qbit",
+                                    "torrentCount": total_count,
+                                    "seedingCount": seeding_count,
+                                    "totalSize": total_size,
+                                    "avgRatio": round(avg_ratio, 2),
+                                    "avgSeedingTime": avg_seeding_time,
+                                    "seedingConfig": {
+                                        "maxRatio": seeding_config.get("MaxUploadRatio", -1),
+                                        "maxTime": seeding_config.get("MaxSeedingTime", -1),
+                                        "removeMode": seeding_config.get("RemoveTorrent", -1),
+                                        "downloadLimit": seeding_config.get(
+                                            "DownloadRateLimitPerTorrent", -1
+                                        ),
+                                        "uploadLimit": seeding_config.get(
+                                            "UploadRateLimitPerTorrent", -1
+                                        ),
+                                    },
+                                }
+                            )
+                        except Exception as e:
+                            self.logger.debug(
+                                "Error fetching qBit category '%s' stats for instance '%s': %s",
+                                category,
+                                instance_name,
+                                e,
+                            )
+                            continue
+
+            # Add Arr-managed categories
+            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                for arr in self.manager.arr_manager.managed_objects.values():
                     try:
+                        # Get the qBit instance for this Arr (use default for now)
+                        client = self.manager.client
+                        if not client:
+                            continue
+
+                        category = arr.category
                         torrents = client.torrents_info(category=category)
 
                         # Calculate statistics
@@ -2124,36 +2185,30 @@ class WebUI:
                             else 0
                         )
 
-                        # Get seeding config for this category
-                        seeding_config = manager.get_seeding_config(category)
-
                         categories_data.append(
                             {
                                 "category": category,
-                                "instance": instance_name,
+                                "instance": arr._name,
+                                "managedBy": "arr",
                                 "torrentCount": total_count,
                                 "seedingCount": seeding_count,
                                 "totalSize": total_size,
                                 "avgRatio": round(avg_ratio, 2),
                                 "avgSeedingTime": avg_seeding_time,
                                 "seedingConfig": {
-                                    "maxRatio": seeding_config.get("MaxUploadRatio", -1),
-                                    "maxTime": seeding_config.get("MaxSeedingTime", -1),
-                                    "removeMode": seeding_config.get("RemoveTorrent", -1),
-                                    "downloadLimit": seeding_config.get(
-                                        "DownloadRateLimitPerTorrent", -1
-                                    ),
-                                    "uploadLimit": seeding_config.get(
-                                        "UploadRateLimitPerTorrent", -1
-                                    ),
+                                    "maxRatio": arr.seeding_mode_global_max_upload_ratio,
+                                    "maxTime": arr.seeding_mode_global_max_seeding_time,
+                                    "removeMode": arr.seeding_mode_global_remove_torrent,
+                                    "downloadLimit": arr.seeding_mode_global_download_limit,
+                                    "uploadLimit": arr.seeding_mode_global_upload_limit,
                                 },
                             }
                         )
                     except Exception as e:
                         self.logger.debug(
-                            "Error fetching category '%s' stats for instance '%s': %s",
-                            category,
-                            instance_name,
+                            "Error fetching Arr category '%s' stats for instance '%s': %s",
+                            getattr(arr, "category", "unknown"),
+                            getattr(arr, "_name", "unknown"),
                             e,
                         )
                         continue

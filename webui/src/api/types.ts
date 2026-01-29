@@ -72,6 +72,7 @@ export interface QbitCategorySeedingConfig {
 export interface QbitCategory {
   category: string;
   instance: string;
+  managedBy: "qbit" | "arr";
   torrentCount: number;
   seedingCount: number;
   totalSize: number;

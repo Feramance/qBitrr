@@ -26,7 +26,7 @@ import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import LogoIcon from "./icons/logo.svg";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbit" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
 
 interface NavTab {
   id: Tab;
@@ -447,7 +447,7 @@ function AppShell(): JSX.Element {
       if (event.key >= '1' && event.key <= '7' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'qbit', 'config'];
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'qbittorrent', 'config'];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -619,7 +619,7 @@ function AppShell(): JSX.Element {
       { id: "radarr", label: "Radarr", icon: RadarrIcon },
       { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
       { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
-      { id: "qbit", label: "qBit Categories", icon: QbitIcon },
+      { id: "qbittorrent", label: "qBittorrent", icon: QbitIcon },
       { id: "config", label: "Config", icon: ConfigIcon },
     ],
     []
@@ -803,7 +803,7 @@ function AppShell(): JSX.Element {
             {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
             {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
             {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
-            {activeTab === "qbit" && <QbitCategoriesView key={`qbit-${reloadKey}`} active />}
+            {activeTab === "qbittorrent" && <QbitCategoriesView key={`qbittorrent-${reloadKey}`} active />}
             {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
           </div>
         </Suspense>

@@ -392,6 +392,54 @@ const QBIT_FIELDS: FieldDefinition[] = [
   },
   { label: "UserName", path: ["UserName"], type: "text" },
   { label: "Password", path: ["Password"], type: "password", secure: true },
+  {
+    label: "Managed Categories",
+    path: ["ManagedCategories"],
+    type: "text",
+    parse: parseList,
+    format: formatList,
+    fullWidth: true,
+    placeholder: "prowlarr, downloads",
+  },
+  {
+    label: "Max Upload Ratio",
+    path: ["CategorySeeding", "MaxUploadRatio"],
+    type: "number",
+    placeholder: "-1 (disabled), or positive number",
+  },
+  {
+    label: "Max Seeding Time (seconds)",
+    path: ["CategorySeeding", "MaxSeedingTime"],
+    type: "number",
+    placeholder: "-1 (disabled), or positive number",
+  },
+  {
+    label: "Remove Torrent (policy)",
+    path: ["CategorySeeding", "RemoveTorrent"],
+    type: "select",
+    options: REMOVE_TORRENT_OPTIONS,
+    parse: (value: string | boolean) => {
+      const str = String(value);
+      const match = str.match(/\((-?\d+)\)/);
+      return match ? Number(match[1]) : -1;
+    },
+    format: (value: unknown) => {
+      const num = typeof value === "number" ? value : Number(value ?? -1);
+      return REMOVE_TORRENT_OPTIONS.find(opt => opt.includes(`(${num})`)) || REMOVE_TORRENT_OPTIONS[0];
+    },
+  },
+  {
+    label: "Download Rate Limit Per Torrent (KB/s)",
+    path: ["CategorySeeding", "DownloadRateLimitPerTorrent"],
+    type: "number",
+    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+  },
+  {
+    label: "Upload Rate Limit Per Torrent (KB/s)",
+    path: ["CategorySeeding", "UploadRateLimitPerTorrent"],
+    type: "number",
+    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+  },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
@@ -1056,9 +1104,11 @@ function validateFieldGroup(
       continue;
     }
     const pathSegments = field.path ?? [];
-    const value = pathSegments.length
+    const rawValue = pathSegments.length
       ? getValue(state as ConfigDocument, pathSegments)
       : undefined;
+    // Apply format function if it exists to convert raw value to expected validation format
+    const value = field.format ? field.format(rawValue) : rawValue;
     const fullPath = [...basePath, ...pathSegments];
     const baseError = basicValidation(field, value);
     if (baseError) {
