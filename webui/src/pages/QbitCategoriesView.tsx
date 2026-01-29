@@ -24,11 +24,13 @@ function formatBytes(bytes: number): string {
 }
 
 function formatTime(seconds: number): string {
-  if (seconds === 0) return "0s";
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
+  const totalSeconds = Math.round(seconds);
+  if (totalSeconds === 0) return "0s";
+
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
 
   const parts: string[] = [];
   if (days > 0) parts.push(`${days}d`);
