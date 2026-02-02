@@ -5,6 +5,7 @@ import contextlib
 import glob
 import logging
 import os
+import signal
 import sys
 import time
 from multiprocessing import Event, freeze_support
@@ -162,6 +163,9 @@ class qBitManager:
         self._process_restart_counts: dict[tuple[str, str], list[float]] = (
             {}
         )  # (category, role) -> [timestamps]
+        # Database checkpoint thread
+        self._db_checkpoint_thread: Thread | None = None
+        self._db_checkpoint_event = ThreadEvent()
         self._failed_spawn_attempts: dict[tuple[str, str], int] = {}  # Track failed spawn attempts
         self._pending_spawns: list[tuple] = []  # (arr_instance, meta) tuples to retry
         self.auto_restart_enabled = CONFIG.get("Settings.AutoRestartProcesses", fallback=True)
@@ -425,6 +429,9 @@ class qBitManager:
 
             # Spawn qBit category workers after Arr workers
             self._spawn_qbit_category_workers()
+
+            # Start periodic database checkpoint thread
+            self._start_db_checkpoint_thread()
 
             self.configure_auto_update()
             elapsed = monotonic() - started_at
@@ -788,6 +795,44 @@ class qBitManager:
         self.logger.info(
             "Total qBit category workers spawned: %d", len(self.qbit_category_managers)
         )
+
+    def _periodic_db_checkpoint(self) -> None:
+        """
+        Background thread that periodically checkpoints the database WAL.
+
+        This runs every 5 minutes during normal operation to ensure WAL entries
+        are regularly flushed to the main database file, minimizing data loss
+        risk in case of sudden crashes or power loss.
+        """
+        from qBitrr.database import checkpoint_database
+
+        self.logger.info("Starting periodic database checkpoint thread (interval: 5 minutes)")
+
+        while not self.shutdown_event.is_set():
+            # Wait 5 minutes or until shutdown
+            if self._db_checkpoint_event.wait(timeout=300):  # 300 seconds = 5 minutes
+                break  # Shutdown requested
+
+            if self.shutdown_event.is_set():
+                break
+
+            try:
+                checkpoint_database()
+            except Exception as e:
+                self.logger.error("Periodic database checkpoint failed: %s", e)
+
+        self.logger.info("Periodic database checkpoint thread stopped")
+
+    def _start_db_checkpoint_thread(self) -> None:
+        """Start the periodic database checkpoint background thread."""
+        if self._db_checkpoint_thread is None or not self._db_checkpoint_thread.is_alive():
+            self._db_checkpoint_thread = Thread(
+                target=self._periodic_db_checkpoint,
+                name="DBCheckpoint",
+                daemon=True,
+            )
+            self._db_checkpoint_thread.start()
+            self.logger.info("Started periodic database checkpoint thread")
 
     # @response_text(str)
     # @login_required
@@ -1343,11 +1388,28 @@ def run():
     # Early consolidated config validation feedback
     _report_config_issues()
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
+
+    # Flag to track if shutdown has been initiated
+    shutdown_initiated = False
+
     try:
         manager.get_child_processes()
 
         # Register cleanup for child processes when the main process exits
         def _cleanup():
+            nonlocal shutdown_initiated
+            if shutdown_initiated:
+                return  # Already cleaned up
+            shutdown_initiated = True
+
+            # Checkpoint database WAL before shutdown
+            try:
+                from qBitrr.database import checkpoint_database
+
+                checkpoint_database()
+            except Exception as e:
+                logger.error("Failed to checkpoint database on shutdown: %s", e)
+
             # Signal loops to shutdown gracefully
             try:
                 manager.shutdown_event.set()
@@ -1363,6 +1425,15 @@ def run():
                 with contextlib.suppress(Exception):
                     p.terminate()
 
+        # Register signal handlers for graceful shutdown
+        def _signal_handler(signum, frame):
+            logger.info("Received signal %s - initiating graceful shutdown", signum)
+            _cleanup()
+            sys.exit(0)
+
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGINT, _signal_handler)
+
         atexit.register(_cleanup)
         if manager.child_processes:
             manager.run()
@@ -1372,9 +1443,11 @@ def run():
             )
     except KeyboardInterrupt:
         logger.info("Detected Ctrl+C - Terminating process")
+        _cleanup()
         sys.exit(0)
     except Exception:
         logger.info("Attempting to terminate child processes, please wait a moment.")
+        _cleanup()
         for child in manager.child_processes:
             child.kill()
 

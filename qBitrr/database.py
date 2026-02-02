@@ -43,9 +43,9 @@ def get_database() -> SqliteDatabase:
                 "cache_size": -64_000,
                 "foreign_keys": 1,
                 "ignore_check_constraints": 0,
-                "synchronous": 1,  # NORMAL mode - balances safety and performance
+                "synchronous": 2,  # FULL mode - maximum safety, prevents corruption on power loss
                 "read_uncommitted": 1,
-                "wal_autocheckpoint": 1000,  # Checkpoint every 1000 pages
+                "wal_autocheckpoint": 100,  # Checkpoint every 100 pages (more frequent = safer)
                 "journal_size_limit": 67108864,  # 64MB max WAL size
             },
             timeout=15,
@@ -150,3 +150,29 @@ def _create_arrinstance_indexes(db: SqliteDatabase, models: list) -> None:
         db.commit()
     except Exception as e:
         logger.error("Error creating ArrInstance indexes: %s", e)
+
+
+def get_database_path() -> Path:
+    """Get the path to the database file."""
+    return Path(APPDATA_FOLDER) / "qbitrr.db"
+
+
+def checkpoint_database() -> bool:
+    """
+    Checkpoint the database WAL to prevent corruption on shutdown.
+
+    This is called automatically on graceful shutdown to ensure all
+    WAL entries are flushed to the main database file.
+
+    Returns:
+        True if checkpoint successful, False otherwise
+    """
+    from qBitrr.db_recovery import checkpoint_wal
+
+    db_path = get_database_path()
+    if not db_path.exists():
+        logger.debug("Database file does not exist, skipping checkpoint")
+        return True
+
+    logger.info("Checkpointing database WAL before shutdown...")
+    return checkpoint_wal(db_path, logger_override=logger)
