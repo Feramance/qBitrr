@@ -56,19 +56,22 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
           sessionStorage.removeItem("config_version_warning");
         }
 
-        // Load from localStorage as fallback for view density (client-side preference)
+        // Load from localStorage as fallback
         const storedDensity = localStorage.getItem("viewDensity") as ViewDensity | null;
         const storedTheme = localStorage.getItem("theme") as Theme | null;
 
-        // Get theme from backend or localStorage
+        // Get theme and view density from backend or localStorage
         const backendTheme = webui?.Theme as string | undefined;
         const theme: Theme = storedTheme || (backendTheme?.toLowerCase() as Theme) || "dark";
+
+        const backendDensity = webui?.ViewDensity as string | undefined;
+        const viewDensity: ViewDensity = storedDensity || (backendDensity?.toLowerCase() as ViewDensity) || "comfortable";
 
         setSettings({
           liveArr: webui?.LiveArr === true,
           groupSonarr: webui?.GroupSonarr === true,
           groupLidarr: webui?.GroupLidarr === true,
-          viewDensity: storedDensity || "comfortable",
+          viewDensity,
           theme,
         });
 
@@ -115,9 +118,12 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));
-    // Store in localStorage (client-side preference, not sent to backend)
+    // Store in localStorage for instant application
     localStorage.setItem("viewDensity", value);
-  }, []);
+    // Save to backend with proper capitalization (Comfortable or Compact)
+    const capitalizedDensity = value === "comfortable" ? "Comfortable" : "Compact";
+    void saveSettings("ViewDensity", capitalizedDensity);
+  }, [saveSettings]);
 
   const setTheme = useCallback((value: Theme) => {
     setSettings(prev => ({ ...prev, theme: value }));

@@ -61,6 +61,12 @@ def _add_web_settings_section(config: TOMLDocument):
         "Theme",
         "Dark",
     )
+    _gen_default_line(
+        web_settings,
+        "WebUI view density (Comfortable or Compact)",
+        "ViewDensity",
+        "Comfortable",
+    )
     config.add("WebUI", web_settings)
 
 
@@ -1293,6 +1299,22 @@ def _normalize_theme_value(value: Any) -> str:
         return "Dark"
 
 
+def _normalize_view_density_value(value: Any) -> str:
+    """
+    Normalize view density value to always be 'Comfortable' or 'Compact' (case insensitive input).
+    """
+    if value is None:
+        return "Comfortable"
+    value_str = str(value).strip().lower()
+    if value_str == "comfortable":
+        return "Comfortable"
+    elif value_str == "compact":
+        return "Compact"
+    else:
+        # Default to Comfortable if invalid value
+        return "Comfortable"
+
+
 def _validate_and_fill_config(config: MyConfig) -> bool:
     """
     Validate configuration and fill in missing values with defaults.
@@ -1359,6 +1381,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("GroupSonarr", True),
         ("GroupLidarr", True),
         ("Theme", "Dark"),
+        ("ViewDensity", "Comfortable"),
     ]
 
     for key, default in webui_defaults:
@@ -1373,6 +1396,14 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         normalized_theme = _normalize_theme_value(current_theme)
         if current_theme != normalized_theme:
             webui_section["Theme"] = normalized_theme
+            changed = True
+
+    # Normalize ViewDensity value to always be capitalized (Comfortable or Compact)
+    if "ViewDensity" in webui_section:
+        current_density = webui_section["ViewDensity"]
+        normalized_density = _normalize_view_density_value(current_density)
+        if current_density != normalized_density:
+            webui_section["ViewDensity"] = normalized_density
             changed = True
 
     # Validate qBit section

@@ -2344,11 +2344,21 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
+            # WebUI settings
+            webui_settings = {
+                "LiveArr": CONFIG.get("WebUI.LiveArr", fallback=True),
+                "GroupSonarr": CONFIG.get("WebUI.GroupSonarr", fallback=True),
+                "GroupLidarr": CONFIG.get("WebUI.GroupLidarr", fallback=True),
+                "Theme": CONFIG.get("WebUI.Theme", fallback="Dark"),
+                "ViewDensity": CONFIG.get("WebUI.ViewDensity", fallback="Comfortable"),
+            }
+
             return {
                 "qbit": qb,  # Legacy single-instance (default) for backward compatibility
                 "qbitInstances": qbit_instances,  # Multi-instance info
                 "arrs": arrs,
                 "ready": _ensure_arr_manager_ready(),
+                "webui": webui_settings,
             }
 
         @app.get("/api/status")
@@ -2544,6 +2554,7 @@ class WebUI:
                 "WebUI.GroupSonarr",
                 "WebUI.GroupLidarr",
                 "WebUI.Theme",
+                "WebUI.ViewDensity",
             }
             webui_restart_keys = {
                 "WebUI.Host",
