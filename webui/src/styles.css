@@ -2819,9 +2819,13 @@ svg[height] {
 }
 
 [data-density="compact"] .card-header {
-    font-size: 16px;
-    padding: 8px 12px;
-    margin-bottom: 8px;
+    font-size: 14px;
+    padding: 10px 14px;
+}
+
+[data-density="compact"] .card-header::after {
+    left: 14px;
+    right: 14px;
 }
 
 [data-density="compact"] .card-body {
@@ -2934,16 +2938,20 @@ svg[height] {
 }
 
 [data-density="compact"] .modal-header {
-    padding: 12px 16px;
-    margin-bottom: 12px;
+    padding: 14px 18px;
+}
+
+[data-density="compact"] .modal-header h2 {
+    font-size: 17px;
 }
 
 [data-density="compact"] .modal-body {
-    padding: 12px 16px;
+    padding: 14px 18px;
+    gap: 14px;
 }
 
 [data-density="compact"] .modal-footer {
-    padding: 12px 16px;
+    padding: 12px 18px 14px;
     gap: 8px;
 }
 
@@ -2963,13 +2971,13 @@ svg[height] {
 
 [data-density="compact"] .process-section__title {
     font-size: 11px;
-    padding: 0 2px;
-    gap: 6px;
+    padding: 0 3px;
+    gap: 8px;
 }
 
 [data-density="compact"] .process-section__title::before {
     width: 3px;
-    height: 14px;
+    height: 16px;
 }
 
 [data-density="compact"] .process-card {
