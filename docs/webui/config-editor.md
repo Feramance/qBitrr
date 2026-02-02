@@ -126,7 +126,7 @@ Theme = "Dark"
 ---
 
 #### 3. qBit
-**qBittorrent connection details**.
+**qBittorrent connection details and qBit-managed categories**.
 
 **Key Fields**:
 
@@ -135,6 +135,16 @@ Theme = "Dark"
 - **Port**: qBittorrent WebUI port (default: 8080)
 - **UserName**: qBittorrent WebUI username (optional if auth bypassed)
 - **Password**: qBittorrent WebUI password (optional if auth bypassed)
+- **Managed Categories**: Tag-based input for categories managed directly by qBit (independent of Arr instances)
+
+**Managed Categories**:
+
+This field allows qBittorrent to manage categories with custom seeding settings, independent of Radarr/Sonarr/Lidarr. Use this for torrents not managed by Arr instances (e.g., manually added torrents, private tracker downloads).
+
+- **Tag Input UI**: Add categories by typing and pressing Enter or comma
+- **Visual Tags**: Categories display as removable chips/tags
+- **Quick Removal**: Click × on any tag to remove it
+- **Category Validation**: System prevents conflicts between Arr-managed and qBit-managed categories
 
 **Example**:
 ```toml
@@ -144,12 +154,14 @@ Host = "localhost"
 Port = 8080
 UserName = "admin"
 Password = "adminpass"
+ManagedCategories = ["downloads", "private-tracker", "manual"]
 ```
 
 **Validation**:
 
 - `Host` must not be empty
 - `Port` must be between 1 and 65535
+- `ManagedCategories` cannot overlap with Arr instance categories
 
 ---
 
@@ -177,6 +189,12 @@ Each Radarr, Sonarr, or Lidarr instance is configured independently via dedicate
 2. Edit **Display Name** field
 3. Press Enter or blur field to apply
 4. Instance key updated in config (e.g., `Radarr-1` → `Radarr-4K`)
+5. **Automatic Cleanup**: Old section and all subsections are automatically removed when you save
+
+**Important**: The system now explicitly tracks renamed instances to ensure complete cleanup:
+- All old configuration keys are marked for deletion
+- Subsections (EntrySearch, Torrent, SeedingMode, Trackers) are automatically removed
+- No orphaned config sections remain after rename
 
 ---
 
@@ -515,6 +533,29 @@ Dropdown for predefined options (using `react-select` with theme-aware styling).
 - **Theme**: `Light`, `Dark`
 - **Search By Series** *(Sonarr)*: `smart`, `true`, `false`
 
+### Tag Input
+Interactive chip/tag-based input for managing arrays of strings.
+
+**Features**:
+
+- **Visual Tags**: Values display as styled chips with × remove buttons
+- **Quick Add**: Type and press Enter or comma to add new tags
+- **Backspace Delete**: Press Backspace on empty input to remove last tag
+- **Duplicate Prevention**: Automatically prevents adding duplicate values
+- **Theme Support**: Tags styled according to current theme
+
+**Examples**:
+
+- **Managed Categories** *(qBit)*: `["downloads", "private-tracker", "manual"]`
+- **Arr Error Codes To Blocklist**: `["Not an upgrade", "Unable to determine if sample"]`
+
+**Usage**:
+1. Click in the input field
+2. Type a category name (e.g., `downloads`)
+3. Press **Enter** or **comma** to add the tag
+4. Click **×** on any tag to remove it
+5. Press **Backspace** with empty input to remove the last tag
+
 ---
 
 ## Validation System
@@ -612,6 +653,27 @@ The following keys **cannot** be modified via the WebUI:
 - `Settings.ConfigVersion` (managed automatically by migration system)
 
 Attempts to modify protected keys return `403 Forbidden`.
+
+---
+
+## Modal State Persistence
+
+Configuration modals now preserve their state when you switch tabs or windows:
+
+**Persistent State**:
+
+- **Open Modals**: Remain open when switching between tabs or minimizing the browser
+- **Entered Data**: All field values are preserved across tab switches
+- **Unsaved Changes**: Maintained even if you switch to another application
+
+**Benefits**:
+
+- Fill out long configuration forms without losing progress
+- Reference other applications while configuring
+- Switch tabs to check settings in other systems
+- Resume configuration exactly where you left off
+
+**Note**: Modal state is preserved only within the Config tab. Navigating to a different WebUI page (Processes, Logs, etc.) will close modals as expected.
 
 ---
 
