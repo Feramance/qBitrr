@@ -3940,3 +3940,85 @@ svg[height] {
 .alert strong {
   font-weight: 600;
 }
+
+/* Tag Input Component */
+.tag-input-container {
+  width: 100%;
+}
+
+.tag-input-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  min-height: 42px;
+  align-items: center;
+}
+
+.tag-input-wrapper:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid rgba(125, 207, 255, 0.2);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(125, 207, 255, 0.15);
+  border: 1px solid rgba(125, 207, 255, 0.3);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  width: 14px;
+  height: 14px;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+}
+
+.tag-remove img {
+  width: 12px;
+  height: 12px;
+  filter: brightness(0) invert(1);
+}
+
+.tag-input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 4px;
+  color: var(--text);
+  font-size: 0.95em;
+}
+
+.tag-input::placeholder {
+  color: var(--text-muted);
+}
+
+.tag-input-hint {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-style: italic;
+}

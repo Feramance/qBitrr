@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
+import { TagInput } from "../components/TagInput";
 import Select from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
@@ -18,7 +19,7 @@ import SaveIcon from "../icons/check-mark.svg";
 import DeleteIcon from "../icons/trash.svg";
 import CloseIcon from "../icons/close.svg";
 
-type FieldType = "text" | "number" | "checkbox" | "password" | "select";
+type FieldType = "text" | "number" | "checkbox" | "password" | "select" | "tags";
 
 interface ValidationContext {
   root: ConfigDocument;
@@ -36,7 +37,7 @@ interface FieldDefinition {
   placeholder?: string;
   description?: string;
   parse?: (value: string | boolean) => unknown;
-  format?: (value: unknown) => string | boolean;
+  format?: (value: unknown) => string | boolean | string[];
   sectionName?: boolean;
   secure?: boolean;
   required?: boolean;
@@ -395,11 +396,21 @@ const QBIT_FIELDS: FieldDefinition[] = [
   {
     label: "Managed Categories",
     path: ["ManagedCategories"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
     fullWidth: true,
-    placeholder: "prowlarr, downloads",
+    placeholder: "Add categories (e.g., prowlarr, downloads)",
+    parse: (value: string | boolean) => {
+      // When saving, ensure we always save as array
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
+      return [];
+    },
+    format: (value: unknown) => {
+      // When displaying, ensure we always show as array
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
+      return [];
+    },
   },
   {
     label: "Max Upload Ratio",
@@ -1318,6 +1329,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Track section renames to ensure old sections are fully deleted
+  const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -1326,6 +1339,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       setOriginalConfig(config);
       // Deep clone config for form state (immer will handle immutability from here)
       setFormState(config ? JSON.parse(JSON.stringify(config)) : null);
+      // Clear pending renames when config is loaded
+      setPendingRenames(new Map());
     } catch (error) {
       push(
         error instanceof Error
@@ -1344,14 +1359,29 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
 
   const handleFieldChange = useCallback(
     (path: string[], def: FieldDefinition, raw: unknown) => {
+      console.log('[handleFieldChange]', {
+        path,
+        fieldType: def.type,
+        fieldLabel: def.label,
+        raw,
+        rawType: typeof raw,
+        isArray: Array.isArray(raw)
+      });
+
       if (!formState) return;
+      // For tags type, handle arrays directly without parsing
       const parsed =
-        def.parse?.(raw as string | boolean) ??
-        (def.type === "number"
-          ? Number(raw) || 0
-          : def.type === "checkbox"
-          ? Boolean(raw)
-          : raw);
+        def.type === "tags" && Array.isArray(raw)
+          ? raw
+          : def.parse?.(raw as string | boolean) ??
+            (def.type === "number"
+              ? Number(raw) || 0
+              : def.type === "checkbox"
+              ? Boolean(raw)
+              : raw);
+
+      console.log('[handleFieldChange] parsed:', parsed);
+
       setFormState(
         produce(formState, (draft) => {
           setValue(draft, path, parsed);
@@ -1633,6 +1663,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           }
         })
       );
+      // Track this rename to ensure old section is fully deleted on save
+      setPendingRenames((prev) => new Map(prev).set(oldName, newName));
       if (activeArrKey === oldName) {
         setActiveArrKey(newName);
       }
@@ -1662,6 +1694,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           draft[newName] = section;
         })
       );
+      // Track this rename to ensure old section is fully deleted on save
+      setPendingRenames((prev) => new Map(prev).set(oldName, newName));
       if (activeQbitKey === oldName) {
         setActiveQbitKey(newName);
       }
@@ -1701,6 +1735,17 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           changes[key] = null;
         }
       }
+      // Explicitly mark all keys under renamed sections for deletion
+      for (const [oldName] of pendingRenames) {
+        for (const key of Object.keys(flattenedOriginal)) {
+          if (key === oldName || key.startsWith(`${oldName}.`)) {
+            // Mark for deletion if not already tracked
+            if (!(key in changes)) {
+              changes[key] = null;
+            }
+          }
+        }
+      }
       if (Object.keys(changes).length === 0) {
         push("No changes detected", "info");
         setSaving(false);
@@ -1736,6 +1781,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
 
       await loadConfig();
+      // Clear pending renames after successful save and reload
+      setPendingRenames(new Map());
     } catch (error) {
       push(
         error instanceof Error
@@ -2358,6 +2405,34 @@ function FieldGroup({
             type="password"
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
+      );
+    }
+    if (field.type === "tags") {
+      // Ensure we always have an array
+      let tags: string[] = [];
+
+      if (Array.isArray(formatted)) {
+        tags = formatted;
+      } else if (Array.isArray(rawValue)) {
+        tags = rawValue;
+      } else if (typeof formatted === "string" && formatted) {
+        tags = formatted.split(",").map(s => s.trim()).filter(Boolean);
+      } else if (typeof rawValue === "string" && rawValue) {
+        tags = rawValue.split(",").map(s => s.trim()).filter(Boolean);
+      }
+
+      return (
+        <div key={key} className={fieldClassName}>
+          <label title={tooltip}>{field.label}</label>
+          <TagInput
+            value={tags}
+            onChange={(newTags) => {
+              onChange(path, field, newTags);
+            }}
             placeholder={field.placeholder}
           />
           {description && <div className="field-description">{description}</div>}

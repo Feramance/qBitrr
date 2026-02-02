@@ -804,7 +804,7 @@ function AppShell(): JSX.Element {
             {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
             {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
             {activeTab === "qbittorrent" && <QbitCategoriesView key={`qbittorrent-${reloadKey}`} active />}
-            {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
+            {activeTab === "config" && <ConfigView key="config" onDirtyChange={setConfigDirty} />}
           </div>
         </Suspense>
       </main>
