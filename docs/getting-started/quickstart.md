@@ -91,7 +91,7 @@ APIKey = "your_radarr_api_key"  # From Radarr Settings > General > Security
     - **Sonarr**: Settings → General → Security → API Key
     - **Lidarr**: Settings → General → Security → API Key
 
-!!! success "Multi-qBittorrent Support (v3.0+)"
+!!! success "Multi-qBittorrent Support (v5.7.x+)"
     qBitrr can now manage torrents across **multiple qBittorrent instances**!
 
     To add additional instances, use the `[qBit-NAME]` syntax in your config:
@@ -110,7 +110,7 @@ APIKey = "your_radarr_api_key"  # From Radarr Settings > General > Security
     Password = "seedboxpass"
     ```
 
-    See [qBittorrent Configuration](../configuration/qbittorrent.md#multi-qbittorrent-support-v30) for complete details.
+    See [qBittorrent Configuration](../configuration/qbittorrent.md#multi-qbittorrent-support-v57x) for complete details.
 
 ## Step 4: Configure Categories & Tags
 

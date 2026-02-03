@@ -53,8 +53,8 @@ WebUIToken = "your-secret-token-here"
 
 ### Qbittorrent Subsection
 
-!!! info "Multi-Instance Support (v3.0+)"
-    This section describes the legacy single-instance `[qBit]` configuration. For multi-instance support, see the [Multi-qBittorrent](#multi-qbittorrent-instances-v30) section below.
+!!! info "Multi-Instance Support (v5.7.x+)"
+    This section describes the legacy single-instance `[qBit]` configuration. For multi-instance support, see the [Multi-qBittorrent](#multi-qbittorrent-instances-v57x) section below.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
@@ -443,10 +443,10 @@ AutoReSearch = false
 
 ---
 
-## Multi-qBittorrent Instances (v3.0+)
+## Multi-qBittorrent Instances (v5.7.x+)
 
 !!! success "New Feature"
-    qBitrr v3.0 introduces support for managing torrents across multiple qBittorrent instances simultaneously.
+    qBitrr v5.7.0 introduces support for managing torrents across multiple qBittorrent instances simultaneously.
 
 ### Configuration Syntax
 
@@ -613,8 +613,8 @@ GET /api/torrents/distribution
 
 For complete multi-instance documentation, see:
 
-- [qBittorrent Configuration: Multi-Instance](../configuration/qbittorrent.md#multi-qbittorrent-support-v30)
-- [Multi-qBittorrent v3.0 User Guide](../advanced/multi-qbittorrent.md)
+- [qBittorrent Configuration: Multi-Instance](../configuration/qbittorrent.md#multi-qbittorrent-support-v57x)
+- [Multi-qBittorrent v5.7.x User Guide](../advanced/multi-qbittorrent.md)
 
 ---
 

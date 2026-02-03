@@ -3076,8 +3076,8 @@ svg[height] {
 }
 
 [data-density="compact"] .config-summary-card {
-    gap: 8px;
-    min-height: 90px;
+    gap: 6px;
+    min-height: unset;
 }
 
 [data-density="compact"] .config-summary-card p {
@@ -3141,7 +3141,7 @@ svg[height] {
 }
 
 [data-density="compact"] .config-arr-card {
-    min-height: 120px;
+    min-height: unset;
 }
 
 [data-density="compact"] .config-arr-summary {
