@@ -348,7 +348,7 @@ Yes! qBitrr runs on many NAS platforms:
 - **Unraid**: Community Applications
 - **TrueNAS**: Jails or Docker
 
-[NAS installation guide →](getting-started/installation/docker.md#nas-devices)
+[NAS installation guide →](getting-started/installation/docker.md#troubleshooting)
 
 ### Does qBitrr work with VPN?
 
@@ -515,7 +515,7 @@ RemoveTorrent = 4         # Must meet BOTH requirements
 
 This ensures you maintain good standing on private trackers.
 
-[Private tracker setup →](advanced/index.md#private-tracker-configuration)
+[Private tracker setup →](advanced/index.md#custom-tracker-configuration)
 
 ### Can I schedule searches at specific times?
 

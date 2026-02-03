@@ -10,8 +10,8 @@ This page covers the REST API endpoints exposed by qBitrr's WebUI.
 
 - **[Full API Reference](../webui/api.md)** - Complete endpoint documentation
 - **[Authentication](../webui/api.md#authentication)** - Token-based auth
-- **[Process Management](../webui/api.md#process-management-endpoints)** - Start/stop/restart Arr processes
-- **[Logs](../webui/api.md#logs-endpoints)** - Query and filter logs
+- **[Process Management](../webui/api.md#process-endpoints)** - Start/stop/restart Arr processes
+- **[Logs](../webui/api.md#log-endpoints)** - Query and filter logs
 - **[Configuration](../webui/api.md#configuration-endpoints)** - Get/update config
 - **[Arr Views](../webui/api.md#arr-view-endpoints)** - Movies, series, albums data
 

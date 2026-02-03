@@ -571,7 +571,7 @@ curl http://localhost:6969/api/status | jq '.qbitInstances'
 For complete documentation on multi-instance support, see:
 
 - [Multi-qBittorrent v5.7.x User Guide](../advanced/multi-qbittorrent.md)
-- [API Documentation](../reference/api.md#multi-instance-endpoints)
+- [API Documentation](../reference/api.md)
 
 ---
 

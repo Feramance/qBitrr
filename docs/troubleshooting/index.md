@@ -45,7 +45,7 @@ Problems with Docker container communication?
 - Verify port mappings
 - Test inter-container connectivity
 
-**Detailed Guide:** [Docker Networking](docker.md#networking)
+**Detailed Guide:** [Docker Networking](docker.md#networking-issues)
 
 ### Stalled Torrents
 
@@ -57,7 +57,7 @@ Torrents stuck and not completing?
 - Check available disk space
 - Review torrent client logs
 
-**Detailed Guide:** [Stalled Torrents](common-issues.md#stalled-torrents)
+**Detailed Guide:** [Stalled Torrents](common-issues.md#stalled-torrents-not-being-handled)
 
 ## Debugging Steps
 

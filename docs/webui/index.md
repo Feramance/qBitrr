@@ -203,7 +203,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Downloaded: X
 - Disk space used: X GB
 
-[**Detailed Radarr View Guide →**](arr-views.md#radarr)
+[**Detailed Radarr View Guide →**](arr-views.md#radarr-view)
 
 #### Sonarr View
 
@@ -241,7 +241,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Episodes downloaded: X
 - Next airing: [Show Name] - S01E05
 
-[**Detailed Sonarr View Guide →**](arr-views.md#sonarr)
+[**Detailed Sonarr View Guide →**](arr-views.md#sonarr-view)
 
 #### Lidarr View
 
@@ -278,7 +278,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Missing albums: X
 - Disk space used: X GB
 
-[**Detailed Lidarr View Guide →**](arr-views.md#lidarr)
+[**Detailed Lidarr View Guide →**](arr-views.md#lidarr-view)
 
 ---
 

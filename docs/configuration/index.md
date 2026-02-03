@@ -250,7 +250,7 @@ MaxLogSize = "10M"
 
 #### 3. Database Configuration
 
-**[Database Settings](config-file.md#database)**
+**[Database Settings](../advanced/index.md#database)**
 
 Configure SQLite database behavior:
 
