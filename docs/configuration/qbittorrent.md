@@ -575,6 +575,141 @@ For complete documentation on multi-instance support, see:
 
 ---
 
+## Managed Categories & Seeding Settings
+
+qBitrr can manage qBittorrent categories independently of Radarr/Sonarr/Lidarr. This is useful for torrents that aren't tracked by any Arr instance, such as manually added downloads, private tracker torrents, or long-term seeds.
+
+### Overview
+
+When you add categories to the `ManagedCategories` list, qBitrr spawns a dedicated worker process that:
+
+- Monitors all torrents in those categories across all configured qBittorrent instances
+- Applies download/upload rate limits per torrent
+- Enforces ratio and seeding time limits
+- Automatically removes torrents when conditions are met (keeps downloaded files)
+
+### Configuration
+
+Add `ManagedCategories` and `CategorySeeding` to your `[qBit]` section (or any `[qBit-NAME]` section for multi-instance setups):
+
+```toml
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "adminpass"
+
+# Categories managed directly by qBit (not by Arr instances)
+ManagedCategories = ["downloads", "private-tracker", "manual"]
+
+# Default seeding settings applied to all managed categories
+[qBit.CategorySeeding]
+DownloadRateLimitPerTorrent = -1   # KB/s (-1 = no limit)
+UploadRateLimitPerTorrent = -1     # KB/s (-1 = no limit)
+MaxUploadRatio = -1                # -1 = no limit (e.g. 2.0 = 200%)
+MaxSeedingTime = -1                # Seconds (-1 = no limit, 604800 = 7 days)
+RemoveTorrent = -1                 # Removal policy (see below)
+```
+
+### CategorySeeding Fields
+
+| Field | Default | Unit | Description |
+|-------|---------|------|-------------|
+| `DownloadRateLimitPerTorrent` | `-1` | KB/s | Per-torrent download speed limit. `-1` disables the limit. |
+| `UploadRateLimitPerTorrent` | `-1` | KB/s | Per-torrent upload speed limit. `-1` disables the limit. |
+| `MaxUploadRatio` | `-1` | ratio | Maximum share ratio before removal action. `-1` disables. |
+| `MaxSeedingTime` | `-1` | seconds | Maximum seeding duration before removal action. `-1` disables. |
+| `RemoveTorrent` | `-1` | mode | When to remove the torrent (see table below). |
+
+### RemoveTorrent Modes
+
+| Value | Mode | Behavior |
+|-------|------|----------|
+| `-1` | Never | Do not remove torrents automatically |
+| `1` | On Ratio | Remove when `MaxUploadRatio` is reached |
+| `2` | On Time | Remove when `MaxSeedingTime` is reached |
+| `3` | Ratio OR Time | Remove when **either** limit is reached (whichever comes first) |
+| `4` | Ratio AND Time | Remove only when **both** limits are reached |
+
+!!! note "File Retention"
+    When qBitrr removes a torrent, it **keeps the downloaded files** on disk. Only the torrent entry is removed from qBittorrent.
+
+### Examples
+
+#### Seed to 2:1 ratio, then remove
+
+```toml
+[qBit]
+ManagedCategories = ["downloads"]
+
+[qBit.CategorySeeding]
+MaxUploadRatio = 2.0
+RemoveTorrent = 1
+```
+
+#### Seed for 7 days or until 3:1 ratio
+
+```toml
+[qBit]
+ManagedCategories = ["private-tracker"]
+
+[qBit.CategorySeeding]
+MaxUploadRatio = 3.0
+MaxSeedingTime = 604800
+RemoveTorrent = 3
+```
+
+#### Rate-limit uploads to 500 KB/s, no auto-removal
+
+```toml
+[qBit]
+ManagedCategories = ["long-term-seed"]
+
+[qBit.CategorySeeding]
+UploadRateLimitPerTorrent = 500
+RemoveTorrent = -1
+```
+
+#### Multi-instance with different seeding policies
+
+```toml
+[qBit]
+ManagedCategories = ["downloads"]
+
+[qBit.CategorySeeding]
+MaxUploadRatio = 2.0
+MaxSeedingTime = 604800
+RemoveTorrent = 3
+
+[qBit-seedbox]
+Host = "192.168.1.100"
+Port = 8080
+UserName = "admin"
+Password = "password"
+ManagedCategories = ["long-term-seed"]
+
+[qBit-seedbox.CategorySeeding]
+MaxUploadRatio = 5.0
+RemoveTorrent = 1
+```
+
+### Viewing Managed Categories in the WebUI
+
+The **qBittorrent** tab in the WebUI displays all managed categories with live statistics:
+
+- **Torrent and seeding counts** per category
+- **Total size** of torrents in each category
+- **Average ratio and seeding time**
+- **Configured seeding limits** (max ratio, max time, removal mode)
+- **Managed By** indicator showing whether each category is managed by qBit or an Arr instance
+
+Categories refresh automatically — every 1 second when "Live Arr" is enabled, or every 30 seconds otherwise.
+
+!!! warning "Category Conflicts"
+    `ManagedCategories` cannot overlap with categories used by Arr instances. The WebUI configuration editor validates this automatically.
+
+---
+
 ## Advanced Configuration
 
 ### Custom TLS/SSL

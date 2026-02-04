@@ -281,6 +281,43 @@ Browse and manage your media libraries directly from qBitrr.
 
 ---
 
+### 📦 qBittorrent Categories
+
+View and monitor all qBittorrent categories — both qBit-managed and Arr-managed — from a unified dashboard.
+
+**Features:**
+
+- **Category Overview**
+  - Total category count across all qBittorrent instances
+  - Breakdown of qBit-managed vs. Arr-managed categories
+  - Aggregate torrent count, seeding count, and total size
+
+- **Category Table**
+  - Category name
+  - Managed By indicator (qBit or Arr badge)
+  - Instance name (for multi-instance setups)
+  - Torrent count and seeding count
+  - Total size
+  - Average ratio and average seeding time
+  - Configured max ratio and max seeding time
+  - Removal mode (Never, On Ratio, On Time, Ratio OR Time, Ratio AND Time)
+
+- **Live Updates**
+  - Auto-refresh every 1 second when "Live Arr" is enabled
+  - Auto-refresh every 30 seconds otherwise
+  - Manual refresh button
+
+**Use Cases:**
+
+- Monitor seeding progress across manually added torrents
+- Verify that seeding limits are correctly applied
+- Track category usage across multiple qBittorrent instances
+- Confirm that qBit-managed and Arr-managed categories don't overlap
+
+For configuration details, see [Managed Categories & Seeding Settings](../configuration/qbittorrent.md#managed-categories-seeding-settings).
+
+---
+
 ### ⚙️ Configuration Editor
 
 Edit your qBitrr configuration without leaving the browser.
@@ -393,6 +430,7 @@ The WebUI uses a tab-based navigation system:
 | **Radarr** | 🎬 | Radarr movie library views |
 | **Sonarr** | 📺 | Sonarr TV series views |
 | **Lidarr** | 🎵 | Lidarr music library views |
+| **qBittorrent** | 📦 | qBit category management and seeding stats |
 | **Config** | ⚙️ | Configuration editor |
 | **API** | 🔌 | API documentation and testing |
 
