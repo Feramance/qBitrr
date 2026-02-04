@@ -348,9 +348,8 @@ function AppShell(): JSX.Element {
           await Promise.all(
             cacheNames.map(cacheName => caches.delete(cacheName))
           );
-          console.log('Cache cleared on page load');
-        } catch (error) {
-          console.error('Failed to clear cache:', error);
+        } catch {
+          // cache clear failed, non-critical
         }
       }
     };

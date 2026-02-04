@@ -1359,15 +1359,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
 
   const handleFieldChange = useCallback(
     (path: string[], def: FieldDefinition, raw: unknown) => {
-      console.log('[handleFieldChange]', {
-        path,
-        fieldType: def.type,
-        fieldLabel: def.label,
-        raw,
-        rawType: typeof raw,
-        isArray: Array.isArray(raw)
-      });
-
       if (!formState) return;
       // For tags type, handle arrays directly without parsing
       const parsed =
@@ -1379,8 +1370,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
               : def.type === "checkbox"
               ? Boolean(raw)
               : raw);
-
-      console.log('[handleFieldChange] parsed:', parsed);
 
       setFormState(
         produce(formState, (draft) => {

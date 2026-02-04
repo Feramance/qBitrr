@@ -1256,18 +1256,6 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               ""
             );
 
-          console.log("=== Lidarr API Response ===");
-          console.log("Instance:", inst.category);
-          console.log("Response:", res);
-          console.log("Albums count:", res.albums?.length);
-          if (res.albums && res.albums.length > 0) {
-            console.log("First album entry:", res.albums[0]);
-            console.log("First album.album:", res.albums[0].album);
-            console.log("First album.totals:", res.albums[0].totals);
-            console.log("First album.tracks:", res.albums[0].tracks);
-          }
-          console.log("=========================");
-
           if (!counted) {
             const counts = res.counts;
             if (counts) {
