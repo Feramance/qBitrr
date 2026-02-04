@@ -69,6 +69,7 @@ test_webui.sh
 
 # Development
 AGENTS.md
+CLAUDE.md
 compose.yml
 opencodetmp/
 .claude
