@@ -56,26 +56,29 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
           sessionStorage.removeItem("config_version_warning");
         }
 
-        // Load from localStorage as fallback for view density (client-side preference)
+        // Load from localStorage as fallback
         const storedDensity = localStorage.getItem("viewDensity") as ViewDensity | null;
         const storedTheme = localStorage.getItem("theme") as Theme | null;
 
-        // Get theme from backend or localStorage
+        // Get theme and view density from backend or localStorage
         const backendTheme = webui?.Theme as string | undefined;
         const theme: Theme = storedTheme || (backendTheme?.toLowerCase() as Theme) || "dark";
+
+        const backendDensity = webui?.ViewDensity as string | undefined;
+        const viewDensity: ViewDensity = storedDensity || (backendDensity?.toLowerCase() as ViewDensity) || "comfortable";
 
         setSettings({
           liveArr: webui?.LiveArr === true,
           groupSonarr: webui?.GroupSonarr === true,
           groupLidarr: webui?.GroupLidarr === true,
-          viewDensity: storedDensity || "comfortable",
+          viewDensity,
           theme,
         });
 
         // Apply theme immediately
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (error) {
-        console.error("Failed to load WebUI settings:", error);
+      } catch {
+        // settings load failed, defaults will be used
       } finally {
         setLoading(false);
       }
@@ -87,14 +90,9 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   // Auto-save settings to backend
   const saveSettings = useCallback(async (key: string, value: boolean | string) => {
     try {
-      const changes: Record<string, unknown> = {
-        WebUI: {
-          [key]: value,
-        },
-      };
-      await updateConfig({ changes });
-    } catch (error) {
-      console.error(`Failed to save ${key}:`, error);
+      await updateConfig({ changes: { [`WebUI.${key}`]: value } });
+    } catch {
+      // save failed, non-critical
     }
   }, []);
 
@@ -115,9 +113,12 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   const setViewDensity = useCallback((value: ViewDensity) => {
     setSettings(prev => ({ ...prev, viewDensity: value }));
-    // Store in localStorage (client-side preference, not sent to backend)
+    // Store in localStorage for instant application
     localStorage.setItem("viewDensity", value);
-  }, []);
+    // Save to backend with proper capitalization (Comfortable or Compact)
+    const capitalizedDensity = value === "comfortable" ? "Comfortable" : "Compact";
+    void saveSettings("ViewDensity", capitalizedDensity);
+  }, [saveSettings]);
 
   const setTheme = useCallback((value: Theme) => {
     setSettings(prev => ({ ...prev, theme: value }));

@@ -268,9 +268,9 @@ Ok.
 
 ---
 
-## Multi-qBittorrent Support (v3.0+)
+## Multi-qBittorrent Support (v5.7.x+)
 
-!!! success "New in v3.0"
+!!! success "New in v5.7.0"
     qBitrr now supports managing torrents across **multiple qBittorrent instances** simultaneously! This enables load balancing, redundancy, VPN isolation, and more.
 
 ### Overview
@@ -570,8 +570,8 @@ curl http://localhost:6969/api/status | jq '.qbitInstances'
 
 For complete documentation on multi-instance support, see:
 
-- [Multi-qBittorrent v3.0 User Guide](../advanced/multi-qbittorrent.md)
-- [API Documentation](../reference/api.md#multi-instance-endpoints)
+- [Multi-qBittorrent v5.7.x User Guide](../advanced/multi-qbittorrent.md)
+- [API Documentation](../reference/api.md)
 
 ---
 

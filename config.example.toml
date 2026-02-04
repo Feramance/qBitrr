@@ -129,7 +129,7 @@ Password = "CHANGE_ME"
 
 
 # ============================================================
-# MULTI-QBITTORRENT SUPPORT (v3.0+)
+# MULTI-QBITTORRENT SUPPORT (v5.7.x+)
 # ============================================================
 # You can configure multiple qBittorrent instances using the [qBit-NAME] syntax.
 # Each Arr instance will monitor ALL qBit instances for torrents in its category.

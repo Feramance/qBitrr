@@ -7649,6 +7649,7 @@ class ArrManager:
         self.uris: set[str] = set()
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
         self.arr_categories: set[str] = set()
+        self.qbit_managed_categories: set[str] = set()
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
@@ -7662,6 +7663,62 @@ class ArrManager:
                 "'%s' was not found, disabling all functionality dependant on it",
                 self.qbit_manager.ffprobe_downloader.probe_path,
             )
+
+    def _validate_category_assignments(self):
+        """
+        Validate that no category is managed by both Arr and qBit instances.
+
+        Collects all qBit-managed categories from all qBit instances and checks
+        for conflicts with Arr-managed categories. Allows same category on
+        multiple qBit instances (acceptable).
+
+        Raises:
+            ValueError: If any category is managed by both Arr and qBit
+        """
+        # Collect qBit-managed categories from all instances
+        for section in CONFIG.sections():
+            # Check default qBit section
+            if section == "qBit":
+                managed_cats = CONFIG.get("qBit.ManagedCategories", fallback=[])
+                if managed_cats:
+                    self.qbit_managed_categories.update(managed_cats)
+                    self.logger.debug(
+                        "qBit instance 'default' manages categories: %s",
+                        ", ".join(managed_cats),
+                    )
+            # Check additional qBit-XXX sections
+            elif section.startswith("qBit-"):
+                instance_name = section.replace("qBit-", "", 1)
+                managed_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
+                if managed_cats:
+                    self.qbit_managed_categories.update(managed_cats)
+                    self.logger.debug(
+                        "qBit instance '%s' manages categories: %s",
+                        instance_name,
+                        ", ".join(managed_cats),
+                    )
+
+        # Check for conflicts between Arr and qBit categories
+        conflicts = self.arr_categories & self.qbit_managed_categories
+        if conflicts:
+            conflict_list = ", ".join(sorted(conflicts))
+            error_msg = (
+                f"Category conflict detected: {conflict_list} "
+                f"cannot be managed by both Arr instances and qBit instances. "
+                f"Please assign each category to either Arr OR qBit management, not both."
+            )
+            self.logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Update category allowlist to include qBit-managed categories
+        self.category_allowlist.update(self.qbit_managed_categories)
+
+        if self.qbit_managed_categories:
+            self.logger.info(
+                "qBit-managed categories registered: %s",
+                ", ".join(sorted(self.qbit_managed_categories)),
+            )
+        self.logger.debug("Category validation passed - no conflicts detected")
 
     def build_arr_instances(self):
         for key in CONFIG.sections():
@@ -7690,6 +7747,10 @@ class ArrManager:
                     continue
                 except (OSError, TypeError) as e:
                     self.logger.exception(e)
+
+        # Validate category assignments after all Arr instances are initialized
+        self._validate_category_assignments()
+
         if (
             FREE_SPACE != "-1"
             and AUTO_PAUSE_RESUME

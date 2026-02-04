@@ -61,6 +61,12 @@ def _add_web_settings_section(config: TOMLDocument):
         "Theme",
         "Dark",
     )
+    _gen_default_line(
+        web_settings,
+        "WebUI view density (Comfortable or Compact)",
+        "ViewDensity",
+        "Comfortable",
+    )
     config.add("WebUI", web_settings)
 
 
@@ -283,6 +289,58 @@ def _add_qbit_section(config: TOMLDocument):
         "Password",
         ENVIRO_CONFIG.qbit.password or "CHANGE_ME",
     )
+    _gen_default_line(
+        qbit,
+        [
+            "Categories managed directly by this qBit instance (not managed by Arr instances).",
+            "These categories will have seeding settings applied according to CategorySeeding configuration.",
+            "Example: ['downloads', 'private-tracker', 'long-term-seed']",
+        ],
+        "ManagedCategories",
+        [],
+    )
+
+    # Add CategorySeeding subsection
+    category_seeding = table()
+    _gen_default_line(
+        category_seeding,
+        "Download rate limit per torrent in KB/s (-1 = disabled)",
+        "DownloadRateLimitPerTorrent",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Upload rate limit per torrent in KB/s (-1 = disabled)",
+        "UploadRateLimitPerTorrent",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Maximum upload ratio (-1 = disabled, e.g. 2.0 for 200%)",
+        "MaxUploadRatio",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Maximum seeding time in seconds (-1 = disabled, e.g. 604800 for 7 days)",
+        "MaxSeedingTime",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        [
+            "When to remove torrents from qBittorrent:",
+            "  -1 = Never remove",
+            "   1 = Remove when MaxUploadRatio is reached",
+            "   2 = Remove when MaxSeedingTime is reached",
+            "   3 = Remove when either condition is met (OR)",
+            "   4 = Remove when both conditions are met (AND)",
+        ],
+        "RemoveTorrent",
+        -1,
+    )
+    qbit.add("CategorySeeding", category_seeding)
+
     config.add("qBit", qbit)
 
 
@@ -1152,6 +1210,79 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
     return changes_made
 
 
+def _migrate_qbit_category_settings(config: MyConfig) -> bool:
+    """
+    Add qBit category management settings to existing configs.
+
+    Migration runs if:
+    - ConfigVersion < 4
+
+    Adds ManagedCategories and CategorySeeding configuration to all qBit sections.
+
+    After migration, ConfigVersion will be set to 4 by apply_config_migrations().
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    # Check if migration already applied
+    current_version = get_config_version(config)
+    if current_version >= 4:
+        return False  # Already migrated
+
+    changes_made = False
+
+    # Migrate default qBit section
+    if "qBit" in config.config:
+        qbit_section = config.config["qBit"]
+        if "ManagedCategories" not in qbit_section:
+            qbit_section["ManagedCategories"] = []
+            changes_made = True
+            logger.info("Added ManagedCategories = [] to [qBit]")
+
+        # Add CategorySeeding subsection
+        if "CategorySeeding" not in qbit_section:
+            seeding = table()
+            seeding["DownloadRateLimitPerTorrent"] = -1
+            seeding["UploadRateLimitPerTorrent"] = -1
+            seeding["MaxUploadRatio"] = -1
+            seeding["MaxSeedingTime"] = -1
+            seeding["RemoveTorrent"] = -1
+            qbit_section["CategorySeeding"] = seeding
+            changes_made = True
+            logger.info("Added CategorySeeding configuration to [qBit]")
+
+    # Migrate additional qBit instances (qBit-XXX)
+    for section in config.config.keys():
+        if str(section).startswith("qBit-"):
+            qbit_section = config.config[str(section)]
+            if "ManagedCategories" not in qbit_section:
+                qbit_section["ManagedCategories"] = []
+                changes_made = True
+                logger.info(f"Added ManagedCategories = [] to [{section}]")
+
+            if "CategorySeeding" not in qbit_section:
+                seeding = table()
+                seeding["DownloadRateLimitPerTorrent"] = -1
+                seeding["UploadRateLimitPerTorrent"] = -1
+                seeding["MaxUploadRatio"] = -1
+                seeding["MaxSeedingTime"] = -1
+                seeding["RemoveTorrent"] = -1
+                qbit_section["CategorySeeding"] = seeding
+                changes_made = True
+                logger.info(f"Added CategorySeeding configuration to [{section}]")
+
+    if changes_made:
+        print("Migration v3→v4: Added qBit category management settings")
+
+    return changes_made
+
+
 def _normalize_theme_value(value: Any) -> str:
     """
     Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
@@ -1166,6 +1297,22 @@ def _normalize_theme_value(value: Any) -> str:
     else:
         # Default to Dark if invalid value
         return "Dark"
+
+
+def _normalize_view_density_value(value: Any) -> str:
+    """
+    Normalize view density value to always be 'Comfortable' or 'Compact' (case insensitive input).
+    """
+    if value is None:
+        return "Comfortable"
+    value_str = str(value).strip().lower()
+    if value_str == "comfortable":
+        return "Comfortable"
+    elif value_str == "compact":
+        return "Compact"
+    else:
+        # Default to Comfortable if invalid value
+        return "Comfortable"
 
 
 def _validate_and_fill_config(config: MyConfig) -> bool:
@@ -1234,6 +1381,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("GroupSonarr", True),
         ("GroupLidarr", True),
         ("Theme", "Dark"),
+        ("ViewDensity", "Comfortable"),
     ]
 
     for key, default in webui_defaults:
@@ -1248,6 +1396,14 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         normalized_theme = _normalize_theme_value(current_theme)
         if current_theme != normalized_theme:
             webui_section["Theme"] = normalized_theme
+            changed = True
+
+    # Normalize ViewDensity value to always be capitalized (Comfortable or Compact)
+    if "ViewDensity" in webui_section:
+        current_density = webui_section["ViewDensity"]
+        normalized_density = _normalize_view_density_value(current_density)
+        if current_density != normalized_density:
+            webui_section["ViewDensity"] = normalized_density
             changed = True
 
     # Validate qBit section
@@ -1341,6 +1497,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # NEW: Add process auto-restart settings (v2 → v3)
     if _migrate_process_restart_settings(config):
+        changes_made = True
+
+    # NEW: Add qBit category management settings (v3 → v4)
+    if _migrate_qbit_category_settings(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)

@@ -111,7 +111,7 @@ qBitrr can validate media files before import:
 
 ```toml
 [Settings]
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 FFprobePath = "/usr/bin/ffprobe"
 ```
 

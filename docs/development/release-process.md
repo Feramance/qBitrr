@@ -391,4 +391,4 @@ docker pull feramance/qbitrr:5.5.5
 
 - [Contributing](contributing.md) - Contribution guidelines
 - [Development Guide](index.md) - Development setup
-- [GitHub Actions Workflows](../../.github/workflows/) - CI/CD configuration
+- [GitHub Actions Workflows](https://github.com/Feramance/qBitrr/tree/master/.github/workflows) - CI/CD configuration

@@ -112,7 +112,6 @@ Monitor and control all qBitrr processes from a unified dashboard.
 
 - **Real-time Status** - Live process state updates (Running, Stopped, Crashed)
 - **Health Indicators** - Connection status to qBittorrent and Arr instances
-- **Resource Monitoring** - CPU, memory, and uptime statistics per process
 - **Process Control** - Start, stop, or restart individual Arr manager processes
 - **Auto-restart Status** - See if auto-restart is enabled and restart counts
 - **Process Logs** - Quick access to process-specific logs
@@ -145,7 +144,7 @@ Tail and search logs in real-time directly from your browser.
   - By time range
   - By source/category
 
-- **Real-time Streaming** - Auto-scroll and live updates via WebSocket
+- **Real-time Updates** - Auto-scroll and live updates via HTTP polling (1 second interval)
 - **Export** - Download logs as text files
 - **Syntax Highlighting** - Color-coded log levels
 - **Pagination** - Load more logs on demand
@@ -203,7 +202,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Downloaded: X
 - Disk space used: X GB
 
-[**Detailed Radarr View Guide →**](arr-views.md#radarr)
+[**Detailed Radarr View Guide →**](arr-views.md#radarr-view)
 
 #### Sonarr View
 
@@ -241,7 +240,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Episodes downloaded: X
 - Next airing: [Show Name] - S01E05
 
-[**Detailed Sonarr View Guide →**](arr-views.md#sonarr)
+[**Detailed Sonarr View Guide →**](arr-views.md#sonarr-view)
 
 #### Lidarr View
 
@@ -278,7 +277,7 @@ Browse and manage your media libraries directly from qBitrr.
 - Missing albums: X
 - Disk space used: X GB
 
-[**Detailed Lidarr View Guide →**](arr-views.md#lidarr)
+[**Detailed Lidarr View Guide →**](arr-views.md#lidarr-view)
 
 ---
 
@@ -288,11 +287,10 @@ Edit your qBitrr configuration without leaving the browser.
 
 **Features:**
 
-- **Live TOML Editor**
-  - Syntax highlighting
-  - Line numbers
-  - Auto-indentation
-  - Bracket matching
+- **Form-Based Editor**
+  - Structured configuration editing
+  - Organized by section (Settings, WebUI, qBit, Arr instances)
+  - Helpful descriptions for each option
 
 - **Validation**
   - Real-time syntax validation
@@ -378,7 +376,7 @@ Overview of qBitrr's health and performance.
 
 - Connection status: Every 30 seconds
 - Metrics: Every 60 seconds
-- Activity: Real-time (WebSocket)
+- Activity: Real-time (1-second polling)
 
 ---
 
@@ -592,10 +590,9 @@ The WebUI is fully responsive and optimized for all screen sizes.
 | ++ctrl+slash++ | Show shortcuts help |
 | ++1++ - ++7++ | Switch to tab 1-7 |
 | ++ctrl+r++ | Refresh current view |
-| ++ctrl+f++ | Focus search box |
-| ++esc++ | Clear search / Close modals |
-| ++ctrl+comma++ | Open settings |
-| ++ctrl+shift+d++ | Toggle dark mode |
+| ++esc++ | Close modals / Clear search |
+
+**Note:** Keyboard navigation is fully supported (Tab, Shift+Tab, Enter, Arrow keys).
 
 ---
 
@@ -869,41 +866,23 @@ All responses are JSON:
 
 **Solutions:**
 
-1. **Check WebSocket connection:**
+1. **Check polling is active:**
 
     - Open browser Developer Tools (++f12++)
     - Go to Network tab
-    - Filter by "WS" (WebSocket)
-    - Should see an active WebSocket connection
+    - Filter by "Fetch/XHR"
+    - Should see periodic requests to `/api/processes` every 1 second
 
-2. **Verify reverse proxy supports WebSocket:**
+2. **Verify browser settings:**
 
-    === "Nginx"
+    - Ensure JavaScript is enabled
+    - Check browser isn't throttling background tabs
+    - Disable power saving modes that may affect tab activity
 
-        ```nginx
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        ```
+2. **Manual refresh as fallback:**
 
-    === "Caddy"
-
-        WebSocket support is automatic in Caddy v2+
-
-    === "Traefik"
-
-        ```yaml
-        # No special config needed for WebSocket
-        ```
-
-3. **Check firewall/network:**
-
-    - Some corporate firewalls block WebSocket
-    - Try accessing from a different network
-
-4. **Manual refresh as fallback:**
-
-    If WebSocket can't be enabled, manually refresh the page
+    - Click refresh button to manually update
+    - Or reload the page (++ctrl+r++)
 
 ---
 
@@ -1071,7 +1050,7 @@ All responses are JSON:
 ### Required Browser Features
 
 - ES6 JavaScript support
-- WebSocket support (for real-time updates)
+- Periodic polling support (for real-time updates)
 - LocalStorage (for preferences)
 - Flexbox and CSS Grid
 - SVG support
@@ -1260,13 +1239,11 @@ The WebUI communicates with these qBitrr API endpoints:
 | `/api/processes` | GET | List processes |
 | `/api/processes/:name/restart` | POST | Restart process |
 | `/api/logs` | GET | Fetch logs |
-| `/api/logs/stream` | WebSocket | Stream logs |
 | `/api/radarr/movies` | GET | List movies |
 | `/api/sonarr/series` | GET | List series |
 | `/api/lidarr/albums` | GET | List albums |
 | `/api/config` | GET | Get config |
 | `/api/config` | POST | Update config |
-| `/api/qbittorrent/torrents` | GET | List torrents |
 
 [**Full API Documentation →**](api.md)
 

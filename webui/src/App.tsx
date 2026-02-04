@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Susp
 const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
 const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
 const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
+const QbitCategoriesView = lazy(() => import("./pages/QbitCategoriesView").then(module => ({ default: module.QbitCategoriesView })));
 const ConfigView = lazy(() => import("./pages/ConfigView").then(module => ({ default: module.ConfigView })));
+import ReactMarkdown from "react-markdown";
 import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
@@ -20,10 +22,11 @@ import LogsIcon from "./icons/log.svg";
 import RadarrIcon from "./icons/radarr.svg";
 import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
+import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import LogoIcon from "./icons/logo.svg";
 
-type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "config";
+type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
 
 interface NavTab {
   id: Tab;
@@ -243,9 +246,11 @@ function ChangelogModal({
           </div>
           <div className="changelog-section">
             <h3>What's New</h3>
-            <pre className="changelog-body">
-              {changelog?.trim() ? changelog.trim() : "No changelog provided."}
-            </pre>
+            <div className="changelog-body markdown-content">
+              <ReactMarkdown>
+                {changelog?.trim() ? changelog.trim() : "No changelog provided."}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
         <div className="modal-footer">
@@ -343,9 +348,8 @@ function AppShell(): JSX.Element {
           await Promise.all(
             cacheNames.map(cacheName => caches.delete(cacheName))
           );
-          console.log('Cache cleared on page load');
-        } catch (error) {
-          console.error('Failed to clear cache:', error);
+        } catch {
+          // cache clear failed, non-critical
         }
       }
     };
@@ -438,11 +442,11 @@ function AppShell(): JSX.Element {
         return;
       }
 
-      // Number keys 1-6 for tab switching
-      if (event.key >= '1' && event.key <= '6' && !isMod) {
+      // Number keys 1-7 for tab switching
+      if (event.key >= '1' && event.key <= '7' && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'config'];
+        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'qbittorrent', 'config'];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -614,6 +618,7 @@ function AppShell(): JSX.Element {
       { id: "radarr", label: "Radarr", icon: RadarrIcon },
       { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
       { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
+      { id: "qbittorrent", label: "qBittorrent", icon: QbitIcon },
       { id: "config", label: "Config", icon: ConfigIcon },
     ],
     []
@@ -791,12 +796,15 @@ function AppShell(): JSX.Element {
           ))}
         </nav>
         <Suspense fallback={<div className="loading">Loading...</div>}>
-          {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
-          {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
-          {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
-          {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
-          {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
-          {activeTab === "config" && <ConfigView key={`config-${reloadKey}`} onDirtyChange={setConfigDirty} />}
+          <div key={activeTab} className="view-transition">
+            {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
+            {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
+            {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
+            {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
+            {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
+            {activeTab === "qbittorrent" && <QbitCategoriesView key={`qbittorrent-${reloadKey}`} active />}
+            {activeTab === "config" && <ConfigView key="config" onDirtyChange={setConfigDirty} />}
+          </div>
         </Suspense>
       </main>
       {showChangelog && meta ? (

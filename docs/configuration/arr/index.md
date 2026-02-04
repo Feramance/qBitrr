@@ -232,7 +232,7 @@ SearchPeriodDays = 7  # Search every 7 days
 - Ensure Arr instance is running
 - Check firewall rules
 
-See: [Common Issues](../../troubleshooting/common-issues.md#arr-connection-issues)
+See: [Common Issues](../../troubleshooting/common-issues.md#arr-instance-connection-failures)
 
 ### Category Mismatch
 
@@ -677,7 +677,7 @@ curl -H "X-Api-Key: YOUR_API_KEY" http://localhost:7878/api/v3/system/status
 # Should return JSON with version info
 ```
 
-See: [Common Issues](../../troubleshooting/common-issues.md#arr-connection-issues)
+See: [Common Issues](../../troubleshooting/common-issues.md#arr-instance-connection-failures)
 
 ### Category Mismatch
 

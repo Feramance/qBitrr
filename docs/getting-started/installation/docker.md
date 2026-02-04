@@ -315,7 +315,7 @@ docker logs qbitrr
 
 1. **Use Container Names (Same Network):**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://qbittorrent:8080"  # Use container name
 
    [[Radarr]]
@@ -324,7 +324,7 @@ docker logs qbitrr
 
 2. **Use Host IP (Different Networks):**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://192.168.1.100:8080"  # Host IP
 
    [[Radarr]]
@@ -351,7 +351,7 @@ docker logs qbitrr
 
 4. **Use host.docker.internal (Docker Desktop):**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://host.docker.internal:8080"
    ```
 

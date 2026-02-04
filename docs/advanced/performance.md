@@ -12,7 +12,7 @@ Optimize qBitrr for your specific use case, from low-power devices to high-throu
 [Settings]
 CheckInterval = 300      # Check every 5 minutes
 MaxConcurrentChecks = 3  # Limit parallel operations
-EnableFFprobe = false    # Disable media validation
+FFprobeAutoUpdate = false    # Disable media validation
 LogLevel = "WARNING"     # Reduce log verbosity
 RetentionDays = 7        # Minimize database size
 ```
@@ -23,7 +23,7 @@ RetentionDays = 7        # Minimize database size
 [Settings]
 CheckInterval = 60       # Check every minute (default)
 MaxConcurrentChecks = 10
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 LogLevel = "INFO"
 RetentionDays = 30
 ```
@@ -34,7 +34,7 @@ RetentionDays = 30
 [Settings]
 CheckInterval = 30       # Check every 30 seconds
 MaxConcurrentChecks = 20 # More parallel processing
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 CacheFFprobeResults = true
 LogLevel = "INFO"
 RetentionDays = 90
@@ -139,7 +139,7 @@ BackoffMultiplier = 2    # Exponential backoff factor
 
 ```toml
 [Settings]
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 FFprobeTimeout = 30       # Kill ffprobe after 30s
 CacheFFprobeResults = true # Cache validation results
 ValidateAllFiles = false  # Only check largest file
@@ -174,7 +174,7 @@ ValidateAllFiles = false  # Only check largest file
 [Settings]
 CheckInterval = 120      # Increase interval
 MaxConcurrentChecks = 5  # Reduce concurrency
-EnableFFprobe = false    # Disable if not needed
+FFprobeAutoUpdate = false    # Disable if not needed
 ```
 
 ### Memory Usage
@@ -382,7 +382,7 @@ LogLevel = "DEBUG"
 ```
 
 **Solutions:**
-- Disable FFprobe: `EnableFFprobe = false`
+- Disable FFprobe: `FFprobeAutoUpdate = false`
 - Check Arr performance (CPU, disk I/O)
 - Verify network connectivity
 

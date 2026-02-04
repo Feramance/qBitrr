@@ -6,6 +6,7 @@ Having issues with qBitrr? This section provides solutions to common problems an
 
 - [Common Issues](common-issues.md) - Frequently encountered problems and solutions
 - [Docker Issues](docker.md) - Docker-specific troubleshooting
+- [Database Corruption Prevention](database-corruption.md) - Prevent and recover from database corruption
 - [FAQ](../faq.md) - Frequently asked questions
 
 ## Common Problems
@@ -44,7 +45,7 @@ Problems with Docker container communication?
 - Verify port mappings
 - Test inter-container connectivity
 
-**Detailed Guide:** [Docker Networking](docker.md#networking)
+**Detailed Guide:** [Docker Networking](docker.md#networking-issues)
 
 ### Stalled Torrents
 
@@ -56,7 +57,7 @@ Torrents stuck and not completing?
 - Check available disk space
 - Review torrent client logs
 
-**Detailed Guide:** [Stalled Torrents](common-issues.md#stalled-torrents)
+**Detailed Guide:** [Stalled Torrents](common-issues.md#stalled-torrents-not-being-handled)
 
 ## Debugging Steps
 
@@ -207,7 +208,7 @@ Include:
 4. **Configuration:**
    ```toml
    # Redact sensitive information!
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://qbittorrent"
    Port = 8080
    Username = "admin"
@@ -254,7 +255,7 @@ LogLevel = "DEBUG"
 4. **FFprobe validation on large files:**
    ```toml
    [Settings]
-   EnableFFprobe = false  # Temporarily disable to test
+   FFprobeAutoUpdate = false  # Temporarily disable to test
    ```
 
 **Monitor Resource Usage:**
@@ -407,7 +408,7 @@ top -p $(pidof qbitrr)
 
 1. **Use IP addresses instead of hostnames:**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://192.168.1.100"  # Instead of hostname
    ```
 
@@ -540,7 +541,7 @@ python3 -c "import toml; toml.load(open('config.toml'))"
 Check these required fields are set:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost:8080"  # REQUIRED
 # Username and Password (if qBit has auth enabled)
 

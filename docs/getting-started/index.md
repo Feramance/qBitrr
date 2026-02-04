@@ -417,7 +417,7 @@ ApprovedOnly = true
 
 **Time to setup:** 15 minutes
 
-[**Example Configuration →**](quickstart.md#simple-home-server)
+[**Example Configuration →**](quickstart.md#scenario-1-simple-home-server)
 
 ---
 
@@ -433,7 +433,7 @@ ApprovedOnly = true
 
 **Time to setup:** 45 minutes
 
-[**Example Configuration →**](quickstart.md#advanced-multi-instance)
+[**Example Configuration →**](quickstart.md#scenario-2-multi-arr-setup)
 
 ---
 
@@ -449,7 +449,7 @@ ApprovedOnly = true
 
 **Time to setup:** 30 minutes
 
-[**Example Configuration →**](quickstart.md#shared-seedbox)
+[**Example Configuration →**](quickstart.md#scenario-4-docker-compose-full-stack)
 
 ---
 
@@ -519,7 +519,7 @@ ApprovedOnly = true
 3. Test credentials manually
 4. Ensure no firewall blocking
 
-[**qBittorrent Issues →**](../troubleshooting/common-issues.md#qbittorrent-connection)
+[**qBittorrent Issues →**](../troubleshooting/common-issues.md#qbittorrent-connection-failures)
 
 ### Can't Connect to Arr
 
@@ -530,7 +530,7 @@ ApprovedOnly = true
 3. Test API manually with curl
 4. Ensure network connectivity
 
-[**Arr Connection Issues →**](../troubleshooting/common-issues.md#arr-connection)
+[**Arr Connection Issues →**](../troubleshooting/common-issues.md#arr-instance-connection-failures)
 
 ---
 

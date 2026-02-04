@@ -8,6 +8,7 @@ import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
+import { TagInput } from "../components/TagInput";
 import Select from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
@@ -18,7 +19,7 @@ import SaveIcon from "../icons/check-mark.svg";
 import DeleteIcon from "../icons/trash.svg";
 import CloseIcon from "../icons/close.svg";
 
-type FieldType = "text" | "number" | "checkbox" | "password" | "select";
+type FieldType = "text" | "number" | "checkbox" | "password" | "select" | "tags";
 
 interface ValidationContext {
   root: ConfigDocument;
@@ -36,7 +37,7 @@ interface FieldDefinition {
   placeholder?: string;
   description?: string;
   parse?: (value: string | boolean) => unknown;
-  format?: (value: unknown) => string | boolean;
+  format?: (value: unknown) => string | boolean | string[];
   sectionName?: boolean;
   secure?: boolean;
   required?: boolean;
@@ -392,6 +393,64 @@ const QBIT_FIELDS: FieldDefinition[] = [
   },
   { label: "UserName", path: ["UserName"], type: "text" },
   { label: "Password", path: ["Password"], type: "password", secure: true },
+  {
+    label: "Managed Categories",
+    path: ["ManagedCategories"],
+    type: "tags",
+    fullWidth: true,
+    placeholder: "Add categories (e.g., prowlarr, downloads)",
+    parse: (value: string | boolean) => {
+      // When saving, ensure we always save as array
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
+      return [];
+    },
+    format: (value: unknown) => {
+      // When displaying, ensure we always show as array
+      if (Array.isArray(value)) return value;
+      if (typeof value === "string") return value.split(",").map(s => s.trim()).filter(Boolean);
+      return [];
+    },
+  },
+  {
+    label: "Max Upload Ratio",
+    path: ["CategorySeeding", "MaxUploadRatio"],
+    type: "number",
+    placeholder: "-1 (disabled), or positive number",
+  },
+  {
+    label: "Max Seeding Time (seconds)",
+    path: ["CategorySeeding", "MaxSeedingTime"],
+    type: "number",
+    placeholder: "-1 (disabled), or positive number",
+  },
+  {
+    label: "Remove Torrent (policy)",
+    path: ["CategorySeeding", "RemoveTorrent"],
+    type: "select",
+    options: REMOVE_TORRENT_OPTIONS,
+    parse: (value: string | boolean) => {
+      const str = String(value);
+      const match = str.match(/\((-?\d+)\)/);
+      return match ? Number(match[1]) : -1;
+    },
+    format: (value: unknown) => {
+      const num = typeof value === "number" ? value : Number(value ?? -1);
+      return REMOVE_TORRENT_OPTIONS.find(opt => opt.includes(`(${num})`)) || REMOVE_TORRENT_OPTIONS[0];
+    },
+  },
+  {
+    label: "Download Rate Limit Per Torrent (KB/s)",
+    path: ["CategorySeeding", "DownloadRateLimitPerTorrent"],
+    type: "number",
+    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+  },
+  {
+    label: "Upload Rate Limit Per Torrent (KB/s)",
+    path: ["CategorySeeding", "UploadRateLimitPerTorrent"],
+    type: "number",
+    placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+  },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
@@ -1056,9 +1115,11 @@ function validateFieldGroup(
       continue;
     }
     const pathSegments = field.path ?? [];
-    const value = pathSegments.length
+    const rawValue = pathSegments.length
       ? getValue(state as ConfigDocument, pathSegments)
       : undefined;
+    // Apply format function if it exists to convert raw value to expected validation format
+    const value = field.format ? field.format(rawValue) : rawValue;
     const fullPath = [...basePath, ...pathSegments];
     const baseError = basicValidation(field, value);
     if (baseError) {
@@ -1268,6 +1329,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Track section renames to ensure old sections are fully deleted
+  const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -1276,6 +1339,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       setOriginalConfig(config);
       // Deep clone config for form state (immer will handle immutability from here)
       setFormState(config ? JSON.parse(JSON.stringify(config)) : null);
+      // Clear pending renames when config is loaded
+      setPendingRenames(new Map());
     } catch (error) {
       push(
         error instanceof Error
@@ -1295,13 +1360,17 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const handleFieldChange = useCallback(
     (path: string[], def: FieldDefinition, raw: unknown) => {
       if (!formState) return;
+      // For tags type, handle arrays directly without parsing
       const parsed =
-        def.parse?.(raw as string | boolean) ??
-        (def.type === "number"
-          ? Number(raw) || 0
-          : def.type === "checkbox"
-          ? Boolean(raw)
-          : raw);
+        def.type === "tags" && Array.isArray(raw)
+          ? raw
+          : def.parse?.(raw as string | boolean) ??
+            (def.type === "number"
+              ? Number(raw) || 0
+              : def.type === "checkbox"
+              ? Boolean(raw)
+              : raw);
+
       setFormState(
         produce(formState, (draft) => {
           setValue(draft, path, parsed);
@@ -1379,6 +1448,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       "WebUI.GroupSonarr",
       "WebUI.GroupLidarr",
       "WebUI.Theme",
+      "WebUI.ViewDensity",
     ]);
 
     let dirty = false;
@@ -1583,6 +1653,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           }
         })
       );
+      // Track this rename to ensure old section is fully deleted on save
+      setPendingRenames((prev) => new Map(prev).set(oldName, newName));
       if (activeArrKey === oldName) {
         setActiveArrKey(newName);
       }
@@ -1612,6 +1684,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           draft[newName] = section;
         })
       );
+      // Track this rename to ensure old section is fully deleted on save
+      setPendingRenames((prev) => new Map(prev).set(oldName, newName));
       if (activeQbitKey === oldName) {
         setActiveQbitKey(newName);
       }
@@ -1651,6 +1725,17 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           changes[key] = null;
         }
       }
+      // Explicitly mark all keys under renamed sections for deletion
+      for (const [oldName] of pendingRenames) {
+        for (const key of Object.keys(flattenedOriginal)) {
+          if (key === oldName || key.startsWith(`${oldName}.`)) {
+            // Mark for deletion if not already tracked
+            if (!(key in changes)) {
+              changes[key] = null;
+            }
+          }
+        }
+      }
       if (Object.keys(changes).length === 0) {
         push("No changes detected", "info");
         setSaving(false);
@@ -1680,12 +1765,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           await Promise.all(
             cacheNames.map(cacheName => caches.delete(cacheName))
           );
-        } catch (error) {
-          console.warn('Failed to clear caches:', error);
+        } catch {
+          // cache clear failed, non-critical
         }
       }
 
       await loadConfig();
+      // Clear pending renames after successful save and reload
+      setPendingRenames(new Map());
     } catch (error) {
       push(
         error instanceof Error
@@ -2308,6 +2395,34 @@ function FieldGroup({
             type="password"
             value={String(formatted)}
             onChange={(event) => onChange(path, field, event.target.value)}
+            placeholder={field.placeholder}
+          />
+          {description && <div className="field-description">{description}</div>}
+        </div>
+      );
+    }
+    if (field.type === "tags") {
+      // Ensure we always have an array
+      let tags: string[] = [];
+
+      if (Array.isArray(formatted)) {
+        tags = formatted;
+      } else if (Array.isArray(rawValue)) {
+        tags = rawValue;
+      } else if (typeof formatted === "string" && formatted) {
+        tags = formatted.split(",").map(s => s.trim()).filter(Boolean);
+      } else if (typeof rawValue === "string" && rawValue) {
+        tags = rawValue.split(",").map(s => s.trim()).filter(Boolean);
+      }
+
+      return (
+        <div key={key} className={fieldClassName}>
+          <label title={tooltip}>{field.label}</label>
+          <TagInput
+            value={tags}
+            onChange={(newTags) => {
+              onChange(path, field, newTags);
+            }}
             placeholder={field.placeholder}
           />
           {description && <div className="field-description">{description}</div>}

@@ -659,7 +659,7 @@ For scheduled tasks (auto-updates, etc.):
 Simplest possible setup:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 Username = "admin"

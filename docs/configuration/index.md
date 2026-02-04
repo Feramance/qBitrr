@@ -16,13 +16,12 @@ qBitrr's configuration is organized into several logical sections, each controll
 
 ```toml
 [Settings]                    # Global settings
-  [Settings.Qbittorrent]      # qBittorrent connection
-  [Settings.WebUI]            # WebUI configuration
+[WebUI]                       # WebUI configuration
+[qBit]                        # qBittorrent connection
 
 [[Radarr]]                    # Radarr instance(s)
   [Radarr.Torrent]           # Torrent settings
   [Radarr.EntrySearch]       # Search settings
-  [Radarr.Overseerr]         # Overseerr integration
 
 [[Sonarr]]                    # Sonarr instance(s)
   [Sonarr.Torrent]
@@ -31,6 +30,15 @@ qBitrr's configuration is organized into several logical sections, each controll
 [[Lidarr]]                    # Lidarr instance(s)
   [Lidarr.Torrent]
   [Lidarr.EntrySearch]
+```
+
+**Minimum required:**
+```toml
+[qBit]
+Host = "http://localhost"
+Port = 8080
+Username = "admin"
+Password = "adminadmin"
 ```
 
 ## Configuration Sections
@@ -52,7 +60,7 @@ Configure connection to your qBittorrent instance:
 
 **Minimum required:**
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 Username = "admin"
@@ -250,7 +258,7 @@ MaxLogSize = "10M"
 
 #### 3. Database Configuration
 
-**[Database Settings](config-file.md#database)**
+**[Database Settings](../advanced/index.md#database)**
 
 Configure SQLite database behavior:
 
@@ -338,7 +346,7 @@ The configuration file is located at:
 Simplest setup for movie management only:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 Username = "admin"
@@ -355,7 +363,7 @@ APIKey = "your-radarr-api-key"
 Complete media server with movies, TV, and music:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 
@@ -380,7 +388,7 @@ APIKey = "lidarr-api-key"
 Using Docker with custom network:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://qbittorrent"  # Container name
 Port = 8080
 
@@ -424,7 +432,7 @@ Follow this recommended workflow when setting up qBitrr:
 
 2. **Configure qBittorrent**:
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://qbittorrent"
    Port = 8080
    Username = "admin"
@@ -542,7 +550,7 @@ Minimal setup for personal use:
 LogLevel = "INFO"
 FreeSpace = "10G"
 
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 Username = "admin"
@@ -577,7 +585,7 @@ LogLevel = "INFO"
 FreeSpace = "50G"
 AutoPauseResume = true
 
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://qbittorrent"
 Port = 8080
 
@@ -621,7 +629,7 @@ Complete Docker stack configuration:
 LogLevel = "INFO"
 FreeSpace = "20G"
 
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://qbittorrent"  # Container name
 Port = 8080
 Username = "admin"
@@ -656,7 +664,7 @@ Optimized for private trackers:
 [Settings]
 LogLevel = "INFO"
 
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost"
 Port = 8080
 
@@ -691,7 +699,7 @@ MaxSeedingTime = 5184000  # 60 days for private
 Setup with Overseerr request management:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://qbittorrent"
 Port = 8080
 

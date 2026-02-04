@@ -30,6 +30,7 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -473,6 +474,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const debouncedAggFilter = useDebounce(aggFilter, 300);
 
   // Smart data sync for aggregate movies
   const aggMovieSync = useDataSync<RadarrAggRow>({
@@ -840,29 +842,42 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    let rows = aggRows;
-    if (aggFilter) {
-      const q = aggFilter.toLowerCase();
-      rows = rows.filter((row) => {
+    // Combine all filters into a single pass for better performance
+    const q = debouncedAggFilter ? debouncedAggFilter.toLowerCase() : "";
+    const hasSearchFilter = Boolean(q);
+    const hasReasonFilter = reasonFilter !== "all";
+
+    return aggRows.filter((row) => {
+      // Search filter
+      if (hasSearchFilter) {
         const title = (row.title ?? "").toString().toLowerCase();
         const instance = (row.__instance ?? "").toLowerCase();
-        return title.includes(q) || instance.includes(q);
-      });
-    }
-    if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
-    }
-    if (reasonFilter !== "all") {
-      if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
-      } else {
-        rows = rows.filter((row) => row.reason === reasonFilter);
+        if (!title.includes(q) && !instance.includes(q)) {
+          return false;
+        }
       }
-    }
-    return rows;
-  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
-  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+      // Missing filter
+      if (onlyMissing && row.hasFile) {
+        return false;
+      }
+
+      // Reason filter
+      if (hasReasonFilter) {
+        if (reasonFilter === "Not being searched") {
+          if (row.reason !== "Not being searched" && row.reason) {
+            return false;
+          }
+        } else if (row.reason !== reasonFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [aggRows, debouncedAggFilter, onlyMissing, reasonFilter]);
+
+  const isAggFiltered = Boolean(debouncedAggFilter) || reasonFilter !== "all";
 
   const sortedAggRows = useMemo(() => {
     const list = [...filteredAggRows];

@@ -20,7 +20,7 @@ Enable FFprobe validation:
 
 ```toml
 [Settings]
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 FFprobePath = "/usr/bin/ffprobe"  # Auto-detected if not specified
 ```
 
@@ -375,7 +375,7 @@ Timeout = 10  # Lower timeout to prevent hangs
 ```toml
 [Settings]
 LogLevel = "DEBUG"
-EnableFFprobe = false  # Temporarily disable to isolate issue
+FFprobeAutoUpdate = false  # Temporarily disable to isolate issue
 ```
 
 Check logs to see why validation is failing.

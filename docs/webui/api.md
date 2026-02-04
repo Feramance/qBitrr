@@ -59,20 +59,31 @@ The following endpoints are **always public** (no authentication):
 - `GET /static/*` - Static assets
 - `GET /web/*` - All first-party endpoints
 
-### Token Retrieval
+### Token Authentication
 
-**Endpoint**: `GET /api/token`
+Authentication supports multiple formats for flexibility:
 
-**Authentication**: Required
-
-**Response**:
-```json
-{
-  "token": "abc123def456..."
-}
+**Bearer Token** (recommended):
+```http
+Authorization: Bearer <token>
 ```
 
-**Use Case**: Retrieve current token for API clients.
+**Header without Bearer prefix**:
+```http
+X-API-Token: <token>
+```
+
+**Query Parameter** (for URLs):
+```
+?token=<token>
+```
+
+**Example**:
+```bash
+curl -H "Authorization: Bearer abc123..." http://localhost:6969/api/processes
+```
+
+**Note**: The `/api/token` endpoint does not exist. Tokens must be configured in the config file under `WebUI.Token`.
 
 ---
 
@@ -495,6 +506,51 @@ Restart specific Arr instance (both search and torrent processes).
 
 ---
 
+### Get Torrent Distribution
+
+Get torrent distribution statistics across all categories.
+
+**Endpoints**:
+- `GET /api/torrents/distribution` (requires auth)
+- `GET /web/torrents/distribution` (public)
+
+**Response**:
+```json
+{
+  "categories": {
+    "radarr-4k": {
+      "total": 50,
+      "active": 45,
+      "paused": 3,
+      "completed": 2
+    },
+    "sonarr-tv": {
+      "total": 30,
+      "active": 28,
+      "paused": 1,
+      "completed": 1
+    }
+  },
+  "totals": {
+    "total": 80,
+    "active": 73,
+    "paused": 4,
+    "completed": 3
+  }
+}
+```
+
+**Fields**:
+
+- `categories` - Per-category torrent counts
+- `totals` - Aggregate counts across all categories
+- `active` - Torrents currently downloading/seeding
+- `paused` - Paused torrents
+- `completed` - Completed torrents (seeding only)
+
+---
+
+
 ## Log Endpoints
 
 ### List Log Files
@@ -508,29 +564,13 @@ Get all available log files.
 **Response**:
 ```json
 {
-  "files": [
-    {
-      "name": "Main.log",
-      "path": "/config/logs/Main.log",
-      "size": 1048576,
-      "modified": "2025-11-27T12:00:00Z"
-    },
-    {
-      "name": "WebUI.log",
-      "path": "/config/logs/WebUI.log",
-      "size": 524288,
-      "modified": "2025-11-27T11:30:00Z"
-    }
-  ]
+  "files": ["Main.log", "WebUI.log"]
 }
 ```
 
 **Fields**:
 
-- `name` - Filename (used in subsequent requests)
-- `path` - Absolute path on disk
-- `size` - File size in bytes
-- `modified` - Last modified timestamp (ISO 8601)
+- `files` - Array of log filenames (use with `/api/logs/<filename>` to get content)
 
 **Log Rotation**: Log files rotate at 10 MB, keeping 5 backups. Older backups appear as `Main.log.1`, `Main.log.2`, etc.
 
@@ -754,8 +794,9 @@ Browse Sonarr series library from cached database.
 Browse Lidarr album library from cached database.
 
 **Endpoints**:
-- `GET /api/lidarr/<category>/albums` (public, no auth endpoint exists)
 - `GET /web/lidarr/<category>/albums` (public)
+
+**Note**: There is no `/api/lidarr/<category>/albums` endpoint. Use `/web/lidarr/<category>/albums` instead.
 
 **Path Parameters**:
 
@@ -842,7 +883,7 @@ Get all configured Arr instances.
 **Response**:
 ```json
 {
-  "instances": [
+  "arr": [
     {
       "category": "radarr-4k",
       "name": "Radarr-4K",
@@ -858,15 +899,18 @@ Get all configured Arr instances.
       "name": "Lidarr",
       "type": "lidarr"
     }
-  ]
+  ],
+  "ready": true
 }
 ```
 
 **Fields**:
 
-- `category` - qBittorrent category (used in API paths)
-- `name` - Friendly display name
-- `type` - Arr type (`radarr`, `sonarr`, `lidarr`)
+- `arr` - Array of Arr instances
+- `arr[].category` - qBittorrent category (used in API paths)
+- `arr[].name` - Friendly display name
+- `arr[].type` - Arr type (`radarr`, `sonarr`, `lidarr`)
+- `ready` - Overall system ready state
 
 ---
 

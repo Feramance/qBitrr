@@ -28,6 +28,7 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -1028,6 +1029,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const debouncedAggFilter = useDebounce(aggFilter, 300);
 
   // Smart data sync for aggregate albums
   const aggAlbumSync = useDataSync<LidarrAggRow>({
@@ -1254,18 +1256,6 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
               ""
             );
 
-          console.log("=== Lidarr API Response ===");
-          console.log("Instance:", inst.category);
-          console.log("Response:", res);
-          console.log("Albums count:", res.albums?.length);
-          if (res.albums && res.albums.length > 0) {
-            console.log("First album entry:", res.albums[0]);
-            console.log("First album.album:", res.albums[0].album);
-            console.log("First album.totals:", res.albums[0].totals);
-            console.log("First album.tracks:", res.albums[0].tracks);
-          }
-          console.log("=========================");
-
           if (!counted) {
             const counts = res.counts;
             if (counts) {
@@ -1468,66 +1458,84 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    let rows = aggRows;
-    if (aggFilter) {
-      const q = aggFilter.toLowerCase();
-      rows = rows.filter((row) => {
-        const albumData = row.album as Record<string, unknown>;
+    // Combine all filters into a single pass for better performance
+    const q = debouncedAggFilter ? debouncedAggFilter.toLowerCase() : "";
+    const hasSearchFilter = Boolean(q);
+    const hasReasonFilter = reasonFilter !== "all";
+
+    return aggRows.filter((row) => {
+      const albumData = row.album as Record<string, unknown>;
+
+      // Search filter
+      if (hasSearchFilter) {
         const title = ((albumData?.["title"] as string | undefined) ?? "").toString().toLowerCase();
         const artist = ((albumData?.["artistName"] as string | undefined) ?? "").toString().toLowerCase();
         const instance = (row.__instance ?? "").toLowerCase();
-        return title.includes(q) || artist.includes(q) || instance.includes(q);
-      });
-    }
-    if (onlyMissing) {
-      rows = rows.filter((row) => {
-        const albumData = row.album as Record<string, unknown>;
-        return !(albumData?.["hasFile"] as boolean | undefined);
-      });
-    }
-    if (reasonFilter !== "all") {
-      if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => {
-          const albumData = row.album as Record<string, unknown>;
-          return albumData?.["reason"] === "Not being searched" || !albumData?.["reason"];
-        });
-      } else {
-        rows = rows.filter((row) => {
-          const albumData = row.album as Record<string, unknown>;
-          return albumData?.["reason"] === reasonFilter;
-        });
+        if (!title.includes(q) && !artist.includes(q) && !instance.includes(q)) {
+          return false;
+        }
       }
-    }
-    return rows;
-  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
 
-  const isAggFiltered = Boolean(aggFilter) || reasonFilter !== "all";
+      // Missing filter
+      if (onlyMissing && (albumData?.["hasFile"] as boolean | undefined)) {
+        return false;
+      }
+
+      // Reason filter
+      if (hasReasonFilter) {
+        const reason = albumData?.["reason"];
+        if (reasonFilter === "Not being searched") {
+          if (reason !== "Not being searched" && reason) {
+            return false;
+          }
+        } else if (reason !== reasonFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [aggRows, debouncedAggFilter, onlyMissing, reasonFilter]);
+
+  const isAggFiltered = Boolean(debouncedAggFilter) || reasonFilter !== "all";
 
   const filteredAggTrackRows = useMemo(() => {
-    let rows = aggTrackRows;
-    if (aggFilter) {
-      const q = aggFilter.toLowerCase();
-      rows = rows.filter((row) => {
-        return (
-          row.artistName.toLowerCase().includes(q) ||
-          row.albumTitle.toLowerCase().includes(q) ||
-          row.title.toLowerCase().includes(q) ||
-          row.__instance.toLowerCase().includes(q)
-        );
-      });
-    }
-    if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
-    }
-    if (reasonFilter !== "all") {
-      if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
-      } else {
-        rows = rows.filter((row) => row.reason === reasonFilter);
+    // Combine all filters into a single pass for better performance
+    const q = debouncedAggFilter ? debouncedAggFilter.toLowerCase() : "";
+    const hasSearchFilter = Boolean(q);
+    const hasReasonFilter = reasonFilter !== "all";
+
+    return aggTrackRows.filter((row) => {
+      // Search filter
+      if (hasSearchFilter) {
+        const artist = row.artistName.toLowerCase();
+        const album = row.albumTitle.toLowerCase();
+        const title = row.title.toLowerCase();
+        const instance = row.__instance.toLowerCase();
+        if (!artist.includes(q) && !album.includes(q) && !title.includes(q) && !instance.includes(q)) {
+          return false;
+        }
       }
-    }
-    return rows;
-  }, [aggTrackRows, aggFilter, onlyMissing, reasonFilter]);
+
+      // Missing filter
+      if (onlyMissing && row.hasFile) {
+        return false;
+      }
+
+      // Reason filter
+      if (hasReasonFilter) {
+        if (reasonFilter === "Not being searched") {
+          if (row.reason !== "Not being searched" && row.reason) {
+            return false;
+          }
+        } else if (row.reason !== reasonFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [aggTrackRows, debouncedAggFilter, onlyMissing, reasonFilter]);
 
   const allInstanceAlbums = useMemo(() => {
     const pages = Object.keys(instancePages)

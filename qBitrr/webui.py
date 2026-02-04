@@ -1664,6 +1664,30 @@ class WebUI:
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
+            # qBit category manager processes
+            for process, meta in list(self.manager._process_registry.items()):
+                if meta.get("role") != "category_manager":
+                    continue
+                instance_name = meta.get("instance", "")
+                cat = meta.get("category", f"qbit-{instance_name}")
+                manager = self.manager.qbit_category_managers.get(instance_name)
+                category_count = len(manager.managed_categories) if manager else 0
+                try:
+                    alive = bool(process.is_alive())
+                    pid = getattr(process, "pid", None)
+                except Exception:
+                    alive = False
+                    pid = None
+                procs.append(
+                    {
+                        "category": cat,
+                        "name": f"qBit-{instance_name}",
+                        "kind": "category",
+                        "pid": pid,
+                        "alive": alive,
+                        "categoryCount": category_count,
+                    }
+                )
             return {"processes": procs}
 
         @app.get("/api/processes")
@@ -1679,8 +1703,56 @@ class WebUI:
 
         def _restart_process(category: str, kind: str):
             kind_normalized = kind.lower()
-            if kind_normalized not in ("search", "torrent", "all"):
-                return jsonify({"error": "kind must be search, torrent or all"}), 400
+            if kind_normalized not in ("search", "torrent", "all", "category"):
+                return jsonify({"error": "kind must be search, torrent, category or all"}), 400
+
+            # Handle category manager restart
+            if kind_normalized == "category":
+                target_proc = None
+                target_meta = None
+                for proc, meta in list(self.manager._process_registry.items()):
+                    if meta.get("role") == "category_manager" and meta.get("category") == category:
+                        target_proc = proc
+                        target_meta = meta
+                        break
+                if target_proc is None:
+                    return jsonify({"error": f"Unknown category manager {category}"}), 404
+                instance_name = target_meta.get("instance", "")
+                try:
+                    target_proc.kill()
+                except Exception:
+                    pass
+                try:
+                    target_proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    self.manager.child_processes.remove(target_proc)
+                except Exception:
+                    pass
+                self.manager._process_registry.pop(target_proc, None)
+                manager = self.manager.qbit_category_managers.get(instance_name)
+                if manager is None:
+                    return (
+                        jsonify({"error": f"No category manager for instance {instance_name}"}),
+                        404,
+                    )
+                import pathos
+
+                new_proc = pathos.helpers.mp.Process(
+                    target=manager.run_processing_loop,
+                    name=f"qBitCategory-{instance_name}",
+                    daemon=False,
+                )
+                new_proc.start()
+                self.manager.child_processes.append(new_proc)
+                self.manager._process_registry[new_proc] = {
+                    "category": category,
+                    "role": "category_manager",
+                    "instance": instance_name,
+                }
+                return jsonify({"status": "ok", "restarted": ["category"]})
+
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2092,6 +2164,129 @@ class WebUI:
         def web_arr_list():
             return jsonify(_arr_list_payload())
 
+        @app.get("/web/qbit/categories")
+        def web_qbit_categories():
+            """Get all qBit-managed and Arr-managed categories with seeding statistics."""
+            categories_data = []
+
+            # Add qBit-managed categories
+            if self.manager.qbit_category_managers:
+                for instance_name, manager in self.manager.qbit_category_managers.items():
+                    client = self.manager.get_client(instance_name)
+                    if not client:
+                        continue
+
+                    for category in manager.managed_categories:
+                        try:
+                            torrents = client.torrents_info(category=category)
+
+                            # Calculate statistics
+                            total_count = len(torrents)
+                            seeding_count = len(
+                                [t for t in torrents if t.state in ("uploading", "stalledUP")]
+                            )
+                            total_size = sum(t.size for t in torrents)
+                            avg_ratio = (
+                                sum(t.ratio for t in torrents) / total_count if total_count else 0
+                            )
+                            avg_seeding_time = (
+                                sum(t.seeding_time for t in torrents) / total_count
+                                if total_count
+                                else 0
+                            )
+
+                            # Get seeding config for this category
+                            seeding_config = manager.get_seeding_config(category)
+
+                            categories_data.append(
+                                {
+                                    "category": category,
+                                    "instance": instance_name,
+                                    "managedBy": "qbit",
+                                    "torrentCount": total_count,
+                                    "seedingCount": seeding_count,
+                                    "totalSize": total_size,
+                                    "avgRatio": round(avg_ratio, 2),
+                                    "avgSeedingTime": avg_seeding_time,
+                                    "seedingConfig": {
+                                        "maxRatio": seeding_config.get("MaxUploadRatio", -1),
+                                        "maxTime": seeding_config.get("MaxSeedingTime", -1),
+                                        "removeMode": seeding_config.get("RemoveTorrent", -1),
+                                        "downloadLimit": seeding_config.get(
+                                            "DownloadRateLimitPerTorrent", -1
+                                        ),
+                                        "uploadLimit": seeding_config.get(
+                                            "UploadRateLimitPerTorrent", -1
+                                        ),
+                                    },
+                                }
+                            )
+                        except Exception as e:
+                            self.logger.debug(
+                                "Error fetching qBit category '%s' stats for instance '%s': %s",
+                                category,
+                                instance_name,
+                                e,
+                            )
+                            continue
+
+            # Add Arr-managed categories
+            if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                for arr in self.manager.arr_manager.managed_objects.values():
+                    try:
+                        # Get the qBit instance for this Arr (use default for now)
+                        client = self.manager.client
+                        if not client:
+                            continue
+
+                        category = arr.category
+                        torrents = client.torrents_info(category=category)
+
+                        # Calculate statistics
+                        total_count = len(torrents)
+                        seeding_count = len(
+                            [t for t in torrents if t.state in ("uploading", "stalledUP")]
+                        )
+                        total_size = sum(t.size for t in torrents)
+                        avg_ratio = (
+                            sum(t.ratio for t in torrents) / total_count if total_count else 0
+                        )
+                        avg_seeding_time = (
+                            sum(t.seeding_time for t in torrents) / total_count
+                            if total_count
+                            else 0
+                        )
+
+                        categories_data.append(
+                            {
+                                "category": category,
+                                "instance": arr._name,
+                                "managedBy": "arr",
+                                "torrentCount": total_count,
+                                "seedingCount": seeding_count,
+                                "totalSize": total_size,
+                                "avgRatio": round(avg_ratio, 2),
+                                "avgSeedingTime": avg_seeding_time,
+                                "seedingConfig": {
+                                    "maxRatio": arr.seeding_mode_global_max_upload_ratio,
+                                    "maxTime": arr.seeding_mode_global_max_seeding_time,
+                                    "removeMode": arr.seeding_mode_global_remove_torrent,
+                                    "downloadLimit": arr.seeding_mode_global_download_limit,
+                                    "uploadLimit": arr.seeding_mode_global_upload_limit,
+                                },
+                            }
+                        )
+                    except Exception as e:
+                        self.logger.debug(
+                            "Error fetching Arr category '%s' stats for instance '%s': %s",
+                            getattr(arr, "category", "unknown"),
+                            getattr(arr, "_name", "unknown"),
+                            e,
+                        )
+                        continue
+
+            return jsonify({"categories": categories_data, "ready": True})
+
         @app.get("/api/meta")
         def api_meta():
             if (resp := require_token()) is not None:
@@ -2221,11 +2416,21 @@ class WebUI:
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
+            # WebUI settings
+            webui_settings = {
+                "LiveArr": CONFIG.get("WebUI.LiveArr", fallback=True),
+                "GroupSonarr": CONFIG.get("WebUI.GroupSonarr", fallback=True),
+                "GroupLidarr": CONFIG.get("WebUI.GroupLidarr", fallback=True),
+                "Theme": CONFIG.get("WebUI.Theme", fallback="Dark"),
+                "ViewDensity": CONFIG.get("WebUI.ViewDensity", fallback="Comfortable"),
+            }
+
             return {
                 "qbit": qb,  # Legacy single-instance (default) for backward compatibility
                 "qbitInstances": qbit_instances,  # Multi-instance info
                 "arrs": arrs,
                 "ready": _ensure_arr_manager_ready(),
+                "webui": webui_settings,
             }
 
         @app.get("/api/status")
@@ -2421,6 +2626,7 @@ class WebUI:
                 "WebUI.GroupSonarr",
                 "WebUI.GroupLidarr",
                 "WebUI.Theme",
+                "WebUI.ViewDensity",
             }
             webui_restart_keys = {
                 "WebUI.Host",

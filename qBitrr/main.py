@@ -5,6 +5,7 @@ import contextlib
 import glob
 import logging
 import os
+import signal
 import sys
 import time
 from multiprocessing import Event, freeze_support
@@ -34,6 +35,7 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
+from qBitrr.qbit_category_manager import qBitCategoryManager
 from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
@@ -114,6 +116,9 @@ class qBitManager:
         self.qbit_versions: dict[str, VersionClass] = {}
         self.instance_metadata: dict[str, dict] = {}
         self.instance_health: dict[str, bool] = {}
+        # qBit category management
+        self.qbit_category_configs: dict[str, dict] = {}
+        self.qbit_category_managers: dict[str, qBitCategoryManager] = {}
         if not (QBIT_DISABLED or SEARCH_ONLY):
             self.client = qbittorrentapi.Client(
                 host=self.qBit_Host,
@@ -158,6 +163,9 @@ class qBitManager:
         self._process_restart_counts: dict[tuple[str, str], list[float]] = (
             {}
         )  # (category, role) -> [timestamps]
+        # Database checkpoint thread
+        self._db_checkpoint_thread: Thread | None = None
+        self._db_checkpoint_event = ThreadEvent()
         self._failed_spawn_attempts: dict[tuple[str, str], int] = {}  # Track failed spawn attempts
         self._pending_spawns: list[tuple] = []  # (arr_instance, meta) tuples to retry
         self.auto_restart_enabled = CONFIG.get("Settings.AutoRestartProcesses", fallback=True)
@@ -411,9 +419,20 @@ class qBitManager:
             arr_manager = ArrManager(self)
             self.arr_manager = arr_manager
             arr_manager.build_arr_instances()
+
+            # Initialize qBit category managers after Arr instances (for category validation)
+            self._initialize_qbit_category_managers()
+
             run_logs(self.logger)
             for arr in arr_manager.managed_objects.values():
                 self._prepare_arr_processes(arr)
+
+            # Spawn qBit category workers after Arr workers
+            self._spawn_qbit_category_workers()
+
+            # Start periodic database checkpoint thread
+            self._start_db_checkpoint_thread()
+
             self.configure_auto_update()
             elapsed = monotonic() - started_at
             self.logger.info("Background startup completed in %.1fs", elapsed)
@@ -466,6 +485,41 @@ class qBitManager:
 
         # Default instance already initialized in __init__
         self.logger.info("Initialized qBit instance: default")
+
+        # Load qBit category config for default instance
+        managed_categories = CONFIG.get("qBit.ManagedCategories", fallback=[])
+        if managed_categories:
+            # Load default seeding settings
+            default_seeding = {}
+            seeding_keys = [
+                "DownloadRateLimitPerTorrent",
+                "UploadRateLimitPerTorrent",
+                "MaxUploadRatio",
+                "MaxSeedingTime",
+                "RemoveTorrent",
+            ]
+            for key in seeding_keys:
+                value = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=-1)
+                default_seeding[key] = value
+
+            # Load per-category overrides
+            category_overrides = {}
+            categories_list = CONFIG.get("qBit.CategorySeeding.Categories", fallback=[])
+            for cat_config in categories_list:
+                if isinstance(cat_config, dict) and "Name" in cat_config:
+                    cat_name = cat_config["Name"]
+                    category_overrides[cat_name] = cat_config
+
+            # Store config for later initialization
+            self.qbit_category_configs["default"] = {
+                "managed_categories": managed_categories,
+                "default_seeding": default_seeding,
+                "category_overrides": category_overrides,
+            }
+            self.logger.debug(
+                "Loaded qBit category config for 'default': %d managed categories",
+                len(managed_categories),
+            )
 
         # Scan for additional instances (qBit-XXX sections)
         for section in CONFIG.sections():
@@ -550,6 +604,42 @@ class qBitManager:
         }
         self.instance_health[instance_name] = True
 
+        # Load qBit category management config for this instance
+        managed_categories = CONFIG.get(f"{section_name}.ManagedCategories", fallback=[])
+        if managed_categories:
+            # Load default seeding settings
+            default_seeding = {}
+            seeding_keys = [
+                "DownloadRateLimitPerTorrent",
+                "UploadRateLimitPerTorrent",
+                "MaxUploadRatio",
+                "MaxSeedingTime",
+                "RemoveTorrent",
+            ]
+            for key in seeding_keys:
+                value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
+                default_seeding[key] = value
+
+            # Load per-category overrides
+            category_overrides = {}
+            categories_list = CONFIG.get(f"{section_name}.CategorySeeding.Categories", fallback=[])
+            for cat_config in categories_list:
+                if isinstance(cat_config, dict) and "Name" in cat_config:
+                    cat_name = cat_config["Name"]
+                    category_overrides[cat_name] = cat_config
+
+            # Store config for later initialization
+            self.qbit_category_configs[instance_name] = {
+                "managed_categories": managed_categories,
+                "default_seeding": default_seeding,
+                "category_overrides": category_overrides,
+            }
+            self.logger.debug(
+                "Loaded qBit category config for '%s': %d managed categories",
+                instance_name,
+                len(managed_categories),
+            )
+
     def is_instance_alive(self, instance_name: str = "default") -> bool:
         """
         Check if a specific qBittorrent instance is alive and responding.
@@ -632,6 +722,117 @@ class qBitManager:
             self.logger.warning("Instance '%s' not found in clients", instance_name)
             return None
         return self.clients[instance_name]
+
+    def _initialize_qbit_category_managers(self) -> None:
+        """
+        Initialize qBit category managers for instances with managed categories.
+
+        Creates qBitCategoryManager instances for each qBit instance that has
+        ManagedCategories configured. Managers handle seeding settings and
+        removal logic for qBit-managed torrents.
+        """
+        if not self.qbit_category_configs:
+            self.logger.debug("No qBit category managers to initialize")
+            return
+
+        for instance_name, config in self.qbit_category_configs.items():
+            try:
+                manager = qBitCategoryManager(instance_name, self, config)
+                self.qbit_category_managers[instance_name] = manager
+                self.logger.info(
+                    "Initialized qBit category manager for instance '%s'", instance_name
+                )
+            except Exception as e:
+                self.logger.error(
+                    "Failed to initialize qBit category manager for '%s': %s",
+                    instance_name,
+                    e,
+                    exc_info=True,
+                )
+
+        self.logger.info(
+            "Total qBit category managers initialized: %d", len(self.qbit_category_managers)
+        )
+
+    def _spawn_qbit_category_workers(self) -> None:
+        """
+        Spawn worker processes for qBit category managers.
+
+        Creates a worker process for each qBit category manager to handle
+        continuous processing of managed torrents (applying seeding settings,
+        checking removal conditions).
+        """
+        if not self.qbit_category_managers:
+            self.logger.debug("No qBit category workers to spawn")
+            return
+
+        for instance_name, manager in self.qbit_category_managers.items():
+            try:
+                process = pathos.helpers.mp.Process(
+                    target=manager.run_processing_loop,
+                    name=f"qBitCategory-{instance_name}",
+                )
+                process.start()
+                self.child_processes.append(process)
+                self._process_registry[process] = {
+                    "category": f"qbit-{instance_name}",
+                    "role": "category_manager",
+                    "instance": instance_name,
+                }
+                self.logger.info(
+                    "Spawned qBit category worker for instance '%s' (PID: %d)",
+                    instance_name,
+                    process.pid,
+                )
+            except Exception as e:
+                self.logger.error(
+                    "Failed to spawn qBit category worker for '%s': %s",
+                    instance_name,
+                    e,
+                    exc_info=True,
+                )
+
+        self.logger.info(
+            "Total qBit category workers spawned: %d", len(self.qbit_category_managers)
+        )
+
+    def _periodic_db_checkpoint(self) -> None:
+        """
+        Background thread that periodically checkpoints the database WAL.
+
+        This runs every 5 minutes during normal operation to ensure WAL entries
+        are regularly flushed to the main database file, minimizing data loss
+        risk in case of sudden crashes or power loss.
+        """
+        from qBitrr.database import checkpoint_database
+
+        self.logger.info("Starting periodic database checkpoint thread (interval: 5 minutes)")
+
+        while not self.shutdown_event.is_set():
+            # Wait 5 minutes or until shutdown
+            if self._db_checkpoint_event.wait(timeout=300):  # 300 seconds = 5 minutes
+                break  # Shutdown requested
+
+            if self.shutdown_event.is_set():
+                break
+
+            try:
+                checkpoint_database()
+            except Exception as e:
+                self.logger.error("Periodic database checkpoint failed: %s", e)
+
+        self.logger.info("Periodic database checkpoint thread stopped")
+
+    def _start_db_checkpoint_thread(self) -> None:
+        """Start the periodic database checkpoint background thread."""
+        if self._db_checkpoint_thread is None or not self._db_checkpoint_thread.is_alive():
+            self._db_checkpoint_thread = Thread(
+                target=self._periodic_db_checkpoint,
+                name="DBCheckpoint",
+                daemon=True,
+            )
+            self._db_checkpoint_thread.start()
+            self.logger.info("Started periodic database checkpoint thread")
 
     # @response_text(str)
     # @login_required
@@ -1187,11 +1388,28 @@ def run():
     # Early consolidated config validation feedback
     _report_config_issues()
     logger.debug("Environment variables: %r", ENVIRO_CONFIG)
+
+    # Flag to track if shutdown has been initiated
+    shutdown_initiated = False
+
     try:
         manager.get_child_processes()
 
         # Register cleanup for child processes when the main process exits
         def _cleanup():
+            nonlocal shutdown_initiated
+            if shutdown_initiated:
+                return  # Already cleaned up
+            shutdown_initiated = True
+
+            # Checkpoint database WAL before shutdown
+            try:
+                from qBitrr.database import checkpoint_database
+
+                checkpoint_database()
+            except Exception as e:
+                logger.error("Failed to checkpoint database on shutdown: %s", e)
+
             # Signal loops to shutdown gracefully
             try:
                 manager.shutdown_event.set()
@@ -1207,6 +1425,15 @@ def run():
                 with contextlib.suppress(Exception):
                     p.terminate()
 
+        # Register signal handlers for graceful shutdown
+        def _signal_handler(signum, frame):
+            logger.info("Received signal %s - initiating graceful shutdown", signum)
+            _cleanup()
+            sys.exit(0)
+
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGINT, _signal_handler)
+
         atexit.register(_cleanup)
         if manager.child_processes:
             manager.run()
@@ -1216,9 +1443,11 @@ def run():
             )
     except KeyboardInterrupt:
         logger.info("Detected Ctrl+C - Terminating process")
+        _cleanup()
         sys.exit(0)
     except Exception:
         logger.info("Attempting to terminate child processes, please wait a moment.")
+        _cleanup()
         for child in manager.child_processes:
             child.kill()
 

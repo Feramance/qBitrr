@@ -67,7 +67,7 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
 
 ## ✨ Key Features
 
-- **🚀 Multi-qBittorrent Support (v3.0+)** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation
+- **🚀 Multi-qBittorrent Support (v5.7.x+)** – Manage torrents across multiple qBittorrent instances for load balancing, redundancy, and VPN isolation
 - **🚑 Torrent Health Monitoring** – Detect stalled/failed downloads, auto-blacklist, trigger re-searches
 - **🔍 Automated Search** – Missing media, quality upgrades, custom format scoring
 - **🎯 Request Integration** – Pull requests from Overseerr/Ombi, prioritize user-requested media
@@ -102,7 +102,7 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
    CompletedDownloadFolder = "/path/to/completed"
    ```
 
-### 🆕 Multi-qBittorrent (v3.0+)
+### 🆕 Multi-qBittorrent (v5.7.x+)
 
 Manage torrents across multiple qBittorrent instances:
 

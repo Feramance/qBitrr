@@ -1,10 +1,10 @@
-# Multi-qBittorrent v3.0 - User Guide
+# Multi-qBittorrent v5.7.x - User Guide
 
 ## 🎉 Overview
 
 qBitrr now supports **multiple qBittorrent instances simultaneously**! Each Arr instance (Radarr/Sonarr/Lidarr) can monitor torrents across all your qBittorrent instances.
 
-### What's New in v3.0
+### What's New in v5.7.0
 
 - ✅ **Equal Multi-Instance Monitoring**: All Arr instances monitor ALL qBit instances
 - ✅ **Category-Based Management**: Torrents are managed based on their category, not their instance
@@ -297,7 +297,7 @@ Each instance card displays:
 
 **Endpoint**: `GET /api/status`
 
-**Response** (v3.0+):
+**Response** (v5.7.x+):
 ```json
 {
   "qbit": {
@@ -608,6 +608,6 @@ When reporting multi-instance issues, include:
 
 ---
 
-**Version**: Multi-qBittorrent v3.0
+**Version**: Multi-qBittorrent v5.7.x
 **Last Updated**: 2025-12-18
 **Status**: ✅ Production Ready

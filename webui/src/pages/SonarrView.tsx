@@ -32,6 +32,7 @@ import { useToast } from "../context/ToastContext";
 import { useSearch } from "../context/SearchContext";
 import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
+import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -119,6 +120,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [aggPage, setAggPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [aggUpdated, setAggUpdated] = useState<string | null>(null);
+  const debouncedAggFilter = useDebounce(aggFilter, 300);
 
   // Smart data sync for aggregate episodes
   const aggEpisodeSync = useDataSync<SonarrAggRow>({
@@ -206,19 +208,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           query,
           { missingOnly: useMissing }
         );
-        console.log(`[Sonarr Instance] Response for ${category} page ${page}:`, {
-          total: response.total,
-          page: response.page,
-          page_size: response.page_size,
-          series_count: response.series?.length ?? 0,
-          counts: response.counts,
-          missingOnly: useMissing,
-          firstSeries: response.series?.[0] ? {
-            title: response.series[0].series?.title,
-            seasonsCount: Object.keys(response.series[0].seasons ?? {}).length,
-            firstSeasonEpisodes: Object.values(response.series[0].seasons ?? {})[0]?.episodes?.length ?? 0
-          } : null
-        });
         const resolvedPage = response.page ?? page;
         const pageSize = response.page_size ?? SONARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.series ?? []).length;
@@ -325,7 +314,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       return;
     }
-    console.log(`[Sonarr Aggregate] Starting aggregation for ${instances.length} instances`);
     const showLoading = options?.showLoading ?? true;
     if (showLoading) {
       setAggLoading(true);
@@ -339,7 +327,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         let page = 0;
         let counted = false;
         const label = inst.name || inst.category;
-        console.log(`[Sonarr Aggregate] Processing instance: ${label}`);
         while (page < 200) {
           const res = await getSonarrSeries(
             inst.category,
@@ -348,20 +335,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             "",
             { missingOnly: onlyMissing }
           );
-          console.log(`[Sonarr Aggregate] Response for ${label} page ${page}:`, {
-            total: res.total,
-            page: res.page,
-            page_size: res.page_size,
-            series_count: res.series?.length ?? 0,
-            counts: res.counts,
-            missingOnly: onlyMissing,
-            firstSeries: res.series?.[0] ? {
-              title: res.series[0].series?.title,
-              seasonsCount: Object.keys(res.series[0].seasons ?? {}).length,
-              firstSeasonEpisodes: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.length ?? 0,
-              firstEpisode: Object.values(res.series[0].seasons ?? {})[0]?.episodes?.[0]
-            } : null
-          });
           if (!counted) {
             const counts = res.counts;
             if (counts) {
@@ -372,16 +345,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             counted = true;
           }
            const series = res.series ?? [];
-          let episodeCount = 0;
-          series.forEach((entry: SonarrSeriesEntry) => {
-            // const seasonCount = Object.keys(entry.seasons ?? {}).length;
-            let entryEpisodeCount = 0;
-            Object.values(entry.seasons ?? {}).forEach(season => {
-              entryEpisodeCount += (season.episodes ?? []).length;
-            });
-            episodeCount += entryEpisodeCount;
-          });
-          console.log(`[Sonarr Aggregate] Instance: ${label}, Page: ${page}, Series count: ${series.length}, Total episodes so far: ${aggregated.length}, Episodes in this response: ${episodeCount}`);
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
@@ -409,7 +372,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             );
           });
           if (!series.length || series.length < SONARR_AGG_FETCH_SIZE) {
-            console.log(`[Sonarr Aggregate] Breaking pagination for ${label} - series.length=${series.length}`);
             break;
           }
           page += 1;
@@ -420,19 +382,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       const syncResult = aggEpisodeSync.syncData(aggregated);
       const rowsChanged = syncResult.hasChanges;
 
-      // Debug: Check what reason values we have
-      const reasonCounts = new Map<string, number>();
-      aggregated.forEach(ep => {
-        const r = ep.reason || "null/empty";
-        reasonCounts.set(r, (reasonCounts.get(r) || 0) + 1);
-      });
-      console.log(`[Sonarr Aggregate] Reason distribution:`, Object.fromEntries(reasonCounts));
-
       if (rowsChanged) {
-        console.log(`[Sonarr Aggregate] Data changed, updating from ${aggRows.length} to ${aggregated.length} episodes`);
         setAggRows(syncResult.data);
-      } else {
-        console.log(`[Sonarr Aggregate] Data unchanged, skipping update`);
       }
 
       const newSummary = {
@@ -568,37 +519,43 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   }, [selection, globalSearch]);
 
   const filteredAggRows = useMemo(() => {
-    let rows = aggRows;
-    if (aggFilter) {
-      const q = aggFilter.toLowerCase();
-      rows = rows.filter((row) => {
-        return (
-          row.series.toLowerCase().includes(q) ||
-          row.title.toLowerCase().includes(q) ||
-          row.__instance.toLowerCase().includes(q)
-        );
-      });
-    }
-    if (onlyMissing) {
-      rows = rows.filter((row) => !row.hasFile);
-    }
-    if (reasonFilter !== "all") {
-      console.log(`[Sonarr Filter] Applying reason filter: "${reasonFilter}"`);
-      const beforeFilterCount = rows.length;
-      if (reasonFilter === "Not being searched") {
-        rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
-      } else {
-        rows = rows.filter((row) => row.reason === reasonFilter);
-      }
-      console.log(`[Sonarr Filter] Filtered from ${beforeFilterCount} to ${rows.length} episodes for reason "${reasonFilter}"`);
-      if (rows.length < 10) {
-        console.log(`[Sonarr Filter] Sample filtered rows:`, rows.slice(0, 5).map(r => ({ series: r.series, episode: r.episode, reason: r.reason })));
-      }
-    }
-    return rows;
-  }, [aggRows, aggFilter, onlyMissing, reasonFilter]);
+    // Combine all filters into a single pass for better performance
+    const q = debouncedAggFilter ? debouncedAggFilter.toLowerCase() : "";
+    const hasSearchFilter = Boolean(q);
+    const hasReasonFilter = reasonFilter !== "all";
 
-  const isAggFiltered = Boolean(aggFilter) || onlyMissing || reasonFilter !== "all";
+    return aggRows.filter((row) => {
+      // Search filter
+      if (hasSearchFilter) {
+        const series = row.series.toLowerCase();
+        const title = row.title.toLowerCase();
+        const instance = row.__instance.toLowerCase();
+        if (!series.includes(q) && !title.includes(q) && !instance.includes(q)) {
+          return false;
+        }
+      }
+
+      // Missing filter
+      if (onlyMissing && row.hasFile) {
+        return false;
+      }
+
+      // Reason filter
+      if (hasReasonFilter) {
+        if (reasonFilter === "Not being searched") {
+          if (row.reason !== "Not being searched" && row.reason) {
+            return false;
+          }
+        } else if (row.reason !== reasonFilter) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [aggRows, debouncedAggFilter, onlyMissing, reasonFilter]);
+
+  const isAggFiltered = Boolean(debouncedAggFilter) || onlyMissing || reasonFilter !== "all";
 
   const sortedAggRows = filteredAggRows;
 
@@ -938,7 +895,6 @@ function SonarrAggregateView({
 
         // Build new series group
         const firstEpisode = Array.from(seasonMap.values())[0]?.[0];
-        console.log(`[Sonarr Grouped] Series: ${series}, QualityProfile: ${firstEpisode?.qualityProfileName}, FirstEpisode:`, firstEpisode);
         const seriesGroup = {
           instance,
           series,
@@ -1182,7 +1138,6 @@ function SonarrAggregateView({
       ) : groupSonarr ? (
         <div className="sonarr-hierarchical-view">
           {groupedPageRows.map((seriesGroup) => {
-            console.log(`[Sonarr Render] Series: ${seriesGroup.series}, QualityProfile: ${seriesGroup.qualityProfileName}`);
             let episodeCount = 0;
             seriesGroup.subRows.forEach(season => {
               episodeCount += season.subRows.length;
@@ -1404,16 +1359,10 @@ function SonarrInstanceView({
       rows = rows.filter((row) => !row.hasFile);
     }
     if (reasonFilter !== "all") {
-      console.log(`[Sonarr Instance Filter] Applying reason filter: "${reasonFilter}"`);
-      const beforeFilterCount = rows.length;
       if (reasonFilter === "Not being searched") {
         rows = rows.filter((row) => row.reason === "Not being searched" || !row.reason);
       } else {
         rows = rows.filter((row) => row.reason === reasonFilter);
-      }
-      console.log(`[Sonarr Instance Filter] Filtered from ${beforeFilterCount} to ${rows.length} episodes for reason "${reasonFilter}"`);
-      if (rows.length < 10) {
-        console.log(`[Sonarr Instance Filter] Sample filtered rows:`, rows.slice(0, 5).map(r => ({ series: r.series, episode: r.episode, reason: r.reason })));
       }
     }
     return rows;
