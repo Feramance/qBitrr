@@ -1664,6 +1664,30 @@ class WebUI:
                         }
                         _populate_process_metadata(arr, kind, payload)
                         procs.append(payload)
+            # qBit category manager processes
+            for process, meta in list(self.manager._process_registry.items()):
+                if meta.get("role") != "category_manager":
+                    continue
+                instance_name = meta.get("instance", "")
+                cat = meta.get("category", f"qbit-{instance_name}")
+                manager = self.manager.qbit_category_managers.get(instance_name)
+                category_count = len(manager.managed_categories) if manager else 0
+                try:
+                    alive = bool(process.is_alive())
+                    pid = getattr(process, "pid", None)
+                except Exception:
+                    alive = False
+                    pid = None
+                procs.append(
+                    {
+                        "category": cat,
+                        "name": f"qBit-{instance_name}",
+                        "kind": "category",
+                        "pid": pid,
+                        "alive": alive,
+                        "categoryCount": category_count,
+                    }
+                )
             return {"processes": procs}
 
         @app.get("/api/processes")
@@ -1679,8 +1703,56 @@ class WebUI:
 
         def _restart_process(category: str, kind: str):
             kind_normalized = kind.lower()
-            if kind_normalized not in ("search", "torrent", "all"):
-                return jsonify({"error": "kind must be search, torrent or all"}), 400
+            if kind_normalized not in ("search", "torrent", "all", "category"):
+                return jsonify({"error": "kind must be search, torrent, category or all"}), 400
+
+            # Handle category manager restart
+            if kind_normalized == "category":
+                target_proc = None
+                target_meta = None
+                for proc, meta in list(self.manager._process_registry.items()):
+                    if meta.get("role") == "category_manager" and meta.get("category") == category:
+                        target_proc = proc
+                        target_meta = meta
+                        break
+                if target_proc is None:
+                    return jsonify({"error": f"Unknown category manager {category}"}), 404
+                instance_name = target_meta.get("instance", "")
+                try:
+                    target_proc.kill()
+                except Exception:
+                    pass
+                try:
+                    target_proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    self.manager.child_processes.remove(target_proc)
+                except Exception:
+                    pass
+                self.manager._process_registry.pop(target_proc, None)
+                manager = self.manager.qbit_category_managers.get(instance_name)
+                if manager is None:
+                    return (
+                        jsonify({"error": f"No category manager for instance {instance_name}"}),
+                        404,
+                    )
+                import pathos
+
+                new_proc = pathos.helpers.mp.Process(
+                    target=manager.run_processing_loop,
+                    name=f"qBitCategory-{instance_name}",
+                    daemon=False,
+                )
+                new_proc.start()
+                self.manager.child_processes.append(new_proc)
+                self.manager._process_registry[new_proc] = {
+                    "category": category,
+                    "role": "category_manager",
+                    "instance": instance_name,
+                }
+                return jsonify({"status": "ok", "restarted": ["category"]})
+
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():

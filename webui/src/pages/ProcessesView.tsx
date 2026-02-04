@@ -393,6 +393,13 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                           const summary = item.searchSummary ?? "";
                           return summary || "No searches recorded";
                         }
+                        if (kindLower === "category") {
+                          const count =
+                            typeof item.categoryCount === "number" ? item.categoryCount : null;
+                          return count !== null
+                            ? `Managing ${count} ${count === 1 ? "category" : "categories"}`
+                            : "Category manager";
+                        }
                         if (kindLower === "torrent") {
                           const metricType = item.metricType?.toLowerCase();
                           const categoryTotal =
