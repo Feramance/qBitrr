@@ -77,8 +77,8 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
 
         // Apply theme immediately
         document.documentElement.setAttribute('data-theme', theme);
-      } catch (error) {
-        console.error("Failed to load WebUI settings:", error);
+      } catch {
+        // settings load failed, defaults will be used
       } finally {
         setLoading(false);
       }
@@ -90,14 +90,9 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   // Auto-save settings to backend
   const saveSettings = useCallback(async (key: string, value: boolean | string) => {
     try {
-      const changes: Record<string, unknown> = {
-        WebUI: {
-          [key]: value,
-        },
-      };
-      await updateConfig({ changes });
-    } catch (error) {
-      console.error(`Failed to save ${key}:`, error);
+      await updateConfig({ changes: { [`WebUI.${key}`]: value } });
+    } catch {
+      // save failed, non-critical
     }
   }, []);
 

@@ -23,14 +23,12 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         document.execCommand("copy");
         textArea.remove();
         return true;
-      } catch (err) {
-        console.error("Fallback: Could not copy text", err);
+      } catch {
         textArea.remove();
         return false;
       }
     }
-  } catch (err) {
-    console.error("Failed to copy text", err);
+  } catch {
     return false;
   }
 }

@@ -1448,6 +1448,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       "WebUI.GroupSonarr",
       "WebUI.GroupLidarr",
       "WebUI.Theme",
+      "WebUI.ViewDensity",
     ]);
 
     let dirty = false;
@@ -1764,8 +1765,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           await Promise.all(
             cacheNames.map(cacheName => caches.delete(cacheName))
           );
-        } catch (error) {
-          console.warn('Failed to clear caches:', error);
+        } catch {
+          // cache clear failed, non-critical
         }
       }
 
