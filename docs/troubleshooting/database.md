@@ -392,6 +392,19 @@ qBitrr automatically attempts recovery when corruption is detected:
     - **Dump/Restore**: May lose corrupted rows/tables
     - **Fresh Start**: Loses all history (searches, import state, torrent tracking)
 
+#### Corruption Prevention
+
+Follow these practices to minimize corruption risk:
+
+1. **Use local storage** — SQLite on NFS/CIFS is unreliable due to file locking issues
+2. **Graceful shutdown** — Always use `docker stop` (not `docker kill`); set `stop_grace_period: 30s` in Docker Compose
+3. **Ensure adequate disk space** — WAL operations need temporary space; configure `FreeSpace` in config
+4. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup--restore))
+5. **Proper permissions** — Ensure the qBitrr user owns the database files (`chown 1000:1000 /config/qBitManager/qbitrr.db`)
+
+!!! note "Historical Fix: synchronous Setting"
+    Prior to the fix in commit `465c306d`, qBitrr used `PRAGMA synchronous=0` (OFF), which traded data integrity for write speed. This was changed to `synchronous=1` (NORMAL), which prevents corruption from power loss/crashes with minimal performance impact (~5-10% write latency increase, mitigated by WAL mode).
+
 ---
 
 ### 3. Disk I/O Errors
@@ -1058,7 +1071,7 @@ docker start qbitrr  # Rebuilds from Arr APIs
 - [Environment Variables](../configuration/environment.md) - ENV var configuration
 
 ### Advanced
-- [API Reference](../reference/api.md) - Direct database access via API
+- [API Reference](../webui/api.md) - Direct database access via API
 - [Development Guide](../development/index.md) - Database schema details
 
 ---

@@ -668,9 +668,376 @@ Planned for v6.0:
 - Python plugin API
 - WebUI extensions via iframe
 
+## Process Model
+
+This section provides a deeper look at qBitrr's multiprocessing implementation, expanding on the overview in [System Design](#system-design).
+
+### Process Diagram
+
+```
+┌──────────────────────────────────────────────────────────┐
+│              Main Process (PID 1)                        │
+│  - Configuration management                               │
+│  - Process lifecycle orchestration                        │
+│  - Signal handling (SIGTERM, SIGINT, SIGHUP)             │
+│  - Health monitoring of child processes                   │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+         ┌─────────┼─────────┬─────────────────┐
+         │         │         │                 │
+    ┌────▼───┐ ┌──▼───┐ ┌───▼────┐     ┌─────▼──────┐
+    │ WebUI  │ │Radarr│ │ Sonarr │ ... │   Lidarr   │
+    │Process │ │  Mgr │ │   Mgr  │     │    Mgr     │
+    │        │ │      │ │        │     │            │
+    │Flask+  │ │Event │ │ Event  │     │   Event    │
+    │Waitress│ │Loop  │ │  Loop  │     │   Loop     │
+    └────────┘ └──────┘ └────────┘     └────────────┘
+         │         │         │                 │
+         └─────────┴─────────┴─────────────────┘
+                           │
+                  ┌────────▼─────────┐
+                  │  Shared Resources │
+                  │  - SQLite DB      │
+                  │  - Config file    │
+                  │  - Log files      │
+                  └───────────────────┘
+```
+
+### Pathos Multiprocessing
+
+qBitrr uses `pathos.multiprocessing` instead of the standard library `multiprocessing` module:
+
+| Feature | stdlib multiprocessing | pathos.multiprocessing |
+|---------|----------------------|----------------------|
+| Windows support | Limited (no fork) | Full support |
+| Serialization | pickle (limited) | dill (comprehensive) |
+| Process pools | Basic | Advanced management |
+| Cross-platform | Platform-dependent | Unified API |
+
+**Process spawning** (`qBitrr/main.py`):
+
+```python
+from pathos.multiprocessing import ProcessingPool as Pool
+from pathos.multiprocessing import Process
+import multiprocessing as mp
+
+def start_arr_manager(arr_config, shutdown_event):
+    """Entry point for Arr manager process."""
+    manager = create_arr_manager(arr_config)
+    manager.run_loop(shutdown_event)
+
+def main():
+    manager = mp.Manager()
+    shutdown_event = manager.Event()
+
+    processes = []
+
+    webui_process = Process(
+        target=start_webui,
+        args=(CONFIG, shutdown_event),
+        name="WebUI"
+    )
+    webui_process.start()
+    processes.append(webui_process)
+
+    for arr_config in CONFIG.get_arr_instances():
+        arr_process = Process(
+            target=start_arr_manager,
+            args=(arr_config, shutdown_event),
+            name=f"ArrManager-{arr_config.Name}"
+        )
+        arr_process.start()
+        processes.append(arr_process)
+
+    monitor_processes(processes, shutdown_event)
+```
+
+### Process Lifecycle
+
+**Startup sequence:**
+
+```
+1. Main Process Init
+   ├─ Load configuration
+   ├─ Initialize logging
+   ├─ Create shutdown event
+   └─ Initialize database
+
+2. Spawn WebUI Process
+   ├─ Initialize Flask app
+   ├─ Start Waitress server
+   └─ Enter serving loop
+
+3. Spawn Arr Manager Processes (parallel)
+   ├─ For each Arr instance in config
+   │  ├─ Initialize Arr client
+   │  ├─ Initialize qBittorrent client
+   │  ├─ Load tracked torrents from DB
+   │  └─ Enter event loop
+   └─ Wait for all to initialize
+
+4. Main Process Monitoring Loop
+   ├─ Check process health every 30s
+   ├─ Restart crashed processes
+   └─ Wait for shutdown signal
+```
+
+**Graceful shutdown** -- the main process handles SIGTERM/SIGINT, signals all children via the shared event, then joins with increasing force:
+
+```python
+def signal_handler(signum, frame):
+    shutdown_event.set()
+
+    for process in processes:
+        process.join(timeout=30)
+
+        if process.is_alive():
+            process.terminate()
+            process.join(timeout=5)
+
+            if process.is_alive():
+                process.kill()
+
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+```
+
+**Auto-restart on crash** -- the monitoring loop detects dead children and respawns them:
+
+```python
+def monitor_processes(processes, shutdown_event):
+    while not shutdown_event.is_set():
+        for i, process in enumerate(processes):
+            if not process.is_alive() and not shutdown_event.is_set():
+                new_process = Process(
+                    target=process._target,
+                    args=process._args,
+                    name=process.name
+                )
+                new_process.start()
+                processes[i] = new_process
+
+        time.sleep(30)
+```
+
+### Inter-Process Communication
+
+qBitrr deliberately avoids shared memory between Arr managers. Coordination relies on:
+
+- **Shutdown event** -- a `multiprocessing.Manager().Event()` shared across all processes for clean shutdown signaling.
+- **SQLite with locking** -- all processes read/write the same database through `locked_database()` (see [Locking Strategy](#locking-strategy)). Write queries are serialized; concurrent reads are allowed.
+- **Per-process logging** -- each process writes to its own log file (`Main.log`, `Radarr-4K.log`, etc.), avoiding contention on log output.
+
+This design means one manager crash never corrupts another manager's state.
+
+## Event Loop Architecture
+
+This section provides implementation details for the event loop summarized in [Event Loop Architecture](#event-loop-architecture-1) above.
+
+### Loop Phases
+
+Each Arr manager's event loop runs six phases per iteration:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Event Loop Start                      │
+└──────────────────┬──────────────────────────────────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  1. FETCH PHASE      │
+       │  - Query qBittorrent  │
+       │  - Get torrents by    │
+       │    category/tags      │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  2. CLASSIFY PHASE   │
+       │  - Check database    │
+       │  - Determine state   │
+       │  - Match to Arr      │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  3. HEALTH CHECK     │
+       │  - Check ETA         │
+       │  - Monitor stalls    │
+       │  - Verify trackers   │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  4. ACTION PHASE     │
+       │  - Import completed  │
+       │  - Blacklist failed  │
+       │  - Re-search         │
+       │  - Cleanup old       │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  5. UPDATE PHASE     │
+       │  - Update database   │
+       │  - Log actions       │
+       │  - Record metrics    │
+       └───────────┬──────────┘
+                   │
+       ┌───────────▼──────────┐
+       │  6. SLEEP PHASE      │
+       │  - Wait for interval │
+       │  - Check shutdown    │
+       └───────────┬──────────┘
+                   │
+                   └──────────────┐
+                                  │
+                   ┌──────────────▼────┐
+                   │ Shutdown signal?  │
+                   │   Yes: Exit       │
+                   │   No: Loop back   │
+                   └───────────────────┘
+```
+
+### Main Loop Implementation
+
+**File:** `qBitrr/arss.py:ArrManagerBase.run_loop()`
+
+```python
+def run_loop(self):
+    while not self.shutdown_event.is_set():
+        try:
+            # Phase 1: Fetch torrents
+            torrents = self._fetch_torrents_from_qbittorrent()
+
+            # Phase 2: Classify torrents
+            tracked = self._get_tracked_torrents()
+            new_torrents = self._identify_new_torrents(torrents, tracked)
+
+            # Phase 3-4: Health checks and actions
+            for torrent in torrents:
+                try:
+                    health_status = self._check_torrent_health(torrent)
+
+                    if health_status == 'completed':
+                        self._import_to_arr(torrent)
+                    elif health_status == 'failed':
+                        self._handle_failed_torrent(torrent)
+                    elif health_status == 'stalled':
+                        self._handle_stalled_torrent(torrent)
+
+                except SkipException:
+                    continue
+                except Exception as e:
+                    logger.error(f"Error processing {torrent['hash']}: {e}")
+                    continue
+
+            # Phase 5: Update database
+            self._update_torrent_states(torrents)
+            self._cleanup_expired_entries()
+
+            # Phase 6: Sleep
+            time.sleep(self.check_interval)
+
+        except DelayLoopException as e:
+            logger.warning(f"Delaying loop for {e.length}s: {e.type}")
+            time.sleep(e.length)
+
+        except RestartLoopException:
+            self._reload_config()
+            continue
+
+        except Exception as e:
+            logger.exception(f"Unexpected error in event loop: {e}")
+            time.sleep(60)  # Back off on unexpected errors
+```
+
+### Control Flow Exceptions
+
+qBitrr uses exceptions for explicit loop control. Each exception type is defined in `qBitrr/errors.py`:
+
+**SkipException** -- skip the current torrent and continue with the next one:
+
+```python
+class SkipException(qBitManagerError):
+    """Dummy error to skip actions"""
+
+# Usage: raised when a torrent doesn't match the manager's categories or tags
+if torrent['category'] not in self.categories:
+    raise SkipException("Not our category")
+```
+
+**DelayLoopException** -- pause the entire loop temporarily (e.g., connection failure):
+
+```python
+class DelayLoopException(qBitManagerError):
+    def __init__(self, length: int, type: str):
+        self.type = type      # Reason for delay
+        self.length = length  # Seconds to delay
+
+# Usage: raised when qBittorrent or an Arr API is unreachable
+raise DelayLoopException(length=60, type="qbittorrent_offline")
+```
+
+**RestartLoopException** -- restart from the beginning after a config reload:
+
+```python
+class RestartLoopException(ArrManagerException):
+    """Exception to trigger a loop restart"""
+```
+
+**NoConnectionrException** -- connection failure with retry/fatal modes (the typo is preserved for backward compatibility):
+
+```python
+class NoConnectionrException(qBitManagerError):
+    def __init__(self, message: str, type: str = "delay"):
+        self.message = message
+        self.type = type  # "delay" or "fatal"
+```
+
+### Torrent State Machine
+
+Each torrent progresses through a defined set of states within the loop:
+
+```
+        ┌─────────┐
+        │ Detected│ (New torrent found in qBittorrent)
+        └────┬────┘
+             │
+        ┌────▼─────────┐
+        │ Downloading  │
+        └────┬─────────┘
+             │
+    ┌────────┴────────┐
+    │                 │
+┌───▼────┐      ┌────▼─────┐
+│Stalled │      │Completed │
+└───┬────┘      └────┬─────┘
+    │                │
+┌───▼────┐      ┌────▼─────┐
+│Failed  │      │Importing │
+└───┬────┘      └────┬─────┘
+    │                │
+┌───▼────────┐  ┌────▼─────┐
+│Blacklisted │  │Imported  │
+└───┬────────┘  └────┬─────┘
+    │                │
+┌───▼────────┐  ┌────▼─────┐
+│Re-searching│  │ Seeding  │
+└────────────┘  └────┬─────┘
+                     │
+                ┌────▼─────┐
+                │ Deleted  │ (After seed goals met)
+                └──────────┘
+```
+
+**Key transitions:**
+
+- **Downloading -> Completed** when `progress == 1.0` and state is `uploading`
+- **Downloading -> Stalled** when ETA exceeds `MaxETA` or no progress for longer than `StallTimeout`
+- **Completed -> Importing** after passing ffprobe validation (if enabled), triggers Arr import API
+- **Failed -> Blacklisted** after retry limit exceeded; added to Arr blacklist
+- **Blacklisted -> Re-searching** when `AutoReSearch` is enabled in config; triggers a new Arr search
+- **Seeding -> Deleted** when seed ratio/time goals are met; removed from qBittorrent
+
 ## Further Reading
 
-- [Event Loops](event-loops.md) - Deep dive into loop mechanics
 - [Database Schema](database.md) - Complete schema documentation
-- [Multiprocessing](multiprocessing.md) - Process management details
-- [Performance Tuning](performance.md) - Optimization strategies
+- [Performance Troubleshooting](../troubleshooting/performance.md) - Optimization strategies

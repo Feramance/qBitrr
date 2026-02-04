@@ -1074,5 +1074,5 @@ Test connection to Arr instance without saving configuration.
 
 - [WebUI Overview](index.md) – Introduction to the WebUI
 - [Arr Views](arr-views.md) – Browse Radarr/Sonarr/Lidarr libraries
-- [First Run Guide](../getting-started/first-run.md) – Initial configuration walkthrough
+- [First Run Guide](../getting-started/quickstart.md) – Initial configuration walkthrough
 - [Migration Guide](../getting-started/migration.md) – Upgrading from older configs

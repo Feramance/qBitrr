@@ -128,10 +128,24 @@ plugins:
     minify_css: true
     htmlmin_opts:
       remove_comments: true
-  # Uncomment to add redirects as needed
-  # - redirects:
-  #     redirect_maps:
-  #       'old-page.md': 'new-page.md'
+- redirects:
+    redirect_maps:
+      reference/index.md: faq.md
+      reference/api.md: webui/api.md
+      reference/config-schema.md: configuration/config-file.md
+      reference/error-codes.md: troubleshooting/common-issues.md
+      reference/cli.md: getting-started/index.md
+      reference/glossary.md: faq.md
+      getting-started/first-run.md: getting-started/quickstart.md
+      troubleshooting/database-corruption.md: troubleshooting/database.md
+      fixes/DATABASE_CORRUPTION_FIX.md: troubleshooting/database.md
+      advanced/multi-qbittorrent.md: configuration/qbittorrent.md
+      advanced/custom-trackers.md: configuration/seeding.md
+      advanced/performance.md: troubleshooting/performance.md
+      advanced/config-options.md: configuration/config-file.md
+      advanced/event-loops.md: advanced/architecture.md
+      advanced/multiprocessing.md: advanced/architecture.md
+      advanced/ffprobe.md: features/health-monitoring.md
 
 # Additional CSS/JS
 extra_css:
@@ -190,7 +204,6 @@ nav:
     - getting-started/installation/systemd.md
     - getting-started/installation/binary.md
   - Quick Start: getting-started/quickstart.md
-  - First Run: getting-started/first-run.md
   - Migration Guide: getting-started/migration.md
 
 - Configuration:
@@ -235,13 +248,7 @@ nav:
 - Advanced:
   - advanced/index.md
   - Architecture: advanced/architecture.md
-  - Multi-qBittorrent: advanced/multi-qbittorrent.md
   - Database Schema: advanced/database.md
-  - Event Loops: advanced/event-loops.md
-  - FFprobe Integration: advanced/ffprobe.md
-  - Multiprocessing: advanced/multiprocessing.md
-  - Performance Tuning: advanced/performance.md
-  - Custom Trackers: advanced/custom-trackers.md
 
 - Troubleshooting:
   - troubleshooting/index.md
@@ -251,8 +258,6 @@ nav:
   - Docker Issues: troubleshooting/docker.md
   - Path Mapping: troubleshooting/path-mapping.md
   - Performance Issues: troubleshooting/performance.md
-  - Fixes:
-    - Database Corruption Fix: fixes/DATABASE_CORRUPTION_FIX.md
 
 - Development:
   - development/index.md
@@ -261,11 +266,3 @@ nav:
   - Testing: development/testing.md
   - Release Process: development/release-process.md
   - WebUI Development: development/webui.md
-
-- Reference:
-  - reference/index.md
-  - API Documentation: reference/api.md
-  - CLI Reference: reference/cli.md
-  - Configuration Schema: reference/config-schema.md
-  - Error Codes: reference/error-codes.md
-  - Glossary: reference/glossary.md

@@ -916,7 +916,7 @@ SONARR_API_KEY=your-secret-key
 
 ### Getting Started
 
-- **[First Run Guide](../getting-started/first-run.md)** - Step-by-step setup
+- **[First Run Guide](../getting-started/quickstart.md)** - Step-by-step setup
 - **[Quick Start](../getting-started/quickstart.md)** - Fastest path to working setup
 - **[Installation](../getting-started/installation/index.md)** - Choose install method
 
@@ -930,8 +930,8 @@ SONARR_API_KEY=your-secret-key
 ### Reference
 
 - **[FAQ](../faq.md)** - Frequently asked questions
-- **[Glossary](../reference/glossary.md)** - Technical terms explained
-- **[API Reference](../reference/api.md)** - REST API documentation
+- **[Glossary](../faq.md#glossary)** - Technical terms explained
+- **[API Reference](../webui/api.md)** - REST API documentation
 
 ---
 

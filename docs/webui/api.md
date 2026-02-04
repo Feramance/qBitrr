@@ -1404,5 +1404,5 @@ curl -X POST \
 ## See Also
 
 - [Configuration File Reference](../configuration/config-file.md) - Manual TOML editing
-- [First Run Guide](../getting-started/first-run.md) - Initial setup
+- [First Run Guide](../getting-started/quickstart.md) - Initial setup
 - [Troubleshooting](../troubleshooting/index.md) - Common issues

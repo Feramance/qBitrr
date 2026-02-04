@@ -142,7 +142,7 @@ Regardless of installation method, you'll need:
 Once you've installed qBitrr using your preferred method:
 
 1. **First Run** - Generate default configuration
-   - [First Run Guide →](../first-run.md)
+   - [First Run Guide →](../quickstart.md)
 
 2. **Configure qBittorrent** - Set connection details
    - [qBittorrent Configuration →](../../configuration/qbittorrent.md)

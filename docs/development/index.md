@@ -1127,7 +1127,7 @@ When testing changes manually:
 
 - **[AGENTS.md](https://github.com/Feramance/qBitrr/blob/master/AGENTS.md)** - Comprehensive development guidelines for AI agents
 - **[Contributing Guide](contributing.md)** - Contribution guidelines and code of conduct
-- **[API Reference](../reference/api.md)** - Complete API reference with examples
+- **[API Reference](../webui/api.md)** - Complete API reference with examples
 
 ### External Documentation
 
@@ -1265,6 +1265,6 @@ Thank you for contributing to qBitrr! Every contribution, big or small, helps ma
 
 - [Installation Guide](../getting-started/installation/index.md) - Install qBitrr for development
 - [Configuration Reference](../configuration/config-file.md) - All config options
-- [API Reference](../reference/api.md) - REST API documentation
+- [API Reference](../webui/api.md) - REST API documentation
 - [Troubleshooting](../troubleshooting/index.md) - Common development issues
 - [FAQ](../faq.md) - Frequently asked questions

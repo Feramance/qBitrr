@@ -643,5 +643,5 @@ RetentionDays = 7  # Minimize data retention for privacy
 ## Related Documentation
 
 - [Architecture](architecture.md) - System design overview
-- [Performance Tuning](performance.md) - Optimization strategies
+- [Performance Troubleshooting](../troubleshooting/performance.md) - Optimization strategies
 - [Troubleshooting: Database Issues](../troubleshooting/database.md) - Common problems

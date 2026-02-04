@@ -764,6 +764,232 @@ graph LR
 
 ---
 
+## FFprobe Media Validation
+
+FFprobe (part of the FFmpeg project) provides detailed media file analysis. qBitrr uses it to validate downloaded files before importing them to Arr instances, preventing corrupt or invalid files from entering your library.
+
+### Configuration
+
+#### Basic Setup
+
+Enable FFprobe validation with an optional custom binary path:
+
+```toml
+[Settings]
+FFprobeAutoUpdate = true
+FFprobePath = "/usr/bin/ffprobe"  # Auto-detected if not specified
+```
+
+#### Auto-Download
+
+When `FFprobeAutoUpdate = true` (default), qBitrr automatically downloads FFprobe from [FFBinaries](https://ffbinaries.com/) if not found.
+
+**Supported platforms:** Linux (x86_64, ARM, ARM64), Windows (x86, x64), macOS (x64).
+
+#### Manual Installation
+
+If auto-download fails or you prefer manual installation:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install ffmpeg
+
+# RHEL/CentOS
+sudo yum install ffmpeg
+
+# macOS (Homebrew)
+brew install ffmpeg
+```
+
+FFprobe is pre-installed in the official qBitrr Docker image.
+
+---
+
+### Validation Rules
+
+#### Video Validation
+
+```toml
+[Settings.FFprobe]
+CheckVideoCodec = true
+AllowedVideoCodecs = ["h264", "h265", "hevc", "av1", "mpeg4", "vp9"]
+
+CheckVideoResolution = true
+MinWidth = 720
+MinHeight = 480
+
+CheckVideoBitrate = true
+MinVideoBitrate = 1000000  # 1 Mbps minimum
+```
+
+#### Audio Validation
+
+```toml
+[Settings.FFprobe]
+CheckAudioCodec = true
+AllowedAudioCodecs = ["aac", "ac3", "eac3", "dts", "truehd", "flac", "opus"]
+
+CheckAudioChannels = true
+MinAudioChannels = 2  # Require stereo or better
+
+RequireAudioTrack = true  # Fail if no audio track
+```
+
+#### Duration Validation
+
+```toml
+[Settings.FFprobe]
+CheckDuration = true
+MinDuration = 60  # Reject files shorter than 1 minute
+```
+
+Useful for filtering out trailers, detecting truncated downloads, and ensuring minimum content length.
+
+#### Container Format Validation
+
+```toml
+[Settings.FFprobe]
+CheckContainer = true
+AllowedContainers = ["matroska", "mp4", "avi", "mov"]
+```
+
+---
+
+### How Validation Works
+
+When a torrent completes, qBitrr runs:
+
+```bash
+ffprobe -v quiet -print_format json -show_format -show_streams -show_chapters "/path/to/file.mkv"
+```
+
+The JSON output includes stream details (codec, resolution, channels), format info (container, duration, size), and chapter data. qBitrr parses this and checks against the configured validation rules.
+
+**File selection for multi-file torrents:**
+
+1. Filter to video files only (`.mkv`, `.mp4`, `.avi`, etc.)
+2. Sort by file size (largest first)
+3. Validate the largest file by default
+
+```toml
+[Settings.FFprobe]
+ValidateAllFiles = false  # Only validate largest (default)
+# ValidateAllFiles = true   # Validate every video file
+```
+
+**Per-Arr instance validation** allows different rules for different libraries:
+
+```toml
+[[Radarr]]
+Name = "Radarr-4K"
+
+[Radarr.FFprobe]
+MinWidth = 3840
+MinHeight = 2160
+```
+
+---
+
+### Timeout and Performance
+
+Prevent FFprobe from hanging on problematic files:
+
+```toml
+[Settings.FFprobe]
+Timeout = 30  # Kill FFprobe after 30 seconds
+```
+
+**Typical validation times:**
+
+| File Size | Format | Duration |
+|-----------|--------|----------|
+| 1 GB | MKV | ~0.5s |
+| 5 GB | MKV | 1-2s |
+| 20 GB | MKV | 3-5s |
+| 50 GB | MKV | 10-15s |
+
+FFprobe runs in a background thread, so validation does not block other torrents from being processed. To reduce validation time, disable non-essential checks:
+
+```toml
+[Settings.FFprobe]
+CheckVideoCodec = true
+CheckAudioCodec = true
+CheckDuration = true
+CheckVideoBitrate = false
+CheckVideoResolution = false
+ValidateAllFiles = false
+```
+
+---
+
+### Troubleshooting FFprobe
+
+#### FFprobe Not Found
+
+```
+FFprobe binary not found at /usr/bin/ffprobe
+```
+
+**Solutions:**
+
+1. Enable auto-download: `FFprobeAutoUpdate = true`
+2. Install manually: `apt-get install ffmpeg`
+3. Specify custom path: `FFprobePath = "/custom/path/ffprobe"`
+
+#### Invalid or Corrupt File Detected
+
+```
+[WARNING] FFprobe validation failed for torrent abc123: Invalid data found when processing input
+```
+
+The torrent is blacklisted and a new search is triggered (if AutoReSearch is enabled).
+
+#### Missing Streams
+
+```
+[WARNING] FFprobe validation failed for torrent abc123: No video stream found
+```
+
+Common causes: audio-only file, corrupt download, or unsupported container format.
+
+#### FFprobe Hangs on Certain Files
+
+Lower the timeout to prevent hangs:
+
+```toml
+[Settings.FFprobe]
+Timeout = 10
+```
+
+#### Enable Debug Logging
+
+```toml
+[Settings]
+LogLevel = "DEBUG"
+```
+
+Look for log lines starting with `[DEBUG] FFprobe command:`, `[DEBUG] FFprobe output:`, and `[DEBUG] Validation result:`.
+
+#### Test FFprobe Manually
+
+```bash
+ffprobe -version
+ffprobe -v quiet -print_format json -show_format -show_streams /path/to/file.mkv
+```
+
+#### Docker Volume Permissions
+
+FFprobe needs read access to download files:
+
+```yaml
+services:
+  qbitrr:
+    volumes:
+      - /path/to/downloads:/downloads:ro  # Read-only is sufficient
+```
+
+---
+
 ## Related Documentation
 
 - [qBittorrent Configuration](../configuration/qbittorrent.md)

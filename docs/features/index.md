@@ -624,7 +624,7 @@ Detailed guides for each feature:
 ### Getting Started
 - [Quick Start Guide](../getting-started/quickstart.md) - Set up your first feature
 - [Installation](../getting-started/installation/index.md) - Install qBitrr
-- [First Run](../getting-started/first-run.md) - Initial configuration
+- [First Run](../getting-started/quickstart.md) - Initial configuration
 
 ---
 

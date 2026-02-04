@@ -348,7 +348,7 @@ Yes! qBitrr runs on many NAS platforms:
 - **Unraid**: Community Applications
 - **TrueNAS**: Jails or Docker
 
-[NAS installation guide →](getting-started/installation/docker.md#troubleshooting)
+[Docker installation guide →](getting-started/installation/docker.md) | [Docker troubleshooting →](troubleshooting/docker.md)
 
 ### Does qBitrr work with VPN?
 
@@ -650,6 +650,47 @@ Yes! Non-code contributions:
 
 ---
 
+## Glossary
+
+Quick reference for common terms used throughout qBitrr documentation.
+
+| Term | Definition |
+|------|------------|
+| **Arr / *Arr** | Collective term for Radarr (movies), Sonarr (TV shows), and Lidarr (music) |
+| **API Key** | Authentication token for *Arr applications (Settings → General → Security) |
+| **Blacklist** | Releases that should not be downloaded again |
+| **Category** | qBittorrent label used to group torrents; must match between qBitrr and Arr |
+| **Custom Format (CF)** | Radarr/Sonarr scoring rules for release preferences |
+| **ETA** | Estimated Time of Arrival — predicted download completion time |
+| **Event Loop** | Continuous process monitoring torrents per *Arr instance |
+| **FFprobe** | Media file analysis tool for validating downloads before import |
+| **Hash** | Unique 40-character hexadecimal torrent identifier |
+| **Health Check** | Monitoring torrent status to detect stalled/failed downloads |
+| **Instant Import** | Triggering Arr import immediately when download completes |
+| **MaxETA** | Maximum allowed ETA before marking a torrent as failed |
+| **Monitored** | Arr status indicating content should be automatically downloaded |
+| **Peewee** | Python ORM library used by qBitrr for SQLite database interactions |
+| **Quality Cutoff** | Quality level that, once met, stops searching for upgrades |
+| **Seed Ratio** | Upload/download ratio (1.0 = uploaded as much as downloaded) |
+| **Stalled Torrent** | Torrent with no download progress, usually due to lack of seeders |
+| **TOML** | Configuration file format used by qBitrr (Tom's Obvious, Minimal Language) |
+| **Tracker** | Server coordinating BitTorrent peers; public or private |
+| **WebUI** | qBitrr's web-based interface for monitoring and configuration |
+
+### Default Port Numbers
+
+| Service | Default Port |
+|---------|--------------|
+| qBitrr WebUI | 6969 |
+| qBittorrent | 8080 |
+| Radarr | 7878 |
+| Sonarr | 8989 |
+| Lidarr | 8686 |
+| Overseerr | 5055 |
+| Ombi | 3579 |
+
+---
+
 ## Quick Reference
 
 ### Essential Commands
@@ -698,7 +739,6 @@ Category = "radarr-movies"
 ### Getting Started
 - [Installation Guide](getting-started/installation/index.md)
 - [Quick Start](getting-started/quickstart.md)
-- [First Run Configuration](getting-started/first-run.md)
 
 ### Configuration
 - [Complete Configuration Reference](configuration/config-file.md)
@@ -720,8 +760,8 @@ Category = "radarr-movies"
 
 ### Advanced
 - [Advanced Topics](advanced/index.md)
-- [CLI Reference](reference/cli.md)
-- [API Documentation](reference/api.md)
+- [CLI Reference](getting-started/index.md#command-line-reference)
+- [API Documentation](webui/api.md)
 - [Development Guide](development/index.md)
 
 ---

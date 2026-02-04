@@ -113,7 +113,7 @@ pip install qBitrr2[all]
    qbitrr
    ```
 
-See the [First Run Guide](../first-run.md) for detailed configuration steps.
+See the [First Run Guide](../quickstart.md) for detailed configuration steps.
 
 ## Configuration
 
@@ -359,4 +359,4 @@ See the [Development Guide](../../development/index.md) for more details.
 - [Configure qBittorrent](../../configuration/qbittorrent.md)
 - [Configure Arr Instances](../../configuration/arr/index.md)
 - [Set up Systemd Service](systemd.md) (Linux)
-- [First Run Guide](../first-run.md)
+- [First Run Guide](../quickstart.md)

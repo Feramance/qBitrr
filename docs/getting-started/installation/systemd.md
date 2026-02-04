@@ -79,7 +79,7 @@ Press ++ctrl+c++ to stop, then edit:
 sudo nano /opt/qbitrr/config/config.toml
 ```
 
-See the [First Run Guide](../first-run.md) for configuration details.
+See the [First Run Guide](../quickstart.md) for configuration details.
 
 ### 5. Create Systemd Service File
 
@@ -503,5 +503,5 @@ WantedBy=multi-user.target
 
 - [Configure qBittorrent](../../configuration/qbittorrent.md)
 - [Configure Arr Instances](../../configuration/arr/index.md)
-- [First Run Guide](../first-run.md)
+- [First Run Guide](../quickstart.md)
 - [Troubleshooting Guide](../../troubleshooting/index.md)

@@ -728,6 +728,47 @@ WARNING - FFprobe validation failed for torrent XYZ
 
 ---
 
+## Common Configuration Mistakes
+
+### Path Mismatches
+
+**Problem:** qBittorrent saves to `/downloads`, but Radarr sees `/data/downloads`
+
+**Solution:** Use consistent paths across all containers:
+
+```yaml
+# docker-compose.yml — all services must mount the same path
+qbittorrent:
+  volumes:
+    - /mnt/storage/downloads:/downloads
+radarr:
+  volumes:
+    - /mnt/storage/downloads:/downloads
+qbitrr:
+  volumes:
+    - /mnt/storage/downloads:/downloads
+```
+
+### Wrong Category
+
+**Problem:** Radarr uses `radarr`, but qBitrr config has `radarr-movies`
+
+**Solution:** Ensure categories match exactly between your Arr download client configuration and qBitrr config.
+
+### Missing Tags
+
+**Problem:** Torrents have tags but qBitrr has `Tagless = false`
+
+**Solution:** Either enable tagless mode (`Tagless = true`) or configure matching tags in your Arr download clients.
+
+### Invalid API Keys
+
+**Problem:** Copy-paste errors in API keys
+
+**Solution:** Copy the entire key from Arr settings (Settings → General → Security), including any dashes or special characters.
+
+---
+
 ## What's Next?
 
 ### Immediate Next Steps

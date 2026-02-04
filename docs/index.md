@@ -336,7 +336,7 @@ Optimize for private tracker requirements:
 - Long-term seeding with automatic cleanup
 - Import verification with FFprobe
 
-[**Example Setup →**](advanced/custom-trackers.md#private-tracker-strict-rules)
+[**Example Setup →**](configuration/seeding.md#custom-tracker-rules)
 
 ---
 
@@ -409,8 +409,7 @@ If qBitrr saves you time and improves your media management:
 
 1. [Getting Started Guide →](getting-started/index.md)
 2. [Installation →](getting-started/installation/index.md)
-3. [First Run Configuration →](getting-started/first-run.md)
-4. [Quick Start →](getting-started/quickstart.md)
+3. [Quick Start →](getting-started/quickstart.md)
 
 ### Already Installed?
 
@@ -422,9 +421,9 @@ If qBitrr saves you time and improves your media management:
 ### Advanced User?
 
 1. [Advanced Topics →](advanced/index.md)
-2. [API Reference →](reference/api.md)
+2. [API Reference →](webui/api.md)
 3. [Development →](development/index.md)
-4. [CLI Reference →](reference/cli.md)
+4. [CLI Reference →](getting-started/index.md#command-line-reference)
 
 ---
 

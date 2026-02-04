@@ -306,7 +306,7 @@ APIKey = "your_radarr_api_key_here"
 Category = "radarr-movies"
 ```
 
-[**Detailed Configuration Guide →**](first-run.md)
+[**Detailed Configuration Guide →**](quickstart.md)
 
 ### Step 4: Start qBitrr
 
@@ -464,7 +464,7 @@ ApprovedOnly = true
 
 **Resources:**
 
-- [First Run Guide](first-run.md)
+- [First Run Guide](quickstart.md)
 - [qBittorrent Configuration](../configuration/qbittorrent.md)
 - [WebUI Overview](../webui/index.md)
 
@@ -543,8 +543,7 @@ Choose your path based on your needs:
 Just want it working fast?
 
 1. [Quick Start Guide](quickstart.md)
-2. [First Run Configuration](first-run.md)
-3. Test with downloads
+2. Test with downloads
 
 **Time required:** 20 minutes
 
@@ -572,6 +571,61 @@ Need complex features?
 
 ---
 
+## Command-Line Reference
+
+### Usage
+
+```bash
+qbitrr [OPTIONS]
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--config PATH` | Path to config.toml file | `~/config/config.toml` (native), `/config/config.toml` (Docker) |
+| `--gen-config` | Generate default configuration file and exit | - |
+| `--version` | Show version information and exit | - |
+| `--help` | Show help message and exit | - |
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `QBITRR_CONFIG` | Path to config.toml | `~/config/config.toml` |
+| `QBITRR_LOG_LEVEL` | Logging level | `INFO` |
+| `PUID` / `PGID` | User/Group ID (Docker) | `1000` |
+| `TZ` | Timezone | `UTC` |
+
+Environment variables can override config.toml settings using the format `QBITRR_SECTION__KEY=value` (double underscore as separator).
+
+### Signals
+
+| Signal | Behavior |
+|--------|----------|
+| `SIGTERM` | Graceful shutdown (recommended) |
+| `SIGINT` | Graceful shutdown (Ctrl+C) |
+| `SIGKILL` | Immediate termination (not recommended) |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | General error |
+| `2` | Configuration error |
+| `3` | Connection error |
+| `130` | SIGINT (Ctrl+C) |
+| `143` | SIGTERM |
+
+### Config File Search Order
+
+1. `--config` option
+2. `QBITRR_CONFIG` environment variable
+3. `/config/config.toml` (Docker)
+4. `~/config/config.toml` (native)
+5. `~/.config/qBitrr/config.toml` (pip install)
+
+---
+
 ## Getting Help
 
 ### Documentation
@@ -579,7 +633,7 @@ Need complex features?
 - [FAQ](../faq.md) - Frequently asked questions
 - [Troubleshooting](../troubleshooting/index.md) - Common issues and solutions
 - [Configuration Reference](../configuration/config-file.md) - Complete config documentation
-- [API Reference](../reference/api.md) - REST API documentation
+- [API Reference](../webui/api.md) - REST API documentation
 
 ### Community
 

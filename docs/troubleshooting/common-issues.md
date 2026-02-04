@@ -787,6 +787,65 @@ If your issue isn't covered here:
 
 ---
 
+## Error Reference
+
+### Exception Hierarchy
+
+qBitrr uses a custom exception hierarchy for error handling:
+
+```
+qBitManagerError (base)
+├── UnhandledError
+├── ConfigException
+├── ArrManagerException
+│   └── RestartLoopException
+├── SkipException
+├── RequireConfigValue
+├── NoConnectionrException
+└── DelayLoopException
+```
+
+### Python Exceptions
+
+| Exception | Purpose | Common Causes |
+|-----------|---------|---------------|
+| `qBitManagerError` | Base exception for all qBitrr errors | Catch-all for qBitrr exceptions |
+| `UnhandledError` | Unhandled edge case encountered | Unexpected API response, unknown torrent state |
+| `ConfigException` | Configuration parsing/validation error | Invalid TOML syntax, missing required fields |
+| `RequireConfigValue` | Specific config value missing | Missing API key, missing host |
+| `ArrManagerException` | Arr-related error | API connection failure, invalid response, instance offline |
+| `RestartLoopException` | Signal event loop to restart | Config changed, manual restart requested |
+| `DelayLoopException` | Delay next event loop iteration | Network failure, temporary API unavailability |
+| `NoConnectionrException` | Connection failure with retry logic | Cannot connect to qBittorrent or Arr instance |
+| `SkipException` | Skip current torrent, continue next | Torrent doesn't match criteria, already processed |
+
+### Exit Codes
+
+| Code | Meaning | Description |
+|------|---------|-------------|
+| 0 | Success | qBitrr exited normally |
+| 1 | General Error | Unspecified error |
+| 2 | Config Error | Configuration file error |
+| 3 | Connection Error | Cannot connect to required service |
+| 4 | Permission Error | Insufficient file/directory permissions |
+| 5 | Database Error | Database initialization or access error |
+| 130 | SIGINT | User interrupted (Ctrl+C) |
+| 143 | SIGTERM | Terminated by system or user |
+
+### HTTP Status Codes
+
+qBitrr WebUI API returns standard HTTP status codes:
+
+| Code | Meaning | Description |
+|------|---------|-------------|
+| 200 | OK | Request succeeded |
+| 400 | Bad Request | Invalid request parameters |
+| 401 | Unauthorized | Missing or invalid API token |
+| 404 | Not Found | Endpoint or resource not found |
+| 500 | Internal Server Error | Server error |
+
+---
+
 ## Related Documentation
 
 - [Docker Troubleshooting](docker.md)

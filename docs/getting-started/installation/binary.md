@@ -148,7 +148,7 @@ Visit the [GitHub Releases page](https://github.com/Feramance/qBitrr/releases) a
    Press ++ctrl+c++
 
 4. **Edit configuration:**
-   See [First Run Guide](../first-run.md)
+   See [First Run Guide](../quickstart.md)
 
 5. **Start again:**
    ```bash
@@ -394,7 +394,7 @@ See the [Development Guide](../../development/index.md) for more details.
 
 ## Next Steps
 
-- [First Run Guide](../first-run.md)
+- [First Run Guide](../quickstart.md)
 - [Configure qBittorrent](../../configuration/qbittorrent.md)
 - [Configure Arr Instances](../../configuration/arr/index.md)
 - [Troubleshooting](../../troubleshooting/index.md)

@@ -624,6 +624,6 @@ If you encounter issues during migration:
 ## Related Documentation
 
 - [Installation Guide](installation/index.md)
-- [First Run Configuration](first-run.md)
+- [First Run Configuration](quickstart.md)
 - [Configuration Overview](../configuration/index.md)
 - [Troubleshooting](../troubleshooting/common-issues.md)

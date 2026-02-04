@@ -6,7 +6,7 @@ Having issues with qBitrr? This section provides solutions to common problems an
 
 - [Common Issues](common-issues.md) - Frequently encountered problems and solutions
 - [Docker Issues](docker.md) - Docker-specific troubleshooting
-- [Database Corruption Prevention](database-corruption.md) - Prevent and recover from database corruption
+- [Database Issues](database.md) - Database troubleshooting, corruption prevention, and recovery
 - [FAQ](../faq.md) - Frequently asked questions
 
 ## Common Problems

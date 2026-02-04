@@ -193,7 +193,7 @@ services:
    docker-compose up -d
    ```
 
-See the [First Run Guide](../first-run.md) for detailed configuration steps.
+See the [First Run Guide](../quickstart.md) for detailed configuration steps.
 
 ## Accessing the WebUI
 
@@ -226,475 +226,64 @@ docker rm qbitrr
 !!! tip "Auto-Updates"
     qBitrr has a built-in auto-update feature that works in Docker. It will pull the latest image and restart the container automatically if configured.
 
-## Troubleshooting
+## Troubleshooting Quick Reference
 
-### Container Won't Start
+Having issues? Here are the most common fixes. For detailed troubleshooting, see the [Docker Troubleshooting Guide](../../troubleshooting/docker.md).
 
-**Problem:** Container exits immediately or fails to start
+### Quick Fixes
 
-**Check logs:**
+| Issue | Quick Fix |
+|-------|-----------|
+| Container won't start | `docker logs qbitrr` to check errors |
+| Permission denied | `sudo chown -R 1000:1000 /path/to/config` |
+| Can't connect to qBittorrent | Use container name (`qbittorrent:8080`) if on same network |
+| Path not found | Ensure identical volume mappings across all containers |
+| Database locked | Stop duplicate containers: `docker ps --filter name=qbitrr` |
+| High CPU/memory | Set `LogLevel = "INFO"` and add resource limits |
+
+### Essential Diagnostics
+
 ```bash
+# Check logs
 docker logs qbitrr
-```
 
-**Common issues:**
-
-1. **Port Already in Use**
-   ```
-   Error: bind: address already in use
-   ```
-   **Solution:**
-   ```bash
-   # Check what's using port 6969
-   sudo lsof -i :6969
-
-   # Change port in docker-compose.yml
-   ports:
-     - "6970:6969"  # Map to different host port
-   ```
-
-2. **Config Directory Permissions**
-   ```
-   PermissionError: [Errno 13] Permission denied: '/config'
-   ```
-   **Solution:**
-   ```bash
-   # Create directory with correct ownership
-   mkdir -p /path/to/config
-   sudo chown -R 1000:1000 /path/to/config
-   chmod -R 755 /path/to/config
-   ```
-
-3. **Invalid config.toml Syntax**
-   ```
-   TOMLDecodeError: Invalid TOML
-   ```
-   **Solution:**
-   ```bash
-   # Validate TOML syntax
-   docker run --rm -v /path/to/config:/config \
-     feramance/qbitrr:latest qbitrr --validate-config
-
-   # Or delete and regenerate
-   mv /path/to/config/config.toml /path/to/config/config.toml.old
-   docker restart qbitrr  # Generates new config
-   ```
-
-4. **Missing Environment Variables**
-   ```
-   KeyError: 'QBITRR_CONFIG_PATH'
-   ```
-   **Solution:** Ensure all required environment variables are set in docker-compose.yml
-
-### Can't Connect to qBittorrent/Arr
-
-**Problem:** qBitrr can't reach qBittorrent or Arr instances
-
-**Diagnosis:**
-
-1. **Check Container Communication:**
-   ```bash
-   # Ping qBittorrent from qBitrr
-   docker exec qbitrr ping -c 3 qbittorrent
-
-   # Check if port is reachable
-   docker exec qbitrr wget -O- http://qbittorrent:8080
-   ```
-
-2. **Verify Network Configuration:**
-   ```bash
-   # Check which network containers are on
-   docker inspect qbitrr | grep NetworkMode
-   docker inspect qbittorrent | grep NetworkMode
-
-   # List all networks
-   docker network ls
-   ```
-
-**Solutions:**
-
-1. **Use Container Names (Same Network):**
-   ```toml
-   [qBit]
-   Host = "http://qbittorrent:8080"  # Use container name
-
-   [[Radarr]]
-   URI = "http://radarr:7878"  # Use container name
-   ```
-
-2. **Use Host IP (Different Networks):**
-   ```toml
-   [qBit]
-   Host = "http://192.168.1.100:8080"  # Host IP
-
-   [[Radarr]]
-   URI = "http://192.168.1.100:7878"  # Host IP
-   ```
-
-3. **Put All Containers on Same Network:**
-   ```yaml
-   networks:
-     media:
-       driver: bridge
-
-   services:
-     qbitrr:
-       networks:
-         - media
-     qbittorrent:
-       networks:
-         - media
-     radarr:
-       networks:
-         - media
-   ```
-
-4. **Use host.docker.internal (Docker Desktop):**
-   ```toml
-   [qBit]
-   Host = "http://host.docker.internal:8080"
-   ```
-
-### Permission Issues
-
-**Problem:** Permission denied errors when accessing files
-
-**Symptoms:**
-```
-PermissionError: [Errno 13] Permission denied
-OSError: [Errno 1] Operation not permitted
-```
-
-**Diagnosis:**
-
-1. **Check Current PUID/PGID:**
-   ```bash
-   # On host
-   id yourusername
-   # Output: uid=1000(user) gid=1000(user)
-
-   # In container
-   docker exec qbitrr id
-   ```
-
-2. **Check File Ownership:**
-   ```bash
-   ls -la /path/to/config
-   ls -la /path/to/downloads
-   ```
-
-**Solutions:**
-
-1. **Set Correct PUID/PGID:**
-   ```yaml
-   environment:
-     - PUID=1000  # Match your user's UID
-     - PGID=1000  # Match your user's GID
-   ```
-
-2. **Fix Existing File Permissions:**
-   ```bash
-   # Fix config directory
-   sudo chown -R 1000:1000 /path/to/config
-
-   # Fix downloads directory
-   sudo chown -R 1000:1000 /path/to/downloads
-
-   # Set proper permissions
-   chmod -R 775 /path/to/downloads
-   ```
-
-3. **For NFS/SMB Shares:**
-   ```yaml
-   volumes:
-     - type: volume
-       source: nfs-share
-       target: /downloads
-       volume:
-         nocopy: true
-
-   volumes:
-     nfs-share:
-       driver: local
-       driver_opts:
-         type: nfs
-         o: addr=192.168.1.100,rw,nfsvers=4
-         device: ":/mnt/media/downloads"
-   ```
-
-### Path Not Found Errors
-
-**Problem:** qBitrr can't find downloaded files
-
-**Symptoms:**
-```
-FileNotFoundError: [Errno 2] No such file or directory
-```
-
-**Diagnosis:**
-
-```bash
-# Check path in qBitrr
-docker exec qbitrr ls -la /downloads
-
-# Check same path in qBittorrent
-docker exec qbittorrent ls -la /downloads
-
-# Check same path in Radarr
-docker exec radarr ls -la /downloads
-
-# All should show the SAME files
-```
-
-**Solutions:**
-
-1. **Ensure Identical Volume Mappings:**
-   ```yaml
-   services:
-     qbittorrent:
-       volumes:
-         - /mnt/storage/downloads:/downloads  # Same host path
-
-     radarr:
-       volumes:
-         - /mnt/storage/downloads:/downloads  # Same host path
-
-     qbitrr:
-       volumes:
-         - /mnt/storage/downloads:/downloads  # Same host path
-   ```
-
-2. **Check qBittorrent Save Path:**
-   - Open qBittorrent WebUI
-   - Settings → Downloads
-   - Default Save Path should be `/downloads` (or whatever you mapped)
-
-3. **Verify Remote Path Mapping in Arr:**
-   - Open Radarr/Sonarr
-   - Settings → Download Clients → qBittorrent
-   - Remote Path Mappings should be empty (if using same paths)
-   - Or map qBittorrent's path to Arr's path if different
-
-### Import Failures
-
-**Problem:** Downloads complete but don't import to Arr
-
-**Check qBitrr logs:**
-```bash
-docker logs qbitrr | grep -i import
-```
-
-**Check Arr logs:**
-```bash
-docker logs radarr | grep -i import
-```
-
-**Common Causes:**
-
-1. **Path Mismatch:**
-   - qBittorrent sees: `/downloads/Movie.mkv`
-   - Arr sees: `/media/downloads/Movie.mkv`
-   - **Fix:** Use same volume mappings (see above)
-
-2. **Missing Instant Import:**
-   ```toml
-   [[Radarr]]
-   InstantImport = true  # Add this
-   ```
-
-3. **FFprobe Validation Failed:**
-   ```bash
-   # Check logs for FFprobe errors
-   docker logs qbitrr | grep -i ffprobe
-
-   # Disable validation temporarily
-   # In config.toml:
-   [Settings]
-   FFprobeDownload = false
-   ```
-
-4. **Category Not Configured:**
-   - qBittorrent assigns category: `radarr`
-   - Arr download client category: `movies` (different!)
-   - **Fix:** Match categories in both
-
-### Database Locked Errors
-
-**Problem:** SQLite database locked errors in logs
-
-**Symptoms:**
-```
-sqlite3.OperationalError: database is locked
-```
-
-**Solutions:**
-
-1. **Stop Multiple Instances:**
-   ```bash
-   # Check for multiple containers
-   docker ps --filter name=qbitrr
-
-   # Stop extras
-   docker stop qbitrr-old
-   ```
-
-2. **Fix Permissions:**
-   ```bash
-   sudo chown 1000:1000 /path/to/config/qbitrr.db*
-   chmod 644 /path/to/config/qbitrr.db*
-   ```
-
-3. **Repair Database:**
-   ```bash
-   docker exec qbitrr qbitrr --repair-db
-   ```
-
-### Network Issues
-
-**Problem:** Can't access WebUI or APIs
-
-**Check container is running:**
-```bash
+# Check container status
 docker ps | grep qbitrr
+
+# Check networking
+docker exec qbitrr ping -c 3 qbittorrent
+
+# Check paths
+docker exec qbitrr ls -la /downloads
 ```
 
-**Check port mapping:**
-```bash
-docker port qbitrr
-# Should show: 6969/tcp -> 0.0.0.0:6969
+### Common Configuration Fixes
+
+**Network connectivity:**
+```toml
+[qBit]
+Host = "http://qbittorrent:8080"  # Use container name
+
+[[Radarr]]
+URI = "http://radarr:7878"  # Use container name
 ```
 
-**Test from inside container:**
-```bash
-docker exec qbitrr wget -O- http://localhost:6969/api/health
+**Permissions (docker-compose.yml):**
+```yaml
+environment:
+  - PUID=1000  # Match your user's UID
+  - PGID=1000  # Match your user's GID
 ```
 
-**Test from host:**
-```bash
-curl http://localhost:6969/api/health
+**All containers must use identical volume mappings:**
+```yaml
+volumes:
+  - /mnt/storage/downloads:/downloads  # Same path everywhere
 ```
 
-**Solutions:**
+For comprehensive troubleshooting including import failures, database issues, and performance optimization, see the [Docker Troubleshooting Guide](../../troubleshooting/docker.md).
 
-1. **Firewall Blocking Port:**
-   ```bash
-   # Allow port 6969
-   sudo ufw allow 6969/tcp
-
-   # Or check firewalld
-   sudo firewall-cmd --add-port=6969/tcp --permanent
-   sudo firewall-cmd --reload
-   ```
-
-2. **Wrong Bind Address:**
-   ```toml
-   [WebUI]
-   Host = "0.0.0.0"  # Listen on all interfaces
-   Port = 6969
-   ```
-
-3. **Container Network Mode:**
-   ```yaml
-   # Use bridge mode (default)
-   services:
-     qbitrr:
-       network_mode: bridge  # Not host
-   ```
-
-### High CPU/Memory Usage
-
-**Problem:** Container using too many resources
-
-**Check resource usage:**
-```bash
-docker stats qbitrr
-```
-
-**Solutions:**
-
-1. **Set Resource Limits:**
-   ```yaml
-   services:
-     qbitrr:
-       deploy:
-         resources:
-           limits:
-             cpus: '1.0'      # Max 1 CPU core
-             memory: 512M      # Max 512MB RAM
-           reservations:
-             cpus: '0.25'
-             memory: 128M
-   ```
-
-2. **Reduce Logging:**
-   ```toml
-   [Settings]
-   LogLevel = "INFO"  # Change from DEBUG
-   ```
-
-3. **Increase Search Delay:**
-   ```toml
-   [Radarr.EntrySearch]
-   SearchRequestsEvery = 600  # Search less frequently
-   ```
-
-4. **Optimize Database:**
-   ```bash
-   docker exec qbitrr qbitrr --vacuum-db
-   ```
-
-### Auto-Update Not Working
-
-**Problem:** Container doesn't auto-update
-
-**Docker auto-update requires:**
-
-1. **Watchtower or similar:**
-   ```yaml
-   services:
-     watchtower:
-       image: containrrr/watchtower
-       volumes:
-         - /var/run/docker.sock:/var/run/docker.sock
-       command: --interval 86400  # Check daily
-   ```
-
-2. **Or enable qBitrr's built-in update:**
-   ```toml
-   [Settings]
-   AutoUpdateEnabled = true
-   AutoUpdateCron = "0 3 * * *"  # 3 AM daily
-   ```
-
-### Container Keeps Restarting
-
-**Problem:** Container in restart loop
-
-**Check restart count:**
-```bash
-docker ps -a | grep qbitrr
-```
-
-**View last logs before crash:**
-```bash
-docker logs --tail 100 qbitrr
-```
-
-**Common Causes:**
-
-1. **Config Error:** Invalid TOML syntax
-   - Fix: Validate config with `--validate-config`
-
-2. **Missing Dependencies:** FFprobe download failed
-   - Fix: Manually download FFprobe
-
-3. **Database Corruption:**
-   - Fix: Delete database, let qBitrr recreate
-
-**Disable auto-restart temporarily:**
-```bash
-docker update --restart=no qbitrr
-```
+---
 
 ## Advanced Configuration
 
@@ -1096,7 +685,7 @@ Ready to configure qBitrr?
 
 1. **Configure qBittorrent** - [qBittorrent Setup Guide](../../configuration/qbittorrent.md)
 2. **Configure Arr Instances** - [Arr Configuration Guide](../../configuration/arr/index.md)
-3. **First Run** - [Complete the First Run Setup](../first-run.md)
+3. **First Run** - [Complete the First Run Setup](../quickstart.md)
 4. **Troubleshooting** - [Docker-Specific Issues](../../troubleshooting/docker.md)
 
 ---
