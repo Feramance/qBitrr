@@ -285,6 +285,25 @@ Group Lidarr albums by artist in the WebUI.
 
 ---
 
+## ViewDensity
+
+```toml
+ViewDensity = "Comfortable"
+```
+
+**Type:** String
+**Default:** `"Comfortable"`
+**Options:** `"Comfortable"`, `"Compact"`
+
+UI density setting for tables and lists.
+
+- `"Comfortable"` - More spacing, easier to read
+- `"Compact"` - Denser layout, shows more data per screen
+
+**Note:** Users can toggle this in the WebUI settings. This sets the initial default.
+
+---
+
 ## Theme
 
 ```toml
@@ -317,6 +336,7 @@ LiveArr = true
 GroupSonarr = true
 GroupLidarr = true
 Theme = "Dark"
+ViewDensity = "Comfortable"
 ```
 
 **Access:** `http://localhost:6969/ui`
@@ -336,6 +356,7 @@ LiveArr = true
 GroupSonarr = true
 GroupLidarr = true
 Theme = "Dark"
+ViewDensity = "Comfortable"
 ```
 
 **Access:** `http://localhost:6969/ui` (token handled automatically by WebUI)
@@ -355,6 +376,7 @@ LiveArr = true
 GroupSonarr = true
 GroupLidarr = true
 Theme = "Dark"
+ViewDensity = "Comfortable"
 ```
 
 **Nginx reverse proxy:**

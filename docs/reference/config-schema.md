@@ -12,7 +12,7 @@ qBitrr uses TOML (Tom's Obvious, Minimal Language) for configuration. The schema
 [Settings]
 # Global settings
 
-[Settings.Qbittorrent]
+[qBit]
 # qBittorrent connection settings
 
 [[Radarr]]
@@ -100,7 +100,7 @@ MaxRetries = 5
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `EnableFFprobe` | bool | `true` | Enable media file validation |
+| `FFprobeAutoUpdate` | bool | `true` | Enable media file validation |
 | `FFprobePath` | string | (auto) | Path to ffprobe binary |
 | `FFprobeAutoUpdate` | bool | `true` | Auto-download ffprobe if missing |
 | `FFprobeTimeout` | int | `30` | FFprobe timeout (seconds) |
@@ -110,7 +110,7 @@ MaxRetries = 5
 
 ```toml
 [Settings]
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 FFprobePath = "/usr/bin/ffprobe"
 FFprobeTimeout = 60
 ValidateAllFiles = false
@@ -389,7 +389,7 @@ WebUIToken = "your-secret-token-here"
 
 RetentionDays = 30
 MaxConcurrentChecks = 10
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 
 [qBit]
 Host = "qbittorrent"

@@ -84,7 +84,7 @@ At minimum, you need to configure:
 Open `config.toml` and configure qBittorrent:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 # qBittorrent URL (replace with your actual URL)
 Host = "http://localhost:8080"
 

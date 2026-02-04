@@ -483,7 +483,7 @@ qbitrr
 2. If file is valid, disable FFprobe temporarily:
    ```toml
    [Settings]
-   EnableFFprobe = false
+   FFprobeAutoUpdate = false
    ```
 
 3. If file is corrupt, torrent will be blacklisted and re-searched (if enabled)

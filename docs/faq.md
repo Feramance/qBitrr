@@ -409,7 +409,7 @@ Benefits:
 
 ```toml
 [Settings]
-EnableFFprobe = true
+FFprobeAutoUpdate = true
 FFprobeAutoUpdate = true  # Auto-download FFprobe
 ```
 
@@ -673,7 +673,7 @@ http://localhost:6969/ui
 
 ```toml
 # Minimum config
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost:8080"
 Username = "admin"
 Password = "adminpass"

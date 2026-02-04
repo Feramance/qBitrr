@@ -91,27 +91,6 @@ APIKey = "your_radarr_api_key"  # From Radarr Settings > General > Security
     - **Sonarr**: Settings → General → Security → API Key
     - **Lidarr**: Settings → General → Security → API Key
 
-!!! success "Multi-qBittorrent Support (v5.7.x+)"
-    qBitrr can now manage torrents across **multiple qBittorrent instances**!
-
-    To add additional instances, use the `[qBit-NAME]` syntax in your config:
-
-    ```toml
-    [qBit]  # Default instance (required)
-    Host = "localhost"
-    Port = 8080
-    UserName = "admin"
-    Password = "password"
-
-    [qBit-seedbox]  # Additional instance (optional)
-    Host = "192.168.1.100"
-    Port = 8080
-    UserName = "admin"
-    Password = "seedboxpass"
-    ```
-
-    See [qBittorrent Configuration](../configuration/qbittorrent.md#multi-qbittorrent-support-v57x) for complete details.
-
 ## Step 4: Configure Categories & Tags
 
 qBitrr **requires** your Arr downloads to be tagged so it knows which torrents to monitor.
@@ -316,7 +295,7 @@ UserName = "admin"
 Password = "secure-password-here"
 
 [Settings]
-EnableFFprobe = true  # Validate files before import
+FFprobeAutoUpdate = true  # Validate files before import
 FFprobeAutoUpdate = true
 
 # Radarr for 4K movies
@@ -468,7 +447,7 @@ services:
 
 **qBitrr config.toml:**
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://qbittorrent:8080"  # Use container names
 Username = "admin"
 Password = "adminpass"
@@ -707,14 +686,14 @@ WARNING - FFprobe validation failed for torrent XYZ
 1. **Let qBitrr download FFprobe:**
    ```toml
    [Settings]
-   EnableFFprobe = true
+   FFprobeAutoUpdate = true
    FFprobeAutoUpdate = true
    ```
 
 2. **Temporarily disable to test:**
    ```toml
    [Settings]
-   EnableFFprobe = false
+   FFprobeAutoUpdate = false
    ```
 
 3. **Check file is complete:**
@@ -744,7 +723,7 @@ WARNING - FFprobe validation failed for torrent XYZ
 3. **Disable FFprobe temporarily:**
    ```toml
    [Settings]
-   EnableFFprobe = false
+   FFprobeAutoUpdate = false
    ```
 
 ---
@@ -852,7 +831,7 @@ Include:
 
 4. **Configuration (redact sensitive info):**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://qbittorrent:8080"
    Username = "admin"
    Password = "REDACTED"

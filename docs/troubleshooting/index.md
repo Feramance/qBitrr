@@ -208,7 +208,7 @@ Include:
 4. **Configuration:**
    ```toml
    # Redact sensitive information!
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://qbittorrent"
    Port = 8080
    Username = "admin"
@@ -255,7 +255,7 @@ LogLevel = "DEBUG"
 4. **FFprobe validation on large files:**
    ```toml
    [Settings]
-   EnableFFprobe = false  # Temporarily disable to test
+   FFprobeAutoUpdate = false  # Temporarily disable to test
    ```
 
 **Monitor Resource Usage:**
@@ -408,7 +408,7 @@ top -p $(pidof qbitrr)
 
 1. **Use IP addresses instead of hostnames:**
    ```toml
-   [Settings.Qbittorrent]
+   [qBit]
    Host = "http://192.168.1.100"  # Instead of hostname
    ```
 
@@ -541,7 +541,7 @@ python3 -c "import toml; toml.load(open('config.toml'))"
 Check these required fields are set:
 
 ```toml
-[Settings.Qbittorrent]
+[qBit]
 Host = "http://localhost:8080"  # REQUIRED
 # Username and Password (if qBit has auth enabled)
 

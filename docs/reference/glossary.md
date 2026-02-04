@@ -256,10 +256,10 @@ Quick reference for common terms used throughout qBitrr documentation.
 | `APIKey` | `[Radarr]` / `[Sonarr]` / `[Lidarr]` | *Arr authentication |
 | `Category` | `[Radarr]` / `[Sonarr]` / `[Lidarr]` | qBittorrent category to track |
 | `CheckInterval` | `[Settings]` | Torrent check frequency |
-| `Host` | `[Settings.Qbittorrent]` | qBittorrent server address |
+| `Host` | `[qBit]` | qBittorrent server address |
 | `LogLevel` | `[Settings]` | Logging verbosity |
 | `Managed` | `[Radarr]` / `[Sonarr]` / `[Lidarr]` | Enable/disable *Arr instance |
-| `Port` | `[Settings.Qbittorrent]` | qBittorrent server port |
+| `Port` | `[qBit]` | qBittorrent server port |
 | `SearchMissing` | `[Radarr.EntrySearch]` | Auto-search missing content |
 | `StalledDelay` | `[Radarr.Torrent]` | Time before marking as stalled |
 | `URI` | `[Radarr]` / `[Sonarr]` / `[Lidarr]` | *Arr instance URL |
