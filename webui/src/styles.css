@@ -1921,6 +1921,21 @@ svg[height] {
     color: var(--muted);
     line-height: 1.35;
 }
+.process-chip--info {
+    border-style: dashed;
+}
+.process-chip__managed-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    background: rgba(122, 162, 247, 0.15);
+    color: var(--accent, #7aa2f7);
+    vertical-align: middle;
+    line-height: 1.4;
+}
 .process-chip__detail-time {
     font-style: italic;
     color: var(--muted);

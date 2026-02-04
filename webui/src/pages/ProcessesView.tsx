@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import {
   getProcesses,
+  getQbitCategories,
   getStatus,
   rebuildArrs,
   restartAllProcesses,
   restartProcess,
 } from "../api/client";
-import type { ProcessInfo, StatusResponse } from "../api/types";
+import type { ProcessInfo, QbitCategory, StatusResponse } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
@@ -98,6 +99,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   const [restartingAll, setRestartingAll] = useState(false);
   const [rebuildingArrs, setRebuildingArrs] = useState(false);
   const [statusData, setStatusData] = useState<StatusResponse | null>(null);
+  const [qbitCategories, setQbitCategories] = useState<QbitCategory[]>([]);
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
     message: string;
@@ -115,9 +117,10 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       setLoading(true);
     }
     try {
-      const [processData, status] = await Promise.all([
+      const [processData, status, categoriesData] = await Promise.all([
         getProcesses(),
         getStatus(),
+        getQbitCategories().catch(() => null),
       ]);
       const next = (processData.processes ?? []).map((process) => {
         if (typeof process.searchSummary === "string") {
@@ -133,6 +136,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
         areProcessListsEqual(prev, next) ? prev : next
       );
       setStatusData(status);
+      if (categoriesData?.categories) {
+        setQbitCategories(categoriesData.categories);
+      }
     } catch (error) {
       push(
         error instanceof Error
@@ -327,7 +333,19 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   );
 
   const cardsByApp = groupedProcesses.map(({ app, instances }) => {
-        const cards = instances.map(({ name, items }) => {
+        const cards = instances.map(({ name: instanceName, items }) => {
+          // For qBittorrent cards, find matching category data
+          const instanceCategories = app === "qBittorrent"
+            ? qbitCategories.filter((cat) => {
+                // Match instance name: card name like "qBit-main" -> instance "main"
+                const nameLower = instanceName.toLowerCase();
+                const instLower = cat.instance.toLowerCase();
+                return nameLower === instLower
+                  || nameLower.endsWith(`-${instLower}`)
+                  || nameLower.endsWith(`_${instLower}`);
+              })
+            : [];
+          const name = instanceName;
           const runningCount = items.filter((item) => item.alive).length;
           const totalCount = items.length;
           const tone =
@@ -436,6 +454,26 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                     </div>
                   </div>
                 ))}
+                {instanceCategories.map((cat) => {
+                  const instanceAlive = statusData?.qbitInstances?.[cat.instance]?.alive ?? false;
+                  const detail = cat.seedingCount > 0
+                    ? `${cat.torrentCount} torrents (${cat.seedingCount} seeding)`
+                    : `${cat.torrentCount} torrents`;
+                  return (
+                    <div className="process-chip process-chip--info" key={`cat:${cat.instance}:${cat.category}`}>
+                      <div className="process-chip__top">
+                        <div className="process-chip__name">
+                          {cat.category}
+                          <span className="process-chip__managed-badge">
+                            {cat.managedBy === "arr" ? "Arr" : "qBit"}
+                          </span>
+                        </div>
+                        <div className={`status-pill__dot ${instanceAlive ? "text-success" : "text-danger"}`} />
+                      </div>
+                      <div className="process-chip__detail">{detail}</div>
+                    </div>
+                  );
+                })}
               </div>
               <div className="process-card__footer">
                 <button
