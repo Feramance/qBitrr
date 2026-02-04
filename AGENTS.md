@@ -193,117 +193,41 @@ Before submitting a PR for final merge:
 ## Release Process
 
 ### Overview
-qBitrr uses **semantic versioning** (MAJOR.MINOR.PATCH) and automated release workflows. Releases are triggered by pushing version tags to GitHub.
+qBitrr uses **semantic versioning** (MAJOR.MINOR.PATCH) and automated release workflows. Releases are triggered by **commit message prefixes** on the `master` branch — not by local version bumps or tags.
 
-### Pre-Release Checklist
+### How Releases Are Triggered
 
-**CRITICAL**: Complete ALL steps before releasing:
+The `.github/workflows/release.yml` workflow runs on every push to `master`, but the release jobs **only execute** when the head commit message starts with one of these prefixes:
 
-1. **Clean Up Temporary Files**
-   ```bash
-   # Remove all temporary markdown files
-   find . -name "*_TEST*.md" -o -name "*_RESULTS*.md" -o -name "READY_FOR_*.md" -o -name "*_PLAN.md" | xargs git rm
+| Prefix | Bump | Example |
+|--------|------|---------|
+| `[patch]` | x.x.**X** | Bug fixes, minor improvements |
+| `[minor]` | x.**X**.0 | New features, non-breaking changes |
+| `[major]` | **X**.0.0 | Breaking changes |
 
-   # Common temporary files to check for:
-   # - READY_FOR_MERGE.md
-   # - COMPREHENSIVE_TEST_PLAN.md
-   # - TEST_RESULTS_FINAL.md
-   # - Any *_SUMMARY.md or *_NOTES.md files
+The workflow can also be triggered manually via `workflow_dispatch` on GitHub Actions.
 
-   # Verify only permanent docs remain:
-   git ls-files "*.md" | grep -v "^docs/"
-   # Should only show: README.md, CHANGELOG.md, AGENTS.md, .github/*.md
-   ```
-
-2. **Update CHANGELOG.md**
-   - Add new version section with date
-   - List all features, fixes, and breaking changes
-   - Group by type: `### Added`, `### Changed`, `### Fixed`, `### Removed`
-   - Follow [Keep a Changelog](https://keepachangelog.com/) format
-
-3. **Update Documentation**
-   - Ensure `docs/` has all feature documentation
-   - Update migration guide if breaking changes
-   - Test all code examples in docs
-
-4. **Verify Tests Pass**
-   - Run manual tests with live Arr instances
-   - Test Docker build: `docker build -t feramance/qbitrr:test .`
-   - Verify WebUI loads and functions correctly
-
-5. **Review PRs**
-   - All PRs merged to `master`
-   - pre-commit.ci has auto-formatted all code
-   - No pending breaking changes
+**Do NOT run `bump2version` locally.** The CI workflow runs `bump2version` itself, commits the version bump (with `[skip ci]`), updates the bundled git hash, generates the changelog, and publishes the release.
 
 ### Release Steps
 
-1. **Checkout Master Branch**
+1. Ensure all PRs are merged to `master` and CI checks pass
+2. Create a commit on `master` with the appropriate prefix:
    ```bash
    git checkout master
    git pull origin master
-   ```
-
-2. **Version Bump**
-   ```bash
-   # Determine version type:
-   # - patch: Bug fixes, minor improvements (5.8.0 → 5.8.1)
-   # - minor: New features, non-breaking changes (5.8.1 → 5.9.0)
-   # - major: Breaking changes (5.9.0 → 6.0.0)
-
-   bump2version patch  # or minor/major
-
-   # This automatically:
-   # - Updates version in setup.cfg, pyproject.toml, .bumpversion.cfg
-   # - Creates a git commit with version bump
-   # - Creates a git tag (e.g., v5.8.1)
-   ```
-
-3. **Push Changes and Tags**
-   ```bash
+   git commit --allow-empty -m "[patch] Short description of the release"
    git push origin master
-   git push origin --tags
    ```
-
-4. **GitHub Actions Triggered**
-
-   The `.github/workflows/release.yml` workflow automatically:
-
-   **a) Build Python Package**
-   - Builds WebUI: `cd webui && npm ci && npm run build`
-   - Copies WebUI to `qBitrr/static/`
-   - Builds Python wheel: `python setup.py sdist bdist_wheel`
-
-   **b) Publish to PyPI**
-   - Uploads to https://pypi.org/project/qBitrr2/
-   - Users can install: `pip install qBitrr2=={version}`
-
-   **c) Build Docker Images**
-   - Multi-stage build (Node → Python)
-   - Pushes to Docker Hub:
-     - `feramance/qbitrr:latest` (always latest stable)
-     - `feramance/qbitrr:5` (latest 5.x.x)
-     - `feramance/qbitrr:5.8` (latest 5.8.x)
-     - `feramance/qbitrr:5.8.1` (specific version)
-
-   **d) Create GitHub Release**
-   - Auto-generated via `.grenrc.yml`
-   - Includes changelog from CHANGELOG.md
-   - Attaches `.whl` and `.tar.gz` artifacts
-
-5. **Verify Release**
-   ```bash
-   # Check PyPI
-   pip install --upgrade qBitrr2
-   qbitrr --version
-
-   # Check Docker Hub
-   docker pull feramance/qbitrr:latest
-   docker run --rm feramance/qbitrr:latest qbitrr --version
-
-   # Check GitHub Release
-   # Visit: https://github.com/Feramance/qBitrr/releases
-   ```
+3. The release workflow automatically:
+   - Runs `bump2version` to update version in `setup.cfg`, `pyproject.toml`, `.bumpversion.cfg`, `bundled_data.py`, `Dockerfile`, `docs/index.md`
+   - Commits the version bump and bundled git hash (`[skip ci]`)
+   - Creates a draft GitHub release
+   - Builds and pushes Docker images (`latest`, `nightly`, `v{version}`) to Docker Hub and GHCR
+   - Builds platform binaries (Windows x64, macOS arm64, Linux x64) and uploads to the release
+   - Builds and publishes the Python package to PyPI
+   - Generates a changelog entry in `CHANGELOG.md` from commits since the last tag
+   - Publishes the GitHub release with the changelog as release notes
 
 ### Version Numbering Guidelines
 
@@ -338,14 +262,13 @@ For urgent fixes to production:
 2. **Make Fix and Test**
    - Implement minimal fix
    - Test thoroughly
-   - Update CHANGELOG.md
 
 3. **Merge and Release**
    ```bash
    git checkout master
    git merge hotfix/fix-critical-bug
-   bump2version patch
-   git push origin master --tags
+   git commit --allow-empty -m "[patch] Fix critical bug description"
+   git push origin master
    ```
 
 ### Rollback Procedure
