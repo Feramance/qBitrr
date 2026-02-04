@@ -1,5 +1,51 @@
 # Changelog
 
+## v5.8.8 (04/02/2026)
+
+### 🚀 Features
+- [[database] Implement programmatic corruption prevention](https://github.com/Feramance/qBitrr/commit/ab6ca039c3ac506ec1e03ba6c5f2e1233d194fce) - @Feramance
+- [[webui] Add tag input for categories and fix config modal persistence](https://github.com/Feramance/qBitrr/commit/4fd0923ae64ff1034b88442b9e6d83f031123d00) - @Feramance
+- [[webui] Add qBit Categories view and backend endpoint (Part 3/3)](https://github.com/Feramance/qBitrr/commit/09e3e422deb8699fedbbd1ba95eb79f52a77c82b) - @Feramance
+- [[backend] Add qBit category validation and manager integration (Part 2/3)](https://github.com/Feramance/qBitrr/commit/bedf853952f13f5888a18a3ca39decb14036ff90) - @Feramance
+- [[backend] Add qBit-managed categories with seeding settings (Part 1/3)](https://github.com/Feramance/qBitrr/commit/eba34f01525a2b5dd284abf1d5408f2470a6914b) - @Feramance
+- [[webui] Add copy functionality, enhanced empty states, and smooth transitions](https://github.com/Feramance/qBitrr/commit/6dc092cffe820a4454f9821a3c4715c2c9f99dff) - @Feramance
+
+### 🐛 Bug Fixes
+- [[patch] Release v5.8.8 - WebUI enhancements and fixes](https://github.com/Feramance/qBitrr/commit/01114ee010405510c99e2211c081f378b33bae4c) - @Feramance
+- [[webui] Fix WebUI settings corruption on live setting changes](https://github.com/Feramance/qBitrr/commit/2fd92fe1fc207fd4009cc935f94c3b0179bb4b1d) - @Feramance
+- [fix: Migrate to Tailwind CSS v4 PostCSS plugin and import syntax](https://github.com/Feramance/qBitrr/commit/5cbf01e3d67806e9209dd1b8341dcea4773e774e) - @Feramance
+- [docs: Fix documentation discrepancies from fact-check](https://github.com/Feramance/qBitrr/commit/8c7bcb3de1af9ac440a8c6f354992cad222ae347) - @Feramance
+- [[docs] Fix all broken links and anchors across documentation](https://github.com/Feramance/qBitrr/commit/54f0da536b286bca067b65779ba3bda90a88c798) - @Feramance
+- [[webui] Fix compact mode card sizing and update version refs in docs](https://github.com/Feramance/qBitrr/commit/b1735085c80bac9c02f88bb659430c3d28ba8f09) - @Feramance
+- [[webui] Fix config modal spacing in compact mode](https://github.com/Feramance/qBitrr/commit/1ac321813f035b40d8134390e281176265c603dd) - @Feramance
+- [[webui] Fix compact mode header and footer spacing](https://github.com/Feramance/qBitrr/commit/fb3bd70c36c847b61583a3cd759e8428d1123119) - @Feramance
+- [[webui] Fix time formatting to show whole seconds only](https://github.com/Feramance/qBitrr/commit/e9bf035c4ac966c53f5e7bcf159f3d25e606c443) - @Feramance
+- [[webui] Fix markdown content overflow and text wrapping](https://github.com/Feramance/qBitrr/commit/e6a05e632dba3491f1b5e43a5c675a5c25ea5295) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/36a95a1032f40257bbfd6949f2510334dca59a65) - @Feramance
+- [[docs] Document tag input, modal persistence, and rename cleanup](https://github.com/Feramance/qBitrr/commit/56f465c2f544a87121553520694d0b1e483ad126) - @Feramance
+
+### 🔧 Maintenance
+- [[webui] Show per-category torrent count chips on qBit process cards](https://github.com/Feramance/qBitrr/commit/49994d86ca57823e760d6b111b19a63ea8d6a87c) - @Feramance
+- [[webui] Display qBit category manager processes on Processes screen](https://github.com/Feramance/qBitrr/commit/bd77f27ceb54c27395f4e11d20df669c5a41c038) - @Feramance
+- [Build(deps): Bump eslint-plugin-react-refresh to 0.5.0 and align mantine packages to 8.3.14](https://github.com/Feramance/qBitrr/commit/07c1ea9d569ce9fe1b994837e75ab34ebbbe3c41) - @Feramance
+- [Build(deps): Bump @mantine/core from 8.3.13 to 8.3.14 in /webui (#286)](https://github.com/Feramance/qBitrr/commit/c923f44b2afc642b643225a8d374c4189b594a77) - @Feramance
+- [Build(deps-dev): Bump eslint-plugin-react-refresh from 0.4.26 to 0.5.0 in /webui (#285)](https://github.com/Feramance/qBitrr/commit/1674d5ed621667bb674daf14e8ed6a7b0bacf053) - @Feramance
+- [Build(deps-dev): Bump globals from 17.1.0 to 17.3.0 in /webui (#283)](https://github.com/Feramance/qBitrr/commit/e3923db22f430659094a4c6317d2226faaec16ff) - @Feramance
+- [[webui] Remove debug console.log statements across views](https://github.com/Feramance/qBitrr/commit/d89d0e272afd829592a498af3bfcd668a7b3a660) - @Feramance
+- [[webui] Move ViewDensity setting to config file storage](https://github.com/Feramance/qBitrr/commit/34d05e40454fcde783987e2d345f83583b41c92e) - @Feramance
+- [[webui] Enhance qBittorrent categories view and add config support](https://github.com/Feramance/qBitrr/commit/6413df0f69ee328c117209314c01904d125ddc48) - @Feramance
+- [[fix] Correct DelayLoopException import path in qbit_category_manager](https://github.com/Feramance/qBitrr/commit/0da8763cde80c5e72f0ce5110705fcaaa61a5e25) - @Feramance
+- [[webui] Optimize Arr view loading performance](https://github.com/Feramance/qBitrr/commit/0fc4a1525b085eebd2d2f70d0f1b30095df05d2b) - @Feramance
+- [[webui] Render changelog in markdown format](https://github.com/Feramance/qBitrr/commit/1d0672e70751fb38b98758f2599902e46bb15c62) - @Feramance
+- [[webui] Remove border from per-group 'Restart All' buttons](https://github.com/Feramance/qBitrr/commit/0e704b18db1761deb8de01b307947b5b9b9f3335) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/c8e20fe2899272a3baac280a492e617c18fa451e) - @Feramance
+- [Build(deps-dev): Bump tailwindcss from 3.4.19 to 4.1.18 in /webui](https://github.com/Feramance/qBitrr/commit/3bb62ab0705948dbac6ef00945fae22a859c8224) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.3 to 19.2.4 in /webui (#281)](https://github.com/Feramance/qBitrr/commit/ece6fca815eef511bf3452d72fec91ae66a6f4a1) - @Feramance
+
+---
+
 ## v5.8.7 (28/01/2026)
 
 ### 🐛 Bug Fixes
