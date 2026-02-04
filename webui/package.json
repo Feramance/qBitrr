@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "@mantine/core": "^8.3.14",
-    "@mantine/dates": "^8.3.13",
-    "@mantine/hooks": "^8.3.13",
+    "@mantine/dates": "^8.3.14",
+    "@mantine/hooks": "^8.3.14",
     "@melloware/react-logviewer": "^6.3.5",
     "@tanstack/react-table": "^8.21.3",
     "fast-deep-equal": "^3.1.3",
