@@ -140,7 +140,7 @@ Bearer token for API authentication.
 
 **When set:**
 - All `/api/*` endpoints require authentication
-- Must include `X-API-Token` header in API requests
+- Must include `Authorization: Bearer` header in API requests
 - WebUI automatically handles token for you
 
 **Setting up authentication:**
@@ -165,7 +165,7 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 **Using authenticated API:**
 
 ```bash
-curl -H "X-API-Token: my-secure-token-12345" \
+curl -H "Authorization: Bearer my-secure-token-12345" \
   http://localhost:6969/api/processes
 ```
 
@@ -614,7 +614,7 @@ environment:
 
 2. **Include token in requests:**
    ```bash
-   curl -H "X-API-Token: your-token" \
+   curl -H "Authorization: Bearer your-token" \
      http://localhost:6969/api/processes
    ```
 

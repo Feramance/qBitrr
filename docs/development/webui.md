@@ -168,7 +168,7 @@ import { Torrent } from './types'
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: {
-    'X-API-Token': localStorage.getItem('apiToken') || ''
+    'Authorization': `Bearer ${localStorage.getItem('apiToken') || ''}`
   }
 })
 

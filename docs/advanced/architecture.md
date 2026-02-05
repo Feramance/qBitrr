@@ -10,7 +10,7 @@ qBitrr uses a multi-process architecture designed for reliability, scalability, 
 graph TB
     Main["🎛️ Main Process<br/>(qBitrr/main.py)"]
 
-    Main -->|spawns| WebUI["🌐 WebUI Process<br/>(qBitrr/webui.py)"]
+    Main -->|starts| WebUI["🌐 WebUI Thread<br/>(qBitrr/webui.py)"]
     Main -->|spawns| Radarr["📽️ Arr Manager<br/>(Radarr-4K)"]
     Main -->|spawns| Sonarr["📺 Arr Manager<br/>(Sonarr-TV)"]
     Main -->|spawns| Lidarr["🎵 Arr Manager<br/>(Lidarr-Music)"]
@@ -36,7 +36,7 @@ graph TB
         M4["✅ Handle graceful shutdown"]
     end
 
-    subgraph "WebUI Process Responsibilities"
+    subgraph "WebUI Thread Responsibilities"
         W1["✅ Flask REST API (/api/*)"]
         W2["✅ React SPA (Vite build)"]
         W3["✅ Token authentication"]
@@ -78,8 +78,10 @@ Responsibilities:
 - Handles SIGTERM, SIGINT for graceful shutdown
 - Coordinates cross-process communication via shared queue
 
-#### WebUI Process
+#### WebUI Thread
 **File:** `qBitrr/webui.py`
+
+The WebUI runs as a **daemon thread** in the main process (not a separate process).
 
 Responsibilities:
 - Serves Flask REST API on `/api/*` routes
@@ -208,7 +210,7 @@ flowchart TD
 
     Start --> LoadTOML["📄 Load TOML File<br/>(config.toml)"]
 
-    LoadTOML --> ParseTOML["🔍 Parse with tomli<br/>(config.py:MyConfig)"]
+    LoadTOML --> ParseTOML["🔍 Parse with tomlkit<br/>(config.py:MyConfig)"]
 
     ParseTOML --> CheckVersion{Config version<br/>matches?}
 
@@ -238,11 +240,11 @@ flowchart TD
 
     Singleton --> MainProc["🎛️ Main Process<br/>(loads once)"]
 
-    MainProc --> SpawnWebUI["Spawn → 🌐 WebUI Process<br/>(copies config)"]
+    MainProc --> StartWebUI["Start → 🌐 WebUI Thread<br/>(daemon thread)"]
     MainProc --> SpawnArr1["Spawn → 📡 Arr Manager 1<br/>(copies config)"]
     MainProc --> SpawnArr2["Spawn → 📡 Arr Manager 2<br/>(copies config)"]
 
-    SpawnWebUI --> Runtime["⚡ Runtime<br/>(all processes share config)"]
+    StartWebUI --> Runtime["⚡ Runtime<br/>(all processes share config)"]
     SpawnArr1 --> Runtime
     SpawnArr2 --> Runtime
 
@@ -763,9 +765,9 @@ def main():
    ├─ Create shutdown event
    └─ Initialize database
 
-2. Spawn WebUI Process
+2. Start WebUI Thread
    ├─ Initialize Flask app
-   ├─ Start Waitress server
+   ├─ Start Waitress server in daemon thread
    └─ Enter serving loop
 
 3. Spawn Arr Manager Processes (parallel)

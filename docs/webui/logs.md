@@ -232,7 +232,7 @@ The Logs view preserves ANSI color codes from terminal output:
 
 **Description**: List all available log files in the logs directory.
 
-**Authentication**: Requires `X-API-Token` header (if `WebUI.Token` is set)
+**Authentication**: Requires `Authorization: Bearer` header (if `WebUI.Token` is set)
 
 **Response**:
 ```json
@@ -254,7 +254,7 @@ The Logs view preserves ANSI color codes from terminal output:
 
 **Description**: Stream the full content of a specific log file.
 
-**Authentication**: Requires `X-API-Token` header (if `WebUI.Token` is set)
+**Authentication**: Requires `Authorization: Bearer` header (if `WebUI.Token` is set)
 
 **Path Parameters**:
 - `name`: Log filename (e.g., `Main.log`, `Radarr-Movies.log.2025-11-27`)
@@ -290,7 +290,7 @@ Cache-Control: no-cache
 
 **Description**: Download a log file as an attachment.
 
-**Authentication**: Requires `X-API-Token` header (if `WebUI.Token` is set)
+**Authentication**: Requires `Authorization: Bearer` header (if `WebUI.Token` is set)
 
 **Path Parameters**:
 - `name`: Log filename

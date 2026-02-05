@@ -282,11 +282,11 @@ WebUIPort = 8080  # Default is 6969
 Enable authentication:
 
 ```toml
-[Settings]
-WebUIToken = "your_secret_token_here"
+[WebUI]
+Token = "your_secret_token_here"
 ```
 
-Then add `X-API-Token: your_secret_token_here` header to API requests.
+Then add `Authorization: Bearer your_secret_token_here` header to API requests.
 
 ### Can I access WebUI remotely?
 

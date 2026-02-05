@@ -473,11 +473,11 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 **Using the token:**
 
-When configured, all API requests require the `X-API-Token` header:
+When configured, all API requests require the `Authorization: Bearer` header:
 
 ```bash
 curl http://localhost:6969/api/processes \
-  -H "X-API-Token: your-token-here"
+  -H "Authorization: Bearer your-token-here"
 ```
 
 The WebUI automatically includes the token if you access it through the main interface.
@@ -660,11 +660,11 @@ GET  /api/health              # Health check
 
 ### Authentication
 
-Include the token in the header:
+Include the token in the Authorization header:
 
 ```bash
 curl http://localhost:6969/api/processes \
-  -H "X-API-Token: your-token"
+  -H "Authorization: Bearer your-token"
 ```
 
 ### Response Format
@@ -785,7 +785,7 @@ All responses are JSON:
     ```bash
     # Correct
     curl http://localhost:6969/api/processes \
-      -H "X-API-Token: your-token-here"
+      -H "Authorization: Bearer your-token-here"
 
     # Incorrect (missing header)
     curl http://localhost:6969/api/processes

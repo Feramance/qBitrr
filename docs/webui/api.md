@@ -184,6 +184,14 @@ Get qBittorrent and Arr instance statuses.
     "port": 8080,
     "version": "4.6.0"
   },
+  "qbitInstances": {
+    "default": {
+      "alive": true,
+      "host": "localhost",
+      "port": 8080,
+      "version": "4.6.0"
+    }
+  },
   "arrs": [
     {
       "category": "radarr-4k",
@@ -198,15 +206,23 @@ Get qBittorrent and Arr instance statuses.
       "alive": true
     }
   ],
+  "webui": {
+    "LiveArr": true,
+    "GroupSonarr": true,
+    "GroupLidarr": true,
+    "Theme": "Dark",
+    "ViewDensity": "Comfortable"
+  },
   "ready": true
 }
 ```
 
 **Fields**:
 
-- `qbit.alive` - qBittorrent connection status
-- `qbit.version` - qBittorrent version string
+- `qbit` - Legacy single-instance qBittorrent info (for backward compatibility)
+- `qbitInstances` - Multi-instance qBittorrent info keyed by instance name
 - `arrs[].alive` - Arr instance process health (checks both search and torrent processes)
+- `webui` - WebUI configuration settings
 - `ready` - Overall system ready state
 
 ---
@@ -383,13 +399,7 @@ Restart all Arr instance processes (global restart).
 **Response**:
 ```json
 {
-  "status": "ok",
-  "restarted": [
-    "radarr-4k.search",
-    "radarr-4k.torrent",
-    "sonarr-tv.search",
-    "sonarr-tv.torrent"
-  ]
+  "status": "ok"
 }
 ```
 
@@ -515,36 +525,24 @@ Get torrent distribution statistics across all categories.
 **Response**:
 ```json
 {
-  "categories": {
+  "distribution": {
     "radarr-4k": {
-      "total": 50,
-      "active": 45,
-      "paused": 3,
-      "completed": 2
+      "default": 50
     },
     "sonarr-tv": {
-      "total": 30,
-      "active": 28,
-      "paused": 1,
-      "completed": 1
+      "default": 30
+    },
+    "uncategorized": {
+      "default": 5
     }
-  },
-  "totals": {
-    "total": 80,
-    "active": 73,
-    "paused": 4,
-    "completed": 3
   }
 }
 ```
 
 **Fields**:
 
-- `categories` - Per-category torrent counts
-- `totals` - Aggregate counts across all categories
-- `active` - Torrents currently downloading/seeding
-- `paused` - Paused torrents
-- `completed` - Completed torrents (seeding only)
+- `distribution` - Object keyed by category name, containing objects keyed by qBit instance name with torrent counts
+- Each inner object maps qBit instance names to torrent counts for that category
 
 ---
 

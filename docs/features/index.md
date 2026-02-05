@@ -420,10 +420,10 @@ GroupLidarr = true
 
 **Security:**
 
-If `Token` is set, all API requests require the `X-API-Token` header:
+If `Token` is set, all API requests require the `Authorization: Bearer` header:
 
 ```bash
-curl -H "X-API-Token: your-secret-token" http://localhost:6969/api/processes
+curl -H "Authorization: Bearer your-secret-token" http://localhost:6969/api/processes
 ```
 
 ---
