@@ -136,7 +136,7 @@ FREE_SPACE_FOLDER = (
     else None
 )
 NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get(
-    "Settings.NoInternetSleepTimer", fallback=60
+    "Settings.NoInternetSleepTimer", fallback=15
 )
 LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
     "Settings.LoopSleepTimer", fallback=5

@@ -566,9 +566,9 @@ FFprobeAutoUpdate = true
 
 **FFprobe Location:**
 
-- **Linux/macOS:** `~/.local/share/qBitrr/ffprobe`
-- **Windows:** `%APPDATA%\qBitrr\ffprobe.exe`
-- **Docker:** `/config/ffprobe`
+- **Linux/macOS:** `~/.config/qBitManager/ffprobe`
+- **Windows:** `%APPDATA%\qBitManager\ffprobe.exe`
+- **Docker:** `/config/qBitManager/ffprobe`
 
 !!! info "FFprobe Updates"
     FFprobe updates are **separate** from qBitrr application updates. FFprobe is downloaded on-demand when needed, not on a schedule.

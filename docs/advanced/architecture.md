@@ -139,7 +139,7 @@ sequenceDiagram
     participant DB as 🗄️ Database
     participant ARR as 🎬 Arr API
 
-    Note over AM: Every N seconds (CheckInterval)
+    Note over AM: Every N seconds (LoopSleepTimer)
 
     rect rgb(230, 245, 255)
         Note right of AM: 1. Detection Phase
@@ -283,11 +283,11 @@ sequenceDiagram
     participant DB as 🗄️ Database
     participant ARR as 📡 Arr APIs
 
-    Client->>Flask: HTTP Request<br/>GET /api/v1/processes
+    Client->>Flask: HTTP Request<br/>GET /api/processes
 
     rect rgb(255, 243, 191)
         Note right of Flask: Authentication Phase
-        Flask->>Auth: Check X-API-Token header
+        Flask->>Auth: Check Authorization header
 
         alt Token Valid
             Auth-->>Flask: ✅ Authenticated
@@ -323,15 +323,15 @@ sequenceDiagram
 
 **API Endpoints:**
 
-- `/api/v1/processes` - List all Arr manager processes and their states
-- `/api/v1/logs` - Stream logs in real-time
-- `/api/v1/config` - Read/update configuration
-- `/api/v1/downloads` - Query download history
-- `/api/v1/searches` - Query search history
+- `/api/processes` - List all Arr manager processes and their states
+- `/api/logs` - Stream logs in real-time
+- `/api/config` - Read/update configuration
+- `/api/downloads` - Query download history
+- `/api/searches` - Query search history
 
 **Authentication:**
 
-All `/api/*` endpoints require `X-API-Token` header matching `Settings.WebUIToken` from config.toml
+All `/api/*` endpoints require `Authorization: Bearer` header matching `WebUI.Token` from config.toml
 
 ## Component Interactions
 
@@ -495,7 +495,7 @@ flowchart TD
 
     UpdateDB --> Cleanup["🗑️ Cleanup Expired<br/>DELETE FROM downloads WHERE expires_at < NOW()"]
 
-    Cleanup --> Sleep["💤 Sleep<br/>time.sleep(check_interval)"]
+    Cleanup --> Sleep["💤 Sleep<br/>time.sleep(LOOP_SLEEP_TIMER)"]
 
     Sleep --> LoopStart
 
@@ -581,7 +581,7 @@ flowchart TD
 
 **Performance Tuning:**
 
-- `check_interval` - How often to poll qBittorrent (default: 60s)
+- `LOOP_SLEEP_TIMER` - How often to poll qBittorrent (default: 5s)
 - Shorter intervals = faster response, higher CPU/network usage
 - Longer intervals = lower overhead, slower detection
 
@@ -591,11 +591,11 @@ flowchart TD
 
 **WebUI Token:**
 ```toml
-[Settings]
-WebUIToken = "your-secure-token"
+[WebUI]
+Token = "your-secure-token"
 ```
 
-- All `/api/*` endpoints check `X-API-Token` header
+- All `/api/*` endpoints check `Authorization: Bearer` header
 - Token stored in config.toml (not in database)
 - React app reads token from localStorage
 - No session management needed (stateless)
@@ -604,9 +604,9 @@ WebUIToken = "your-secure-token"
 
 **Configuration:**
 ```toml
-[Settings]
-WebUIHost = "127.0.0.1"  # Localhost only
-WebUIPort = 6969
+[WebUI]
+Host = "127.0.0.1"  # Localhost only
+Port = 6969
 ```
 
 - Default: `0.0.0.0` (all interfaces) for Docker
@@ -834,7 +834,7 @@ This design means one manager crash never corrupts another manager's state.
 
 ## Event Loop Architecture
 
-This section provides implementation details for the event loop summarized in [Event Loop Architecture](#event-loop-architecture-1) above.
+This section provides implementation details for the event loop summarized in [Event Loop Architecture](#event-loop-architecture) above.
 
 ### Loop Phases
 
@@ -934,7 +934,7 @@ def run_loop(self):
             self._cleanup_expired_entries()
 
             # Phase 6: Sleep
-            time.sleep(self.check_interval)
+            time.sleep(LOOP_SLEEP_TIMER)
 
         except DelayLoopException as e:
             logger.warning(f"Delaying loop for {e.length}s: {e.type}")

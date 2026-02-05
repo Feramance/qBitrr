@@ -221,7 +221,7 @@ QBITRR_SETTINGS_TAGLESS=false
 ### QBITRR_SETTINGS_IGNORE_TORRENTS_YOUNGER_THAN
 
 **Type:** Integer
-**Default:** `600` (10 minutes)
+**Default:** `180` (3 minutes)
 
 Seconds to wait before processing new torrents.
 
@@ -234,12 +234,12 @@ QBITRR_SETTINGS_IGNORE_TORRENTS_YOUNGER_THAN=300
 ### QBITRR_SETTINGS_PING_URLS
 
 **Type:** List (comma-separated)
-**Default:** `google.com,github.com`
+**Default:** `one.one.one.one,dns.google.com`
 
 URLs to ping for internet connectivity checks.
 
 ```bash
-QBITRR_SETTINGS_PING_URLS=google.com,cloudflare.com,github.com
+QBITRR_SETTINGS_PING_URLS=one.one.one.one,dns.google.com,cloudflare.com
 ```
 
 ---
@@ -327,12 +327,12 @@ QBITRR_QBIT_PORT=8080
 ### QBITRR_QBIT_USERNAME
 
 **Type:** String
-**Default:** `admin`
+**Default:** `CHANGE_ME`
 
 qBittorrent WebUI username.
 
 ```bash
-QBITRR_QBIT_USERNAME=admin
+QBITRR_QBIT_USERNAME=CHANGE_ME
 ```
 
 ---
@@ -340,12 +340,12 @@ QBITRR_QBIT_USERNAME=admin
 ### QBITRR_QBIT_PASSWORD
 
 **Type:** String
-**Default:** `adminadmin`
+**Default:** `CHANGE_ME`
 
 qBittorrent WebUI password.
 
 ```bash
-QBITRR_QBIT_PASSWORD=mysecretpassword
+QBITRR_QBIT_PASSWORD=CHANGE_ME
 ```
 
 !!! warning "Security"
@@ -855,16 +855,16 @@ QBITRR_QBIT_PASSWORD: <base64 encoded>
 | `QBITRR_SETTINGS_FAILED_CATEGORY` | String | `failed` | Failed torrents category |
 | `QBITRR_SETTINGS_RECHECK_CATEGORY` | String | `recheck` | Recheck torrents category |
 | `QBITRR_SETTINGS_TAGLESS` | Boolean | `false` | Process all torrents (ignore tags) |
-| `QBITRR_SETTINGS_IGNORE_TORRENTS_YOUNGER_THAN` | Integer | `600` | Ignore new torrents (seconds) |
-| `QBITRR_SETTINGS_PING_URLS` | List | `google.com,github.com` | Connectivity check URLs |
+| `QBITRR_SETTINGS_IGNORE_TORRENTS_YOUNGER_THAN` | Integer | `180` | Ignore new torrents (seconds) |
+| `QBITRR_SETTINGS_PING_URLS` | List | `one.one.one.one,dns.google.com` | Connectivity check URLs |
 | `QBITRR_SETTINGS_FFPROBE_AUTO_UPDATE` | Boolean | `true` | Auto-update FFprobe binary |
 | `QBITRR_SETTINGS_AUTO_UPDATE_ENABLED` | Boolean | `false` | Enable qBitrr auto-updates |
 | `QBITRR_SETTINGS_AUTO_UPDATE_CRON` | String | `0 3 * * 0` | Auto-update cron schedule |
 | `QBITRR_QBIT_DISABLED` | Boolean | `false` | Disable qBittorrent integration |
 | `QBITRR_QBIT_HOST` | String | `localhost` | qBittorrent WebUI host |
 | `QBITRR_QBIT_PORT` | Integer | `8080` | qBittorrent WebUI port |
-| `QBITRR_QBIT_USERNAME` | String | `admin` | qBittorrent username |
-| `QBITRR_QBIT_PASSWORD` | String | `adminadmin` | qBittorrent password |
+| `QBITRR_QBIT_USERNAME` | String | `CHANGE_ME` | qBittorrent username |
+| `QBITRR_QBIT_PASSWORD` | String | `CHANGE_ME` | qBittorrent password |
 | `QBITRR_OVERRIDES_SEARCH_ONLY` | Boolean | `false` | Only run search loops |
 | `QBITRR_OVERRIDES_PROCESSING_ONLY` | Boolean | `false` | Only process torrents |
 | `QBITRR_OVERRIDES_DATA_PATH` | String | Platform default | Override data directory |

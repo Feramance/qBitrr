@@ -803,18 +803,19 @@ When **empty:**
 When **set:**
 
 - All `/api/*` endpoints require authentication
-- Must include `X-API-Token` header in requests
+- Must include `Authorization: Bearer` header in requests
 
 **Setting up authentication:**
 
 ```toml
+[WebUI]
 Token = "my-secret-token-12345"
 ```
 
 **Using authenticated API:**
 
 ```bash
-curl -H "X-API-Token: my-secret-token-12345" \
+curl -H "Authorization: Bearer my-secret-token-12345" \
   http://localhost:6969/api/processes
 ```
 

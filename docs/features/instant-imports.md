@@ -82,14 +82,11 @@ FFprobeAutoUpdate = true
 
 **4. Import Trigger**
 
-qBitrr sends an API command to Arr:
+qBitrr sends an appropriate API command to Arr based on the media type:
 
-```http
-POST /api/v3/command
-{
-  "name": "DownloadsRefresh"
-}
-```
+- **Radarr (Movies):** `DownloadedMoviesScan`
+- **Sonarr (TV):** `DownloadedEpisodesScan`
+- **Lidarr (Music):** `DownloadedAlbumsScan`
 
 This forces Arr to immediately check its download queue and import completed items.
 
@@ -291,7 +288,7 @@ sequenceDiagram
         end
     end
 
-    qBitrr->>Arr: POST /api/v3/command<br/>{"name": "DownloadsRefresh"}
+    qBitrr->>Arr: POST /api/v3/command<br/>{"name": "DownloadedMoviesScan"}
     Arr->>qBT: Query download queue
     qBT-->>Arr: Completed: The Matrix (1999)
 
@@ -314,7 +311,7 @@ sequenceDiagram
 1. **Monitoring Loop**: qBitrr polls qBittorrent every `LoopSleepTimer` seconds
 2. **Completion Detection**: Detects 100% progress + seeding state
 3. **Validation**: FFprobe checks file integrity (if enabled)
-4. **Import Trigger**: Sends `DownloadsRefresh` command to Arr
+4. **Import Trigger**: Sends `DownloadedMoviesScan` (Radarr) / `DownloadedEpisodesScan` (Sonarr) / `DownloadedAlbumsScan` (Lidarr) command to Arr
 5. **File Transfer**: Arr copies or moves files based on `importMode`
 6. **Finalization**: Arr renames, adds metadata, updates library
 

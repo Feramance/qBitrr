@@ -193,7 +193,11 @@ def _add_settings_section(config: TOMLDocument):
             "By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`",
         ],
         "FFprobeAutoUpdate",
-        True if ENVIRO_CONFIG.settings.ping_urls is None else ENVIRO_CONFIG.settings.ping_urls,
+        (
+            True
+            if ENVIRO_CONFIG.settings.ffprobe_auto_update is None
+            else ENVIRO_CONFIG.settings.ffprobe_auto_update
+        ),
     )
     _gen_default_line(
         settings,

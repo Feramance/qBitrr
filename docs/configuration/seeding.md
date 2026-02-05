@@ -46,7 +46,7 @@ Seeding is configured in the `[<Arr>-<Name>.Torrent.SeedingMode]` section:
 
 ```toml
 [Radarr-Movies.Torrent.SeedingMode]
-# Rate limits (bytes per second, -1 = unlimited)
+# Rate limits (KB/s, -1 = unlimited)
 DownloadRateLimitPerTorrent = -1
 UploadRateLimitPerTorrent = -1
 
@@ -73,7 +73,7 @@ RemoveTrackerWithMessage = [
 DownloadRateLimitPerTorrent = -1
 ```
 
-**Type:** Integer (bytes per second)
+**Type:** Integer (KB/s)
 **Default:** `-1` (unlimited)
 
 Limit download speed for individual torrents managed by this Arr instance.
@@ -81,9 +81,9 @@ Limit download speed for individual torrents managed by this Arr instance.
 **Values:**
 
 - `-1` - Unlimited (default)
-- `1048576` - 1 MB/s
-- `5242880` - 5 MB/s
-- `10485760` - 10 MB/s
+- `1024` - 1 MB/s
+- `5120` - 5 MB/s
+- `10240` - 10 MB/s
 
 **Use cases:**
 
@@ -95,7 +95,7 @@ Limit download speed for individual torrents managed by this Arr instance.
 
 ```toml
 # Limit to 5 MB/s per torrent
-DownloadRateLimitPerTorrent = 5242880
+DownloadRateLimitPerTorrent = 5120
 ```
 
 ---
@@ -106,7 +106,7 @@ DownloadRateLimitPerTorrent = 5242880
 UploadRateLimitPerTorrent = -1
 ```
 
-**Type:** Integer (bytes per second)
+**Type:** Integer (KB/s)
 **Default:** `-1` (unlimited)
 
 Limit upload speed for individual torrents.
@@ -121,7 +121,7 @@ Limit upload speed for individual torrents.
 
 ```toml
 # Limit to 2 MB/s per torrent
-UploadRateLimitPerTorrent = 2097152
+UploadRateLimitPerTorrent = 2048
 ```
 
 ---
@@ -993,114 +993,6 @@ MaxSeedingTime = 432000
 Name = "Public1"
 MaxUploadRatio = 1.0
 MaxSeedingTime = 86400
-```
-
----
-
-## Custom Tracker Rules
-
-In addition to the per-Arr tracker overrides above, qBitrr supports global tracker rules via `[[Settings.TrackerRules]]`. These apply across all Arr instances and support domain matching, wildcards, and priority-based resolution.
-
-### Basic Tracker Rule
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = "tracker.example.com"    # Tracker domain (matches any protocol)
-MinRatio = 1.0                     # Minimum seed ratio before deletion
-MinSeedTime = 86400                # Minimum seed time in seconds (24 hours)
-MaxETA = 3600                      # Maximum ETA before marking stalled (1 hour)
-AutoDelete = true                  # Allow automatic deletion when seeding goals met
-Priority = 10                      # Rule priority (higher = higher priority)
-```
-
----
-
-### Tracker Matching
-
-**Domain extraction** -- qBitrr automatically extracts tracker domains from announce URLs:
-
-```
-Tracker URL: http://tracker.example.com:8080/announce
-Matched Domain: tracker.example.com
-
-Tracker URL: https://private.tracker.net:443/abc123/announce
-Matched Domain: private.tracker.net
-```
-
-**Wildcard matching:**
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = "*.privatehd.to"  # Matches all subdomains
-```
-
-**Multiple trackers (OR logic):**
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = ["tracker1.com", "tracker2.net"]  # Matches either tracker
-MinRatio = 1.5
-```
-
----
-
-### Rule Priority
-
-When a torrent matches multiple rules, the highest priority rule wins:
-
-```toml
-# Default rule for all trackers
-[[Settings.TrackerRules]]
-Tracker = "*"               # Wildcard matches all
-MinRatio = 0.5
-MinSeedTime = 7200
-Priority = 1                # Lowest priority
-
-# Specific rule overrides default
-[[Settings.TrackerRules]]
-Tracker = "privatehd.to"
-MinRatio = 1.5
-MinSeedTime = 259200
-Priority = 10               # Higher priority, takes precedence
-```
-
----
-
-### Example Presets
-
-**Private tracker (strict):**
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = "privatehd.tracker"
-MinRatio = 1.5              # Must seed to 150%
-MinSeedTime = 259200        # 3 days minimum
-MaxETA = 7200               # Allow 2 hours for slow downloads
-AutoDelete = false          # Never auto-delete
-Priority = 10
-```
-
-**Public tracker (permissive):**
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = "public.tracker.org"
-MinRatio = 0.1              # Minimal seeding required
-MinSeedTime = 3600          # 1 hour minimum
-MaxETA = 1800               # Mark stalled after 30 mins
-AutoDelete = true           # Delete when done
-Priority = 5
-```
-
-**Anime tracker:**
-
-```toml
-[[Settings.TrackerRules]]
-Tracker = "anime.tracker.moe"
-MinRatio = 1.0
-MinSeedTime = 172800        # 2 days
-PreferredCodec = "h265"     # HEVC preferred for anime
-MaxFileSize = 5368709120    # 5 GB max (for 1080p anime)
 ```
 
 ---

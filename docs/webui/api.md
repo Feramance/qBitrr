@@ -68,11 +68,6 @@ Authentication supports multiple formats for flexibility:
 Authorization: Bearer <token>
 ```
 
-**Header without Bearer prefix**:
-```http
-X-API-Token: <token>
-```
-
 **Query Parameter** (for URLs):
 ```
 ?token=<token>
@@ -83,7 +78,10 @@ X-API-Token: <token>
 curl -H "Authorization: Bearer abc123..." http://localhost:6969/api/processes
 ```
 
-**Note**: The `/api/token` endpoint does not exist. Tokens must be configured in the config file under `WebUI.Token`.
+**Token Retrieval** — `GET /api/token` (requires auth) returns the current token:
+```json
+{"token": "<your-token>"}
+```
 
 ---
 

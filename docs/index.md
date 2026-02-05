@@ -336,8 +336,6 @@ Optimize for private tracker requirements:
 - Long-term seeding with automatic cleanup
 - Import verification with FFprobe
 
-[**Example Setup →**](configuration/seeding.md#custom-tracker-rules)
-
 ---
 
 ## Project Status

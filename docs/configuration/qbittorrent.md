@@ -630,8 +630,8 @@ RemoveTorrent = -1                 # Removal policy (see below)
 | `3` | Ratio OR Time | Remove when **either** limit is reached (whichever comes first) |
 | `4` | Ratio AND Time | Remove only when **both** limits are reached |
 
-!!! note "File Retention"
-    When qBitrr removes a torrent, it **keeps the downloaded files** on disk. Only the torrent entry is removed from qBittorrent.
+!!! note "Torrent Removal"
+    When qBitrr removes a torrent, the torrent entry is removed from qBittorrent but **downloaded files are preserved** on disk (`delete_files=False`).
 
 ### Examples
 
