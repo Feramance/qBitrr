@@ -891,7 +891,7 @@ qBitrr automatically handles database migrations during startup:
 
 ```python
 # Internal migration logic (automatic)
-CURRENT_CONFIG_VERSION = 15
+EXPECTED_CONFIG_VERSION = 4
 apply_config_migrations()  # Migrates database schema
 ```
 

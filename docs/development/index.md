@@ -821,25 +821,25 @@ except InvalidTorrentError:
    def apply_config_migrations():
        # ... existing migrations ...
 
-       if current_version < 16:
-           # Add new columns
-           migrator = SqliteMigrator(database)
-           migrate(
-               migrator.add_column('moviesfilesmodel', 'CustomFormatScore',
-                                 IntegerField(default=0)),
-               migrator.add_column('moviesfilesmodel', 'MinCustomFormatScore',
-                                 IntegerField(default=0)),
-               migrator.add_column('moviesfilesmodel', 'CustomFormatMet',
-                                 BooleanField(default=False))
-           )
-           current_version = 16
-   ```
+        if current_version < 5:
+            # Add new columns
+            migrator = SqliteMigrator(database)
+            migrate(
+                migrator.add_column('moviesfilesmodel', 'CustomFormatScore',
+                                  IntegerField(default=0)),
+                migrator.add_column('moviesfilesmodel', 'MinCustomFormatScore',
+                                  IntegerField(default=0)),
+                migrator.add_column('moviesfilesmodel', 'CustomFormatMet',
+                                  BooleanField(default=False))
+            )
+            current_version = 5
+    ```
 
 3. **Update config version:**
-   ```python
-   # qBitrr/config_version.py
-   CURRENT_CONFIG_VERSION = 16
-   ```
+    ```python
+    # qBitrr/config_version.py
+    EXPECTED_CONFIG_VERSION = 5  # Increment for new migrations
+    ```
 
 4. **Use new fields:**
    ```python
