@@ -9,6 +9,7 @@ edit_uri: edit/master/docs/
 # Exclude files from documentation build
 exclude_docs: |
   README.md
+  includes/abbreviations.md
 
 # Copyright
 copyright: Copyright &copy; 2025 Feramance

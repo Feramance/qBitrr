@@ -399,7 +399,7 @@ Follow these practices to minimize corruption risk:
 1. **Use local storage** — SQLite on NFS/CIFS is unreliable due to file locking issues
 2. **Graceful shutdown** — Always use `docker stop` (not `docker kill`); set `stop_grace_period: 30s` in Docker Compose
 3. **Ensure adequate disk space** — WAL operations need temporary space; configure `FreeSpace` in config
-4. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup--restore))
+4. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup-restore))
 5. **Proper permissions** — Ensure the qBitrr user owns the database files (`chown 1000:1000 /config/qBitManager/qbitrr.db`)
 
 !!! note "Historical Fix: synchronous Setting"
