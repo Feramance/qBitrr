@@ -9,11 +9,13 @@ Requestrr is a chatbot interface - it doesn't have its own request database. Ins
 - Overseerr/Ombi stores requests in their database
 - qBitrr polls Overseerr/Ombi API to find and search for requests
 
-```
-┌──────────┐     ┌───────────┐     ┌──────────────────┐     ┌──────────┐
-│  User    │────▶│ Requestrr │────▶│ Overseerr OR Ombi│────▶│  qBitrr  │
-│(Discord) │     │(Chatbot)  │     │   (Request DB)   │     │ (Search) │
-└──────────┘     └───────────┘     └──────────────────┘     └──────────┘
+```mermaid
+flowchart LR
+    A[User\nDiscord] --> B[Requestrr\nChatbot]
+    B --> C{Overseerr\nor\nOmbi}
+    C --> D[Request DB]
+    D --> E[qBitrr\nSearch]
+    E --> F[Radarr/Sonarr/Lidarr]
 ```
 
 ## Supported Backends
