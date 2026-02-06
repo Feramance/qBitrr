@@ -1,5 +1,10 @@
 # Overseerr Integration
 
+!!! tip "Requestrr Integration"
+    Want Discord-based requests? Configure Requestrr to use Overseerr as its backend,
+    then qBitrr will automatically process those requests.
+    [**→ Requestrr Integration Guide**](requestrr.md)
+
 Overseerr is a request management and media discovery tool. qBitrr can integrate with Overseerr to automatically search for user-requested content, ensuring your users get their requests fulfilled as quickly as possible.
 
 ## Overview

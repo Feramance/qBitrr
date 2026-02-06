@@ -48,35 +48,17 @@ SearchPeriodDays = 30  # Monthly (conservative)
 
 ## Request Integration
 
-### Overseerr
+### Supported Request Systems
 
-Integrate qBitrr with Overseerr for request-driven automation:
+| System | Type | qBitrr Support |
+|--------|------|----------------|
+| [Overseerr](overseerr.md) | Full request management | ✅ Native API polling |
+| [Ombi](ombi.md) | Full request management | ✅ Native API polling |
+| [Requestrr](requestrr.md) | Discord chatbot | ✅ Via Overseerr or Ombi |
 
-```toml
-[Settings.Overseerr]
-Enabled = true
-URI = "http://localhost:5055"
-APIKey = "your-overseerr-api-key"
-CheckInterval = 300  # Check every 5 minutes
-```
-
-**Features:**
-- Monitor new requests
-- Trigger immediate searches
-- Priority handling for user requests
-- Status updates back to Overseerr
-
-### Ombi
-
-Configure Ombi integration similarly:
-
-```toml
-[Settings.Ombi]
-Enabled = true
-URI = "http://localhost:3579"
-APIKey = "your-ombi-api-key"
-CheckInterval = 300
-```
+!!! tip "Requestrr Users"
+    Requestrr is a Discord chatbot. Connect it to **Overseerr or Ombi**, then qBitrr
+    will process requests through its existing integration.
 
 ### Request Priority
 
