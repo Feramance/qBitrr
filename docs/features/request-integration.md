@@ -48,6 +48,23 @@ Request integration allows qBitrr to:
 
 ---
 
+### Requestrr
+
+**Discord chatbot for media requests**
+
+Requestrr provides a Discord interface for users to request content. To integrate with qBitrr, configure Requestrr to use **Overseerr or Ombi** as its backend - qBitrr will automatically process those requests.
+
+- ✅ **Discord Integration**: Users request via Discord
+- ✅ **Via Overseerr**: Full feature support (recommended)
+- ✅ **Via Ombi**: Alternative backend support
+- ⚠️ **No Direct qBitrr Support**: Must use Overseerr or Ombi as backend
+
+**Use Case:** Discord-based request workflows
+
+[**→ Requestrr Integration Guide**](../configuration/search/requestrr.md)
+
+---
+
 ## How It Works
 
 ### Request Flow

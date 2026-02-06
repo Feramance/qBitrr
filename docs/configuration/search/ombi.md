@@ -1,5 +1,10 @@
 # Ombi Integration
 
+!!! tip "Requestrr Integration"
+    Want Discord-based requests? Configure Requestrr to use Ombi as its backend,
+    then qBitrr will automatically process those requests.
+    [**→ Requestrr Integration Guide**](requestrr.md)
+
 Ombi is a self-hosted request management system for Plex, Emby, and Jellyfin. qBitrr can integrate with Ombi to automatically search for user-requested content, ensuring requests are fulfilled quickly and efficiently.
 
 ## Overview
