@@ -37,6 +37,7 @@ class qBitCategoryManager:
         self.managed_categories = config.get("managed_categories", [])
         self.default_seeding = config.get("default_seeding", {})
         self.category_overrides = config.get("category_overrides", {})
+        self.trackers = config.get("trackers", [])
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
@@ -230,17 +231,78 @@ class qBitCategoryManager:
         elif remove_mode == 4:  # Remove on AND (both conditions)
             should_remove = ratio_met and time_met
 
-        # HnR protection: block removal if obligations not met
-        if should_remove and not self._hnr_safe_to_remove(torrent, config):
-            self.logger.debug(
-                "HnR protection: keeping '%s' (ratio=%.2f, seeding=%ds)",
-                torrent.name,
-                torrent.ratio,
-                torrent.seeding_time,
-            )
-            return False
+        # HnR protection: check tracker-level HnR first, then category-level
+        if should_remove:
+            tracker_config = self._get_tracker_config(torrent)
+            hnr_config = tracker_config if tracker_config else config
+
+            # Bypass HnR if tracker reports torrent as unregistered/dead
+            if hnr_config.get("HitAndRunMode", False) and self._hnr_tracker_is_dead(
+                torrent, hnr_config
+            ):
+                self.logger.debug(
+                    "HnR bypass: tracker reports torrent as unregistered/dead '%s'",
+                    torrent.name,
+                )
+                return True
+
+            if not self._hnr_safe_to_remove(torrent, hnr_config):
+                self.logger.debug(
+                    "HnR protection: keeping '%s' (ratio=%.2f, seeding=%ds)",
+                    torrent.name,
+                    torrent.ratio,
+                    torrent.seeding_time,
+                )
+                return False
 
         return should_remove
+
+    def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
+        """Find the highest-priority matching tracker config for this torrent."""
+        if not self.trackers:
+            return None
+        try:
+            torrent_trackers = {
+                getattr(t, "url", "") for t in torrent.trackers if hasattr(t, "url")
+            }
+        except Exception:
+            return None
+        best = None
+        best_priority = -1
+        for tracker_cfg in self.trackers:
+            if not isinstance(tracker_cfg, dict):
+                continue
+            uri = (tracker_cfg.get("URI") or "").strip()
+            priority = tracker_cfg.get("Priority", 0)
+            if uri and uri in torrent_trackers and priority > best_priority:
+                best = tracker_cfg
+                best_priority = priority
+        return best
+
+    def _hnr_tracker_is_dead(self, torrent: TorrentDictionary, config: dict) -> bool:
+        """Check if the HnR-enabled tracker reports the torrent as unregistered."""
+        _dead_keywords = {
+            "unregistered torrent",
+            "torrent not registered",
+            "info hash is not authorized",
+            "torrent is not authorized",
+            "not found",
+            "torrent not found",
+        }
+        uri = (config.get("URI") or "").strip()
+        if not uri:
+            return False
+        try:
+            for tracker in torrent.trackers:
+                tracker_url = getattr(tracker, "url", None)
+                if tracker_url != uri:
+                    continue
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                if any(keyword in message_text for keyword in _dead_keywords):
+                    return True
+        except Exception:
+            pass
+        return False
 
     def _hnr_safe_to_remove(self, torrent: TorrentDictionary, config: dict) -> bool:
         """
@@ -258,14 +320,15 @@ class qBitCategoryManager:
 
         min_ratio = config.get("MinSeedRatio", 1.0)
         min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
+        min_dl_pct = config.get("HitAndRunMinimumDownloadPercent", 10) / 100.0
         partial_ratio = config.get("HitAndRunPartialSeedRatio", 1.0)
         buffer_secs = config.get("TrackerUpdateBuffer", 0)
 
-        is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
+        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
         effective_seeding_time = torrent.seeding_time - buffer_secs
 
-        if torrent.progress < 0.1:
-            return True  # Negligible download, no HnR obligation
+        if torrent.progress < min_dl_pct:
+            return True  # Below minimum download threshold, no HnR obligation
         if is_partial:
             return torrent.ratio >= partial_ratio  # Partial: ratio only
 

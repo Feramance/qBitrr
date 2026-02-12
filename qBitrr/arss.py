@@ -247,7 +247,9 @@ class Arr:
                 self.seeding_mode_global_bad_tracker_msg
             )
 
-        self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
+        qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
+        arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
+        self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
         self._remove_trackers_if_exists: set[str] = {
             uri
             for i in self.monitored_trackers
@@ -694,6 +696,22 @@ class Arr:
             )
         )
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    @staticmethod
+    def _merge_trackers(qbit_trackers: list, arr_trackers: list) -> list:
+        """Merge qBit-level and Arr-level trackers. Arr overrides qBit by URI."""
+        merged: dict[str, dict] = {}
+        for tracker in qbit_trackers:
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip()
+                if uri:
+                    merged[uri] = dict(tracker)
+        for tracker in arr_trackers:
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip()
+                if uri:
+                    merged[uri] = dict(tracker)
+        return list(merged.values())
 
     def _ensure_category_on_all_instances(self) -> None:
         """
@@ -5720,6 +5738,9 @@ class Arr:
             "hnr_mode": most_important_tracker.get("HitAndRunMode", False),
             "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
             "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
+            "hnr_min_download_percent": most_important_tracker.get(
+                "HitAndRunMinimumDownloadPercent", 10
+            ),
             "hnr_partial_seed_ratio": most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
             "hnr_tracker_update_buffer": most_important_tracker.get("TrackerUpdateBuffer", 0),
         }
@@ -6302,6 +6323,16 @@ class Arr:
         """
         if not any(t.get("HitAndRunMode", False) for t in self.monitored_trackers):
             return True  # Fast path: no HnR on any tracker
+
+        # If the HnR-enabled tracker reports the torrent as unregistered/dead,
+        # HnR no longer applies (tracker has removed the torrent).
+        if self._hnr_tracker_is_dead(torrent):
+            self.logger.debug(
+                "HnR bypass: tracker reports torrent as unregistered/dead [%s]",
+                torrent.name,
+            )
+            return True
+
         data_settings, _ = self._get_torrent_limit_meta(torrent)
         if self._hnr_safe_to_remove(torrent, data_settings):
             return True
@@ -6315,6 +6346,40 @@ class Arr:
         )
         return False
 
+    def _hnr_tracker_is_dead(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
+        """Check if the HnR-enabled tracker reports the torrent as unregistered or dead.
+
+        If a tracker says the torrent is unregistered/unauthorized, the torrent
+        no longer exists on the tracker and HnR obligations cannot apply.
+        """
+        _dead_keywords = {
+            "unregistered torrent",
+            "torrent not registered",
+            "info hash is not authorized",
+            "torrent is not authorized",
+            "not found",
+            "torrent not found",
+        }
+        # Build set of HnR-enabled tracker URIs
+        hnr_uris = {
+            (t.get("URI") or "").strip()
+            for t in self.monitored_trackers
+            if t.get("HitAndRunMode", False)
+        }
+        if not hnr_uris:
+            return False
+        try:
+            for tracker in torrent.trackers:
+                tracker_url = getattr(tracker, "url", None)
+                if not tracker_url or tracker_url not in hnr_uris:
+                    continue
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                if any(keyword in message_text for keyword in _dead_keywords):
+                    return True
+        except Exception:
+            pass
+        return False
+
     def _hnr_safe_to_remove(
         self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
     ) -> bool:
@@ -6325,14 +6390,15 @@ class Arr:
 
         min_ratio = tracker_meta.get("hnr_min_seed_ratio", 1.0)
         min_time_secs = tracker_meta.get("hnr_min_seeding_time_days", 0) * 86400
+        min_dl_pct = tracker_meta.get("hnr_min_download_percent", 10) / 100.0
         partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", 1.0)
         buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", 0)
 
-        is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
+        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
         effective_seeding_time = torrent.seeding_time - buffer_secs
 
-        if torrent.progress < 0.1:
-            return True  # Negligible download, no HnR obligation
+        if torrent.progress < min_dl_pct:
+            return True  # Below minimum download threshold, no HnR obligation
         if is_partial:
             return torrent.ratio >= partial_ratio  # Partial: ratio only
 

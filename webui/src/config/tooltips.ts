@@ -49,6 +49,8 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
    "WebUI.GroupLidarr": "Group Lidarr views by artist and albums in collapsible sections.",
    "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
 
+  "qBit.Trackers":
+    "Tracker configs shared by all Arr instances on this qBit instance. Define tracker-specific rate limits, HnR protection, and management rules here. Arr instances inherit these and can optionally override per-tracker settings.",
   "qBit.Disabled":
     "Disable qBitrr's direct qBittorrent integration (headless mode for search-only setups).",
   "qBit.Host": "qBittorrent WebUI host or IP address.",
@@ -167,6 +169,8 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Minimum seed ratio before removal allowed for managed categories (HnR protection).",
   "CategorySeeding.MinSeedingTimeDays":
     "Minimum seeding time in days for managed categories (HnR protection). 0 = ratio only.",
+  "CategorySeeding.HitAndRunMinimumDownloadPercent":
+    "Minimum download percentage (0-100) before a torrent is considered for HnR. Below this threshold, the torrent can be safely removed. Default: 10.",
   "CategorySeeding.HitAndRunPartialSeedRatio":
     "Minimum ratio for partial downloads in managed categories (HnR protection).",
   "CategorySeeding.TrackerUpdateBuffer":
@@ -177,8 +181,10 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Minimum seed ratio before HnR obligation is cleared (e.g. 1.0 for 1:1 ratio).",
   MinSeedingTimeDays:
     "Minimum seeding time in days before HnR obligation is cleared. 0 = ratio only.",
+  HitAndRunMinimumDownloadPercent:
+    "Minimum download percentage (0-100) before a torrent is considered for HnR. Below this threshold, the torrent can be safely removed. Default: 10.",
   HitAndRunPartialSeedRatio:
-    "Minimum ratio for partial downloads (>=10% but <100% complete). Time does not apply to partials.",
+    "Minimum ratio for partial downloads (>=threshold but <100% complete). Time does not apply to partials.",
   TrackerUpdateBuffer:
     "Extra seconds to wait after meeting HnR criteria. Accounts for tracker stats lag (~30 min behind client).",
 };

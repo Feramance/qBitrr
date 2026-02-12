@@ -521,11 +521,15 @@ class qBitManager:
                     cat_name = cat_config["Name"]
                     category_overrides[cat_name] = cat_config
 
+            # Load qBit-level shared trackers
+            qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
+
             # Store config for later initialization
             self.qbit_category_configs["default"] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
+                "trackers": qbit_trackers,
             }
             self.logger.debug(
                 "Loaded qBit category config for 'default': %d managed categories",
@@ -652,11 +656,15 @@ class qBitManager:
                     cat_name = cat_config["Name"]
                     category_overrides[cat_name] = cat_config
 
+            # Load qBit-level shared trackers
+            instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
+
             # Store config for later initialization
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
+                "trackers": instance_trackers,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories",
