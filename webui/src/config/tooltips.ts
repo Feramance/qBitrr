@@ -161,6 +161,26 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Maximum seeding duration in seconds (-1 disables the limit).",
   "Torrent.SeedingMode.RemoveTorrent":
     "Removal policy: -1 do not remove, 1 remove on ratio, 2 remove on time, 3 remove on ratio or time, 4 remove on ratio and time.",
+  "Torrent.SeedingMode.HitAndRunMode":
+    "Enable Hit and Run protection. Prevents torrent removal until private tracker seeding obligations are met.",
+  "Torrent.SeedingMode.MinSeedRatio":
+    "Minimum seed ratio before HnR obligation is cleared (e.g. 1.0 for 1:1 ratio).",
+  "Torrent.SeedingMode.MinSeedingTimeDays":
+    "Minimum seeding time in days before HnR obligation is cleared. 0 disables time-based check (ratio only).",
+  "Torrent.SeedingMode.HitAndRunPartialSeedRatio":
+    "Minimum ratio for partial downloads (>=10% but <100% complete). Time does not apply to partial downloads.",
+  "Torrent.SeedingMode.TrackerUpdateBuffer":
+    "Extra seconds to wait after meeting HnR criteria. Accounts for tracker stats lag (~30 min behind client).",
+  HitAndRunMode:
+    "Enable Hit and Run protection for this tracker (overrides global setting).",
+  MinSeedRatio:
+    "Minimum seed ratio for HnR protection on this tracker (overrides global).",
+  MinSeedingTimeDays:
+    "Minimum seeding time in days for HnR protection on this tracker (overrides global). 0 = ratio only.",
+  HitAndRunPartialSeedRatio:
+    "Minimum ratio for partial downloads on this tracker (overrides global).",
+  TrackerUpdateBuffer:
+    "Extra seconds buffer for tracker stats lag on this tracker (overrides global).",
 };
 
 export function getTooltip(path: string[]): string | undefined {
