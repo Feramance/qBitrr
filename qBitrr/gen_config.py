@@ -1407,9 +1407,9 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     Add Hit and Run protection settings to existing configs.
 
     Migration runs if:
-    - ConfigVersion < "5.9.0"
+    - ConfigVersion < "5.8.8"
 
-    Adds HnR fields to SeedingMode and Trackers sections for all Arr instances.
+    Adds HnR fields to SeedingMode, Trackers, and CategorySeeding sections for all Arr and qBit instances.
 
     Returns:
         True if changes were made, False otherwise
@@ -1421,7 +1421,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     logger = logging.getLogger(__name__)
 
     current_version = _parse_version(get_config_version(config))
-    if current_version >= _parse_version("5.9.0"):
+    if current_version >= _parse_version("5.8.8"):
         return False  # Already migrated
 
     changes_made = False
