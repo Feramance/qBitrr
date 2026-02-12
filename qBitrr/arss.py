@@ -6329,6 +6329,8 @@ class Arr:
         is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
         effective_seeding_time = torrent.seeding_time - buffer_secs
 
+        if torrent.progress < 0.1:
+            return True  # Negligible download, no HnR obligation
         if is_partial:
             return torrent.ratio >= partial_ratio  # Partial: ratio only
 
