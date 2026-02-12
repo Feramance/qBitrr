@@ -906,6 +906,59 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
     format: formatList,
     fullWidth: true,
   },
+  {
+    label: "Hit and Run Mode",
+    path: ["Torrent", "SeedingMode", "HitAndRunMode"],
+    type: "checkbox",
+  },
+  {
+    label: "Min Seed Ratio",
+    path: ["Torrent", "SeedingMode", "MinSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Seeding Time (days)",
+    path: ["Torrent", "SeedingMode", "MinSeedingTimeDays"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seeding Time must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Partial Download Seed Ratio",
+    path: ["Torrent", "SeedingMode", "HitAndRunPartialSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Partial Download Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Tracker Update Buffer (s)",
+    path: ["Torrent", "SeedingMode", "TrackerUpdateBuffer"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Tracker Update Buffer must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
 ];
 
 const ARR_TRACKER_FIELDS: FieldDefinition[] = [
@@ -996,6 +1049,59 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     type: "text",
     parse: parseList,
     format: formatList,
+  },
+  {
+    label: "Hit and Run Mode",
+    path: ["HitAndRunMode"],
+    type: "checkbox",
+  },
+  {
+    label: "Min Seed Ratio",
+    path: ["MinSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Seeding Time (days)",
+    path: ["MinSeedingTimeDays"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seeding Time must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Partial Download Seed Ratio",
+    path: ["HitAndRunPartialSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Partial Download Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Tracker Update Buffer (s)",
+    path: ["TrackerUpdateBuffer"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Tracker Update Buffer must be 0 or greater.";
+      }
+      return undefined;
+    },
   },
 ];
 
