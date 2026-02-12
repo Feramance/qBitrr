@@ -502,6 +502,17 @@ class qBitManager:
                 value = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
 
+            # Load HnR protection settings
+            hnr_keys = {
+                "HitAndRunMode": False,
+                "MinSeedRatio": 1.0,
+                "MinSeedingTimeDays": 0,
+                "HitAndRunPartialSeedRatio": 1.0,
+                "TrackerUpdateBuffer": 0,
+            }
+            for key, fallback in hnr_keys.items():
+                default_seeding[key] = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=fallback)
+
             # Load per-category overrides
             category_overrides = {}
             categories_list = CONFIG.get("qBit.CategorySeeding.Categories", fallback=[])
@@ -619,6 +630,19 @@ class qBitManager:
             for key in seeding_keys:
                 value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
+
+            # Load HnR protection settings
+            hnr_keys = {
+                "HitAndRunMode": False,
+                "MinSeedRatio": 1.0,
+                "MinSeedingTimeDays": 0,
+                "HitAndRunPartialSeedRatio": 1.0,
+                "TrackerUpdateBuffer": 0,
+            }
+            for key, fallback in hnr_keys.items():
+                default_seeding[key] = CONFIG.get(
+                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                )
 
             # Load per-category overrides
             category_overrides = {}

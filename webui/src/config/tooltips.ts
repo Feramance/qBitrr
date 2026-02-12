@@ -171,6 +171,16 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Minimum ratio for partial downloads (>=10% but <100% complete). Time does not apply to partial downloads.",
   "Torrent.SeedingMode.TrackerUpdateBuffer":
     "Extra seconds to wait after meeting HnR criteria. Accounts for tracker stats lag (~30 min behind client).",
+  "CategorySeeding.HitAndRunMode":
+    "Enable Hit and Run protection for managed category torrents.",
+  "CategorySeeding.MinSeedRatio":
+    "Minimum seed ratio before removal allowed for managed categories (HnR protection).",
+  "CategorySeeding.MinSeedingTimeDays":
+    "Minimum seeding time in days for managed categories (HnR protection). 0 = ratio only.",
+  "CategorySeeding.HitAndRunPartialSeedRatio":
+    "Minimum ratio for partial downloads in managed categories (HnR protection).",
+  "CategorySeeding.TrackerUpdateBuffer":
+    "Extra seconds buffer for tracker stats lag in managed categories.",
   HitAndRunMode:
     "Enable Hit and Run protection for this tracker (overrides global setting).",
   MinSeedRatio:
