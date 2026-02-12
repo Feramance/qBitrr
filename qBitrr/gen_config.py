@@ -96,7 +96,7 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        3,
+        "5.8.8",
     )
     _gen_default_line(
         settings,
@@ -648,6 +648,55 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
         ],
     )
 
+    _gen_default_line(
+        seeding_table,
+        [
+            "Enable Hit and Run (HnR) protection.",
+            "When enabled, torrents will not be removed until HnR obligations are met.",
+            "Private trackers often require seeding to a minimum ratio or for a minimum time.",
+        ],
+        "HitAndRunMode",
+        False,
+    )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Minimum seed ratio before a torrent can be removed (HnR protection).",
+            "Set to 1.0 for typical private tracker requirements.",
+        ],
+        "MinSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Minimum seeding time in days before a torrent can be removed (HnR protection).",
+            "Set to 0 to use ratio-only protection.",
+            "For full downloads: either ratio OR time clears the HnR obligation.",
+        ],
+        "MinSeedingTimeDays",
+        0,
+    )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Minimum ratio for partial downloads (>=10% but <100% complete).",
+            "Partial downloads typically must reach this ratio (time does not apply).",
+        ],
+        "HitAndRunPartialSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        seeding_table,
+        [
+            "Extra seconds to wait after meeting HnR criteria before allowing removal.",
+            "Accounts for tracker stats lag (trackers can be ~30 min behind the client).",
+            "Set to 0 to disable.",
+        ],
+        "TrackerUpdateBuffer",
+        0,
+    )
+
     torrent_table.add("SeedingMode", seeding_table)
 
 
@@ -725,6 +774,36 @@ def _gen_default_tracker_tables(category: str, torrent_table: Table):
             "Enable Super Seeding setting for torrents with this tracker.",
             "SuperSeedMode",
             False,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Enable Hit and Run protection for this tracker (overrides global).",
+            "HitAndRunMode",
+            False,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Minimum seed ratio for HnR protection (overrides global).",
+            "MinSeedRatio",
+            1.0,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Minimum seeding time in days for HnR protection (overrides global, 0 = ratio only).",
+            "MinSeedingTimeDays",
+            0,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Minimum ratio for partial downloads for HnR protection (overrides global).",
+            "HitAndRunPartialSeedRatio",
+            1.0,
+        )
+        _gen_default_line(
+            tracker_table,
+            "Extra seconds buffer for tracker stats lag (overrides global).",
+            "TrackerUpdateBuffer",
+            0,
         )
         if tags:
             _gen_default_line(
@@ -1079,22 +1158,22 @@ def _migrate_process_restart_settings(config: MyConfig) -> bool:
     Add process auto-restart settings to existing configs.
 
     Migration runs if:
-    - ConfigVersion < 3 (versions 1 or 2)
+    - ConfigVersion < "0.0.3"
 
-    After migration, ConfigVersion will be set to 3 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 3:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.3"):
         return False  # Already migrated
 
     # Ensure Settings section exists
@@ -1139,27 +1218,23 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
     Migrate from list-based profile config to dict-based mappings.
 
     Migration runs if:
-    - ConfigVersion is missing (old config), OR
-    - ConfigVersion == 1 (baseline version before this feature)
+    - ConfigVersion < "0.0.2"
 
-    After migration, ConfigVersion will be set to 2 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 2:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.2"):
         return False  # Already migrated
-
-    # At this point, ConfigVersion is either missing (returns 1 as default) or explicitly 1
-    # Both cases need migration if old format exists
 
     changes_made = False
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
@@ -1219,24 +1294,24 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
     Add qBit category management settings to existing configs.
 
     Migration runs if:
-    - ConfigVersion < 4
+    - ConfigVersion < "0.0.4"
 
     Adds ManagedCategories and CategorySeeding configuration to all qBit sections.
 
-    After migration, ConfigVersion will be set to 4 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 4:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.4"):
         return False  # Already migrated
 
     changes_made = False
@@ -1283,6 +1358,72 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
 
     if changes_made:
         print("Migration v3→v4: Added qBit category management settings")
+
+    return changes_made
+
+
+def _migrate_hnr_settings(config: MyConfig) -> bool:
+    """
+    Add Hit and Run protection settings to existing configs.
+
+    Migration runs if:
+    - ConfigVersion < "5.9.0"
+
+    Adds HnR fields to SeedingMode and Trackers sections for all Arr instances.
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import _parse_version, get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("5.9.0"):
+        return False  # Already migrated
+
+    changes_made = False
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+    hnr_seeding_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+
+    for arr_type in arr_types:
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            # Add HnR fields to SeedingMode
+            f"{key}.Torrent"
+            if "Torrent" in config.config.get(str(key), {}):
+                torrent_section = config.config[str(key)]["Torrent"]
+
+                if "SeedingMode" in torrent_section:
+                    seeding = torrent_section["SeedingMode"]
+                    for field, default in hnr_seeding_defaults.items():
+                        if field not in seeding:
+                            seeding[field] = default
+                            changes_made = True
+
+                # Add HnR fields to each tracker
+                if "Trackers" in torrent_section:
+                    trackers = torrent_section["Trackers"]
+                    if isinstance(trackers, list):
+                        for tracker in trackers:
+                            for field, default in hnr_seeding_defaults.items():
+                                if field not in tracker:
+                                    tracker[field] = default
+                                    changes_made = True
+
+    if changes_made:
+        print("Migration: Added Hit and Run protection settings")
+        logger.info("Added Hit and Run protection settings to config")
 
     return changes_made
 
@@ -1352,7 +1493,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate Settings section
     settings_defaults = [
-        ("ConfigVersion", 1),  # Internal version, DO NOT expose to WebUI
+        ("ConfigVersion", "0.0.1"),  # Internal version, DO NOT expose to WebUI
         ("ConsoleLevel", "INFO"),
         ("Logging", True),
         ("CompletedDownloadFolder", "CHANGE_ME"),
@@ -1462,6 +1603,7 @@ def apply_config_migrations(config: MyConfig) -> None:
     """
     from qBitrr.config_version import (
         EXPECTED_CONFIG_VERSION,
+        _parse_version,
         backup_config,
         get_config_version,
         set_config_version,
@@ -1479,11 +1621,12 @@ def apply_config_migrations(config: MyConfig) -> None:
         print("Continuing with potentially incompatible config...")
 
     # Check if migration is needed
-    current_version = get_config_version(config)
-    needs_migration = current_version < EXPECTED_CONFIG_VERSION
+    current_version = _parse_version(get_config_version(config))
+    expected_version = _parse_version(EXPECTED_CONFIG_VERSION)
+    needs_migration = current_version < expected_version
 
     if needs_migration:
-        print(f"Config schema upgrade needed (v{current_version} -> v{EXPECTED_CONFIG_VERSION})")
+        print(f"Config schema upgrade needed ({current_version} -> {expected_version})")
         # Create backup before migration
         backup_path = backup_config(config.path)
         if backup_path:
@@ -1495,16 +1638,20 @@ def apply_config_migrations(config: MyConfig) -> None:
     if _migrate_webui_config(config):
         changes_made = True
 
-    # NEW: Migrate quality profile mappings from list to dict format (v1 → v2)
+    # Migrate quality profile mappings from list to dict format (< 0.0.2)
     if _migrate_quality_profile_mappings(config):
         changes_made = True
 
-    # NEW: Add process auto-restart settings (v2 → v3)
+    # Add process auto-restart settings (< 0.0.3)
     if _migrate_process_restart_settings(config):
         changes_made = True
 
-    # NEW: Add qBit category management settings (v3 → v4)
+    # Add qBit category management settings (< 0.0.4)
     if _migrate_qbit_category_settings(config):
+        changes_made = True
+
+    # Add Hit and Run protection settings (< 5.9.0)
+    if _migrate_hnr_settings(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)
@@ -1512,7 +1659,7 @@ def apply_config_migrations(config: MyConfig) -> None:
         changes_made = True
 
     # Update config version if migration was needed
-    if needs_migration and current_version < EXPECTED_CONFIG_VERSION:
+    if needs_migration and current_version < expected_version:
         set_config_version(config, EXPECTED_CONFIG_VERSION)
         changes_made = True
 

@@ -220,16 +220,63 @@ class qBitCategoryManager:
         time_met = time_limit > 0 and torrent.seeding_time >= time_limit
 
         # Determine removal based on mode
+        should_remove = False
         if remove_mode == 1:  # Remove on ratio only
-            return ratio_met
+            should_remove = ratio_met
         elif remove_mode == 2:  # Remove on time only
-            return time_met
+            should_remove = time_met
         elif remove_mode == 3:  # Remove on OR (either condition)
-            return ratio_met or time_met
+            should_remove = ratio_met or time_met
         elif remove_mode == 4:  # Remove on AND (both conditions)
-            return ratio_met and time_met
+            should_remove = ratio_met and time_met
 
-        return False
+        # HnR protection: block removal if obligations not met
+        if should_remove and not self._hnr_safe_to_remove(torrent, config):
+            self.logger.debug(
+                "HnR protection: keeping '%s' (ratio=%.2f, seeding=%ds)",
+                torrent.name,
+                torrent.ratio,
+                torrent.seeding_time,
+            )
+            return False
+
+        return should_remove
+
+    def _hnr_safe_to_remove(self, torrent: TorrentDictionary, config: dict) -> bool:
+        """
+        Check if Hit and Run obligations are met for this torrent.
+
+        Args:
+            torrent: qBittorrent torrent object
+            config: Seeding configuration dict
+
+        Returns:
+            True if HnR obligations are met (safe to remove), False otherwise
+        """
+        if not config.get("HitAndRunMode", False):
+            return True
+
+        min_ratio = config.get("MinSeedRatio", 1.0)
+        min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
+        partial_ratio = config.get("HitAndRunPartialSeedRatio", 1.0)
+        buffer_secs = config.get("TrackerUpdateBuffer", 0)
+
+        is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
+        effective_seeding_time = torrent.seeding_time - buffer_secs
+
+        if is_partial:
+            return torrent.ratio >= partial_ratio  # Partial: ratio only
+
+        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
+        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
+
+        if min_ratio > 0 and min_time_secs > 0:
+            return ratio_met or time_met  # Either clears HnR
+        elif min_ratio > 0:
+            return ratio_met
+        elif min_time_secs > 0:
+            return time_met
+        return True
 
     def _remove_torrent(self, torrent: TorrentDictionary, category: str):
         """
