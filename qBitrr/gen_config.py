@@ -1374,7 +1374,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
                     if isinstance(arr_trackers, list):
                         for tracker in arr_trackers:
                             if isinstance(tracker, dict):
-                                uri = (tracker.get("URI") or "").strip()
+                                uri = (tracker.get("URI") or "").strip().rstrip("/")
                                 if uri and uri not in promoted:
                                     promoted[uri] = dict(tracker)
 
@@ -1412,7 +1412,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
                             if not isinstance(tracker, dict):
                                 remaining.append(tracker)
                                 continue
-                            uri = (tracker.get("URI") or "").strip()
+                            uri = (tracker.get("URI") or "").strip().rstrip("/")
                             if uri in promoted and dict(tracker) == promoted[uri]:
                                 continue  # Identical to qBit level, remove
                             remaining.append(tracker)

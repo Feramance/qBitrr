@@ -253,17 +253,20 @@ class Arr:
         self._remove_trackers_if_exists: set[str] = {
             uri
             for i in self.monitored_trackers
-            if i.get("RemoveIfExists") is True and (uri := (i.get("URI") or "").strip())
+            if i.get("RemoveIfExists") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
         }
         self._monitored_tracker_urls: set[str] = {
             uri
             for i in self.monitored_trackers
-            if (uri := (i.get("URI") or "").strip()) and uri not in self._remove_trackers_if_exists
+            if (uri := (i.get("URI") or "").strip().rstrip("/"))
+            and uri not in self._remove_trackers_if_exists
         }
         self._add_trackers_if_missing: set[str] = {
             uri
             for i in self.monitored_trackers
-            if i.get("AddTrackerIfMissing") is True and (uri := (i.get("URI") or "").strip())
+            if i.get("AddTrackerIfMissing") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
         }
         self._normalized_bad_tracker_msgs: set[str] = {
             msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
@@ -703,12 +706,12 @@ class Arr:
         merged: dict[str, dict] = {}
         for tracker in qbit_trackers:
             if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip()
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
                 if uri:
                     merged[uri] = dict(tracker)
         for tracker in arr_trackers:
             if isinstance(tracker, dict):
-                uri = (tracker.get("URI") or "").strip()
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
                 if uri:
                     merged[uri] = dict(tracker)
         return list(merged.values())
@@ -5660,7 +5663,7 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
         try:
-            current_trackers = {i.url for i in torrent.trackers if hasattr(i, "url")}
+            current_trackers = {i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")}
         except qbittorrentapi.exceptions.APIError as e:
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
@@ -6362,7 +6365,7 @@ class Arr:
         }
         # Build set of HnR-enabled tracker URIs
         hnr_uris = {
-            (t.get("URI") or "").strip()
+            (t.get("URI") or "").strip().rstrip("/")
             for t in self.monitored_trackers
             if t.get("HitAndRunMode", False)
         }
@@ -6370,7 +6373,7 @@ class Arr:
             return False
         try:
             for tracker in torrent.trackers:
-                tracker_url = getattr(tracker, "url", None)
+                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
                 if not tracker_url or tracker_url not in hnr_uris:
                     continue
                 message_text = (getattr(tracker, "msg", "") or "").lower()
