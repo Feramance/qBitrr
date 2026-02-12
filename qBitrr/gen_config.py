@@ -678,55 +678,6 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
         ],
     )
 
-    _gen_default_line(
-        seeding_table,
-        [
-            "Enable Hit and Run (HnR) protection.",
-            "When enabled, torrents will not be removed until HnR obligations are met.",
-            "Private trackers often require seeding to a minimum ratio or for a minimum time.",
-        ],
-        "HitAndRunMode",
-        False,
-    )
-    _gen_default_line(
-        seeding_table,
-        [
-            "Minimum seed ratio before a torrent can be removed (HnR protection).",
-            "Set to 1.0 for typical private tracker requirements.",
-        ],
-        "MinSeedRatio",
-        1.0,
-    )
-    _gen_default_line(
-        seeding_table,
-        [
-            "Minimum seeding time in days before a torrent can be removed (HnR protection).",
-            "Set to 0 to use ratio-only protection.",
-            "For full downloads: either ratio OR time clears the HnR obligation.",
-        ],
-        "MinSeedingTimeDays",
-        0,
-    )
-    _gen_default_line(
-        seeding_table,
-        [
-            "Minimum ratio for partial downloads (>=10% but <100% complete).",
-            "Partial downloads typically must reach this ratio (time does not apply).",
-        ],
-        "HitAndRunPartialSeedRatio",
-        1.0,
-    )
-    _gen_default_line(
-        seeding_table,
-        [
-            "Extra seconds to wait after meeting HnR criteria before allowing removal.",
-            "Accounts for tracker stats lag (trackers can be ~30 min behind the client).",
-            "Set to 0 to disable.",
-        ],
-        "TrackerUpdateBuffer",
-        0,
-    )
-
     torrent_table.add("SeedingMode", seeding_table)
 
 
@@ -1409,7 +1360,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     Migration runs if:
     - ConfigVersion < "5.8.8"
 
-    Adds HnR fields to SeedingMode, Trackers, and CategorySeeding sections for all Arr and qBit instances.
+    Adds HnR fields to Tracker and CategorySeeding sections for all Arr and qBit instances.
 
     Returns:
         True if changes were made, False otherwise
@@ -1434,7 +1385,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
         "TrackerUpdateBuffer": 0,
     }
 
-    # Add HnR fields to Arr SeedingMode and Tracker sections
+    # Remove HnR fields from Arr SeedingMode sections (moved to tracker-only)
     for arr_type in arr_types:
         for key in list(config.config.keys()):
             if not str(key).startswith(arr_type):
@@ -1445,9 +1396,9 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
 
                 if "SeedingMode" in torrent_section:
                     seeding = torrent_section["SeedingMode"]
-                    for field, default in hnr_seeding_defaults.items():
-                        if field not in seeding:
-                            seeding[field] = default
+                    for field in hnr_seeding_defaults:
+                        if field in seeding:
+                            del seeding[field]
                             changes_made = True
 
                 # Add HnR fields to each tracker
