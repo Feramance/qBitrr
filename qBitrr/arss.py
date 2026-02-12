@@ -247,21 +247,6 @@ class Arr:
                 self.seeding_mode_global_bad_tracker_msg
             )
 
-        # Hit and Run protection settings
-        self.hnr_mode = CONFIG.get(f"{name}.Torrent.SeedingMode.HitAndRunMode", fallback=False)
-        self.hnr_min_seed_ratio = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.MinSeedRatio", fallback=1.0
-        )
-        self.hnr_min_seeding_time_days = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.MinSeedingTimeDays", fallback=0
-        )
-        self.hnr_partial_seed_ratio = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.HitAndRunPartialSeedRatio", fallback=1.0
-        )
-        self.hnr_tracker_update_buffer = CONFIG.get(
-            f"{name}.Torrent.SeedingMode.TrackerUpdateBuffer", fallback=0
-        )
-
         self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self._remove_trackers_if_exists: set[str] = {
             uri
@@ -5732,19 +5717,11 @@ class Arr:
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
-            "hnr_mode": most_important_tracker.get("HitAndRunMode", self.hnr_mode),
-            "hnr_min_seed_ratio": most_important_tracker.get(
-                "MinSeedRatio", self.hnr_min_seed_ratio
-            ),
-            "hnr_min_seeding_time_days": most_important_tracker.get(
-                "MinSeedingTimeDays", self.hnr_min_seeding_time_days
-            ),
-            "hnr_partial_seed_ratio": most_important_tracker.get(
-                "HitAndRunPartialSeedRatio", self.hnr_partial_seed_ratio
-            ),
-            "hnr_tracker_update_buffer": most_important_tracker.get(
-                "TrackerUpdateBuffer", self.hnr_tracker_update_buffer
-            ),
+            "hnr_mode": most_important_tracker.get("HitAndRunMode", False),
+            "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
+            "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
+            "hnr_partial_seed_ratio": most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
+            "hnr_tracker_update_buffer": most_important_tracker.get("TrackerUpdateBuffer", 0),
         }
 
         data_torrent = {
@@ -6323,10 +6300,8 @@ class Arr:
         Fetches tracker metadata and checks HnR. Returns True if deletion
         is allowed, False if HnR protection blocks it.
         """
-        if not self.hnr_mode and not any(
-            t.get("HitAndRunMode", False) for t in self.monitored_trackers
-        ):
-            return True  # Fast path: no HnR anywhere
+        if not any(t.get("HitAndRunMode", False) for t in self.monitored_trackers):
+            return True  # Fast path: no HnR on any tracker
         data_settings, _ = self._get_torrent_limit_meta(torrent)
         if self._hnr_safe_to_remove(torrent, data_settings):
             return True
@@ -6344,16 +6319,14 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
     ) -> bool:
         """Returns True only if Hit and Run obligations are met."""
-        hnr_enabled = tracker_meta.get("hnr_mode", self.hnr_mode)
+        hnr_enabled = tracker_meta.get("hnr_mode", False)
         if not hnr_enabled:
             return True
 
-        min_ratio = tracker_meta.get("hnr_min_seed_ratio", self.hnr_min_seed_ratio)
-        min_time_secs = (
-            tracker_meta.get("hnr_min_seeding_time_days", self.hnr_min_seeding_time_days) * 86400
-        )
-        partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", self.hnr_partial_seed_ratio)
-        buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", self.hnr_tracker_update_buffer)
+        min_ratio = tracker_meta.get("hnr_min_seed_ratio", 1.0)
+        min_time_secs = tracker_meta.get("hnr_min_seeding_time_days", 0) * 86400
+        partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", 1.0)
+        buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", 0)
 
         is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
         effective_seeding_time = torrent.seeding_time - buffer_secs
