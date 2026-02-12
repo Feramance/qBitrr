@@ -247,6 +247,21 @@ class Arr:
                 self.seeding_mode_global_bad_tracker_msg
             )
 
+        # Hit and Run protection settings
+        self.hnr_mode = CONFIG.get(f"{name}.Torrent.SeedingMode.HitAndRunMode", fallback=False)
+        self.hnr_min_seed_ratio = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.MinSeedRatio", fallback=1.0
+        )
+        self.hnr_min_seeding_time_days = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.MinSeedingTimeDays", fallback=0
+        )
+        self.hnr_partial_seed_ratio = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.HitAndRunPartialSeedRatio", fallback=1.0
+        )
+        self.hnr_tracker_update_buffer = CONFIG.get(
+            f"{name}.Torrent.SeedingMode.TrackerUpdateBuffer", fallback=0
+        )
+
         self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self._remove_trackers_if_exists: set[str] = {
             uri
@@ -5711,6 +5726,19 @@ class Arr:
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
+            "hnr_mode": most_important_tracker.get("HitAndRunMode", self.hnr_mode),
+            "hnr_min_seed_ratio": most_important_tracker.get(
+                "MinSeedRatio", self.hnr_min_seed_ratio
+            ),
+            "hnr_min_seeding_time_days": most_important_tracker.get(
+                "MinSeedingTimeDays", self.hnr_min_seeding_time_days
+            ),
+            "hnr_partial_seed_ratio": most_important_tracker.get(
+                "HitAndRunPartialSeedRatio", self.hnr_partial_seed_ratio
+            ),
+            "hnr_tracker_update_buffer": most_important_tracker.get(
+                "TrackerUpdateBuffer", self.hnr_tracker_update_buffer
+            ),
         }
 
         data_torrent = {
@@ -5746,7 +5774,23 @@ class Arr:
             remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         else:
             remove_torrent = False
-        return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
+
+        # HnR protection: override removal if obligations not met
+        hnr_override = False
+        if remove_torrent and not self._hnr_safe_to_remove(torrent, data_settings):
+            self.logger.debug(
+                "HnR protection: keeping [%s] (ratio=%.2f, seeding=%s)",
+                torrent.name,
+                torrent.ratio,
+                timedelta(seconds=torrent.seeding_time),
+            )
+            remove_torrent = False
+            hnr_override = True
+
+        if hnr_override:
+            return_value = True  # HnR protection forces leave-alone
+        else:
+            return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
@@ -6266,6 +6310,38 @@ class Arr:
 
         except Exception:
             return False
+
+    def _hnr_safe_to_remove(
+        self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
+    ) -> bool:
+        """Returns True only if Hit and Run obligations are met."""
+        hnr_enabled = tracker_meta.get("hnr_mode", self.hnr_mode)
+        if not hnr_enabled:
+            return True
+
+        min_ratio = tracker_meta.get("hnr_min_seed_ratio", self.hnr_min_seed_ratio)
+        min_time_secs = (
+            tracker_meta.get("hnr_min_seeding_time_days", self.hnr_min_seeding_time_days) * 86400
+        )
+        partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", self.hnr_partial_seed_ratio)
+        buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", self.hnr_tracker_update_buffer)
+
+        is_partial = torrent.progress < 1.0 and torrent.progress >= 0.1
+        effective_seeding_time = torrent.seeding_time - buffer_secs
+
+        if is_partial:
+            return torrent.ratio >= partial_ratio  # Partial: ratio only
+
+        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
+        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
+
+        if min_ratio > 0 and min_time_secs > 0:
+            return ratio_met or time_met  # Either clears HnR
+        elif min_ratio > 0:
+            return ratio_met
+        elif min_time_secs > 0:
+            return time_met
+        return True
 
     def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit
