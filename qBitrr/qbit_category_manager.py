@@ -263,7 +263,7 @@ class qBitCategoryManager:
             return None
         try:
             torrent_trackers = {
-                getattr(t, "url", "") for t in torrent.trackers if hasattr(t, "url")
+                getattr(t, "url", "").rstrip("/") for t in torrent.trackers if hasattr(t, "url")
             }
         except Exception:
             return None
@@ -272,7 +272,7 @@ class qBitCategoryManager:
         for tracker_cfg in self.trackers:
             if not isinstance(tracker_cfg, dict):
                 continue
-            uri = (tracker_cfg.get("URI") or "").strip()
+            uri = (tracker_cfg.get("URI") or "").strip().rstrip("/")
             priority = tracker_cfg.get("Priority", 0)
             if uri and uri in torrent_trackers and priority > best_priority:
                 best = tracker_cfg
@@ -289,12 +289,12 @@ class qBitCategoryManager:
             "not found",
             "torrent not found",
         }
-        uri = (config.get("URI") or "").strip()
+        uri = (config.get("URI") or "").strip().rstrip("/")
         if not uri:
             return False
         try:
             for tracker in torrent.trackers:
-                tracker_url = getattr(tracker, "url", None)
+                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
                 if tracker_url != uri:
                     continue
                 message_text = (getattr(tracker, "msg", "") or "").lower()
