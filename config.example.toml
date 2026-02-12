@@ -1,11 +1,10 @@
 # This is a config file for the qBitrr Script - Make sure to change all entries of "CHANGE_ME".
-# This is a config file should be moved to "/config".
-
+# This is a config file should be moved to "/home/qBitrr/.config".
 
 [Settings]
 # Internal config schema version - DO NOT MODIFY
 # This is managed automatically by qBitrr for config migrations
-ConfigVersion = 3
+ConfigVersion = "5.8.8"
 
 # Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE
 ConsoleLevel = "INFO"
@@ -16,10 +15,10 @@ Logging = true
 # Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\' with '/')
 CompletedDownloadFolder = "CHANGE_ME"
 
-#The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)
+# The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)
 FreeSpace = "-1"
 
-# Folder where the free space handler will check for free space (Please note, replace all '\' with '/')
+# Folder where the free space handler will check for free space (Please note, replace all '' with '/')
 FreeSpaceFolder = "CHANGE_ME"
 
 # Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)
@@ -53,7 +52,7 @@ PingURLS = ["one.one.one.one", "dns.google.com"]
 
 # FFprobe auto updates, binaries are downloaded from https://ffbinaries.com/downloads
 # If this is disabled and you want ffprobe to work
-# Ensure that you add the ffprobe binary to the folder"/config/qBitManager/ffprobe.exe"
+# Ensure that you add the ffprobe binary to the folder"/home/qBitrr/.config/qBitManager/ffprobe.exe"
 # If no `ffprobe` binary is found in the folder above all ffprobe functionality will be disabled.
 # By default this will always be on even if config does not have these key - to disable you need to explicitly set it to `False`
 FFprobeAutoUpdate = true
@@ -81,9 +80,6 @@ ProcessRestartWindow = 300
 # Delay (seconds) before attempting to restart a failed process
 ProcessRestartDelay = 5
 
-
-
-
 [WebUI]
 # WebUI listen host (default 0.0.0.0)
 Host = "0.0.0.0"
@@ -107,9 +103,10 @@ GroupLidarr = true
 # WebUI theme (Light or Dark)
 Theme = "Dark"
 
+# WebUI view density (Comfortable or Compact)
+ViewDensity = "Comfortable"
 
 [qBit]
-# Default qBittorrent instance (REQUIRED)
 # If this is enabled qBitrr can run in headless mode where it will only process searches.
 # If media search is enabled in their individual categories
 # This is useful if you use for example Sabnzbd/NZBGet for downloading content but still want the faster media searches provided by qbit
@@ -127,47 +124,62 @@ UserName = "CHANGE_ME"
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "CHANGE_ME"
 
+# Categories managed directly by this qBit instance (not managed by Arr instances).
+# These categories will have seeding settings applied according to CategorySeeding configuration.
+# Example: ['downloads', 'private-tracker', 'long-term-seed']
+ManagedCategories = []
 
-# ============================================================
-# MULTI-QBITTORRENT SUPPORT (v5.7.x+)
-# ============================================================
-# You can configure multiple qBittorrent instances using the [qBit-NAME] syntax.
-# Each Arr instance will monitor ALL qBit instances for torrents in its category.
-# This allows load balancing, redundancy, and VPN isolation.
-#
-# IMPORTANT: Use dash (-) notation, NOT dot (.) notation!
-#   ✅ CORRECT: [qBit-seedbox]
-#   ❌ WRONG:   [qBit.seedbox]
-#
-# Examples:
-#
-# [qBit-seedbox]
-# Host = "192.168.1.100"
-# Port = 8080
-# UserName = "admin"
-# Password = "seedboxpass"
-#
-# [qBit-vpn]
-# Host = "10.8.0.2"
-# Port = 8080
-# UserName = "admin"
-# Password = "vpnpass"
-#
-# [qBit-remote]
-# Host = "remote.example.com"
-# Port = 8443
-# UserName = "admin"
-# Password = "remotepass"
-#
-# For more information, see: docs/advanced/multi-qbittorrent.md
-# ============================================================
+# Shared tracker configs inherited by all Arr instances on this qBit instance.
+# Define tracker-specific rate limits, HnR protection, and management rules here.
+# Arr instances can optionally override per-tracker settings in their own Trackers section.
+Trackers = []
+
+[qBit.CategorySeeding]
+# Download rate limit per torrent in KB/s (-1 = disabled)
+DownloadRateLimitPerTorrent = -1
+
+# Upload rate limit per torrent in KB/s (-1 = disabled)
+UploadRateLimitPerTorrent = -1
+
+# Maximum upload ratio (-1 = disabled, e.g. 2.0 for 200%)
+MaxUploadRatio = -1
+
+# Maximum seeding time in seconds (-1 = disabled, e.g. 604800 for 7 days)
+MaxSeedingTime = -1
+
+# When to remove torrents from qBittorrent:
+#   -1 = Never remove
+#    1 = Remove when MaxUploadRatio is reached
+#    2 = Remove when MaxSeedingTime is reached
+#    3 = Remove when either condition is met (OR)
+#    4 = Remove when both conditions are met (AND)
+RemoveTorrent = -1
+
+# Enable Hit and Run protection for managed category torrents
+HitAndRunMode = false
+
+# Minimum seed ratio before removal allowed (HnR protection)
+MinSeedRatio = 1.0
+
+# Minimum seeding time in days before removal allowed (HnR protection, 0 = ratio only)
+MinSeedingTimeDays = 0
+
+# Minimum download percentage before a torrent is considered for HnR (0-100, default 10)
+HitAndRunMinimumDownloadPercent = 10
+
+# Minimum ratio for partial downloads (>=HitAndRunMinimumDownloadPercent% but <100% complete)
+HitAndRunPartialSeedRatio = 1.0
+
+# Extra seconds buffer for tracker stats lag (0 = disabled)
+TrackerUpdateBuffer = 0
 
 
 [Sonarr-TV]
+
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -191,12 +203,9 @@ RefreshDownloadsTimer = 1
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
 # If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
-ArrErrorCodesToBlocklist = ["Not an upgrade for existing episode file(s)", "Not a preferred word upgrade for existing episode file(s)", "Unable to determine if file is a sample"]
-
+ArrErrorCodesToBlocklist = ["Unable to determine if file is a sample", "Not an upgrade for existing episode file(s)", "Not a preferred word upgrade for existing episode file(s)"]
 
 [Sonarr-TV.EntrySearch]
-# All these settings depends on SearchMissing being True
-
 # Should search for Missing files?
 SearchMissing = true
 
@@ -210,7 +219,7 @@ Unmonitored = false
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
 
-# It will order searches by the year the EPISODE was first aired
+# It will order searches by the year the episode was first aired
 SearchByYear = true
 
 # Reverse search order (Start searching oldest to newest)
@@ -254,6 +263,12 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
+
 # Search mode: true (always series search), false (always episode search), or 'smart' (automatic)
 # Smart mode: uses series search for entire seasons/series, episode search for single episodes
 # (Series search ignores QualityUnmetSearch and CustomFormatUnmetSearch settings)
@@ -261,7 +276,6 @@ SearchBySeries = "smart"
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
 PrioritizeTodaysReleases = true
-
 
 [Sonarr-TV.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -275,7 +289,6 @@ OmbiAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
-
 
 [Sonarr-TV.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -333,6 +346,9 @@ StalledDelay = 15
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
 
 [Sonarr-TV.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -364,56 +380,13 @@ RemoveDeadTrackers = false
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
-# You can have multiple trackers set here or none just add more subsections.
-
-[[Sonarr-TV.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Nyaa"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 10
-
-# The tracker URI used by qBit.
-URI = "http://nyaa.tracker.wf:7777/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["qBitrr-anime"]
-
 
 [Sonarr-Anime]
+
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -437,12 +410,9 @@ RefreshDownloadsTimer = 1
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
 # If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
-ArrErrorCodesToBlocklist = ["Not an upgrade for existing episode file(s)", "Not a preferred word upgrade for existing episode file(s)", "Unable to determine if file is a sample"]
-
+ArrErrorCodesToBlocklist = ["Unable to determine if file is a sample", "Not an upgrade for existing episode file(s)", "Not a preferred word upgrade for existing episode file(s)"]
 
 [Sonarr-Anime.EntrySearch]
-# All these settings depends on SearchMissing being True
-
 # Should search for Missing files?
 SearchMissing = true
 
@@ -456,7 +426,7 @@ Unmonitored = false
 # Sonarr has a hardcoded cap of 3 simultaneous tasks
 SearchLimit = 5
 
-# It will order searches by the year the EPISODE was first aired
+# It will order searches by the year the episode was first aired
 SearchByYear = true
 
 # Reverse search order (Start searching oldest to newest)
@@ -500,6 +470,12 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
+
 # Search mode: true (always series search), false (always episode search), or 'smart' (automatic)
 # Smart mode: uses series search for entire seasons/series, episode search for single episodes
 # (Series search ignores QualityUnmetSearch and CustomFormatUnmetSearch settings)
@@ -507,7 +483,6 @@ SearchBySeries = "smart"
 
 # Prioritize Today's releases (Similar effect as RSS Sync, where it searches today's release episodes first, only works on Sonarr).
 PrioritizeTodaysReleases = true
-
 
 [Sonarr-Anime.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -521,7 +496,6 @@ OmbiAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
-
 
 [Sonarr-Anime.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -579,6 +553,9 @@ StalledDelay = 15
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
 
 [Sonarr-Anime.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -610,56 +587,13 @@ RemoveDeadTrackers = false
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
-# You can have multiple trackers set here or none just add more subsections.
-
-[[Sonarr-Anime.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Nyaa"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 10
-
-# The tracker URI used by qBit.
-URI = "http://nyaa.tracker.wf:7777/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["qBitrr-anime"]
-
 
 [Radarr-1080]
+
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -683,8 +617,7 @@ RefreshDownloadsTimer = 1
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
 # If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
-ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a preferred word upgrade for existing movie file(s)", "Unable to determine if file is a sample"]
-
+ArrErrorCodesToBlocklist = ["Unable to determine if file is a sample", "Not a preferred word upgrade for existing movie file(s)", "Not an upgrade for existing movie file(s)"]
 
 [Radarr-1080.EntrySearch]
 # Should search for Missing files?
@@ -743,6 +676,11 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
 
 [Radarr-1080.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -756,7 +694,6 @@ OmbiAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
-
 
 [Radarr-1080.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -814,6 +751,9 @@ StalledDelay = 15
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
 
 [Radarr-1080.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -845,95 +785,13 @@ RemoveDeadTrackers = false
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
-# You can have multiple trackers set here or none just add more subsections.
-
-[[Radarr-1080.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Rarbg-2810"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 1
-
-# The tracker URI used by qBit.
-URI = "udp://9.rarbg.com:2810/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["qBitrr-Rarbg", "Movies and TV"]
-
-[[Radarr-1080.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Rarbg-2740"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 2
-
-# The tracker URI used by qBit.
-URI = "udp://9.rarbg.to:2740/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
 
 [Radarr-4K]
+
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -957,8 +815,7 @@ RefreshDownloadsTimer = 1
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
 # If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
-ArrErrorCodesToBlocklist = ["Not an upgrade for existing movie file(s)", "Not a preferred word upgrade for existing movie file(s)", "Unable to determine if file is a sample"]
-
+ArrErrorCodesToBlocklist = ["Unable to determine if file is a sample", "Not a preferred word upgrade for existing movie file(s)", "Not an upgrade for existing movie file(s)"]
 
 [Radarr-4K.EntrySearch]
 # Should search for Missing files?
@@ -1017,6 +874,11 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
 
 [Radarr-4K.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -1030,7 +892,6 @@ OmbiAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
-
 
 [Radarr-4K.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -1088,6 +949,9 @@ StalledDelay = 15
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
 
 [Radarr-4K.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -1119,98 +983,13 @@ RemoveDeadTrackers = false
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
 
-# You can have multiple trackers set here or none just add more subsections.
-
-[[Radarr-4K.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Rarbg-2810"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 1
-
-# The tracker URI used by qBit.
-URI = "udp://9.rarbg.com:2810/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["qBitrr-Rarbg", "Movies and TV", "4K"]
-
-[[Radarr-4K.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "Rarbg-2740"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 2
-
-# The tracker URI used by qBit.
-URI = "udp://9.rarbg.to:2740/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["4K"]
-
 
 [Lidarr-Music]
+
 # Toggle whether to manage the Servarr instance torrents.
 Managed = true
 
-# The URL used to access Servarr interface eg. http://ip:port (if you use a domain enter the domain without a port)
+# The URL used to access Servarr interface eg. http://ip:port(if you use a domain enter the domain without a port)
 URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
@@ -1234,8 +1013,7 @@ RefreshDownloadsTimer = 1
 # Error messages shown my the Arr instance which should be considered failures.
 # This entry should be a list, leave it empty if you want to disable this error handling.
 # If enabled qBitrr will remove the failed files and tell the Arr instance the download failed
-ArrErrorCodesToBlocklist = ["Not a preferred word upgrade for existing track file(s)", "Not an upgrade for existing track file(s)", "Unable to determine if file is a sample"]
-
+ArrErrorCodesToBlocklist = ["Not a preferred word upgrade for existing track file(s)", "Unable to determine if file is a sample", "Not an upgrade for existing track file(s)"]
 
 [Lidarr-Music.EntrySearch]
 # Should search for Missing files?
@@ -1282,6 +1060,11 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
+# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
+MainQualityProfile = []
+
+# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
+TempQualityProfile = []
 
 [Lidarr-Music.Torrent]
 # Set it to regex matches to respect/ignore case.
@@ -1289,7 +1072,7 @@ CaseSensitiveMatches = false
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
-FolderExclusionRegex = ["\\bextras?\\b", "\\bfeaturettes?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
+FolderExclusionRegex = ["\\bextras?\\b", "\\bsamples?\\b", "\\bscreens?\\b"]
 
 # These regex values will match any folder where the full name matches the specified values here, comma separated strings.
 # These regex need to be escaped, that's why you see so many backslashes.
@@ -1320,6 +1103,9 @@ StalledDelay = 15
 # Re-search stalled torrents when StalledDelay is enabled and you want to re-search before removing the stalled torrent, or only after the torrent is removed.
 ReSearchStalled = false
 
+# Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default.
+# Add entries here only if this Arr instance needs different settings for a tracker (matched by URI).
+Trackers = []
 
 [Lidarr-Music.Torrent.SeedingMode]
 # Set the maximum allowed download rate for torrents
@@ -1350,47 +1136,3 @@ RemoveDeadTrackers = false
 
 # If "RemoveDeadTrackers" is set to true then remove trackers with the following messages
 RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such host is known", "unsupported URL protocol", "info hash is not authorized with this tracker"]
-
-# You can have multiple trackers set here or none just add more subsections.
-
-[[Lidarr-Music.Torrent.Trackers]]
-# This is only for your own benefit, it is not currently used anywhere, but one day it may be.
-Name = "RED"
-
-# This is used when multiple trackers are in one single torrent.
-# the tracker with the highest priority will have all its settings applied to the torrent.
-Priority = 10
-
-# The tracker URI used by qBit.
-URI = "https://flacsfor.me/announce"
-
-# Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).
-MaximumETA = 18000
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-DownloadRateLimit = -1
-
-# Set the maximum allowed upload rate for torrents
-# Set this value to -1 to disabled it
-UploadRateLimit = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxUploadRatio = -1
-
-# Set the maximum allowed download rate for torrents
-# Set this value to -1 to disabled it
-MaxSeedingTime = -1
-
-# Add this tracker from any torrent that does not contains it.
-AddTrackerIfMissing = false
-
-# Remove this tracker from any torrent that contains it.
-RemoveIfExists = false
-
-# Enable Super Seeding setting for torrents with this tracker.
-SuperSeedMode = false
-
-# Adds these tags to any torrents containing this tracker.
-AddTags = ["qBitrr-music"]
