@@ -343,6 +343,36 @@ def _add_qbit_section(config: TOMLDocument):
         "RemoveTorrent",
         -1,
     )
+    _gen_default_line(
+        category_seeding,
+        "Enable Hit and Run protection for managed category torrents",
+        "HitAndRunMode",
+        False,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum seed ratio before removal allowed (HnR protection)",
+        "MinSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum seeding time in days before removal allowed (HnR protection, 0 = ratio only)",
+        "MinSeedingTimeDays",
+        0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum ratio for partial downloads (>=10% but <100% complete)",
+        "HitAndRunPartialSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Extra seconds buffer for tracker stats lag (0 = disabled)",
+        "TrackerUpdateBuffer",
+        0,
+    )
     qbit.add("CategorySeeding", category_seeding)
 
     config.add("qBit", qbit)
@@ -1332,6 +1362,11 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             seeding["MaxUploadRatio"] = -1
             seeding["MaxSeedingTime"] = -1
             seeding["RemoveTorrent"] = -1
+            seeding["HitAndRunMode"] = False
+            seeding["MinSeedRatio"] = 1.0
+            seeding["MinSeedingTimeDays"] = 0
+            seeding["HitAndRunPartialSeedRatio"] = 1.0
+            seeding["TrackerUpdateBuffer"] = 0
             qbit_section["CategorySeeding"] = seeding
             changes_made = True
             logger.info("Added CategorySeeding configuration to [qBit]")
@@ -1352,6 +1387,11 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["MaxUploadRatio"] = -1
                 seeding["MaxSeedingTime"] = -1
                 seeding["RemoveTorrent"] = -1
+                seeding["HitAndRunMode"] = False
+                seeding["MinSeedRatio"] = 1.0
+                seeding["MinSeedingTimeDays"] = 0
+                seeding["HitAndRunPartialSeedRatio"] = 1.0
+                seeding["TrackerUpdateBuffer"] = 0
                 qbit_section["CategorySeeding"] = seeding
                 changes_made = True
                 logger.info(f"Added CategorySeeding configuration to [{section}]")
@@ -1394,13 +1434,12 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
         "TrackerUpdateBuffer": 0,
     }
 
+    # Add HnR fields to Arr SeedingMode and Tracker sections
     for arr_type in arr_types:
         for key in list(config.config.keys()):
             if not str(key).startswith(arr_type):
                 continue
 
-            # Add HnR fields to SeedingMode
-            f"{key}.Torrent"
             if "Torrent" in config.config.get(str(key), {}):
                 torrent_section = config.config[str(key)]["Torrent"]
 
@@ -1420,6 +1459,17 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
                                 if field not in tracker:
                                     tracker[field] = default
                                     changes_made = True
+
+    # Add HnR fields to qBit CategorySeeding sections
+    for key in list(config.config.keys()):
+        if str(key) == "qBit" or str(key).startswith("qBit-"):
+            qbit_section = config.config[str(key)]
+            if "CategorySeeding" in qbit_section:
+                cat_seeding = qbit_section["CategorySeeding"]
+                for field, default in hnr_seeding_defaults.items():
+                    if field not in cat_seeding:
+                        cat_seeding[field] = default
+                        changes_made = True
 
     if changes_made:
         print("Migration: Added Hit and Run protection settings")

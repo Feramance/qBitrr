@@ -451,6 +451,59 @@ const QBIT_FIELDS: FieldDefinition[] = [
     type: "number",
     placeholder: "-1 (unlimited), 0 (disabled), or positive number",
   },
+  {
+    label: "Hit and Run Mode",
+    path: ["CategorySeeding", "HitAndRunMode"],
+    type: "checkbox",
+  },
+  {
+    label: "Min Seed Ratio",
+    path: ["CategorySeeding", "MinSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Seeding Time (days)",
+    path: ["CategorySeeding", "MinSeedingTimeDays"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seeding Time must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Partial Download Seed Ratio",
+    path: ["CategorySeeding", "HitAndRunPartialSeedRatio"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Partial Download Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Tracker Update Buffer (s)",
+    path: ["CategorySeeding", "TrackerUpdateBuffer"],
+    type: "number",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Tracker Update Buffer must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
