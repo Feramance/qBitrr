@@ -5201,7 +5201,8 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.delete.add(torrent.hash)
+            if self._hnr_allows_delete(torrent, "stale torrent deletion"):
+                self.delete.add(torrent.hash)
         else:
             self.logger.trace(
                 "Ignoring Stale torrent: "
@@ -5248,7 +5249,8 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.delete.add(torrent.hash)
+            if self._hnr_allows_delete(torrent, "stale high-percentage deletion"):
+                self.delete.add(torrent.hash)
         else:
             self.logger.trace(
                 "Skipping torrent: Reached Maximum completed "
@@ -5467,7 +5469,8 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "slow torrent deletion"):
+            self.delete.add(torrent.hash)
 
     def _process_single_torrent_delete_cfunmet(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
@@ -5485,7 +5488,8 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "CF unmet deletion"):
+            self.delete.add(torrent.hash)
 
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
@@ -5503,7 +5507,8 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "ratio/seed limit deletion"):
+            self.delete.add(torrent.hash)
 
     def _process_single_torrent_process_files(
         self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
@@ -5584,7 +5589,8 @@ class Arr:
                     torrent.name,
                     torrent.hash,
                 )
-                self.delete.add(torrent.hash)
+                if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
+                    self.delete.add(torrent.hash)
             # Mark all bad files and folder for exclusion.
             elif _remove_files and torrent.hash not in self.change_priority:
                 self.change_priority[torrent.hash] = list(_remove_files)
@@ -6310,6 +6316,29 @@ class Arr:
 
         except Exception:
             return False
+
+    def _hnr_allows_delete(self, torrent: qbittorrentapi.TorrentDictionary, reason: str) -> bool:
+        """Check if HnR obligations allow deleting this torrent.
+
+        Fetches tracker metadata and checks HnR. Returns True if deletion
+        is allowed, False if HnR protection blocks it.
+        """
+        if not self.hnr_mode and not any(
+            t.get("HitAndRunMode", False) for t in self.monitored_trackers
+        ):
+            return True  # Fast path: no HnR anywhere
+        data_settings, _ = self._get_torrent_limit_meta(torrent)
+        if self._hnr_safe_to_remove(torrent, data_settings):
+            return True
+        self.logger.info(
+            "HnR protection: blocking %s of [%s] (ratio=%.2f, seeding=%s, progress=%.1f%%)",
+            reason,
+            torrent.name,
+            torrent.ratio,
+            timedelta(seconds=torrent.seeding_time),
+            torrent.progress * 100,
+        )
+        return False
 
     def _hnr_safe_to_remove(
         self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
