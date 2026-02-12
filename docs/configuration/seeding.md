@@ -1016,34 +1016,32 @@ When `HitAndRunMode = false` (default), behavior is identical to previous versio
 
 ---
 
-### Global HnR Settings
+### Per-Tracker HnR Settings
 
-Add to `[<Arr>-<Name>.Torrent.SeedingMode]`:
+HnR protection is configured **per-tracker** since different trackers have different seeding requirements. Add HnR fields to `[[<Arr>-<Name>.Torrent.Trackers]]` entries:
 
 ```toml
-[Radarr-Movies.Torrent.SeedingMode]
-# Enable HnR protection
-HitAndRunMode = false
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
 
-# Minimum ratio before removal allowed
+# HnR protection
+HitAndRunMode = true
 MinSeedRatio = 1.0
-
-# Minimum seeding days (0 = ratio only)
-MinSeedingTimeDays = 0
-
-# Ratio for partial downloads (>=10% but <100%)
+MinSeedingTimeDays = 10
 HitAndRunPartialSeedRatio = 1.0
-
-# Extra seconds to wait after meeting criteria (tracker lag buffer)
-TrackerUpdateBuffer = 0
+TrackerUpdateBuffer = 3600
 ```
+
+When a torrent has multiple trackers, the tracker with the highest `Priority` determines which HnR settings apply.
 
 #### HitAndRunMode
 
 **Type:** Boolean
 **Default:** `false`
 
-Master switch for HnR protection. When `true`, torrents will not be removed until HnR obligations are met, regardless of `RemoveTorrent` settings.
+Enable HnR protection for this tracker. When `true`, torrents with this tracker will not be removed until HnR obligations are met, regardless of `RemoveTorrent` settings.
 
 #### MinSeedRatio
 
@@ -1073,29 +1071,7 @@ Ratio required for partial downloads (downloaded >=10% but <100%). Most trackers
 **Type:** Integer (seconds)
 **Default:** `0`
 
-Extra seconds to wait after meeting HnR criteria before allowing removal. Tracker statistics typically lag 15-30 minutes behind the client. Setting this to `1800` (30 minutes) provides a safety margin.
-
----
-
-### Per-Tracker HnR Settings
-
-Override global HnR settings for specific trackers:
-
-```toml
-[[Radarr-Movies.Torrent.Trackers]]
-Name = "TorrentLeech"
-URI = "https://tracker.torrentleech.org/announce"
-Priority = 10
-
-# Per-tracker HnR overrides
-HitAndRunMode = true
-MinSeedRatio = 1.0
-MinSeedingTimeDays = 10
-HitAndRunPartialSeedRatio = 1.0
-TrackerUpdateBuffer = 1800
-```
-
-Per-tracker settings take priority over global settings when the tracker is the most important (highest priority) tracker on the torrent.
+Extra seconds to wait after meeting HnR criteria before allowing removal. Tracker statistics typically lag 15-30 minutes behind the client. Setting this to `3600` (60 minutes) provides a safety margin.
 
 ---
 
@@ -1105,13 +1081,14 @@ TorrentLeech enforces HnR with seeding time requirements based on user class:
 
 | User Class | Minimum Seed Time |
 |------------|-------------------|
-| Member | 10 days |
+| Registered | 10 days |
 | Power User | 8 days |
-| Elite | 7 days |
-| VIP | 6 days |
-| Legend | 4 days |
+| Super User | 7 days |
+| Extreme User | 6 days |
+| TL God | 4 days |
+| VIP User | No minimum |
 
-**Conservative setup** (for Member class):
+**Conservative setup** (for Registered class):
 
 ```toml
 [Radarr-Movies.Torrent.SeedingMode]
@@ -1119,15 +1096,18 @@ MaxUploadRatio = 2.0
 MaxSeedingTime = 1296000   # 15 days
 RemoveTorrent = 3          # Remove when either met
 
-# HnR protection
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
 HitAndRunMode = true
 MinSeedRatio = 1.0
-MinSeedingTimeDays = 10    # Member class requirement
+MinSeedingTimeDays = 10    # Registered class requirement
 HitAndRunPartialSeedRatio = 1.0
-TrackerUpdateBuffer = 1800 # 30 min buffer for tracker lag
+TrackerUpdateBuffer = 3600 # 60 min buffer for tracker lag
 ```
 
-**Aggressive setup** (for Legend class):
+**Aggressive setup** (for TL God class):
 
 ```toml
 [Radarr-Movies.Torrent.SeedingMode]
@@ -1135,13 +1115,17 @@ MaxUploadRatio = 1.5
 MaxSeedingTime = 604800    # 7 days
 RemoveTorrent = 3
 
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
 HitAndRunMode = true
 MinSeedRatio = 1.0
-MinSeedingTimeDays = 4     # Legend class requirement
-TrackerUpdateBuffer = 1800
+MinSeedingTimeDays = 4     # TL God class requirement
+TrackerUpdateBuffer = 3600
 ```
 
-**Per-tracker mixed setup** (different trackers, different rules):
+**Multi-tracker setup** (different trackers, different rules):
 
 ```toml
 [Radarr-Movies.Torrent.SeedingMode]
@@ -1149,30 +1133,25 @@ MaxUploadRatio = 2.0
 MaxSeedingTime = 1296000
 RemoveTorrent = 3
 
-# Global HnR defaults
-HitAndRunMode = true
-MinSeedRatio = 1.0
-MinSeedingTimeDays = 10
-
 # TorrentLeech - strict HnR
 [[Radarr-Movies.Torrent.Trackers]]
 Name = "TorrentLeech"
-URI = "https://tracker.torrentleech.org/announce"
+URI = "tracker.torrentleech.org"
 Priority = 10
 HitAndRunMode = true
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 10
-TrackerUpdateBuffer = 1800
+TrackerUpdateBuffer = 3600
 
 # IPTorrents - shorter requirement
 [[Radarr-Movies.Torrent.Trackers]]
 Name = "IPTorrents"
-URI = "https://tracker.iptorrents.com/announce"
+URI = "tracker.iptorrents.com"
 Priority = 8
 HitAndRunMode = true
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 4
-TrackerUpdateBuffer = 1800
+TrackerUpdateBuffer = 3600
 
 # Public tracker - no HnR
 [[Radarr-Movies.Torrent.Trackers]]

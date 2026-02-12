@@ -1651,7 +1651,7 @@ def apply_config_migrations(config: MyConfig) -> None:
     if _migrate_qbit_category_settings(config):
         changes_made = True
 
-    # Add Hit and Run protection settings (< 5.9.0)
+    # Add Hit and Run protection settings to trackers/CategorySeeding (< 5.8.8)
     if _migrate_hnr_settings(config):
         changes_made = True
 
