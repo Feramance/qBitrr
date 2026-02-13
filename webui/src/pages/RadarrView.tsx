@@ -900,14 +900,11 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     list.sort((a, b) => {
       const valueA = getValue(a, aggSort.key);
       const valueB = getValue(b, aggSort.key);
-      let comparison = 0;
-      if (typeof valueA === "number" && typeof valueB === "number") {
-        comparison = valueA - valueB;
-      } else if (typeof valueA === "string" && typeof valueB === "string") {
-        comparison = valueA.localeCompare(valueB);
-      } else {
-        comparison = String(valueA).localeCompare(String(valueB));
-      }
+      const comparison = (typeof valueA === "number" && typeof valueB === "number")
+        ? valueA - valueB
+        : (typeof valueA === "string" && typeof valueB === "string")
+          ? valueA.localeCompare(valueB)
+          : String(valueA).localeCompare(String(valueB));
       return aggSort.direction === "asc" ? comparison : -comparison;
     });
     return list;
