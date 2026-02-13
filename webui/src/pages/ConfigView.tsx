@@ -10,6 +10,7 @@ import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
 import { TagInput } from "../components/TagInput";
 import Select from "react-select";
+import type { CSSObjectWithLabel } from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -57,7 +58,7 @@ const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 const getSelectStyles = () => {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
-    control: (base: any) => ({
+    control: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       color: isDark ? '#eaeef2' : '#1d1d1f',
@@ -68,13 +69,13 @@ const getSelectStyles = () => {
         borderColor: isDark ? '#3a4149' : '#b8b8bd',
       }
     }),
-    menu: (base: any) => ({
+    menu: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       borderColor: isDark ? '#2a2f36' : '#d2d2d7',
       border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
     }),
-    option: (base: any, state: any) => ({
+    option: (base: CSSObjectWithLabel, state: { isFocused: boolean }) => ({
       ...base,
       background: state.isFocused
         ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
@@ -84,19 +85,19 @@ const getSelectStyles = () => {
         background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
       }
     }),
-    singleValue: (base: any) => ({
+    singleValue: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    input: (base: any) => ({
+    input: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    placeholder: (base: any) => ({
+    placeholder: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#9aa3ac' : '#6e6e73',
     }),
-    menuList: (base: any) => ({
+    menuList: (base: CSSObjectWithLabel) => ({
       ...base,
       padding: '4px',
     }),
@@ -2757,14 +2758,11 @@ function SecureField({
   const [showValue, setShowValue] = useState(false);
 
   const handleRefresh = () => {
-    let newKey = "";
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      newKey = crypto.randomUUID().replace(/-/g, "");
-    } else {
-      newKey = Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join("");
-    }
+    const newKey = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID().replace(/-/g, "")
+      : Array.from({ length: 32 }, () =>
+          Math.floor(Math.random() * 16).toString(16)
+        ).join("");
     onChange(newKey);
   };
 

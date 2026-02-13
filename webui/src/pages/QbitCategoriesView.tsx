@@ -6,10 +6,6 @@ import { useInterval } from "../hooks/useInterval";
 import { useWebUI } from "../context/WebUIContext";
 import { StableTable } from "../components/StableTable";
 import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
 import { IconImage } from "../components/IconImage";

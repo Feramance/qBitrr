@@ -1,7 +1,7 @@
 # Frontend build stage
 FROM node:25-bookworm AS webui-build
 WORKDIR /src
-COPY webui/package*.json webui/
+COPY webui/package*.json webui/.npmrc webui/
 RUN cd webui && npm ci
 COPY webui webui
 RUN mkdir -p qBitrr/static && cd webui && npm run build
