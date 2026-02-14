@@ -6,6 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from qBitrr.arss import _extract_tracker_host
 from qBitrr.errors import DelayLoopException
 
 if TYPE_CHECKING:
@@ -262,9 +263,11 @@ class qBitCategoryManager:
         if not self.trackers:
             return None
         try:
-            torrent_trackers = {
-                getattr(t, "url", "").rstrip("/") for t in torrent.trackers if hasattr(t, "url")
-            }
+            torrent_hosts = {
+                _extract_tracker_host(getattr(t, "url", ""))
+                for t in torrent.trackers
+                if hasattr(t, "url")
+            } - {""}
         except Exception:
             return None
         best = None
@@ -274,7 +277,8 @@ class qBitCategoryManager:
                 continue
             uri = (tracker_cfg.get("URI") or "").strip().rstrip("/")
             priority = tracker_cfg.get("Priority", 0)
-            if uri and uri in torrent_trackers and priority > best_priority:
+            cfg_host = _extract_tracker_host(uri)
+            if cfg_host and cfg_host in torrent_hosts and priority > best_priority:
                 best = tracker_cfg
                 best_priority = priority
         return best
@@ -290,12 +294,13 @@ class qBitCategoryManager:
             "torrent not found",
         }
         uri = (config.get("URI") or "").strip().rstrip("/")
-        if not uri:
+        cfg_host = _extract_tracker_host(uri)
+        if not cfg_host:
             return False
         try:
             for tracker in torrent.trackers:
                 tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if tracker_url != uri:
+                if _extract_tracker_host(tracker_url) != cfg_host:
                     continue
                 message_text = (getattr(tracker, "msg", "") or "").lower()
                 if any(keyword in message_text for keyword in _dead_keywords):
