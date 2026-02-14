@@ -13,6 +13,7 @@ from collections import defaultdict
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
+from urllib.parse import urlparse
 
 import ffmpeg
 import pathos
@@ -80,6 +81,37 @@ from qBitrr.utils import (
     validate_and_return_torrent_file,
     with_retry,
 )
+
+
+def _extract_tracker_host(uri: str) -> str:
+    """Extract the hostname from a tracker URI for matching purposes.
+
+    Handles bare domains (``tracker.example.org``), full announce URLs
+    (``https://tracker.example.org/a/key/announce``), and scheme-less paths
+    (``tracker.example.org/announce``).  Returns the lowercased hostname so
+    that a config URI ``tracker.example.org`` will match the qBit announce
+    URL ``https://tracker.example.org/a/passkey/announce``.
+    """
+    uri = uri.strip().rstrip("/")
+    if not uri:
+        return ""
+    # If no scheme, urlparse puts everything in `path` — add a scheme so it
+    # can extract the hostname properly.
+    if "://" not in uri:
+        uri = "https://" + uri
+    try:
+        parsed = urlparse(uri)
+        return (parsed.hostname or "").lower()
+    except ValueError:
+        # Python 3.14+ raises ValueError for malformed IPv6 URLs
+        return ""
+
+
+def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
+    """Return True if *config_uri* and *tracker_url* refer to the same tracker host."""
+    return bool(
+        (h := _extract_tracker_host(config_uri)) and h == _extract_tracker_host(tracker_url)
+    )
 
 
 def _mask_secret(secret: str | None) -> str:
@@ -267,6 +299,17 @@ class Arr:
             for i in self.monitored_trackers
             if i.get("AddTrackerIfMissing") is True
             and (uri := (i.get("URI") or "").strip().rstrip("/"))
+        }
+        # Host-based lookup: maps extracted hostname → config URI for matching
+        # qBit announce URLs (e.g. "https://host/a/key/announce") against config
+        # URIs that may be bare domains (e.g. "host") or partial paths.
+        self._host_to_config_uri: dict[str, str] = {}
+        for _uri in self._monitored_tracker_urls:
+            _host = _extract_tracker_host(_uri)
+            if _host:
+                self._host_to_config_uri[_host] = _uri
+        self._remove_tracker_hosts: set[str] = {
+            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
         }
         self._normalized_bad_tracker_msgs: set[str] = {
             msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
@@ -5663,13 +5706,24 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
         try:
-            current_trackers = {i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")}
+            current_tracker_urls = {
+                i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")
+            }
         except qbittorrentapi.exceptions.APIError as e:
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, type="qbit")
-        monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
-        need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
+        # Host-based matching: resolve qBit announce URLs to their config URIs
+        current_hosts = {_extract_tracker_host(u) for u in current_tracker_urls} - {""}
+        monitored_trackers = {
+            self._host_to_config_uri[h] for h in current_hosts if h in self._host_to_config_uri
+        }
+        # For AddTrackerIfMissing, check by host whether tracker is already present
+        need_to_be_added = {
+            uri
+            for uri in self._add_trackers_if_missing
+            if _extract_tracker_host(uri) not in current_hosts
+        }
         monitored_trackers = monitored_trackers.union(need_to_be_added)
         return need_to_be_added, monitored_trackers
 
@@ -5680,12 +5734,17 @@ class Arr:
     def _get_most_important_tracker_and_tags(
         self, monitored_trackers, removed
     ) -> tuple[dict, set[str]]:
+        removed_hosts = {_extract_tracker_host(u) for u in removed} - {""}
         new_list = [
             i
             for i in self.monitored_trackers
             if (i.get("URI") in monitored_trackers) and i.get("RemoveIfExists") is not True
         ]
-        _list_of_tags = [i.get("AddTags", []) for i in new_list if i.get("URI") not in removed]
+        _list_of_tags = [
+            i.get("AddTags", [])
+            for i in new_list
+            if _extract_tracker_host(i.get("URI") or "") not in removed_hosts
+        ]
         max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
@@ -5841,7 +5900,10 @@ class Arr:
                 )
                 if not tracker_url:
                     continue
-                if remove_for_message or tracker_url in self._remove_trackers_if_exists:
+                if (
+                    remove_for_message
+                    or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
+                ):
                     _remove_urls.add(tracker_url)
         if _remove_urls:
             self.logger.trace(
@@ -6363,18 +6425,18 @@ class Arr:
             "not found",
             "torrent not found",
         }
-        # Build set of HnR-enabled tracker URIs
-        hnr_uris = {
-            (t.get("URI") or "").strip().rstrip("/")
+        # Build set of HnR-enabled tracker hostnames
+        hnr_hosts = {
+            _extract_tracker_host(t.get("URI") or "")
             for t in self.monitored_trackers
             if t.get("HitAndRunMode", False)
-        }
-        if not hnr_uris:
+        } - {""}
+        if not hnr_hosts:
             return False
         try:
             for tracker in torrent.trackers:
                 tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if not tracker_url or tracker_url not in hnr_uris:
+                if not tracker_url or _extract_tracker_host(tracker_url) not in hnr_hosts:
                     continue
                 message_text = (getattr(tracker, "msg", "") or "").lower()
                 if any(keyword in message_text for keyword in _dead_keywords):
