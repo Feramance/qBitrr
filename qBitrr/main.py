@@ -502,6 +502,17 @@ class qBitManager:
                 value = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
 
+            # Load HnR protection settings
+            hnr_keys = {
+                "HitAndRunMode": False,
+                "MinSeedRatio": 1.0,
+                "MinSeedingTimeDays": 0,
+                "HitAndRunPartialSeedRatio": 1.0,
+                "TrackerUpdateBuffer": 0,
+            }
+            for key, fallback in hnr_keys.items():
+                default_seeding[key] = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=fallback)
+
             # Load per-category overrides
             category_overrides = {}
             categories_list = CONFIG.get("qBit.CategorySeeding.Categories", fallback=[])
@@ -510,11 +521,15 @@ class qBitManager:
                     cat_name = cat_config["Name"]
                     category_overrides[cat_name] = cat_config
 
+            # Load qBit-level shared trackers
+            qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
+
             # Store config for later initialization
             self.qbit_category_configs["default"] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
+                "trackers": qbit_trackers,
             }
             self.logger.debug(
                 "Loaded qBit category config for 'default': %d managed categories",
@@ -620,6 +635,19 @@ class qBitManager:
                 value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
 
+            # Load HnR protection settings
+            hnr_keys = {
+                "HitAndRunMode": False,
+                "MinSeedRatio": 1.0,
+                "MinSeedingTimeDays": 0,
+                "HitAndRunPartialSeedRatio": 1.0,
+                "TrackerUpdateBuffer": 0,
+            }
+            for key, fallback in hnr_keys.items():
+                default_seeding[key] = CONFIG.get(
+                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                )
+
             # Load per-category overrides
             category_overrides = {}
             categories_list = CONFIG.get(f"{section_name}.CategorySeeding.Categories", fallback=[])
@@ -628,11 +656,15 @@ class qBitManager:
                     cat_name = cat_config["Name"]
                     category_overrides[cat_name] = cat_config
 
+            # Load qBit-level shared trackers
+            instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
+
             # Store config for later initialization
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
+                "trackers": instance_trackers,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories",

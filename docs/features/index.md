@@ -243,6 +243,7 @@ Intelligent seeding controls with per-tracker customization.
 - **Rate limiting** - Control upload/download speeds per torrent
 - **Per-tracker settings** - Different rules for different trackers
 - **Dead tracker removal** - Clean up non-responsive trackers
+- **Hit and Run protection** - Prevent removal until tracker seeding obligations are met
 
 **Configuration:**
 
@@ -500,6 +501,7 @@ Tagless = false  # Set to true to enable
 | Request Integration | ✅ | ✅ | ❌ |
 | Smart Seeding | ✅ | ✅ | ✅ |
 | Per-Tracker Settings | ✅ | ✅ | ✅ |
+| Hit and Run Protection | ✅ | ✅ | ✅ |
 | FFprobe Validation | ✅ | ✅ | ✅ |
 | Search by Year | ✅ | ✅ | ❌ |
 | Search Specials | ❌ | ✅ | ❌ |

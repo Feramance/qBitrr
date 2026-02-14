@@ -10,16 +10,37 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from packaging.version import InvalidVersion, Version
+
 if TYPE_CHECKING:
     from qBitrr.gen_config import MyConfig
 
-# Current expected config version - increment when schema changes require migration
-EXPECTED_CONFIG_VERSION = 4
+# Current expected config version - updated automatically by bump2version
+EXPECTED_CONFIG_VERSION = "5.8.8"
+
+# Legacy integer version → semver mapping
+_LEGACY_VERSION_MAP = {
+    1: "0.0.1",
+    2: "0.0.2",
+    3: "0.0.3",
+    4: "0.0.4",
+}
 
 logger = logging.getLogger(__name__)
 
 
-def get_config_version(config: MyConfig) -> int:
+def _parse_version(v: str | int) -> Version:
+    """Parse a version string or legacy integer into a packaging.version.Version."""
+    if isinstance(v, int):
+        v = _LEGACY_VERSION_MAP.get(v, f"0.0.{v}")
+    try:
+        return Version(str(v))
+    except InvalidVersion:
+        logger.warning(f"Invalid version string: {v}, falling back to 0.0.1")
+        return Version("0.0.1")
+
+
+def get_config_version(config: MyConfig) -> str:
     """
     Get the ConfigVersion from the config file.
 
@@ -27,23 +48,26 @@ def get_config_version(config: MyConfig) -> int:
         config: MyConfig instance
 
     Returns:
-        Config version as integer, defaults to 1 if not found
+        Config version as a semver string
     """
-    version = config.get("Settings.ConfigVersion", fallback=1)
+    version = config.get("Settings.ConfigVersion", fallback="0.0.1")
+    if isinstance(version, int):
+        return _LEGACY_VERSION_MAP.get(version, f"0.0.{version}")
     try:
-        return int(version)
-    except (ValueError, TypeError):
-        logger.warning(f"Invalid ConfigVersion value: {version}, defaulting to 1")
-        return 1
+        Version(str(version))
+        return str(version)
+    except InvalidVersion:
+        logger.warning(f"Invalid ConfigVersion value: {version}, defaulting to 0.0.1")
+        return "0.0.1"
 
 
-def set_config_version(config: MyConfig, version: int) -> None:
+def set_config_version(config: MyConfig, version: str) -> None:
     """
     Set the ConfigVersion in the config file.
 
     Args:
         config: MyConfig instance
-        version: Version number to set
+        version: Version string to set
     """
     if "Settings" not in config.config:
         from tomlkit import table
@@ -67,22 +91,22 @@ def validate_config_version(config: MyConfig) -> tuple[bool, str | None]:
         - (True, "migration_needed"): Config version is older, migration required
         - (False, error_msg): Config version is newer, show error to user
     """
-    current_version = get_config_version(config)
+    current = _parse_version(get_config_version(config))
+    expected = _parse_version(EXPECTED_CONFIG_VERSION)
 
-    if current_version == EXPECTED_CONFIG_VERSION:
+    if current == expected:
         logger.debug(f"Config version matches expected: {EXPECTED_CONFIG_VERSION}")
         return True, None
 
-    if current_version < EXPECTED_CONFIG_VERSION:
+    if current < expected:
         logger.info(
-            f"Config version {current_version} is older than expected {EXPECTED_CONFIG_VERSION}, "
-            "migration needed"
+            f"Config version {current} is older than expected {expected}, " "migration needed"
         )
         return True, "migration_needed"
 
     # Config version is newer than expected
     error_msg = (
-        f"Config version mismatch: found {current_version}, expected {EXPECTED_CONFIG_VERSION}. "
+        f"Config version mismatch: found {current}, expected {expected}. "
         f"Your config may have been created with a newer version of qBitrr and may not work correctly. "
         f"Please update qBitrr or restore a compatible config backup."
     )
