@@ -2633,6 +2633,14 @@ function TrackerCard({
   onDelete: () => void;
 }): JSX.Element {
   const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
+  // state is the individual tracker object, so read with basePath=[]
+  // but onChange needs the full basePath to update the correct location in formState
+  const wrappedOnChange = useCallback(
+    (path: string[], def: FieldDefinition, value: unknown) => {
+      onChange([...basePath, ...path], def, value);
+    },
+    [basePath, onChange]
+  );
   return (
     <details className="card tracker-card" open>
       <summary className="card-header">
@@ -2642,7 +2650,7 @@ function TrackerCard({
         </button>
       </summary>
       <div className="card-body">
-        <FieldGroup title={null} fields={fields} state={state} basePath={basePath} onChange={onChange} />
+        <FieldGroup title={null} fields={fields} state={state} basePath={[]} onChange={wrappedOnChange} />
       </div>
     </details>
   );

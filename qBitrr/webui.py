@@ -3108,6 +3108,7 @@ class WebUI:
                 except Exception:
                     pass
             self.manager.child_processes.clear()
+            self.manager._process_registry.clear()
 
             # Delete database files for all arr instances before rebuilding
             if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
@@ -3147,6 +3148,13 @@ class WebUI:
                         p.start()
                     except Exception:
                         pass
+
+            # Rebuild qBit category managers from fresh config
+            self.manager.qbit_category_configs.clear()
+            self.manager.qbit_category_managers.clear()
+            self.manager._reload_qbit_category_configs()
+            self.manager._initialize_qbit_category_managers()
+            self.manager._spawn_qbit_category_workers()
         finally:
             # Clear rebuilding flag
             self._rebuilding_arrs = False
