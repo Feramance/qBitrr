@@ -1779,6 +1779,7 @@ class WebUI:
                         self.manager.child_processes.remove(process)
                     except Exception:
                         pass
+                    self.manager._process_registry.pop(process, None)
                 target = getattr(arr, f"run_{loop_kind}_loop", None)
                 if target is None:
                     continue
@@ -1787,6 +1788,11 @@ class WebUI:
                 new_process = pathos.helpers.mp.Process(target=target, daemon=False)
                 setattr(arr, proc_attr, new_process)
                 self.manager.child_processes.append(new_process)
+                self.manager._process_registry[new_process] = {
+                    "category": getattr(arr, "category", ""),
+                    "name": getattr(arr, "_name", getattr(arr, "category", "")),
+                    "role": loop_kind,
+                }
                 new_process.start()
                 restarted.append(loop_kind)
             return jsonify({"status": "ok", "restarted": restarted})
@@ -2479,6 +2485,43 @@ class WebUI:
             # Expose token for API clients only; UI uses /web endpoints
             return jsonify({"token": self.token})
 
+        def _restart_arr_instance(arr):
+            """Restart both search and torrent loops for an Arr instance."""
+            restarted = []
+            for k in ("search", "torrent"):
+                proc_attr = f"process_{k}_loop"
+                p = getattr(arr, proc_attr, None)
+                if p is not None:
+                    try:
+                        p.kill()
+                    except Exception:
+                        pass
+                    try:
+                        p.terminate()
+                    except Exception:
+                        pass
+                    try:
+                        self.manager.child_processes.remove(p)
+                    except Exception:
+                        pass
+                    self.manager._process_registry.pop(p, None)
+                import pathos
+
+                target = getattr(arr, f"run_{k}_loop", None)
+                if target is None:
+                    continue
+                new_p = pathos.helpers.mp.Process(target=target, daemon=False)
+                setattr(arr, proc_attr, new_p)
+                self.manager.child_processes.append(new_p)
+                self.manager._process_registry[new_p] = {
+                    "category": getattr(arr, "category", ""),
+                    "name": getattr(arr, "_name", getattr(arr, "category", "")),
+                    "role": k,
+                }
+                new_p.start()
+                restarted.append(k)
+            return jsonify({"status": "ok", "restarted": restarted})
+
         @app.post("/api/arr/<section>/restart")
         def api_arr_restart(section: str):
             if (resp := require_token()) is not None:
@@ -2491,35 +2534,7 @@ class WebUI:
             if section not in managed:
                 return jsonify({"error": f"Unknown section {section}"}), 404
             arr = managed[section]
-            # Restart both loops for this arr
-            restarted = []
-            for k in ("search", "torrent"):
-                proc_attr = f"process_{k}_loop"
-                p = getattr(arr, proc_attr, None)
-                if p is not None:
-                    try:
-                        p.kill()
-                    except Exception:
-                        pass
-                    try:
-                        p.terminate()
-                    except Exception:
-                        pass
-                    try:
-                        self.manager.child_processes.remove(p)
-                    except Exception:
-                        pass
-                import pathos
-
-                target = getattr(arr, f"run_{k}_loop", None)
-                if target is None:
-                    continue
-                new_p = pathos.helpers.mp.Process(target=target, daemon=False)
-                setattr(arr, proc_attr, new_p)
-                self.manager.child_processes.append(new_p)
-                new_p.start()
-                restarted.append(k)
-            return jsonify({"status": "ok", "restarted": restarted})
+            return _restart_arr_instance(arr)
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
@@ -2530,34 +2545,7 @@ class WebUI:
             if section not in managed:
                 return jsonify({"error": f"Unknown section {section}"}), 404
             arr = managed[section]
-            restarted = []
-            for k in ("search", "torrent"):
-                proc_attr = f"process_{k}_loop"
-                p = getattr(arr, proc_attr, None)
-                if p is not None:
-                    try:
-                        p.kill()
-                    except Exception:
-                        pass
-                    try:
-                        p.terminate()
-                    except Exception:
-                        pass
-                    try:
-                        self.manager.child_processes.remove(p)
-                    except Exception:
-                        pass
-                import pathos
-
-                target = getattr(arr, f"run_{k}_loop", None)
-                if target is None:
-                    continue
-                new_p = pathos.helpers.mp.Process(target=target, daemon=False)
-                setattr(arr, proc_attr, new_p)
-                self.manager.child_processes.append(new_p)
-                new_p.start()
-                restarted.append(k)
-            return jsonify({"status": "ok", "restarted": restarted})
+            return _restart_arr_instance(arr)
 
         @app.get("/api/config")
         def api_get_config():
