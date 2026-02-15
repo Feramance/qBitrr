@@ -6,6 +6,7 @@
 .idea
 .run/
 .vscode/
+.vs/
 
 # Testing
 /qBitrr/testing/test.py
