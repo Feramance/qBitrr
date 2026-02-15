@@ -28,14 +28,25 @@ qBitrr provides granular control over torrent seeding behavior:
 
 ## Configuration Structure
 
-Seeding is configured in the `[<Arr>-<Name>.Torrent.SeedingMode]` section:
+Seeding is configured in the `[<Arr>-<Name>.Torrent.SeedingMode]` section. Tracker configs are defined once at the qBit level and inherited by all Arr instances:
 
 ```toml
 [Radarr-Movies.Torrent.SeedingMode]
 # Global seeding settings for this Arr instance
 
+[[qBit.Trackers]]
+# Shared tracker config — inherited by ALL Arr instances on this qBit
+
 [[Radarr-Movies.Torrent.Trackers]]
-# Per-tracker override for specific trackers
+# Optional per-Arr override (only if this Arr needs different settings)
+```
+
+### Tracker Inheritance
+
+Trackers defined under `[[qBit.Trackers]]` are automatically available to every Arr instance. If an Arr instance defines a tracker with the same URI, the Arr version **fully replaces** the qBit version for that Arr only.
+
+```
+Final trackers = qBit trackers (base) ← Arr trackers override by URI
 ```
 
 ---
@@ -334,12 +345,12 @@ RemoveTrackerWithMessage = [
 
 ## Per-Tracker Configuration
 
-Override global settings for specific trackers using `[[<Arr>-<Name>.Torrent.Trackers]]` sections.
+Define shared tracker configs at the qBit level using `[[qBit.Trackers]]`. All Arr instances on this qBit inherit these settings. Use `[[<Arr>-<Name>.Torrent.Trackers]]` only for per-Arr overrides.
 
-### Complete Tracker Example
+### Complete Tracker Example (qBit-level)
 
 ```toml
-[[Radarr-Movies.Torrent.Trackers]]
+[[qBit.Trackers]]
 # Tracker identification
 Name = "BeyondHD"
 Priority = 10
@@ -358,8 +369,26 @@ AddTrackerIfMissing = false
 RemoveIfExists = false
 SuperSeedMode = false
 
+# Hit and Run protection
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 5
+TrackerUpdateBuffer = 3600
+
 # Tagging
 AddTags = ["BeyondHD", "private"]
+```
+
+### Per-Arr Override Example
+
+If a specific Arr instance needs different settings for the same tracker, override by URI:
+
+```toml
+[[Radarr-4K.Torrent.Trackers]]
+Name = "BeyondHD"
+URI = "https://tracker.beyond-hd.me/announce"
+MaximumETA = 36000  # 4K gets more time
+MaxSeedingTime = 864000  # 10 days for 4K
 ```
 
 ---
@@ -571,6 +600,84 @@ Automatically add tags to torrents with this tracker.
 
 ---
 
+#### HitAndRunMode
+
+```toml
+HitAndRunMode = true
+```
+
+**Type:** Boolean
+**Default:** `false`
+
+Enable Hit and Run (HnR) protection for this tracker. When `true`, torrents with this tracker will **not** be removed until HnR obligations are met, regardless of `RemoveTorrent` settings. See [Hit and Run Protection](#hit-and-run-protection) for details on how obligations are calculated.
+
+---
+
+#### MinSeedRatio
+
+```toml
+MinSeedRatio = 1.0
+```
+
+**Type:** Float
+**Default:** `1.0`
+
+Minimum upload ratio required to clear HnR. A value of `1.0` means you must upload at least as much as you downloaded. For full downloads, **either** ratio OR time clears the obligation (whichever comes first).
+
+---
+
+#### MinSeedingTimeDays
+
+```toml
+MinSeedingTimeDays = 10
+```
+
+**Type:** Integer (days)
+**Default:** `0` (disabled)
+
+Minimum number of days to seed before HnR clears. Set to `0` to use ratio-only protection. Only applies to full downloads — partial downloads use `HitAndRunPartialSeedRatio` instead.
+
+---
+
+#### HitAndRunMinimumDownloadPercent
+
+```toml
+HitAndRunMinimumDownloadPercent = 10
+```
+
+**Type:** Integer (0-100)
+**Default:** `10`
+
+Minimum percentage of a torrent that must be downloaded before HnR obligations apply. Torrents below this threshold can be safely removed without triggering HnR. Most trackers use 10%, but some may differ.
+
+---
+
+#### HitAndRunPartialSeedRatio
+
+```toml
+HitAndRunPartialSeedRatio = 1.0
+```
+
+**Type:** Float
+**Default:** `1.0`
+
+Ratio required for partial downloads (downloaded >=`HitAndRunMinimumDownloadPercent`% but <100%). Partial downloads **never accrue seeding time**, so ratio is the only way to clear HnR for them. For example, if you downloaded 25GB of a 100GB torrent, you must upload 25GB back (ratio 1.0).
+
+---
+
+#### TrackerUpdateBuffer
+
+```toml
+TrackerUpdateBuffer = 3600
+```
+
+**Type:** Integer (seconds)
+**Default:** `0`
+
+Extra seconds to wait after meeting HnR criteria before allowing removal. Tracker statistics typically lag 15-30 minutes behind the client. Setting this to `3600` (60 minutes) provides a safety margin.
+
+---
+
 ## Configuration Examples
 
 ### Example 1: Public Tracker (Generous Seeding)
@@ -612,23 +719,31 @@ MaxUploadRatio = 1.0
 MaxSeedingTime = 259200  # 3 days
 RemoveTorrent = 3
 
-# Private tracker - higher requirements
-[[Radarr-Movies.Torrent.Trackers]]
+# Shared trackers at qBit level — inherited by all Arr instances
+[[qBit.Trackers]]
 Name = "BeyondHD"
 Priority = 10
 URI = "https://tracker.beyond-hd.me/announce"
 MaxUploadRatio = 1.5
 MaxSeedingTime = 432000  # 5 days
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 5
 AddTags = ["private", "BeyondHD"]
 
-# Public tracker - lenient
-[[Radarr-Movies.Torrent.Trackers]]
+[[qBit.Trackers]]
 Name = "YTS"
 Priority = 5
 URI = "udp://open.stealth.si:80/announce"
 MaxUploadRatio = 0.5
 MaxSeedingTime = 86400  # 1 day
 AddTags = ["public", "YTS"]
+
+# Optional: per-Arr override for 4K instance (higher ETA tolerance)
+[[Radarr-4K.Torrent.Trackers]]
+Name = "BeyondHD"
+URI = "https://tracker.beyond-hd.me/announce"
+MaximumETA = 36000
 ```
 
 ---
@@ -642,12 +757,16 @@ MaxSeedingTime = 6220800  # 72 hours minimum (RED/OPS requirement)
 RemoveTorrent = 2  # Remove based on time only
 RemoveDeadTrackers = false
 
-[[Lidarr-Music.Torrent.Trackers]]
+# Shared at qBit level
+[[qBit.Trackers]]
 Name = "RED"
 Priority = 10
 URI = "https://flacsfor.me/announce"
 MaxUploadRatio = -1  # Never remove based on ratio
 MaxSeedingTime = 259200  # 72 hours
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 3
 AddTags = ["RED", "music", "lossless"]
 ```
 
@@ -661,7 +780,8 @@ MaxUploadRatio = -1  # Never remove
 MaxSeedingTime = -1  # Never remove
 RemoveTorrent = -1   # Never remove
 
-[[Radarr-Freeleech.Torrent.Trackers]]
+# Shared at qBit level
+[[qBit.Trackers]]
 Name = "Freeleech Tracker"
 URI = "https://tracker.example.com/announce"
 Priority = 10
@@ -975,7 +1095,7 @@ AutoPauseResume = true
 
 ### 6. Use Per-Tracker Rules for Mixed Setups
 
-Different trackers have different requirements - configure accordingly:
+Different trackers have different requirements - define them once at the qBit level:
 
 ```toml
 # Conservative global default
@@ -983,16 +1103,131 @@ Different trackers have different requirements - configure accordingly:
 MaxUploadRatio = 2.0
 MaxSeedingTime = 604800
 
-# Specific tracker overrides
-[[Radarr-Movies.Torrent.Trackers]]
+# Shared trackers — inherited by ALL Arr instances
+[[qBit.Trackers]]
 Name = "Private1"
+URI = "https://tracker.private1.com/announce"
 MaxUploadRatio = 1.5
 MaxSeedingTime = 432000
 
-[[Radarr-Movies.Torrent.Trackers]]
+[[qBit.Trackers]]
 Name = "Public1"
+URI = "udp://tracker.public1.com/announce"
 MaxUploadRatio = 1.0
 MaxSeedingTime = 86400
+```
+
+---
+
+## Hit and Run Protection
+
+Hit and Run (HnR) is a rule enforced by private trackers: after downloading a torrent you **must** seed it back to a minimum ratio (typically 1:1) or for a minimum period of time (often 4-10 days depending on user class). Violating HnR rules can result in warnings, ratio penalties, or permanent bans.
+
+qBitrr's HnR protection acts as a **safety layer** on top of the existing seeding limits. Even when `RemoveTorrent` conditions are met, HnR protection will block removal until the tracker's seeding obligations are satisfied. HnR settings are configured per-tracker using the fields documented in [Tracker Fields](#tracker-fields) above.
+
+---
+
+### How It Works
+
+- **Full downloads** (100% complete): HnR clears when **either** [`MinSeedRatio`](#minseedratio) OR [`MinSeedingTimeDays`](#minseedingtimedays) is met
+- **Partial downloads** (>=`HitAndRunMinimumDownloadPercent`% but <100%): HnR clears only when [`HitAndRunPartialSeedRatio`](#hitandrunpartialseedratio) is met (time does not apply)
+- **Downloads below [`HitAndRunMinimumDownloadPercent`](#hitandrunminimumdownloadpercent)%** (default 10%): Not subject to HnR (most trackers don't count these)
+- **[`TrackerUpdateBuffer`](#trackerupdatebuffer)**: Extra seconds subtracted from seeding time to account for tracker stats lag (~30 min behind the client)
+
+When [`HitAndRunMode`](#hitandrunmode) = `false` (default), behavior is identical to previous versions.
+
+**Automatic HnR bypass:** If a tracker reports the torrent as unregistered, unauthorized, or not found, HnR protection is automatically bypassed — the torrent no longer exists on the tracker, so seeding obligations no longer apply.
+
+When a torrent has multiple trackers, the tracker with the highest [`Priority`](#priority) determines which HnR settings apply.
+
+---
+
+### TorrentLeech Example
+
+TorrentLeech enforces HnR with seeding time requirements based on user class:
+
+| User Class | Minimum Seed Time |
+|------------|-------------------|
+| Registered | 10 days |
+| Power User | 8 days |
+| Super User | 7 days |
+| Extreme User | 6 days |
+| TL God | 4 days |
+| VIP User | No minimum |
+
+**Conservative setup** (for Registered class):
+
+```toml
+[Radarr-Movies.Torrent.SeedingMode]
+MaxUploadRatio = 2.0
+MaxSeedingTime = 1296000   # 15 days
+RemoveTorrent = 3          # Remove when either met
+
+# Defined once at qBit level — shared by all Arr instances
+[[qBit.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 10    # Registered class requirement
+HitAndRunMinimumDownloadPercent = 10  # TL counts HnR at >=10% downloaded
+HitAndRunPartialSeedRatio = 1.0
+TrackerUpdateBuffer = 3600 # 60 min buffer for tracker lag
+```
+
+**Aggressive setup** (for TL God class):
+
+```toml
+[Radarr-Movies.Torrent.SeedingMode]
+MaxUploadRatio = 1.5
+MaxSeedingTime = 604800    # 7 days
+RemoveTorrent = 3
+
+[[qBit.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 4     # TL God class requirement
+TrackerUpdateBuffer = 3600
+```
+
+**Multi-tracker setup** (different trackers, different rules):
+
+```toml
+[Radarr-Movies.Torrent.SeedingMode]
+MaxUploadRatio = 2.0
+MaxSeedingTime = 1296000
+RemoveTorrent = 3
+
+# TorrentLeech - strict HnR (shared by all Arr instances)
+[[qBit.Trackers]]
+Name = "TorrentLeech"
+URI = "tracker.torrentleech.org"
+Priority = 10
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 10
+TrackerUpdateBuffer = 3600
+
+# IPTorrents - shorter requirement
+[[qBit.Trackers]]
+Name = "IPTorrents"
+URI = "tracker.iptorrents.com"
+Priority = 8
+HitAndRunMode = true
+MinSeedRatio = 1.0
+MinSeedingTimeDays = 4
+TrackerUpdateBuffer = 3600
+
+# Public tracker - no HnR
+[[qBit.Trackers]]
+Name = "Public"
+URI = "udp://open.stealth.si:80/announce"
+Priority = 1
+HitAndRunMode = false
 ```
 
 ---

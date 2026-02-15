@@ -13,6 +13,7 @@ from collections import defaultdict
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
+from urllib.parse import urlparse
 
 import ffmpeg
 import pathos
@@ -80,6 +81,37 @@ from qBitrr.utils import (
     validate_and_return_torrent_file,
     with_retry,
 )
+
+
+def _extract_tracker_host(uri: str) -> str:
+    """Extract the hostname from a tracker URI for matching purposes.
+
+    Handles bare domains (``tracker.example.org``), full announce URLs
+    (``https://tracker.example.org/a/key/announce``), and scheme-less paths
+    (``tracker.example.org/announce``).  Returns the lowercased hostname so
+    that a config URI ``tracker.example.org`` will match the qBit announce
+    URL ``https://tracker.example.org/a/passkey/announce``.
+    """
+    uri = uri.strip().rstrip("/")
+    if not uri:
+        return ""
+    # If no scheme, urlparse puts everything in `path` — add a scheme so it
+    # can extract the hostname properly.
+    if "://" not in uri:
+        uri = "https://" + uri
+    try:
+        parsed = urlparse(uri)
+        return (parsed.hostname or "").lower()
+    except ValueError:
+        # Python 3.14+ raises ValueError for malformed IPv6 URLs
+        return ""
+
+
+def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
+    """Return True if *config_uri* and *tracker_url* refer to the same tracker host."""
+    return bool(
+        (h := _extract_tracker_host(config_uri)) and h == _extract_tracker_host(tracker_url)
+    )
 
 
 def _mask_secret(secret: str | None) -> str:
@@ -247,21 +279,37 @@ class Arr:
                 self.seeding_mode_global_bad_tracker_msg
             )
 
-        self.monitored_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
+        qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
+        arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
+        self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
         self._remove_trackers_if_exists: set[str] = {
             uri
             for i in self.monitored_trackers
-            if i.get("RemoveIfExists") is True and (uri := (i.get("URI") or "").strip())
+            if i.get("RemoveIfExists") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
         }
         self._monitored_tracker_urls: set[str] = {
             uri
             for i in self.monitored_trackers
-            if (uri := (i.get("URI") or "").strip()) and uri not in self._remove_trackers_if_exists
+            if (uri := (i.get("URI") or "").strip().rstrip("/"))
+            and uri not in self._remove_trackers_if_exists
         }
         self._add_trackers_if_missing: set[str] = {
             uri
             for i in self.monitored_trackers
-            if i.get("AddTrackerIfMissing") is True and (uri := (i.get("URI") or "").strip())
+            if i.get("AddTrackerIfMissing") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
+        }
+        # Host-based lookup: maps extracted hostname → config URI for matching
+        # qBit announce URLs (e.g. "https://host/a/key/announce") against config
+        # URIs that may be bare domains (e.g. "host") or partial paths.
+        self._host_to_config_uri: dict[str, str] = {}
+        for _uri in self._monitored_tracker_urls:
+            _host = _extract_tracker_host(_uri)
+            if _host:
+                self._host_to_config_uri[_host] = _uri
+        self._remove_tracker_hosts: set[str] = {
+            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
         }
         self._normalized_bad_tracker_msgs: set[str] = {
             msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
@@ -694,6 +742,22 @@ class Arr:
             )
         )
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    @staticmethod
+    def _merge_trackers(qbit_trackers: list, arr_trackers: list) -> list:
+        """Merge qBit-level and Arr-level trackers. Arr overrides qBit by URI."""
+        merged: dict[str, dict] = {}
+        for tracker in qbit_trackers:
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
+                if uri:
+                    merged[uri] = dict(tracker)
+        for tracker in arr_trackers:
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
+                if uri:
+                    merged[uri] = dict(tracker)
+        return list(merged.values())
 
     def _ensure_category_on_all_instances(self) -> None:
         """
@@ -5186,7 +5250,8 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.delete.add(torrent.hash)
+            if self._hnr_allows_delete(torrent, "stale torrent deletion"):
+                self.delete.add(torrent.hash)
         else:
             self.logger.trace(
                 "Ignoring Stale torrent: "
@@ -5233,7 +5298,8 @@ class Arr:
                 torrent.name,
                 torrent.hash,
             )
-            self.delete.add(torrent.hash)
+            if self._hnr_allows_delete(torrent, "stale high-percentage deletion"):
+                self.delete.add(torrent.hash)
         else:
             self.logger.trace(
                 "Skipping torrent: Reached Maximum completed "
@@ -5452,9 +5518,12 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "slow torrent deletion"):
+            self.delete.add(torrent.hash)
 
-    def _process_single_torrent_delete_cfunmet(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_delete_cfunmet(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = ""
+    ):
         self.logger.info(
             "Removing CF unmet torrent: "
             "[Progress: %s%%][Added On: %s]"
@@ -5470,7 +5539,8 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "CF unmet deletion"):
+            self.delete.add(torrent.hash)
 
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.info(
@@ -5488,7 +5558,8 @@ class Arr:
             torrent.name,
             torrent.hash,
         )
-        self.delete.add(torrent.hash)
+        if self._hnr_allows_delete(torrent, "ratio/seed limit deletion"):
+            self.delete.add(torrent.hash)
 
     def _process_single_torrent_process_files(
         self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
@@ -5569,7 +5640,8 @@ class Arr:
                     torrent.name,
                     torrent.hash,
                 )
-                self.delete.add(torrent.hash)
+                if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
+                    self.delete.add(torrent.hash)
             # Mark all bad files and folder for exclusion.
             elif _remove_files and torrent.hash not in self.change_priority:
                 self.change_priority[torrent.hash] = list(_remove_files)
@@ -5636,13 +5708,24 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary
     ) -> tuple[set[str], set[str]]:
         try:
-            current_trackers = {i.url for i in torrent.trackers if hasattr(i, "url")}
+            current_tracker_urls = {
+                i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")
+            }
         except qbittorrentapi.exceptions.APIError as e:
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, type="qbit")
-        monitored_trackers = self._monitored_tracker_urls.intersection(current_trackers)
-        need_to_be_added = self._add_trackers_if_missing.difference(current_trackers)
+        # Host-based matching: resolve qBit announce URLs to their config URIs
+        current_hosts = {_extract_tracker_host(u) for u in current_tracker_urls} - {""}
+        monitored_trackers = {
+            self._host_to_config_uri[h] for h in current_hosts if h in self._host_to_config_uri
+        }
+        # For AddTrackerIfMissing, check by host whether tracker is already present
+        need_to_be_added = {
+            uri
+            for uri in self._add_trackers_if_missing
+            if _extract_tracker_host(uri) not in current_hosts
+        }
         monitored_trackers = monitored_trackers.union(need_to_be_added)
         return need_to_be_added, monitored_trackers
 
@@ -5653,12 +5736,17 @@ class Arr:
     def _get_most_important_tracker_and_tags(
         self, monitored_trackers, removed
     ) -> tuple[dict, set[str]]:
+        removed_hosts = {_extract_tracker_host(u) for u in removed} - {""}
         new_list = [
             i
             for i in self.monitored_trackers
             if (i.get("URI") in monitored_trackers) and i.get("RemoveIfExists") is not True
         ]
-        _list_of_tags = [i.get("AddTags", []) for i in new_list if i.get("URI") not in removed]
+        _list_of_tags = [
+            i.get("AddTags", [])
+            for i in new_list
+            if _extract_tracker_host(i.get("URI") or "") not in removed_hosts
+        ]
         max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
@@ -5711,6 +5799,14 @@ class Arr:
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
+            "hnr_mode": most_important_tracker.get("HitAndRunMode", False),
+            "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
+            "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
+            "hnr_min_download_percent": most_important_tracker.get(
+                "HitAndRunMinimumDownloadPercent", 10
+            ),
+            "hnr_partial_seed_ratio": most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
+            "hnr_tracker_update_buffer": most_important_tracker.get("TrackerUpdateBuffer", 0),
         }
 
         data_torrent = {
@@ -5746,7 +5842,23 @@ class Arr:
             remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         else:
             remove_torrent = False
-        return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
+
+        # HnR protection: override removal if obligations not met
+        hnr_override = False
+        if remove_torrent and not self._hnr_safe_to_remove(torrent, data_settings):
+            self.logger.debug(
+                "HnR protection: keeping [%s] (ratio=%.2f, seeding=%s)",
+                torrent.name,
+                torrent.ratio,
+                timedelta(seconds=torrent.seeding_time),
+            )
+            remove_torrent = False
+            hnr_override = True
+
+        if hnr_override:
+            return_value = True  # HnR protection forces leave-alone
+        else:
+            return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
@@ -5790,7 +5902,10 @@ class Arr:
                 )
                 if not tracker_url:
                     continue
-                if remove_for_message or tracker_url in self._remove_trackers_if_exists:
+                if (
+                    remove_for_message
+                    or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
+                ):
                     _remove_urls.add(tracker_url)
         if _remove_urls:
             self.logger.trace(
@@ -6266,6 +6381,104 @@ class Arr:
 
         except Exception:
             return False
+
+    def _hnr_allows_delete(self, torrent: qbittorrentapi.TorrentDictionary, reason: str) -> bool:
+        """Check if HnR obligations allow deleting this torrent.
+
+        Fetches tracker metadata and checks HnR. Returns True if deletion
+        is allowed, False if HnR protection blocks it.
+        """
+        if not any(t.get("HitAndRunMode", False) for t in self.monitored_trackers):
+            return True  # Fast path: no HnR on any tracker
+
+        # If the HnR-enabled tracker reports the torrent as unregistered/dead,
+        # HnR no longer applies (tracker has removed the torrent).
+        if self._hnr_tracker_is_dead(torrent):
+            self.logger.debug(
+                "HnR bypass: tracker reports torrent as unregistered/dead [%s]",
+                torrent.name,
+            )
+            return True
+
+        data_settings, _ = self._get_torrent_limit_meta(torrent)
+        if self._hnr_safe_to_remove(torrent, data_settings):
+            return True
+        self.logger.info(
+            "HnR protection: blocking %s of [%s] (ratio=%.2f, seeding=%s, progress=%.1f%%)",
+            reason,
+            torrent.name,
+            torrent.ratio,
+            timedelta(seconds=torrent.seeding_time),
+            torrent.progress * 100,
+        )
+        return False
+
+    def _hnr_tracker_is_dead(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
+        """Check if the HnR-enabled tracker reports the torrent as unregistered or dead.
+
+        If a tracker says the torrent is unregistered/unauthorized, the torrent
+        no longer exists on the tracker and HnR obligations cannot apply.
+        """
+        _dead_keywords = {
+            "unregistered torrent",
+            "torrent not registered",
+            "info hash is not authorized",
+            "torrent is not authorized",
+            "not found",
+            "torrent not found",
+        }
+        # Build set of HnR-enabled tracker hostnames
+        hnr_hosts = {
+            _extract_tracker_host(t.get("URI") or "")
+            for t in self.monitored_trackers
+            if t.get("HitAndRunMode", False)
+        } - {""}
+        if not hnr_hosts:
+            return False
+        try:
+            for tracker in torrent.trackers:
+                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
+                if not tracker_url or _extract_tracker_host(tracker_url) not in hnr_hosts:
+                    continue
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                if any(keyword in message_text for keyword in _dead_keywords):
+                    return True
+        except Exception:
+            pass
+        return False
+
+    def _hnr_safe_to_remove(
+        self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
+    ) -> bool:
+        """Returns True only if Hit and Run obligations are met."""
+        hnr_enabled = tracker_meta.get("hnr_mode", False)
+        if not hnr_enabled:
+            return True
+
+        min_ratio = tracker_meta.get("hnr_min_seed_ratio", 1.0)
+        min_time_secs = tracker_meta.get("hnr_min_seeding_time_days", 0) * 86400
+        min_dl_pct = tracker_meta.get("hnr_min_download_percent", 10) / 100.0
+        partial_ratio = tracker_meta.get("hnr_partial_seed_ratio", 1.0)
+        buffer_secs = tracker_meta.get("hnr_tracker_update_buffer", 0)
+
+        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
+        effective_seeding_time = torrent.seeding_time - buffer_secs
+
+        if torrent.progress < min_dl_pct:
+            return True  # Below minimum download threshold, no HnR obligation
+        if is_partial:
+            return torrent.ratio >= partial_ratio  # Partial: ratio only
+
+        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
+        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
+
+        if min_ratio > 0 and min_time_secs > 0:
+            return ratio_met or time_met  # Either clears HnR
+        elif min_ratio > 0:
+            return ratio_met
+        elif min_time_secs > 0:
+            return time_met
+        return True
 
     def torrent_limit_check(
         self, torrent: qbittorrentapi.TorrentDictionary, seeding_time_limit, ratio_limit

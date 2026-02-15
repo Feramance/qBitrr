@@ -221,6 +221,7 @@ nav:
     - configuration/search/index.md
     - configuration/search/overseerr.md
     - configuration/search/ombi.md
+    - configuration/search/requestrr.md
   - Quality Profiles: configuration/quality-profiles.md
   - Seeding & Trackers: configuration/seeding.md
   - WebUI: configuration/webui.md

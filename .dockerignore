@@ -12,7 +12,6 @@ README.md
 config.example.toml
 requirements.all.txt
 requirements.dev.txt
-requirements.txt
 
 dist/
 build/

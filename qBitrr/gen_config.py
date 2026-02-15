@@ -96,7 +96,7 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        3,
+        "5.8.8",
     )
     _gen_default_line(
         settings,
@@ -343,9 +343,65 @@ def _add_qbit_section(config: TOMLDocument):
         "RemoveTorrent",
         -1,
     )
+    _gen_default_line(
+        category_seeding,
+        "Enable Hit and Run protection for managed category torrents",
+        "HitAndRunMode",
+        False,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum seed ratio before removal allowed (HnR protection)",
+        "MinSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum seeding time in days before removal allowed (HnR protection, 0 = ratio only)",
+        "MinSeedingTimeDays",
+        0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum download percentage before a torrent is considered for HnR (0-100, default 10)",
+        "HitAndRunMinimumDownloadPercent",
+        10,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Minimum ratio for partial downloads (>=HitAndRunMinimumDownloadPercent% but <100% complete)",
+        "HitAndRunPartialSeedRatio",
+        1.0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Extra seconds buffer for tracker stats lag (0 = disabled)",
+        "TrackerUpdateBuffer",
+        0,
+    )
+    _gen_qbit_tracker_tables(qbit)
+
     qbit.add("CategorySeeding", category_seeding)
 
     config.add("qBit", qbit)
+
+
+def _gen_qbit_tracker_tables(qbit_table: Table):
+    """Generate shared tracker config for the qBit instance level."""
+    qbit_table.add(
+        comment("Shared tracker configs inherited by all Arr instances on this qBit instance.")
+    )
+    qbit_table.add(
+        comment("Define tracker-specific rate limits, HnR protection, and management rules here.")
+    )
+    qbit_table.add(
+        comment(
+            "Arr instances can optionally override per-tracker settings in their own Trackers section."
+        )
+    )
+
+    tracker_table_list = []
+    qbit_table.add("Trackers", tracker_table_list)
 
 
 def _add_category_sections(config: TOMLDocument):
@@ -579,8 +635,8 @@ def _gen_default_torrent_table(category: str, cat_default: Table):
         "ReSearchStalled",
         False,
     )
-    _gen_default_seeding_table(category, torrent_table)
     _gen_default_tracker_tables(category, torrent_table)
+    _gen_default_seeding_table(category, torrent_table)
 
     cat_default.add("Torrent", torrent_table)
 
@@ -652,92 +708,17 @@ def _gen_default_seeding_table(category: str, torrent_table: Table):
 
 
 def _gen_default_tracker_tables(category: str, torrent_table: Table):
-    tracker_table_list = []
-    tracker_list = []
-    if "anime" in category.lower():
-        tracker_list.append(("Nyaa", "http://nyaa.tracker.wf:7777/announce", ["qBitrr-anime"], 10))
-    elif "radarr" in category.lower():
-        t = ["qBitrr-Rarbg", "Movies and TV"]
-        t2 = []
-        if "4k" in category.lower():
-            t.append("4K")
-            t2.append("4K")
-        tracker_list.extend(
-            (
-                ("Rarbg-2810", "udp://9.rarbg.com:2810/announce", t, 1),
-                ("Rarbg-2740", "udp://9.rarbg.to:2740/announce", t2, 2),
-            )
-        )
-    for name, url, tags, priority in tracker_list:
-        tracker_table = table()
-        _gen_default_line(
-            tracker_table,
-            "This is only for your own benefit, it is not currently used anywhere, but one day it may be.",
-            "Name",
-            name,
-        )
-        tracker_table.add(
-            comment("This is used when multiple trackers are in one single torrent.")
-        )
-        _gen_default_line(
-            tracker_table,
-            "the tracker with the highest priority will have all its settings applied to the torrent.",
-            "Priority",
-            priority,
-        )
-        _gen_default_line(tracker_table, "The tracker URI used by qBit.", "URI", url)
-        _gen_default_line(
-            tracker_table,
-            "Maximum allowed remaining ETA for torrent completion (in seconds: 3600 = 1 Hour).",
-            "MaximumETA",
-            18000,
-        )
-        tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        _gen_default_line(
-            tracker_table, "Set this value to -1 to disabled it", "DownloadRateLimit", -1
-        )
-        tracker_table.add(comment("Set the maximum allowed upload rate for torrents"))
-        _gen_default_line(
-            tracker_table, "Set this value to -1 to disabled it", "UploadRateLimit", -1
-        )
-        tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        _gen_default_line(
-            tracker_table, "Set this value to -1 to disabled it", "MaxUploadRatio", -1
-        )
-        tracker_table.add(comment("Set the maximum allowed download rate for torrents"))
-        _gen_default_line(
-            tracker_table, "Set this value to -1 to disabled it", "MaxSeedingTime", -1
-        )
-        _gen_default_line(
-            tracker_table,
-            "Add this tracker from any torrent that does not contains it.",
-            "AddTrackerIfMissing",
-            False,
-        )
-        _gen_default_line(
-            tracker_table,
-            "Remove this tracker from any torrent that contains it.",
-            "RemoveIfExists",
-            False,
-        )
-        _gen_default_line(
-            tracker_table,
-            "Enable Super Seeding setting for torrents with this tracker.",
-            "SuperSeedMode",
-            False,
-        )
-        if tags:
-            _gen_default_line(
-                tracker_table,
-                "Adds these tags to any torrents containing this tracker.",
-                "AddTags",
-                tags,
-            )
-        tracker_table_list.append(tracker_table)
     torrent_table.add(
-        comment("You can have multiple trackers set here or none just add more subsections.")
+        comment(
+            "Optional per-Arr tracker overrides. Trackers are inherited from qBit.Trackers by default."
+        )
     )
-    torrent_table.add("Trackers", tracker_table_list)
+    torrent_table.add(
+        comment(
+            "Add entries here only if this Arr instance needs different settings for a tracker (matched by URI)."
+        )
+    )
+    torrent_table.add("Trackers", [])
 
 
 def _gen_default_line(table, comments, field, value):
@@ -1079,22 +1060,22 @@ def _migrate_process_restart_settings(config: MyConfig) -> bool:
     Add process auto-restart settings to existing configs.
 
     Migration runs if:
-    - ConfigVersion < 3 (versions 1 or 2)
+    - ConfigVersion < "0.0.3"
 
-    After migration, ConfigVersion will be set to 3 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 3:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.3"):
         return False  # Already migrated
 
     # Ensure Settings section exists
@@ -1139,27 +1120,23 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
     Migrate from list-based profile config to dict-based mappings.
 
     Migration runs if:
-    - ConfigVersion is missing (old config), OR
-    - ConfigVersion == 1 (baseline version before this feature)
+    - ConfigVersion < "0.0.2"
 
-    After migration, ConfigVersion will be set to 2 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 2:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.2"):
         return False  # Already migrated
-
-    # At this point, ConfigVersion is either missing (returns 1 as default) or explicitly 1
-    # Both cases need migration if old format exists
 
     changes_made = False
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
@@ -1219,24 +1196,24 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
     Add qBit category management settings to existing configs.
 
     Migration runs if:
-    - ConfigVersion < 4
+    - ConfigVersion < "0.0.4"
 
     Adds ManagedCategories and CategorySeeding configuration to all qBit sections.
 
-    After migration, ConfigVersion will be set to 4 by apply_config_migrations().
+    After migration, ConfigVersion will be set by apply_config_migrations().
 
     Returns:
         True if changes were made, False otherwise
     """
     import logging
 
-    from qBitrr.config_version import get_config_version
+    from qBitrr.config_version import _parse_version, get_config_version
 
     logger = logging.getLogger(__name__)
 
     # Check if migration already applied
-    current_version = get_config_version(config)
-    if current_version >= 4:
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("0.0.4"):
         return False  # Already migrated
 
     changes_made = False
@@ -1257,6 +1234,12 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             seeding["MaxUploadRatio"] = -1
             seeding["MaxSeedingTime"] = -1
             seeding["RemoveTorrent"] = -1
+            seeding["HitAndRunMode"] = False
+            seeding["MinSeedRatio"] = 1.0
+            seeding["MinSeedingTimeDays"] = 0
+            seeding["HitAndRunMinimumDownloadPercent"] = 10
+            seeding["HitAndRunPartialSeedRatio"] = 1.0
+            seeding["TrackerUpdateBuffer"] = 0
             qbit_section["CategorySeeding"] = seeding
             changes_made = True
             logger.info("Added CategorySeeding configuration to [qBit]")
@@ -1277,12 +1260,180 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["MaxUploadRatio"] = -1
                 seeding["MaxSeedingTime"] = -1
                 seeding["RemoveTorrent"] = -1
+                seeding["HitAndRunMode"] = False
+                seeding["MinSeedRatio"] = 1.0
+                seeding["MinSeedingTimeDays"] = 0
+                seeding["HitAndRunMinimumDownloadPercent"] = 10
+                seeding["HitAndRunPartialSeedRatio"] = 1.0
+                seeding["TrackerUpdateBuffer"] = 0
                 qbit_section["CategorySeeding"] = seeding
                 changes_made = True
                 logger.info(f"Added CategorySeeding configuration to [{section}]")
 
     if changes_made:
         print("Migration v3→v4: Added qBit category management settings")
+
+    return changes_made
+
+
+def _migrate_hnr_settings(config: MyConfig) -> bool:
+    """
+    Add Hit and Run protection settings to existing configs.
+
+    Migration runs if:
+    - ConfigVersion < "5.8.8"
+
+    Adds HnR fields to Tracker and CategorySeeding sections for all Arr and qBit instances.
+
+    Returns:
+        True if changes were made, False otherwise
+    """
+    import logging
+
+    from qBitrr.config_version import _parse_version, get_config_version
+
+    logger = logging.getLogger(__name__)
+
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("5.8.8"):
+        return False  # Already migrated
+
+    changes_made = False
+    arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+    hnr_seeding_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunMinimumDownloadPercent": 10,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+
+    # Remove HnR fields from Arr SeedingMode sections (moved to tracker-only)
+    for arr_type in arr_types:
+        for key in list(config.config.keys()):
+            if not str(key).startswith(arr_type):
+                continue
+
+            if "Torrent" in config.config.get(str(key), {}):
+                torrent_section = config.config[str(key)]["Torrent"]
+
+                if "SeedingMode" in torrent_section:
+                    seeding = torrent_section["SeedingMode"]
+                    for field in hnr_seeding_defaults:
+                        if field in seeding:
+                            del seeding[field]
+                            changes_made = True
+
+                # Add HnR fields to each tracker
+                if "Trackers" in torrent_section:
+                    trackers = torrent_section["Trackers"]
+                    if isinstance(trackers, list):
+                        for tracker in trackers:
+                            for field, default in hnr_seeding_defaults.items():
+                                if field not in tracker:
+                                    tracker[field] = default
+                                    changes_made = True
+
+    # Add HnR fields to qBit CategorySeeding sections
+    for key in list(config.config.keys()):
+        if str(key) == "qBit" or str(key).startswith("qBit-"):
+            qbit_section = config.config[str(key)]
+            if "CategorySeeding" in qbit_section:
+                cat_seeding = qbit_section["CategorySeeding"]
+                for field, default in hnr_seeding_defaults.items():
+                    if field not in cat_seeding:
+                        cat_seeding[field] = default
+                        changes_made = True
+
+    # Promote Arr-level trackers to qBit.Trackers (shared tracker configs)
+    # Collect all Arr trackers, deduplicate by URI, promote to qBit level
+    for key in list(config.config.keys()):
+        if str(key) == "qBit" or str(key).startswith("qBit-"):
+            qbit_section = config.config[str(key)]
+            if "Trackers" not in qbit_section:
+                # Collect trackers from all Arr instances
+                promoted: dict[str, dict] = {}  # URI -> tracker config
+                for arr_key in list(config.config.keys()):
+                    arr_key_str = str(arr_key)
+                    is_arr = any(
+                        arr_key_str.startswith(prefix)
+                        for prefix in ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+                    )
+                    if not is_arr:
+                        continue
+                    arr_section = config.config.get(arr_key_str, {})
+                    torrent_section = (
+                        arr_section.get("Torrent", {}) if isinstance(arr_section, dict) else {}
+                    )
+                    arr_trackers = (
+                        torrent_section.get("Trackers", [])
+                        if isinstance(torrent_section, dict)
+                        else []
+                    )
+                    if isinstance(arr_trackers, list):
+                        for tracker in arr_trackers:
+                            if isinstance(tracker, dict):
+                                uri = (tracker.get("URI") or "").strip().rstrip("/")
+                                if uri and uri not in promoted:
+                                    promoted[uri] = dict(tracker)
+
+                if promoted:
+                    qbit_section["Trackers"] = list(promoted.values())
+                    changes_made = True
+                    logger.info(
+                        "Promoted %d tracker(s) to [%s.Trackers]",
+                        len(promoted),
+                        str(key),
+                    )
+
+                    # Remove Arr-level trackers that are identical to promoted ones
+                    for arr_key in list(config.config.keys()):
+                        arr_key_str = str(arr_key)
+                        is_arr = any(
+                            arr_key_str.startswith(prefix)
+                            for prefix in ["Radarr", "Sonarr", "Lidarr", "Animarr"]
+                        )
+                        if not is_arr:
+                            continue
+                        arr_section = config.config.get(arr_key_str, {})
+                        if not isinstance(arr_section, dict):
+                            continue
+                        torrent_section = arr_section.get("Torrent", {})
+                        if not isinstance(torrent_section, dict):
+                            continue
+                        arr_trackers = torrent_section.get("Trackers", [])
+                        if not isinstance(arr_trackers, list) or not arr_trackers:
+                            continue
+
+                        # Keep only trackers that differ from promoted version
+                        remaining = []
+                        for tracker in arr_trackers:
+                            if not isinstance(tracker, dict):
+                                remaining.append(tracker)
+                                continue
+                            uri = (tracker.get("URI") or "").strip().rstrip("/")
+                            if uri in promoted and dict(tracker) == promoted[uri]:
+                                continue  # Identical to qBit level, remove
+                            remaining.append(tracker)
+
+                        if len(remaining) != len(arr_trackers):
+                            config.config[arr_key_str]["Torrent"]["Trackers"] = remaining
+                            changes_made = True
+                            logger.info(
+                                "Cleaned %d identical tracker(s) from [%s.Torrent.Trackers]",
+                                len(arr_trackers) - len(remaining),
+                                arr_key_str,
+                            )
+                else:
+                    qbit_section["Trackers"] = []
+                    changes_made = True
+
+    if changes_made:
+        print(
+            "Migration: Added Hit and Run protection settings and promoted trackers to qBit level"
+        )
+        logger.info("Added Hit and Run protection settings and promoted trackers to config")
 
     return changes_made
 
@@ -1352,7 +1503,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate Settings section
     settings_defaults = [
-        ("ConfigVersion", 1),  # Internal version, DO NOT expose to WebUI
+        ("ConfigVersion", "0.0.1"),  # Internal version, DO NOT expose to WebUI
         ("ConsoleLevel", "INFO"),
         ("Logging", True),
         ("CompletedDownloadFolder", "CHANGE_ME"),
@@ -1370,6 +1521,10 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("FFprobeAutoUpdate", True),
         ("AutoUpdateEnabled", False),
         ("AutoUpdateCron", "0 3 * * 0"),
+        ("AutoRestartProcesses", True),
+        ("MaxProcessRestarts", 5),
+        ("ProcessRestartWindow", 300),
+        ("ProcessRestartDelay", 5),
     ]
 
     for key, default in settings_defaults:
@@ -1452,6 +1607,60 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
                             entry_search[field] = default
                         changed = True
 
+    # Validate HnR fields on CategorySeeding and Tracker sections
+    hnr_category_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunMinimumDownloadPercent": 10,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+    hnr_tracker_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunMinimumDownloadPercent": 10,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+
+    # Fill missing HnR fields in qBit.CategorySeeding
+    for key in list(config.config.keys()):
+        if str(key) == "qBit" or str(key).startswith("qBit-"):
+            qbit_section = config.config[str(key)]
+            if "CategorySeeding" in qbit_section:
+                cat_seeding = qbit_section["CategorySeeding"]
+                for field, default in hnr_category_defaults.items():
+                    if field not in cat_seeding:
+                        cat_seeding[field] = default
+                        changed = True
+
+    # Fill missing HnR fields in all tracker entries (qBit + Arr level)
+    all_sections = list(config.config.keys())
+    for key in all_sections:
+        section = config.config[str(key)]
+        if not isinstance(section, dict):
+            continue
+        # qBit.Trackers
+        if "Trackers" in section and isinstance(section["Trackers"], list):
+            for tracker in section["Trackers"]:
+                if isinstance(tracker, dict):
+                    for field, default in hnr_tracker_defaults.items():
+                        if field not in tracker:
+                            tracker[field] = default
+                            changed = True
+        # Arr.Torrent.Trackers
+        if "Torrent" in section and isinstance(section["Torrent"], dict):
+            torrent_section = section["Torrent"]
+            if "Trackers" in torrent_section and isinstance(torrent_section["Trackers"], list):
+                for tracker in torrent_section["Trackers"]:
+                    if isinstance(tracker, dict):
+                        for field, default in hnr_tracker_defaults.items():
+                            if field not in tracker:
+                                tracker[field] = default
+                                changed = True
+
     return changed
 
 
@@ -1462,6 +1671,7 @@ def apply_config_migrations(config: MyConfig) -> None:
     """
     from qBitrr.config_version import (
         EXPECTED_CONFIG_VERSION,
+        _parse_version,
         backup_config,
         get_config_version,
         set_config_version,
@@ -1479,11 +1689,12 @@ def apply_config_migrations(config: MyConfig) -> None:
         print("Continuing with potentially incompatible config...")
 
     # Check if migration is needed
-    current_version = get_config_version(config)
-    needs_migration = current_version < EXPECTED_CONFIG_VERSION
+    current_version = _parse_version(get_config_version(config))
+    expected_version = _parse_version(EXPECTED_CONFIG_VERSION)
+    needs_migration = current_version < expected_version
 
     if needs_migration:
-        print(f"Config schema upgrade needed (v{current_version} -> v{EXPECTED_CONFIG_VERSION})")
+        print(f"Config schema upgrade needed ({current_version} -> {expected_version})")
         # Create backup before migration
         backup_path = backup_config(config.path)
         if backup_path:
@@ -1495,16 +1706,20 @@ def apply_config_migrations(config: MyConfig) -> None:
     if _migrate_webui_config(config):
         changes_made = True
 
-    # NEW: Migrate quality profile mappings from list to dict format (v1 → v2)
+    # Migrate quality profile mappings from list to dict format (< 0.0.2)
     if _migrate_quality_profile_mappings(config):
         changes_made = True
 
-    # NEW: Add process auto-restart settings (v2 → v3)
+    # Add process auto-restart settings (< 0.0.3)
     if _migrate_process_restart_settings(config):
         changes_made = True
 
-    # NEW: Add qBit category management settings (v3 → v4)
+    # Add qBit category management settings (< 0.0.4)
     if _migrate_qbit_category_settings(config):
+        changes_made = True
+
+    # Add Hit and Run protection settings to trackers/CategorySeeding (< 5.8.8)
+    if _migrate_hnr_settings(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)
@@ -1512,7 +1727,7 @@ def apply_config_migrations(config: MyConfig) -> None:
         changes_made = True
 
     # Update config version if migration was needed
-    if needs_migration and current_version < EXPECTED_CONFIG_VERSION:
+    if needs_migration and current_version < expected_version:
         set_config_version(config, EXPECTED_CONFIG_VERSION)
         changes_made = True
 

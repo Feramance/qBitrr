@@ -6,6 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from qBitrr.arss import _extract_tracker_host
 from qBitrr.errors import DelayLoopException
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ class qBitCategoryManager:
         self.managed_categories = config.get("managed_categories", [])
         self.default_seeding = config.get("default_seeding", {})
         self.category_overrides = config.get("category_overrides", {})
+        self.trackers = config.get("trackers", [])
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
@@ -47,7 +49,13 @@ class qBitCategoryManager:
         )
 
     def get_client(self):
-        """Get the qBit client for this instance."""
+        """Get the qBit client for this instance.
+
+        Uses a dedicated client if running in a child process (set in run_processing_loop),
+        otherwise falls back to the shared client from qBitManager.
+        """
+        if hasattr(self, "_dedicated_client") and self._dedicated_client is not None:
+            return self._dedicated_client
         return self.qbit_manager.get_client(self.instance_name)
 
     def get_seeding_config(self, category: str) -> dict:
@@ -133,7 +141,7 @@ class qBitCategoryManager:
         ratio_limit = config.get("MaxUploadRatio", -1)
         time_limit = config.get("MaxSeedingTime", -1)
 
-        # Prepare share limits
+        # Prepare share limits — qBit 5.x requires all parameters
         share_limits = {}
         if ratio_limit > 0:
             share_limits["ratio_limit"] = ratio_limit
@@ -142,6 +150,9 @@ class qBitCategoryManager:
 
         # Apply share limits if any
         if share_limits:
+            share_limits.setdefault("ratio_limit", -2)
+            share_limits.setdefault("seeding_time_limit", -2)
+            share_limits.setdefault("inactive_seeding_time_limit", -2)
             try:
                 torrent.set_share_limits(**share_limits)
                 self.logger.debug(
@@ -220,16 +231,131 @@ class qBitCategoryManager:
         time_met = time_limit > 0 and torrent.seeding_time >= time_limit
 
         # Determine removal based on mode
+        should_remove = False
         if remove_mode == 1:  # Remove on ratio only
-            return ratio_met
+            should_remove = ratio_met
         elif remove_mode == 2:  # Remove on time only
-            return time_met
+            should_remove = time_met
         elif remove_mode == 3:  # Remove on OR (either condition)
-            return ratio_met or time_met
+            should_remove = ratio_met or time_met
         elif remove_mode == 4:  # Remove on AND (both conditions)
-            return ratio_met and time_met
+            should_remove = ratio_met and time_met
 
+        # HnR protection: check tracker-level HnR first, then category-level
+        if should_remove:
+            tracker_config = self._get_tracker_config(torrent)
+            hnr_config = tracker_config if tracker_config else config
+
+            # Bypass HnR if tracker reports torrent as unregistered/dead
+            if hnr_config.get("HitAndRunMode", False) and self._hnr_tracker_is_dead(
+                torrent, hnr_config
+            ):
+                self.logger.debug(
+                    "HnR bypass: tracker reports torrent as unregistered/dead '%s'",
+                    torrent.name,
+                )
+                return True
+
+            if not self._hnr_safe_to_remove(torrent, hnr_config):
+                self.logger.debug(
+                    "HnR protection: keeping '%s' (ratio=%.2f, seeding=%ds)",
+                    torrent.name,
+                    torrent.ratio,
+                    torrent.seeding_time,
+                )
+                return False
+
+        return should_remove
+
+    def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
+        """Find the highest-priority matching tracker config for this torrent."""
+        if not self.trackers:
+            return None
+        try:
+            torrent_hosts = {
+                _extract_tracker_host(getattr(t, "url", ""))
+                for t in torrent.trackers
+                if hasattr(t, "url")
+            } - {""}
+        except Exception:
+            return None
+        best = None
+        best_priority = -1
+        for tracker_cfg in self.trackers:
+            if not isinstance(tracker_cfg, dict):
+                continue
+            uri = (tracker_cfg.get("URI") or "").strip().rstrip("/")
+            priority = tracker_cfg.get("Priority", 0)
+            cfg_host = _extract_tracker_host(uri)
+            if cfg_host and cfg_host in torrent_hosts and priority > best_priority:
+                best = tracker_cfg
+                best_priority = priority
+        return best
+
+    def _hnr_tracker_is_dead(self, torrent: TorrentDictionary, config: dict) -> bool:
+        """Check if the HnR-enabled tracker reports the torrent as unregistered."""
+        _dead_keywords = {
+            "unregistered torrent",
+            "torrent not registered",
+            "info hash is not authorized",
+            "torrent is not authorized",
+            "not found",
+            "torrent not found",
+        }
+        uri = (config.get("URI") or "").strip().rstrip("/")
+        cfg_host = _extract_tracker_host(uri)
+        if not cfg_host:
+            return False
+        try:
+            for tracker in torrent.trackers:
+                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
+                if _extract_tracker_host(tracker_url) != cfg_host:
+                    continue
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                if any(keyword in message_text for keyword in _dead_keywords):
+                    return True
+        except Exception:
+            pass
         return False
+
+    def _hnr_safe_to_remove(self, torrent: TorrentDictionary, config: dict) -> bool:
+        """
+        Check if Hit and Run obligations are met for this torrent.
+
+        Args:
+            torrent: qBittorrent torrent object
+            config: Seeding configuration dict
+
+        Returns:
+            True if HnR obligations are met (safe to remove), False otherwise
+        """
+        if not config.get("HitAndRunMode", False):
+            return True
+
+        min_ratio = config.get("MinSeedRatio", 1.0)
+        min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
+        min_dl_pct = config.get("HitAndRunMinimumDownloadPercent", 10) / 100.0
+        partial_ratio = config.get("HitAndRunPartialSeedRatio", 1.0)
+        buffer_secs = config.get("TrackerUpdateBuffer", 0)
+
+        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
+        effective_seeding_time = torrent.seeding_time - buffer_secs
+
+        if torrent.progress < min_dl_pct:
+            return True  # Below minimum download threshold, no HnR obligation
+        if is_partial:
+            return torrent.ratio >= partial_ratio  # Partial: ratio only
+
+        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
+        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
+
+        if min_ratio > 0 and min_time_secs > 0:
+            return ratio_met or time_met  # Either clears HnR
+        elif min_ratio > 0:
+            return ratio_met
+        elif min_time_secs > 0:
+            return time_met
+        return True
 
     def _remove_torrent(self, torrent: TorrentDictionary, category: str):
         """
@@ -257,12 +383,45 @@ class qBitCategoryManager:
                 exc_info=True,
             )
 
+    def _create_dedicated_client(self):
+        """Create a dedicated qBit client for this process to avoid HTTP session sharing."""
+        import qbittorrentapi
+
+        metadata = self.qbit_manager.instance_metadata.get(self.instance_name, {})
+        host = metadata.get("host", "localhost")
+        port = metadata.get("port", 8080)
+        username = metadata.get("username")
+        # Read password from config since it's not stored in metadata
+        from qBitrr.config import CONFIG
+
+        if self.instance_name == "default":
+            password = CONFIG.get("qBit.Password", fallback=None)
+        else:
+            password = CONFIG.get(f"qBit-{self.instance_name}.Password", fallback=None)
+        client = qbittorrentapi.Client(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            SIMPLE_RESPONSES=False,
+        )
+        self.logger.debug(
+            "Created dedicated qBit client for category manager '%s'",
+            self.instance_name,
+        )
+        return client
+
     def run_processing_loop(self):
         """
         Main processing loop for qBit-managed categories.
 
         This runs in a separate process and continuously processes torrents.
         """
+        # Create a dedicated client for this process to avoid sharing
+        # the parent's HTTP session, which causes response cross-contamination
+        # ("Invalid version" errors) when concurrent requests are made.
+        self._dedicated_client = self._create_dedicated_client()
+
         self.logger.info(
             "Starting processing loop for qBit category manager '%s'",
             self.instance_name,

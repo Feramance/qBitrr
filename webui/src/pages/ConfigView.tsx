@@ -10,6 +10,7 @@ import { getTooltip } from "../config/tooltips";
 import { IconImage } from "../components/IconImage";
 import { TagInput } from "../components/TagInput";
 import Select from "react-select";
+import type { CSSObjectWithLabel } from "react-select";
 import ConfigureIcon from "../icons/gear.svg";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
@@ -57,7 +58,7 @@ const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 const getSelectStyles = () => {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
-    control: (base: any) => ({
+    control: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       color: isDark ? '#eaeef2' : '#1d1d1f',
@@ -68,13 +69,13 @@ const getSelectStyles = () => {
         borderColor: isDark ? '#3a4149' : '#b8b8bd',
       }
     }),
-    menu: (base: any) => ({
+    menu: (base: CSSObjectWithLabel) => ({
       ...base,
       background: isDark ? '#0f131a' : '#ffffff',
       borderColor: isDark ? '#2a2f36' : '#d2d2d7',
       border: `1px solid ${isDark ? '#2a2f36' : '#d2d2d7'}`,
     }),
-    option: (base: any, state: any) => ({
+    option: (base: CSSObjectWithLabel, state: { isFocused: boolean }) => ({
       ...base,
       background: state.isFocused
         ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
@@ -84,19 +85,19 @@ const getSelectStyles = () => {
         background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
       }
     }),
-    singleValue: (base: any) => ({
+    singleValue: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    input: (base: any) => ({
+    input: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#eaeef2' : '#1d1d1f',
     }),
-    placeholder: (base: any) => ({
+    placeholder: (base: CSSObjectWithLabel) => ({
       ...base,
       color: isDark ? '#9aa3ac' : '#6e6e73',
     }),
-    menuList: (base: any) => ({
+    menuList: (base: CSSObjectWithLabel) => ({
       ...base,
       padding: '4px',
     }),
@@ -450,6 +451,81 @@ const QBIT_FIELDS: FieldDefinition[] = [
     path: ["CategorySeeding", "UploadRateLimitPerTorrent"],
     type: "number",
     placeholder: "-1 (unlimited), 0 (disabled), or positive number",
+  },
+  {
+    label: "Hit and Run Mode",
+    path: ["CategorySeeding", "HitAndRunMode"],
+    type: "checkbox",
+  },
+  {
+    label: "Min Seed Ratio",
+    path: ["CategorySeeding", "MinSeedRatio"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Seeding Time (days)",
+    path: ["CategorySeeding", "MinSeedingTimeDays"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seeding Time must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Download % for HnR",
+    path: ["CategorySeeding", "HitAndRunMinimumDownloadPercent"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0 || num > 100) {
+        return "Min Download % must be between 0 and 100.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Partial Download Seed Ratio",
+    path: ["CategorySeeding", "HitAndRunPartialSeedRatio"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Partial Download Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Tracker Update Buffer (s)",
+    path: ["CategorySeeding", "TrackerUpdateBuffer"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Tracker Update Buffer must be 0 or greater.";
+      }
+      return undefined;
+    },
   },
 ];
 
@@ -996,6 +1072,81 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     type: "text",
     parse: parseList,
     format: formatList,
+  },
+  {
+    label: "Hit and Run Mode",
+    path: ["HitAndRunMode"],
+    type: "checkbox",
+  },
+  {
+    label: "Min Seed Ratio",
+    path: ["MinSeedRatio"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Seeding Time (days)",
+    path: ["MinSeedingTimeDays"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Min Seeding Time must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Min Download % for HnR",
+    path: ["HitAndRunMinimumDownloadPercent"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0 || num > 100) {
+        return "Min Download % must be between 0 and 100.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Partial Download Seed Ratio",
+    path: ["HitAndRunPartialSeedRatio"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Partial Download Seed Ratio must be 0 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Tracker Update Buffer (s)",
+    path: ["TrackerUpdateBuffer"],
+    type: "number",
+    required: false,
+    validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Tracker Update Buffer must be 0 or greater.";
+      }
+      return undefined;
+    },
   },
 ];
 
@@ -2059,6 +2210,7 @@ interface FieldGroupProps {
   defaultOpen?: boolean;
   qualityProfiles?: Array<{ id: number; name: string }>;
   sectionKey?: string;
+  qbitTrackers?: boolean;
 }
 
 function FieldGroup({
@@ -2071,6 +2223,7 @@ function FieldGroup({
   defaultOpen = false,
   qualityProfiles = [],
   sectionKey,
+  qbitTrackers = false,
 }: FieldGroupProps): JSX.Element {
   const sectionName = sectionKey ?? basePath[0] ?? "";
 
@@ -2203,7 +2356,8 @@ function FieldGroup({
   }
 
   if (title === "Trackers") {
-    const trackers = (getValue(state as ConfigDocument, ["Torrent", "Trackers"]) ?? []) as ConfigDocument[];
+    const trackerPath = qbitTrackers ? ["Trackers"] : ["Torrent", "Trackers"];
+    const trackers = (getValue(state as ConfigDocument, trackerPath) ?? []) as ConfigDocument[];
     const handleAddTracker = () => {
       const nextTrackers = [
         ...trackers,
@@ -2214,24 +2368,34 @@ function FieldGroup({
           AddTags: [],
         },
       ];
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
+      onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
     };
     const handleDeleteTracker = (index: number) => {
       const nextTrackers = [...trackers];
       nextTrackers.splice(index, 1);
-      onChange([...basePath, "Torrent", "Trackers"], {} as FieldDefinition, nextTrackers);
+      onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
     };
     return (
       <details className="config-section" open={defaultOpen}>
         <summary>{title}</summary>
         <div className="config-section__body">
+          {qbitTrackers && (
+            <div className="alert info" style={{ marginBottom: '12px' }}>
+              Shared tracker configs inherited by all Arr instances on this qBit instance.
+            </div>
+          )}
+          {!qbitTrackers && (
+            <div className="alert info" style={{ marginBottom: '12px' }}>
+              Trackers inherited from qBit instance. Add here only to override specific settings.
+            </div>
+          )}
           <div className="tracker-grid">
             {trackers.map((tracker, index) => (
               <TrackerCard
                 key={index}
                 fields={fields}
                 state={tracker}
-                basePath={[...basePath, "Torrent", "Trackers", String(index)]}
+                basePath={[...basePath, ...trackerPath, String(index)]}
                 onChange={onChange}
                 onDelete={() => handleDeleteTracker(index)}
               />
@@ -2469,6 +2633,14 @@ function TrackerCard({
   onDelete: () => void;
 }): JSX.Element {
   const trackerName = (getValue(state, ["Name"]) as string) || "New Tracker";
+  // state is the individual tracker object, so read with basePath=[]
+  // but onChange needs the full basePath to update the correct location in formState
+  const wrappedOnChange = useCallback(
+    (path: string[], def: FieldDefinition, value: unknown) => {
+      onChange([...basePath, ...path], def, value);
+    },
+    [basePath, onChange]
+  );
   return (
     <details className="card tracker-card" open>
       <summary className="card-header">
@@ -2478,7 +2650,7 @@ function TrackerCard({
         </button>
       </summary>
       <div className="card-body">
-        <FieldGroup title={null} fields={fields} state={state} basePath={basePath} onChange={onChange} />
+        <FieldGroup title={null} fields={fields} state={state} basePath={[]} onChange={wrappedOnChange} />
       </div>
     </details>
   );
@@ -2614,14 +2786,11 @@ function SecureField({
   const [showValue, setShowValue] = useState(false);
 
   const handleRefresh = () => {
-    let newKey = "";
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      newKey = crypto.randomUUID().replace(/-/g, "");
-    } else {
-      newKey = Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join("");
-    }
+    const newKey = (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
+      ? crypto.randomUUID().replace(/-/g, "")
+      : Array.from({ length: 32 }, () =>
+          Math.floor(Math.random() * 16).toString(16)
+        ).join("");
     onChange(newKey);
   };
 
@@ -2969,9 +3138,18 @@ function QbitInstanceModal({
             sectionKey={keyName}
             defaultOpen
           />
+          <FieldGroup
+            title="Trackers"
+            fields={ARR_TRACKER_FIELDS}
+            state={state}
+            basePath={[]}
+            onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
+            defaultOpen={false}
+            qbitTrackers
+          />
           {isDefault && (
             <div className="alert info" style={{ marginTop: '16px' }}>
-              ℹ️ This is the default qBittorrent instance (required). To add additional instances, use the "Add Instance" button.
+              This is the default qBittorrent instance (required). To add additional instances, use the "Add Instance" button.
             </div>
           )}
         </div>
