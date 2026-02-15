@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from qBitrr.gen_config import MyConfig
 
 # Current expected config version - updated automatically by bump2version
-EXPECTED_CONFIG_VERSION = "5.8.8"
+EXPECTED_CONFIG_VERSION = "5.9.0"
 
 # Legacy integer version → semver mapping
 _LEGACY_VERSION_MAP = {
