@@ -2238,7 +2238,11 @@ class WebUI:
 
             # Add Arr-managed categories
             if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
+                from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
+
                 for arr in self.manager.arr_manager.managed_objects.values():
+                    if isinstance(arr, (PlaceHolderArr, FreeSpaceManager)):
+                        continue
                     try:
                         # Get the qBit instance for this Arr (use default for now)
                         client = self.manager.client
