@@ -1,5 +1,59 @@
 # Changelog
 
+## v5.9.0 (15/02/2026)
+
+### 🚀 Features
+- [docs: Add Hit and Run protection as a main feature](https://github.com/Feramance/qBitrr/commit/139d5925ebc583a1fdab9cb0ff2f8155cbb2976c) - @Feramance
+- [feat: Add configurable HnR download threshold + unify tracker docs](https://github.com/Feramance/qBitrr/commit/0d03206d0d6b7880b6b43648bcd954608c98ff1b) - @Feramance
+- [feat: Extend HnR protection to all torrent deletion paths](https://github.com/Feramance/qBitrr/commit/aafbcc169c34983ac6dea2cbc1816682a17e6b19) - @Feramance
+- [feat: Add HnR protection to qBit CategorySeeding config surface](https://github.com/Feramance/qBitrr/commit/3a81d1c32c979b76f709b01c5620a5f471b75352) - @Feramance
+- [feat(webui): Add HnR protection fields to ConfigView](https://github.com/Feramance/qBitrr/commit/6cbb39314fae8b3d9d989e02d8cc65016ac9ac7c) - @Feramance
+- [feat: Add Hit and Run protection + semver config versioning](https://github.com/Feramance/qBitrr/commit/88ad20ca669b4f2c0b9c5629d1ef8784947900fa) - @Feramance
+- [docs: Add Requestrr integration documentation](https://github.com/Feramance/qBitrr/commit/2f92dd22a84493c6d721f2f44f424a258b6ef4e2) - @Feramance
+- [Add CLAUDE.md to .gitignore](https://github.com/Feramance/qBitrr/commit/e5e2bde54c7e3058c2f232fda6d2e197084752a0) - @Feramance
+
+### 🐛 Bug Fixes
+- [fix: Skip PlaceHolderArr and FreeSpaceManager in category stats endpoint](https://github.com/Feramance/qBitrr/commit/6039e2522b5c1be72be0d662384ef7f33c8f237d) - @Feramance
+- [fix: Create dedicated qBit client in category manager child process](https://github.com/Feramance/qBitrr/commit/2094b1eb3c5db41524a6e3be4716278c50f64e2b) - @Feramance
+- [fix: Process registry leaks, config validation gaps, and dependency updates](https://github.com/Feramance/qBitrr/commit/2c160f7748faeabe05945edbda5100115f264019) - @Feramance
+- [fix: Rebuild qBit category managers on reload and fix tracker field rendering](https://github.com/Feramance/qBitrr/commit/4066b1b0bb44d4e86dd373b1c8f591caa8b54386) - @Feramance
+- [fix: Make HnR config fields optional in WebUI validation](https://github.com/Feramance/qBitrr/commit/32ac27108cf35705581db8fd6b1280f9b11cb717) - @Feramance
+- [fix: Fill missing HnR fields in config validation](https://github.com/Feramance/qBitrr/commit/0252b907757dcbc5fba79b98934d7305441cbb89) - @Feramance
+- [fix: Resolve cfunmet signature mismatch and qBit 5.x share limits](https://github.com/Feramance/qBitrr/commit/547975b22adc13018aa7b9b52c7684cd4c90007c) - @Feramance
+- [fix: Use host-based matching for tracker URI comparison](https://github.com/Feramance/qBitrr/commit/ba67af1c2454eb582d4e3cfdbce40669f5437cee) - @Feramance
+- [fix: Resolve eslint 10 compatibility issues and Docker build](https://github.com/Feramance/qBitrr/commit/fa014bc77ae13b7c08f6dba5f262cde5261f6213) - @Feramance
+- [fix: Normalize tracker URIs to prevent trailing-slash mismatches](https://github.com/Feramance/qBitrr/commit/3ab0d6d46e6c9bbfb452762cbd7788666303873d) - @Feramance
+- [fix: Handle negligible downloads (<10% progress) in HnR protection](https://github.com/Feramance/qBitrr/commit/7fdcc6432e46140477f7365695fe8cd4b08fe19d) - @Feramance
+- [fix: Align HnR migration version gate with EXPECTED_CONFIG_VERSION](https://github.com/Feramance/qBitrr/commit/5234d0752463fb308b7afd908c93d6a6dfc6e280) - @Feramance
+- [docs: Fix Requestrr flowchart to use Mermaid format](https://github.com/Feramance/qBitrr/commit/0fb5700706dd35a347f4c350ce1d18dea4605e57) - @Feramance
+- [docs: Fix remaining X-API-Token, WebUI thread, and API response issues](https://github.com/Feramance/qBitrr/commit/d2eec48d8b0f40b5cf925a89f48082a819e592ae) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/740cd62c3bcdc8672d4f2f31b51e4f013cacec4b) - @Feramance
+- [docs: Update HnR documentation to reflect tracker-only design](https://github.com/Feramance/qBitrr/commit/ce240dce3b2e17d54cfb3e4fda8362e2e576484b) - @Feramance
+- [docs: fix incorrect config version references](https://github.com/Feramance/qBitrr/commit/7a6c951d6bc4a9ed9f43ea66a2b2b4a304edfd5a) - @Feramance
+- [docs: fix broken anchor and exclude internal file from build](https://github.com/Feramance/qBitrr/commit/09e83fb63dd4508d1b62d1f37e3295cc058ffbee) - @Feramance
+- [docs: fix documentation drift and code inconsistencies](https://github.com/Feramance/qBitrr/commit/f42442c482a7e19bc65d8effd0ac6bbba7bb49a1) - @Feramance
+- [docs: consolidate documentation structure (76 → 60 files)](https://github.com/Feramance/qBitrr/commit/c4c7473b4d2f5dd4fe0bff3266a5d47b85606122) - @Feramance
+- [docs: add qBit managed categories and seeding settings documentation](https://github.com/Feramance/qBitrr/commit/ba07bca69bd3fbaa5d4d5e474748af43645d1870) - @Feramance
+
+### ♻️ Refactoring
+- [refactor: Move HnR config to tracker-only (remove from Arr SeedingMode)](https://github.com/Feramance/qBitrr/commit/6ef527c42277fbac9aecbc9472a698f6700c1077) - @Feramance
+
+### 🔧 Maintenance
+- [Update gitignore](https://github.com/Feramance/qBitrr/commit/2f825ce1c1508910392b75a51e2728d43ed567ed) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/dc9ca369ae42719ae214f10dbe0b29172f1bcdaa) - @Feramance
+- [Build(deps-dev): Bump @eslint/js from 9.39.2 to 10.0.1 in /webui](https://github.com/Feramance/qBitrr/commit/52dc746c5c12eb1c8a4ae0105c379d2f3d53da5a) - @Feramance
+- [Build(deps-dev): Bump eslint from 9.39.2 to 10.0.0 in /webui](https://github.com/Feramance/qBitrr/commit/652de439f085d5415b609ffbb6d59769b5cda42b) - @Feramance
+- [Build(deps-dev): Bump @vitejs/plugin-react from 5.1.2 to 5.1.3 in /webui (#296)](https://github.com/Feramance/qBitrr/commit/b81a02d3fa154ae8515b3deb8b7e6244b0322492) - @Feramance
+- [Build(deps-dev): Bump autoprefixer from 10.4.23 to 10.4.24 in /webui (#295)](https://github.com/Feramance/qBitrr/commit/e5c8e6b35cf5fc1b5724026692b9a1fb9e047f73) - @Feramance
+- [Build(deps-dev): Bump @types/react from 19.2.9 to 19.2.13 in /webui (#293)](https://github.com/Feramance/qBitrr/commit/8ecbf2f15eba143e1f1d9072efa6898b0294676c) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.0.10 to 25.2.2 in /webui (#292)](https://github.com/Feramance/qBitrr/commit/cfc9e6be55d93a693e6d68506e284b0a10d0904a) - @Feramance
+- [AGENTS.md updates](https://github.com/Feramance/qBitrr/commit/0f6b25763b90ef6f03725da768e4e170496aa737) - @Feramance
+- [Update .gitignore and AGENTS.md hardlink docs](https://github.com/Feramance/qBitrr/commit/197538dd2f5d02285aa7ee61ed4744df2c1b37b5) - @Feramance
+
+---
+
 ## v5.8.8 (04/02/2026)
 
 ### 🚀 Features
