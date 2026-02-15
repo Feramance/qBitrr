@@ -135,7 +135,7 @@ class qBitCategoryManager:
         ratio_limit = config.get("MaxUploadRatio", -1)
         time_limit = config.get("MaxSeedingTime", -1)
 
-        # Prepare share limits
+        # Prepare share limits — qBit 5.x requires all parameters
         share_limits = {}
         if ratio_limit > 0:
             share_limits["ratio_limit"] = ratio_limit
@@ -144,6 +144,9 @@ class qBitCategoryManager:
 
         # Apply share limits if any
         if share_limits:
+            share_limits.setdefault("ratio_limit", -2)
+            share_limits.setdefault("seeding_time_limit", -2)
+            share_limits.setdefault("inactive_seeding_time_limit", -2)
             try:
                 torrent.set_share_limits(**share_limits)
                 self.logger.debug(

@@ -5521,7 +5521,9 @@ class Arr:
         if self._hnr_allows_delete(torrent, "slow torrent deletion"):
             self.delete.add(torrent.hash)
 
-    def _process_single_torrent_delete_cfunmet(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_delete_cfunmet(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = ""
+    ):
         self.logger.info(
             "Removing CF unmet torrent: "
             "[Progress: %s%%][Added On: %s]"
