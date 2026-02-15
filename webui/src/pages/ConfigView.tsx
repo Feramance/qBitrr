@@ -461,7 +461,9 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Min Seed Ratio",
     path: ["CategorySeeding", "MinSeedRatio"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Min Seed Ratio must be 0 or greater.";
@@ -473,7 +475,9 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Min Seeding Time (days)",
     path: ["CategorySeeding", "MinSeedingTimeDays"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Min Seeding Time must be 0 or greater.";
@@ -485,7 +489,9 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Min Download % for HnR",
     path: ["CategorySeeding", "HitAndRunMinimumDownloadPercent"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0 || num > 100) {
         return "Min Download % must be between 0 and 100.";
@@ -497,7 +503,9 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Partial Download Seed Ratio",
     path: ["CategorySeeding", "HitAndRunPartialSeedRatio"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Partial Download Seed Ratio must be 0 or greater.";
@@ -509,7 +517,9 @@ const QBIT_FIELDS: FieldDefinition[] = [
     label: "Tracker Update Buffer (s)",
     path: ["CategorySeeding", "TrackerUpdateBuffer"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Tracker Update Buffer must be 0 or greater.";
@@ -1072,7 +1082,9 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Min Seed Ratio",
     path: ["MinSeedRatio"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Min Seed Ratio must be 0 or greater.";
@@ -1084,7 +1096,9 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Min Seeding Time (days)",
     path: ["MinSeedingTimeDays"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Min Seeding Time must be 0 or greater.";
@@ -1096,7 +1110,9 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Min Download % for HnR",
     path: ["HitAndRunMinimumDownloadPercent"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0 || num > 100) {
         return "Min Download % must be between 0 and 100.";
@@ -1108,7 +1124,9 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Partial Download Seed Ratio",
     path: ["HitAndRunPartialSeedRatio"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Partial Download Seed Ratio must be 0 or greater.";
@@ -1120,7 +1138,9 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Tracker Update Buffer (s)",
     path: ["TrackerUpdateBuffer"],
     type: "number",
+    required: false,
     validate: (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0) {
         return "Tracker Update Buffer must be 0 or greater.";
