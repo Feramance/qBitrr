@@ -49,7 +49,13 @@ class qBitCategoryManager:
         )
 
     def get_client(self):
-        """Get the qBit client for this instance."""
+        """Get the qBit client for this instance.
+
+        Uses a dedicated client if running in a child process (set in run_processing_loop),
+        otherwise falls back to the shared client from qBitManager.
+        """
+        if hasattr(self, "_dedicated_client") and self._dedicated_client is not None:
+            return self._dedicated_client
         return self.qbit_manager.get_client(self.instance_name)
 
     def get_seeding_config(self, category: str) -> dict:
@@ -377,12 +383,45 @@ class qBitCategoryManager:
                 exc_info=True,
             )
 
+    def _create_dedicated_client(self):
+        """Create a dedicated qBit client for this process to avoid HTTP session sharing."""
+        import qbittorrentapi
+
+        metadata = self.qbit_manager.instance_metadata.get(self.instance_name, {})
+        host = metadata.get("host", "localhost")
+        port = metadata.get("port", 8080)
+        username = metadata.get("username")
+        # Read password from config since it's not stored in metadata
+        from qBitrr.config import CONFIG
+
+        if self.instance_name == "default":
+            password = CONFIG.get("qBit.Password", fallback=None)
+        else:
+            password = CONFIG.get(f"qBit-{self.instance_name}.Password", fallback=None)
+        client = qbittorrentapi.Client(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            SIMPLE_RESPONSES=False,
+        )
+        self.logger.debug(
+            "Created dedicated qBit client for category manager '%s'",
+            self.instance_name,
+        )
+        return client
+
     def run_processing_loop(self):
         """
         Main processing loop for qBit-managed categories.
 
         This runs in a separate process and continuously processes torrents.
         """
+        # Create a dedicated client for this process to avoid sharing
+        # the parent's HTTP session, which causes response cross-contamination
+        # ("Invalid version" errors) when concurrent requests are made.
+        self._dedicated_client = self._create_dedicated_client()
+
         self.logger.info(
             "Starting processing loop for qBit category manager '%s'",
             self.instance_name,
