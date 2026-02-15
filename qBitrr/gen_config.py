@@ -1603,6 +1603,60 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
                             entry_search[field] = default
                         changed = True
 
+    # Validate HnR fields on CategorySeeding and Tracker sections
+    hnr_category_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunMinimumDownloadPercent": 10,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+    hnr_tracker_defaults = {
+        "HitAndRunMode": False,
+        "MinSeedRatio": 1.0,
+        "MinSeedingTimeDays": 0,
+        "HitAndRunMinimumDownloadPercent": 10,
+        "HitAndRunPartialSeedRatio": 1.0,
+        "TrackerUpdateBuffer": 0,
+    }
+
+    # Fill missing HnR fields in qBit.CategorySeeding
+    for key in list(config.config.keys()):
+        if str(key) == "qBit" or str(key).startswith("qBit-"):
+            qbit_section = config.config[str(key)]
+            if "CategorySeeding" in qbit_section:
+                cat_seeding = qbit_section["CategorySeeding"]
+                for field, default in hnr_category_defaults.items():
+                    if field not in cat_seeding:
+                        cat_seeding[field] = default
+                        changed = True
+
+    # Fill missing HnR fields in all tracker entries (qBit + Arr level)
+    all_sections = list(config.config.keys())
+    for key in all_sections:
+        section = config.config[str(key)]
+        if not isinstance(section, dict):
+            continue
+        # qBit.Trackers
+        if "Trackers" in section and isinstance(section["Trackers"], list):
+            for tracker in section["Trackers"]:
+                if isinstance(tracker, dict):
+                    for field, default in hnr_tracker_defaults.items():
+                        if field not in tracker:
+                            tracker[field] = default
+                            changed = True
+        # Arr.Torrent.Trackers
+        if "Torrent" in section and isinstance(section["Torrent"], dict):
+            torrent_section = section["Torrent"]
+            if "Trackers" in torrent_section and isinstance(torrent_section["Trackers"], list):
+                for tracker in torrent_section["Trackers"]:
+                    if isinstance(tracker, dict):
+                        for field, default in hnr_tracker_defaults.items():
+                            if field not in tracker:
+                                tracker[field] = default
+                                changed = True
+
     return changed
 
 
