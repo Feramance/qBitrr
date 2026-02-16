@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@mantine/core": "^8.3.15",
-    "@mantine/dates": "^8.3.14",
+    "@mantine/dates": "^8.3.15",
     "@mantine/hooks": "^8.3.15",
     "@melloware/react-logviewer": "^6.3.5",
     "@tanstack/react-table": "^8.21.3",
