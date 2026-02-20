@@ -691,14 +691,16 @@ class Arr:
 
         if not QBIT_DISABLED and not TAGLESS:
             try:
-                self.manager.qbit_manager.client.torrents_create_tags(
-                    [
-                        "qBitrr-allowed_seeding",
-                        "qBitrr-ignored",
-                        "qBitrr-imported",
-                        "qBitrr-allowed_stalled",
-                    ]
-                )
+                _client = self.manager.qbit_manager.client
+                if _client is not None:
+                    _client.torrents_create_tags(
+                        [
+                            "qBitrr-allowed_seeding",
+                            "qBitrr-ignored",
+                            "qBitrr-imported",
+                            "qBitrr-allowed_stalled",
+                        ]
+                    )
             except qbittorrentapi.exceptions.APIConnectionError as e:
                 self.logger.warning(
                     "Could not connect to qBittorrent during initialization for %s: %s. "
@@ -708,7 +710,9 @@ class Arr:
                 )
         elif not QBIT_DISABLED and TAGLESS:
             try:
-                self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-ignored"])
+                _client = self.manager.qbit_manager.client
+                if _client is not None:
+                    _client.torrents_create_tags(["qBitrr-ignored"])
             except qbittorrentapi.exceptions.APIConnectionError as e:
                 self.logger.warning(
                     "Could not connect to qBittorrent during initialization for %s: %s. "
@@ -4835,7 +4839,7 @@ class Arr:
                 if not len(torrents_with_instances):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
 
-                # Internet check: Use default instance for backward compatibility
+                # Internet check: use the first available qBit client
                 if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
@@ -5715,11 +5719,20 @@ class Arr:
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, type="qbit")
-        # Host-based matching: resolve qBit announce URLs to their config URIs
+        # Host-based matching: resolve qBit announce URLs to their config URIs.
+        # Supports apex/suffix matching so that an announce URL using a subdomain
+        # (e.g. "tracker.torrentleech.org") matches a config URI that is the apex
+        # domain (e.g. "torrentleech.org").
         current_hosts = {_extract_tracker_host(u) for u in current_tracker_urls} - {""}
-        monitored_trackers = {
-            self._host_to_config_uri[h] for h in current_hosts if h in self._host_to_config_uri
-        }
+        monitored_trackers: set[str] = set()
+        for h in current_hosts:
+            if h in self._host_to_config_uri:
+                monitored_trackers.add(self._host_to_config_uri[h])
+            else:
+                for config_host, config_uri in self._host_to_config_uri.items():
+                    if h.endswith("." + config_host):
+                        monitored_trackers.add(config_uri)
+                        break
         # For AddTrackerIfMissing, check by host whether tracker is already present
         need_to_be_added = {
             uri
@@ -5824,11 +5837,26 @@ class Arr:
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-            return return_value, -1, remove_torrent  # Do not touch super seeding torrents.
+            return return_value, -1, remove_torrent
+
+        is_uploading = torrent.state_enum in (
+            TorrentStates.UPLOADING,
+            TorrentStates.STALLED_UPLOAD,
+            TorrentStates.QUEUED_UPLOAD,
+            TorrentStates.PAUSED_UPLOAD,
+        )
+        is_downloading = torrent.state_enum in (
+            TorrentStates.DOWNLOADING,
+            TorrentStates.STALLED_DOWNLOAD,
+            TorrentStates.QUEUED_DOWNLOAD,
+            TorrentStates.PAUSED_DOWNLOAD,
+            TorrentStates.FORCED_DOWNLOAD,
+            TorrentStates.METADATA_DOWNLOAD,
+        )
+
         data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
-        # self.logger.trace("%r", torrent)
 
         ratio_limit_dat = data_settings.get("ratio_limit", -5)
         ratio_limit_tor = data_torrent.get("ratio_limit", -5)
@@ -5838,16 +5866,15 @@ class Arr:
         seeding_time_limit = max(seeding_time_limit_dat, seeding_time_limit_tor)
         ratio_limit = max(ratio_limit_dat, ratio_limit_tor)
 
-        if self.seeding_mode_global_remove_torrent != -1:
+        if is_uploading and self.seeding_mode_global_remove_torrent != -1:
             remove_torrent = self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
         else:
             remove_torrent = False
 
-        # HnR protection: override removal if obligations not met
         hnr_override = False
-        if remove_torrent and not self._hnr_safe_to_remove(torrent, data_settings):
+        if is_downloading and remove_torrent and not self._hnr_safe_to_remove(torrent, data_settings):
             self.logger.debug(
-                "HnR protection: keeping [%s] (ratio=%.2f, seeding=%s)",
+                "HnR protection: keeping downloading torrent [%s] (ratio=%.2f, seeding=%s)",
                 torrent.name,
                 torrent.ratio,
                 timedelta(seconds=torrent.seeding_time),
@@ -5856,9 +5883,9 @@ class Arr:
             hnr_override = True
 
         if hnr_override:
-            return_value = True  # HnR protection forces leave-alone
+            return_value = True
         else:
-            return_value = not self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
+            return_value = not (is_uploading and self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit))
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
@@ -5874,14 +5901,21 @@ class Arr:
         ) or self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
             self.remove_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
 
+        if hnr_override and not self.in_tags(torrent, "qBitrr-hnr_active", instance_name):
+            self.add_tags(torrent, ["qBitrr-hnr_active"], instance_name)
+        elif not hnr_override and self.in_tags(torrent, "qBitrr-hnr_active", instance_name):
+            self.remove_tags(torrent, ["qBitrr-hnr_active"], instance_name)
+
         self.logger.trace("Config Settings returned [%s]: %r", torrent.name, data_settings)
         return (
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
             remove_torrent,
-        )  # Seeding is not complete needs more time
+        )
 
-    def _process_single_torrent_trackers(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_trackers(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         if torrent.hash in self.tracker_delay:
             return
         self.tracker_delay.add(torrent.hash)
@@ -5920,60 +5954,10 @@ class Arr:
             monitored_trackers, _remove_urls
         )
         if monitored_trackers and most_important_tracker:
-            # Only use globals if there is not a configured equivalent value on the
-            # highest priority tracker
-            data = {
-                "ratio_limit": (
-                    r
-                    if (
-                        r := most_important_tracker.get(
-                            "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
-                        )
-                    )
-                    > 0
-                    else None
-                ),
-                "seeding_time_limit": (
-                    r
-                    if (
-                        r := most_important_tracker.get(
-                            "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
-                        )
-                    )
-                    > 0
-                    else None
-                ),
-            }
-            if any(r is not None for r in data):
-                if (
-                    (_l1 := data.get("seeding_time_limit"))
-                    and _l1 > 0
-                    and torrent.seeding_time_limit != data.get("seeding_time_limit")
-                ):
-                    data.pop("seeding_time_limit")
-                if (
-                    (_l2 := data.get("ratio_limit"))
-                    and _l2 > 0
-                    and torrent.seeding_time_limit != data.get("ratio_limit")
-                ):
-                    data.pop("ratio_limit")
-
-                if not _l1:
-                    data["seeding_time_limit"] = None
-                elif _l1 < 0:
-                    data["seeding_time_limit"] = None
-                if not _l2:
-                    data["ratio_limit"] = None
-                elif _l2 < 0:
-                    data["ratio_limit"] = None
-
-                if any(v is not None for v in data.values()) and data:
-                    with contextlib.suppress(Exception):
-                        torrent.set_share_limits(**data)
             if (
-                r := most_important_tracker.get(
+                (r := most_important_tracker.get(
                     "DownloadRateLimit", self.seeding_mode_global_download_limit
-                )
+                ))
                 != 0
                 and torrent.dl_limit != r
             ):
@@ -5981,9 +5965,9 @@ class Arr:
             elif r < 0:
                 torrent.set_upload_limit(limit=-1)
             if (
-                r := most_important_tracker.get(
+                (r := most_important_tracker.get(
                     "UploadRateLimit", self.seeding_mode_global_upload_limit
-                )
+                ))
                 != 0
                 and torrent.up_limit != r
             ):
@@ -5997,42 +5981,11 @@ class Arr:
                 torrent.set_super_seeding(enabled=r)
 
         else:
-            data = {
-                "ratio_limit": r if (r := self.seeding_mode_global_max_upload_ratio) > 0 else None,
-                "seeding_time_limit": (
-                    r if (r := self.seeding_mode_global_max_seeding_time) > 0 else None
-                ),
-            }
-            if any(r is not None for r in data):
-                if (
-                    (_l1 := data.get("seeding_time_limit"))
-                    and _l1 > 0
-                    and torrent.seeding_time_limit != data.get("seeding_time_limit")
-                ):
-                    data.pop("seeding_time_limit")
-                if (
-                    (_l2 := data.get("ratio_limit"))
-                    and _l2 > 0
-                    and torrent.seeding_time_limit != data.get("ratio_limit")
-                ):
-                    data.pop("ratio_limit")
-                if not _l1:
-                    data["seeding_time_limit"] = None
-                elif _l1 < 0:
-                    data["seeding_time_limit"] = None
-                if not _l2:
-                    data["ratio_limit"] = None
-                elif _l2 < 0:
-                    data["ratio_limit"] = None
-                if any(v is not None for v in data.values()) and data:
-                    with contextlib.suppress(Exception):
-                        torrent.set_share_limits(**data)
-
-            if r := self.seeding_mode_global_download_limit != 0 and torrent.dl_limit != r:
+            if (r := self.seeding_mode_global_download_limit) != 0 and torrent.dl_limit != r:
                 torrent.set_download_limit(limit=r)
             elif r < 0:
                 torrent.set_download_limit(limit=-1)
-            if r := self.seeding_mode_global_upload_limit != 0 and torrent.up_limit != r:
+            if (r := self.seeding_mode_global_upload_limit) != 0 and torrent.up_limit != r:
                 torrent.set_upload_limit(limit=r)
             elif r < 0:
                 torrent.set_upload_limit(limit=-1)
@@ -6146,7 +6099,7 @@ class Arr:
     ):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        self._process_single_torrent_trackers(torrent)
+        self._process_single_torrent_trackers(torrent, instance_name)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(
@@ -6193,6 +6146,19 @@ class Arr:
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
         elif (
+            torrent.state_enum in (TorrentStates.STOPPED_DOWNLOAD, TorrentStates.STOPPED_UPLOAD)
+            and leave_alone
+            and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
+            and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
+        ):
+            self.resume.add(torrent.hash)
+            self.logger.debug(
+                "Resuming stopped torrent: %s (%s) - State[%s]",
+                torrent.name,
+                torrent.hash,
+                torrent.state_enum,
+            )
+        elif (
             torrent.state_enum in (TorrentStates.METADATA_DOWNLOAD, TorrentStates.STALLED_DOWNLOAD)
             and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
@@ -6207,9 +6173,20 @@ class Arr:
         ):
             self._process_single_torrent_process_files(torrent, True)
         elif torrent.hash in self.timed_ignore_cache:
-            # Do not touch torrents recently resumed/reached (A torrent can temporarily
-            # stall after being resumed from a paused state).
-            self._process_single_torrent_added_to_ignore_cache(torrent)
+            if (
+                torrent.state_enum in (TorrentStates.STOPPED_DOWNLOAD, TorrentStates.STOPPED_UPLOAD)
+                and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
+                and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
+            ):
+                self.resume.add(torrent.hash)
+                self.logger.debug(
+                    "Resuming stopped torrent (in ignore cache): %s (%s) - State[%s]",
+                    torrent.name,
+                    torrent.hash,
+                    torrent.state_enum,
+                )
+            else:
+                self._process_single_torrent_added_to_ignore_cache(torrent)
         elif torrent.state_enum == TorrentStates.QUEUED_UPLOAD:
             self._process_single_torrent_queued_upload(torrent, leave_alone)
         # Resume monitored downloads which have been paused.
@@ -7558,10 +7535,13 @@ class PlaceHolderArr(Arr):
     def process_torrents(self):
         try:
             try:
+                _client = self.manager.qbit_manager.client
+                if _client is None:
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 while True:
                     try:
                         torrents = with_retry(
-                            lambda: self.manager.qbit_manager.client.torrents.info(
+                            lambda: _client.torrents.info(
                                 status_filter="all",
                                 category=self.category,
                                 sort="added_on",
@@ -7662,7 +7642,9 @@ class FreeSpaceManager(Arr):
             format_bytes(self.current_free_space + self._min_free_space_bytes),
             format_bytes(self._min_free_space_bytes),
         )
-        self.manager.qbit_manager.client.torrents_create_tags(["qBitrr-free_space_paused"])
+        _client = self.manager.qbit_manager.client
+        if _client is not None:
+            _client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
         self.do_upgrade_search = False
         self.quality_unmet_search = False
@@ -7781,6 +7763,9 @@ class FreeSpaceManager(Arr):
     def process_torrents(self):
         try:
             try:
+                _client = self.manager.qbit_manager.client
+                if _client is None:
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
                 while True:
                     try:
                         # Fetch per category to reduce client-side filtering
@@ -7788,7 +7773,7 @@ class FreeSpaceManager(Arr):
                         for cat in self.categories:
                             with contextlib.suppress(qbittorrentapi.exceptions.APIError):
                                 torrents.extend(
-                                    self.manager.qbit_manager.client.torrents.info(
+                                    _client.torrents.info(
                                         status_filter="all",
                                         category=cat,
                                         sort="added_on",
@@ -7802,8 +7787,11 @@ class FreeSpaceManager(Arr):
                 torrents = [t for t in torrents if t.category in self.categories]
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
                 self.category_torrent_count = len(torrents)
+                _first_instance = next(iter(self.manager.qbit_manager.clients), "qBit")
                 self.free_space_tagged_count = sum(
-                    1 for t in torrents if self.in_tags(t, "qBitrr-free_space_paused", "default")
+                    1
+                    for t in torrents
+                    if self.in_tags(t, "qBitrr-free_space_paused", _first_instance)
                 )
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
@@ -7866,7 +7854,7 @@ class ArrManager:
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
-        self.qbit: qbittorrentapi.Client = qbitmanager.client
+        self.qbit: qbittorrentapi.Client | None = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
         self.logger = logging.getLogger("qBitrr.ArrManager")

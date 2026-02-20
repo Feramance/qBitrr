@@ -109,7 +109,6 @@ class qBitManager:
             _mask_secret(self.qBit_Password),
         )
         self._validated_version = False
-        self.client = None
         self.current_qbit_version = None
         # Multi-instance support
         self.clients: dict[str, qbittorrentapi.Client] = {}
@@ -119,33 +118,6 @@ class qBitManager:
         # qBit category management
         self.qbit_category_configs: dict[str, dict] = {}
         self.qbit_category_managers: dict[str, qBitCategoryManager] = {}
-        if not (QBIT_DISABLED or SEARCH_ONLY):
-            self.client = qbittorrentapi.Client(
-                host=self.qBit_Host,
-                port=self.qBit_Port,
-                username=self.qBit_UserName,
-                password=self.qBit_Password,
-                SIMPLE_RESPONSES=False,
-            )
-            try:
-                self.current_qbit_version = version_parser.parse(self.client.app_version())
-                self._validated_version = True
-            except Exception as e:
-                self.current_qbit_version = self.min_supported_version
-                self.logger.error(
-                    "Could not establish qBitTorrent version (%s). You may experience errors; please report this.",
-                    e,
-                )
-            self._version_validator()
-            # Register default instance in multi-instance dictionaries
-            self.clients["default"] = self.client
-            self.qbit_versions["default"] = self.current_qbit_version
-            self.instance_metadata["default"] = {
-                "host": self.qBit_Host,
-                "port": self.qBit_Port,
-                "username": self.qBit_UserName,
-            }
-            self.instance_health["default"] = self._validated_version
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.cache = {}
         self.name_cache = {}
@@ -172,14 +144,7 @@ class qBitManager:
         self.max_process_restarts = CONFIG.get("Settings.MaxProcessRestarts", fallback=5)
         self.process_restart_window = CONFIG.get("Settings.ProcessRestartWindow", fallback=300)
         self.process_restart_delay = CONFIG.get("Settings.ProcessRestartDelay", fallback=5)
-        try:
-            if not (QBIT_DISABLED or SEARCH_ONLY):
-                self.ffprobe_downloader.update()
-        except Exception as e:
-            self.logger.error(
-                "FFprobe manager error: %s while attempting to download/update FFprobe", e
-            )
-        # Start WebUI as early as possible
+        # Start WebUI immediately, before any blocking network calls
         try:
             web_port = int(CONFIG.get("WebUI.Port", fallback=6969) or 6969)
         except Exception:
@@ -198,11 +163,19 @@ class qBitManager:
         self.webui = WebUI(self, host=web_host, port=web_port)
         self.webui.start()
 
-        # Finish bootstrap tasks (Arr manager, workers, auto-update) in the background
+        # Finish bootstrap tasks (qBit connection, Arr manager, workers, auto-update) in background
         self._startup_thread = Thread(
             target=self._complete_startup, name="qBitrr-Startup", daemon=True
         )
         self._startup_thread.start()
+
+    @property
+    def client(self) -> qbittorrentapi.Client | None:
+        """Return the first available qBit client, or None if none configured."""
+        for c in self.clients.values():
+            if c is not None:
+                return c
+        return None
 
     def configure_auto_update(self) -> None:
         enabled, cron = get_auto_update_settings()
@@ -414,6 +387,13 @@ class qBitManager:
     def _complete_startup(self) -> None:
         started_at = monotonic()
         try:
+            # FFprobe update (deferred from __init__ to avoid blocking WebUI start)
+            try:
+                self.ffprobe_downloader.update()
+            except Exception as e:
+                self.logger.error(
+                    "FFprobe manager error: %s while attempting to download/update FFprobe", e
+                )
             # Initialize all qBit instances before Arr managers
             self._initialize_qbit_instances()
             arr_manager = ArrManager(self)
@@ -475,79 +455,29 @@ class qBitManager:
         """
         Initialize all qBittorrent instances from config.
 
-        Scans config for [qBit] and [qBit-XXX] sections, initializes clients,
-        and populates multi-instance dictionaries. The default [qBit] section
-        is registered as "default" instance.
+        Scans config for [qBit] and [qBit-XXX] sections and initializes each as
+        an equal instance using the section name as the key (e.g. "qBit", "qBit-Seedbox").
+        No instance is treated as "default".
         """
         if QBIT_DISABLED or SEARCH_ONLY:
             self.logger.debug("qBit disabled or search-only mode; skipping instance init")
             return
 
-        # Default instance already initialized in __init__
-        self.logger.info("Initialized qBit instance: default")
-
-        # Load qBit category config for default instance
-        managed_categories = CONFIG.get("qBit.ManagedCategories", fallback=[])
-        if managed_categories:
-            # Load default seeding settings
-            default_seeding = {}
-            seeding_keys = [
-                "DownloadRateLimitPerTorrent",
-                "UploadRateLimitPerTorrent",
-                "MaxUploadRatio",
-                "MaxSeedingTime",
-                "RemoveTorrent",
-            ]
-            for key in seeding_keys:
-                value = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=-1)
-                default_seeding[key] = value
-
-            # Load HnR protection settings
-            hnr_keys = {
-                "HitAndRunMode": False,
-                "MinSeedRatio": 1.0,
-                "MinSeedingTimeDays": 0,
-                "HitAndRunPartialSeedRatio": 1.0,
-                "TrackerUpdateBuffer": 0,
-            }
-            for key, fallback in hnr_keys.items():
-                default_seeding[key] = CONFIG.get(f"qBit.CategorySeeding.{key}", fallback=fallback)
-
-            # Load per-category overrides
-            category_overrides = {}
-            categories_list = CONFIG.get("qBit.CategorySeeding.Categories", fallback=[])
-            for cat_config in categories_list:
-                if isinstance(cat_config, dict) and "Name" in cat_config:
-                    cat_name = cat_config["Name"]
-                    category_overrides[cat_name] = cat_config
-
-            # Load qBit-level shared trackers
-            qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
-
-            # Store config for later initialization
-            self.qbit_category_configs["default"] = {
-                "managed_categories": managed_categories,
-                "default_seeding": default_seeding,
-                "category_overrides": category_overrides,
-                "trackers": qbit_trackers,
-            }
-            self.logger.debug(
-                "Loaded qBit category config for 'default': %d managed categories",
-                len(managed_categories),
-            )
-
-        # Scan for additional instances (qBit-XXX sections)
         for section in CONFIG.sections():
-            if section.startswith("qBit-") and section != "qBit":
-                instance_name = section.replace("qBit-", "", 1)
+            if section == "qBit" or section.startswith("qBit-"):
                 try:
-                    self._init_instance(section, instance_name)
-                    self.logger.info("Initialized qBit instance: %s", instance_name)
+                    self._init_instance(section, section)
+                    self.logger.info("Initialized qBit instance: %s", section)
                 except Exception as e:
                     self.logger.error(
-                        "Failed to initialize qBit instance '%s': %s", instance_name, e
+                        "Failed to initialize qBit instance '%s': %s", section, e
                     )
-                    self.instance_health[instance_name] = False
+                    self.instance_health[section] = False
+
+        # Set current_qbit_version from the first initialized instance (for legacy compatibility)
+        if self.qbit_versions:
+            self.current_qbit_version = next(iter(self.qbit_versions.values()))
+            self._validated_version = True
 
         self.logger.info("Total qBit instances initialized: %d", len(self.clients))
 
@@ -672,12 +602,12 @@ class qBitManager:
                 len(managed_categories),
             )
 
-    def is_instance_alive(self, instance_name: str = "default") -> bool:
+    def is_instance_alive(self, instance_name: str) -> bool:
         """
         Check if a specific qBittorrent instance is alive and responding.
 
         Args:
-            instance_name: The instance identifier (default: "default")
+            instance_name: The instance identifier (e.g. "qBit" or "qBit-Seedbox")
 
         Returns:
             bool: True if instance is healthy and responding, False otherwise
@@ -705,7 +635,7 @@ class qBitManager:
         Get list of all configured qBittorrent instance names.
 
         Returns:
-            list[str]: List of instance identifiers (e.g., ["default", "Seedbox"])
+            list[str]: List of instance identifiers (e.g., ["qBit", "qBit-Seedbox"])
         """
         return list(self.clients.keys())
 
@@ -718,12 +648,12 @@ class qBitManager:
         """
         return [name for name in self.clients.keys() if self.is_instance_alive(name)]
 
-    def get_instance_info(self, instance_name: str = "default") -> dict:
+    def get_instance_info(self, instance_name: str) -> dict:
         """
         Get metadata about a specific qBittorrent instance.
 
         Args:
-            instance_name: The instance identifier (default: "default")
+            instance_name: The instance identifier (e.g. "qBit" or "qBit-Seedbox")
 
         Returns:
             dict: Instance metadata including host, port, version, health status
@@ -740,12 +670,12 @@ class qBitManager:
             "healthy": self.instance_health.get(instance_name, False),
         }
 
-    def get_client(self, instance_name: str = "default") -> qbittorrentapi.Client | None:
+    def get_client(self, instance_name: str) -> qbittorrentapi.Client | None:
         """
         Get qBittorrent client for a specific instance.
 
         Args:
-            instance_name: The instance identifier (default: "default")
+            instance_name: The instance identifier (e.g. "qBit" or "qBit-Seedbox")
 
         Returns:
             qbittorrentapi.Client | None: Client instance, or None if not found/unhealthy
@@ -802,10 +732,9 @@ class qBitManager:
                 "trackers": trackers,
             }
 
-        _load_category_config("qBit", "default")
         for section in CONFIG.sections():
-            if section.startswith("qBit-") and section != "qBit":
-                _load_category_config(section, section.replace("qBit-", "", 1))
+            if section == "qBit" or section.startswith("qBit-"):
+                _load_category_config(section, section)
 
         self.logger.info(
             "Reloaded qBit category configs: %d instances", len(self.qbit_category_configs)
@@ -956,27 +885,22 @@ class qBitManager:
     @property
     def is_alive(self) -> bool:
         """
-        Check if the default qBittorrent instance is alive.
+        Check if any configured qBittorrent instance is alive.
 
-        Backward-compatible property that delegates to is_instance_alive("default").
         Uses caching via expiring_bool to avoid excessive health checks.
         """
         try:
-            if self.client is None:
+            if not self.clients:
                 return False
             if 1 in self.expiring_bool:
                 return True
-            # Delegate to instance health check
-            alive = self.is_instance_alive("default")
-            if alive:
-                self.logger.trace(
-                    "Successfully connected to %s:%s", self.qBit_Host, self.qBit_Port
-                )
-                self.expiring_bool.add(1)
-                return True
-            self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)
+            for name in self.clients:
+                if self.is_instance_alive(name):
+                    self.expiring_bool.add(1)
+                    return True
+            self.logger.warning("Could not connect to any qBittorrent instance")
         except requests.RequestException:
-            self.logger.warning("Could not connect to %s:%s", self.qBit_Host, self.qBit_Port)
+            self.logger.warning("Could not connect to any qBittorrent instance")
         self.should_delay_torrent_scan = True
         return False
 
@@ -1527,8 +1451,14 @@ def run():
             manager.run()
         else:
             logger.warning(
-                "No tasks to perform, if this is unintended double check your config file."
+                "No tasks to perform — qBit may be unreachable or no Arr instances are configured."
             )
+            logger.info(
+                "Configure qBitrr via the WebUI or config.toml and restart to begin managing downloads."
+            )
+            # Keep the process alive so the WebUI daemon thread stays up
+            while not manager.shutdown_event.is_set():
+                manager.shutdown_event.wait(timeout=5)
     except KeyboardInterrupt:
         logger.info("Detected Ctrl+C - Terminating process")
         _cleanup()

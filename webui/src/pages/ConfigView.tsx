@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
@@ -1517,7 +1517,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           ? raw
           : def.parse?.(raw as string | boolean) ??
             (def.type === "number"
-              ? Number(raw) || 0
+              ? (() => { const n = Number(raw); return Number.isFinite(n) ? n : 0; })()
               : def.type === "checkbox"
               ? Boolean(raw)
               : raw);
@@ -1757,12 +1757,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const deleteQbitInstance = useCallback(
     (key: string) => {
       if (!formState) return;
-      if (key === "qBit") {
-        push("Cannot delete the default qBit instance", "error");
-        return;
-      }
       const confirmed = window.confirm(
-        `Delete ${key}? This action cannot be undone.`
+        `Remove ${key}? This will remove this qBittorrent instance from the config file.`
       );
       if (!confirmed) {
         return;
@@ -1818,10 +1814,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       if (!formState) return;
       const newName = rawNewName.trim();
       if (!newName || newName === oldName) {
-        return;
-      }
-      if (oldName === "qBit" && newName !== "qBit") {
-        push("Cannot rename the default qBit instance. Create a new instance instead.", "error");
         return;
       }
       if (formState[newName]) {
@@ -1994,12 +1986,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                   const host = getValue(value as ConfigDocument, ["Host"]);
                   const port = getValue(value as ConfigDocument, ["Port"]);
                   const disabled = getValue(value as ConfigDocument, ["Disabled"]);
-                  const isDefault = key === "qBit";
                   return (
                     <div className="card config-card config-arr-card" key={key}>
                       <div className="card-header">
                         {key}
-                        {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default)</span>}
                       </div>
                       <div className="card-body">
                         <dl className="config-arr-summary">
@@ -2013,16 +2003,14 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                           </div>
                         </dl>
                         <div className="config-arr-actions">
-                          {!isDefault ? (
-                            <button
-                              className="btn danger"
-                              type="button"
-                              onClick={() => deleteQbitInstance(key)}
-                            >
-                              <IconImage src={DeleteIcon} />
-                              Delete
-                            </button>
-                          ) : null}
+                          <button
+                            className="btn danger"
+                            type="button"
+                            onClick={() => deleteQbitInstance(key)}
+                          >
+                            <IconImage src={DeleteIcon} />
+                            Delete
+                          </button>
                           <button
                             className="btn primary"
                             type="button"
@@ -2165,6 +2153,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
+          onDelete={() => deleteQbitInstance(activeQbitKey)}
         />
       ) : null}
     </>
@@ -2211,6 +2200,46 @@ interface FieldGroupProps {
   qualityProfiles?: Array<{ id: number; name: string }>;
   sectionKey?: string;
   qbitTrackers?: boolean;
+}
+
+function NumberInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: unknown;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}): JSX.Element {
+  const n = Number(value);
+  const externalStr = Number.isFinite(n) ? String(n) : "0";
+  const [localValue, setLocalValue] = useState(externalStr);
+  const isEditing = useRef(false);
+
+  useEffect(() => {
+    if (!isEditing.current) {
+      setLocalValue(externalStr);
+    }
+  }, [externalStr]);
+
+  return (
+    <input
+      type="text"
+      value={localValue}
+      onFocus={() => {
+        isEditing.current = true;
+      }}
+      onBlur={() => {
+        isEditing.current = false;
+        setLocalValue(externalStr);
+      }}
+      onChange={(e) => {
+        setLocalValue(e.target.value);
+        onChange(e.target.value);
+      }}
+      placeholder={placeholder}
+    />
+  );
 }
 
 function FieldGroup({
@@ -2362,7 +2391,12 @@ function FieldGroup({
       const nextTrackers = [
         ...trackers,
         {
-          Url: "",
+          URI: "",
+          MaximumETA: -1,
+          DownloadRateLimit: -1,
+          UploadRateLimit: -1,
+          MaxUploadRatio: -1,
+          MaxSeedingTime: -1,
           RemoveIfExists: false,
           SuperSeedMode: false,
           AddTags: [],
@@ -2541,10 +2575,9 @@ function FieldGroup({
       return (
         <div key={key} className={fieldClassName}>
           <label title={tooltip}>{field.label}</label>
-          <input
-            type="number"
-            value={Number(formatted) || 0}
-            onChange={(event) => onChange(path, field, String(event.target.value))}
+          <NumberInput
+            value={formatted}
+            onChange={(v) => onChange(path, field, v)}
             placeholder={field.placeholder}
           />
           {description && <div className="field-description">{description}</div>}
@@ -3097,6 +3130,7 @@ interface QbitInstanceModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
+  onDelete?: () => void;
 }
 
 function QbitInstanceModal({
@@ -3105,9 +3139,8 @@ function QbitInstanceModal({
   onChange,
   onRename,
   onClose,
+  onDelete,
 }: QbitInstanceModalProps): JSX.Element {
-  const isDefault = keyName === "qBit";
-
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -3120,7 +3153,6 @@ function QbitInstanceModal({
         <div className="modal-header">
           <h2 id="qbit-instance-modal-title">
             Configure <code>{keyName}</code>
-            {isDefault && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Default Instance)</span>}
           </h2>
           <button className="btn ghost" type="button" onClick={onClose}>
             <IconImage src={CloseIcon} />
@@ -3134,7 +3166,7 @@ function QbitInstanceModal({
             state={state}
             basePath={[]}
             onChange={(path, def, value) => onChange([keyName, ...path], def, value)}
-            onRenameSection={isDefault ? undefined : onRename}
+            onRenameSection={onRename}
             sectionKey={keyName}
             defaultOpen
           />
@@ -3147,13 +3179,21 @@ function QbitInstanceModal({
             defaultOpen={false}
             qbitTrackers
           />
-          {isDefault && (
-            <div className="alert info" style={{ marginTop: '16px' }}>
-              This is the default qBittorrent instance (required). To add additional instances, use the "Add Instance" button.
-            </div>
-          )}
         </div>
         <div className="modal-footer">
+          {onDelete && (
+            <button
+              className="btn danger"
+              type="button"
+              onClick={() => {
+                onDelete();
+                onClose();
+              }}
+            >
+              <IconImage src={DeleteIcon} />
+              Delete
+            </button>
+          )}
           <button className="btn primary" type="button" onClick={onClose}>
             <IconImage src={SaveIcon} />
             Done

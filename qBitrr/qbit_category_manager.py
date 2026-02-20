@@ -6,6 +6,8 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from qbittorrentapi import TorrentStates
+
 from qBitrr.arss import _extract_tracker_host
 from qBitrr.errors import DelayLoopException
 
@@ -38,7 +40,7 @@ class qBitCategoryManager:
         self.managed_categories = config.get("managed_categories", [])
         self.default_seeding = config.get("default_seeding", {})
         self.category_overrides = config.get("category_overrides", {})
-        self.trackers = config.get("trackers", [])
+        self.trackers = self._build_merged_trackers(config.get("trackers", []))
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
@@ -47,6 +49,32 @@ class qBitCategoryManager:
             len(self.managed_categories),
             ", ".join(self.managed_categories),
         )
+
+    @staticmethod
+    def _build_merged_trackers(qbit_trackers: list) -> list:
+        """
+        Build a merged tracker list from qBit-level and all Arr-level Torrent.Trackers.
+
+        Arr-level tracker configs override qBit-level entries with the same URI,
+        matching the merge logic used by ArrManager.
+        """
+        from qBitrr.config import CONFIG
+
+        merged: dict[str, dict] = {}
+        for tracker in qbit_trackers:
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
+                if uri:
+                    merged[uri] = dict(tracker)
+        for section in CONFIG.sections():
+            if section == "qBit" or section.startswith("qBit-"):
+                continue
+            for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
+                if isinstance(tracker, dict):
+                    uri = (tracker.get("URI") or "").strip().rstrip("/")
+                    if uri:
+                        merged[uri] = dict(tracker)
+        return list(merged.values())
 
     def get_client(self):
         """Get the qBit client for this instance.
@@ -114,11 +142,30 @@ class qBitCategoryManager:
         try:
             config = self.get_seeding_config(category)
 
-            # Apply seeding limits
-            self._apply_seeding_limits(torrent, config)
+            # Get tracker-specific config and apply tags / override seeding values
+            tracker_config = self._get_tracker_config(torrent)
+            if tracker_config:
+                # Apply tracker-specific tags
+                tags = tracker_config.get("AddTags", [])
+                if tags:
+                    self._apply_tags(torrent, tags)
+                # Merge tracker overrides into effective config (tracker wins over category
+                # for seeding fields; skip non-seeding tracker metadata keys)
+                _skip = {"URI", "Priority", "Name", "AddTags", "HitAndRunMode",
+                         "MinSeedRatio", "MinSeedingTimeDays", "HitAndRunMinimumDownloadPercent",
+                         "HitAndRunPartialSeedRatio", "TrackerUpdateBuffer"}
+                effective_config = {
+                    **config,
+                    **{k: v for k, v in tracker_config.items() if k not in _skip},
+                }
+            else:
+                effective_config = config
+
+            # Apply seeding limits using effective (possibly tracker-overridden) config
+            self._apply_seeding_limits(torrent, effective_config)
 
             # Check if torrent should be removed
-            if self._should_remove_torrent(torrent, config):
+            if self._should_remove_torrent(torrent, effective_config):
                 self._remove_torrent(torrent, category)
 
         except Exception as e:
@@ -130,44 +177,41 @@ class qBitCategoryManager:
                 exc_info=True,
             )
 
+    def _apply_tags(self, torrent: TorrentDictionary, tags: list):
+        """
+        Apply tags to a torrent if not already present.
+
+        Args:
+            torrent: qBittorrent torrent object
+            tags: List of tag strings to apply
+        """
+        try:
+            existing_tags = {t.strip() for t in (torrent.tags or "").split(",") if t.strip()}
+            new_tags = [t for t in tags if t not in existing_tags]
+            self.logger.debug(
+                "Tag check for '%s': existing=%s, want=%s, new=%s",
+                torrent.name,
+                existing_tags,
+                tags,
+                new_tags,
+            )
+            if new_tags:
+                torrent.add_tags(tags=new_tags)
+                self.logger.debug("Applied tags %s to '%s'", new_tags, torrent.name)
+        except Exception as e:
+            self.logger.error("Failed to apply tags to '%s': %s", torrent.name, e)
+
     def _apply_seeding_limits(self, torrent: TorrentDictionary, config: dict):
         """
-        Apply seeding limits to a torrent.
+        Apply rate limits to a torrent.
+
+        qBitrr owns all deletion decisions based on configured limits.
+        Never delegate stop/pause to qBit via share limits.
 
         Args:
             torrent: qBittorrent torrent object
             config: Seeding configuration dict
         """
-        ratio_limit = config.get("MaxUploadRatio", -1)
-        time_limit = config.get("MaxSeedingTime", -1)
-
-        # Prepare share limits — qBit 5.x requires all parameters
-        share_limits = {}
-        if ratio_limit > 0:
-            share_limits["ratio_limit"] = ratio_limit
-        if time_limit > 0:
-            share_limits["seeding_time_limit"] = time_limit
-
-        # Apply share limits if any
-        if share_limits:
-            share_limits.setdefault("ratio_limit", -2)
-            share_limits.setdefault("seeding_time_limit", -2)
-            share_limits.setdefault("inactive_seeding_time_limit", -2)
-            try:
-                torrent.set_share_limits(**share_limits)
-                self.logger.debug(
-                    "Applied share limits to '%s': %s",
-                    torrent.name,
-                    share_limits,
-                )
-            except Exception as e:
-                self.logger.error(
-                    "Failed to set share limits for '%s': %s",
-                    torrent.name,
-                    e,
-                )
-
-        # Apply download rate limit
         dl_limit = config.get("DownloadRateLimitPerTorrent", -1)
         if dl_limit >= 0:
             try:
@@ -211,6 +255,9 @@ class qBitCategoryManager:
         """
         Check if torrent meets removal conditions.
 
+        - Seeding limits (ratio/time) only apply to COMPLETED/UPLOADING torrents
+        - HnR protection only applies to DOWNLOADING torrents
+
         Args:
             torrent: qBittorrent torrent object
             config: Seeding configuration dict
@@ -221,32 +268,47 @@ class qBitCategoryManager:
         remove_mode = config.get("RemoveTorrent", -1)
 
         if remove_mode == -1:
-            return False  # Never remove
+            return False
+
+        is_uploading = torrent.state_enum in (
+            TorrentStates.UPLOADING,
+            TorrentStates.STALLED_UPLOAD,
+            TorrentStates.QUEUED_UPLOAD,
+            TorrentStates.PAUSED_UPLOAD,
+            TorrentStates.FORCED_UPLOAD,
+        )
+        is_downloading = torrent.state_enum in (
+            TorrentStates.DOWNLOADING,
+            TorrentStates.STALLED_DOWNLOAD,
+            TorrentStates.QUEUED_DOWNLOAD,
+            TorrentStates.PAUSED_DOWNLOAD,
+            TorrentStates.FORCED_DOWNLOAD,
+            TorrentStates.METADATA_DOWNLOAD,
+        )
+
+        if not is_uploading:
+            return False
 
         ratio_limit = config.get("MaxUploadRatio", -1)
         time_limit = config.get("MaxSeedingTime", -1)
 
-        # Check if limits are met
         ratio_met = ratio_limit > 0 and torrent.ratio >= ratio_limit
         time_met = time_limit > 0 and torrent.seeding_time >= time_limit
 
-        # Determine removal based on mode
         should_remove = False
-        if remove_mode == 1:  # Remove on ratio only
+        if remove_mode == 1:
             should_remove = ratio_met
-        elif remove_mode == 2:  # Remove on time only
+        elif remove_mode == 2:
             should_remove = time_met
-        elif remove_mode == 3:  # Remove on OR (either condition)
+        elif remove_mode == 3:
             should_remove = ratio_met or time_met
-        elif remove_mode == 4:  # Remove on AND (both conditions)
+        elif remove_mode == 4:
             should_remove = ratio_met and time_met
 
-        # HnR protection: check tracker-level HnR first, then category-level
         if should_remove:
             tracker_config = self._get_tracker_config(torrent)
             hnr_config = tracker_config if tracker_config else config
 
-            # Bypass HnR if tracker reports torrent as unregistered/dead
             if hnr_config.get("HitAndRunMode", False) and self._hnr_tracker_is_dead(
                 torrent, hnr_config
             ):
@@ -256,9 +318,9 @@ class qBitCategoryManager:
                 )
                 return True
 
-            if not self._hnr_safe_to_remove(torrent, hnr_config):
+            if is_downloading and not self._hnr_safe_to_remove(torrent, hnr_config):
                 self.logger.debug(
-                    "HnR protection: keeping '%s' (ratio=%.2f, seeding=%ds)",
+                    "HnR protection: keeping downloading torrent '%s' (ratio=%.2f, seeding=%ds)",
                     torrent.name,
                     torrent.ratio,
                     torrent.seeding_time,
@@ -277,8 +339,20 @@ class qBitCategoryManager:
                 for t in torrent.trackers
                 if hasattr(t, "url")
             } - {""}
-        except Exception:
+        except Exception as e:
+            self.logger.debug("Failed to get trackers for '%s': %s", torrent.name, e)
             return None
+        config_hosts = {
+            _extract_tracker_host((tc.get("URI") or "").strip().rstrip("/"))
+            for tc in self.trackers
+            if isinstance(tc, dict)
+        } - {""}
+        self.logger.debug(
+            "Tracker match for '%s': torrent_hosts=%s, config_hosts=%s",
+            torrent.name,
+            torrent_hosts,
+            config_hosts,
+        )
         best = None
         best_priority = -1
         for tracker_cfg in self.trackers:
@@ -287,7 +361,12 @@ class qBitCategoryManager:
             uri = (tracker_cfg.get("URI") or "").strip().rstrip("/")
             priority = tracker_cfg.get("Priority", 0)
             cfg_host = _extract_tracker_host(uri)
-            if cfg_host and cfg_host in torrent_hosts and priority > best_priority:
+            # Use apex/suffix matching: cfg_host "example.com" matches both
+            # "example.com" (exact) and "sub.example.com" (subdomain)
+            host_match = any(
+                h == cfg_host or h.endswith("." + cfg_host) for h in torrent_hosts
+            )
+            if cfg_host and host_match and priority > best_priority:
                 best = tracker_cfg
                 best_priority = priority
         return best
@@ -394,10 +473,8 @@ class qBitCategoryManager:
         # Read password from config since it's not stored in metadata
         from qBitrr.config import CONFIG
 
-        if self.instance_name == "default":
-            password = CONFIG.get("qBit.Password", fallback=None)
-        else:
-            password = CONFIG.get(f"qBit-{self.instance_name}.Password", fallback=None)
+        # instance_name is the config section name (e.g. "qBit" or "qBit-Seedbox")
+        password = CONFIG.get(f"{self.instance_name}.Password", fallback=None)
         client = qbittorrentapi.Client(
             host=host,
             port=port,
@@ -421,6 +498,18 @@ class qBitCategoryManager:
         # the parent's HTTP session, which causes response cross-contamination
         # ("Invalid version" errors) when concurrent requests are made.
         self._dedicated_client = self._create_dedicated_client()
+
+        # Pre-create all tracker AddTags in qBittorrent so they exist before
+        # being added to individual torrents (some qBit versions need this)
+        all_tracker_tags = list(
+            {tag for tc in self.trackers if isinstance(tc, dict) for tag in tc.get("AddTags", [])}
+        )
+        if all_tracker_tags:
+            try:
+                self._dedicated_client.torrents_create_tags(tags=all_tracker_tags)
+                self.logger.debug("Pre-created tracker tags: %s", all_tracker_tags)
+            except Exception as e:
+                self.logger.warning("Failed to pre-create tracker tags: %s", e)
 
         self.logger.info(
             "Starting processing loop for qBit category manager '%s'",

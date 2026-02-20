@@ -12,6 +12,7 @@ import type {
   RestartResponse,
   SonarrSeriesResponse,
   LidarrAlbumsResponse,
+  LidarrTracksResponse,
   StatusResponse,
 } from "./types";
 
@@ -263,6 +264,23 @@ export async function getLidarrAlbums(
   params.set("include_tracks", "true");
   return fetchJson<LidarrAlbumsResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
+  );
+}
+
+export async function getLidarrTracks(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string
+): Promise<LidarrTracksResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  return fetchJson<LidarrTracksResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/tracks?${params}`
   );
 }
 
