@@ -349,7 +349,7 @@ Optimize for private tracker requirements:
 
 ### Current Version
 
-**Latest Release**: v5.9.0 (January 2025)
+**Latest Release**: v5.9.1 (January 2025)
 
 - ✅ Production ready
 - ✅ Active development
