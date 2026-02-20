@@ -1,5 +1,18 @@
 # Changelog
 
+## v5.9.1 (20/02/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Fix seeding/HnR logic and auto-resume stopped torrents](https://github.com/Feramance/qBitrr/commit/c67f55623fed448ffb9014662af87153fa6178d4) - @Feramance
+- [fix: Improve seeding/HnR logic and add auto-resume for stopped torrents](https://github.com/Feramance/qBitrr/commit/f5c2b78e460d2d4fb752b5ae16dc0d939aa4fa45) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps): Bump @mantine/dates from 8.3.14 to 8.3.15 in /webui (#300)](https://github.com/Feramance/qBitrr/commit/e45483bc6f49ac143ea7de4383d9d4cf2c285db3) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 8.3.14 to 8.3.15 in /webui (#299)](https://github.com/Feramance/qBitrr/commit/262f386dd0f354f023ab449322148fd8e1687706) - @Feramance
+- [Build(deps): Bump @mantine/core from 8.3.14 to 8.3.15 in /webui (#298)](https://github.com/Feramance/qBitrr/commit/734d63bd982293d57ea7eb03b86e9f6fc59236d2) - @Feramance
+
+---
+
 ## v5.9.0 (15/02/2026)
 
 ### 🚀 Features
