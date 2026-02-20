@@ -1,5 +1,5 @@
 version = "5.9.1"
-git_hash = "4bca5afe"
+git_hash = "cfd9eeaa"
 license_text = (
     "Licence can be found on:\n\nhttps://github.com/Feramance/qBitrr/blob/master/LICENSE"
 )
