@@ -180,8 +180,28 @@ class qBitCategoryManager:
             # Apply seeding limits using effective (possibly tracker-overridden) config
             self._apply_seeding_limits(torrent, effective_config)
 
-            # Stalled download removal (same semantics as Arr: IgnoreTorrentsYoungerThan gates both)
+            # Stalled download removal (same semantics as Arr: IgnoreTorrentsYoungerThan gates both;
+            # respect HnR before deleting with delete_files=True to avoid Hit and Run violations)
             if self._should_remove_stalled(torrent):
+                hnr_config = tracker_config if tracker_config else config
+                if self._hnr_clear_mode_enabled(hnr_config) and self._hnr_tracker_is_dead(
+                    torrent, hnr_config
+                ):
+                    self.logger.debug(
+                        "HnR bypass: tracker reports torrent as unregistered/dead '%s'",
+                        torrent.name,
+                    )
+                elif self._hnr_clear_mode_enabled(hnr_config) and not self._hnr_safe_to_remove(
+                    torrent, hnr_config
+                ):
+                    self.logger.info(
+                        "HnR protection: blocking stalled removal of [%s] (ratio=%.2f, seeding=%s, progress=%.1f%%)",
+                        torrent.name,
+                        torrent.ratio,
+                        timedelta(seconds=torrent.seeding_time),
+                        torrent.progress * 100,
+                    )
+                    return
                 self._remove_stalled_torrent(torrent, category)
                 return
 
