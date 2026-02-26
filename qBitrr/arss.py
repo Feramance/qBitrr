@@ -5951,7 +5951,7 @@ class Arr:
             ) != 0 and torrent.dl_limit != r:
                 torrent.set_download_limit(limit=r)
             elif r < 0:
-                torrent.set_upload_limit(limit=-1)
+                torrent.set_download_limit(limit=-1)
             if (
                 r := most_important_tracker.get(
                     "UploadRateLimit", self.seeding_mode_global_upload_limit
