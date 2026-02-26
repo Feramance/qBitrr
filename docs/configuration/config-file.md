@@ -412,6 +412,8 @@ qBittorrent category for manually marking torrents as failed.
 - Wrong content
 - Manual intervention needed
 
+Torrents in this category receive the same qBit-side behaviour as Arr-managed categories (recheck on error, missing files handling, stalled detection, etc.). Only research and blocklisting (notifying Arr, re-search) are Arr-specific; for the `failed` category, qBitrr still marks the release as failed in Arr and removes the torrent when so configured.
+
 ---
 
 ### RecheckCategory
@@ -437,6 +439,8 @@ qBittorrent category for forcing torrent recheck.
 - Fix "missing files" errors
 - After restoring from backup
 - After moving download location
+
+Torrents in this category receive the same qBit-side behaviour as Arr-managed categories (recheck on error, missing files handling, stalled detection, etc.). Only research and blocklisting remain Arr-specific; for the `recheck` category, qBitrr forces a full recheck and moves the torrent back to its original category.
 
 ---
 
