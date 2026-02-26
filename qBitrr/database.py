@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 from pathlib import Path
 
 from peewee import SqliteDatabase
@@ -29,6 +30,69 @@ logger = logging.getLogger("qBitrr.database")
 _db: SqliteDatabase | None = None
 
 
+def _startup_integrity_check_and_repair(db_path: Path) -> None:
+    """
+    Run PRAGMA integrity_check on existing database; if not ok, try WAL checkpoint
+    then full repair. Runs once at startup before any connection so repair has no contention.
+    """
+    if not db_path.exists():
+        return
+    result = "unknown"
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=10.0)
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA integrity_check")
+        result = cursor.fetchone()[0]
+        conn.close()
+        if result == "ok":
+            return
+    except Exception as e:
+        logger.warning("Startup integrity check failed (will attempt repair): %s", e)
+
+    logger.warning(
+        "Database integrity check failed (result=%s). Attempting automatic repair...",
+        result,
+    )
+    from qBitrr.db_recovery import checkpoint_wal, repair_database
+
+    if checkpoint_wal(db_path, logger_override=logger):
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=10.0)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check")
+            result = cursor.fetchone()[0]
+            conn.close()
+            if result == "ok":
+                logger.info("WAL checkpoint resolved database issue - integrity ok")
+                return
+        except Exception as e:
+            logger.debug("Integrity re-check after checkpoint failed: %s", e)
+
+    logger.warning("Attempting full database repair (dump/restore)...")
+    if repair_database(db_path, backup=True, logger_override=logger):
+        try:
+            conn = sqlite3.connect(str(db_path), timeout=10.0)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check")
+            result = cursor.fetchone()[0]
+            conn.close()
+            if result == "ok":
+                logger.info("Database repair successful - integrity verified")
+                return
+            logger.critical(
+                "Database repair completed but integrity still failing: %s. "
+                "Continuing anyway; consider manual repair or fresh DB.",
+                result,
+            )
+        except Exception as e:
+            logger.critical("Database repair verification failed: %s. Continuing anyway.", e)
+    else:
+        logger.critical(
+            "Automatic database repair failed. "
+            "Consider stopping qBitrr and running scripts/repair_database.py manually."
+        )
+
+
 def get_database() -> SqliteDatabase:
     """Get or create the global database instance."""
     global _db
@@ -50,6 +114,9 @@ def get_database() -> SqliteDatabase:
             },
             timeout=15,
         )
+
+        # Automatic startup repair: integrity check and repair before any connection
+        _startup_integrity_check_and_repair(db_path)
 
         # Connect with retry logic
         with_database_retry(
