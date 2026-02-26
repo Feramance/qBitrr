@@ -57,7 +57,10 @@ jobs:
 
     - name: Ensure changelog page exists
       run: |
-        if [ ! -f docs/changelog.md ]; then cp CHANGELOG.md docs/changelog.md; fi
+        if [ ! -f docs/changelog.md ] || [ -L docs/changelog.md ]; then
+          rm -f docs/changelog.md
+          cp CHANGELOG.md docs/changelog.md
+        fi
 
     - name: Build documentation
       run: mkdocs build --strict --verbose
@@ -105,7 +108,10 @@ jobs:
 
     - name: Ensure changelog page exists
       run: |
-        if [ ! -f docs/changelog.md ]; then cp CHANGELOG.md docs/changelog.md; fi
+        if [ ! -f docs/changelog.md ] || [ -L docs/changelog.md ]; then
+          rm -f docs/changelog.md
+          cp CHANGELOG.md docs/changelog.md
+        fi
 
     - name: Build docs
       run: mkdocs build
