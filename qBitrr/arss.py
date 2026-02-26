@@ -7471,9 +7471,21 @@ class PlaceHolderArr(Arr):
         self.maximum_deletable_percentage = CONFIG.get(
             "Settings.Torrent.MaximumDeletablePercentage", fallback=0.95
         )
+        self.folder_exclusion_regex = None
+        self.file_name_exclusion_regex = None
+        self.file_extension_allowlist = None
+        self.folder_exclusion_regex_re = None
+        self.file_name_exclusion_regex_re = None
+        self.file_extension_allowlist_re = None
+        self.re_search_stalled = False
         self.monitored_trackers = []
         self._host_to_config_uri = {}
         self._add_trackers_if_missing = set()
+        self._remove_trackers_if_exists = set()
+        self._monitored_tracker_urls = set()
+        self.remove_dead_trackers = False
+        self._remove_tracker_hosts = set()
+        self._normalized_bad_tracker_msgs = set()
         self.seeding_mode_global_remove_torrent = -1
         self.seeding_mode_global_max_upload_ratio = -1
         self.seeding_mode_global_max_seeding_time = -1
@@ -7574,6 +7586,9 @@ class PlaceHolderArr(Arr):
             _host = _extract_tracker_host(_uri)
             if _host:
                 self._host_to_config_uri[_host] = _uri
+        self._remove_tracker_hosts = {
+            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
+        }
         self.logger.debug(
             "Applied qBit seeding config for category '%s': RemoveTorrent=%s, StalledDelay=%s",
             self.category,
@@ -7771,86 +7786,6 @@ class PlaceHolderArr(Arr):
         for k in updated_recheck:
             self.timed_ignore_cache.add(k)
         self.recheck.clear()
-
-    def _process_failed(self):
-        to_delete_all = self.delete.union(
-            self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
-        )
-        skip_blacklist = {
-            i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
-        }
-        if not (to_delete_all or self.remove_from_qbit or self.skip_blacklist):
-            return
-        n_delete = len(self.delete)
-        n_missing = len(self.missing_files_post_delete)
-        n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
-        n_remove = len(self.remove_from_qbit)
-        n_skip = len(self.skip_blacklist)
-        self.logger.info(
-            "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-            "remove_from_qbit=%d, skip_blacklist=%d",
-            n_delete,
-            n_missing,
-            n_bad_msg,
-            n_remove,
-            n_skip,
-        )
-        if to_delete_all:
-            for arr in self.manager.managed_objects.values():
-                if payload := arr.process_entries(to_delete_all):
-                    for entry, hash_ in payload:
-                        if hash_ in arr.cache:
-                            arr._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                            )
-        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
-            # Remove all bad torrents from the Client.
-            temp_to_delete = set()
-            if to_delete_all:
-                with contextlib.suppress(Exception):
-                    with_retry(
-                        lambda: self.manager.qbit.torrents_delete(
-                            hashes=to_delete_all, delete_files=True
-                        ),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
-                    )
-            if self.remove_from_qbit or self.skip_blacklist:
-                temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                with contextlib.suppress(Exception):
-                    with_retry(
-                        lambda: self.manager.qbit.torrents_delete(
-                            hashes=temp_to_delete, delete_files=True
-                        ),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
-                    )
-            to_delete_all = to_delete_all.union(temp_to_delete)
-            for h in to_delete_all:
-                self.cleaned_torrents.discard(h)
-                self.sent_to_scan_hashes.discard(h)
-                if h in self.manager.qbit_manager.name_cache:
-                    del self.manager.qbit_manager.name_cache[h]
-                if h in self.manager.qbit_manager.cache:
-                    del self.manager.qbit_manager.cache[h]
-        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
-            self.missing_files_post_delete.clear()
-            self.downloads_with_bad_error_message_blocklist.clear()
-        self.skip_blacklist.clear()
-        self.remove_from_qbit.clear()
-        self.delete.clear()
 
     def process(self):
         self._process_errored()

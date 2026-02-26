@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from qbittorrentapi import TorrentStates
@@ -187,47 +186,6 @@ class qBitCategoryManager:
                 "Error processing torrent '%s' in category '%s': %s",
                 torrent.name,
                 category,
-                e,
-                exc_info=True,
-            )
-
-    def _should_remove_stalled(self, torrent: TorrentDictionary) -> bool:
-        """
-        Return True if this torrent is stalled (STALLED_DOWNLOAD/METADATA_DOWNLOAD) and has
-        exceeded StalledDelay, and passes IgnoreTorrentsYoungerThan (intentional gate on both
-        added_on and last_activity).
-        """
-        if not self.allowed_stalled or self.stalled_delay <= 0:
-            return False
-        if torrent.state_enum not in (
-            TorrentStates.STALLED_DOWNLOAD,
-            TorrentStates.METADATA_DOWNLOAD,
-        ):
-            return False
-        time_now = time.time()
-        stalled_delay_seconds = int(timedelta(minutes=self.stalled_delay).total_seconds())
-        if time_now < torrent.added_on + self.ignore_torrents_younger_than:
-            return False
-        if time_now < torrent.last_activity + stalled_delay_seconds:
-            return False
-        if torrent.last_activity > time_now - self.ignore_torrents_younger_than:
-            return False
-        return True
-
-    def _remove_stalled_torrent(self, torrent: TorrentDictionary, category: str):
-        """Remove a stalled download (no progress within StalledDelay, past IgnoreTorrentsYoungerThan)."""
-        try:
-            self.logger.info(
-                "Removing stalled torrent '%s' from category '%s' (no progress for %d min)",
-                torrent.name,
-                category,
-                self.stalled_delay,
-            )
-            torrent.delete(delete_files=True)
-        except Exception as e:
-            self.logger.error(
-                "Failed to remove stalled torrent '%s': %s",
-                torrent.name,
                 e,
                 exc_info=True,
             )
