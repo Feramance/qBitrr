@@ -1717,9 +1717,7 @@ class Arr:
             )
             if to_delete_all and self.logger.isEnabledFor(10):  # DEBUG
                 sample = list(to_delete_all)[:5]
-                names = [
-                    self.manager.qbit_manager.name_cache.get(h, h) for h in sample
-                ]
+                names = [self.manager.qbit_manager.name_cache.get(h, h) for h in sample]
                 self.logger.debug(
                     "Deletion sample (first 5): %s",
                     list(zip(sample, names)),
@@ -5177,9 +5175,7 @@ class Arr:
         if ratio_limit is not None or seeding_time_limit is not None:
             parts = []
             if ratio_limit is not None:
-                parts.append(
-                    "ratio_limit=%s" % (ratio_limit if ratio_limit > 0 else "unset")
-                )
+                parts.append("ratio_limit=%s" % (ratio_limit if ratio_limit > 0 else "unset"))
             if seeding_time_limit is not None:
                 parts.append(
                     "seeding_time_limit=%s"
@@ -5860,7 +5856,11 @@ class Arr:
             remove_torrent = False
 
         hnr_override = False
-        if is_downloading and remove_torrent and not self._hnr_safe_to_remove(torrent, data_settings):
+        if (
+            is_downloading
+            and remove_torrent
+            and not self._hnr_safe_to_remove(torrent, data_settings)
+        ):
             self.logger.debug(
                 "HnR protection: keeping downloading torrent [%s] (ratio=%.2f, seeding=%s)",
                 torrent.name,
@@ -5873,7 +5873,9 @@ class Arr:
         if hnr_override:
             return_value = True
         else:
-            return_value = not (is_uploading and self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit))
+            return_value = not (
+                is_uploading and self.torrent_limit_check(torrent, seeding_time_limit, ratio_limit)
+            )
         if data_settings.get("super_seeding", False) or data_torrent.get("super_seeding", False):
             return_value = True
         if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
@@ -5943,22 +5945,18 @@ class Arr:
         )
         if monitored_trackers and most_important_tracker:
             if (
-                (r := most_important_tracker.get(
+                r := most_important_tracker.get(
                     "DownloadRateLimit", self.seeding_mode_global_download_limit
-                ))
-                != 0
-                and torrent.dl_limit != r
-            ):
+                )
+            ) != 0 and torrent.dl_limit != r:
                 torrent.set_download_limit(limit=r)
             elif r < 0:
                 torrent.set_upload_limit(limit=-1)
             if (
-                (r := most_important_tracker.get(
+                r := most_important_tracker.get(
                     "UploadRateLimit", self.seeding_mode_global_upload_limit
-                ))
-                != 0
-                and torrent.up_limit != r
-            ):
+                )
+            ) != 0 and torrent.up_limit != r:
                 torrent.set_upload_limit(limit=r)
             elif r < 0:
                 torrent.set_upload_limit(limit=-1)
@@ -6162,7 +6160,8 @@ class Arr:
             self._process_single_torrent_process_files(torrent, True)
         elif torrent.hash in self.timed_ignore_cache:
             if (
-                torrent.state_enum in (TorrentStates.STOPPED_DOWNLOAD, TorrentStates.STOPPED_UPLOAD)
+                torrent.state_enum
+                in (TorrentStates.STOPPED_DOWNLOAD, TorrentStates.STOPPED_UPLOAD)
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
             ):
@@ -6353,9 +6352,7 @@ class Arr:
         Fetches tracker metadata and checks HnR. Returns True if deletion
         is allowed, False if HnR protection blocks it.
         """
-        if not any(
-            self._resolve_hnr_clear_mode(t) != "disabled" for t in self.monitored_trackers
-        ):
+        if not any(self._resolve_hnr_clear_mode(t) != "disabled" for t in self.monitored_trackers):
             return True  # Fast path: no HnR on any tracker
 
         # If the HnR-enabled tracker reports the torrent as unregistered/dead,
@@ -6466,9 +6463,7 @@ class Arr:
 
         # Treat limits <= 0 as unset; only consider a limit "met" when it is set (>0) and satisfied
         ratio_limit_valid = ratio_limit is not None and ratio_limit > 0
-        time_limit_valid = (
-            seeding_time_limit is not None and seeding_time_limit > 0
-        )
+        time_limit_valid = seeding_time_limit is not None and seeding_time_limit > 0
         ratio_met = ratio_limit_valid and torrent.ratio >= ratio_limit
         time_met = time_limit_valid and torrent.seeding_time >= seeding_time_limit
 

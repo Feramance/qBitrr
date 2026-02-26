@@ -153,6 +153,8 @@ PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
 IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get(
     "Settings.IgnoreTorrentsYoungerThan", fallback=180
 )
+
+
 def _has_any_qbit_section() -> bool:
     return any(s == "qBit" or s.startswith("qBit-") for s in CONFIG.sections())
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
+
 
 
 def _make_torrent(ratio: float = 0.0, seeding_time: int = 0):
@@ -21,9 +21,7 @@ def _make_arr(remove_torrent: int, warned: bool = False):
     return arr
 
 
-def torrent_limit_check_standalone(
-    arr, torrent, seeding_time_limit, ratio_limit
-) -> bool:
+def torrent_limit_check_standalone(arr, torrent, seeding_time_limit, ratio_limit) -> bool:
     """Replicate torrent_limit_check logic for testing (avoids importing full Arr)."""
     if arr.seeding_mode_global_remove_torrent == -1:
         return False
@@ -91,7 +89,7 @@ class TestTorrentLimitCheck:
         # Time set and met, ratio unset
         assert torrent_limit_check_standalone(arr, t, 500, -5) is True
         # Both set, one met
-        assert torrent_limit_check_standalone(arr, t, 500, 3.0) is True   # time met
+        assert torrent_limit_check_standalone(arr, t, 500, 3.0) is True  # time met
         assert torrent_limit_check_standalone(arr, t, 2000, 1.5) is True  # ratio met
         # Both set and met
         assert torrent_limit_check_standalone(arr, t, 500, 1.0) is True

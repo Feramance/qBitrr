@@ -1475,9 +1475,7 @@ def _migrate_hnr_clear_mode(config: MyConfig) -> bool:
         if "CategorySeeding" in section:
             cs = section["CategorySeeding"]
             if isinstance(cs, dict) and "HitAndRunClearMode" not in cs:
-                cs["HitAndRunClearMode"] = (
-                    "and" if cs.get("HitAndRunMode", False) else "disabled"
-                )
+                cs["HitAndRunClearMode"] = "and" if cs.get("HitAndRunMode", False) else "disabled"
                 changes_made = True
         # Trackers list
         if "Trackers" in section and isinstance(section["Trackers"], list):
