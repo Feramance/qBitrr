@@ -214,25 +214,24 @@ def _create_arrinstance_indexes(db: SqliteDatabase, models: list) -> None:
     which is done on every WebUI page load.
     """
     try:
-        cursor = db.cursor()
-        for model in models:
-            if hasattr(model, "ArrInstance"):
-                table_name = model._meta.table_name
-                index_name = f"idx_arrinstance_{table_name}"
+        with db.atomic():
+            cursor = db.cursor()
+            for model in models:
+                if hasattr(model, "ArrInstance"):
+                    table_name = model._meta.table_name
+                    index_name = f"idx_arrinstance_{table_name}"
 
-                # Check if index already exists
-                cursor.execute(
-                    "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-                    (index_name,),
-                )
-                if cursor.fetchone():
-                    continue  # Index already exists
+                    # Check if index already exists
+                    cursor.execute(
+                        "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+                        (index_name,),
+                    )
+                    if cursor.fetchone():
+                        continue  # Index already exists
 
-                # Create index
-                cursor.execute(f"CREATE INDEX {index_name} ON {table_name}(ArrInstance)")
-                logger.info("Created index: %s on %s.ArrInstance", index_name, table_name)
-
-        db.commit()
+                    # Create index
+                    cursor.execute(f"CREATE INDEX {index_name} ON {table_name}(ArrInstance)")
+                    logger.info("Created index: %s on %s.ArrInstance", index_name, table_name)
     except Exception as e:
         logger.error("Error creating ArrInstance indexes: %s", e)
 
