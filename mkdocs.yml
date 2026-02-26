@@ -122,6 +122,7 @@ plugins:
 - git-revision-date-localized:
     enable_creation_date: true
     type: timeago
+    enable_parallel_processing: false
 - minify:
     minify_html: true
     minify_js: true
