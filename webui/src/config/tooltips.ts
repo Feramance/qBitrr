@@ -48,6 +48,8 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
    "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
    "WebUI.GroupLidarr": "Group Lidarr views by artist and albums in collapsible sections.",
    "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
+   "WebUI.ViewDensity":
+    "View density for lists in the WebUI: Comfortable (more spacing) or Compact (more rows on screen).",
 
   "qBit.Trackers":
     "Tracker configs shared by all Arr instances on this qBit instance. Define tracker-specific rate limits, HnR protection, and management rules here. Arr instances inherit these and can optionally override per-tracker settings.",
@@ -175,6 +177,10 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Minimum ratio for partial downloads in managed categories (HnR protection).",
   "CategorySeeding.TrackerUpdateBuffer":
     "Extra seconds buffer for tracker stats lag in managed categories.",
+  "CategorySeeding.StalledDelay":
+    "Minutes to allow stalled downloads before removal for qBit-managed categories (-1 = disabled, 0 = infinite).",
+  "CategorySeeding.IgnoreTorrentsYoungerThan":
+    "Ignore torrents younger than this many seconds for stalled removal; last_activity must also be older than this.",
   HitAndRunMode:
     "Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR.",
   MinSeedRatio:

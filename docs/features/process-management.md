@@ -267,7 +267,7 @@ qBitrr implements graceful shutdown to ensure data consistency:
 
 ### Shutdown Timeout
 
-If a process doesn't terminate within 30 seconds, it's forcefully killed (SIGKILL).
+If a process doesn't terminate within a short period after receiving SIGTERM, it is forcefully killed (SIGKILL). The exact delay is implementation-defined (e.g. a few seconds in recovery paths).
 
 ---
 
@@ -391,7 +391,7 @@ services:
     image: feramance/qbitrr:latest
     restart: unless-stopped  # Container-level restart
     environment:
-      - QBITRR_SETTINGS__AUTORESTARTPROCESSES=true  # Process-level restart
+      - QBITRR_SETTINGS_AUTO_RESTART_PROCESSES=true  # Process-level restart
 ```
 
 **Layered Restart:**
@@ -447,7 +447,7 @@ services:
       retries: 3
       start_period: 40s
     environment:
-      - QBITRR_SETTINGS__AUTORESTARTPROCESSES=true
+      - QBITRR_SETTINGS_AUTO_RESTART_PROCESSES=true
 ```
 
 ---
@@ -529,13 +529,24 @@ GET /api/processes
 {
   "processes": [
     {
-      "name": "Radarr-Movies",
       "category": "radarr-movies",
-      "status": "running",
+      "name": "Radarr-Movies",
+      "kind": "search",
       "pid": 12345,
-      "uptime": 3600,
-      "restart_count": 2,
-      "last_restart": "2024-01-15T10:30:00Z"
+      "alive": true,
+      "rebuilding": false,
+      "searchSummary": "Found 12 missing movies, searched 5",
+      "searchTimestamp": "2025-11-27T12:00:00Z"
+    },
+    {
+      "category": "radarr-movies",
+      "name": "Radarr-Movies",
+      "kind": "torrent",
+      "pid": 12346,
+      "alive": true,
+      "rebuilding": false,
+      "queueCount": 3,
+      "categoryCount": 8
     }
   ]
 }

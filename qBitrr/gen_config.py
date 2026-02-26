@@ -381,6 +381,18 @@ def _add_qbit_section(config: TOMLDocument):
         "TrackerUpdateBuffer",
         0,
     )
+    _gen_default_line(
+        category_seeding,
+        "Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite).",
+        "StalledDelay",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Ignore torrents younger than this (seconds). Stalled removal also requires last_activity older than this.",
+        "IgnoreTorrentsYoungerThan",
+        600,
+    )
     _gen_qbit_tracker_tables(qbit)
 
     qbit.add("CategorySeeding", category_seeding)
@@ -1613,7 +1625,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("FailedCategory", "failed"),
         ("RecheckCategory", "recheck"),
         ("Tagless", False),
-        ("IgnoreTorrentsYoungerThan", 600),
+        ("IgnoreTorrentsYoungerThan", 180),
         ("PingURLS", ["one.one.one.one", "dns.google.com"]),
         ("FFprobeAutoUpdate", True),
         ("AutoUpdateEnabled", False),

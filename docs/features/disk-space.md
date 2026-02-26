@@ -31,7 +31,7 @@ graph TD
     A[qBitrr monitoring loop] --> B{Check free space}
     B --> C{Space < FreeSpace?}
     C -->|No| D[Continue normally]
-    C -->|Yes| E[Pause all downloads]
+    C -->|Yes| E[Pause downloads in managed categories]
     E --> F[Log warning]
     F --> G[Keep seeding active]
     G --> H[Wait for next loop]
@@ -46,7 +46,7 @@ graph TD
 1. qBitrr checks free space every `LoopSleepTimer` seconds (default: 5)
 2. Compares available space to `FreeSpace` threshold
 3. If space < threshold:
-   - Pauses all downloading torrents
+   - Pauses **downloading** torrents in **managed** categories (Arr-managed and qBit-managed) so that free space would not fall below the threshold
    - Keeps seeding torrents active
    - Logs warning message
 4. When space frees up (files imported/deleted):
@@ -139,7 +139,7 @@ FreeSpaceFolder = "/data/downloads"
 ```
 
 **Type:** String (path)
-**Default:** Same as `CompletedDownloadFolder`
+**Default:** `"CHANGE_ME"` in generated config; must be set when `FreeSpace != "-1"`
 
 Folder to monitor for free space.
 
@@ -169,6 +169,8 @@ FreeSpaceFolder = "/mnt/storage"
 CompletedDownloadFolder = "/downloads"
 FreeSpaceFolder = "/downloads"
 ```
+
+**Docker:** The path is **inside the container**. You must mount your host torrent directory at that path (e.g. `-v /host/torrents:/torrents`). If the path does not exist in the container, qBitrr falls back to `/` and reports the container root filesystem's free space (usually very small), which will trigger constant pausing. Ensure your compose/run mounts the volume at the same path as `FreeSpaceFolder`.
 
 ---
 
@@ -307,7 +309,7 @@ State:
 
 qBitrr Actions:
 1. Detects: 48 GB < 50 GB threshold
-2. Pauses all downloading torrents
+2. Pauses downloading torrents in managed categories (see "Which torrents are monitored" below)
 3. Logs: "Disk space low, pausing downloads"
 4. Keeps seeding torrents active
 5. Waits for space to free up
@@ -511,6 +513,14 @@ Check paused torrents in qBittorrent:
    # Use container path
    FreeSpaceFolder = "/downloads"
    ```
+
+4. **Windows: Use the actual drive path**
+   If `FreeSpaceFolder` is set to a Unix-style path (e.g. `/torrents`) and qBitrr runs natively on Windows, that path is resolved to the current drive (e.g. `C:\torrents`). If that path does not exist, qBitrr falls back to the drive root (e.g. `C:\`) and reports that drive's free space. Set `FreeSpaceFolder` (and `CompletedDownloadFolder`) to the real path where torrents are stored, for example:
+   ```toml
+   CompletedDownloadFolder = "D:\\torrents"
+   FreeSpaceFolder = "D:\\torrents"
+   ```
+   Check the FreeSpaceManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
 
 ---
 
