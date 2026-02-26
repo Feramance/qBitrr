@@ -575,6 +575,7 @@ class Arr:
         self.missing_files_post_delete = set()
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
+        self._warned_no_seeding_limits = False
 
         self.last_search_description: str | None = None
         self.last_search_timestamp: str | None = None
@@ -1699,6 +1700,30 @@ class Arr:
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
+        if to_delete_all or self.remove_from_qbit or self.skip_blacklist:
+            n_delete = len(self.delete)
+            n_missing = len(self.missing_files_post_delete)
+            n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
+            n_remove = len(self.remove_from_qbit)
+            n_skip = len(self.skip_blacklist)
+            self.logger.info(
+                "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
+                "remove_from_qbit=%d, skip_blacklist=%d",
+                n_delete,
+                n_missing,
+                n_bad_msg,
+                n_remove,
+                n_skip,
+            )
+            if to_delete_all and self.logger.isEnabledFor(10):  # DEBUG
+                sample = list(to_delete_all)[:5]
+                names = [
+                    self.manager.qbit_manager.name_cache.get(h, h) for h in sample
+                ]
+                self.logger.debug(
+                    "Deletion sample (first 5): %s",
+                    list(zip(sample, names)),
+                )
         if to_delete_all:
             self.needs_cleanup = True
             payload = self.process_entries(to_delete_all)
@@ -4835,6 +4860,7 @@ class Arr:
                     for instance, t in torrents_with_instances
                     if hasattr(t, "category")
                 ]
+                self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
                 if not len(torrents_with_instances):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
@@ -5119,22 +5145,7 @@ class Arr:
         raise DatabaseRecoveryError("All automatic recovery methods failed")
 
     def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
-        self.logger.notice(
-            "Deleting manually failed torrent: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Availability: %s%%][Time Left: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
-        )
-        self.delete.add(torrent.hash)
+        self._mark_for_deletion(torrent, "manually failed")
 
     def _process_single_torrent_recheck_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -5153,6 +5164,39 @@ class Arr:
             torrent.hash,
         )
         self.recheck.add(torrent.hash)
+
+    def _mark_for_deletion(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        reason: str,
+        ratio_limit=None,
+        seeding_time_limit=None,
+    ) -> None:
+        """Mark torrent for deletion and log reason with current stats and effective limits."""
+        extra = ""
+        if ratio_limit is not None or seeding_time_limit is not None:
+            parts = []
+            if ratio_limit is not None:
+                parts.append(
+                    "ratio_limit=%s" % (ratio_limit if ratio_limit > 0 else "unset")
+                )
+            if seeding_time_limit is not None:
+                parts.append(
+                    "seeding_time_limit=%s"
+                    % (seeding_time_limit if seeding_time_limit > 0 else "unset")
+                )
+            extra = " [%s]" % ", ".join(parts)
+        self.logger.info(
+            "Marking for deletion (%s): [Progress: %s%%][Ratio: %s][Seeding time: %s] | %s (%s)%s",
+            reason,
+            round(torrent.progress * 100, 2),
+            torrent.ratio,
+            timedelta(seconds=torrent.seeding_time),
+            torrent.name,
+            torrent.hash,
+            extra,
+        )
+        self.delete.add(torrent.hash)
 
     def _process_single_torrent_ignored(self, torrent: qbittorrentapi.TorrentDictionary):
         # Do not touch torrents that are currently being ignored.
@@ -5238,24 +5282,8 @@ class Arr:
             torrent.added_on < time.time() - self.ignore_torrents_younger_than
             and torrent.last_activity < (time.time() - self.ignore_torrents_younger_than)
         ):
-            self.logger.info(
-                "Deleting Stale torrent: %s | "
-                "[Progress: %s%%][Added On: %s]"
-                "[Availability: %s%%][Time Left: %s]"
-                "[Last active: %s] "
-                "| [%s] | %s (%s)",
-                extra,
-                round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(torrent.added_on),
-                round(torrent.availability * 100, 2),
-                timedelta(seconds=torrent.eta),
-                datetime.fromtimestamp(torrent.last_activity),
-                torrent.state_enum,
-                torrent.name,
-                torrent.hash,
-            )
             if self._hnr_allows_delete(torrent, "stale torrent deletion"):
-                self.delete.add(torrent.hash)
+                self._mark_for_deletion(torrent, "stale torrent deletion")
         else:
             self.logger.trace(
                 "Ignoring Stale torrent: "
@@ -5287,23 +5315,8 @@ class Arr:
         # However if its completely dead and no activity is observed, then lets
         # remove it and requeue a new torrent.
         if maximum_eta > 0 and torrent.last_activity < (time.time() - maximum_eta):
-            self.logger.info(
-                "Deleting Stale torrent: Last activity is older than Maximum ETA "
-                "[Progress: %s%%][Added On: %s]"
-                "[Availability: %s%%][Time Left: %s]"
-                "[Last active: %s] "
-                "| [%s] | %s (%s)",
-                round(torrent.progress * 100, 2),
-                datetime.fromtimestamp(torrent.added_on),
-                round(torrent.availability * 100, 2),
-                timedelta(seconds=torrent.eta),
-                datetime.fromtimestamp(torrent.last_activity),
-                torrent.state_enum,
-                torrent.name,
-                torrent.hash,
-            )
             if self._hnr_allows_delete(torrent, "stale high-percentage deletion"):
-                self.delete.add(torrent.hash)
+                self._mark_for_deletion(torrent, "stale high-percentage deletion")
         else:
             self.logger.trace(
                 "Skipping torrent: Reached Maximum completed "
@@ -5523,47 +5536,29 @@ class Arr:
             torrent.hash,
         )
         if self._hnr_allows_delete(torrent, "slow torrent deletion"):
-            self.delete.add(torrent.hash)
+            self._mark_for_deletion(torrent, "slow torrent deletion")
 
     def _process_single_torrent_delete_cfunmet(
         self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = ""
     ):
-        self.logger.info(
-            "Removing CF unmet torrent: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Ratio: %s%%][Seeding time: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
-        )
         if self._hnr_allows_delete(torrent, "CF unmet deletion"):
-            self.delete.add(torrent.hash)
+            self._mark_for_deletion(torrent, "CF unmet deletion")
 
     def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
-        self.logger.info(
-            "Removing completed torrent: "
-            "[Progress: %s%%][Added On: %s]"
-            "[Ratio: %s%%][Seeding time: %s]"
-            "[Last active: %s] "
-            "| [%s] | %s (%s)",
-            round(torrent.progress * 100, 2),
-            datetime.fromtimestamp(torrent.added_on),
-            torrent.ratio,
-            timedelta(seconds=torrent.seeding_time),
-            datetime.fromtimestamp(torrent.last_activity),
-            torrent.state_enum,
-            torrent.name,
-            torrent.hash,
-        )
+        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        r_dat = data_settings.get("ratio_limit", -5)
+        r_tor = data_torrent.get("ratio_limit", -5)
+        t_dat = data_settings.get("seeding_time_limit", -5)
+        t_tor = data_torrent.get("seeding_time_limit", -5)
+        ratio_limit = max(r_dat, r_tor) if (r_dat > 0 or r_tor > 0) else -5
+        seeding_time_limit = max(t_dat, t_tor) if (t_dat > 0 or t_tor > 0) else -5
         if self._hnr_allows_delete(torrent, "ratio/seed limit deletion"):
-            self.delete.add(torrent.hash)
+            self._mark_for_deletion(
+                torrent,
+                "ratio/seed limit deletion",
+                ratio_limit=ratio_limit,
+                seeding_time_limit=seeding_time_limit,
+            )
 
     def _process_single_torrent_process_files(
         self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
@@ -5629,23 +5624,8 @@ class Arr:
             # If all files in the torrent are marked for exclusion then delete the
             # torrent.
             if total == 0:
-                self.logger.info(
-                    "Deleting All files ignored: "
-                    "[Progress: %s%%][Added On: %s]"
-                    "[Availability: %s%%][Time Left: %s]"
-                    "[Last active: %s] "
-                    "| [%s] | %s (%s)",
-                    round(torrent.progress * 100, 2),
-                    datetime.fromtimestamp(torrent.added_on),
-                    round(torrent.availability * 100, 2),
-                    timedelta(seconds=torrent.eta),
-                    datetime.fromtimestamp(torrent.last_activity),
-                    torrent.state_enum,
-                    torrent.name,
-                    torrent.hash,
-                )
                 if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
-                    self.delete.add(torrent.hash)
+                    self._mark_for_deletion(torrent, "all-files-excluded deletion")
             # Mark all bad files and folder for exclusion.
             elif _remove_files and torrent.hash not in self.change_priority:
                 self.change_priority[torrent.hash] = list(_remove_files)
@@ -5763,6 +5743,13 @@ class Arr:
         max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
+    def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
+        """Resolve HnR clear mode: 'and' | 'or' | 'disabled'. Backwards compat: HitAndRunMode true -> 'and'."""
+        raw = tracker_or_config.get("HitAndRunClearMode")
+        if isinstance(raw, str) and raw.strip().lower() in ("and", "or", "disabled"):
+            return raw.strip().lower()
+        return "and" if tracker_or_config.get("HitAndRunMode", False) else "disabled"
+
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
@@ -5813,6 +5800,7 @@ class Arr:
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
             "hnr_mode": most_important_tracker.get("HitAndRunMode", False),
+            "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
             "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
             "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
             "hnr_min_download_percent": most_important_tracker.get(
@@ -6365,7 +6353,9 @@ class Arr:
         Fetches tracker metadata and checks HnR. Returns True if deletion
         is allowed, False if HnR protection blocks it.
         """
-        if not any(t.get("HitAndRunMode", False) for t in self.monitored_trackers):
+        if not any(
+            self._resolve_hnr_clear_mode(t) != "disabled" for t in self.monitored_trackers
+        ):
             return True  # Fast path: no HnR on any tracker
 
         # If the HnR-enabled tracker reports the torrent as unregistered/dead,
@@ -6408,7 +6398,7 @@ class Arr:
         hnr_hosts = {
             _extract_tracker_host(t.get("URI") or "")
             for t in self.monitored_trackers
-            if t.get("HitAndRunMode", False)
+            if self._resolve_hnr_clear_mode(t) != "disabled"
         } - {""}
         if not hnr_hosts:
             return False
@@ -6428,8 +6418,8 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary, tracker_meta: dict
     ) -> bool:
         """Returns True only if Hit and Run obligations are met."""
-        hnr_enabled = tracker_meta.get("hnr_mode", False)
-        if not hnr_enabled:
+        clear_mode = (tracker_meta.get("hnr_clear_mode") or "disabled").strip().lower()
+        if clear_mode == "disabled":
             return True
 
         min_ratio = tracker_meta.get("hnr_min_seed_ratio", 1.0)
@@ -6449,12 +6439,22 @@ class Arr:
         ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
         time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
 
-        if min_ratio > 0 and min_time_secs > 0:
-            return ratio_met or time_met  # Either clears HnR
-        elif min_ratio > 0:
-            return ratio_met
-        elif min_time_secs > 0:
-            return time_met
+        if clear_mode == "and":
+            if min_ratio > 0 and min_time_secs > 0:
+                return ratio_met and time_met
+            if min_ratio > 0:
+                return ratio_met
+            if min_time_secs > 0:
+                return time_met
+            return True
+        if clear_mode == "or":
+            if min_ratio > 0 and min_time_secs > 0:
+                return ratio_met or time_met
+            if min_ratio > 0:
+                return ratio_met
+            if min_time_secs > 0:
+                return time_met
+            return True
         return True
 
     def torrent_limit_check(
@@ -6463,29 +6463,35 @@ class Arr:
         # -1 = Never remove (regardless of ratio/time limits)
         if self.seeding_mode_global_remove_torrent == -1:
             return False
-        # 4 = AND (remove when BOTH ratio AND time limits met)
-        elif (
-            self.seeding_mode_global_remove_torrent == 4
-            and torrent.ratio >= ratio_limit
-            and torrent.seeding_time >= seeding_time_limit
-        ):
-            return True
-        # 3 = OR (remove when EITHER ratio OR time limit met)
-        elif self.seeding_mode_global_remove_torrent == 3 and (
-            torrent.ratio >= ratio_limit or torrent.seeding_time >= seeding_time_limit
-        ):
-            return True
-        # 2 = Time only (remove when seeding time limit met)
-        elif (
-            self.seeding_mode_global_remove_torrent == 2
-            and torrent.seeding_time >= seeding_time_limit
-        ):
-            return True
-        # 1 = Ratio only (remove when upload ratio limit met)
-        elif self.seeding_mode_global_remove_torrent == 1 and torrent.ratio >= ratio_limit:
-            return True
-        else:
+
+        # Treat limits <= 0 as unset; only consider a limit "met" when it is set (>0) and satisfied
+        ratio_limit_valid = ratio_limit is not None and ratio_limit > 0
+        time_limit_valid = (
+            seeding_time_limit is not None and seeding_time_limit > 0
+        )
+        ratio_met = ratio_limit_valid and torrent.ratio >= ratio_limit
+        time_met = time_limit_valid and torrent.seeding_time >= seeding_time_limit
+
+        mode = self.seeding_mode_global_remove_torrent
+        if mode in (1, 2, 3, 4) and not ratio_limit_valid and not time_limit_valid:
+            if not self._warned_no_seeding_limits:
+                self.logger.warning(
+                    "RemoveTorrent=%s but neither MaxUploadRatio nor MaxSeedingTime is set; "
+                    "skipping seeding-based removal until at least one limit is configured",
+                    mode,
+                )
+                self._warned_no_seeding_limits = True
             return False
+
+        if mode == 4:
+            return ratio_met and time_met
+        if mode == 3:
+            return ratio_met or time_met
+        if mode == 2:
+            return time_met
+        if mode == 1:
+            return ratio_met
+        return False
 
     def refresh_download_queue(self):
         self.queue = self.get_queue() or []

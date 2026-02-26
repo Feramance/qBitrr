@@ -568,6 +568,7 @@ class qBitManager:
             # Load HnR protection settings
             hnr_keys = {
                 "HitAndRunMode": False,
+                "HitAndRunClearMode": "disabled",
                 "MinSeedRatio": 1.0,
                 "MinSeedingTimeDays": 0,
                 "HitAndRunPartialSeedRatio": 1.0,
@@ -699,6 +700,7 @@ class qBitManager:
         ]
         hnr_keys = {
             "HitAndRunMode": False,
+            "HitAndRunClearMode": "disabled",
             "MinSeedRatio": 1.0,
             "MinSeedingTimeDays": 0,
             "HitAndRunPartialSeedRatio": 1.0,

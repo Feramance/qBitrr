@@ -458,6 +458,12 @@ const QBIT_FIELDS: FieldDefinition[] = [
     type: "checkbox",
   },
   {
+    label: "HnR Clear Mode",
+    path: ["CategorySeeding", "HitAndRunClearMode"],
+    type: "select",
+    options: ["and", "or", "disabled"],
+  },
+  {
     label: "Min Seed Ratio",
     path: ["CategorySeeding", "MinSeedRatio"],
     type: "number",
@@ -1077,6 +1083,12 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     label: "Hit and Run Mode",
     path: ["HitAndRunMode"],
     type: "checkbox",
+  },
+  {
+    label: "HnR Clear Mode",
+    path: ["HitAndRunClearMode"],
+    type: "select",
+    options: ["and", "or", "disabled"],
   },
   {
     label: "Min Seed Ratio",

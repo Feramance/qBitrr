@@ -151,7 +151,7 @@ class qBitCategoryManager:
                     self._apply_tags(torrent, tags)
                 # Merge tracker overrides into effective config (tracker wins over category
                 # for seeding fields; skip non-seeding tracker metadata keys)
-                _skip = {"URI", "Priority", "Name", "AddTags", "HitAndRunMode",
+                _skip = {"URI", "Priority", "Name", "AddTags", "HitAndRunMode", "HitAndRunClearMode",
                          "MinSeedRatio", "MinSeedingTimeDays", "HitAndRunMinimumDownloadPercent",
                          "HitAndRunPartialSeedRatio", "TrackerUpdateBuffer"}
                 effective_config = {
@@ -309,7 +309,7 @@ class qBitCategoryManager:
             tracker_config = self._get_tracker_config(torrent)
             hnr_config = tracker_config if tracker_config else config
 
-            if hnr_config.get("HitAndRunMode", False) and self._hnr_tracker_is_dead(
+            if self._hnr_clear_mode_enabled(hnr_config) and self._hnr_tracker_is_dead(
                 torrent, hnr_config
             ):
                 self.logger.debug(
@@ -328,6 +328,15 @@ class qBitCategoryManager:
                 return False
 
         return should_remove
+
+    def _hnr_clear_mode_enabled(self, config: dict) -> bool:
+        """True if HnR protection is enabled (clear mode is not 'disabled')."""
+        mode = (config.get("HitAndRunClearMode") or "").strip().lower()
+        if mode in ("and", "or"):
+            return True
+        if mode == "disabled":
+            return False
+        return bool(config.get("HitAndRunMode", False))  # Legacy: HitAndRunMode true -> enabled
 
     def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
         """Find the highest-priority matching tracker config for this torrent."""
@@ -408,8 +417,16 @@ class qBitCategoryManager:
         Returns:
             True if HnR obligations are met (safe to remove), False otherwise
         """
-        if not config.get("HitAndRunMode", False):
-            return True
+        clear_mode = (config.get("HitAndRunClearMode") or "").strip().lower()
+        if clear_mode == "disabled":
+            if not config.get("HitAndRunMode", False):
+                return True
+            # Legacy: HitAndRunMode true with no HitAndRunClearMode -> treat as "and"
+            clear_mode = "and"
+        elif clear_mode not in ("and", "or"):
+            clear_mode = "and" if config.get("HitAndRunMode", False) else "disabled"
+            if clear_mode == "disabled":
+                return True
 
         min_ratio = config.get("MinSeedRatio", 1.0)
         min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
@@ -428,12 +445,22 @@ class qBitCategoryManager:
         ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
         time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
 
-        if min_ratio > 0 and min_time_secs > 0:
-            return ratio_met or time_met  # Either clears HnR
-        elif min_ratio > 0:
-            return ratio_met
-        elif min_time_secs > 0:
-            return time_met
+        if clear_mode == "and":
+            if min_ratio > 0 and min_time_secs > 0:
+                return ratio_met and time_met
+            if min_ratio > 0:
+                return ratio_met
+            if min_time_secs > 0:
+                return time_met
+            return True
+        if clear_mode == "or":
+            if min_ratio > 0 and min_time_secs > 0:
+                return ratio_met or time_met
+            if min_ratio > 0:
+                return ratio_met
+            if min_time_secs > 0:
+                return time_met
+            return True
         return True
 
     def _remove_torrent(self, torrent: TorrentDictionary, category: str):

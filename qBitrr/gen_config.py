@@ -351,6 +351,17 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         category_seeding,
+        [
+            "HnR clear mode: when ratio/time can remove HnR obligation.",
+            "  and = require both MinSeedRatio AND MinSeedingTimeDays (when both set)",
+            "  or = require either ratio OR time",
+            "  disabled = no HnR protection. Legacy: HitAndRunMode true is migrated to and.",
+        ],
+        "HitAndRunClearMode",
+        "disabled",
+    )
+    _gen_default_line(
+        category_seeding,
         "Minimum seed ratio before removal allowed (HnR protection)",
         "MinSeedRatio",
         1.0,
@@ -1235,6 +1246,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             seeding["MaxSeedingTime"] = -1
             seeding["RemoveTorrent"] = -1
             seeding["HitAndRunMode"] = False
+            seeding["HitAndRunClearMode"] = "disabled"
             seeding["MinSeedRatio"] = 1.0
             seeding["MinSeedingTimeDays"] = 0
             seeding["HitAndRunMinimumDownloadPercent"] = 10
@@ -1302,6 +1314,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     hnr_seeding_defaults = {
         "HitAndRunMode": False,
+        "HitAndRunClearMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1435,6 +1448,57 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
         )
         logger.info("Added Hit and Run protection settings and promoted trackers to config")
 
+    return changes_made
+
+
+def _migrate_hnr_clear_mode(config: MyConfig) -> bool:
+    """
+    Add HitAndRunClearMode and migrate HitAndRunMode true -> "and".
+
+    Migration runs if ConfigVersion < "5.9.2".
+    Sets HitAndRunClearMode = "and" where HitAndRunMode is true and key missing;
+    otherwise sets HitAndRunClearMode = "disabled" when key missing.
+    Returns True if any change was made.
+    """
+    from qBitrr.config_version import _parse_version, get_config_version
+
+    current_version = _parse_version(get_config_version(config))
+    if current_version >= _parse_version("5.9.2"):
+        return False
+
+    changes_made = False
+    for key in list(config.config.keys()):
+        section = config.config[str(key)]
+        if not isinstance(section, dict):
+            continue
+        # CategorySeeding
+        if "CategorySeeding" in section:
+            cs = section["CategorySeeding"]
+            if isinstance(cs, dict) and "HitAndRunClearMode" not in cs:
+                cs["HitAndRunClearMode"] = (
+                    "and" if cs.get("HitAndRunMode", False) else "disabled"
+                )
+                changes_made = True
+        # Trackers list
+        if "Trackers" in section and isinstance(section["Trackers"], list):
+            for tracker in section["Trackers"]:
+                if isinstance(tracker, dict) and "HitAndRunClearMode" not in tracker:
+                    tracker["HitAndRunClearMode"] = (
+                        "and" if tracker.get("HitAndRunMode", False) else "disabled"
+                    )
+                    changes_made = True
+        if "Torrent" in section and isinstance(section["Torrent"], dict):
+            tt = section["Torrent"]
+            if "Trackers" in tt and isinstance(tt["Trackers"], list):
+                for tracker in tt["Trackers"]:
+                    if isinstance(tracker, dict) and "HitAndRunClearMode" not in tracker:
+                        tracker["HitAndRunClearMode"] = (
+                            "and" if tracker.get("HitAndRunMode", False) else "disabled"
+                        )
+                        changes_made = True
+
+    if changes_made:
+        print("Migration 5.9.1→5.9.2: Added HitAndRunClearMode (and/or/disabled)")
     return changes_made
 
 
@@ -1610,6 +1674,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
     # Validate HnR fields on CategorySeeding and Tracker sections
     hnr_category_defaults = {
         "HitAndRunMode": False,
+        "HitAndRunClearMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1618,6 +1683,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
     }
     hnr_tracker_defaults = {
         "HitAndRunMode": False,
+        "HitAndRunClearMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1720,6 +1786,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Add Hit and Run protection settings to trackers/CategorySeeding (< 5.8.8)
     if _migrate_hnr_settings(config):
+        changes_made = True
+
+    # Add HitAndRunClearMode and migrate HitAndRunMode true -> "and" (< 5.9.2)
+    if _migrate_hnr_clear_mode(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)

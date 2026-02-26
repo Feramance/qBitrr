@@ -333,7 +333,7 @@ DoNotRemoveSlow = true
 
 - Slow/stalled torrents are removed based on `StalledDelay`
 
-**Recommendation:** `true` to avoid removing torrents on slow but working trackers
+**Recommendation:** `true` to avoid removing torrents on slow but working trackers. When `false`, torrents that exceed `MaximumETA` are removed **after** they complete downloading (see [MaximumETA](#maximumeta)).
 
 ---
 

@@ -611,6 +611,29 @@ HitAndRunMode = true
 
 Enable Hit and Run (HnR) protection for this tracker. When `true`, torrents with this tracker will **not** be removed until HnR obligations are met, regardless of `RemoveTorrent` settings. See [Hit and Run Protection](#hit-and-run-protection) for details on how obligations are calculated.
 
+**Backwards compatibility:** If `HitAndRunClearMode` is not set, `HitAndRunMode = true` is treated as clear mode `"and"`.
+
+---
+
+#### HitAndRunClearMode
+
+```toml
+HitAndRunClearMode = "and"   # or "or", "disabled"
+```
+
+**Type:** String: `"and"` | `"or"` | `"disabled"`
+**Default:** `"disabled"` (no HnR). Legacy: `HitAndRunMode = true` migrates to `"and"`.
+
+Controls **how** ratio and time clear HnR for full downloads (when both `MinSeedRatio` and `MinSeedingTimeDays` are set):
+
+| Value | Meaning |
+|-------|---------|
+| `"and"` | HnR clears only when **both** minimum ratio **and** minimum time are met |
+| `"or"` | HnR clears when **either** minimum ratio **or** minimum time is met |
+| `"disabled"` | No HnR protection; torrents can be removed per `RemoveTorrent` only |
+
+When only one of ratio or time is set (e.g. `MinSeedingTimeDays = 0`), that single condition is used regardless of clear mode. Partial downloads always use `HitAndRunPartialSeedRatio` only.
+
 ---
 
 #### MinSeedRatio
@@ -622,7 +645,7 @@ MinSeedRatio = 1.0
 **Type:** Float
 **Default:** `1.0`
 
-Minimum upload ratio required to clear HnR. A value of `1.0` means you must upload at least as much as you downloaded. For full downloads, **either** ratio OR time clears the obligation (whichever comes first).
+Minimum upload ratio required to clear HnR. A value of `1.0` means you must upload at least as much as you downloaded. For full downloads, whether **both** ratio and time are required or **either** clears the obligation is controlled by [`HitAndRunClearMode`](#hitandrunclearmode) (`"and"` vs `"or"`).
 
 ---
 
@@ -971,6 +994,7 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
    MaxUploadRatio = 2.0  # Must not be -1
    MaxSeedingTime = 604800  # Must not be -1
    ```
+   If `RemoveTorrent` is 1–4 but **neither** `MaxUploadRatio` nor `MaxSeedingTime` is set (both -1 or unset), qBitrr will **not** remove torrents for seeding limits and will log a single warning per run. Set at least one limit to enable ratio/time-based removal.
 
 3. **Check import mode:**
    ```toml
