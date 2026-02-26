@@ -7564,7 +7564,7 @@ class PlaceHolderArr(Arr):
                 self.category_torrent_count = len(torrents)
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet(self.manager.qbit_manager):
+                if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
@@ -7796,7 +7796,7 @@ class FreeSpaceManager(Arr):
                 )
                 if not len(torrents):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                if not has_internet(self.manager.qbit_manager):
+                if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
