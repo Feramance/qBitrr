@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 
-
 def _make_torrent(ratio: float = 0.0, seeding_time: int = 0):
     t = MagicMock()
     t.ratio = ratio
