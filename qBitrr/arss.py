@@ -7953,13 +7953,15 @@ class ArrManager:
         # Validate category assignments after all Arr instances are initialized
         self._validate_category_assignments()
 
+        # FreeSpaceManager monitors both Arr-managed and qBit-managed categories
+        all_monitored_categories = self.arr_categories | self.qbit_managed_categories
         if (
             FREE_SPACE != "-1"
             and AUTO_PAUSE_RESUME
             and not QBIT_DISABLED
-            and len(self.arr_categories) > 0
+            and len(all_monitored_categories) > 0
         ):
-            managed_object = FreeSpaceManager(self.arr_categories, self)
+            managed_object = FreeSpaceManager(all_monitored_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
