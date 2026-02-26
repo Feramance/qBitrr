@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from qbittorrentapi import TorrentStates
@@ -34,6 +35,9 @@ class qBitCategoryManager:
                 - managed_categories: List of category names
                 - default_seeding: Default seeding settings
                 - category_overrides: Per-category seeding overrides
+                - trackers: Tracker config list
+                - stalled_delay: Minutes before removing stalled downloads (-1 = disabled)
+                - ignore_torrents_younger_than: Seconds; don't remove torrents younger than this
         """
         self.instance_name = instance_name
         self.qbit_manager = qbit_manager
@@ -41,6 +45,9 @@ class qBitCategoryManager:
         self.default_seeding = config.get("default_seeding", {})
         self.category_overrides = config.get("category_overrides", {})
         self.trackers = self._build_merged_trackers(config.get("trackers", []))
+        self.stalled_delay = config.get("stalled_delay", -1)
+        self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
+        self.allowed_stalled = self.stalled_delay != -1
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
@@ -133,7 +140,7 @@ class qBitCategoryManager:
 
     def _process_single_torrent(self, torrent: TorrentDictionary, category: str):
         """
-        Process a single torrent - apply seeding settings and check removal.
+        Process a single torrent - apply seeding settings, stalled removal, and ratio/time removal.
 
         Args:
             torrent: qBittorrent torrent object
@@ -173,7 +180,12 @@ class qBitCategoryManager:
             # Apply seeding limits using effective (possibly tracker-overridden) config
             self._apply_seeding_limits(torrent, effective_config)
 
-            # Check if torrent should be removed
+            # Stalled download removal (same semantics as Arr: IgnoreTorrentsYoungerThan gates both)
+            if self._should_remove_stalled(torrent):
+                self._remove_stalled_torrent(torrent, category)
+                return
+
+            # Check if torrent should be removed (seeding ratio/time)
             if self._should_remove_torrent(torrent, effective_config):
                 self._remove_torrent(torrent, category)
 
@@ -182,6 +194,47 @@ class qBitCategoryManager:
                 "Error processing torrent '%s' in category '%s': %s",
                 torrent.name,
                 category,
+                e,
+                exc_info=True,
+            )
+
+    def _should_remove_stalled(self, torrent: TorrentDictionary) -> bool:
+        """
+        Return True if this torrent is stalled (STALLED_DOWNLOAD/METADATA_DOWNLOAD) and has
+        exceeded StalledDelay, and passes IgnoreTorrentsYoungerThan (intentional gate on both
+        added_on and last_activity).
+        """
+        if not self.allowed_stalled or self.stalled_delay <= 0:
+            return False
+        if torrent.state_enum not in (
+            TorrentStates.STALLED_DOWNLOAD,
+            TorrentStates.METADATA_DOWNLOAD,
+        ):
+            return False
+        time_now = time.time()
+        stalled_delay_seconds = int(timedelta(minutes=self.stalled_delay).total_seconds())
+        if time_now < torrent.added_on + self.ignore_torrents_younger_than:
+            return False
+        if time_now < torrent.last_activity + stalled_delay_seconds:
+            return False
+        if torrent.last_activity > time_now - self.ignore_torrents_younger_than:
+            return False
+        return True
+
+    def _remove_stalled_torrent(self, torrent: TorrentDictionary, category: str):
+        """Remove a stalled download (no progress within StalledDelay, past IgnoreTorrentsYoungerThan)."""
+        try:
+            self.logger.info(
+                "Removing stalled torrent '%s' from category '%s' (no progress for %d min)",
+                torrent.name,
+                category,
+                self.stalled_delay,
+            )
+            torrent.delete(delete_files=True)
+        except Exception as e:
+            self.logger.error(
+                "Failed to remove stalled torrent '%s': %s",
+                torrent.name,
                 e,
                 exc_info=True,
             )

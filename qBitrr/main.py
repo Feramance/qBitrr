@@ -587,12 +587,21 @@ class qBitManager:
             # Load qBit-level shared trackers
             instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
 
+            # Stalled handling for qBit-managed categories (same semantics as Arr)
+            stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
+            ignore_younger = CONFIG.get(
+                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
+                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600),
+            )
+
             # Store config for later initialization
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
                 "trackers": instance_trackers,
+                "stalled_delay": stalled_delay,
+                "ignore_torrents_younger_than": ignore_younger,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories",
@@ -723,11 +732,18 @@ class qBitManager:
                 if isinstance(cat_config, dict) and "Name" in cat_config:
                     category_overrides[cat_config["Name"]] = cat_config
             trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
+            stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
+            ignore_younger = CONFIG.get(
+                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
+                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600),
+            )
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
                 "trackers": trackers,
+                "stalled_delay": stalled_delay,
+                "ignore_torrents_younger_than": ignore_younger,
             }
 
         for section in CONFIG.sections():

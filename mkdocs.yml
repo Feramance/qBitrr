@@ -119,6 +119,7 @@ markdown_extensions:
 plugins:
 - search:
     separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+- include-markdown
 - git-revision-date-localized:
     enable_creation_date: true
     type: timeago

@@ -20,6 +20,7 @@ import pathos
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
+from jaraco.docker import is_docker
 from packaging import version as version_parser
 from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
@@ -5278,15 +5279,16 @@ class Arr:
             torrent.added_on < time.time() - self.ignore_torrents_younger_than
             and torrent.last_activity < (time.time() - self.ignore_torrents_younger_than)
         ):
-            if self._hnr_allows_delete(torrent, "stale torrent deletion"):
-                self._mark_for_deletion(torrent, "stale torrent deletion")
+            if self._hnr_allows_delete(torrent, extra):
+                self._mark_for_deletion(torrent, extra)
         else:
             self.logger.trace(
-                "Ignoring Stale torrent: "
+                "Ignoring Stale torrent (%s): "
                 "[Progress: %s%%][Added On: %s]"
                 "[Availability: %s%%][Time Left: %s]"
                 "[Last active: %s] "
                 "| [%s] | %s (%s)",
+                extra,
                 round(torrent.progress * 100, 2),
                 datetime.fromtimestamp(torrent.added_on),
                 round(torrent.availability * 100, 2),
@@ -5540,15 +5542,24 @@ class Arr:
         if self._hnr_allows_delete(torrent, "CF unmet deletion"):
             self._mark_for_deletion(torrent, "CF unmet deletion")
 
-    def _process_single_torrent_delete_ratio_seed(self, torrent: qbittorrentapi.TorrentDictionary):
-        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+    def _process_single_torrent_delete_ratio_seed(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        limit_meta: tuple[dict, dict] | None = None,
+    ):
+        if limit_meta is not None:
+            data_settings, data_torrent = limit_meta
+        else:
+            data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
         r_dat = data_settings.get("ratio_limit", -5)
         r_tor = data_torrent.get("ratio_limit", -5)
         t_dat = data_settings.get("seeding_time_limit", -5)
         t_tor = data_torrent.get("seeding_time_limit", -5)
         ratio_limit = max(r_dat, r_tor) if (r_dat > 0 or r_tor > 0) else -5
         seeding_time_limit = max(t_dat, t_tor) if (t_dat > 0 or t_tor > 0) else -5
-        if self._hnr_allows_delete(torrent, "ratio/seed limit deletion"):
+        if self._hnr_allows_delete(
+            torrent, "ratio/seed limit deletion", data_settings=data_settings
+        ):
             self._mark_for_deletion(
                 torrent,
                 "ratio/seed limit deletion",
@@ -5823,7 +5834,7 @@ class Arr:
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
-            return return_value, -1, remove_torrent
+            return return_value, -1, remove_torrent, None, None
 
         is_uploading = torrent.state_enum in (
             TorrentStates.UPLOADING,
@@ -5903,6 +5914,8 @@ class Arr:
             return_value,
             data_settings.get("max_eta", self.maximum_eta),
             remove_torrent,
+            data_settings,
+            data_torrent,
         )
 
     def _process_single_torrent_trackers(
@@ -5994,15 +6007,14 @@ class Arr:
         if not self.allowed_stalled:
             self.logger.trace("Stalled check: Stalled delay disabled")
             return False
+        stalled_delay_seconds = int(timedelta(minutes=self.stalled_delay).total_seconds())
         if time_now < torrent.added_on + self.ignore_torrents_younger_than:
             self.logger.trace(
                 "Stalled check: In recent queue %s [Current:%s][Added:%s][Starting:%s]",
                 torrent.name,
                 datetime.fromtimestamp(time_now),
                 datetime.fromtimestamp(torrent.added_on),
-                datetime.fromtimestamp(
-                    torrent.added_on + timedelta(minutes=self.stalled_delay).seconds
-                ),
+                datetime.fromtimestamp(torrent.added_on + stalled_delay_seconds),
             )
             return True
         if self.stalled_delay == 0:
@@ -6018,9 +6030,7 @@ class Arr:
                 torrent.name,
                 datetime.fromtimestamp(time_now),
                 datetime.fromtimestamp(torrent.last_activity),
-                datetime.fromtimestamp(
-                    torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
-                ),
+                datetime.fromtimestamp(torrent.last_activity + stalled_delay_seconds),
             )
         if (
             (
@@ -6039,8 +6049,7 @@ class Arr:
         ) and self.allowed_stalled:
             if (
                 self.stalled_delay > 0
-                and time_now
-                >= torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
+                and time_now >= torrent.last_activity + stalled_delay_seconds
             ):
                 stalled_ignore = False
                 self.logger.trace("Process stalled, delay expired: %s", torrent.name)
@@ -6068,9 +6077,7 @@ class Arr:
                     torrent.name,
                     datetime.fromtimestamp(time_now),
                     datetime.fromtimestamp(torrent.last_activity),
-                    datetime.fromtimestamp(
-                        torrent.last_activity + timedelta(minutes=self.stalled_delay).seconds
-                    ),
+                    datetime.fromtimestamp(torrent.last_activity + stalled_delay_seconds),
                 )
 
         elif self.in_tags(torrent, "qBitrr-allowed_stalled", instance_name):
@@ -6090,8 +6097,8 @@ class Arr:
         self._process_single_torrent_trackers(torrent, instance_name)
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
-        leave_alone, _tracker_max_eta, remove_torrent = self._should_leave_alone(
-            torrent, instance_name
+        leave_alone, _tracker_max_eta, remove_torrent, _data_settings, _data_torrent = (
+            self._should_leave_alone(torrent, instance_name)
         )
         self.logger.trace(
             "Torrent [%s]: Leave Alone (allow seeding): %s, Max ETA: %s, State[%s]",
@@ -6124,7 +6131,9 @@ class Arr:
         ):
             self._process_single_torrent_delete_cfunmet(torrent, instance_name)
         elif remove_torrent and not leave_alone and torrent.amount_left == 0:
-            self._process_single_torrent_delete_ratio_seed(torrent)
+            self._process_single_torrent_delete_ratio_seed(
+                torrent, limit_meta=(_data_settings, _data_torrent)
+            )
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
             self._process_single_torrent_failed_cat(torrent)
@@ -6348,7 +6357,13 @@ class Arr:
         except Exception:
             return False
 
-    def _hnr_allows_delete(self, torrent: qbittorrentapi.TorrentDictionary, reason: str) -> bool:
+    def _hnr_allows_delete(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        reason: str,
+        *,
+        data_settings: dict | None = None,
+    ) -> bool:
         """Check if HnR obligations allow deleting this torrent.
 
         Fetches tracker metadata and checks HnR. Returns True if deletion
@@ -6366,7 +6381,8 @@ class Arr:
             )
             return True
 
-        data_settings, _ = self._get_torrent_limit_meta(torrent)
+        if data_settings is None:
+            data_settings, _ = self._get_torrent_limit_meta(torrent)
         if self._hnr_safe_to_remove(torrent, data_settings):
             return True
         self.logger.info(
@@ -7632,24 +7648,50 @@ class FreeSpaceManager(Arr):
             arr_cats = self.categories & self.manager.arr_categories
             chosen = next(iter(arr_cats), None) or next(iter(self.categories))
             self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
+            # Use the main completed-download folder for disk usage so we report the same
+            # filesystem the user expects (doc default: "Same as CompletedDownloadFolder").
+            # A category subdir may be a different mount and report much less free space.
+            self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
         else:
             self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
+            self._disk_usage_path = pathlib.Path(FREE_SPACE_FOLDER).resolve()
         self.min_free_space = FREE_SPACE
         # Parse once to avoid repeated conversions
         self._min_free_space_bytes = (
             parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
         )
-        if not self.completed_folder.exists():
+        if FREE_SPACE_FOLDER == "CHANGE_ME" and not self.completed_folder.exists():
             # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
             parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
             if parent.exists():
                 self.completed_folder = parent
             # else: keep completed_folder and let disk_usage raise so the user sees the error
+        # Path for disk usage: use resolved path; if it does not exist, use first existing
+        # parent so we still report the correct volume (e.g. /torrents missing -> use /).
+        self._path_for_disk_usage = self._disk_usage_path
+        _p = self._disk_usage_path
+        while _p and not _p.exists():
+            _p = _p.parent
+        if _p:
+            self._path_for_disk_usage = _p
+            if self._path_for_disk_usage != self._disk_usage_path:
+                self.logger.warning(
+                    "FreeSpaceFolder path does not exist, using parent for disk space check | "
+                    "Configured: %s | Using: %s%s",
+                    self._disk_usage_path,
+                    self._path_for_disk_usage,
+                    (
+                        " | In Docker: ensure the host volume is mounted at the configured path (e.g. -v /host/torrents:/torrents)"
+                        if is_docker()
+                        else ""
+                    ),
+                )
         self.current_free_space = (
-            shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
+            shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
         )
         self.logger.trace(
-            "Free space monitor initialized | Available: %s | Threshold: %s",
+            "Free space monitor initialized | Path: %s | Available: %s | Threshold: %s",
+            self._path_for_disk_usage,
             format_bytes(self.current_free_space + self._min_free_space_bytes),
             format_bytes(self._min_free_space_bytes),
         )
@@ -7811,8 +7853,15 @@ class FreeSpaceManager(Arr):
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                # Re-resolve path each loop so we use the configured path once it appears
+                # (e.g. Docker volume mounted after process start).
+                _p = self._disk_usage_path
+                while _p and not _p.exists():
+                    _p = _p.parent
+                if _p:
+                    self._path_for_disk_usage = _p
                 self.current_free_space = (
-                    shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
+                    shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
                 )
                 self.logger.trace(
                     "Processing torrents | Available: %s | Threshold: %s | Usable: %s | Torrents: %d | Paused for space: %d",

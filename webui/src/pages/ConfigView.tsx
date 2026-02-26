@@ -532,6 +532,32 @@ const QBIT_FIELDS: FieldDefinition[] = [
       return undefined;
     },
   },
+  {
+    label: "Stalled Delay (min)",
+    path: ["CategorySeeding", "StalledDelay"],
+    type: "number",
+    placeholder: "-1 (disabled), 0 (infinite), or minutes before removing stalled downloads",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < -1) {
+        return "Stalled Delay must be -1 or greater.";
+      }
+      return undefined;
+    },
+  },
+  {
+    label: "Ignore Torrents Younger Than (s)",
+    path: ["CategorySeeding", "IgnoreTorrentsYoungerThan"],
+    type: "number",
+    placeholder: "Seconds; stalled removal also requires last_activity older than this",
+    validate: (value) => {
+      const num = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(num) || num < 0) {
+        return "Ignore Torrents Younger Than must be a non-negative number.";
+      }
+      return undefined;
+    },
+  },
 ];
 
 const ARR_GENERAL_FIELDS: FieldDefinition[] = [
