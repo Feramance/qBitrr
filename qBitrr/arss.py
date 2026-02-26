@@ -906,6 +906,19 @@ class Arr:
         )
 
     @staticmethod
+    def _is_missing_files_torrent(torrent: TorrentDictionary) -> bool:
+        """True if torrent is in missing-files state (delete from client, no blacklist)."""
+        if torrent.state_enum == TorrentStates.MISSING_FILES:
+            return True
+        if torrent.state_enum == TorrentStates.ERROR:
+            raw = getattr(torrent, "state", None)
+            if raw is None and hasattr(torrent, "get"):
+                raw = torrent.get("state")
+            if isinstance(raw, str):
+                return raw == "missingFiles" or "missing" in raw.lower()
+        return False
+
+    @staticmethod
     def is_uploading_state(torrent: TorrentDictionary) -> bool:
         return torrent.state_enum in (
             TorrentStates.UPLOADING,
@@ -5438,7 +5451,11 @@ class Arr:
             self.files_to_cleanup.add((torrent.hash, torrent_folder))
             self.import_torrents.append((torrent, instance_name))
 
-    def _process_single_torrent_missing_files(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_missing_files(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        instance_name: str = "default",
+    ):
         # Sometimes Sonarr/Radarr does not automatically remove the
         # torrent for some reason,
         # this ensures that we can safely remove it if the client is reporting
@@ -6140,6 +6157,9 @@ class Arr:
         elif torrent.category == RECHECK_CATEGORY:
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent)
+        elif self._is_missing_files_torrent(torrent):
+            # Handle missing-files state (and ERROR state when API reports missingFiles)
+            self._process_single_torrent_missing_files(torrent, instance_name)
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
         elif (
@@ -6211,7 +6231,7 @@ class Arr:
             self._process_single_torrent_already_sent_to_scan(torrent)
 
         # Sometimes torrents will error, this causes them to be rechecked so they
-        # complete downloading.
+        # complete downloading. (Missing-files case handled earlier.)
         elif torrent.state_enum == TorrentStates.ERROR:
             self._process_single_torrent_errored(torrent)
         # If a torrent was not just added,
@@ -6227,8 +6247,6 @@ class Arr:
             and torrent.completion_on < time_now - 60
         ):
             self._process_single_torrent_fully_completed_torrent(torrent, leave_alone)
-        elif torrent.state_enum == TorrentStates.MISSING_FILES:
-            self._process_single_torrent_missing_files(torrent)
         # If a torrent is Uploading Pause it, as long as its not being Forced Uploaded.
         elif (
             self.is_uploading_state(torrent)
@@ -7428,6 +7446,7 @@ class PlaceHolderArr(Arr):
         self.pause = set()
         self.skip_blacklist = set()
         self.remove_from_qbit = set()
+        self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
         self.delete = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
@@ -7449,6 +7468,9 @@ class PlaceHolderArr(Arr):
         self.custom_format_unmet_search = False
         self.do_not_remove_slow = False
         self.maximum_eta = CONFIG.get("Settings.Torrent.MaximumETA", fallback=86400)
+        self.maximum_deletable_percentage = CONFIG.get(
+            "Settings.Torrent.MaximumDeletablePercentage", fallback=0.95
+        )
         self.monitored_trackers = []
         self._host_to_config_uri = {}
         self._add_trackers_if_missing = set()
@@ -7477,6 +7499,15 @@ class PlaceHolderArr(Arr):
         self.category_torrent_count: int = 0
         self.free_space_tagged_count: int = 0
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def _process_single_torrent_missing_files(
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        instance_name: str = "default",
+    ) -> None:
+        """Track which qBit instance the torrent is on so we delete from the correct client."""
+        super()._process_single_torrent_missing_files(torrent, instance_name)
+        self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         """PlaceHolderArr does not use Arr queue; never trigger custom-format branch."""
@@ -7549,6 +7580,157 @@ class PlaceHolderArr(Arr):
             self.seeding_mode_global_remove_torrent,
             self.stalled_delay,
         )
+
+    def _process_failed(self) -> None:
+        """Delete torrents from the correct qBit instance and log any delete failures."""
+        to_delete_all = self.delete.union(
+            self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
+        )
+        skip_blacklist = {
+            i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
+        }
+        if not (to_delete_all or self.remove_from_qbit or self.skip_blacklist):
+            return
+        n_delete = len(self.delete)
+        n_missing = len(self.missing_files_post_delete)
+        n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
+        n_remove = len(self.remove_from_qbit)
+        n_skip = len(self.skip_blacklist)
+        self.logger.info(
+            "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
+            "remove_from_qbit=%d, skip_blacklist=%d",
+            n_delete,
+            n_missing,
+            n_bad_msg,
+            n_remove,
+            n_skip,
+        )
+        if to_delete_all:
+            for arr in self.manager.managed_objects.values():
+                if payload := arr.process_entries(to_delete_all):
+                    for entry, hash_ in payload:
+                        if hash_ in arr.cache:
+                            arr._process_failed_individual(
+                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
+                            )
+        deleted_hashes: set[str] = set()
+        qbit_manager = self.manager.qbit_manager
+        # Delete per-instance (e.g. missing-files) so we use the correct qBit client.
+        for instance_name, hashes in self.remove_from_qbit_by_instance.items():
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                self.logger.warning(
+                    "Cannot delete %d torrent(s) from qBit instance '%s': no client",
+                    len(hashes),
+                    instance_name,
+                )
+                continue
+            try:
+                with_retry(
+                    lambda h=hashes: client.torrents_delete(hashes=h, delete_files=True),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
+                deleted_hashes.update(hashes)
+            except (
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+                requests.exceptions.RequestException,
+            ) as e:
+                self.logger.error(
+                    "Failed to delete %d torrent(s) from qBit instance '%s': %s",
+                    len(hashes),
+                    instance_name,
+                    e,
+                )
+        # Remaining remove_from_qbit/skip_blacklist and to_delete_all via default client.
+        if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
+            temp_to_delete = set()
+            if to_delete_all:
+                if self.manager.qbit:
+                    try:
+                        with_retry(
+                            lambda: self.manager.qbit.torrents_delete(
+                                hashes=to_delete_all, delete_files=True
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
+                                qbittorrentapi.exceptions.APIError,
+                                qbittorrentapi.exceptions.APIConnectionError,
+                                requests.exceptions.RequestException,
+                            ),
+                        )
+                        temp_to_delete.update(to_delete_all)
+                    except (
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ) as e:
+                        self.logger.error(
+                            "Failed to delete %d torrent(s) from qBit (to_delete_all): %s",
+                            len(to_delete_all),
+                            e,
+                        )
+                else:
+                    self.logger.warning(
+                        "Cannot delete to_delete_all: no qBit client (manager.qbit is None)"
+                    )
+            if self.remove_from_qbit or self.skip_blacklist:
+                rest = (self.remove_from_qbit.union(self.skip_blacklist)) - deleted_hashes
+                if rest and self.manager.qbit:
+                    try:
+                        with_retry(
+                            lambda: self.manager.qbit.torrents_delete(
+                                hashes=rest, delete_files=True
+                            ),
+                            retries=3,
+                            backoff=0.5,
+                            max_backoff=3,
+                            exceptions=(
+                                qbittorrentapi.exceptions.APIError,
+                                qbittorrentapi.exceptions.APIConnectionError,
+                                requests.exceptions.RequestException,
+                            ),
+                        )
+                        temp_to_delete.update(rest)
+                    except (
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ) as e:
+                        self.logger.error(
+                            "Failed to delete %d torrent(s) from qBit (remove/blacklist): %s",
+                            len(rest),
+                            e,
+                        )
+                elif rest:
+                    self.logger.warning(
+                        "Cannot delete %d torrent(s): no qBit client (manager.qbit is None)",
+                        len(rest),
+                    )
+            to_delete_all = to_delete_all.union(temp_to_delete).union(deleted_hashes)
+            for h in to_delete_all:
+                self.cleaned_torrents.discard(h)
+                self.sent_to_scan_hashes.discard(h)
+                if h in self.manager.qbit_manager.name_cache:
+                    del self.manager.qbit_manager.name_cache[h]
+                if h in self.manager.qbit_manager.cache:
+                    del self.manager.qbit_manager.cache[h]
+        if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
+            self.missing_files_post_delete.clear()
+            self.downloads_with_bad_error_message_blocklist.clear()
+        self.skip_blacklist.clear()
+        self.remove_from_qbit.clear()
+        self.remove_from_qbit_by_instance.clear()
+        self.delete.clear()
 
     def _process_errored(self):
         # Recheck all torrents marked for rechecking.
@@ -7736,6 +7918,7 @@ class FreeSpaceManager(Arr):
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         run_logs(self.logger, self._name)
+        self.cache = {}
         self.categories = categories
         self.logger.trace("Categories: %s", self.categories)
         self.pause = set()
