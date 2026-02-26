@@ -5830,7 +5830,7 @@ class Arr:
 
     def _should_leave_alone(
         self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
-    ) -> tuple[bool, int, bool]:
+    ) -> tuple[bool, int, bool, dict | None, dict | None]:
         return_value = True
         remove_torrent = False
         if torrent.super_seeding or torrent.state_enum == TorrentStates.FORCED_UPLOAD:
