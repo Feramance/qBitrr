@@ -369,7 +369,7 @@ If a process doesn't terminate within 30 seconds, it's forcefully killed (SIGKIL
 1. **Enable Auto-Restart**: `AutoRestartProcesses = true`
 2. **Set Reasonable Limits**: Default settings (5 restarts in 5 minutes) work for most cases
 3. **Monitor Logs**: Set up log aggregation or alerts for restart events
-4. **Use External Health Checks**: Monitor qBitrr's WebUI endpoint (`/api/health`) with Uptime Kuma, Healthchecks.io, etc.
+4. **Use External Health Checks**: Monitor qBitrr's WebUI endpoint (`/health`) with Uptime Kuma, Healthchecks.io, etc.
 
 ---
 
@@ -441,7 +441,7 @@ services:
     image: feramance/qbitrr:latest
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -463,14 +463,14 @@ services:
 # Monitor qBitrr WebUI
 - name: qBitrr
   type: HTTP
-  url: http://localhost:6969/api/health
+  url: http://localhost:6969/health
   interval: 60
 ```
 
 **Healthchecks.io:**
 ```bash
 # Cron job to ping healthchecks.io if qBitrr is running
-*/5 * * * * curl -fsS --retry 3 http://localhost:6969/api/health && curl -fsS https://hc-ping.com/YOUR-UUID
+*/5 * * * * curl -fsS --retry 3 http://localhost:6969/health && curl -fsS https://hc-ping.com/YOUR-UUID
 ```
 
 ---

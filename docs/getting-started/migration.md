@@ -531,7 +531,7 @@ tail -f ~/logs/Main.log  # Native
 docker logs -f qbitrr  # Docker
 
 # Test API
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 
 # Test qBittorrent connection
 curl http://localhost:6969/api/qbittorrent/status

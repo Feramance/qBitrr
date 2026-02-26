@@ -166,7 +166,7 @@ services:
 **Test from host:**
 
 ```bash
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 ```
 
 **If using custom port:**
@@ -559,7 +559,7 @@ docker exec qbitrr ps aux | grep qbitrr
 
 ```bash
 # From host to container
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 
 # From container to qBittorrent
 docker exec qbitrr curl -v http://qbittorrent:8080/api/v2/app/version

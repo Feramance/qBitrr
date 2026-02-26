@@ -312,7 +312,7 @@ top -p $(pidof qbitrr)
 
 2. **Check API response times:**
    ```bash
-   time curl http://localhost:6969/api/health
+time curl http://localhost:6969/health
    ```
 
 3. **Database optimization:**

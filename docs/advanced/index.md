@@ -345,7 +345,7 @@ External monitoring can check:
 
 ```bash
 # Check if qBitrr is running
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 
 # Expected response:
 {"status": "healthy", "version": "5.5.5"}

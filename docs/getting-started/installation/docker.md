@@ -325,7 +325,7 @@ Add a health check:
 services:
   qbitrr:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -583,7 +583,7 @@ services:
 services:
   qbitrr:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3

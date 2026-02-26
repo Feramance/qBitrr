@@ -457,7 +457,7 @@ copies of the Software.
 - [Python](https://python.org) - Backend language
 - [Flask](https://flask.palletsprojects.com/) - API framework
 - [React](https://react.dev/) - WebUI framework
-- [Mantine](https://mantine.dev/) - UI component library
+- Custom CSS - Theming and layout (no external UI runtime)
 
 **Thanks To**:
 
