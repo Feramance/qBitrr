@@ -5740,11 +5740,14 @@ class Arr:
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
 
     def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
-        """Resolve HnR clear mode: 'and' | 'or' | 'disabled'. Backwards compat: HitAndRunMode true -> 'and'."""
-        raw = tracker_or_config.get("HitAndRunClearMode")
+        """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
+        raw = tracker_or_config.get("HitAndRunMode")
         if isinstance(raw, str) and raw.strip().lower() in ("and", "or", "disabled"):
             return raw.strip().lower()
-        return "and" if tracker_or_config.get("HitAndRunMode", False) else "disabled"
+        # Legacy: boolean HitAndRunMode (pre-migration)
+        if raw is True:
+            return "and"
+        return "disabled"
 
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
@@ -5795,7 +5798,6 @@ class Arr:
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
             "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
-            "hnr_mode": most_important_tracker.get("HitAndRunMode", False),
             "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
             "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
             "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
@@ -7625,9 +7627,11 @@ class FreeSpaceManager(Arr):
         # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
         if FREE_SPACE_FOLDER == "CHANGE_ME":
-            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(
-                next(iter(self.categories))
-            )
+            # Prefer an Arr-managed category so the path exists (Arr uses category subdirs).
+            # qBit-managed-only categories may have no subdir under COMPLETED_DOWNLOAD_FOLDER.
+            arr_cats = self.categories & self.manager.arr_categories
+            chosen = next(iter(arr_cats), None) or next(iter(self.categories))
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
         else:
             self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
         self.min_free_space = FREE_SPACE
@@ -7635,6 +7639,12 @@ class FreeSpaceManager(Arr):
         self._min_free_space_bytes = (
             parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
         )
+        if not self.completed_folder.exists():
+            # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
+            parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+            if parent.exists():
+                self.completed_folder = parent
+            # else: keep completed_folder and let disk_usage raise so the user sees the error
         self.current_free_space = (
             shutil.disk_usage(self.completed_folder).free - self._min_free_space_bytes
         )

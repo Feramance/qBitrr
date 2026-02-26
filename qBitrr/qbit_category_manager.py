@@ -157,7 +157,6 @@ class qBitCategoryManager:
                     "Name",
                     "AddTags",
                     "HitAndRunMode",
-                    "HitAndRunClearMode",
                     "MinSeedRatio",
                     "MinSeedingTimeDays",
                     "HitAndRunMinimumDownloadPercent",
@@ -340,13 +339,9 @@ class qBitCategoryManager:
         return should_remove
 
     def _hnr_clear_mode_enabled(self, config: dict) -> bool:
-        """True if HnR protection is enabled (clear mode is not 'disabled')."""
-        mode = (config.get("HitAndRunClearMode") or "").strip().lower()
-        if mode in ("and", "or"):
-            return True
-        if mode == "disabled":
-            return False
-        return bool(config.get("HitAndRunMode", False))  # Legacy: HitAndRunMode true -> enabled
+        """True if HnR protection is enabled (HitAndRunMode is 'and' or 'or')."""
+        mode = (config.get("HitAndRunMode") or "").strip().lower()
+        return mode in ("and", "or")
 
     def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
         """Find the highest-priority matching tracker config for this torrent."""
@@ -425,16 +420,9 @@ class qBitCategoryManager:
         Returns:
             True if HnR obligations are met (safe to remove), False otherwise
         """
-        clear_mode = (config.get("HitAndRunClearMode") or "").strip().lower()
-        if clear_mode == "disabled":
-            if not config.get("HitAndRunMode", False):
-                return True
-            # Legacy: HitAndRunMode true with no HitAndRunClearMode -> treat as "and"
-            clear_mode = "and"
-        elif clear_mode not in ("and", "or"):
-            clear_mode = "and" if config.get("HitAndRunMode", False) else "disabled"
-            if clear_mode == "disabled":
-                return True
+        clear_mode = (config.get("HitAndRunMode") or "disabled").strip().lower()
+        if clear_mode not in ("and", "or"):
+            return True  # Disabled or invalid: safe to remove
 
         min_ratio = config.get("MinSeedRatio", 1.0)
         min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400

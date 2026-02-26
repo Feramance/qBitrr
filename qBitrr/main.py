@@ -565,8 +565,7 @@ class qBitManager:
 
             # Load HnR protection settings
             hnr_keys = {
-                "HitAndRunMode": False,
-                "HitAndRunClearMode": "disabled",
+                "HitAndRunMode": "disabled",
                 "MinSeedRatio": 1.0,
                 "MinSeedingTimeDays": 0,
                 "HitAndRunPartialSeedRatio": 1.0,
@@ -697,8 +696,7 @@ class qBitManager:
             "RemoveTorrent",
         ]
         hnr_keys = {
-            "HitAndRunMode": False,
-            "HitAndRunClearMode": "disabled",
+            "HitAndRunMode": "disabled",
             "MinSeedRatio": 1.0,
             "MinSeedingTimeDays": 0,
             "HitAndRunPartialSeedRatio": 1.0,

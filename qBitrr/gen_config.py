@@ -345,19 +345,10 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         category_seeding,
-        "Enable Hit and Run protection for managed category torrents",
-        "HitAndRunMode",
-        False,
-    )
-    _gen_default_line(
-        category_seeding,
         [
-            "HnR clear mode: when ratio/time can remove HnR obligation.",
-            "  and = require both MinSeedRatio AND MinSeedingTimeDays (when both set)",
-            "  or = require either ratio OR time",
-            "  disabled = no HnR protection. Legacy: HitAndRunMode true is migrated to and.",
+            "Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR.",
         ],
-        "HitAndRunClearMode",
+        "HitAndRunMode",
         "disabled",
     )
     _gen_default_line(
@@ -1245,8 +1236,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             seeding["MaxUploadRatio"] = -1
             seeding["MaxSeedingTime"] = -1
             seeding["RemoveTorrent"] = -1
-            seeding["HitAndRunMode"] = False
-            seeding["HitAndRunClearMode"] = "disabled"
+            seeding["HitAndRunMode"] = "disabled"
             seeding["MinSeedRatio"] = 1.0
             seeding["MinSeedingTimeDays"] = 0
             seeding["HitAndRunMinimumDownloadPercent"] = 10
@@ -1272,7 +1262,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["MaxUploadRatio"] = -1
                 seeding["MaxSeedingTime"] = -1
                 seeding["RemoveTorrent"] = -1
-                seeding["HitAndRunMode"] = False
+                seeding["HitAndRunMode"] = "disabled"
                 seeding["MinSeedRatio"] = 1.0
                 seeding["MinSeedingTimeDays"] = 0
                 seeding["HitAndRunMinimumDownloadPercent"] = 10
@@ -1313,8 +1303,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     changes_made = False
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     hnr_seeding_defaults = {
-        "HitAndRunMode": False,
-        "HitAndRunClearMode": "disabled",
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1451,52 +1440,98 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     return changes_made
 
 
-def _migrate_hnr_clear_mode(config: MyConfig) -> bool:
+def _migrate_hnr_single_key(config: MyConfig) -> bool:
     """
-    Add HitAndRunClearMode and migrate HitAndRunMode true -> "and".
+    Consolidate HitAndRunMode (bool) + HitAndRunClearMode (string) into single HitAndRunMode string.
 
-    Migration runs if ConfigVersion < "5.9.2".
-    Sets HitAndRunClearMode = "and" where HitAndRunMode is true and key missing;
-    otherwise sets HitAndRunClearMode = "disabled" when key missing.
+    Runs when ConfigVersion < "5.9.2" or when already 5.9.2 but HitAndRunClearMode is present.
+    Sets HitAndRunMode = "and" | "or" | "disabled", removes HitAndRunClearMode.
     Returns True if any change was made.
     """
     from qBitrr.config_version import _parse_version, get_config_version
 
     current_version = _parse_version(get_config_version(config))
-    if current_version >= _parse_version("5.9.2"):
+    valid_modes = ("and", "or", "disabled")
+
+    def _has_hnr_clear_mode_anywhere() -> bool:
+        for key in list(config.config.keys()):
+            section = config.config.get(str(key))
+            if not isinstance(section, dict):
+                continue
+            if "CategorySeeding" in section:
+                cs = section["CategorySeeding"]
+                if isinstance(cs, dict) and "HitAndRunClearMode" in cs:
+                    return True
+            if "Trackers" in section and isinstance(section["Trackers"], list):
+                for t in section["Trackers"]:
+                    if isinstance(t, dict) and "HitAndRunClearMode" in t:
+                        return True
+            if "Torrent" in section and isinstance(section["Torrent"], dict):
+                tt = section["Torrent"]
+                if "Trackers" in tt and isinstance(tt["Trackers"], list):
+                    for t in tt["Trackers"]:
+                        if isinstance(t, dict) and "HitAndRunClearMode" in t:
+                            return True
         return False
+
+    if current_version >= _parse_version("5.9.2") and not _has_hnr_clear_mode_anywhere():
+        return False
+
+    def _resolve(d: dict) -> str:
+        raw_clear = d.get("HitAndRunClearMode")
+        if isinstance(raw_clear, str) and raw_clear.strip().lower() in valid_modes:
+            return raw_clear.strip().lower()
+        raw_mode = d.get("HitAndRunMode")
+        if isinstance(raw_mode, str) and raw_mode.strip().lower() in valid_modes:
+            return raw_mode.strip().lower()
+        # Legacy boolean HitAndRunMode
+        if raw_mode is True:
+            return "and"
+        return "disabled"
 
     changes_made = False
     for key in list(config.config.keys()):
         section = config.config[str(key)]
         if not isinstance(section, dict):
             continue
-        # CategorySeeding
         if "CategorySeeding" in section:
             cs = section["CategorySeeding"]
-            if isinstance(cs, dict) and "HitAndRunClearMode" not in cs:
-                cs["HitAndRunClearMode"] = "and" if cs.get("HitAndRunMode", False) else "disabled"
-                changes_made = True
-        # Trackers list
+            if isinstance(cs, dict):
+                had_clear = "HitAndRunClearMode" in cs
+                had_bool = isinstance(cs.get("HitAndRunMode"), bool)
+                resolved = _resolve(cs)
+                cs["HitAndRunMode"] = resolved
+                if had_clear:
+                    del cs["HitAndRunClearMode"]
+                if had_clear or had_bool:
+                    changes_made = True
         if "Trackers" in section and isinstance(section["Trackers"], list):
             for tracker in section["Trackers"]:
-                if isinstance(tracker, dict) and "HitAndRunClearMode" not in tracker:
-                    tracker["HitAndRunClearMode"] = (
-                        "and" if tracker.get("HitAndRunMode", False) else "disabled"
-                    )
-                    changes_made = True
+                if isinstance(tracker, dict):
+                    had_clear = "HitAndRunClearMode" in tracker
+                    had_bool = isinstance(tracker.get("HitAndRunMode"), bool)
+                    resolved = _resolve(tracker)
+                    tracker["HitAndRunMode"] = resolved
+                    if had_clear:
+                        del tracker["HitAndRunClearMode"]
+                    if had_clear or had_bool:
+                        changes_made = True
         if "Torrent" in section and isinstance(section["Torrent"], dict):
             tt = section["Torrent"]
             if "Trackers" in tt and isinstance(tt["Trackers"], list):
                 for tracker in tt["Trackers"]:
-                    if isinstance(tracker, dict) and "HitAndRunClearMode" not in tracker:
-                        tracker["HitAndRunClearMode"] = (
-                            "and" if tracker.get("HitAndRunMode", False) else "disabled"
-                        )
-                        changes_made = True
+                    if isinstance(tracker, dict):
+                        had_clear = "HitAndRunClearMode" in tracker
+                        had_bool = isinstance(tracker.get("HitAndRunMode"), bool)
+                        resolved = _resolve(tracker)
+                        tracker["HitAndRunMode"] = resolved
+                        if had_clear:
+                            del tracker["HitAndRunClearMode"]
+                        if had_clear or had_bool:
+                            changes_made = True
 
     if changes_made:
-        print("Migration 5.9.1→5.9.2: Added HitAndRunClearMode (and/or/disabled)")
+        print("Migration 5.9.x→5.9.2: Consolidated HitAndRunMode to single key (and/or/disabled)")
     return changes_made
 
 
@@ -1671,8 +1706,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate HnR fields on CategorySeeding and Tracker sections
     hnr_category_defaults = {
-        "HitAndRunMode": False,
-        "HitAndRunClearMode": "disabled",
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1680,8 +1714,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         "TrackerUpdateBuffer": 0,
     }
     hnr_tracker_defaults = {
-        "HitAndRunMode": False,
-        "HitAndRunClearMode": "disabled",
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1786,8 +1819,8 @@ def apply_config_migrations(config: MyConfig) -> None:
     if _migrate_hnr_settings(config):
         changes_made = True
 
-    # Add HitAndRunClearMode and migrate HitAndRunMode true -> "and" (< 5.9.2)
-    if _migrate_hnr_clear_mode(config):
+    # Consolidate HitAndRunMode to single key and/or/disabled (< 5.9.2 or 5.9.2 with ClearMode)
+    if _migrate_hnr_single_key(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)

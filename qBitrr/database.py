@@ -53,11 +53,10 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
         return
     result = "unknown"
     try:
-        conn = sqlite3.connect(str(db_path), timeout=10.0)
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA integrity_check")
-        result = cursor.fetchone()[0]
-        conn.close()
+        with sqlite3.connect(str(db_path), timeout=10.0) as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA integrity_check")
+            result = cursor.fetchone()[0]
         if result == "ok":
             return
     except Exception as e:
@@ -71,11 +70,10 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
 
     if checkpoint_wal(db_path, logger_override=logger):
         try:
-            conn = sqlite3.connect(str(db_path), timeout=10.0)
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA integrity_check")
-            result = cursor.fetchone()[0]
-            conn.close()
+            with sqlite3.connect(str(db_path), timeout=10.0) as conn:
+                cursor = conn.cursor()
+                cursor.execute("PRAGMA integrity_check")
+                result = cursor.fetchone()[0]
             if result == "ok":
                 logger.info("WAL checkpoint resolved database issue - integrity ok")
                 return
@@ -86,11 +84,10 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
     try:
         if repair_database(db_path, backup=True, logger_override=logger):
             try:
-                conn = sqlite3.connect(str(db_path), timeout=10.0)
-                cursor = conn.cursor()
-                cursor.execute("PRAGMA integrity_check")
-                result = cursor.fetchone()[0]
-                conn.close()
+                with sqlite3.connect(str(db_path), timeout=10.0) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("PRAGMA integrity_check")
+                    result = cursor.fetchone()[0]
                 if result == "ok":
                     logger.info("Database repair successful - integrity verified")
                     return

@@ -191,12 +191,12 @@ nav:
 - Home:
   - index.md
   - Getting Started: getting-started/index.md
+  - Configuration: configuration/index.md
   - Features: features/index.md
   - FAQ: faq.md
   - Changelog: changelog.md
 
 - Getting Started:
-  - getting-started/index.md
   - Installation:
     - getting-started/installation/index.md
     - getting-started/installation/docker.md
@@ -207,7 +207,6 @@ nav:
   - Migration Guide: getting-started/migration.md
 
 - Configuration:
-  - configuration/index.md
   - Configuration File: configuration/config-file.md
   - qBittorrent: configuration/qbittorrent.md
   - Arr Instances:
@@ -227,7 +226,6 @@ nav:
   - Environment Variables: configuration/environment.md
 
 - Features:
-  - features/index.md
   - Torrent Health Monitoring: features/health-monitoring.md
   - Instant Imports: features/instant-imports.md
   - Automated Search: features/automated-search.md

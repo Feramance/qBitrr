@@ -370,7 +370,7 @@ RemoveIfExists = false
 SuperSeedMode = false
 
 # Hit and Run protection
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 5
 TrackerUpdateBuffer = 3600
@@ -603,36 +603,21 @@ Automatically add tags to torrents with this tracker.
 #### HitAndRunMode
 
 ```toml
-HitAndRunMode = true
-```
-
-**Type:** Boolean
-**Default:** `false`
-
-Enable Hit and Run (HnR) protection for this tracker. When `true`, torrents with this tracker will **not** be removed until HnR obligations are met, regardless of `RemoveTorrent` settings. See [Hit and Run Protection](#hit-and-run-protection) for details on how obligations are calculated.
-
-**Backwards compatibility:** If `HitAndRunClearMode` is not set, `HitAndRunMode = true` is treated as clear mode `"and"`.
-
----
-
-#### HitAndRunClearMode
-
-```toml
-HitAndRunClearMode = "and"   # or "or", "disabled"
+HitAndRunMode = "and"   # or "or", "disabled"
 ```
 
 **Type:** String: `"and"` | `"or"` | `"disabled"`
-**Default:** `"disabled"` (no HnR). Legacy: `HitAndRunMode = true` migrates to `"and"`.
+**Default:** `"disabled"` (no HnR)
 
-Controls **how** ratio and time clear HnR for full downloads (when both `MinSeedRatio` and `MinSeedingTimeDays` are set):
+Single setting for Hit and Run (HnR) protection for this tracker:
 
 | Value | Meaning |
 |-------|---------|
-| `"and"` | HnR clears only when **both** minimum ratio **and** minimum time are met |
-| `"or"` | HnR clears when **either** minimum ratio **or** minimum time is met |
+| `"and"` | HnR enabled; clears only when **both** minimum ratio **and** minimum time are met |
+| `"or"` | HnR enabled; clears when **either** minimum ratio **or** minimum time is met |
 | `"disabled"` | No HnR protection; torrents can be removed per `RemoveTorrent` only |
 
-When only one of ratio or time is set (e.g. `MinSeedingTimeDays = 0`), that single condition is used regardless of clear mode. Partial downloads always use `HitAndRunPartialSeedRatio` only.
+When `"and"` or `"or"`, torrents with this tracker will **not** be removed until HnR obligations are met, regardless of `RemoveTorrent` settings. When only one of ratio or time is set (e.g. `MinSeedingTimeDays = 0`), that single condition is used. Partial downloads always use `HitAndRunPartialSeedRatio` only.
 
 ---
 
@@ -645,7 +630,7 @@ MinSeedRatio = 1.0
 **Type:** Float
 **Default:** `1.0`
 
-Minimum upload ratio required to clear HnR. A value of `1.0` means you must upload at least as much as you downloaded. For full downloads, whether **both** ratio and time are required or **either** clears the obligation is controlled by [`HitAndRunClearMode`](#hitandrunclearmode) (`"and"` vs `"or"`).
+Minimum upload ratio required to clear HnR. A value of `1.0` means you must upload at least as much as you downloaded. For full downloads, whether **both** ratio and time are required or **either** clears the obligation is controlled by [`HitAndRunMode`](#hitandrunmode) (`"and"` vs `"or"`).
 
 ---
 
@@ -749,7 +734,7 @@ Priority = 10
 URI = "https://tracker.beyond-hd.me/announce"
 MaxUploadRatio = 1.5
 MaxSeedingTime = 432000  # 5 days
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 5
 AddTags = ["private", "BeyondHD"]
@@ -787,7 +772,7 @@ Priority = 10
 URI = "https://flacsfor.me/announce"
 MaxUploadRatio = -1  # Never remove based on ratio
 MaxSeedingTime = 259200  # 72 hours
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 3
 AddTags = ["RED", "music", "lossless"]
@@ -1158,7 +1143,7 @@ qBitrr's HnR protection acts as a **safety layer** on top of the existing seedin
 - **Downloads below [`HitAndRunMinimumDownloadPercent`](#hitandrunminimumdownloadpercent)%** (default 10%): Not subject to HnR (most trackers don't count these)
 - **[`TrackerUpdateBuffer`](#trackerupdatebuffer)**: Extra seconds subtracted from seeding time to account for tracker stats lag (~30 min behind the client)
 
-When [`HitAndRunMode`](#hitandrunmode) = `false` (default), behavior is identical to previous versions.
+When [`HitAndRunMode`](#hitandrunmode) = `"disabled"` (default), behavior is identical to previous versions.
 
 **Automatic HnR bypass:** If a tracker reports the torrent as unregistered, unauthorized, or not found, HnR protection is automatically bypassed — the torrent no longer exists on the tracker, so seeding obligations no longer apply.
 
@@ -1192,7 +1177,7 @@ RemoveTorrent = 3          # Remove when either met
 Name = "TorrentLeech"
 URI = "tracker.torrentleech.org"
 Priority = 10
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 10    # Registered class requirement
 HitAndRunMinimumDownloadPercent = 10  # TL counts HnR at >=10% downloaded
@@ -1212,7 +1197,7 @@ RemoveTorrent = 3
 Name = "TorrentLeech"
 URI = "tracker.torrentleech.org"
 Priority = 10
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 4     # TL God class requirement
 TrackerUpdateBuffer = 3600
@@ -1231,7 +1216,7 @@ RemoveTorrent = 3
 Name = "TorrentLeech"
 URI = "tracker.torrentleech.org"
 Priority = 10
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 10
 TrackerUpdateBuffer = 3600
@@ -1241,7 +1226,7 @@ TrackerUpdateBuffer = 3600
 Name = "IPTorrents"
 URI = "tracker.iptorrents.com"
 Priority = 8
-HitAndRunMode = true
+HitAndRunMode = "and"
 MinSeedRatio = 1.0
 MinSeedingTimeDays = 4
 TrackerUpdateBuffer = 3600
@@ -1251,7 +1236,7 @@ TrackerUpdateBuffer = 3600
 Name = "Public"
 URI = "udp://open.stealth.si:80/announce"
 Priority = 1
-HitAndRunMode = false
+HitAndRunMode = "disabled"
 ```
 
 ---
