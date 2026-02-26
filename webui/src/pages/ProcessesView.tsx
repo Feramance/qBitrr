@@ -287,6 +287,24 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       instances.get(instanceKey)!.push(proc);
     });
 
+    // Ensure a qBittorrent card exists for every defined qBit instance (even with no processes)
+    const qbitInstanceNames = statusData?.qbitInstances
+      ? Object.keys(statusData.qbitInstances)
+      : [];
+    if (qbitInstanceNames.length > 0) {
+      if (!appBuckets.has("qBittorrent")) appBuckets.set("qBittorrent", new Map());
+      const qbitInstances = appBuckets.get("qBittorrent")!;
+      for (const instanceName of qbitInstanceNames) {
+        const displayName =
+          instanceName.toLowerCase().startsWith("qbit")
+            ? instanceName
+            : `qBit-${instanceName}`;
+        if (!qbitInstances.has(displayName)) {
+          qbitInstances.set(displayName, []);
+        }
+      }
+    }
+
     const appOrder = ["Radarr", "Sonarr", "Lidarr", "qBittorrent", "Other"];
 
     const result: AppGroup[] = Array.from(appBuckets.entries())
@@ -356,10 +374,27 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               : runningCount === 0
               ? "status-indicator--bad"
               : "";
+          // For qBittorrent with no processes, use instance alive from status
+          const qbitInstanceKey =
+            app === "qBittorrent" && totalCount === 0
+              ? (instanceName.toLowerCase().startsWith("qbit-")
+                  ? instanceName.slice(5)
+                  : instanceName)
+              : null;
+          const qbitInstanceAlive =
+            qbitInstanceKey != null
+              ? statusData?.qbitInstances?.[qbitInstanceKey]?.alive ?? false
+              : null;
           const statusClass = ["status-indicator"];
           if (tone) statusClass.push(tone);
+          else if (qbitInstanceAlive !== null)
+            statusClass.push(qbitInstanceAlive ? "status-indicator--ok" : "status-indicator--bad");
           const statusLabel =
-            totalCount === 0
+            totalCount === 0 && qbitInstanceAlive !== null
+              ? qbitInstanceAlive
+                ? "Instance running"
+                : "Instance stopped"
+              : totalCount === 0
               ? "No processes"
               : runningCount === totalCount
               ? "All running"
@@ -382,7 +417,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 <div className="process-card__title">
                   <div className="process-card__name">{displayName}</div>
                   <div className="process-card__summary">{summaryLabel}</div>
-                  {filteredKinds.length ? (
+                  {app !== "qBittorrent" && filteredKinds.length ? (
                     <div className="process-card__badges">
                       {filteredKinds.map((kind) => (
                         <span key={`${name}:${kind}:badge`} className="process-card__badge">
@@ -464,9 +499,6 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                       <div className="process-chip__top">
                         <div className="process-chip__name">
                           {cat.category}
-                          <span className="process-chip__managed-badge">
-                            {cat.managedBy === "arr" ? "Arr" : "qBit"}
-                          </span>
                         </div>
                         <div className={`status-pill__dot ${instanceAlive ? "text-success" : "text-danger"}`} />
                       </div>
@@ -475,6 +507,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   );
                 })}
               </div>
+              {(items.length > 0 && (
               <div className="process-card__footer">
                 <button
                   className="btn small"
@@ -483,6 +516,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   Restart All
                 </button>
               </div>
+              )) || null}
             </div>
           );
         });
