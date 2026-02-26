@@ -53,6 +53,15 @@ graph TD
    - Automatically resumes paused downloads
    - Continues normal operation
 
+**Which torrents are monitored:**
+
+The Free Space Manager monitors torrents in **all categories** that qBitrr manages:
+
+- **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, and Lidarr instance (e.g. `radarr`, `sonarr`, `radarr4k`).
+- **qBit-managed categories** — Categories listed in `[qBit].ManagedCategories` (e.g. `autobrr`).
+
+Torrents in any of these categories are included in free-space checks and can be paused when disk is low. Torrents in other qBittorrent categories (not used by any Arr instance and not in `ManagedCategories`) are not monitored.
+
 ---
 
 ## Configuration
@@ -456,9 +465,14 @@ Check paused torrents in qBittorrent:
    df -h /data/downloads
    ```
 
-4. **Check logs for errors:**
+4. **Ensure torrents are in monitored categories:**
+   Free Space Manager only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
+
+5. **Check logs for errors:**
    ```bash
    grep -i "space\|error" ~/logs/Main.log
+   # Or FreeSpaceManager log
+   tail -f ~/config/logs/FreeSpaceManager.log
    ```
 
 ---

@@ -12,13 +12,13 @@ exclude_docs: |
   includes/abbreviations.md
 
 # Copyright
-copyright: Copyright &copy; 2025 Feramance
+copyright: Copyright &copy; 2026 Feramance
 
 # Configuration
 theme:
   name: material
   language: en
-  logo: assets/logov2-clean.png
+  logo: assets/logov2-clean.svg
   favicon: assets/favicon.ico
   icon:
     repo: fontawesome/brands/github
