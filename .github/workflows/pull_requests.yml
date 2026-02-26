@@ -43,7 +43,8 @@ jobs:
         ref: ${{ github.event.pull_request.head.ref }}
     - name: Install Homebrew dependencies
       if: runner.os == 'macOS'
-      run: "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\n"
+      run: |
+        brew install sdl2
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v6
       with:
@@ -102,6 +103,7 @@ jobs:
   docker_image:
     name: Build Docker Images
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       packages: write
       contents: read
