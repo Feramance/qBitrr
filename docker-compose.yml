@@ -1,0 +1,23 @@
+services:
+  qbitrr:
+    container_name: qbitrr
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+    - UMASK=000
+    - TZ=${TZ}
+    - PUID=${USER_ID}
+    - PGID=${USER_ID}
+    restart: always
+    tty: true
+    volumes:
+    - /mnt/media/Torrents:/torrents
+    - .config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 5g
+        max-file: 1
+    ports:
+    - 6969:6969

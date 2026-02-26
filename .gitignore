@@ -71,6 +71,5 @@ test_webui.sh
 
 # Development
 CLAUDE.md
-compose.yml
 opencodetmp/
 .claude
