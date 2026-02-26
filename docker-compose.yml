@@ -11,6 +11,7 @@ services:
     - PGID=${USER_ID}
     restart: always
     tty: true
+    stop_grace_period: 30s
     volumes:
     - /mnt/media/Torrents:/torrents
     - .config:/config

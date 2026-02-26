@@ -14,6 +14,10 @@ LABEL Maintainer="feramance"
 LABEL Version="5.9.1"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
+# Install tini so PID 1 forwards SIGTERM to Python (enables graceful shutdown and DB checkpoint)
+RUN apt-get update && apt-get install -y --no-install-recommends tini \
+    && rm -rf /var/lib/apt/lists/*
+
 # Env used by the script to determine if it's inside a docker -
 # if this is set to 69420 it will change the working dir for docker specific values
 ENV QBITRR_DOCKER_RUNNING=69420
@@ -31,4 +35,5 @@ WORKDIR /config
 
 EXPOSE 6969
 
-ENTRYPOINT ["python", "-m", "qBitrr.main"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["python", "-m", "qBitrr.main"]

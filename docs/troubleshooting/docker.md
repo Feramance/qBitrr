@@ -308,6 +308,31 @@ docker exec qbitrr printenv | grep -i qbit
 
 ## Container Health
 
+### Database Corruption After Restart (Docker)
+
+**Symptom:** After `docker stop` / `docker restart`, logs show "database disk image is malformed" or integrity check failures.
+
+**Cause:** The main process did not receive SIGTERM (or was killed before cleanup), so the database WAL was never checkpointed. This used to happen when Python was PID 1 in the container.
+
+**What qBitrr does to prevent it:**
+
+- The official image runs **tini** as PID 1 so SIGTERM is forwarded to the Python process. On SIGTERM, qBitrr checkpoints the database WAL and then exits.
+- Use **`stop_grace_period: 30s`** (or more) in your Compose file so Docker waits long enough for cleanup before sending SIGKILL.
+
+**Example:**
+
+```yaml
+services:
+  qbitrr:
+    image: feramance/qbitrr:latest
+    stop_grace_period: 30s   # Give time for DB checkpoint on stop
+    # ... rest of config
+```
+
+**Do not:** Use `docker kill` or `docker stop -t 0`; that skips graceful shutdown and can corrupt the database.
+
+---
+
 ### Container Constantly Restarting
 
 **Check restart policy:**

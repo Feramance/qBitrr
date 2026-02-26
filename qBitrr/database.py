@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-import time
 from pathlib import Path
 
 from peewee import SqliteDatabase
@@ -33,19 +32,16 @@ _db: SqliteDatabase | None = None
 
 def _offer_fresh_start(db_path: Path) -> None:
     """
-    Move corrupt database aside and allow a fresh DB to be created on connect.
+    Delete corrupt database so a fresh one is created on connect.
     Use only after repair has failed; causes loss of existing DB data.
     """
     try:
-        ts = int(time.time())
-        corrupt_path = db_path.parent / f"qbitrr.db.corrupt.{ts}"
-        db_path.rename(corrupt_path)
+        db_path.unlink()
         logger.warning(
-            "Moved corrupt database to %s; a fresh database will be created on connect.",
-            corrupt_path.name,
+            "Deleted corrupt database; a fresh database will be created on connect.",
         )
     except Exception as e:
-        logger.debug("Could not move corrupt database aside: %s", e)
+        logger.debug("Could not delete corrupt database: %s", e)
 
 
 def _startup_integrity_check_and_repair(db_path: Path) -> None:
@@ -111,8 +107,7 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
 
         logger.critical(
             "Automatic database repair failed: %s. "
-            "Consider stopping qBitrr and running scripts/repair_database.py manually, "
-            "or remove/rename the database file to start with a fresh database (data loss).",
+            "Corrupt database will be removed and a fresh one created on connect (data loss).",
             e,
         )
         if isinstance(e, DatabaseRecoveryError) and db_path.exists():
