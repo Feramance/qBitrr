@@ -1678,10 +1678,15 @@ class WebUI:
                 except Exception:
                     alive = False
                     pid = None
+                display_name = (
+                    instance_name
+                    if instance_name.lower().startswith("qbit")
+                    else f"qBit-{instance_name}"
+                )
                 procs.append(
                     {
                         "category": cat,
-                        "name": f"qBit-{instance_name}",
+                        "name": display_name,
                         "kind": "category",
                         "pid": pid,
                         "alive": alive,
