@@ -1764,7 +1764,19 @@ class Arr:
                 )
                 continue
             try:
-                client.torrents_delete(hashes=list(hashes), delete_files=True)
+                with_retry(
+                    lambda c=client, h=list(hashes): c.torrents_delete(
+                        hashes=h, delete_files=True
+                    ),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
                 for h in hashes:
                     self.cleaned_torrents.discard(h)
                     self.sent_to_scan_hashes.discard(h)
@@ -7539,7 +7551,7 @@ class PlaceHolderArr(Arr):
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = CONFIG.get(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=600
+            "Settings.IgnoreTorrentsYoungerThan", fallback=180
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.timed_ignore_cache_2 = ExpiringSet(
@@ -7738,7 +7750,7 @@ class PlaceHolderArr(Arr):
                 continue
             try:
                 with_retry(
-                    lambda h=hashes: client.torrents_delete(hashes=h, delete_files=True),
+                    lambda c=client, h=hashes: c.torrents_delete(hashes=h, delete_files=True),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
@@ -7889,6 +7901,9 @@ class PlaceHolderArr(Arr):
         self._process_errored()
         self._process_file_priority()
         self._process_failed()
+        self.import_torrents.clear()
+        with contextlib.suppress(AttributeError):
+            self.files_to_cleanup.clear()
 
     def process_torrents(self):
         try:
@@ -7907,6 +7922,7 @@ class PlaceHolderArr(Arr):
                     for instance, t in torrents_with_instances
                     if getattr(t, "category", None) == self.category
                 ]
+                self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
                 if not torrents_with_instances:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
@@ -7959,7 +7975,7 @@ class FreeSpaceManager(Arr):
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = CONFIG.get(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=600
+            "Settings.IgnoreTorrentsYoungerThan", fallback=180
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
         self.needs_cleanup = False
