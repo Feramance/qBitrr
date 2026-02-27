@@ -262,11 +262,6 @@ class qBitCategoryManager:
                     e,
                 )
 
-    def _hnr_clear_mode_enabled(self, config: dict) -> bool:
-        """True if HnR protection is enabled (HitAndRunMode is 'and' or 'or')."""
-        mode = (config.get("HitAndRunMode") or "").strip().lower()
-        return mode in ("and", "or")
-
     def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
         """Find the highest-priority matching tracker config for this torrent."""
         if not self.trackers:
@@ -306,82 +301,6 @@ class qBitCategoryManager:
                 best = tracker_cfg
                 best_priority = priority
         return best
-
-    def _hnr_tracker_is_dead(self, torrent: TorrentDictionary, config: dict) -> bool:
-        """Check if the HnR-enabled tracker reports the torrent as unregistered."""
-        _dead_keywords = {
-            "unregistered torrent",
-            "torrent not registered",
-            "info hash is not authorized",
-            "torrent is not authorized",
-            "not found",
-            "torrent not found",
-        }
-        uri = (config.get("URI") or "").strip().rstrip("/")
-        cfg_host = _extract_tracker_host(uri)
-        if not cfg_host:
-            return False
-        try:
-            for tracker in torrent.trackers:
-                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if _extract_tracker_host(tracker_url) != cfg_host:
-                    continue
-                message_text = (getattr(tracker, "msg", "") or "").lower()
-                if any(keyword in message_text for keyword in _dead_keywords):
-                    return True
-        except Exception:
-            pass
-        return False
-
-    def _hnr_safe_to_remove(self, torrent: TorrentDictionary, config: dict) -> bool:
-        """
-        Check if Hit and Run obligations are met for this torrent.
-
-        Args:
-            torrent: qBittorrent torrent object
-            config: Seeding configuration dict
-
-        Returns:
-            True if HnR obligations are met (safe to remove), False otherwise
-        """
-        clear_mode = (config.get("HitAndRunMode") or "disabled").strip().lower()
-        if clear_mode not in ("and", "or"):
-            return True  # Disabled or invalid: safe to remove
-
-        min_ratio = config.get("MinSeedRatio", 1.0)
-        min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
-        min_dl_pct = config.get("HitAndRunMinimumDownloadPercent", 10) / 100.0
-        partial_ratio = config.get("HitAndRunPartialSeedRatio", 1.0)
-        buffer_secs = config.get("TrackerUpdateBuffer", 0)
-
-        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
-        effective_seeding_time = torrent.seeding_time - buffer_secs
-
-        if torrent.progress < min_dl_pct:
-            return True  # Below minimum download threshold, no HnR obligation
-        if is_partial:
-            return torrent.ratio >= partial_ratio  # Partial: ratio only
-
-        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
-        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
-
-        if clear_mode == "and":
-            if min_ratio > 0 and min_time_secs > 0:
-                return ratio_met and time_met
-            if min_ratio > 0:
-                return ratio_met
-            if min_time_secs > 0:
-                return time_met
-            return True
-        if clear_mode == "or":
-            if min_ratio > 0 and min_time_secs > 0:
-                return ratio_met or time_met
-            if min_ratio > 0:
-                return ratio_met
-            if min_time_secs > 0:
-                return time_met
-            return True
-        return True
 
     def _create_dedicated_client(self):
         """Create a dedicated qBit client for this process to avoid HTTP session sharing."""
