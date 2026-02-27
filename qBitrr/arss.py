@@ -7540,6 +7540,7 @@ class PlaceHolderArr(Arr):
         self.sent_to_scan = set()
         self.sent_to_scan_hashes = set()
         self.files_probed = set()
+        self.files_to_cleanup = set()
         self.import_torrents = []
         self.change_priority = {}
         self.recheck = set()

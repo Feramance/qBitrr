@@ -72,3 +72,4 @@ test_webui.sh
 # Development
 opencodetmp/
 .claude
+CLAUDE.md
