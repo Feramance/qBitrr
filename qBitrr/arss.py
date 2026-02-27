@@ -7840,7 +7840,7 @@ class PlaceHolderArr(Arr):
                         "Cannot delete %d torrent(s): no qBit client (manager.qbit is None)",
                         len(rest),
                     )
-            to_delete_all = to_delete_all.union(temp_to_delete).union(deleted_hashes)
+            to_delete_all = temp_to_delete.union(deleted_hashes)
             for h in to_delete_all:
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
