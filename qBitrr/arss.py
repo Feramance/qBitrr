@@ -7526,8 +7526,8 @@ class PlaceHolderArr(Arr):
         return False
 
     def _apply_qbit_seeding_config(self) -> None:
-        """Load [qBit] CategorySeeding and Trackers so this PlaceHolderArr respects qBit seeding config."""
-        section = "qBit"
+        """Load qBit CategorySeeding/Trackers for this category's owning qBit section."""
+        section = self.manager.qbit_managed_category_sections.get(self.category, "qBit")
         seeding_keys = [
             "DownloadRateLimitPerTorrent",
             "UploadRateLimitPerTorrent",
@@ -7590,7 +7590,9 @@ class PlaceHolderArr(Arr):
             h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
         }
         self.logger.debug(
-            "Applied qBit seeding config for category '%s': RemoveTorrent=%s, StalledDelay=%s",
+            "Applied qBit seeding config from section '%s' for category '%s': "
+            "RemoveTorrent=%s, StalledDelay=%s",
+            section,
             self.category,
             self.seeding_mode_global_remove_torrent,
             self.stalled_delay,
@@ -7894,9 +7896,7 @@ class FreeSpaceManager(Arr):
         # Path for disk usage: use resolved path; if it does not exist, use first existing
         # parent so we still report the correct volume (e.g. /torrents missing -> use /).
         self._path_for_disk_usage = self._disk_usage_path
-        _p = self._disk_usage_path
-        while _p and not _p.exists():
-            _p = _p.parent
+        _p = self._first_existing_parent(self._disk_usage_path)
         if _p:
             self._path_for_disk_usage = _p
             if self._path_for_disk_usage != self._disk_usage_path:
@@ -7948,6 +7948,17 @@ class FreeSpaceManager(Arr):
                 and self.torrent_db.close()
             )
         )
+
+    @staticmethod
+    def _first_existing_parent(path: pathlib.Path) -> pathlib.Path:
+        """Return the nearest existing parent path without looping at filesystem root."""
+        current = path
+        while not current.exists():
+            parent = current.parent
+            if parent == current:
+                break
+            current = parent
+        return current
 
     def _get_models(
         self,
@@ -8080,9 +8091,7 @@ class FreeSpaceManager(Arr):
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
                 # Re-resolve path each loop so we use the configured path once it appears
                 # (e.g. Docker volume mounted after process start).
-                _p = self._disk_usage_path
-                while _p and not _p.exists():
-                    _p = _p.parent
+                _p = self._first_existing_parent(self._disk_usage_path)
                 if _p:
                     self._path_for_disk_usage = _p
                 self.current_free_space = (
@@ -8136,6 +8145,7 @@ class ArrManager:
         self.special_categories: set[str] = {FAILED_CATEGORY, RECHECK_CATEGORY}
         self.arr_categories: set[str] = set()
         self.qbit_managed_categories: set[str] = set()
+        self.qbit_managed_category_sections: dict[str, str] = {}
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
@@ -8162,12 +8172,25 @@ class ArrManager:
             ValueError: If any category is managed by both Arr and qBit
         """
         # Collect qBit-managed categories from all instances
+        self.qbit_managed_categories.clear()
+        self.qbit_managed_category_sections.clear()
         for section in CONFIG.sections():
             # Check default qBit section
             if section == "qBit":
                 managed_cats = CONFIG.get("qBit.ManagedCategories", fallback=[])
                 if managed_cats:
                     self.qbit_managed_categories.update(managed_cats)
+                    for category in managed_cats:
+                        owner = self.qbit_managed_category_sections.setdefault(category, section)
+                        if owner != section:
+                            self.logger.warning(
+                                "Category '%s' is managed by both '%s' and '%s'; "
+                                "PlaceHolderArr will use '%s' seeding config",
+                                category,
+                                owner,
+                                section,
+                                owner,
+                            )
                     self.logger.debug(
                         "qBit instance 'default' manages categories: %s",
                         ", ".join(managed_cats),
@@ -8178,6 +8201,17 @@ class ArrManager:
                 managed_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
                 if managed_cats:
                     self.qbit_managed_categories.update(managed_cats)
+                    for category in managed_cats:
+                        owner = self.qbit_managed_category_sections.setdefault(category, section)
+                        if owner != section:
+                            self.logger.warning(
+                                "Category '%s' is managed by both '%s' and '%s'; "
+                                "PlaceHolderArr will use '%s' seeding config",
+                                category,
+                                owner,
+                                section,
+                                owner,
+                            )
                     self.logger.debug(
                         "qBit instance '%s' manages categories: %s",
                         instance_name,
