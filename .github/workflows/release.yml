@@ -254,7 +254,7 @@ jobs:
       shell: pwsh
       run: "Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip\n"
     - name: Upload Artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: automated-build-${{ steps.archive.outputs.NAME }}
         path: ${{ steps.archive.outputs.NAME }}.*
