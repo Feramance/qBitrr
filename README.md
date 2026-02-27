@@ -177,3 +177,7 @@ Released under the [MIT License](LICENSE). Use it, modify it, share it—commerc
 [Documentation](https://feramance.github.io/qBitrr/) • [PyPI](https://pypi.org/project/qBitrr2/) • [Docker](https://hub.docker.com/r/feramance/qbitrr) • [GitHub](https://github.com/Feramance/qBitrr)
 
 </div>
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Feramance/qBitrr&type=date&legend=top-left)](https://www.star-history.com/#Feramance/qBitrr&type=date&legend=top-left)
