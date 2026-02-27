@@ -18,7 +18,7 @@ services:
     logging:
       driver: json-file
       options:
-        max-size: 5g
+        max-size: 50m
         max-file: 1
     ports:
     - 6969:6969

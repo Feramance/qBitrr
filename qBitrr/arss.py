@@ -7790,7 +7790,10 @@ class PlaceHolderArr(Arr):
         self.recheck.clear()
 
     def process(self):
+        self._process_resume()
+        self._process_paused()
         self._process_errored()
+        self._process_file_priority()
         self._process_failed()
 
     def process_torrents(self):
