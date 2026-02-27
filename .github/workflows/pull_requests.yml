@@ -48,7 +48,7 @@ jobs:
     - name: Set up Python ${{ matrix.python }}
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ matrix.python}}
+        python-version: ${{ matrix.python }}
         architecture: ${{ matrix.arch }}
         cache: pip
     - name: Install APT dependencies
