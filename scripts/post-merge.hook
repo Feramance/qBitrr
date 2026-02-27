@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Git post-merge hook: rebuild and deploy qBitrr after every git pull (merge).
+# Install with: scripts/install-post-merge-hook.sh
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+exec "$REPO_ROOT/scripts/rebuild-and-deploy.sh"
