@@ -469,9 +469,7 @@ class qBitManager:
                     self._init_instance(section, section)
                     self.logger.info("Initialized qBit instance: %s", section)
                 except Exception as e:
-                    self.logger.error(
-                        "Failed to initialize qBit instance '%s': %s", section, e
-                    )
+                    self.logger.error("Failed to initialize qBit instance '%s': %s", section, e)
                     self.instance_health[section] = False
 
         # Set current_qbit_version from the first initialized instance (for legacy compatibility)

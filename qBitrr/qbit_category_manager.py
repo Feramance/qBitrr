@@ -151,9 +151,18 @@ class qBitCategoryManager:
                     self._apply_tags(torrent, tags)
                 # Merge tracker overrides into effective config (tracker wins over category
                 # for seeding fields; skip non-seeding tracker metadata keys)
-                _skip = {"URI", "Priority", "Name", "AddTags", "HitAndRunMode",
-                         "MinSeedRatio", "MinSeedingTimeDays", "HitAndRunMinimumDownloadPercent",
-                         "HitAndRunPartialSeedRatio", "TrackerUpdateBuffer"}
+                _skip = {
+                    "URI",
+                    "Priority",
+                    "Name",
+                    "AddTags",
+                    "HitAndRunMode",
+                    "MinSeedRatio",
+                    "MinSeedingTimeDays",
+                    "HitAndRunMinimumDownloadPercent",
+                    "HitAndRunPartialSeedRatio",
+                    "TrackerUpdateBuffer",
+                }
                 effective_config = {
                     **config,
                     **{k: v for k, v in tracker_config.items() if k not in _skip},
@@ -363,9 +372,7 @@ class qBitCategoryManager:
             cfg_host = _extract_tracker_host(uri)
             # Use apex/suffix matching: cfg_host "example.com" matches both
             # "example.com" (exact) and "sub.example.com" (subdomain)
-            host_match = any(
-                h == cfg_host or h.endswith("." + cfg_host) for h in torrent_hosts
-            )
+            host_match = any(h == cfg_host or h.endswith("." + cfg_host) for h in torrent_hosts)
             if cfg_host and host_match and priority > best_priority:
                 best = tracker_cfg
                 best_priority = priority
