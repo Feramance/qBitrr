@@ -591,7 +591,7 @@ class qBitManager:
             stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
             ignore_younger = CONFIG.get(
                 f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600),
+                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
 
             # Store config for later initialization
@@ -735,7 +735,7 @@ class qBitManager:
             stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
             ignore_younger = CONFIG.get(
                 f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=600),
+                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,

@@ -391,7 +391,7 @@ def _add_qbit_section(config: TOMLDocument):
         category_seeding,
         "Ignore torrents younger than this (seconds). Stalled removal also requires last_activity older than this.",
         "IgnoreTorrentsYoungerThan",
-        600,
+        180,
     )
     _gen_qbit_tracker_tables(qbit)
 

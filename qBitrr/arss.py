@@ -570,6 +570,7 @@ class Arr:
         self.delete = set()
         self.resume = set()
         self.remove_from_qbit = set()
+        self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
         self.overseerr_requests_release_cache = {}
         self.files_to_explicitly_delete: Iterator = iter([])
         self.files_to_cleanup = set()
@@ -1714,19 +1715,26 @@ class Arr:
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
-        if to_delete_all or self.remove_from_qbit or self.skip_blacklist:
+        if (
+            to_delete_all
+            or self.remove_from_qbit
+            or self.skip_blacklist
+            or self.remove_from_qbit_by_instance
+        ):
             n_delete = len(self.delete)
             n_missing = len(self.missing_files_post_delete)
             n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
             n_remove = len(self.remove_from_qbit)
+            n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
             n_skip = len(self.skip_blacklist)
             self.logger.info(
                 "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-                "remove_from_qbit=%d, skip_blacklist=%d",
+                "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
                 n_delete,
                 n_missing,
                 n_bad_msg,
                 n_remove,
+                n_remove_by_inst,
                 n_skip,
             )
             if to_delete_all and self.logger.isEnabledFor(10):  # DEBUG
@@ -1744,17 +1752,97 @@ class Arr:
                     self._process_failed_individual(
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                     )
+        # Delete missing-files torrents from the correct qBit instance (multi-instance).
+        qbit_manager = self.manager.qbit_manager
+        for inst_name, hashes in self.remove_from_qbit_by_instance.items():
+            client = qbit_manager.get_client(inst_name)
+            if client is None:
+                self.logger.warning(
+                    "Cannot delete %d torrent(s) from qBit instance '%s': no client",
+                    len(hashes),
+                    inst_name,
+                )
+                continue
+            try:
+                client.torrents_delete(hashes=list(hashes), delete_files=True)
+                for h in hashes:
+                    self.cleaned_torrents.discard(h)
+                    self.sent_to_scan_hashes.discard(h)
+                    if h in qbit_manager.name_cache:
+                        del qbit_manager.name_cache[h]
+                    if h in qbit_manager.cache:
+                        del qbit_manager.cache[h]
+            except (
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+                requests.exceptions.RequestException,
+            ) as e:
+                self.logger.error(
+                    "Failed to delete %d torrent(s) from qBit instance '%s': %s",
+                    len(hashes),
+                    inst_name,
+                    e,
+                )
+        self.remove_from_qbit_by_instance.clear()
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
-            temp_to_delete = set()
+            deleted_hashes: set[str] = set()
             if to_delete_all:
-                self.manager.qbit.torrents_delete(hashes=to_delete_all, delete_files=True)
+                try:
+                    with_retry(
+                        lambda: self.manager.qbit.torrents_delete(
+                            hashes=to_delete_all, delete_files=True
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
+                except (
+                    qbittorrentapi.exceptions.APIError,
+                    qbittorrentapi.exceptions.APIConnectionError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    self.logger.error(
+                        "Failed to delete %d torrent(s) from qBit: %s",
+                        len(to_delete_all),
+                        e,
+                    )
+                else:
+                    deleted_hashes.update(to_delete_all)
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
-                self.manager.qbit.torrents_delete(hashes=temp_to_delete, delete_files=True)
-
-            to_delete_all = to_delete_all.union(temp_to_delete)
-            for h in to_delete_all:
+                try:
+                    with_retry(
+                        lambda: self.manager.qbit.torrents_delete(
+                            hashes=temp_to_delete, delete_files=True
+                        ),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
+                except (
+                    qbittorrentapi.exceptions.APIError,
+                    qbittorrentapi.exceptions.APIConnectionError,
+                    requests.exceptions.RequestException,
+                ) as e:
+                    self.logger.error(
+                        "Failed to delete %d torrent(s) from qBit: %s",
+                        len(temp_to_delete),
+                        e,
+                    )
+                else:
+                    deleted_hashes.update(temp_to_delete)
+            for h in deleted_hashes:
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
                 if h in self.manager.qbit_manager.name_cache:
@@ -4861,7 +4949,7 @@ class Arr:
                         torrents_with_instances = self._get_torrents_from_all_instances()
                         break
                     except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
-                        if "JSONDecodeError" in str(e):
+                        if isinstance(e, JSONDecodeError):
                             continue
                         else:
                             raise qbittorrentapi.exceptions.APIError
@@ -5476,7 +5564,7 @@ class Arr:
             torrent.hash,
         )
         # We do not want to blacklist these!!
-        self.remove_from_qbit.add(torrent.hash)
+        self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_uploading(
         self, torrent: qbittorrentapi.TorrentDictionary, leave_alone: bool
@@ -6031,7 +6119,7 @@ class Arr:
                 torrent.name,
                 datetime.fromtimestamp(time_now),
                 datetime.fromtimestamp(torrent.added_on),
-                datetime.fromtimestamp(torrent.added_on + stalled_delay_seconds),
+                datetime.fromtimestamp(torrent.added_on + self.ignore_torrents_younger_than),
             )
             return True
         if self.stalled_delay == 0:
@@ -6158,7 +6246,7 @@ class Arr:
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent)
         elif self._is_missing_files_torrent(torrent):
-            # Handle missing-files state (and ERROR state when API reports missingFiles)
+            # Missing-files (and ERROR+missingFiles): bypass all other processing, delete from client.
             self._process_single_torrent_missing_files(torrent, instance_name)
         elif self.is_ignored_state(torrent):
             self._process_single_torrent_ignored(torrent)
@@ -6231,7 +6319,7 @@ class Arr:
             self._process_single_torrent_already_sent_to_scan(torrent)
 
         # Sometimes torrents will error, this causes them to be rechecked so they
-        # complete downloading. (Missing-files case handled earlier.)
+        # complete downloading.
         elif torrent.state_enum == TorrentStates.ERROR:
             self._process_single_torrent_errored(torrent)
         # If a torrent was not just added,
@@ -7519,7 +7607,6 @@ class PlaceHolderArr(Arr):
     ) -> None:
         """Track which qBit instance the torrent is on so we delete from the correct client."""
         super()._process_single_torrent_missing_files(torrent, instance_name)
-        self.remove_from_qbit_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         """PlaceHolderArr does not use Arr queue; never trigger custom-format branch."""
@@ -7606,20 +7693,27 @@ class PlaceHolderArr(Arr):
         skip_blacklist = {
             i.upper() for i in self.skip_blacklist.union(self.missing_files_post_delete)
         }
-        if not (to_delete_all or self.remove_from_qbit or self.skip_blacklist):
+        if not (
+            to_delete_all
+            or self.remove_from_qbit
+            or self.skip_blacklist
+            or self.remove_from_qbit_by_instance
+        ):
             return
         n_delete = len(self.delete)
         n_missing = len(self.missing_files_post_delete)
         n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
         n_remove = len(self.remove_from_qbit)
+        n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
         n_skip = len(self.skip_blacklist)
         self.logger.info(
             "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-            "remove_from_qbit=%d, skip_blacklist=%d",
+            "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
             n_delete,
             n_missing,
             n_bad_msg,
             n_remove,
+            n_remove_by_inst,
             n_skip,
         )
         if to_delete_all:
@@ -7804,14 +7898,14 @@ class PlaceHolderArr(Arr):
                         torrents_with_instances = self._get_torrents_from_all_instances()
                         break
                     except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
-                        if "JSONDecodeError" in str(e):
+                        if isinstance(e, JSONDecodeError):
                             continue
                         raise qbittorrentapi.exceptions.APIError
 
                 torrents_with_instances = [
                     (instance, t)
                     for instance, t in torrents_with_instances
-                    if hasattr(t, "category")
+                    if getattr(t, "category", None) == self.category
                 ]
                 self.category_torrent_count = len(torrents_with_instances)
                 if not torrents_with_instances:
@@ -7885,6 +7979,7 @@ class FreeSpaceManager(Arr):
         else:
             self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
             self._disk_usage_path = pathlib.Path(FREE_SPACE_FOLDER).resolve()
+        self._free_space_folder_is_auto = FREE_SPACE_FOLDER == "CHANGE_ME"
         self.min_free_space = FREE_SPACE
         # Parse once to avoid repeated conversions
         self._min_free_space_bytes = (
@@ -7896,24 +7991,27 @@ class FreeSpaceManager(Arr):
             if parent.exists():
                 self.completed_folder = parent
             # else: keep completed_folder and let disk_usage raise so the user sees the error
-        # Path for disk usage: use resolved path; if it does not exist, use first existing
-        # parent so we still report the correct volume (e.g. /torrents missing -> use /).
+        # Path for disk usage: use resolved path. Only when path was auto-chosen (CHANGE_ME),
+        # allow falling back to first existing parent so we still report the correct volume;
+        # when the user explicitly set FreeSpaceFolder, do not substitute—missing path should
+        # error so they fix typo/mount instead of monitoring the wrong filesystem.
         self._path_for_disk_usage = self._disk_usage_path
-        _p = self._first_existing_parent(self._disk_usage_path)
-        if _p:
-            self._path_for_disk_usage = _p
-            if self._path_for_disk_usage != self._disk_usage_path:
-                self.logger.warning(
-                    "FreeSpaceFolder path does not exist, using parent for disk space check | "
-                    "Configured: %s | Using: %s%s",
-                    self._disk_usage_path,
-                    self._path_for_disk_usage,
-                    (
-                        " | In Docker: ensure the host volume is mounted at the configured path (e.g. -v /host/torrents:/torrents)"
-                        if is_docker()
-                        else ""
-                    ),
-                )
+        if self._free_space_folder_is_auto:
+            _p = self._first_existing_parent(self._disk_usage_path)
+            if _p:
+                self._path_for_disk_usage = _p
+                if self._path_for_disk_usage != self._disk_usage_path:
+                    self.logger.warning(
+                        "FreeSpaceFolder path does not exist, using parent for disk space check | "
+                        "Configured: %s | Using: %s%s",
+                        self._disk_usage_path,
+                        self._path_for_disk_usage,
+                        (
+                            " | In Docker: ensure the host volume is mounted at the configured path (e.g. -v /host/torrents:/torrents)"
+                            if is_docker()
+                            else ""
+                        ),
+                    )
         self.current_free_space = (
             shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
         )
@@ -7953,13 +8051,13 @@ class FreeSpaceManager(Arr):
         )
 
     @staticmethod
-    def _first_existing_parent(path: pathlib.Path) -> pathlib.Path:
-        """Return the nearest existing parent path without looping at filesystem root."""
+    def _first_existing_parent(path: pathlib.Path) -> pathlib.Path | None:
+        """Return the nearest existing parent path, or None if none exist (e.g. path below root)."""
         current = path
         while not current.exists():
             parent = current.parent
             if parent == current:
-                break
+                return None
             current = parent
         return current
 
@@ -8093,10 +8191,12 @@ class FreeSpaceManager(Arr):
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
                 # Re-resolve path each loop so we use the configured path once it appears
-                # (e.g. Docker volume mounted after process start).
-                _p = self._first_existing_parent(self._disk_usage_path)
-                if _p:
-                    self._path_for_disk_usage = _p
+                # (e.g. Docker volume mounted after process start). Only when path was
+                # auto-chosen (CHANGE_ME); explicit FreeSpaceFolder must exist or we error.
+                if self._free_space_folder_is_auto:
+                    _p = self._first_existing_parent(self._disk_usage_path)
+                    if _p:
+                        self._path_for_disk_usage = _p
                 self.current_free_space = (
                     shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
                 )

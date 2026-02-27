@@ -70,6 +70,5 @@ test_webui.sh
 /scripts/temp/
 
 # Development
-CLAUDE.md
 opencodetmp/
 .claude
