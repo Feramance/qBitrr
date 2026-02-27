@@ -2254,7 +2254,7 @@ function NumberInput({
 
   useEffect(() => {
     if (!isEditing.current) {
-      setLocalValue(externalStr);
+      queueMicrotask(() => setLocalValue(externalStr));
     }
   }, [externalStr]);
 
