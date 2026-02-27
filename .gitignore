@@ -21,6 +21,7 @@ __pycache__/
 *.so
 *.egg
 *.egg-info/
+qBitrr2.egg-info/
 .Python
 
 # Build artifacts
