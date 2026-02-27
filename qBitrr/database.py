@@ -36,12 +36,21 @@ def _offer_fresh_start(db_path: Path) -> None:
     Use only after repair has failed; causes loss of existing DB data.
     """
     try:
-        db_path.unlink()
+        for candidate in (
+            db_path,
+            db_path.parent / f"{db_path.name}-wal",
+            db_path.parent / f"{db_path.name}-shm",
+        ):
+            try:
+                candidate.unlink()
+            except FileNotFoundError:
+                continue
         logger.warning(
-            "Deleted corrupt database; a fresh database will be created on connect.",
+            "Deleted corrupt database and SQLite WAL/SHM files; "
+            "a fresh database will be created on connect.",
         )
     except Exception as e:
-        logger.debug("Could not delete corrupt database: %s", e)
+        logger.debug("Could not delete corrupt database files: %s", e)
 
 
 def _startup_integrity_check_and_repair(db_path: Path) -> None:
