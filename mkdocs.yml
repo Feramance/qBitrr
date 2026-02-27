@@ -193,7 +193,6 @@ nav:
 - Home:
   - index.md
   - Getting Started: getting-started/index.md
-  - Configuration: configuration/index.md
   - Features: features/index.md
   - FAQ: faq.md
   - Changelog: changelog.md
@@ -209,6 +208,7 @@ nav:
   - Migration Guide: getting-started/migration.md
 
 - Configuration:
+  - Overview: configuration/index.md
   - Configuration File: configuration/config-file.md
   - qBittorrent: configuration/qbittorrent.md
   - Arr Instances:

@@ -5976,21 +5976,19 @@ class Arr:
             monitored_trackers, _remove_urls
         )
         if monitored_trackers and most_important_tracker:
-            if (
-                r := most_important_tracker.get(
-                    "DownloadRateLimit", self.seeding_mode_global_download_limit
-                )
-            ) != 0 and torrent.dl_limit != r:
-                torrent.set_download_limit(limit=r)
-            elif r < 0:
+            dl_r = most_important_tracker.get(
+                "DownloadRateLimit", self.seeding_mode_global_download_limit
+            )
+            if dl_r != 0 and torrent.dl_limit != dl_r:
+                torrent.set_download_limit(limit=dl_r)
+            elif dl_r < 0:
                 torrent.set_download_limit(limit=-1)
-            if (
-                r := most_important_tracker.get(
-                    "UploadRateLimit", self.seeding_mode_global_upload_limit
-                )
-            ) != 0 and torrent.up_limit != r:
-                torrent.set_upload_limit(limit=r)
-            elif r < 0:
+            ul_r = most_important_tracker.get(
+                "UploadRateLimit", self.seeding_mode_global_upload_limit
+            )
+            if ul_r != 0 and torrent.up_limit != ul_r:
+                torrent.set_upload_limit(limit=ul_r)
+            elif ul_r < 0:
                 torrent.set_upload_limit(limit=-1)
             if (
                 r := most_important_tracker.get("SuperSeedMode", False)
@@ -5999,13 +5997,15 @@ class Arr:
                 torrent.set_super_seeding(enabled=r)
 
         else:
-            if (r := self.seeding_mode_global_download_limit) != 0 and torrent.dl_limit != r:
-                torrent.set_download_limit(limit=r)
-            elif r < 0:
+            dl_r = self.seeding_mode_global_download_limit
+            if dl_r != 0 and torrent.dl_limit != dl_r:
+                torrent.set_download_limit(limit=dl_r)
+            elif dl_r < 0:
                 torrent.set_download_limit(limit=-1)
-            if (r := self.seeding_mode_global_upload_limit) != 0 and torrent.up_limit != r:
-                torrent.set_upload_limit(limit=r)
-            elif r < 0:
+            ul_r = self.seeding_mode_global_upload_limit
+            if ul_r != 0 and torrent.up_limit != ul_r:
+                torrent.set_upload_limit(limit=ul_r)
+            elif ul_r < 0:
                 torrent.set_upload_limit(limit=-1)
 
         if unique_tags:
