@@ -228,11 +228,15 @@ class Arr:
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
         if self.import_mode == "Hardlink":
             self.import_mode = "Auto"
-        self.refresh_downloads_timer = CONFIG.get(f"{name}.RefreshDownloadsTimer", fallback=1)
+        self.refresh_downloads_timer = CONFIG.get_duration(
+            f"{name}.RefreshDownloadsTimer", fallback=1, unit="minutes"
+        )
         self.arr_error_codes_to_blocklist = CONFIG.get(
             f"{name}.ArrErrorCodesToBlocklist", fallback=[]
         )
-        self.rss_sync_timer = CONFIG.get(f"{name}.RssSyncTimer", fallback=15)
+        self.rss_sync_timer = CONFIG.get_duration(
+            f"{name}.RssSyncTimer", fallback=15, unit="minutes"
+        )
 
         self.case_sensitive_matches = CONFIG.get(
             f"{name}.Torrent.CaseSensitiveMatches", fallback=False
@@ -264,7 +268,7 @@ class Arr:
         self.seeding_mode_global_max_upload_ratio = CONFIG.get(
             f"{name}.Torrent.SeedingMode.MaxUploadRatio", fallback=-1
         )
-        self.seeding_mode_global_max_seeding_time = CONFIG.get(
+        self.seeding_mode_global_max_seeding_time = CONFIG.get_duration(
             f"{name}.Torrent.SeedingMode.MaxSeedingTime", fallback=-1
         )
         self.seeding_mode_global_remove_torrent = CONFIG.get(
@@ -340,10 +344,10 @@ class Arr:
             f"{name}.EntrySearch.ForceMinimumCustomFormat", fallback=False
         )
 
-        self.ignore_torrents_younger_than = CONFIG.get(
+        self.ignore_torrents_younger_than = CONFIG.get_duration(
             f"{name}.Torrent.IgnoreTorrentsYoungerThan", fallback=600
         )
-        self.maximum_eta = CONFIG.get(f"{name}.Torrent.MaximumETA", fallback=86400)
+        self.maximum_eta = CONFIG.get_duration(f"{name}.Torrent.MaximumETA", fallback=86400)
         self.maximum_deletable_percentage = CONFIG.get(
             f"{name}.Torrent.MaximumDeletablePercentage", fallback=0.95
         )
@@ -362,7 +366,9 @@ class Arr:
 
         self.do_not_remove_slow = CONFIG.get(f"{name}.Torrent.DoNotRemoveSlow", fallback=False)
         self.re_search_stalled = CONFIG.get(f"{name}.Torrent.ReSearchStalled", fallback=False)
-        self.stalled_delay = CONFIG.get(f"{name}.Torrent.StalledDelay", fallback=15)
+        self.stalled_delay = CONFIG.get_duration(
+            f"{name}.Torrent.StalledDelay", fallback=15, unit="minutes"
+        )
         self.allowed_stalled = True if self.stalled_delay != -1 else False
 
         self.search_current_year = None
@@ -413,7 +419,7 @@ class Arr:
         self.overseerr_approved_only = CONFIG.get(
             f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
         )
-        self.search_requests_every_x_seconds = CONFIG.get(
+        self.search_requests_every_x_seconds = CONFIG.get_duration(
             f"{name}.EntrySearch.SearchRequestsEvery", fallback=300
         )
         self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
@@ -521,8 +527,8 @@ class Arr:
             self.profile_switch_retry_attempts = CONFIG.get(
                 f"{name}.EntrySearch.ProfileSwitchRetryAttempts", fallback=3
             )
-            self.temp_profile_timeout_minutes = CONFIG.get(
-                f"{name}.EntrySearch.TempProfileResetTimeoutMinutes", fallback=0
+            self.temp_profile_timeout_minutes = CONFIG.get_duration(
+                f"{name}.EntrySearch.TempProfileResetTimeoutMinutes", fallback=0, unit="minutes"
             )
             self.logger.info(
                 "Parsed quality profile mappings: %s",
@@ -7551,7 +7557,7 @@ class PlaceHolderArr(Arr):
         self.delete = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get(
+        self.ignore_torrents_younger_than = CONFIG.get_duration(
             "Settings.IgnoreTorrentsYoungerThan", fallback=180
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
@@ -7568,7 +7574,7 @@ class PlaceHolderArr(Arr):
         self._warned_no_seeding_limits = False
         self.custom_format_unmet_search = False
         self.do_not_remove_slow = False
-        self.maximum_eta = CONFIG.get("Settings.Torrent.MaximumETA", fallback=86400)
+        self.maximum_eta = CONFIG.get_duration("Settings.Torrent.MaximumETA", fallback=86400)
         self.maximum_deletable_percentage = CONFIG.get(
             "Settings.Torrent.MaximumDeletablePercentage", fallback=0.95
         )
@@ -7637,7 +7643,12 @@ class PlaceHolderArr(Arr):
         ]
         default_seeding = {}
         for key in seeding_keys:
-            default_seeding[key] = CONFIG.get(f"{section}.CategorySeeding.{key}", fallback=-1)
+            if key == "MaxSeedingTime":
+                default_seeding[key] = CONFIG.get_duration(
+                    f"{section}.CategorySeeding.{key}", fallback=-1
+                )
+            else:
+                default_seeding[key] = CONFIG.get(f"{section}.CategorySeeding.{key}", fallback=-1)
         for key, fallback in (
             ("HitAndRunMode", "disabled"),
             ("MinSeedRatio", 1.0),
@@ -7645,9 +7656,14 @@ class PlaceHolderArr(Arr):
             ("HitAndRunPartialSeedRatio", 1.0),
             ("TrackerUpdateBuffer", 0),
         ):
-            default_seeding[key] = CONFIG.get(
-                f"{section}.CategorySeeding.{key}", fallback=fallback
-            )
+            if key == "TrackerUpdateBuffer":
+                default_seeding[key] = CONFIG.get_duration(
+                    f"{section}.CategorySeeding.{key}", fallback=fallback
+                )
+            else:
+                default_seeding[key] = CONFIG.get(
+                    f"{section}.CategorySeeding.{key}", fallback=fallback
+                )
         category_overrides = {}
         for cat_config in CONFIG.get(f"{section}.CategorySeeding.Categories", fallback=[]):
             if isinstance(cat_config, dict) and "Name" in cat_config:
@@ -7660,7 +7676,9 @@ class PlaceHolderArr(Arr):
         self.seeding_mode_global_max_seeding_time = effective.get("MaxSeedingTime", -1)
         self.seeding_mode_global_download_limit = effective.get("DownloadRateLimitPerTorrent", -1)
         self.seeding_mode_global_upload_limit = effective.get("UploadRateLimitPerTorrent", -1)
-        self.stalled_delay = CONFIG.get(f"{section}.CategorySeeding.StalledDelay", fallback=-1)
+        self.stalled_delay = CONFIG.get_duration(
+            f"{section}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
+        )
         self.allowed_stalled = self.stalled_delay != -1
         self.monitored_trackers = CONFIG.get(f"{section}.Trackers", fallback=[])
         self._remove_trackers_if_exists = {
@@ -7975,7 +7993,7 @@ class FreeSpaceManager(Arr):
         self.pause = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get(
+        self.ignore_torrents_younger_than = CONFIG.get_duration(
             "Settings.IgnoreTorrentsYoungerThan", fallback=180
         )
         self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)

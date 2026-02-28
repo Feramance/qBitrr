@@ -8,6 +8,7 @@ from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.duration_config import parse_duration_to_minutes, parse_duration_to_seconds
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
@@ -1010,6 +1011,18 @@ class MyConfig:
 
     def get(self, section: str, fallback: Any = None) -> T:
         return self._deep_get(section, default=fallback)
+
+    def get_duration(self, dotted_key: str, fallback: int = -1, unit: str = "seconds") -> int:
+        """
+        Get a time value in seconds or minutes. Accepts int or suffixed string (e.g. "1w", "60m").
+        Plain numbers are treated as the key's base unit (seconds or minutes).
+        """
+        raw = self._deep_get(dotted_key, default=fallback)
+        if raw is ... or raw is None:
+            return fallback
+        if unit == "minutes":
+            return parse_duration_to_minutes(raw, fallback)
+        return parse_duration_to_seconds(raw, fallback)
 
     def get_or_raise(self, section: str) -> T:
         if (r := self._deep_get(section, default=KeyError)) is KeyError:

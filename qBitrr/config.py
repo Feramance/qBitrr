@@ -135,13 +135,13 @@ FREE_SPACE_FOLDER = (
     if FREE_SPACE != "-1"
     else None
 )
-NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get(
+NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get_duration(
     "Settings.NoInternetSleepTimer", fallback=15
 )
-LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
+LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get_duration(
     "Settings.LoopSleepTimer", fallback=5
 )
-SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get(
+SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get_duration(
     "Settings.SearchLoopDelay", fallback=-1
 )
 AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
@@ -150,8 +150,9 @@ AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
 PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
     "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
 )
-IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get(
-    "Settings.IgnoreTorrentsYoungerThan", fallback=180
+IGNORE_TORRENTS_YOUNGER_THAN = (
+    ENVIRO_CONFIG.settings.ignore_torrents_younger_than
+    or CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180)
 )
 
 

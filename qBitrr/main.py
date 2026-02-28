@@ -142,8 +142,12 @@ class qBitManager:
         self._pending_spawns: list[tuple] = []  # (arr_instance, meta) tuples to retry
         self.auto_restart_enabled = CONFIG.get("Settings.AutoRestartProcesses", fallback=True)
         self.max_process_restarts = CONFIG.get("Settings.MaxProcessRestarts", fallback=5)
-        self.process_restart_window = CONFIG.get("Settings.ProcessRestartWindow", fallback=300)
-        self.process_restart_delay = CONFIG.get("Settings.ProcessRestartDelay", fallback=5)
+        self.process_restart_window = CONFIG.get_duration(
+            "Settings.ProcessRestartWindow", fallback=300
+        )
+        self.process_restart_delay = CONFIG.get_duration(
+            "Settings.ProcessRestartDelay", fallback=5
+        )
         # Start WebUI immediately, before any blocking network calls
         try:
             web_port = int(CONFIG.get("WebUI.Port", fallback=6969) or 6969)
@@ -330,7 +334,12 @@ class qBitManager:
 
     def _prepare_arr_processes(self, arr, timeout_seconds: int = 30) -> None:
         timeout = max(
-            1, int(CONFIG.get("Settings.ProcessSpawnTimeoutSeconds", fallback=timeout_seconds))
+            1,
+            int(
+                CONFIG.get_duration(
+                    "Settings.ProcessSpawnTimeoutSeconds", fallback=timeout_seconds
+                )
+            ),
         )
         result_queue: SimpleQueue = SimpleQueue()
 
@@ -560,7 +569,12 @@ class qBitManager:
                 "RemoveTorrent",
             ]
             for key in seeding_keys:
-                value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
+                if key == "MaxSeedingTime":
+                    value = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
+                else:
+                    value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
 
             # Load HnR protection settings
@@ -572,9 +586,14 @@ class qBitManager:
                 "TrackerUpdateBuffer": 0,
             }
             for key, fallback in hnr_keys.items():
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                )
+                if key == "TrackerUpdateBuffer":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
 
             # Load per-category overrides
             category_overrides = {}
@@ -588,10 +607,12 @@ class qBitManager:
             instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
 
             # Stalled handling for qBit-managed categories (same semantics as Arr)
-            stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
-            ignore_younger = CONFIG.get(
+            stalled_delay = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
+            )
+            ignore_younger = CONFIG.get_duration(
                 f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
 
             # Store config for later initialization
@@ -718,13 +739,23 @@ class qBitManager:
                 return
             default_seeding = {}
             for key in seeding_keys:
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=-1
-                )
+                if key == "MaxSeedingTime":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
             for key, fallback in hnr_keys.items():
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                )
+                if key == "TrackerUpdateBuffer":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
             category_overrides = {}
             for cat_config in CONFIG.get(
                 f"{section_name}.CategorySeeding.Categories", fallback=[]
@@ -732,10 +763,12 @@ class qBitManager:
                 if isinstance(cat_config, dict) and "Name" in cat_config:
                     category_overrides[cat_config["Name"]] = cat_config
             trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
-            stalled_delay = CONFIG.get(f"{section_name}.CategorySeeding.StalledDelay", fallback=-1)
-            ignore_younger = CONFIG.get(
+            stalled_delay = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
+            )
+            ignore_younger = CONFIG.get_duration(
                 f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
-                fallback=CONFIG.get("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,

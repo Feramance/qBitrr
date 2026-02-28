@@ -507,6 +507,9 @@ Numeric field with spinner controls.
 <input type="number" value="42" />
 ```
 
+### Duration Input
+Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Disabled values (e.g. `-1`) appear as "Disabled" where supported.
+
 ### Checkbox
 Toggle boolean values.
 

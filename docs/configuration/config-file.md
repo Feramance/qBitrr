@@ -46,6 +46,21 @@ name = "first"
 name = "second"
 ```
 
+### Time values (durations)
+
+Many settings accept **time durations**. You can use:
+
+- **Integers (legacy)**: Plain numbers in the key's base unit (seconds or minutes, depending on the setting). Example: `LoopSleepTimer = 5` (5 seconds), `StalledDelay = 15` (15 minutes).
+- **Suffixed strings**: A number followed by a unit letter for human-readable values:
+  - `s` = seconds
+  - `m` = minutes
+  - `h` = hours
+  - `d` = days
+  - `w` = weeks
+  - `M` = months (30 days; uppercase to distinguish from minutes)
+
+Examples: `MaxSeedingTime = "1w"` (1 week in seconds), `StalledDelay = "1440m"` (1440 minutes). Unsupplied or empty suffix is treated as the key's base unit (seconds or minutes). Use `-1` or `"-1"` where a setting supports "disabled".
+
 ---
 
 ## Configuration Sections
