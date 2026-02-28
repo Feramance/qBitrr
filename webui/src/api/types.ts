@@ -108,6 +108,7 @@ export interface RadarrCounts {
 }
 
 export interface RadarrMovie {
+  [key: string]: unknown;
   id?: number;
   title?: string;
   year?: number;
@@ -208,6 +209,7 @@ export interface LidarrAlbum {
 }
 
 export interface LidarrAlbumEntry {
+  [key: string]: unknown;
   album: Record<string, unknown> & {
     qualityProfileId?: number | null;
     qualityProfileName?: string | null;

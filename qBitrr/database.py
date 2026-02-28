@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sqlite3
 from pathlib import Path
 
-from peewee import SqliteDatabase
+from peewee import OperationalError, SqliteDatabase
 
 from qBitrr.config import APPDATA_FOLDER
 from qBitrr.db_lock import with_database_retry
@@ -29,6 +30,29 @@ logger = logging.getLogger("qBitrr.database")
 
 # Global database instance
 _db: SqliteDatabase | None = None
+
+
+def _ensure_db_directory_writable(db_path: Path) -> None:
+    """
+    Try to make the database directory and file writable (e.g. when running in
+    Docker with a mounted volume that had wrong permissions). Ignore errors.
+    """
+    try:
+        os.chmod(db_path.parent, 0o755)
+    except (PermissionError, OSError):
+        pass
+    if db_path.exists():
+        try:
+            os.chmod(db_path, 0o644)
+        except (PermissionError, OSError):
+            pass
+    for extra in (f"{db_path.name}-wal", f"{db_path.name}-shm"):
+        p = db_path.parent / extra
+        if p.exists():
+            try:
+                os.chmod(p, 0o644)
+            except (PermissionError, OSError):
+                pass
 
 
 def _offer_fresh_start(db_path: Path) -> bool:
@@ -131,6 +155,7 @@ def get_database() -> SqliteDatabase:
     if _db is None:
         db_path = Path(APPDATA_FOLDER) / "qbitrr.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
+        _ensure_db_directory_writable(db_path)
 
         _db = SqliteDatabase(
             str(db_path),
@@ -175,12 +200,36 @@ def get_database() -> SqliteDatabase:
         ]
         _db.bind(models)
 
-        # Create all tables
-        _db.create_tables(models, safe=True)
+        # Create all tables (and indexes); retry once if readonly (e.g. Docker volume perms)
+        def _create_tables_and_indexes() -> None:
+            _db.create_tables(models, safe=True)
+            _migrate_arrinstance_field(models)
+            _create_arrinstance_indexes(_db, models)
 
-        # Run migrations
-        _migrate_arrinstance_field(models)
-        _create_arrinstance_indexes(_db, models)
+        try:
+            _create_tables_and_indexes()
+        except OperationalError as e:
+            if "readonly" in str(e).lower():
+                logger.warning(
+                    "Database is read-only (often due to volume permissions). "
+                    "Attempting to fix permissions and retry..."
+                )
+                _ensure_db_directory_writable(db_path)
+                try:
+                    _create_tables_and_indexes()
+                except OperationalError as e2:
+                    if "readonly" in str(e2).lower():
+                        logger.critical(
+                            "Database directory or file is read-only. "
+                            "Ensure the config volume is writable by the container user (e.g. set PUID/PGID in docker-compose). "
+                            "On the host: chown -R PUID:PGID /path/to/config. "
+                            "Alternatively remove the database directory and restart to recreate it (data loss)."
+                        )
+                        _db.close()
+                        _db = None
+                    raise
+            else:
+                raise
 
         logger.info("Initialized single database: %s", db_path)
 

@@ -13,8 +13,8 @@ LABEL Maintainer="feramance"
 LABEL Version="5.9.1"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
-# Install tini so PID 1 forwards SIGTERM to Python (enables graceful shutdown and DB checkpoint)
-RUN apt-get update && apt-get install -y --no-install-recommends tini \
+# Install tini (PID 1, SIGTERM forwarding) and gosu (drop privileges after chown)
+RUN apt-get update && apt-get install -y --no-install-recommends tini gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Env used by the script to determine if it's inside a docker -
@@ -32,11 +32,13 @@ RUN rm -rf qBitrr2.egg-info *.egg-info && pip install --no-cache-dir --quiet ".[
 
 RUN groupadd -r qbitrr && useradd -r -g qbitrr -d /config -s /sbin/nologin qbitrr \
     && mkdir -p /config && chown -R qbitrr:qbitrr /config /app
-USER qbitrr
+
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 WORKDIR /config
 
 EXPOSE 6969
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["python", "-m", "qBitrr.main"]

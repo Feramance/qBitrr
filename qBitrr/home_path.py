@@ -20,4 +20,7 @@ else:
 
 APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
-APPDATA_FOLDER.chmod(mode=0o755)
+try:
+    APPDATA_FOLDER.chmod(mode=0o755)
+except (PermissionError, OSError):
+    pass  # Mounted volumes (e.g. Docker /config) may not allow chmod

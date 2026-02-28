@@ -16,8 +16,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
 
-const
- =
+const QUALITY_TOKEN_REGEX =
   /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
 const EPISODE_TOKEN_REGEX = /\bS\d{1,3}E\d{1,3}\b/i;
 const SEASON_TOKEN_REGEX = /\bSeason\s+\d+\b/i;
@@ -41,7 +40,7 @@ function sanitizeSearchSummary(raw: string): string {
     const looksLikeEpisode =
       EPISODE_TOKEN_REGEX.test(rest) || SEASON_TOKEN_REGEX.test(rest);
     if (rest && !looksLikeEpisode &&
-      .test(rest)) {
+      QUALITY_TOKEN_REGEX.test(rest)) {
       const rawTitle = releaseMatch.groups?.title ?? "";
       const cleanedTitle = rawTitle
         .replace(/[-_.]/g, " ")
