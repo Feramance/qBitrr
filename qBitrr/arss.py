@@ -989,9 +989,7 @@ class Arr:
                 QbitInstance=instance_name,
             ).on_conflict_ignore().execute()
 
-    def _torrent_condition(
-        self, torrent: TorrentDictionary, instance_name: str = "default"
-    ):
+    def _torrent_condition(self, torrent: TorrentDictionary, instance_name: str = "default"):
         """Return the base WHERE condition for a torrent row."""
         return (
             (self.torrents.Hash == torrent.hash)
