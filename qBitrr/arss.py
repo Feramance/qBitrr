@@ -7537,6 +7537,7 @@ class PlaceHolderArr(Arr):
     def __init__(self, name: str, manager: ArrManager):
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
+        self.type = "placeholder"
         self._name = name.title()
         self.category = name
         self.manager = manager
@@ -7617,7 +7618,20 @@ class PlaceHolderArr(Arr):
         self.queue_active_count: int = 0
         self.category_torrent_count: int = 0
         self.free_space_tagged_count: int = 0
+        self.register_search_mode()
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def _get_models(
+        self,
+    ) -> tuple[
+        None,
+        None,
+        None,
+        None,
+        type[TorrentLibrary] | None,
+    ]:
+        """PlaceHolderArr has no file/queue models; only TorrentLibrary when TAGLESS."""
+        return None, None, None, None, (TorrentLibrary if TAGLESS else None)
 
     def _process_single_torrent_missing_files(
         self,

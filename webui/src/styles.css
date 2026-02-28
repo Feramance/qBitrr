@@ -946,7 +946,8 @@ body {
 }
 .duration-input select {
     flex: 0 0 auto;
-    width: 56px;
+    min-width: 7.5em;
+    width: auto;
 }
 .field.mobile-instance-select {
     display: none;
