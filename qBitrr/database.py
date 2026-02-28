@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 from pathlib import Path
 
@@ -30,36 +31,53 @@ logger = logging.getLogger("qBitrr.database")
 _db: SqliteDatabase | None = None
 
 
-def _offer_fresh_start(db_path: Path) -> None:
+def _offer_fresh_start(db_path: Path) -> bool:
     """
     Delete corrupt database so a fresh one is created on connect.
     Use only after repair has failed; causes loss of existing DB data.
+
+    Returns:
+        True if all files were successfully removed, False otherwise.
     """
-    try:
-        for candidate in (
-            db_path,
-            db_path.parent / f"{db_path.name}-wal",
-            db_path.parent / f"{db_path.name}-shm",
-        ):
-            try:
-                candidate.unlink()
-            except FileNotFoundError:
-                continue
+    all_removed = True
+    for candidate in (
+        db_path,
+        db_path.parent / f"{db_path.name}-wal",
+        db_path.parent / f"{db_path.name}-shm",
+        db_path.with_suffix(".db.temp-journal"),
+    ):
+        try:
+            candidate.unlink()
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            logger.error("Failed to delete corrupt database file %s: %s", candidate, e)
+            all_removed = False
+    if all_removed:
         logger.warning(
-            "Deleted corrupt database and SQLite WAL/SHM files; "
+            "Deleted corrupt database and auxiliary files; "
             "a fresh database will be created on connect.",
         )
-    except Exception as e:
-        logger.debug("Could not delete corrupt database files: %s", e)
+    else:
+        logger.critical(
+            "Could not fully remove corrupt database files. "
+            "The database may still be corrupt on next connection.",
+        )
+    return all_removed
 
 
-def _startup_integrity_check_and_repair(db_path: Path) -> None:
+def _startup_integrity_check_and_repair(db_path: Path) -> bool:
     """
     Run PRAGMA integrity_check on existing database; if not ok, try WAL checkpoint
-    then full repair. Runs once at startup before any connection so repair has no contention.
+    then full repair. As a last resort, delete the database for a fresh start.
+
+    Returns:
+        True if the database is healthy (repaired or fresh), False if corrupt
+        and could not be fixed or removed.
     """
     if not db_path.exists():
-        return
+        return True
+
     result = "unknown"
     try:
         with sqlite3.connect(str(db_path), timeout=10.0) as conn:
@@ -67,7 +85,7 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
             cursor.execute("PRAGMA integrity_check")
             result = cursor.fetchone()[0]
         if result == "ok":
-            return
+            return True
     except Exception as e:
         logger.warning("Startup integrity check failed (will attempt repair): %s", e)
 
@@ -85,39 +103,26 @@ def _startup_integrity_check_and_repair(db_path: Path) -> None:
                 result = cursor.fetchone()[0]
             if result == "ok":
                 logger.info("WAL checkpoint resolved database issue - integrity ok")
-                return
+                return True
         except Exception as e:
             logger.debug("Integrity re-check after checkpoint failed: %s", e)
 
     logger.warning("Attempting full database repair (dump/restore)...")
     try:
         if repair_database(db_path, backup=True, logger_override=logger):
-            try:
-                with sqlite3.connect(str(db_path), timeout=10.0) as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("PRAGMA integrity_check")
-                    result = cursor.fetchone()[0]
-                if result == "ok":
-                    logger.info("Database repair successful - integrity verified")
-                    return
-                logger.critical(
-                    "Database repair completed but integrity still failing: %s. "
-                    "Continuing anyway; consider manual repair or fresh DB.",
-                    result,
-                )
-            except Exception as e:
-                logger.critical("Database repair verification failed: %s. Continuing anyway.", e)
-            return
+            logger.info("Database repair successful - integrity verified")
+            return True
     except Exception as e:
-        from qBitrr.db_recovery import DatabaseRecoveryError
-
         logger.critical(
             "Automatic database repair failed: %s. "
-            "Corrupt database will be removed and a fresh one created on connect (data loss).",
+            "Corrupt database will be removed for a fresh start (data loss).",
             e,
         )
-        if isinstance(e, DatabaseRecoveryError) and db_path.exists():
-            _offer_fresh_start(db_path)
+
+    logger.warning("All repair attempts failed. Removing corrupt database for fresh start...")
+    if db_path.exists():
+        return _offer_fresh_start(db_path)
+    return True
 
 
 def get_database() -> SqliteDatabase:
@@ -142,10 +147,13 @@ def get_database() -> SqliteDatabase:
             timeout=15,
         )
 
-        # Automatic startup repair: integrity check and repair before any connection
-        _startup_integrity_check_and_repair(db_path)
+        if not _startup_integrity_check_and_repair(db_path):
+            logger.critical(
+                "Database is corrupt and could not be repaired or removed. "
+                "Please manually delete '%s' and restart.",
+                db_path,
+            )
 
-        # Connect with retry logic
         with_database_retry(
             lambda: _db.connect(reuse_if_open=True),
             logger=logger,
@@ -230,15 +238,20 @@ def _create_arrinstance_indexes(db: SqliteDatabase, models: list) -> None:
                     table_name = model._meta.table_name
                     index_name = f"idx_arrinstance_{table_name}"
 
-                    # Check if index already exists
+                    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", index_name):
+                        logger.warning("Skipping invalid index name: %s", index_name)
+                        continue
+                    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+                        logger.warning("Skipping invalid table name: %s", table_name)
+                        continue
+
                     cursor.execute(
                         "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
                         (index_name,),
                     )
                     if cursor.fetchone():
-                        continue  # Index already exists
+                        continue
 
-                    # Create index
                     cursor.execute(f"CREATE INDEX {index_name} ON {table_name}(ArrInstance)")
                     logger.info("Created index: %s on %s.ArrInstance", index_name, table_name)
     except Exception as e:

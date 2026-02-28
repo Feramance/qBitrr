@@ -65,6 +65,27 @@ def _toml_delete(doc, dotted_key: str) -> None:
             break
 
 
+_SENSITIVE_KEY_PATTERNS = re.compile(
+    r"(apikey|api_key|token|password|secret|passkey|credential)", re.IGNORECASE
+)
+
+
+def _strip_sensitive_keys(obj: Any, _parent_key: str = "") -> Any:
+    """Recursively redact values whose keys look like secrets."""
+    if isinstance(obj, dict):
+        return {
+            k: (
+                "[redacted]"
+                if isinstance(v, str) and _SENSITIVE_KEY_PATTERNS.search(k)
+                else _strip_sensitive_keys(v, k)
+            )
+            for k, v in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_strip_sensitive_keys(v, _parent_key) for v in obj]
+    return obj
+
+
 def _toml_to_jsonable(obj: Any) -> Any:
     try:
         if hasattr(obj, "unwrap"):
@@ -140,7 +161,7 @@ class WebUI:
             "binary_download_size": None,
             "binary_download_error": None,
         }
-        self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+        self._version_cache_expiry = datetime.now(timezone.utc) - timedelta(seconds=1)
         self._update_state = {
             "in_progress": False,
             "last_result": None,
@@ -206,7 +227,7 @@ class WebUI:
         }
 
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with self._version_lock:
             if not force and now < self._version_cache_expiry:
                 snapshot = dict(self._version_cache)
@@ -302,7 +323,7 @@ class WebUI:
             error_message = str(exc)
             self.logger.exception("Manual update failed")
         finally:
-            completed_at = datetime.utcnow().isoformat()
+            completed_at = datetime.now(timezone.utc).isoformat()
             with self._version_lock:
                 self._update_state.update(
                     {
@@ -313,7 +334,7 @@ class WebUI:
                     }
                 )
                 self._update_thread = None
-                self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+                self._version_cache_expiry = datetime.now(timezone.utc) - timedelta(seconds=1)
             try:
                 self.manager.configure_auto_update()
             except Exception:
@@ -636,7 +657,6 @@ class WebUI:
 
                 # Convert to list to avoid multiple iterations
                 all_artists = [row.ArtistTitle for row in artists_subquery]
-                len(all_artists)
 
                 # Paginate the artist list in Python
                 start_idx = page * page_size
@@ -674,7 +694,10 @@ class WebUI:
                         )
                         track_count = track_query.count()
                         self.logger.debug(
-                            f"Album {album.EntryId} ({album.Title}): Found {track_count} tracks in database"
+                            "Album %s (%s): Found %d tracks in database",
+                            album.EntryId,
+                            album.Title,
+                            track_count,
                         )
 
                         for track in track_query:
@@ -699,7 +722,10 @@ class WebUI:
                             )
                     except Exception as e:
                         self.logger.warning(
-                            f"Failed to fetch tracks for album {album.EntryId} ({album.Title}): {e}"
+                            "Failed to fetch tracks for album %s (%s): %s",
+                            album.EntryId,
+                            album.Title,
+                            e,
                         )
 
                 track_missing_count = max(track_monitored_count - track_available_count, 0)
@@ -890,7 +916,7 @@ class WebUI:
                 "tracks": tracks,
             }
         except Exception as e:
-            self.logger.error(f"Error fetching Lidarr tracks: {e}")
+            self.logger.error("Error fetching Lidarr tracks: %s", e)
             return {
                 "counts": {"available": 0, "monitored": 0, "missing": 0},
                 "total": 0,
@@ -1024,7 +1050,11 @@ class WebUI:
                         episodes = episodes_query.iterator()
                         episodes_list = list(episodes)
                         self.logger.debug(
-                            f"[Sonarr Series] Series {getattr(series, 'Title', 'unknown')} (ID {getattr(series, 'EntryId', '?')}) has {len(episodes_list)} episodes (missing_only={missing_only})"
+                            "[Sonarr Series] Series %s (ID %s) has %d episodes (missing_only=%s)",
+                            getattr(series, "Title", "unknown"),
+                            getattr(series, "EntryId", "?"),
+                            len(episodes_list),
+                            missing_only,
                         )
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
@@ -1328,10 +1358,12 @@ class WebUI:
                     len(season.get("episodes", [])) for season in first_seasons.values()
                 )
                 self.logger.info(
-                    f"[Sonarr API] Returning {len(payload)} series, "
-                    f"first series '{first_series.get('series', {}).get('title', '?')}' has "
-                    f"{len(first_seasons)} seasons, {total_episodes_in_response} episodes "
-                    f"(missing_only={missing_only})"
+                    "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
+                    len(payload),
+                    first_series.get("series", {}).get("title", "?"),
+                    len(first_seasons),
+                    total_episodes_in_response,
+                    missing_only,
                 )
             return result
 
@@ -1372,7 +1404,7 @@ class WebUI:
             supplied = request.headers.get("Authorization", "").removeprefix(
                 "Bearer "
             ) or request.args.get("token")
-            return supplied == self.token
+            return secrets.compare_digest(supplied, self.token) if supplied else False
 
         def require_token():
             if not _authorized():
@@ -1553,7 +1585,6 @@ class WebUI:
                 queue_count = len(records)
                 if queue_count:
                     metrics["queue"] = queue_count
-                    records[0]
                 if qbit_client and category:
                     try:
                         torrents = qbit_client.torrents_info(
@@ -1810,6 +1841,8 @@ class WebUI:
 
         @app.post("/web/processes/<category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _restart_process(category, kind)
 
         @app.post("/api/processes/restart_all")
@@ -1821,48 +1854,40 @@ class WebUI:
 
         @app.post("/web/processes/restart_all")
         def web_restart_all():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
+
+        def _handle_loglevel():
+            body = request.get_json(silent=True) or {}
+            level = str(body.get("level", "INFO")).upper()
+            valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
+            if level not in valid:
+                return jsonify({"error": f"invalid level {level}"}), 400
+            target_level = getattr(logging, level, logging.INFO)
+            logging.getLogger().setLevel(target_level)
+            for name, lg in logging.root.manager.loggerDict.items():
+                if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
+                    lg.setLevel(target_level)
+            try:
+                _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
+                CONFIG.save()
+            except Exception:
+                pass
+            return jsonify({"status": "ok", "level": level})
 
         @app.post("/api/loglevel")
         def api_loglevel():
             if (resp := require_token()) is not None:
                 return resp
-            body = request.get_json(silent=True) or {}
-            level = str(body.get("level", "INFO")).upper()
-            valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
-            if level not in valid:
-                return jsonify({"error": f"invalid level {level}"}), 400
-            target_level = getattr(logging, level, logging.INFO)
-            logging.getLogger().setLevel(target_level)
-            for name, lg in logging.root.manager.loggerDict.items():
-                if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
-                    lg.setLevel(target_level)
-            try:
-                _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
-                CONFIG.save()
-            except Exception:
-                pass
-            return jsonify({"status": "ok", "level": level})
+            return _handle_loglevel()
 
         @app.post("/web/loglevel")
         def web_loglevel():
-            body = request.get_json(silent=True) or {}
-            level = str(body.get("level", "INFO")).upper()
-            valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
-            if level not in valid:
-                return jsonify({"error": f"invalid level {level}"}), 400
-            target_level = getattr(logging, level, logging.INFO)
-            logging.getLogger().setLevel(target_level)
-            for name, lg in logging.root.manager.loggerDict.items():
-                if isinstance(lg, logging.Logger) and str(name).startswith("qBitrr"):
-                    lg.setLevel(target_level)
-            try:
-                _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
-                CONFIG.save()
-            except Exception:
-                pass
-            return jsonify({"status": "ok", "level": level})
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_loglevel()
 
         @app.post("/api/arr/rebuild")
         def api_arr_rebuild():
@@ -1873,6 +1898,8 @@ class WebUI:
 
         @app.post("/web/arr/rebuild")
         def web_arr_rebuild():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -1892,48 +1919,32 @@ class WebUI:
         def web_logs():
             return jsonify({"files": _list_logs()})
 
+        def _serve_log_content(name: str):
+            file = _resolve_log_file(name)
+            if file is None or not file.exists():
+                return jsonify({"error": "not found"}), 404
+            try:
+                content = file.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                content = ""
+            response = send_file(
+                io.BytesIO(content.encode("utf-8")),
+                mimetype="text/plain",
+                as_attachment=False,
+            )
+            response.headers["Content-Type"] = "text/plain; charset=utf-8"
+            response.headers["Cache-Control"] = "no-cache"
+            return response
+
         @app.get("/api/logs/<name>")
         def api_log(name: str):
             if (resp := require_token()) is not None:
                 return resp
-            file = _resolve_log_file(name)
-            if file is None or not file.exists():
-                return jsonify({"error": "not found"}), 404
-
-            # Stream full log file to support dynamic loading in LazyLog
-            try:
-                content = file.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                content = ""
-            response = send_file(
-                io.BytesIO(content.encode("utf-8")),
-                mimetype="text/plain",
-                as_attachment=False,
-            )
-            response.headers["Content-Type"] = "text/plain; charset=utf-8"
-            response.headers["Cache-Control"] = "no-cache"
-            return response
+            return _serve_log_content(name)
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
-            # Public endpoint for Authentik bypass - no token required
-            file = _resolve_log_file(name)
-            if file is None or not file.exists():
-                return jsonify({"error": "not found"}), 404
-
-            # Stream full log file to support dynamic loading in LazyLog
-            try:
-                content = file.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                content = ""
-            response = send_file(
-                io.BytesIO(content.encode("utf-8")),
-                mimetype="text/plain",
-                as_attachment=False,
-            )
-            response.headers["Content-Type"] = "text/plain; charset=utf-8"
-            response.headers["Cache-Control"] = "no-cache"
-            return response
+            return _serve_log_content(name)
 
         @app.get("/api/logs/<name>/download")
         def api_log_download(name: str):
@@ -1951,10 +1962,7 @@ class WebUI:
                 return jsonify({"error": "not found"}), 404
             return send_file(file, as_attachment=True)
 
-        @app.get("/api/radarr/<category>/movies")
-        def api_radarr_movies(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        def _handle_radarr_movies(category: str):
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -1964,7 +1972,7 @@ class WebUI:
                 return jsonify({"error": f"Unknown radarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
-            page_size = request.args.get("page_size", default=50, type=int)
+            page_size = min(request.args.get("page_size", default=50, type=int), 1000)
             year_min = request.args.get("year_min", default=None, type=int)
             year_max = request.args.get("year_max", default=None, type=int)
             monitored = (
@@ -2002,51 +2010,32 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
+        @app.get("/api/radarr/<category>/movies")
+        def api_radarr_movies(category: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_radarr_movies(category)
+
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
+            return _handle_radarr_movies(category)
+
+        def _handle_sonarr_series(category: str):
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
                     return jsonify({"error": "Arr manager is still initialising"}), 503
             arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "radarr":
-                return jsonify({"error": f"Unknown radarr category {category}"}), 404
+            if arr is None or getattr(arr, "type", None) != "sonarr":
+                return jsonify({"error": f"Unknown sonarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
-            page_size = request.args.get("page_size", default=50, type=int)
-            year_min = request.args.get("year_min", default=None, type=int)
-            year_max = request.args.get("year_max", default=None, type=int)
-            monitored = (
-                self._safe_bool(request.args.get("monitored"))
-                if "monitored" in request.args
-                else None
+            page_size = min(request.args.get("page_size", default=25, type=int), 1000)
+            missing_only = self._safe_bool(
+                request.args.get("missing") or request.args.get("only_missing")
             )
-            has_file = (
-                self._safe_bool(request.args.get("has_file"))
-                if "has_file" in request.args
-                else None
-            )
-            quality_met = (
-                self._safe_bool(request.args.get("quality_met"))
-                if "quality_met" in request.args
-                else None
-            )
-            is_request = (
-                self._safe_bool(request.args.get("is_request"))
-                if "is_request" in request.args
-                else None
-            )
-            payload = self._radarr_movies_from_db(
-                arr,
-                q,
-                page,
-                page_size,
-                year_min=year_min,
-                year_max=year_max,
-                monitored=monitored,
-                has_file=has_file,
-                quality_met=quality_met,
-                is_request=is_request,
+            payload = self._sonarr_series_from_db(
+                arr, q, page, page_size, missing_only=missing_only
             )
             payload["category"] = category
             return jsonify(payload)
@@ -2055,45 +2044,11 @@ class WebUI:
         def api_sonarr_series(category: str):
             if (resp := require_token()) is not None:
                 return resp
-            managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "sonarr":
-                return jsonify({"error": f"Unknown sonarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = request.args.get("page_size", default=25, type=int)
-            missing_only = self._safe_bool(
-                request.args.get("missing") or request.args.get("only_missing")
-            )
-            payload = self._sonarr_series_from_db(
-                arr, q, page, page_size, missing_only=missing_only
-            )
-            payload["category"] = category
-            return jsonify(payload)
+            return _handle_sonarr_series(category)
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
-            managed = _managed_objects()
-            if not managed:
-                if not _ensure_arr_manager_ready():
-                    return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "sonarr":
-                return jsonify({"error": f"Unknown sonarr category {category}"}), 404
-            q = request.args.get("q", default=None, type=str)
-            page = request.args.get("page", default=0, type=int)
-            page_size = request.args.get("page_size", default=25, type=int)
-            missing_only = self._safe_bool(
-                request.args.get("missing") or request.args.get("only_missing")
-            )
-            payload = self._sonarr_series_from_db(
-                arr, q, page, page_size, missing_only=missing_only
-            )
-            payload["category"] = category
-            return jsonify(payload)
+            return _handle_sonarr_series(category)
 
         @app.get("/web/lidarr/<category>/albums")
         def web_lidarr_albums(category: str):
@@ -2107,6 +2062,7 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = request.args.get("page_size", default=50, type=int)
+            page_size = min(page_size, 1000)
             monitored = (
                 self._safe_bool(request.args.get("monitored"))
                 if "monitored" in request.args
@@ -2314,80 +2270,57 @@ class WebUI:
             force = self._safe_bool(request.args.get("force"))
             return jsonify(self._ensure_version_info(force=force))
 
+        def _handle_update():
+            ok, message = self._trigger_manual_update()
+            if not ok:
+                return jsonify({"error": message}), 409
+            return jsonify({"status": "started"})
+
         @app.post("/api/update")
         def api_update():
             if (resp := require_token()) is not None:
                 return resp
-            ok, message = self._trigger_manual_update()
-            if not ok:
-                return jsonify({"error": message}), 409
-            return jsonify({"status": "started"})
+            return _handle_update()
 
         @app.post("/web/update")
         def web_update():
-            ok, message = self._trigger_manual_update()
-            if not ok:
-                return jsonify({"error": message}), 409
-            return jsonify({"status": "started"})
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_update()
+
+        def _handle_download_update():
+            from qBitrr.auto_update import get_installation_type
+
+            install_type = get_installation_type()
+
+            if install_type != "binary":
+                return jsonify({"error": "Download only available for binary installations"}), 400
+
+            version_info = self._ensure_version_info()
+
+            if not version_info.get("update_available"):
+                return jsonify({"error": "No update available"}), 404
+
+            download_url = version_info.get("binary_download_url")
+            if not download_url:
+                error = version_info.get(
+                    "binary_download_error", "No binary available for your platform"
+                )
+                return jsonify({"error": error}), 404
+
+            from flask import redirect
+
+            return redirect(download_url)
 
         @app.get("/api/download-update")
         def api_download_update():
-            """Redirect to binary download URL for current platform."""
             if (resp := require_token()) is not None:
                 return resp
-
-            from qBitrr.auto_update import get_installation_type
-
-            install_type = get_installation_type()
-
-            if install_type != "binary":
-                return jsonify({"error": "Download only available for binary installations"}), 400
-
-            # Get latest version info
-            version_info = self._ensure_version_info()
-
-            if not version_info.get("update_available"):
-                return jsonify({"error": "No update available"}), 404
-
-            download_url = version_info.get("binary_download_url")
-            if not download_url:
-                error = version_info.get(
-                    "binary_download_error", "No binary available for your platform"
-                )
-                return jsonify({"error": error}), 404
-
-            # Redirect to GitHub download URL
-            from flask import redirect
-
-            return redirect(download_url)
+            return _handle_download_update()
 
         @app.get("/web/download-update")
         def web_download_update():
-            """Redirect to binary download URL for current platform."""
-            from qBitrr.auto_update import get_installation_type
-
-            install_type = get_installation_type()
-
-            if install_type != "binary":
-                return jsonify({"error": "Download only available for binary installations"}), 400
-
-            # Get latest version info
-            version_info = self._ensure_version_info()
-
-            if not version_info.get("update_available"):
-                return jsonify({"error": "No update available"}), 404
-
-            download_url = version_info.get("binary_download_url")
-            if not download_url:
-                error = version_info.get(
-                    "binary_download_error", "No binary available for your platform"
-                )
-                return jsonify({"error": error}), 404
-
-            # Redirect to GitHub download URL
-            from flask import redirect
-
-            return redirect(download_url)
+            return _handle_download_update()
 
         def _status_payload() -> dict[str, Any]:
             # Legacy single-instance qBit info (for backward compatibility)
@@ -2547,6 +2480,8 @@ class WebUI:
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
+            if (resp := require_token()) is not None:
+                return resp
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2580,6 +2515,9 @@ class WebUI:
                 except Exception:
                     pass
                 data = _toml_to_jsonable(CONFIG.config)
+
+                if not _authorized():
+                    data = _strip_sensitive_keys(data)
 
                 # Check config version and add warning if mismatch
                 from qBitrr.config_version import get_config_version, validate_config_version
@@ -2695,7 +2633,9 @@ class WebUI:
                 affected_instances_list = sorted(affected_arr_instances)
 
                 self.logger.notice(
-                    f"Reloading {len(affected_instances_list)} Arr instance(s): {', '.join(affected_instances_list)}"
+                    "Reloading %d Arr instance(s): %s",
+                    len(affected_instances_list),
+                    ", ".join(affected_instances_list),
                 )
 
                 # Reload each affected instance in sequence
@@ -2746,349 +2686,206 @@ class WebUI:
 
         @app.post("/web/config")
         def web_update_config():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_config_update()
+
+        def _handle_test_connection():
+            try:
+                data = request.get_json()
+                if not data:
+                    return jsonify({"success": False, "message": "Missing request body"}), 400
+
+                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                uri = data.get("uri")
+                api_key = data.get("apiKey")
+
+                # Validate inputs
+                if not all([arr_type, uri, api_key]):
+                    return (
+                        jsonify(
+                            {
+                                "success": False,
+                                "message": "Missing required fields: arrType, uri, or apiKey",
+                            }
+                        ),
+                        400,
+                    )
+
+                from urllib.parse import urlparse as _urlparse
+
+                parsed = _urlparse(uri)
+                if parsed.scheme not in ("http", "https"):
+                    return (
+                        jsonify(
+                            {"success": False, "message": "URI must use http or https scheme"}
+                        ),
+                        400,
+                    )
+                if not parsed.hostname:
+                    return (
+                        jsonify(
+                            {"success": False, "message": "URI must contain a valid hostname"}
+                        ),
+                        400,
+                    )
+
+                # Try to find existing Arr instance with matching URI
+                existing_arr = None
+                managed = _managed_objects()
+                for group_name, arr_instance in managed.items():
+                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
+                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
+                            existing_arr = arr_instance
+                            self.logger.info("Using existing Arr instance: %s", group_name)
+                            break
+
+                # Use existing client if available, otherwise create temporary one
+                if existing_arr and hasattr(existing_arr, "client"):
+                    client = existing_arr.client
+                    self.logger.info("Reusing existing client for %s", existing_arr._name)
+                else:
+                    # Create temporary Arr API client
+                    self.logger.info("Creating temporary %s client for %s", arr_type, uri)
+                    if arr_type == "radarr":
+                        from pyarr import RadarrAPI
+
+                        client = RadarrAPI(uri, api_key)
+                    elif arr_type == "sonarr":
+                        from pyarr import SonarrAPI
+
+                        client = SonarrAPI(uri, api_key)
+                    elif arr_type == "lidarr":
+                        from pyarr import LidarrAPI
+
+                        client = LidarrAPI(uri, api_key)
+                    else:
+                        return (
+                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
+                            400,
+                        )
+
+                # Test connection (no timeout - Flask/Waitress handles this)
+                try:
+                    self.logger.info("Testing connection to %s at %s", arr_type, uri)
+
+                    # Get system info to verify connection
+                    system_info = client.get_system_status()
+                    self.logger.info(
+                        "System status retrieved: %s", system_info.get("version", "unknown")
+                    )
+
+                    # Fetch quality profiles with retry logic (same as backend)
+                    from json import JSONDecodeError
+
+                    import requests
+                    from pyarr.exceptions import PyarrServerError
+
+                    max_retries = 3
+                    retry_count = 0
+                    quality_profiles = []
+
+                    while retry_count < max_retries:
+                        try:
+                            quality_profiles = client.get_quality_profile()
+                            self.logger.info(
+                                "Quality profiles retrieved: %d profiles", len(quality_profiles)
+                            )
+                            break
+                        except (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        ) as e:
+                            retry_count += 1
+                            self.logger.warning(
+                                "Transient error fetching quality profiles (attempt %d/%d): %s",
+                                retry_count,
+                                max_retries,
+                                e,
+                            )
+                            if retry_count >= max_retries:
+                                self.logger.error("Failed to fetch quality profiles after retries")
+                                quality_profiles = []
+                                break
+                            time.sleep(1)
+                        except PyarrServerError as e:
+                            self.logger.error("Server error fetching quality profiles: %s", e)
+                            quality_profiles = []
+                            break
+                        except Exception as e:
+                            self.logger.error("Unexpected error fetching quality profiles: %s", e)
+                            quality_profiles = []
+                            break
+
+                    # Format response
+                    return jsonify(
+                        {
+                            "success": True,
+                            "message": "Connected successfully",
+                            "systemInfo": {
+                                "version": system_info.get("version", "unknown"),
+                                "branch": system_info.get("branch"),
+                            },
+                            "qualityProfiles": [
+                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
+                            ],
+                        }
+                    )
+
+                except Exception as e:
+                    # Handle specific error types
+                    error_msg = str(e)
+                    # Log full error for debugging but sanitize user-facing message
+                    self.logger.error("Connection test failed: %s", error_msg)
+
+                    if "401" in error_msg or "Unauthorized" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Unauthorized: Invalid API key"}
+                            ),
+                            401,
+                        )
+                    elif "404" in error_msg:
+                        return (
+                            jsonify(
+                                {"success": False, "message": f"Not found: Check URI ({uri})"}
+                            ),
+                            404,
+                        )
+                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": f"Connection refused: Cannot reach {uri}",
+                                }
+                            ),
+                            503,
+                        )
+                    else:
+                        # Generic error message - details logged above
+                        return (
+                            jsonify({"success": False, "message": "Connection test failed"}),
+                            500,
+                        )
+
+            except Exception as e:
+                self.logger.error("Test connection error: %s", e)
+                return jsonify({"success": False, "message": "Connection test failed"}), 500
 
         @app.post("/api/arr/test-connection")
         def api_arr_test_connection():
-            """
-            Test connection to Arr instance without saving config.
-            Accepts temporary URI/APIKey and returns connection status + quality profiles.
-            """
             if (resp := require_token()) is not None:
                 return resp
-
-            try:
-                data = request.get_json()
-                if not data:
-                    return jsonify({"success": False, "message": "Missing request body"}), 400
-
-                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
-                uri = data.get("uri")
-                api_key = data.get("apiKey")
-
-                # Validate inputs
-                if not all([arr_type, uri, api_key]):
-                    return (
-                        jsonify(
-                            {
-                                "success": False,
-                                "message": "Missing required fields: arrType, uri, or apiKey",
-                            }
-                        ),
-                        400,
-                    )
-
-                # Try to find existing Arr instance with matching URI
-                existing_arr = None
-                managed = _managed_objects()
-                for group_name, arr_instance in managed.items():
-                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
-                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
-                            existing_arr = arr_instance
-                            self.logger.info(f"Using existing Arr instance: {group_name}")
-                            break
-
-                # Use existing client if available, otherwise create temporary one
-                if existing_arr and hasattr(existing_arr, "client"):
-                    client = existing_arr.client
-                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
-                else:
-                    # Create temporary Arr API client
-                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
-                    if arr_type == "radarr":
-                        from pyarr import RadarrAPI
-
-                        client = RadarrAPI(uri, api_key)
-                    elif arr_type == "sonarr":
-                        from pyarr import SonarrAPI
-
-                        client = SonarrAPI(uri, api_key)
-                    elif arr_type == "lidarr":
-                        from pyarr import LidarrAPI
-
-                        client = LidarrAPI(uri, api_key)
-                    else:
-                        return (
-                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
-                            400,
-                        )
-
-                # Test connection (no timeout - Flask/Waitress handles this)
-                try:
-                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
-
-                    # Get system info to verify connection
-                    system_info = client.get_system_status()
-                    self.logger.info(
-                        f"System status retrieved: {system_info.get('version', 'unknown')}"
-                    )
-
-                    # Fetch quality profiles with retry logic (same as backend)
-                    from json import JSONDecodeError
-
-                    import requests
-                    from pyarr.exceptions import PyarrServerError
-
-                    max_retries = 3
-                    retry_count = 0
-                    quality_profiles = []
-
-                    while retry_count < max_retries:
-                        try:
-                            quality_profiles = client.get_quality_profile()
-                            self.logger.info(
-                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
-                            )
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ) as e:
-                            retry_count += 1
-                            self.logger.warning(
-                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
-                            )
-                            if retry_count >= max_retries:
-                                self.logger.error("Failed to fetch quality profiles after retries")
-                                quality_profiles = []
-                                break
-                            time.sleep(1)
-                        except PyarrServerError as e:
-                            self.logger.error(f"Server error fetching quality profiles: {e}")
-                            quality_profiles = []
-                            break
-                        except Exception as e:
-                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
-                            quality_profiles = []
-                            break
-
-                    # Format response
-                    return jsonify(
-                        {
-                            "success": True,
-                            "message": "Connected successfully",
-                            "systemInfo": {
-                                "version": system_info.get("version", "unknown"),
-                                "branch": system_info.get("branch"),
-                            },
-                            "qualityProfiles": [
-                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
-                            ],
-                        }
-                    )
-
-                except Exception as e:
-                    # Handle specific error types
-                    error_msg = str(e)
-                    # Log full error for debugging but sanitize user-facing message
-                    self.logger.error(f"Connection test failed: {error_msg}")
-
-                    if "401" in error_msg or "Unauthorized" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": "Unauthorized: Invalid API key"}
-                            ),
-                            401,
-                        )
-                    elif "404" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": f"Not found: Check URI ({uri})"}
-                            ),
-                            404,
-                        )
-                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
-                        return (
-                            jsonify(
-                                {
-                                    "success": False,
-                                    "message": f"Connection refused: Cannot reach {uri}",
-                                }
-                            ),
-                            503,
-                        )
-                    else:
-                        # Generic error message - details logged above
-                        return (
-                            jsonify({"success": False, "message": "Connection test failed"}),
-                            500,
-                        )
-
-            except Exception as e:
-                self.logger.error("Test connection error: %s", e)
-                return jsonify({"success": False, "message": "Connection test failed"}), 500
+            return _handle_test_connection()
 
         @app.post("/web/arr/test-connection")
         def web_arr_test_connection():
-            """
-            Test connection to Arr instance without saving config.
-            Accepts temporary URI/APIKey and returns connection status + quality profiles.
-            Public endpoint (mirrors /api/arr/test-connection).
-            """
-            try:
-                data = request.get_json()
-                if not data:
-                    return jsonify({"success": False, "message": "Missing request body"}), 400
-
-                arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
-                uri = data.get("uri")
-                api_key = data.get("apiKey")
-
-                # Validate inputs
-                if not all([arr_type, uri, api_key]):
-                    return (
-                        jsonify(
-                            {
-                                "success": False,
-                                "message": "Missing required fields: arrType, uri, or apiKey",
-                            }
-                        ),
-                        400,
-                    )
-
-                # Try to find existing Arr instance with matching URI
-                existing_arr = None
-                managed = _managed_objects()
-                for group_name, arr_instance in managed.items():
-                    if hasattr(arr_instance, "uri") and hasattr(arr_instance, "apikey"):
-                        if arr_instance.uri == uri and arr_instance.apikey == api_key:
-                            existing_arr = arr_instance
-                            self.logger.info(f"Using existing Arr instance: {group_name}")
-                            break
-
-                # Use existing client if available, otherwise create temporary one
-                if existing_arr and hasattr(existing_arr, "client"):
-                    client = existing_arr.client
-                    self.logger.info(f"Reusing existing client for {existing_arr._name}")
-                else:
-                    # Create temporary Arr API client
-                    self.logger.info(f"Creating temporary {arr_type} client for {uri}")
-                    if arr_type == "radarr":
-                        from pyarr import RadarrAPI
-
-                        client = RadarrAPI(uri, api_key)
-                    elif arr_type == "sonarr":
-                        from pyarr import SonarrAPI
-
-                        client = SonarrAPI(uri, api_key)
-                    elif arr_type == "lidarr":
-                        from pyarr import LidarrAPI
-
-                        client = LidarrAPI(uri, api_key)
-                    else:
-                        return (
-                            jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
-                            400,
-                        )
-
-                # Test connection (no timeout - Flask/Waitress handles this)
-                try:
-                    self.logger.info(f"Testing connection to {arr_type} at {uri}")
-
-                    # Get system info to verify connection
-                    system_info = client.get_system_status()
-                    self.logger.info(
-                        f"System status retrieved: {system_info.get('version', 'unknown')}"
-                    )
-
-                    # Fetch quality profiles with retry logic (same as backend)
-                    from json import JSONDecodeError
-
-                    import requests
-                    from pyarr.exceptions import PyarrServerError
-
-                    max_retries = 3
-                    retry_count = 0
-                    quality_profiles = []
-
-                    while retry_count < max_retries:
-                        try:
-                            quality_profiles = client.get_quality_profile()
-                            self.logger.info(
-                                f"Quality profiles retrieved: {len(quality_profiles)} profiles"
-                            )
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ) as e:
-                            retry_count += 1
-                            self.logger.warning(
-                                f"Transient error fetching quality profiles (attempt {retry_count}/{max_retries}): {e}"
-                            )
-                            if retry_count >= max_retries:
-                                self.logger.error("Failed to fetch quality profiles after retries")
-                                quality_profiles = []
-                                break
-                            time.sleep(1)
-                        except PyarrServerError as e:
-                            self.logger.error(f"Server error fetching quality profiles: {e}")
-                            quality_profiles = []
-                            break
-                        except Exception as e:
-                            self.logger.error(f"Unexpected error fetching quality profiles: {e}")
-                            quality_profiles = []
-                            break
-
-                    # Format response
-                    return jsonify(
-                        {
-                            "success": True,
-                            "message": "Connected successfully",
-                            "systemInfo": {
-                                "version": system_info.get("version", "unknown"),
-                                "branch": system_info.get("branch"),
-                            },
-                            "qualityProfiles": [
-                                {"id": p["id"], "name": p["name"]} for p in quality_profiles
-                            ],
-                        }
-                    )
-
-                except Exception as e:
-                    # Handle specific error types
-                    error_msg = str(e)
-                    # Log full error for debugging but sanitize user-facing message
-                    self.logger.error(f"Connection test failed: {error_msg}")
-
-                    if "401" in error_msg or "Unauthorized" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": "Unauthorized: Invalid API key"}
-                            ),
-                            401,
-                        )
-                    elif "404" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": f"Not found: Check URI ({uri})"}
-                            ),
-                            404,
-                        )
-                    elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
-                        return (
-                            jsonify(
-                                {
-                                    "success": False,
-                                    "message": f"Connection refused: Cannot reach {uri}",
-                                }
-                            ),
-                            503,
-                        )
-                    else:
-                        # Generic error message - details logged above
-                        return (
-                            jsonify({"success": False, "message": "Connection test failed"}),
-                            500,
-                        )
-
-            except Exception as e:
-                self.logger.error("Test connection error: %s", e)
-                return jsonify({"success": False, "message": "Connection test failed"}), 500
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_test_connection()
 
     def _reload_all(self):
         # Set rebuilding flag
@@ -3114,22 +2911,22 @@ class WebUI:
                         if hasattr(arr, "search_db_file") and arr.search_db_file:
                             # Delete main database file
                             if arr.search_db_file.exists():
-                                self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                                self.logger.info("Deleting database file: %s", arr.search_db_file)
                                 arr.search_db_file.unlink()
-                                self.logger.success(f"Deleted database file for {arr._name}")
+                                self.logger.success("Deleted database file for %s", arr._name)
                             # Delete WAL file (Write-Ahead Log)
                             wal_file = arr.search_db_file.with_suffix(".db-wal")
                             if wal_file.exists():
-                                self.logger.info(f"Deleting WAL file: {wal_file}")
+                                self.logger.info("Deleting WAL file: %s", wal_file)
                                 wal_file.unlink()
                             # Delete SHM file (Shared Memory)
                             shm_file = arr.search_db_file.with_suffix(".db-shm")
                             if shm_file.exists():
-                                self.logger.info(f"Deleting SHM file: {shm_file}")
+                                self.logger.info("Deleting SHM file: %s", shm_file)
                                 shm_file.unlink()
                     except Exception as e:
                         self.logger.warning(
-                            f"Failed to delete database files for {arr._name}: {e}"
+                            "Failed to delete database files for %s: %s", arr._name, e
                         )
 
             # Rebuild arr manager from config and spawn fresh
@@ -3167,7 +2964,7 @@ class WebUI:
         try:
             CONFIG.load()
         except Exception as e:
-            self.logger.warning(f"Failed to reload config: {e}")
+            self.logger.warning("Failed to reload config: %s", e)
 
         # Update in-memory values
         new_host = CONFIG.get("WebUI.Host", fallback="0.0.0.0")
@@ -3194,11 +2991,11 @@ class WebUI:
         self._restart_requested = True
         self._shutdown_event.set()
 
-        self.logger.info(f"WebUI will restart on {self.host}:{self.port}")
+        self.logger.info("WebUI will restart on %s:%s", self.host, self.port)
 
     def _stop_arr_instance(self, arr, category: str):
         """Stop and cleanup a single Arr instance."""
-        self.logger.info(f"Stopping Arr instance: {category}")
+        self.logger.info("Stopping Arr instance: %s", category)
 
         # Stop processes
         for loop_kind in ("search", "torrent"):
@@ -3217,26 +3014,26 @@ class WebUI:
                     self.manager.child_processes.remove(process)
                 except Exception:
                     pass
-                self.logger.debug(f"Stopped {loop_kind} process for {category}")
+                self.logger.debug("Stopped %s process for %s", loop_kind, category)
 
         # Delete database files
         try:
             if hasattr(arr, "search_db_file") and arr.search_db_file:
                 if arr.search_db_file.exists():
-                    self.logger.info(f"Deleting database file: {arr.search_db_file}")
+                    self.logger.info("Deleting database file: %s", arr.search_db_file)
                     arr.search_db_file.unlink()
                     self.logger.success(
-                        f"Deleted database file for {getattr(arr, '_name', category)}"
+                        "Deleted database file for %s", getattr(arr, "_name", category)
                     )
                 # Delete WAL and SHM files
                 for suffix in (".db-wal", ".db-shm"):
                     aux_file = arr.search_db_file.with_suffix(suffix)
                     if aux_file.exists():
-                        self.logger.debug(f"Deleting auxiliary file: {aux_file}")
+                        self.logger.debug("Deleting auxiliary file: %s", aux_file)
                         aux_file.unlink()
         except Exception as e:
             self.logger.warning(
-                f"Failed to delete database files for {getattr(arr, '_name', category)}: {e}"
+                "Failed to delete database files for %s: %s", getattr(arr, "_name", category), e
             )
 
         # Remove from managed_objects
@@ -3245,15 +3042,15 @@ class WebUI:
         self.manager.arr_manager.uris.discard(getattr(arr, "uri", ""))
         self.manager.arr_manager.arr_categories.discard(category)
 
-        self.logger.success(f"Stopped and cleaned up Arr instance: {category}")
+        self.logger.success("Stopped and cleaned up Arr instance: %s", category)
 
     def _start_arr_instance(self, instance_name: str):
         """Create and start a single Arr instance."""
-        self.logger.info(f"Starting Arr instance: {instance_name}")
+        self.logger.info("Starting Arr instance: %s", instance_name)
 
         # Check if instance is managed
         if not CONFIG.get(f"{instance_name}.Managed", fallback=False):
-            self.logger.info(f"Instance {instance_name} is not managed, skipping")
+            self.logger.info("Instance %s is not managed, skipping", instance_name)
             return
 
         # Determine client class based on name
@@ -3271,7 +3068,7 @@ class WebUI:
 
             client_cls = LidarrAPI
         else:
-            self.logger.error(f"Unknown Arr type for instance: {instance_name}")
+            self.logger.error("Unknown Arr type for instance: %s", instance_name)
             return
 
         try:
@@ -3292,22 +3089,24 @@ class WebUI:
             for p in procs:
                 try:
                     p.start()
-                    self.logger.debug(f"Started process (PID: {p.pid}) for {instance_name}")
+                    self.logger.debug("Started process (PID: %s) for %s", p.pid, instance_name)
                 except Exception as e:
-                    self.logger.error(f"Failed to start process for {instance_name}: {e}")
+                    self.logger.error("Failed to start process for %s: %s", instance_name, e)
 
             self.logger.success(
-                f"Started Arr instance: {instance_name} (category: {new_arr.category})"
+                "Started Arr instance: %s (category: %s)", instance_name, new_arr.category
             )
 
         except SkipException:
-            self.logger.info(f"Instance {instance_name} skipped (not managed or disabled)")
+            self.logger.info("Instance %s skipped (not managed or disabled)", instance_name)
         except Exception as e:
-            self.logger.error(f"Failed to start Arr instance {instance_name}: {e}", exc_info=True)
+            self.logger.error(
+                "Failed to start Arr instance %s: %s", instance_name, e, exc_info=True
+            )
 
     def _reload_arr_instance(self, instance_name: str):
         """Reload a single Arr instance without affecting others."""
-        self.logger.notice(f"Reloading Arr instance: {instance_name}")
+        self.logger.notice("Reloading Arr instance: %s", instance_name)
 
         if not hasattr(self.manager, "arr_manager") or not self.manager.arr_manager:
             self.logger.warning("Cannot reload Arr instance: ArrManager not initialized")
@@ -3330,19 +3129,19 @@ class WebUI:
         # Handle deletion case
         if not instance_exists_in_config:
             if old_arr:
-                self.logger.info(f"Instance {instance_name} removed from config, stopping...")
+                self.logger.info("Instance %s removed from config, stopping...", instance_name)
                 self._stop_arr_instance(old_arr, old_category)
             else:
-                self.logger.debug(f"Instance {instance_name} not found in config or memory")
+                self.logger.debug("Instance %s not found in config or memory", instance_name)
             return
 
         # Handle update/addition
         if old_arr:
             # Update existing - stop old processes first
-            self.logger.info(f"Updating existing Arr instance: {instance_name}")
+            self.logger.info("Updating existing Arr instance: %s", instance_name)
             self._stop_arr_instance(old_arr, old_category)
         else:
-            self.logger.info(f"Adding new Arr instance: {instance_name}")
+            self.logger.info("Adding new Arr instance: %s", instance_name)
 
         # Small delay to ensure cleanup completes
         time.sleep(0.5)
@@ -3350,7 +3149,7 @@ class WebUI:
         # Create new instance
         self._start_arr_instance(instance_name)
 
-        self.logger.success(f"Successfully reloaded Arr instance: {instance_name}")
+        self.logger.success("Successfully reloaded Arr instance: %s", instance_name)
 
     def start(self):
         if self._thread and self._thread.is_alive():

@@ -126,7 +126,7 @@ def run_logs(logger: Logger, _name: str = None) -> None:
         if ALL_LOGS_HANDLER is None:
             logs_folder = HOME_PATH.joinpath("logs")
             logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
+            logs_folder.chmod(mode=0o755)
             all_logfile = logs_folder.joinpath("All.log")
             # Rotate old All.log if it exists
             if all_logfile.exists():
@@ -168,7 +168,7 @@ def run_logs(logger: Logger, _name: str = None) -> None:
         if _name:
             logs_folder = HOME_PATH.joinpath("logs")
             logs_folder.mkdir(parents=True, exist_ok=True)
-            logs_folder.chmod(mode=0o777)
+            logs_folder.chmod(mode=0o755)
             logfile = logs_folder.joinpath(_name + ".log")
             if pathlib.Path(logfile).is_file():
                 logold = logs_folder.joinpath(_name + ".log.old")

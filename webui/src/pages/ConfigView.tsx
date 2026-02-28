@@ -66,9 +66,7 @@ interface ValidationError {
 const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 
-// Helper function for react-select theme-aware styles
-const getSelectStyles = () => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const getSelectStyles = (isDark: boolean) => {
   return {
     control: (base: CSSObjectWithLabel) => ({
       ...base,
@@ -1562,7 +1560,6 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [formState, setFormState] = useState<ConfigDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Track section renames to ensure old sections are fully deleted
   const [pendingRenames, setPendingRenames] = useState<Map<string, string>>(new Map());
 
   const loadConfig = useCallback(async () => {
@@ -2412,6 +2409,8 @@ function FieldGroup({
   sectionKey,
   qbitTrackers = false,
 }: FieldGroupProps): JSX.Element {
+  const { theme } = useWebUI();
+  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
   const sectionName = sectionKey ?? basePath[0] ?? "";
 
   if (title === "Quality Profile Mappings") {
@@ -2489,7 +2488,7 @@ function FieldGroup({
                         }
                         placeholder="Select main profile..."
                         isClearable
-                        styles={getSelectStyles()}
+                        styles={selectStyles}
                         classNamePrefix="react-select"
                       />
                     </div>
@@ -2514,7 +2513,7 @@ function FieldGroup({
                         }
                         placeholder="Select temp profile..."
                         isClearable
-                        styles={getSelectStyles()}
+                        styles={selectStyles}
                         classNamePrefix="react-select"
                       />
                     </div>
@@ -2722,7 +2721,7 @@ function FieldGroup({
                 localStorage.setItem("theme", theme);
               }
             }}
-            styles={getSelectStyles()}
+            styles={selectStyles}
           />
           {description && <div className="field-description">{description}</div>}
           {isThemeField && <div className="field-hint">Theme changes apply immediately</div>}

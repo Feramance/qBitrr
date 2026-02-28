@@ -8,11 +8,17 @@ from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.constants import CHANGE_ME_SENTINEL
 from qBitrr.duration_config import parse_duration_to_minutes, parse_duration_to_seconds
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
 T = TypeVar("T")
+
+
+def _default(value, fallback):
+    """Return value if not None, otherwise fallback. Unlike ``or``, preserves falsy values like False and 0."""
+    return value if value is not None else fallback
 
 
 def _add_web_settings_section(config: TOMLDocument):
@@ -76,7 +82,7 @@ def generate_doc() -> TOMLDocument:
     config.add(
         comment(
             "This is a config file for the qBitrr Script - "
-            'Make sure to change all entries of "CHANGE_ME".'
+            f'Make sure to change all entries of "{CHANGE_ME_SENTINEL}".'
         )
     )
     config.add(comment('This is a config file should be moved to "' f'{HOME_PATH}".'))
@@ -103,67 +109,70 @@ def _add_settings_section(config: TOMLDocument):
         settings,
         "Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE",
         "ConsoleLevel",
-        ENVIRO_CONFIG.settings.console_level or "INFO",
+        _default(ENVIRO_CONFIG.settings.console_level, "INFO"),
     )
     _gen_default_line(
-        settings, "Enable logging to files", "Logging", ENVIRO_CONFIG.settings.logging or True
+        settings,
+        "Enable logging to files",
+        "Logging",
+        _default(ENVIRO_CONFIG.settings.logging, True),
     )
     _gen_default_line(
         settings,
         "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\\' with '/')",
         "CompletedDownloadFolder",
-        ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.settings.completed_download_folder, CHANGE_ME_SENTINEL),
     )
     _gen_default_line(
         settings,
         "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)",
         "FreeSpace",
-        ENVIRO_CONFIG.settings.free_space or "-1",
+        _default(ENVIRO_CONFIG.settings.free_space, "-1"),
     )
     _gen_default_line(
         settings,
         "Folder where the free space handler will check for free space (Please note, replace all '' with '/')",
         "FreeSpaceFolder",
-        ENVIRO_CONFIG.settings.free_space_folder or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.settings.free_space_folder, CHANGE_ME_SENTINEL),
     )
     _gen_default_line(
         settings,
         "Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)",
         "AutoPauseResume",
-        ENVIRO_CONFIG.settings.auto_pause_resume or True,
+        _default(ENVIRO_CONFIG.settings.auto_pause_resume, True),
     )
     _gen_default_line(
         settings,
         "Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)",
         "NoInternetSleepTimer",
-        ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15,
+        _default(ENVIRO_CONFIG.settings.no_internet_sleep_timer, 15),
     )
     _gen_default_line(
         settings,
         "Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)",
         "LoopSleepTimer",
-        ENVIRO_CONFIG.settings.loop_sleep_timer or 5,
+        _default(ENVIRO_CONFIG.settings.loop_sleep_timer, 5),
     )
     _gen_default_line(
         settings,
         "Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)",
         "SearchLoopDelay",
-        ENVIRO_CONFIG.settings.search_loop_delay or -1,
+        _default(ENVIRO_CONFIG.settings.search_loop_delay, -1),
     )
     _gen_default_line(
         settings,
         "Add torrents to this category to mark them as failed",
         "FailedCategory",
-        ENVIRO_CONFIG.settings.failed_category or "failed",
+        _default(ENVIRO_CONFIG.settings.failed_category, "failed"),
     )
     _gen_default_line(
         settings,
         "Add torrents to this category to trigger them to be rechecked properly",
         "RecheckCategory",
-        ENVIRO_CONFIG.settings.recheck_category or "recheck",
+        _default(ENVIRO_CONFIG.settings.recheck_category, "recheck"),
     )
     _gen_default_line(
-        settings, "Tagless operation", "Tagless", ENVIRO_CONFIG.settings.tagless or False
+        settings, "Tagless operation", "Tagless", _default(ENVIRO_CONFIG.settings.tagless, False)
     )
     _gen_default_line(
         settings,
@@ -172,7 +181,7 @@ def _add_settings_section(config: TOMLDocument):
             "Only applicable to Re-check and failed categories",
         ],
         "IgnoreTorrentsYoungerThan",
-        ENVIRO_CONFIG.settings.ignore_torrents_younger_than or 180,
+        _default(ENVIRO_CONFIG.settings.ignore_torrents_younger_than, 180),
     )
     _gen_default_line(
         settings,
@@ -181,7 +190,7 @@ def _add_settings_section(config: TOMLDocument):
             "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.",
         ],
         "PingURLS",
-        ENVIRO_CONFIG.settings.ping_urls or ["one.one.one.one", "dns.google.com"],
+        _default(ENVIRO_CONFIG.settings.ping_urls, ["one.one.one.one", "dns.google.com"]),
     )
     _gen_default_line(
         settings,
@@ -220,7 +229,7 @@ def _add_settings_section(config: TOMLDocument):
             "Default is weekly Sunday at 03:00 (0 3 * * 0).",
         ],
         "AutoUpdateCron",
-        ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
+        _default(ENVIRO_CONFIG.settings.auto_update_cron, "0 3 * * 0"),
     )
     _gen_default_line(
         settings,
@@ -274,25 +283,25 @@ def _add_qbit_section(config: TOMLDocument):
         qbit,
         'qbittorrent WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")',
         "Host",
-        ENVIRO_CONFIG.qbit.host or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.host, CHANGE_ME_SENTINEL),
     )
     _gen_default_line(
         qbit,
         'qbittorrent WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
         "Port",
-        ENVIRO_CONFIG.qbit.port or 8080,
+        _default(ENVIRO_CONFIG.qbit.port, 8080),
     )
     _gen_default_line(
         qbit,
         "qbittorrent WebUI Authentication - Can be found in Options > Web UI > Authentication",
         "UserName",
-        ENVIRO_CONFIG.qbit.username or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.username, CHANGE_ME_SENTINEL),
     )
     _gen_default_line(
         qbit,
         'If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.',
         "Password",
-        ENVIRO_CONFIG.qbit.password or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.password, CHANGE_ME_SENTINEL),
     )
     _gen_default_line(
         qbit,
@@ -435,13 +444,13 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         "The URL used to access Servarr interface eg. http://ip:port"
         "(if you use a domain enter the domain without a port)",
         "URI",
-        "CHANGE_ME",
+        CHANGE_ME_SENTINEL,
     )
     _gen_default_line(
         cat_default,
         "The Servarr API Key, Can be found it Settings > General > Security",
         "APIKey",
-        "CHANGE_ME",
+        CHANGE_ME_SENTINEL,
     )
     _gen_default_line(
         cat_default,
@@ -925,9 +934,9 @@ def _gen_default_ombi_table(category: str, search_table: Table):
         ombi_table,
         "Ombi URI eg. http://ip:port (Note that this has to be the instance of Ombi which manage the Arr instance request (If you have multiple Ombi instances)",
         "OmbiURI",
-        "CHANGE_ME",
+        CHANGE_ME_SENTINEL,
     )
-    _gen_default_line(ombi_table, "Ombi's API Key", "OmbiAPIKey", "CHANGE_ME")
+    _gen_default_line(ombi_table, "Ombi's API Key", "OmbiAPIKey", CHANGE_ME_SENTINEL)
     _gen_default_line(ombi_table, "Only process approved requests", "ApprovedOnly", True)
     search_table.add("Ombi", ombi_table)
 
@@ -944,9 +953,11 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
         False,
     )
     _gen_default_line(
-        overseerr_table, "Overseerr's URI eg. http://ip:port", "OverseerrURI", "CHANGE_ME"
+        overseerr_table, "Overseerr's URI eg. http://ip:port", "OverseerrURI", CHANGE_ME_SENTINEL
     )
-    _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
+    _gen_default_line(
+        overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", CHANGE_ME_SENTINEL
+    )
     _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
     overseerr_table.add(comment("Only for 4K Instances"))
     if "radarr-4k" in category.lower():
@@ -1208,12 +1219,12 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
                 inline_mappings.update(mappings)
                 config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
                 changes_made = True
-                logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
+                logger.info("Migrated %s to QualityProfileMappings: %s", key, mappings)
 
                 # Remove old format
                 del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
                 del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
-                logger.debug(f"Removed legacy profile lists from {key}")
+                logger.debug("Removed legacy profile lists from %s", key)
 
     return changes_made
 
@@ -1278,7 +1289,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             if "ManagedCategories" not in qbit_section:
                 qbit_section["ManagedCategories"] = []
                 changes_made = True
-                logger.info(f"Added ManagedCategories = [] to [{section}]")
+                logger.info("Added ManagedCategories = [] to [%s]", section)
 
             if "CategorySeeding" not in qbit_section:
                 seeding = table()
@@ -1295,7 +1306,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["TrackerUpdateBuffer"] = 0
                 qbit_section["CategorySeeding"] = seeding
                 changes_made = True
-                logger.info(f"Added CategorySeeding configuration to [{section}]")
+                logger.info("Added CategorySeeding configuration to [%s]", section)
 
     if changes_made:
         print("Migration v3→v4: Added qBit category management settings")
@@ -1628,9 +1639,9 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("ConfigVersion", "0.0.1"),  # Internal version, DO NOT expose to WebUI
         ("ConsoleLevel", "INFO"),
         ("Logging", True),
-        ("CompletedDownloadFolder", "CHANGE_ME"),
+        ("CompletedDownloadFolder", CHANGE_ME_SENTINEL),
         ("FreeSpace", "-1"),
-        ("FreeSpaceFolder", "CHANGE_ME"),
+        ("FreeSpaceFolder", CHANGE_ME_SENTINEL),
         ("AutoPauseResume", True),
         ("NoInternetSleepTimer", 15),
         ("LoopSleepTimer", 5),

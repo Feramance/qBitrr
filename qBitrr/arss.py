@@ -10,9 +10,10 @@ import shutil
 import sys
 import time
 from collections import defaultdict
+from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Callable, Iterable, Iterator, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 from urllib.parse import urlparse
 
 import ffmpeg
@@ -32,6 +33,7 @@ from ujson import JSONDecodeError
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
+    CHANGE_ME_SENTINEL,
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     FAILED_CATEGORY,
@@ -78,9 +80,25 @@ from qBitrr.utils import (
     absolute_file_paths,
     format_bytes,
     has_internet,
+    mask_secret,
     parse_size,
     validate_and_return_torrent_file,
     with_retry,
+)
+
+_ARR_RETRY_EXCEPTIONS = (
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ContentDecodingError,
+    requests.exceptions.ConnectionError,
+    JSONDecodeError,
+)
+
+_ARR_RETRY_EXCEPTIONS_EXTENDED = (
+    requests.exceptions.ChunkedEncodingError,
+    requests.exceptions.ContentDecodingError,
+    requests.exceptions.ConnectionError,
+    JSONDecodeError,
+    requests.exceptions.RequestException,
 )
 
 
@@ -113,12 +131,6 @@ def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
     return bool(
         (h := _extract_tracker_host(config_uri)) and h == _extract_tracker_host(tracker_url)
     )
-
-
-def _mask_secret(secret: str | None) -> str:
-    if not secret:
-        return ""
-    return "[redacted]"
 
 
 def _normalize_media_status(value: int | str | None) -> str:
@@ -216,8 +228,8 @@ class Arr:
         if not self.completed_folder.exists() and not SEARCH_ONLY:
             try:
                 self.completed_folder.mkdir(parents=True, exist_ok=True)
-                self.completed_folder.chmod(mode=0o777)
-            except BaseException:
+                self.completed_folder.chmod(mode=0o755)
+            except Exception:
                 self.logger.warning(
                     "%s completed folder is a soft requirement. The specified folder does not exist %s and cannot be created. This will disable all file monitoring.",
                     self._name,
@@ -600,6 +612,7 @@ class Arr:
         self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.session = requests.Session()
+        atexit.register(self.session.close)
         self.cleaned_torrents = set()
         self.search_api_command = None
 
@@ -623,7 +636,7 @@ class Arr:
             self.re_search,
             self.category,
             self.uri,
-            _mask_secret(self.apikey),
+            mask_secret(self.apikey),
             self.refresh_downloads_timer,
             self.rss_sync_timer,
         )
@@ -669,7 +682,7 @@ class Arr:
             self.logger.debug("Script Config:  SearchOmbiRequests=%s", self.ombi_search_requests)
             if self.ombi_search_requests:
                 self.logger.debug("Script Config:  OmbiURI=%s", self.ombi_uri)
-                self.logger.debug("Script Config:  OmbiAPIKey=%s", _mask_secret(self.ombi_api_key))
+                self.logger.debug("Script Config:  OmbiAPIKey=%s", mask_secret(self.ombi_api_key))
                 self.logger.debug("Script Config:  ApprovedOnly=%s", self.ombi_approved_only)
             self.logger.debug(
                 "Script Config:  SearchOverseerrRequests=%s", self.overseerr_requests
@@ -677,7 +690,7 @@ class Arr:
             if self.overseerr_requests:
                 self.logger.debug("Script Config:  OverseerrURI=%s", self.overseerr_uri)
                 self.logger.debug(
-                    "Script Config:  OverseerrAPIKey=%s", _mask_secret(self.overseerr_api_key)
+                    "Script Config:  OverseerrAPIKey=%s", mask_secret(self.overseerr_api_key)
                 )
             if self.ombi_search_requests or self.overseerr_requests:
                 self.logger.debug(
@@ -689,7 +702,7 @@ class Arr:
                 self.quality_unmet_search
                 or self.do_upgrade_search
                 or self.custom_format_unmet_search
-                or self.series_search == True
+                or self.series_search is True
             ):
                 self.search_api_command = "SeriesSearch"
             elif self.series_search == "smart":
@@ -883,7 +896,9 @@ class Arr:
                 self.expiring_bool.add(1)
                 return True
             req = self.session.get(
-                f"{self.uri}/api/v3/system/status", timeout=10, params={"apikey": self.apikey}
+                f"{self.uri}/api/v3/system/status",
+                timeout=10,
+                headers={"X-Api-Key": self.apikey},
             )
             req.raise_for_status()
             self.logger.trace("Successfully connected to %s", self.uri)
@@ -895,7 +910,7 @@ class Arr:
         except requests.RequestException:
             self.logger.warning("Could not connect to %s", self.uri)
             # Clear the cache to ensure we retry on next check
-            if 1 in self.expiring_bool.container:
+            with contextlib.suppress(KeyError):
                 self.expiring_bool.remove(1)
         return False
 
@@ -948,6 +963,41 @@ class Arr:
         """Returns True if the State is categorized as Downloading."""
         return torrent.state_enum in (TorrentStates.DOWNLOADING, TorrentStates.PAUSED_DOWNLOAD)
 
+    _TAGLESS_FIELD_MAP = {
+        "qBitrr-allowed_seeding": "AllowedSeeding",
+        "qBitrr-imported": "Imported",
+        "qBitrr-allowed_stalled": "AllowedStalled",
+        "qBitrr-free_space_paused": "FreeSpacePaused",
+    }
+
+    def _ensure_torrent_row(
+        self, torrent: TorrentDictionary, instance_name: str = "default"
+    ) -> None:
+        """Ensure a TorrentLibrary row exists for the given torrent."""
+        query = (
+            self.torrents.select()
+            .where(
+                (self.torrents.Hash == torrent.hash)
+                & (self.torrents.Category == torrent.category)
+                & (self.torrents.QbitInstance == instance_name)
+            )
+            .execute()
+        )
+        if not query:
+            self.torrents.insert(
+                Hash=torrent.hash,
+                Category=torrent.category,
+                QbitInstance=instance_name,
+            ).on_conflict_ignore().execute()
+
+    def _torrent_condition(self, torrent: TorrentDictionary, instance_name: str = "default"):
+        """Return the base WHERE condition for a torrent row."""
+        return (
+            (self.torrents.Hash == torrent.hash)
+            & (self.torrents.Category == torrent.category)
+            & (self.torrents.QbitInstance == instance_name)
+        )
+
     def in_tags(
         self, torrent: TorrentDictionary, tag: str, instance_name: str = "default"
     ) -> bool:
@@ -956,51 +1006,20 @@ class Arr:
             if tag == "qBitrr-ignored":
                 return_value = "qBitrr-ignored" in torrent.tags
             else:
-                query = (
-                    self.torrents.select()
-                    .where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    )
-                    .execute()
-                )
-                if not query:
-                    self.torrents.insert(
-                        Hash=torrent.hash,
-                        Category=torrent.category,
-                        QbitInstance=instance_name,
-                    ).on_conflict_ignore().execute()
-                condition = (
-                    (self.torrents.Hash == torrent.hash)
-                    & (self.torrents.Category == torrent.category)
-                    & (self.torrents.QbitInstance == instance_name)
-                )
-                if tag == "qBitrr-allowed_seeding":
-                    condition &= self.torrents.AllowedSeeding == True
-                elif tag == "qBitrr-imported":
-                    condition &= self.torrents.Imported == True
-                elif tag == "qBitrr-allowed_stalled":
-                    condition &= self.torrents.AllowedStalled == True
-                elif tag == "qBitrr-free_space_paused":
-                    condition &= self.torrents.FreeSpacePaused == True
-                query = self.torrents.select().where(condition).execute()
-                if query:
-                    return_value = True
-                else:
-                    return_value = False
+                self._ensure_torrent_row(torrent, instance_name)
+                condition = self._torrent_condition(torrent, instance_name)
+                field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                if field_name:
+                    condition &= getattr(self.torrents, field_name) == True
+                return_value = bool(self.torrents.select().where(condition).execute())
         else:
-            if tag in torrent.tags:
-                return_value = True
-            else:
-                return_value = False
+            return_value = tag in torrent.tags
 
         if return_value:
             self.logger.trace("Tag %s in %s", tag, torrent.name)
-            return True
         else:
             self.logger.trace("Tag %s not in %s", tag, torrent.name)
-            return False
+        return return_value
 
     def remove_tags(
         self, torrent: TorrentDictionary, tags: list, instance_name: str = "default"
@@ -1008,45 +1027,13 @@ class Arr:
         for tag in tags:
             self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         if TAGLESS:
+            self._ensure_torrent_row(torrent, instance_name)
+            condition = self._torrent_condition(torrent, instance_name)
             for tag in tags:
-                query = (
-                    self.torrents.select()
-                    .where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    )
-                    .execute()
-                )
-                if not query:
-                    self.torrents.insert(
-                        Hash=torrent.hash,
-                        Category=torrent.category,
-                        QbitInstance=instance_name,
-                    ).on_conflict_ignore().execute()
-                if tag == "qBitrr-allowed_seeding":
-                    self.torrents.update(AllowedSeeding=False).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-imported":
-                    self.torrents.update(Imported=False).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-allowed_stalled":
-                    self.torrents.update(AllowedStalled=False).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-free_space_paused":
-                    self.torrents.update(FreeSpacePaused=False).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
+                field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                if field_name:
+                    self.torrents.update({getattr(self.torrents, field_name): False}).where(
+                        condition
                     ).execute()
         else:
             with contextlib.suppress(Exception):
@@ -1068,45 +1055,13 @@ class Arr:
         for tag in tags:
             self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         if TAGLESS:
+            self._ensure_torrent_row(torrent, instance_name)
+            condition = self._torrent_condition(torrent, instance_name)
             for tag in tags:
-                query = (
-                    self.torrents.select()
-                    .where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    )
-                    .execute()
-                )
-                if not query:
-                    self.torrents.insert(
-                        Hash=torrent.hash,
-                        Category=torrent.category,
-                        QbitInstance=instance_name,
-                    ).on_conflict_ignore().execute()
-                if tag == "qBitrr-allowed_seeding":
-                    self.torrents.update(AllowedSeeding=True).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-imported":
-                    self.torrents.update(Imported=True).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-allowed_stalled":
-                    self.torrents.update(AllowedStalled=True).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
-                    ).execute()
-                elif tag == "qBitrr-free_space_paused":
-                    self.torrents.update(FreeSpacePaused=True).where(
-                        (self.torrents.Hash == torrent.hash)
-                        & (self.torrents.Category == torrent.category)
-                        & (self.torrents.QbitInstance == instance_name)
+                field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                if field_name:
+                    self.torrents.update({getattr(self.torrents, field_name): True}).where(
+                        condition
                     ).execute()
         else:
             with contextlib.suppress(Exception):
@@ -1376,66 +1331,29 @@ class Arr:
                     continue
                 self.sent_to_scan_hashes.add(torrent.hash)
                 try:
-                    if self.type == "sonarr":
+                    scan_commands = {
+                        "sonarr": "DownloadedEpisodesScan",
+                        "radarr": "DownloadedMoviesScan",
+                        "lidarr": "DownloadedAlbumsScan",
+                    }
+                    scan_cmd = scan_commands.get(self.type)
+                    if scan_cmd:
+                        _path = str(path)
+                        _hash = torrent.hash.upper()
+                        _mode = self.import_mode
                         with_retry(
                             lambda: self.client.post_command(
-                                "DownloadedEpisodesScan",
-                                path=str(path),
-                                downloadClientId=torrent.hash.upper(),
-                                importMode=self.import_mode,
+                                scan_cmd,
+                                path=_path,
+                                downloadClientId=_hash,
+                                importMode=_mode,
                             ),
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
-                            exceptions=(
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                                requests.exceptions.RequestException,
-                            ),
+                            exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                         )
-                        self.logger.success("DownloadedEpisodesScan: %s", path)
-                    elif self.type == "radarr":
-                        with_retry(
-                            lambda: self.client.post_command(
-                                "DownloadedMoviesScan",
-                                path=str(path),
-                                downloadClientId=torrent.hash.upper(),
-                                importMode=self.import_mode,
-                            ),
-                            retries=3,
-                            backoff=0.5,
-                            max_backoff=3,
-                            exceptions=(
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                                requests.exceptions.RequestException,
-                            ),
-                        )
-                        self.logger.success("DownloadedMoviesScan: %s", path)
-                    elif self.type == "lidarr":
-                        with_retry(
-                            lambda: self.client.post_command(
-                                "DownloadedAlbumsScan",
-                                path=str(path),
-                                downloadClientId=torrent.hash.upper(),
-                                importMode=self.import_mode,
-                            ),
-                            retries=3,
-                            backoff=0.5,
-                            max_backoff=3,
-                            exceptions=(
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                                requests.exceptions.RequestException,
-                            ),
-                        )
-                        self.logger.success("DownloadedAlbumsScan: %s", path)
+                        self.logger.success("%s: %s", scan_cmd, path)
                 except Exception as ex:
                     self.logger.error(
                         "Downloaded scan error: [%s][%s][%s][%s]",
@@ -1473,56 +1391,48 @@ class Arr:
                 self.logger.trace("Requeue cache entry list: %s", object_ids)
                 if self.series_search:
                     series_id = None
-                    while True:
-                        try:
-                            data = self.client.get_series(object_ids[0])
-                            name = data["title"]
-                            series_id = data["id"]
-                            if name:
-                                year = data.get("year", 0)
-                                tvdbId = data.get("tvdbId", 0)
-                                self.logger.notice(
-                                    "Re-Searching series: %s (%s) | [tvdbId=%s|id=%s]",
-                                    name,
-                                    year,
-                                    tvdbId,
-                                    series_id,
-                                )
-                            else:
-                                self.logger.notice("Re-Searching series: %s", series_id)
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
-                        except PyarrResourceNotFound as e:
-                            self.logger.warning(
-                                "Series %s not found in Sonarr (likely removed): %s",
-                                object_ids[0],
-                                str(e),
+                    try:
+                        data = with_retry(
+                            lambda: self.client.get_series(object_ids[0]),
+                            retries=5,
+                            backoff=0.5,
+                            max_backoff=5,
+                            exceptions=_ARR_RETRY_EXCEPTIONS,
+                        )
+                        name = data["title"]
+                        series_id = data["id"]
+                        if name:
+                            year = data.get("year", 0)
+                            tvdbId = data.get("tvdbId", 0)
+                            self.logger.notice(
+                                "Re-Searching series: %s (%s) | [tvdbId=%s|id=%s]",
+                                name,
+                                year,
+                                tvdbId,
+                                series_id,
                             )
-                            break
+                        else:
+                            self.logger.notice("Re-Searching series: %s", series_id)
+                    except PyarrResourceNotFound as e:
+                        self.logger.warning(
+                            "Series %s not found in Sonarr (likely removed): %s",
+                            object_ids[0],
+                            str(e),
+                        )
                     for object_id in object_ids:
                         if object_id in self.queue_file_ids:
                             self.queue_file_ids.remove(object_id)
                     if series_id:
                         self.logger.trace("Research series id: %s", series_id)
-                        while True:
-                            try:
-                                self.client.post_command(
-                                    self.search_api_command, seriesId=series_id
-                                )
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
+                        with_retry(
+                            lambda: self.client.post_command(
+                                self.search_api_command, seriesId=series_id
+                            ),
+                            retries=5,
+                            backoff=0.5,
+                            max_backoff=5,
+                            exceptions=_ARR_RETRY_EXCEPTIONS,
+                        )
                         if self.persistent_queue:
                             self.persistent_queue.insert(
                                 EntryId=series_id, ArrInstance=self._name
@@ -1530,69 +1440,66 @@ class Arr:
                 else:
                     for object_id in object_ids:
                         episode_found = False
-                        while True:
-                            try:
-                                data = self.client.get_episode(object_id)
-                                name = data.get("title")
-                                series_id = data.get("series", {}).get("id")
-                                if name:
-                                    episodeNumber = data.get("episodeNumber", 0)
-                                    absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
-                                    seasonNumber = data.get("seasonNumber", 0)
-                                    seriesTitle = data.get("series", {}).get("title")
-                                    year = data.get("series", {}).get("year", 0)
-                                    tvdbId = data.get("series", {}).get("tvdbId", 0)
-                                    self.logger.notice(
-                                        "Re-Searching episode: %s (%s) | "
-                                        "S%02dE%03d "
-                                        "(E%04d) | "
-                                        "%s | "
-                                        "[tvdbId=%s|id=%s]",
-                                        seriesTitle,
-                                        year,
-                                        seasonNumber,
-                                        episodeNumber,
-                                        absoluteEpisodeNumber,
-                                        name,
-                                        tvdbId,
-                                        object_id,
-                                    )
-                                else:
-                                    self.logger.notice("Re-Searching episode: %s", object_id)
-                                episode_found = True
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                                AttributeError,
-                            ):
-                                continue
-                            except PyarrResourceNotFound as e:
-                                self.logger.warning(
-                                    "Episode %s not found in Sonarr (likely removed): %s",
-                                    object_id,
-                                    str(e),
-                                )
-                                break
-
-                        if object_id in self.queue_file_ids:
-                            self.queue_file_ids.remove(object_id)
-                        if episode_found:
-                            while True:
-                                try:
-                                    self.client.post_command(
-                                        "EpisodeSearch", episodeIds=[object_id]
-                                    )
-                                    break
-                                except (
+                        try:
+                            data = with_retry(
+                                lambda oid=object_id: self.client.get_episode(oid),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=(
                                     requests.exceptions.ChunkedEncodingError,
                                     requests.exceptions.ContentDecodingError,
                                     requests.exceptions.ConnectionError,
                                     JSONDecodeError,
-                                ):
-                                    continue
+                                    AttributeError,
+                                ),
+                            )
+                            name = data.get("title")
+                            series_id = data.get("series", {}).get("id")
+                            if name:
+                                episodeNumber = data.get("episodeNumber", 0)
+                                absoluteEpisodeNumber = data.get("absoluteEpisodeNumber", 0)
+                                seasonNumber = data.get("seasonNumber", 0)
+                                seriesTitle = data.get("series", {}).get("title")
+                                year = data.get("series", {}).get("year", 0)
+                                tvdbId = data.get("series", {}).get("tvdbId", 0)
+                                self.logger.notice(
+                                    "Re-Searching episode: %s (%s) | "
+                                    "S%02dE%03d "
+                                    "(E%04d) | "
+                                    "%s | "
+                                    "[tvdbId=%s|id=%s]",
+                                    seriesTitle,
+                                    year,
+                                    seasonNumber,
+                                    episodeNumber,
+                                    absoluteEpisodeNumber,
+                                    name,
+                                    tvdbId,
+                                    object_id,
+                                )
+                            else:
+                                self.logger.notice("Re-Searching episode: %s", object_id)
+                            episode_found = True
+                        except PyarrResourceNotFound as e:
+                            self.logger.warning(
+                                "Episode %s not found in Sonarr (likely removed): %s",
+                                object_id,
+                                str(e),
+                            )
+
+                        if object_id in self.queue_file_ids:
+                            self.queue_file_ids.remove(object_id)
+                        if episode_found:
+                            with_retry(
+                                lambda oid=object_id: self.client.post_command(
+                                    "EpisodeSearch", episodeIds=[oid]
+                                ),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=_ARR_RETRY_EXCEPTIONS,
+                            )
                             if self.persistent_queue:
                                 self.persistent_queue.insert(
                                     EntryId=object_id, ArrInstance=self._name
@@ -1600,51 +1507,48 @@ class Arr:
             elif self.type == "radarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 movie_found = False
-                while True:
-                    try:
-                        data = self.client.get_movie(object_id)
-                        name = data.get("title")
-                        if name:
-                            year = data.get("year", 0)
-                            tmdbId = data.get("tmdbId", 0)
-                            self.logger.notice(
-                                "Re-Searching movie: %s (%s) | [tmdbId=%s|id=%s]",
-                                name,
-                                year,
-                                tmdbId,
-                                object_id,
-                            )
-                        else:
-                            self.logger.notice("Re-Searching movie: %s", object_id)
-                        movie_found = True
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                        AttributeError,
-                    ):
-                        continue
-                    except PyarrResourceNotFound as e:
-                        self.logger.warning(
-                            "Movie %s not found in Radarr (likely removed): %s", object_id, str(e)
-                        )
-                        break
-                if object_id in self.queue_file_ids:
-                    self.queue_file_ids.remove(object_id)
-                if movie_found:
-                    while True:
-                        try:
-                            self.client.post_command("MoviesSearch", movieIds=[object_id])
-                            break
-                        except (
+                try:
+                    data = with_retry(
+                        lambda: self.client.get_movie(object_id),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=(
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
-                        ):
-                            continue
+                            AttributeError,
+                        ),
+                    )
+                    name = data.get("title")
+                    if name:
+                        year = data.get("year", 0)
+                        tmdbId = data.get("tmdbId", 0)
+                        self.logger.notice(
+                            "Re-Searching movie: %s (%s) | [tmdbId=%s|id=%s]",
+                            name,
+                            year,
+                            tmdbId,
+                            object_id,
+                        )
+                    else:
+                        self.logger.notice("Re-Searching movie: %s", object_id)
+                    movie_found = True
+                except PyarrResourceNotFound as e:
+                    self.logger.warning(
+                        "Movie %s not found in Radarr (likely removed): %s", object_id, str(e)
+                    )
+                if object_id in self.queue_file_ids:
+                    self.queue_file_ids.remove(object_id)
+                if movie_found:
+                    with_retry(
+                        lambda: self.client.post_command("MoviesSearch", movieIds=[object_id]),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                    )
                     if self.persistent_queue:
                         self.persistent_queue.insert(
                             EntryId=object_id, ArrInstance=self._name
@@ -1652,51 +1556,48 @@ class Arr:
             elif self.type == "lidarr":
                 self.logger.trace("Requeue cache entry: %s", object_id)
                 album_found = False
-                while True:
-                    try:
-                        data = self.client.get_album(object_id)
-                        name = data.get("title")
-                        if name:
-                            artist_title = data.get("artist", {}).get("artistName", "")
-                            foreign_album_id = data.get("foreignAlbumId", "")
-                            self.logger.notice(
-                                "Re-Searching album: %s - %s | [foreignAlbumId=%s|id=%s]",
-                                artist_title,
-                                name,
-                                foreign_album_id,
-                                object_id,
-                            )
-                        else:
-                            self.logger.notice("Re-Searching album: %s", object_id)
-                        album_found = True
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                        AttributeError,
-                    ):
-                        continue
-                    except PyarrResourceNotFound as e:
-                        self.logger.warning(
-                            "Album %s not found in Lidarr (likely removed): %s", object_id, str(e)
-                        )
-                        break
-                if object_id in self.queue_file_ids:
-                    self.queue_file_ids.remove(object_id)
-                if album_found:
-                    while True:
-                        try:
-                            self.client.post_command("AlbumSearch", albumIds=[object_id])
-                            break
-                        except (
+                try:
+                    data = with_retry(
+                        lambda: self.client.get_album(object_id),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=(
                             requests.exceptions.ChunkedEncodingError,
                             requests.exceptions.ContentDecodingError,
                             requests.exceptions.ConnectionError,
                             JSONDecodeError,
-                        ):
-                            continue
+                            AttributeError,
+                        ),
+                    )
+                    name = data.get("title")
+                    if name:
+                        artist_title = data.get("artist", {}).get("artistName", "")
+                        foreign_album_id = data.get("foreignAlbumId", "")
+                        self.logger.notice(
+                            "Re-Searching album: %s - %s | [foreignAlbumId=%s|id=%s]",
+                            artist_title,
+                            name,
+                            foreign_album_id,
+                            object_id,
+                        )
+                    else:
+                        self.logger.notice("Re-Searching album: %s", object_id)
+                    album_found = True
+                except PyarrResourceNotFound as e:
+                    self.logger.warning(
+                        "Album %s not found in Lidarr (likely removed): %s", object_id, str(e)
+                    )
+                if object_id in self.queue_file_ids:
+                    self.queue_file_ids.remove(object_id)
+                if album_found:
+                    with_retry(
+                        lambda: self.client.post_command("AlbumSearch", albumIds=[object_id]),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                    )
                     if self.persistent_queue:
                         self.persistent_queue.insert(
                             EntryId=object_id, ArrInstance=self._name
@@ -1759,6 +1660,9 @@ class Arr:
                         hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
                     )
         # Delete missing-files torrents from the correct qBit instance (multi-instance).
+        per_instance_hashes = set()
+        for hashes in self.remove_from_qbit_by_instance.values():
+            per_instance_hashes.update(hashes)
         qbit_manager = self.manager.qbit_manager
         for inst_name, hashes in self.remove_from_qbit_by_instance.items():
             client = qbit_manager.get_client(inst_name)
@@ -1802,6 +1706,7 @@ class Arr:
                     e,
                 )
         self.remove_from_qbit_by_instance.clear()
+        to_delete_all = to_delete_all - per_instance_hashes
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
             deleted_hashes: set[str] = set()
@@ -1929,13 +1834,7 @@ class Arr:
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
-                exceptions=(
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                    requests.exceptions.RequestException,
-                ),
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
             )
             self.rss_sync_timer_last_checked = now
 
@@ -1949,13 +1848,7 @@ class Arr:
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
-                exceptions=(
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                    requests.exceptions.RequestException,
-                ),
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
             )
             self.refresh_downloads_timer_last_checked = now
 
@@ -1963,21 +1856,16 @@ class Arr:
         search_commands = 0
         if not (self.search_missing or self.do_upgrade_search):
             return 0
-        while True:
-            try:
-                commands = self.client.get_command()
-                for command in commands:
-                    # Count all active search commands (including MissingEpisodeSearch)
-                    if command["name"].endswith("Search") and command["status"] != "completed":
-                        search_commands = search_commands + 1
-                break
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-                JSONDecodeError,
-            ):
-                continue
+        commands = with_retry(
+            lambda: self.client.get_command(),
+            retries=5,
+            backoff=0.5,
+            max_backoff=5,
+            exceptions=_ARR_RETRY_EXCEPTIONS,
+        )
+        for command in commands:
+            if command["name"].endswith("Search") and command["status"] != "completed":
+                search_commands = search_commands + 1
 
         return search_commands
 
@@ -2017,7 +1905,7 @@ class Arr:
     ) -> Iterable[
         tuple[MoviesFilesModel | EpisodeFilesModel | SeriesFilesModel, bool, bool, bool, int]
     ]:
-        if self.type == "sonarr" and self.series_search == True:
+        if self.type == "sonarr" and self.series_search is True:
             serieslist = self.db_get_files_series()
             for series in serieslist:
                 yield series[0], series[1], series[2], series[2] is not True, len(serieslist)
@@ -2102,19 +1990,15 @@ class Arr:
                 (self.series_file_model.Searched == True)
                 & (self.series_file_model.ArrInstance == self._name)
             ).execute()
-            while True:
-                try:
-                    series = self.client.get_series()
-                    for s in series:
-                        ids.append(s["id"])
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            series = with_retry(
+                lambda: self.client.get_series(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
+            for s in series:
+                ids.append(s["id"])
             self.series_file_model.delete().where(
                 (self.series_file_model.EntryId.not_in(ids))
                 & (self.series_file_model.ArrInstance == self._name)
@@ -2128,23 +2012,25 @@ class Arr:
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
             self.model_file.update(Searched=False, Upgrade=False).where(
-                self.model_file.Searched == True
+                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
             ).execute()
-            while True:
-                try:
-                    series = self.client.get_series()
-                    for s in series:
-                        episodes = self.client.get_episode(s["id"], True)
-                        for e in episodes:
-                            ids.append(e["id"])
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ) as e:
-                    continue
+            series = with_retry(
+                lambda: self.client.get_series(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
+            for s in series:
+                episodes = with_retry(
+                    lambda s=s: self.client.get_episode(s["id"], True),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
+                for e in episodes:
+                    ids.append(e["id"])
             self.model_file.delete().where(
                 (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
             ).execute()
@@ -2159,19 +2045,15 @@ class Arr:
             self.model_file.update(Searched=False, Upgrade=False).where(
                 (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
             ).execute()
-            while True:
-                try:
-                    movies = self.client.get_movie()
-                    for m in movies:
-                        ids.append(m["id"])
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            movies = with_retry(
+                lambda: self.client.get_movie(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
+            for m in movies:
+                ids.append(m["id"])
             self.model_file.delete().where(
                 (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
             ).execute()
@@ -2186,21 +2068,23 @@ class Arr:
             self.model_file.update(Searched=False, Upgrade=False).where(
                 (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
             ).execute()
-            while True:
-                try:
-                    artists = self.client.get_artist()
-                    for artist in artists:
-                        albums = self.client.get_album(artistId=artist["id"])
-                        for album in albums:
-                            ids.append(album["id"])
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            artists = with_retry(
+                lambda: self.client.get_artist(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
+            for artist in artists:
+                albums = with_retry(
+                    lambda a=artist: self.client.get_album(artistId=a["id"]),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
+                for album in albums:
+                    ids.append(album["id"])
             self.model_file.delete().where(
                 (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
             ).execute()
@@ -2367,14 +2251,14 @@ class Arr:
             for entry in (
                 self.model_file.select()
                 .where(condition)
+                .group_by(self.model_file.SeriesId)
                 .order_by(
-                    reason_priority.asc(),  # Primary: order by reason priority
+                    reason_priority.asc(),
+                    self.model_file.EpisodeFileId.asc(),
                     self.model_file.SeriesTitle,
                     self.model_file.SeasonNumber.desc(),
                     self.model_file.AirDateUtc.desc(),
                 )
-                .group_by(self.model_file.SeriesId)
-                .order_by(self.model_file.EpisodeFileId.asc())
                 .execute()
             ):
                 entries.append([entry, False, False])
@@ -2539,17 +2423,13 @@ class Arr:
         if self.type == "sonarr" and any(i in request_ids for i in ["ImdbId", "TvdbId"]):
             TvdbIds = request_ids.get("TvdbId")
             ImdbIds = request_ids.get("ImdbId")
-            while True:
-                try:
-                    series = self.client.get_series()
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            series = with_retry(
+                lambda: self.client.get_series(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
             for s in series:
                 episodes = self.client.get_episode(s["id"], True)
                 for e in episodes:
@@ -2577,19 +2457,15 @@ class Arr:
         elif self.type == "radarr" and any(i in request_ids for i in ["ImdbId", "TmdbId"]):
             ImdbIds = request_ids.get("ImdbId")
             TmdbIds = request_ids.get("TmdbId")
-            while True:
-                try:
-                    movies = self.client.get_movie()
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            movies = with_retry(
+                lambda: self.client.get_movie(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
             for m in movies:
-                if m["year"] > datetime.now().year and m["year"] == 0:
+                if m["year"] > datetime.now().year or m["year"] == 0:
                     continue
                 if TmdbIds and ImdbIds and "tmdbId" in m and "imdbId" in m:
                     if m["tmdbId"] not in TmdbIds or m["imdbId"] not in ImdbIds:
@@ -2635,17 +2511,13 @@ class Arr:
             return
         if self.type == "sonarr":
             try:
-                while True:
-                    try:
-                        series = self.client.get_series()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                series = with_retry(
+                    lambda: self.client.get_series(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
                 for s in series:
                     episodes = self.client.get_episode(s["id"], True)
                     for e in episodes:
@@ -2669,7 +2541,7 @@ class Arr:
                                 continue
                             self.logger.trace("Updating todays releases")
                             self.db_update_single_series(db_entry=e)
-            except BaseException:
+            except Exception:
                 self.logger.debug("No episode releases found for today")
 
     def db_update(self):
@@ -2695,17 +2567,13 @@ class Arr:
             self.logger.info("Started updating database")
             if self.type == "sonarr":
                 # Always fetch series list for both episode and series-level tracking
-                while True:
-                    try:
-                        series = self.client.get_series()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                series = with_retry(
+                    lambda: self.client.get_series(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
 
                 # Process episodes for episode-level tracking (all episodes)
                 for s in series:
@@ -2732,17 +2600,13 @@ class Arr:
 
                 self.db_update_processed = True
             elif self.type == "radarr":
-                while True:
-                    try:
-                        movies = self.client.get_movie()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                movies = with_retry(
+                    lambda: self.client.get_movie(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
                 # Process all movies
                 for m in movies:
                     if isinstance(m, str):
@@ -2750,34 +2614,25 @@ class Arr:
                     self.db_update_single_series(db_entry=m)
                 self.db_update_processed = True
             elif self.type == "lidarr":
-                while True:
-                    try:
-                        artists = self.client.get_artist()
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                artists = with_retry(
+                    lambda: self.client.get_artist(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
                 for artist in artists:
                     if isinstance(artist, str):
                         continue
-                    while True:
-                        try:
-                            # allArtistAlbums=True includes full album data with media/tracks
-                            albums = self.client.get_album(
-                                artistId=artist["id"], allArtistAlbums=True
-                            )
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
+                    albums = with_retry(
+                        lambda a=artist: self.client.get_album(
+                            artistId=a["id"], allArtistAlbums=True
+                        ),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                    )
                     for album in albums:
                         if isinstance(album, str):
                             continue
@@ -3063,17 +2918,13 @@ class Arr:
                         (self.model_file.EntryId == db_entry["id"])
                         & (self.model_file.ArrInstance == self._name)
                     )
-                    while True:
-                        try:
-                            episode = self.client.get_episode(db_entry["id"])
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
+                    episode = with_retry(
+                        lambda: self.client.get_episode(db_entry["id"]),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                    )
 
                     # Validate episode object has required fields
                     if not episode or not isinstance(episode, dict):
@@ -3104,67 +2955,65 @@ class Arr:
                         return
 
                     if episode.get("monitored", True) or self.search_unmonitored:
-                        while True:
-                            try:
-                                series_info = episode.get("series") or {}
-                                if isinstance(series_info, dict):
-                                    quality_profile_id = series_info.get("qualityProfileId")
-                                else:
-                                    quality_profile_id = getattr(
-                                        series_info, "qualityProfileId", None
+                        series_info = episode.get("series") or {}
+                        if isinstance(series_info, dict):
+                            quality_profile_id = series_info.get("qualityProfileId")
+                        else:
+                            quality_profile_id = getattr(series_info, "qualityProfileId", None)
+                        if not quality_profile_id:
+                            quality_profile_id = db_entry.get("qualityProfileId")
+                        minCustomFormat = (
+                            getattr(episodeData, "MinCustomFormatScore", 0) if episodeData else 0
+                        )
+                        if not minCustomFormat:
+                            if quality_profile_id:
+                                profile = (
+                                    with_retry(
+                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
+                                            qpid
+                                        ),
+                                        retries=5,
+                                        backoff=0.5,
+                                        max_backoff=5,
+                                        exceptions=_ARR_RETRY_EXCEPTIONS,
                                     )
-                                if not quality_profile_id:
-                                    quality_profile_id = db_entry.get("qualityProfileId")
-                                minCustomFormat = (
-                                    getattr(episodeData, "MinCustomFormatScore", 0)
-                                    if episodeData
-                                    else 0
+                                    or {}
                                 )
-                                if not minCustomFormat:
-                                    if quality_profile_id:
-                                        profile = (
-                                            self.client.get_quality_profile(quality_profile_id)
-                                            or {}
-                                        )
-                                        minCustomFormat = profile.get("minFormatScore") or 0
-                                    else:
-                                        self.logger.warning(
-                                            "Episode %s missing qualityProfileId; defaulting custom format threshold to 0",
-                                            episode.get("id"),
-                                        )
-                                        minCustomFormat = 0
-                                episode_file = episode.get("episodeFile") or {}
-                                if isinstance(episode_file, dict):
-                                    episode_file_id = episode_file.get("id")
-                                else:
-                                    episode_file_id = getattr(episode_file, "id", None)
-                                has_file = bool(episode.get("hasFile"))
-                                episode_data_file_id = (
-                                    getattr(episodeData, "EpisodeFileId", None)
-                                    if episodeData
-                                    else None
+                                minCustomFormat = profile.get("minFormatScore") or 0
+                            else:
+                                self.logger.warning(
+                                    "Episode %s missing qualityProfileId; defaulting custom format threshold to 0",
+                                    episode.get("id"),
                                 )
-                                if has_file and episode_file_id:
-                                    if (
-                                        episode_data_file_id
-                                        and episode_file_id == episode_data_file_id
-                                    ):
-                                        customFormat = getattr(episodeData, "CustomFormatScore", 0)
-                                    else:
-                                        file_info = (
-                                            self.client.get_episode_file(episode_file_id) or {}
-                                        )
-                                        customFormat = file_info.get("customFormatScore") or 0
-                                else:
-                                    customFormat = 0
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
+                                minCustomFormat = 0
+                        episode_file = episode.get("episodeFile") or {}
+                        if isinstance(episode_file, dict):
+                            episode_file_id = episode_file.get("id")
+                        else:
+                            episode_file_id = getattr(episode_file, "id", None)
+                        has_file = bool(episode.get("hasFile"))
+                        episode_data_file_id = (
+                            getattr(episodeData, "EpisodeFileId", None) if episodeData else None
+                        )
+                        if has_file and episode_file_id:
+                            if episode_data_file_id and episode_file_id == episode_data_file_id:
+                                customFormat = getattr(episodeData, "CustomFormatScore", 0)
+                            else:
+                                file_info = (
+                                    with_retry(
+                                        lambda efid=episode_file_id: self.client.get_episode_file(
+                                            efid
+                                        ),
+                                        retries=5,
+                                        backoff=0.5,
+                                        max_backoff=5,
+                                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                                    )
+                                    or {}
+                                )
+                                customFormat = file_info.get("customFormatScore") or 0
+                        else:
+                            customFormat = 0
 
                         QualityUnmet = (
                             episode["episodeFile"]["qualityCutoffNotMet"]
@@ -3224,8 +3073,6 @@ class Arr:
                                         new_profile_id,
                                     )
                                 # Reverting to main - clear tracking fields
-                                from datetime import datetime
-
                                 profile_switch_timestamp = datetime.now()
                                 original_profile_for_db = None
                                 current_profile_for_db = None
@@ -3243,8 +3090,6 @@ class Arr:
                                     new_profile_id,
                                 )
                                 # Downgrading to temp - track original and switch time
-                                from datetime import datetime
-
                                 profile_switch_timestamp = datetime.now()
                                 original_profile_for_db = quality_profile_id
                                 current_profile_for_db = new_profile_id
@@ -3402,43 +3247,46 @@ class Arr:
                         & (self.series_file_model.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
-                        while True:
-                            try:
-                                seriesMetadata = self.client.get_series(id_=EntryId) or {}
-                                quality_profile_id = None
-                                if isinstance(seriesMetadata, dict):
-                                    quality_profile_id = seriesMetadata.get("qualityProfileId")
-                                else:
-                                    quality_profile_id = getattr(
-                                        seriesMetadata, "qualityProfileId", None
+                        seriesMetadata = (
+                            with_retry(
+                                lambda eid=EntryId: self.client.get_series(id_=eid),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=_ARR_RETRY_EXCEPTIONS,
+                            )
+                            or {}
+                        )
+                        quality_profile_id = None
+                        if isinstance(seriesMetadata, dict):
+                            quality_profile_id = seriesMetadata.get("qualityProfileId")
+                        else:
+                            quality_profile_id = getattr(seriesMetadata, "qualityProfileId", None)
+                        if not seriesData:
+                            if quality_profile_id:
+                                profile = (
+                                    with_retry(
+                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
+                                            qpid
+                                        ),
+                                        retries=5,
+                                        backoff=0.5,
+                                        max_backoff=5,
+                                        exceptions=_ARR_RETRY_EXCEPTIONS,
                                     )
-                                if not seriesData:
-                                    if quality_profile_id:
-                                        profile = (
-                                            self.client.get_quality_profile(quality_profile_id)
-                                            or {}
-                                        )
-                                        minCustomFormat = profile.get("minFormatScore") or 0
-                                    else:
-                                        self.logger.warning(
-                                            "Series %s (%s) missing qualityProfileId; "
-                                            "defaulting custom format score to 0",
-                                            db_entry.get("title"),
-                                            EntryId,
-                                        )
-                                        minCustomFormat = 0
-                                else:
-                                    minCustomFormat = getattr(
-                                        seriesData, "MinCustomFormatScore", 0
-                                    )
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
+                                    or {}
+                                )
+                                minCustomFormat = profile.get("minFormatScore") or 0
+                            else:
+                                self.logger.warning(
+                                    "Series %s (%s) missing qualityProfileId; "
+                                    "defaulting custom format score to 0",
+                                    db_entry.get("title"),
+                                    EntryId,
+                                )
+                                minCustomFormat = 0
+                        else:
+                            minCustomFormat = getattr(seriesData, "MinCustomFormatScore", 0)
                         episodeCount = 0
                         episodeFileCount = 0
                         totalEpisodeCount = 0
@@ -3592,48 +3440,68 @@ class Arr:
                 if self.minimum_availability_check(db_entry) and (
                     db_entry["monitored"] or self.search_unmonitored
                 ):
-                    while True:
-                        try:
-                            if movieData:
-                                if not movieData.MinCustomFormatScore:
-                                    profile = (
-                                        self.client.get_quality_profile(
-                                            db_entry["qualityProfileId"]
-                                        )
-                                        or {}
-                                    )
-                                    minCustomFormat = profile.get("minFormatScore", 0)
-                                else:
-                                    minCustomFormat = movieData.MinCustomFormatScore
-                                if db_entry["hasFile"]:
-                                    if db_entry["movieFile"]["id"] != movieData.MovieFileId:
-                                        customFormat = self.client.get_movie_file(
-                                            db_entry["movieFile"]["id"]
-                                        )["customFormatScore"]
-                                    else:
-                                        customFormat = movieData.CustomFormatScore
-                                else:
-                                    customFormat = 0
-                            else:
-                                profile = (
-                                    self.client.get_quality_profile(db_entry["qualityProfileId"])
-                                    or {}
+                    _retry_exc = (
+                        requests.exceptions.ChunkedEncodingError,
+                        requests.exceptions.ContentDecodingError,
+                        requests.exceptions.ConnectionError,
+                        JSONDecodeError,
+                    )
+                    if movieData:
+                        if not movieData.MinCustomFormatScore:
+                            profile = (
+                                with_retry(
+                                    lambda: self.client.get_quality_profile(
+                                        db_entry["qualityProfileId"]
+                                    ),
+                                    retries=5,
+                                    backoff=0.5,
+                                    max_backoff=5,
+                                    exceptions=_retry_exc,
                                 )
-                                minCustomFormat = profile.get("minFormatScore", 0)
-                                if db_entry["hasFile"]:
-                                    customFormat = self.client.get_movie_file(
+                                or {}
+                            )
+                            minCustomFormat = profile.get("minFormatScore", 0)
+                        else:
+                            minCustomFormat = movieData.MinCustomFormatScore
+                        if db_entry["hasFile"]:
+                            if db_entry["movieFile"]["id"] != movieData.MovieFileId:
+                                customFormat = with_retry(
+                                    lambda: self.client.get_movie_file(
                                         db_entry["movieFile"]["id"]
-                                    ).get("customFormatScore", 0)
-                                else:
-                                    customFormat = 0
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
+                                    ),
+                                    retries=5,
+                                    backoff=0.5,
+                                    max_backoff=5,
+                                    exceptions=_retry_exc,
+                                )["customFormatScore"]
+                            else:
+                                customFormat = movieData.CustomFormatScore
+                        else:
+                            customFormat = 0
+                    else:
+                        profile = (
+                            with_retry(
+                                lambda: self.client.get_quality_profile(
+                                    db_entry["qualityProfileId"]
+                                ),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=_retry_exc,
+                            )
+                            or {}
+                        )
+                        minCustomFormat = profile.get("minFormatScore", 0)
+                        if db_entry["hasFile"]:
+                            customFormat = with_retry(
+                                lambda: self.client.get_movie_file(db_entry["movieFile"]["id"]),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=_retry_exc,
+                            ).get("customFormatScore", 0)
+                        else:
+                            customFormat = 0
                     QualityUnmet = (
                         db_entry["movieFile"]["qualityCutoffNotMet"]
                         if "movieFile" in db_entry
@@ -3674,8 +3542,6 @@ class Arr:
                                 new_main_id,
                             )
                             # Reverting to main - clear tracking fields
-                            from datetime import datetime
-
                             profile_switch_timestamp = datetime.now()
                             original_profile_for_db = None
                             current_profile_for_db = None
@@ -3692,8 +3558,6 @@ class Arr:
                                 new_temp_id,
                             )
                             # Downgrading to temp - track original and switch time
-                            from datetime import datetime
-
                             profile_switch_timestamp = datetime.now()
                             original_profile_for_db = quality_profile_id
                             current_profile_for_db = new_temp_id
@@ -3832,107 +3696,91 @@ class Arr:
                         & (self.model_file.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
-                        while True:
-                            try:
-                                if albumData:
-                                    if not albumData.MinCustomFormatScore:
+                        _retry_exc = (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        )
+                        if albumData:
+                            if not albumData.MinCustomFormatScore:
+                                try:
+                                    profile_id = db_entry["profileId"]
+                                    if profile_id in self._invalid_quality_profiles:
+                                        minCustomFormat = 0
+                                    elif profile_id in self._quality_profile_cache:
+                                        minCustomFormat = self._quality_profile_cache[
+                                            profile_id
+                                        ].get("minFormatScore", 0)
+                                    else:
                                         try:
-                                            profile_id = db_entry["profileId"]
-                                            # Check if this profile ID is known to be invalid
-                                            if profile_id in self._invalid_quality_profiles:
-                                                minCustomFormat = 0
-                                            # Check cache first
-                                            elif profile_id in self._quality_profile_cache:
-                                                minCustomFormat = self._quality_profile_cache[
-                                                    profile_id
-                                                ].get("minFormatScore", 0)
-                                            else:
-                                                # Fetch from API and cache
-                                                try:
-                                                    profile = self.client.get_quality_profile(
-                                                        profile_id
-                                                    )
-                                                    self._quality_profile_cache[profile_id] = (
-                                                        profile
-                                                    )
-                                                    minCustomFormat = profile.get(
-                                                        "minFormatScore", 0
-                                                    )
-                                                except PyarrResourceNotFound:
-                                                    # Mark as invalid to avoid repeated warnings
-                                                    self._invalid_quality_profiles.add(profile_id)
-                                                    self.logger.warning(
-                                                        "Quality profile %s not found for album %s, defaulting to 0",
-                                                        db_entry.get("profileId"),
-                                                        db_entry.get("title", "Unknown"),
-                                                    )
-                                                    minCustomFormat = 0
-                                        except Exception:
-                                            minCustomFormat = 0
-                                    else:
-                                        minCustomFormat = albumData.MinCustomFormatScore
-                                    if (
-                                        db_entry.get("statistics", {}).get("percentOfTracks", 0)
-                                        == 100
-                                    ):
-                                        # Album has files
-                                        albumFileId = db_entry.get("statistics", {}).get(
-                                            "sizeOnDisk", 0
-                                        )
-                                        if albumFileId != albumData.AlbumFileId:
-                                            # Get custom format score from album files
-                                            customFormat = (
-                                                0  # Lidarr may not have customFormatScore
+                                            profile = with_retry(
+                                                lambda pid=profile_id: self.client.get_quality_profile(
+                                                    pid
+                                                ),
+                                                retries=5,
+                                                backoff=0.5,
+                                                max_backoff=5,
+                                                exceptions=_retry_exc,
                                             )
-                                        else:
-                                            customFormat = albumData.CustomFormatScore
-                                    else:
-                                        customFormat = 0
+                                            self._quality_profile_cache[profile_id] = profile
+                                            minCustomFormat = profile.get("minFormatScore", 0)
+                                        except PyarrResourceNotFound:
+                                            self._invalid_quality_profiles.add(profile_id)
+                                            self.logger.warning(
+                                                "Quality profile %s not found for album %s, defaulting to 0",
+                                                db_entry.get("profileId"),
+                                                db_entry.get("title", "Unknown"),
+                                            )
+                                            minCustomFormat = 0
+                                except Exception:
+                                    minCustomFormat = 0
+                            else:
+                                minCustomFormat = albumData.MinCustomFormatScore
+                            if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
+                                albumFileId = db_entry.get("statistics", {}).get("sizeOnDisk", 0)
+                                if albumFileId != albumData.AlbumFileId:
+                                    customFormat = 0  # Lidarr may not have customFormatScore
+                                else:
+                                    customFormat = albumData.CustomFormatScore
+                            else:
+                                customFormat = 0
+                        else:
+                            try:
+                                profile_id = db_entry["profileId"]
+                                if profile_id in self._invalid_quality_profiles:
+                                    minCustomFormat = 0
+                                elif profile_id in self._quality_profile_cache:
+                                    minCustomFormat = self._quality_profile_cache[profile_id].get(
+                                        "minFormatScore", 0
+                                    )
                                 else:
                                     try:
-                                        profile_id = db_entry["profileId"]
-                                        # Check if this profile ID is known to be invalid
-                                        if profile_id in self._invalid_quality_profiles:
-                                            minCustomFormat = 0
-                                        # Check cache first
-                                        elif profile_id in self._quality_profile_cache:
-                                            minCustomFormat = self._quality_profile_cache[
-                                                profile_id
-                                            ].get("minFormatScore", 0)
-                                        else:
-                                            # Fetch from API and cache
-                                            try:
-                                                profile = self.client.get_quality_profile(
-                                                    profile_id
-                                                )
-                                                self._quality_profile_cache[profile_id] = profile
-                                                minCustomFormat = profile.get("minFormatScore", 0)
-                                            except PyarrResourceNotFound:
-                                                # Mark as invalid to avoid repeated warnings
-                                                self._invalid_quality_profiles.add(profile_id)
-                                                self.logger.warning(
-                                                    "Quality profile %s not found for album %s, defaulting to 0",
-                                                    db_entry.get("profileId"),
-                                                    db_entry.get("title", "Unknown"),
-                                                )
-                                                minCustomFormat = 0
-                                    except Exception:
+                                        profile = with_retry(
+                                            lambda pid=profile_id: self.client.get_quality_profile(
+                                                pid
+                                            ),
+                                            retries=5,
+                                            backoff=0.5,
+                                            max_backoff=5,
+                                            exceptions=_retry_exc,
+                                        )
+                                        self._quality_profile_cache[profile_id] = profile
+                                        minCustomFormat = profile.get("minFormatScore", 0)
+                                    except PyarrResourceNotFound:
+                                        self._invalid_quality_profiles.add(profile_id)
+                                        self.logger.warning(
+                                            "Quality profile %s not found for album %s, defaulting to 0",
+                                            db_entry.get("profileId"),
+                                            db_entry.get("title", "Unknown"),
+                                        )
                                         minCustomFormat = 0
-                                    if (
-                                        db_entry.get("statistics", {}).get("percentOfTracks", 0)
-                                        == 100
-                                    ):
-                                        customFormat = 0  # Lidarr may not have customFormatScore
-                                    else:
-                                        customFormat = 0
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
+                            except Exception:
+                                minCustomFormat = 0
+                            if db_entry.get("statistics", {}).get("percentOfTracks", 0) == 100:
+                                customFormat = 0  # Lidarr may not have customFormatScore
+                            else:
+                                customFormat = 0
 
                         # Determine if album has all tracks
                         hasAllTracks = (
@@ -4191,43 +4039,52 @@ class Arr:
                         & (self.artists_file_model.ArrInstance == self._name)
                     )
                     if db_entry["monitored"] or self.search_unmonitored:
-                        while True:
-                            try:
-                                artistMetadata = self.client.get_artist(id_=EntryId) or {}
-                                quality_profile_id = None
-                                if isinstance(artistMetadata, dict):
-                                    quality_profile_id = artistMetadata.get("qualityProfileId")
-                                else:
-                                    quality_profile_id = getattr(
-                                        artistMetadata, "qualityProfileId", None
+                        _retry_exc = (
+                            requests.exceptions.ChunkedEncodingError,
+                            requests.exceptions.ContentDecodingError,
+                            requests.exceptions.ConnectionError,
+                            JSONDecodeError,
+                        )
+                        artistMetadata = (
+                            with_retry(
+                                lambda eid=EntryId: self.client.get_artist(id_=eid),
+                                retries=5,
+                                backoff=0.5,
+                                max_backoff=5,
+                                exceptions=_retry_exc,
+                            )
+                            or {}
+                        )
+                        quality_profile_id = None
+                        if isinstance(artistMetadata, dict):
+                            quality_profile_id = artistMetadata.get("qualityProfileId")
+                        else:
+                            quality_profile_id = getattr(artistMetadata, "qualityProfileId", None)
+                        if not artistData:
+                            if quality_profile_id:
+                                profile = (
+                                    with_retry(
+                                        lambda qpid=quality_profile_id: self.client.get_quality_profile(
+                                            qpid
+                                        ),
+                                        retries=5,
+                                        backoff=0.5,
+                                        max_backoff=5,
+                                        exceptions=_retry_exc,
                                     )
-                                if not artistData:
-                                    if quality_profile_id:
-                                        profile = (
-                                            self.client.get_quality_profile(quality_profile_id)
-                                            or {}
-                                        )
-                                        minCustomFormat = profile.get("minFormatScore") or 0
-                                    else:
-                                        self.logger.warning(
-                                            "Artist %s (%s) missing qualityProfileId; "
-                                            "defaulting custom format score to 0",
-                                            db_entry.get("artistName"),
-                                            EntryId,
-                                        )
-                                        minCustomFormat = 0
-                                else:
-                                    minCustomFormat = getattr(
-                                        artistData, "MinCustomFormatScore", 0
-                                    )
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ):
-                                continue
+                                    or {}
+                                )
+                                minCustomFormat = profile.get("minFormatScore") or 0
+                            else:
+                                self.logger.warning(
+                                    "Artist %s (%s) missing qualityProfileId; "
+                                    "defaulting custom format score to 0",
+                                    db_entry.get("artistName"),
+                                    EntryId,
+                                )
+                                minCustomFormat = 0
+                        else:
+                            minCustomFormat = getattr(artistData, "MinCustomFormatScore", 0)
                         # Calculate if artist is fully searched based on album statistics
                         statistics = artistMetadata.get("statistics", {})
                         albumCount = statistics.get("albumCount", 0)
@@ -4323,7 +4180,7 @@ class Arr:
                 db_entry["title"],
                 exc_info=e,
             )
-            raise DelayLoopException(length=300, type=self._name)
+            raise DelayLoopException(length=300, error_type=self._name)
         except JSONDecodeError:
             if self.type == "sonarr":
                 if self.series_search:
@@ -4343,21 +4200,13 @@ class Arr:
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
         try:
-            while True:
-                try:
-                    res = self.client.del_queue(id_, remove_from_client, blacklist)
-                    # res = self.client._delete(
-                    #     f"queue/{id_}?removeFromClient={remove_from_client}&blocklist={blacklist}",
-                    #     self.client.ver_uri,
-                    # )
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue
+            res = with_retry(
+                lambda: self.client.del_queue(id_, remove_from_client, blacklist),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
         except PyarrResourceNotFound as e:
             # Queue item not found - this is expected when Arr has already auto-imported
             # and removed the item, or if it was manually removed. Clean up internal tracking.
@@ -4405,7 +4254,7 @@ class Arr:
                 return False
             self.files_probed.add(file)
             return True
-        except BaseException as e:
+        except Exception as e:
             error = e.stderr.decode()
             self.logger.trace(
                 "Not probeable: Probe returned an error: %s:\n%s",
@@ -4550,7 +4399,7 @@ class Arr:
         if not features_enabled and not (request or todays):
             return None
         elif not self.is_alive:
-            raise NoConnectionrException(f"Could not connect to {self.uri}", type="arr")
+            raise NoConnectionrException(f"Could not connect to {self.uri}", error_type="arr")
         elif self.type == "sonarr":
             if not series_search:
                 file_model: EpisodeFilesModel
@@ -4606,19 +4455,15 @@ class Arr:
                     Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_replace().execute()
                 if file_model.EntryId not in self.queue_file_ids:
-                    while True:
-                        try:
-                            self.client.post_command(
-                                "EpisodeSearch", episodeIds=[file_model.EntryId]
-                            )
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ):
-                            continue
+                    with_retry(
+                        lambda: self.client.post_command(
+                            "EpisodeSearch", episodeIds=[file_model.EntryId]
+                        ),
+                        retries=5,
+                        backoff=0.5,
+                        max_backoff=5,
+                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                    )
                 self.model_file.update(Searched=True, Upgrade=True).where(
                     (self.model_file.EntryId == file_model.EntryId)
                     & (self.model_file.ArrInstance == self._name)
@@ -4678,19 +4523,15 @@ class Arr:
                 self.model_queue.insert(
                     Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
                 ).on_conflict_replace().execute()
-                while True:
-                    try:
-                        self.client.post_command(
-                            self.search_api_command, seriesId=file_model.EntryId
-                        )
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                with_retry(
+                    lambda: self.client.post_command(
+                        self.search_api_command, seriesId=file_model.EntryId
+                    ),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
                 self.model_file.update(Searched=True, Upgrade=True).where(
                     (self.model_file.EntryId == file_model.EntryId)
                     & (self.model_file.ArrInstance == self._name)
@@ -4754,17 +4595,15 @@ class Arr:
                 Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
             ).on_conflict_replace().execute()
             if file_model.EntryId:
-                while True:
-                    try:
-                        self.client.post_command("MoviesSearch", movieIds=[file_model.EntryId])
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                with_retry(
+                    lambda: self.client.post_command(
+                        "MoviesSearch", movieIds=[file_model.EntryId]
+                    ),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
             self.model_file.update(Searched=True, Upgrade=True).where(
                 (self.model_file.EntryId == file_model.EntryId)
                 & (self.model_file.ArrInstance == self._name)
@@ -4842,17 +4681,13 @@ class Arr:
                 Completed=False, EntryId=file_model.EntryId, ArrInstance=self._name
             ).on_conflict_replace().execute()
             if file_model.EntryId:
-                while True:
-                    try:
-                        self.client.post_command("AlbumSearch", albumIds=[file_model.EntryId])
-                        break
-                    except (
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                    ):
-                        continue
+                with_retry(
+                    lambda: self.client.post_command("AlbumSearch", albumIds=[file_model.EntryId]),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
             self.model_file.update(Searched=True, Upgrade=True).where(
                 (self.model_file.EntryId == file_model.EntryId)
                 & (self.model_file.ArrInstance == self._name)
@@ -4961,16 +4796,13 @@ class Arr:
     def process_torrents(self):
         try:
             try:
-                while True:
-                    try:
-                        # Multi-instance: Scan all qBit instances for category-matching torrents
-                        torrents_with_instances = self._get_torrents_from_all_instances()
-                        break
-                    except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
-                        if isinstance(e, JSONDecodeError):
-                            continue
-                        else:
-                            raise qbittorrentapi.exceptions.APIError
+                torrents_with_instances = with_retry(
+                    lambda: self._get_torrents_from_all_instances(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=(JSONDecodeError,),
+                )
 
                 # Filter torrents that have category attribute
                 torrents_with_instances = [
@@ -4981,14 +4813,14 @@ class Arr:
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
                 if not len(torrents_with_instances):
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
                 # Internet check: use the first available qBit client
                 if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
                 # Initialize database error tracking for exponential backoff
                 if not hasattr(self, "_db_error_count"):
@@ -5036,7 +4868,7 @@ class Arr:
             except qbittorrentapi.exceptions.APIError:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
+                raise DelayLoopException(length=300, error_type="qbit")
             except (OperationalError, DatabaseError) as e:
                 # Database errors after retry exhaustion - implement automatic recovery with backoff
                 error_msg = str(e).lower()
@@ -5134,7 +4966,7 @@ class Arr:
                         )
 
                 # Delay processing to avoid hammering failing database
-                raise DelayLoopException(length=delay_seconds, type="database")
+                raise DelayLoopException(length=delay_seconds, error_type="database")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -5828,7 +5660,7 @@ class Arr:
         except qbittorrentapi.exceptions.APIError as e:
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-            raise DelayLoopException(length=300, type="qbit")
+            raise DelayLoopException(length=300, error_type="qbit")
         # Host-based matching: resolve qBit announce URLs to their config URIs.
         # Supports apex/suffix matching so that an announce URL using a subdomain
         # (e.g. "tracker.torrentleech.org") matches a config URI that is the apex
@@ -6404,18 +6236,13 @@ class Arr:
 
     def custom_format_unmet_check(self, torrent: qbittorrentapi.TorrentDictionary) -> bool:
         try:
-            # Retry getting the queue until it succeeds
-            while True:
-                try:
-                    queue = self.client.get_queue()
-                    break
-                except (
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                ):
-                    continue  # Retry on exceptions
+            queue = with_retry(
+                lambda: self.client.get_queue(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=_ARR_RETRY_EXCEPTIONS,
+            )
 
             if not queue.get("records"):
                 return False
@@ -6713,13 +6540,7 @@ class Arr:
             retries=3,
             backoff=0.5,
             max_backoff=3,
-            exceptions=(
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-                JSONDecodeError,
-                requests.exceptions.RequestException,
-            ),
+            exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
         )
         try:
             res = res.get("records", [])
@@ -6773,37 +6594,24 @@ class Arr:
             self.quality_profile_mappings,
         )
 
-        while True:
-            try:
-                profiles = self.client.get_quality_profile()
-                self.logger.debug("Fetched %d quality profiles from API", len(profiles))
-                break
-            except (
-                requests.exceptions.ChunkedEncodingError,
-                requests.exceptions.ContentDecodingError,
-                requests.exceptions.ConnectionError,
-                JSONDecodeError,
-            ) as e:
-                # transient network/encoding issues; retry
-                self.logger.warning(
-                    "Transient error fetching quality profiles, retrying: %s", type(e).__name__
-                )
-                continue
-            except PyarrServerError as e:
-                # Server-side error (e.g., Radarr DB disk I/O). Log and wait 5 minutes before retrying.
-                self.logger.error(
-                    "Failed to get quality profiles (server error): %s -- retrying in 5 minutes", e
-                )
-                try:
-                    time.sleep(300)
-                except Exception:
-                    pass
-                continue
-            except Exception as e:
-                # Unexpected error; log and continue without profiles.
-                self.logger.error("Unexpected error getting quality profiles: %s", e)
-                profiles = []
-                break
+        try:
+            profiles = with_retry(
+                lambda: self.client.get_quality_profile(),
+                retries=5,
+                backoff=0.5,
+                max_backoff=5,
+                exceptions=(
+                    requests.exceptions.ChunkedEncodingError,
+                    requests.exceptions.ContentDecodingError,
+                    requests.exceptions.ConnectionError,
+                    JSONDecodeError,
+                    PyarrServerError,
+                ),
+            )
+            self.logger.debug("Fetched %d quality profiles from API", len(profiles))
+        except Exception as e:
+            self.logger.error("Unexpected error getting quality profiles: %s", e)
+            profiles = []
 
         # Build a lookup dict for profile name -> ID
         profile_name_to_id = {p["name"]: p["id"] for p in profiles}
@@ -6868,10 +6676,10 @@ class Arr:
                 items = self.client.get_artist()
                 item_type = "artist"
             else:
-                self.logger.warning(f"Unknown Arr type for temp profile reset: {self._name}")
+                self.logger.warning("Unknown Arr type for temp profile reset: %s", self._name)
                 return
 
-            self.logger.info(f"Checking {len(items)} {item_type}s for temp profile resets...")
+            self.logger.info("Checking %d %ss for temp profile resets...", len(items), item_type)
 
             for item in items:
                 profile_id = item.get("qualityProfileId")
@@ -6922,14 +6730,12 @@ class Arr:
                 )
 
         except Exception as e:
-            self.logger.error(f"Error during temp profile reset: {e}", exc_info=True)
+            self.logger.error("Error during temp profile reset: %s", e, exc_info=True)
 
     def _check_temp_profile_timeouts(self):
         """Check for items with temp profiles that have exceeded the timeout and reset them."""
         if self.temp_profile_timeout_minutes == 0:
             return  # Feature disabled
-
-        from datetime import timedelta
 
         timeout_threshold = datetime.now() - timedelta(minutes=self.temp_profile_timeout_minutes)
         reset_count = 0
@@ -7018,7 +6824,7 @@ class Arr:
                 )
 
         except Exception as e:
-            self.logger.error(f"Error checking temp profile timeouts: {e}", exc_info=True)
+            self.logger.error("Error checking temp profile timeouts: %s", e, exc_info=True)
 
     def register_search_mode(self):
         """Initialize database models using the single shared database."""
@@ -7144,33 +6950,33 @@ class Arr:
                 self.request_search_timer = time.time()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
-                raise DelayLoopException(length=300, type=e.type)
+                raise DelayLoopException(length=300, error_type=e.error_type)
             except DelayLoopException:
                 raise
             except Exception as e:
                 self.logger.exception(e, exc_info=sys.exc_info())
         except DelayLoopException as e:
-            if e.type == "qbit":
+            if e.error_type == "qbit":
                 self.logger.critical(
                     "Failed to connected to qBit client, sleeping for %s",
                     timedelta(seconds=e.length),
                 )
-            elif e.type == "internet":
+            elif e.error_type == "internet":
                 self.logger.critical(
                     "Failed to connected to the internet, sleeping for %s",
                     timedelta(seconds=e.length),
                 )
-            elif e.type == "arr":
+            elif e.error_type == "arr":
                 self.logger.critical(
                     "Failed to connected to the Arr instance, sleeping for %s",
                     timedelta(seconds=e.length),
                 )
-            elif e.type == "delay":
+            elif e.error_type == "delay":
                 self.logger.critical(
                     "Forced delay due to temporary issue with environment, sleeping for %s",
                     timedelta(seconds=e.length),
                 )
-            elif e.type == "no_downloads":
+            elif e.error_type == "no_downloads":
                 self.logger.debug(
                     "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
                 )
@@ -7186,13 +6992,7 @@ class Arr:
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
-                exceptions=(
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                    requests.exceptions.RequestException,
-                ),
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
             )
 
             for m in movies:
@@ -7207,28 +7007,16 @@ class Arr:
                 retries=3,
                 backoff=0.5,
                 max_backoff=3,
-                exceptions=(
-                    requests.exceptions.ChunkedEncodingError,
-                    requests.exceptions.ContentDecodingError,
-                    requests.exceptions.ConnectionError,
-                    JSONDecodeError,
-                    requests.exceptions.RequestException,
-                ),
+                exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
             )
 
             for s in series:
                 episodes = with_retry(
-                    lambda: self.client.get_episode(s["id"], True),
+                    lambda s=s: self.client.get_episode(s["id"], True),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
-                    exceptions=(
-                        requests.exceptions.ChunkedEncodingError,
-                        requests.exceptions.ContentDecodingError,
-                        requests.exceptions.ConnectionError,
-                        JSONDecodeError,
-                        requests.exceptions.RequestException,
-                    ),
+                    exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                 )
                 for e in episodes:
                     if "airDateUtc" in e:
@@ -7297,7 +7085,7 @@ class Arr:
                         years, years_count = self.get_year_search()
                         try:
                             self.search_current_year = years[years_index]
-                        except BaseException:
+                        except Exception:
                             self.search_current_year = years[: years_index + 1]
                     self.logger.debug("Current year %s", self.search_current_year)
                 try:
@@ -7389,7 +7177,7 @@ class Arr:
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
-                        raise DelayLoopException(length=300, type=e.type)
+                        raise DelayLoopException(length=300, error_type=e.error_type)
                     except DelayLoopException:
                         raise
                     except ValueError:
@@ -7397,27 +7185,27 @@ class Arr:
                         self.loop_completed = True
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
-                        raise DelayLoopException(length=300, type="qbit")
+                        raise DelayLoopException(length=300, error_type="qbit")
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
                 except DelayLoopException as e:
-                    if e.type == "qbit":
+                    if e.error_type == "qbit":
                         self.logger.critical(
                             "Failed to connected to qBit client, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "internet":
+                    elif e.error_type == "internet":
                         self.logger.critical(
                             "Failed to connected to the internet, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "arr":
+                    elif e.error_type == "arr":
                         self.logger.critical(
                             "Failed to connected to the Arr instance, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "delay":
+                    elif e.error_type == "delay":
                         self.logger.critical(
                             "Forced delay due to temporary issue with environment, "
                             "sleeping for %s",
@@ -7464,13 +7252,13 @@ class Arr:
                     except NoConnectionrException as e:
                         self.logger.error(e.message)
                         self.manager.qbit_manager.should_delay_torrent_scan = True
-                        raise DelayLoopException(length=300, type="arr")
+                        raise DelayLoopException(length=300, error_type="arr")
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
-                        raise DelayLoopException(length=300, type="qbit")
+                        raise DelayLoopException(length=300, error_type="qbit")
                     except qbittorrentapi.exceptions.APIError as e:
                         self.logger.warning(e)
-                        raise DelayLoopException(length=300, type="qbit")
+                        raise DelayLoopException(length=300, error_type="qbit")
                     except DelayLoopException:
                         raise
                     except KeyboardInterrupt:
@@ -7480,28 +7268,28 @@ class Arr:
                         self.logger.error(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
                 except DelayLoopException as e:
-                    if e.type == "qbit":
+                    if e.error_type == "qbit":
                         self.logger.critical(
                             "Failed to connected to qBit client, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "internet":
+                    elif e.error_type == "internet":
                         self.logger.critical(
                             "Failed to connected to the internet, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "arr":
+                    elif e.error_type == "arr":
                         self.logger.critical(
                             "Failed to connected to the Arr instance, sleeping for %s",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "delay":
+                    elif e.error_type == "delay":
                         self.logger.critical(
                             "Forced delay due to temporary issue with environment, "
                             "sleeping for %s.",
                             timedelta(seconds=e.length),
                         )
-                    elif e.type == "no_downloads":
+                    elif e.error_type == "no_downloads":
                         self.logger.debug(
                             "No downloads in category, sleeping for %s",
                             timedelta(seconds=e.length),
@@ -7618,7 +7406,12 @@ class PlaceHolderArr(Arr):
         self.queue_active_count: int = 0
         self.category_torrent_count: int = 0
         self.free_space_tagged_count: int = 0
-        self.register_search_mode()
+        if TAGLESS:
+            self.register_search_mode()
+        else:
+            self.torrents = None
+            self.db = None
+            self.search_setup_completed = True
         self.logger.hnotice("Starting %s monitor", self._name)
 
     def _get_models(
@@ -7941,14 +7734,13 @@ class PlaceHolderArr(Arr):
     def process_torrents(self):
         try:
             try:
-                while True:
-                    try:
-                        torrents_with_instances = self._get_torrents_from_all_instances()
-                        break
-                    except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
-                        if isinstance(e, JSONDecodeError):
-                            continue
-                        raise qbittorrentapi.exceptions.APIError
+                torrents_with_instances = with_retry(
+                    lambda: self._get_torrents_from_all_instances(),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=(JSONDecodeError,),
+                )
 
                 torrents_with_instances = [
                     (instance, t)
@@ -7958,13 +7750,13 @@ class PlaceHolderArr(Arr):
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
                 if not torrents_with_instances:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
                 if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
@@ -7975,10 +7767,10 @@ class PlaceHolderArr(Arr):
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
+                raise DelayLoopException(length=300, error_type="qbit")
             except qbittorrentapi.exceptions.APIConnectionError:
                 self.logger.warning("Max retries exceeded")
-                raise DelayLoopException(length=300, type="qbit")
+                raise DelayLoopException(length=300, error_type="qbit")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:
@@ -8015,7 +7807,7 @@ class FreeSpaceManager(Arr):
         self._app_data_folder = APPDATA_FOLDER
         # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
-        if FREE_SPACE_FOLDER == "CHANGE_ME":
+        if FREE_SPACE_FOLDER == CHANGE_ME_SENTINEL:
             # Prefer an Arr-managed category so the path exists (Arr uses category subdirs).
             # qBit-managed-only categories may have no subdir under COMPLETED_DOWNLOAD_FOLDER.
             arr_cats = self.categories & self.manager.arr_categories
@@ -8028,13 +7820,13 @@ class FreeSpaceManager(Arr):
         else:
             self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
             self._disk_usage_path = pathlib.Path(FREE_SPACE_FOLDER).resolve()
-        self._free_space_folder_is_auto = FREE_SPACE_FOLDER == "CHANGE_ME"
+        self._free_space_folder_is_auto = FREE_SPACE_FOLDER == CHANGE_ME_SENTINEL
         self.min_free_space = FREE_SPACE
         # Parse once to avoid repeated conversions
         self._min_free_space_bytes = (
             parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
         )
-        if FREE_SPACE_FOLDER == "CHANGE_ME" and not self.completed_folder.exists():
+        if FREE_SPACE_FOLDER == CHANGE_ME_SENTINEL and not self.completed_folder.exists():
             # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
             parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
             if parent.exists():
@@ -8204,24 +7996,29 @@ class FreeSpaceManager(Arr):
             try:
                 _client = self.manager.qbit_manager.client
                 if _client is None:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
-                while True:
-                    try:
-                        # Fetch per category to reduce client-side filtering
-                        torrents = []
-                        for cat in self.categories:
-                            with contextlib.suppress(qbittorrentapi.exceptions.APIError):
-                                torrents.extend(
-                                    _client.torrents.info(
-                                        status_filter="all",
-                                        category=cat,
-                                        sort="added_on",
-                                        reverse=False,
-                                    )
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+
+                def _fetch_free_space_torrents():
+                    result = []
+                    for cat in self.categories:
+                        with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                            result.extend(
+                                _client.torrents.info(
+                                    status_filter="all",
+                                    category=cat,
+                                    sort="added_on",
+                                    reverse=False,
                                 )
-                        break
-                    except qbittorrentapi.exceptions.APIError:
-                        continue
+                            )
+                    return result
+
+                torrents = with_retry(
+                    _fetch_free_space_torrents,
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=(qbittorrentapi.exceptions.APIError,),
+                )
                 torrents = [t for t in torrents if hasattr(t, "category")]
                 torrents = [t for t in torrents if t.category in self.categories]
                 torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
@@ -8233,12 +8030,12 @@ class FreeSpaceManager(Arr):
                     if self.in_tags(t, "qBitrr-free_space_paused", _first_instance)
                 )
                 if not len(torrents):
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, type="no_downloads")
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
                 if not has_internet(self.manager.qbit_manager.client):
                     self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="internet")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
                 if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, type="delay")
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
                 # Re-resolve path each loop so we use the configured path once it appears
                 # (e.g. Docker volume mounted after process start). Only when path was
                 # auto-chosen (CHANGE_ME); explicit FreeSpaceFolder must exist or we error.
@@ -8269,10 +8066,10 @@ class FreeSpaceManager(Arr):
             except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
                 self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
-                raise DelayLoopException(length=300, type="qbit")
+                raise DelayLoopException(length=300, error_type="qbit")
             except qbittorrentapi.exceptions.APIConnectionError:
                 self.logger.warning("Max retries exceeded")
-                raise DelayLoopException(length=300, type="qbit")
+                raise DelayLoopException(length=300, error_type="qbit")
             except DelayLoopException:
                 raise
             except KeyboardInterrupt:

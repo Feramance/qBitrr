@@ -6,8 +6,7 @@ RUN cd webui && npm ci
 COPY webui webui
 RUN mkdir -p qBitrr/static && cd webui && npm run build
 
-# Pin Python to the latest supported version we support in production
-FROM python:3.14
+FROM python:3.12-slim
 
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
@@ -25,11 +24,15 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONOPTIMIZE=1
 
-RUN pip install --quiet -U pip wheel
+RUN pip install --no-cache-dir --quiet -U pip wheel
 WORKDIR /app
 COPY . /app
 COPY --from=webui-build /src/qBitrr/static/ /app/qBitrr/static/
-RUN rm -rf qBitrr2.egg-info *.egg-info && pip install --quiet ".[fast]"
+RUN rm -rf qBitrr2.egg-info *.egg-info && pip install --no-cache-dir --quiet ".[fast]"
+
+RUN groupadd -r qbitrr && useradd -r -g qbitrr -d /config -s /sbin/nologin qbitrr \
+    && mkdir -p /config && chown -R qbitrr:qbitrr /config /app
+USER qbitrr
 
 WORKDIR /config
 

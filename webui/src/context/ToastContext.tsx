@@ -76,7 +76,9 @@ export function ToastViewport(): JSX.Element | null {
         <div
           key={toast.id}
           className={`toast ${toast.kind !== "info" ? toast.kind : ""}`}
-          role="status"
+          role="alert"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') dismiss(toast.id); }}
           onClick={() => dismiss(toast.id)}
         >
           {toast.message}

@@ -61,7 +61,7 @@ jobs:
       run: "bump2version \"${RELEASE_TYPE}\"\n"
     - name: Capture new version
       id: version
-      run: "VERSION=$(python setup.py --version)\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
+      run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
     - name: Import GPG key
       id: import_gpg
       uses: crazy-max/ghaction-import-gpg@v6.3.0

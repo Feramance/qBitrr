@@ -45,6 +45,9 @@ function resolveToken(): string | null {
     const fromQuery = params.get("token");
     if (fromQuery) {
       localStorage.setItem("token", fromQuery);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("token");
+      window.history.replaceState({}, "", cleanUrl.toString());
       return fromQuery;
     }
   } catch {
@@ -313,37 +316,10 @@ export async function getConfig(): Promise<ConfigDocument> {
 export async function updateConfig(
   payload: ConfigUpdatePayload
 ): Promise<ConfigUpdateResponse> {
-  const token = resolveToken();
-  const response = await fetch("/web/config", buildInit({
+  return fetchJson<ConfigUpdateResponse>("/web/config", {
     method: "POST",
     body: JSON.stringify(payload),
-  }, token));
-
-  if (!response.ok) {
-    let detail: unknown = null;
-    try {
-      detail = await response.json();
-    } catch {
-      // ignore
-    }
-    let message = `${response.status} ${response.statusText}`;
-    if (
-      detail &&
-      typeof detail === "object" &&
-      "error" in detail &&
-      typeof (detail as Record<string, unknown>).error === "string"
-    ) {
-      const errorText = (detail as Record<string, unknown>).error as string;
-      if (errorText.trim()) {
-        message = errorText;
-      }
-    }
-    throw new Error(message);
-  }
-
-  // Parse response body with full type information
-  const data = await response.json() as ConfigUpdateResponse;
-  return data;
+  });
 }
 
 export async function triggerUpdate(): Promise<void> {

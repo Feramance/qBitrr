@@ -45,8 +45,6 @@ def process_flags() -> argparse.Namespace | bool:
     args = parser.parse_args()
 
     if args.gen_config:
-        from qBitrr.gen_config import _write_config_file
-
         _write_config_file()
         return True
     elif args.license:
@@ -177,7 +175,7 @@ if QBIT_DISABLED and PROCESS_ONLY:
     print("Exiting...")
     sys.exit(1)
 
-if SEARCH_ONLY and QBIT_DISABLED is False:
+if SEARCH_ONLY and not QBIT_DISABLED:
     QBIT_DISABLED = True
     print("QBITRR_OVERRIDES_SEARCH_ONLY is enabled, forcing qBitTorrent setting off")
 

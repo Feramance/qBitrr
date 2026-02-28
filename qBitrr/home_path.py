@@ -20,4 +20,4 @@ else:
 
 APPDATA_FOLDER = HOME_PATH.joinpath("qBitManager")
 APPDATA_FOLDER.mkdir(parents=True, exist_ok=True)
-APPDATA_FOLDER.chmod(mode=0o777)
+APPDATA_FOLDER.chmod(mode=0o755)

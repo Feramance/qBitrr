@@ -65,7 +65,7 @@ jobs:
         RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
       run: "python - <<'PY'\nimport os\nfrom pathlib import Path\nimport re\n\nrelease_hash = os.environ[\"RELEASE_HASH\"]\npath = Path(\"qBitrr/bundled_data.py\")\ncontent = path.read_text()\nupdated = re.sub(r'git_hash = \".*\"', f'git_hash = \"{release_hash}\"', content)\npath.write_text(updated)\nPY\n"
     - name: Retrieve current version
-      run: "echo \"Current version: $(python setup.py --version)\"\necho \"VERSION=$(python setup.py --version)\" >> $GITHUB_OUTPUT\n"
+      run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"Current version: ${VERSION}\"\necho \"VERSION=${VERSION}\" >> $GITHUB_OUTPUT\n"
       id: current_version
     - name: Set up Node.js
       uses: actions/setup-node@v6

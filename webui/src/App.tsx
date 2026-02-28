@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Suspense } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX, lazy, Suspense } from "react";
 const ProcessesView = lazy(() => import("./pages/ProcessesView").then(module => ({ default: module.ProcessesView })));
 const LogsView = lazy(() => import("./pages/LogsView").then(module => ({ default: module.LogsView })));
 const ArrView = lazy(() => import("./pages/ArrView").then(module => ({ default: module.ArrView })));
@@ -25,6 +25,38 @@ import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import LogoIcon from "./icons/logo.svg";
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', textAlign: 'center' }}>
+          <h2>Something went wrong</h2>
+          <p style={{ color: '#888' }}>{this.state.error?.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: '1rem', padding: '0.5rem 1rem', cursor: 'pointer' }}
+          >
+            Reload Page
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Tab = "processes" | "logs" | "radarr" | "sonarr" | "lidarr" | "qbittorrent" | "config";
 
@@ -840,13 +872,15 @@ function AppShell(): JSX.Element {
 
 export default function App(): JSX.Element {
   return (
-    <ToastProvider>
-      <SearchProvider>
-        <WebUIProvider>
-          <AppShell />
-          <ToastViewport />
-        </WebUIProvider>
-      </SearchProvider>
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <SearchProvider>
+          <WebUIProvider>
+            <AppShell />
+            <ToastViewport />
+          </WebUIProvider>
+        </SearchProvider>
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

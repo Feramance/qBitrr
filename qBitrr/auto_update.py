@@ -5,9 +5,10 @@ import platform
 import subprocess
 import sys
 import threading
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import requests
 from croniter import croniter
@@ -288,7 +289,6 @@ def perform_self_update(logger: logging.Logger, target_version: str | None = Non
     # GIT INSTALLATION
     elif install_type == "git":
         repo_root = Path(__file__).resolve().parent.parent
-        repo_root / ".git"
         logger.debug("Git repository detected at %s", repo_root)
 
         if target_version:
