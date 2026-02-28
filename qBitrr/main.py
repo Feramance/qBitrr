@@ -37,21 +37,18 @@ from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.qbit_category_manager import qBitCategoryManager
-from qBitrr.utils import ExpiringSet
+from qBitrr.utils import ExpiringSet, mask_secret
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
 else:
-    sys.exit(0)
+    print("Configuration not found. Please create a config file and restart.")
+    sys.exit(1)
 
 logger = logging.getLogger("qBitrr")
 run_logs(logger, "Main")
-
-
-def _mask_secret(value: str | None) -> str:
-    return "[redacted]" if value else ""
 
 
 def _delete_all_databases() -> None:
@@ -107,7 +104,7 @@ class qBitManager:
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
-            _mask_secret(self.qBit_Password),
+            mask_secret(self.qBit_Password),
         )
         self._validated_version = False
         self.current_qbit_version = None
@@ -1319,7 +1316,7 @@ class qBitManager:
         """
         category = meta.get("category", "")
         role = meta.get("role", "worker")
-        meta.get("name", "")
+        name = meta.get("name", "")
 
         try:
             # Wait before restarting
@@ -1438,10 +1435,9 @@ def run():
     # Delete all databases on startup
     _delete_all_databases()
 
-    try:
-        manager = qBitManager()
-    except NameError:
-        sys.exit(0)
+    if not CONFIG_EXISTS:
+        sys.exit(1)
+    manager = qBitManager()
     run_logs(logger)
     # Early consolidated config validation feedback
     _report_config_issues()

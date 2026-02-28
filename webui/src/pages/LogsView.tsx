@@ -89,7 +89,8 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
   const { theme } = useWebUI();
-  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
+  const isDark = theme === 'dark';
+  const selectStyles = useMemo(() => getSelectStyles(isDark), [isDark]);
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -217,7 +218,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           borderRadius: '4px'
         }}>
           {loadingContent ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', backgroundColor: '#0a0e14' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: isDark ? '#666' : '#999', backgroundColor: isDark ? '#0a0e14' : '#fafafa' }}>
               <span className="spinner" style={{ marginRight: '8px' }} />
               Loading logs...
             </div>
@@ -231,15 +232,15 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               extraLines={1}
               style={{
                 height: '100%',
-                backgroundColor: '#0a0e14',
-                color: '#e5e5e5',
+                backgroundColor: isDark ? '#0a0e14' : '#fafafa',
+                color: isDark ? '#e5e5e5' : '#1d1d1f',
                 fontFamily: '"Cascadia Code", "Fira Code", "Consolas", "Monaco", monospace',
                 fontSize: '13px',
                 lineHeight: '1.5'
               }}
             />
           ) : (
-            <div style={{ color: '#666', backgroundColor: '#0a0e14', padding: '16px' }}>Select a log file to view...</div>
+            <div style={{ color: isDark ? '#666' : '#999', backgroundColor: isDark ? '#0a0e14' : '#fafafa', padding: '16px' }}>Select a log file to view...</div>
           )}
         </div>
       </div>

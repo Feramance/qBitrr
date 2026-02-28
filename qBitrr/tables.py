@@ -30,6 +30,12 @@ class MoviesFilesModel(Model):
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
 
+    class Meta:
+        indexes = (
+            (("ArrInstance",), False),
+            (("Searched",), False),
+        )
+
 
 class EpisodeFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
@@ -60,6 +66,13 @@ class EpisodeFilesModel(Model):
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
 
+    class Meta:
+        indexes = (
+            (("SeriesId", "SeasonNumber"), False),
+            (("ArrInstance",), False),
+            (("Searched",), False),
+        )
+
 
 class SeriesFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
@@ -72,6 +85,9 @@ class SeriesFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+
+    class Meta:
+        indexes = ((("ArrInstance",), False),)
 
 
 class MovieQueueModel(Model):
@@ -112,6 +128,13 @@ class AlbumFilesModel(Model):
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
 
+    class Meta:
+        indexes = (
+            (("ArrInstance",), False),
+            (("ArtistId",), False),
+            (("Searched",), False),
+        )
+
 
 class TrackFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
@@ -123,6 +146,12 @@ class TrackFilesModel(Model):
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
     Monitored = BooleanField(default=False)
+
+    class Meta:
+        indexes = (
+            (("AlbumId",), False),
+            (("ArrInstance",), False),
+        )
 
 
 class ArtistFilesModel(Model):
@@ -136,6 +165,9 @@ class ArtistFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+
+    class Meta:
+        indexes = ((("ArrInstance",), False),)
 
 
 class AlbumQueueModel(Model):

@@ -73,7 +73,8 @@ class FFprobeDownloader:
             self.logger.debug("Failed to change permissions for ffprobe, %s", e)
 
     def download_and_extract(self, ffprobe_url):
-        r = requests.get(ffprobe_url)
+        r = requests.get(ffprobe_url, timeout=(10, 300))
+        r.raise_for_status()
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             self.logger.debug("Extracting downloaded FFprobe to: %s", FF_PROBE.parent)
             z.extract(member=self.probe_path.name, path=FF_PROBE.parent)

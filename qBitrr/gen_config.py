@@ -1216,12 +1216,12 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
                 inline_mappings.update(mappings)
                 config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
                 changes_made = True
-                logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
+                logger.info("Migrated %s to QualityProfileMappings: %s", key, mappings)
 
                 # Remove old format
                 del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
                 del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
-                logger.debug(f"Removed legacy profile lists from {key}")
+                logger.debug("Removed legacy profile lists from %s", key)
 
     return changes_made
 
@@ -1286,7 +1286,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             if "ManagedCategories" not in qbit_section:
                 qbit_section["ManagedCategories"] = []
                 changes_made = True
-                logger.info(f"Added ManagedCategories = [] to [{section}]")
+                logger.info("Added ManagedCategories = [] to [%s]", section)
 
             if "CategorySeeding" not in qbit_section:
                 seeding = table()
@@ -1303,7 +1303,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["TrackerUpdateBuffer"] = 0
                 qbit_section["CategorySeeding"] = seeding
                 changes_made = True
-                logger.info(f"Added CategorySeeding configuration to [{section}]")
+                logger.info("Added CategorySeeding configuration to [%s]", section)
 
     if changes_made:
         print("Migration v3→v4: Added qBit category management settings")

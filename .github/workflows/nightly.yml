@@ -65,7 +65,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        platforms: linux/amd64
+        platforms: linux/${{ matrix.platform }}
         push: true
         tags: feramance/qbitrr:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:nightly
         labels: ${{ steps.meta.outputs.labels }}

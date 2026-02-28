@@ -11,6 +11,8 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, _write_config_file, apply_config_migrations, generate_doc
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
+CHANGE_ME_SENTINEL = "CHANGE_ME"
+
 
 def process_flags() -> argparse.Namespace | bool:
     parser = argparse.ArgumentParser(description="An interface to interact with qBit and *arrs.")
@@ -45,8 +47,6 @@ def process_flags() -> argparse.Namespace | bool:
     args = parser.parse_args()
 
     if args.gen_config:
-        from qBitrr.gen_config import _write_config_file
-
         _write_config_file()
         return True
     elif args.license:
@@ -177,7 +177,7 @@ if QBIT_DISABLED and PROCESS_ONLY:
     print("Exiting...")
     sys.exit(1)
 
-if SEARCH_ONLY and QBIT_DISABLED is False:
+if SEARCH_ONLY and not QBIT_DISABLED:
     QBIT_DISABLED = True
     print("QBITRR_OVERRIDES_SEARCH_ONLY is enabled, forcing qBitTorrent setting off")
 

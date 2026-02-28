@@ -6,7 +6,7 @@ import random
 import re
 import socket
 import time
-from typing import Iterator
+from collections.abc import Iterator
 
 import ping3
 import qbittorrentapi
@@ -64,6 +64,7 @@ def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]
             file_counter += 1
             if file_counter == 1:
                 logger.warning("%s - %s", e.strerror, e.filename)
+            time.sleep(0.1)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
@@ -251,3 +252,8 @@ class ExpiringSet:
         self.__update__()
         other.__update__()
         return set(self.container.keys()) == set(other.container.keys())
+
+
+def mask_secret(value: str | None) -> str:
+    """Return '[redacted]' if value is truthy, else empty string."""
+    return "[redacted]" if value else ""
