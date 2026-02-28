@@ -35,5 +35,4 @@ WORKDIR /config
 
 EXPOSE 6969
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["python", "-m", "qBitrr.main"]
+ENTRYPOINT ["/usr/bin/tini", "--", "python", "-m", "qBitrr.main"]
