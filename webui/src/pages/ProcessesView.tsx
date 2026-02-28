@@ -14,10 +14,10 @@ import { IconImage } from "../components/IconImage";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import RestartIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
 
-const RELEASE_TOKEN_REGEX =
+const
+ =
   /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
 const EPISODE_TOKEN_REGEX = /\bS\d{1,3}E\d{1,3}\b/i;
 const SEASON_TOKEN_REGEX = /\bSeason\s+\d+\b/i;
@@ -40,7 +40,8 @@ function sanitizeSearchSummary(raw: string): string {
     const rest = releaseMatch.groups?.rest ?? "";
     const looksLikeEpisode =
       EPISODE_TOKEN_REGEX.test(rest) || SEASON_TOKEN_REGEX.test(rest);
-    if (rest && !looksLikeEpisode && RELEASE_TOKEN_REGEX.test(rest)) {
+    if (rest && !looksLikeEpisode &&
+      .test(rest)) {
       const rawTitle = releaseMatch.groups?.title ?? "";
       const cleanedTitle = rawTitle
         .replace(/[-_.]/g, " ")
@@ -191,7 +192,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     [load, push]
   );
 
-  const handleRestartAll = useCallback(async () => {
+  const handleRestartAll = useCallback(() => {
     setConfirmAction({
       title: "Restart All Processes",
       message: "Are you sure you want to restart all processes? This will temporarily interrupt all operations.",
@@ -214,7 +215,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
   }, [load, push]);
 
-  const handleRebuildArrs = useCallback(async () => {
+  const handleRebuildArrs = useCallback(() => {
     setConfirmAction({
       title: "Rebuild Arrs",
       message: "Are you sure you want to rebuild all Arr instances? This will refresh all connections and may take some time.",
@@ -537,7 +538,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               </button>
               <button className="btn" onClick={() => void handleRestartAll()} disabled={restartingAll}>
                 {restartingAll && <span className="spinner" />}
-                <IconImage src={RestartIcon} />
+                <IconImage src={RefreshIcon} />
                 {restartingAll ? 'Restarting...' : 'Restart All'}
               </button>
               <button className="btn" onClick={() => void handleRebuildArrs()} disabled={rebuildingArrs}>

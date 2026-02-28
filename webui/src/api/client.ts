@@ -45,6 +45,9 @@ function resolveToken(): string | null {
     const fromQuery = params.get("token");
     if (fromQuery) {
       localStorage.setItem("token", fromQuery);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("token");
+      window.history.replaceState({}, "", cleanUrl.toString());
       return fromQuery;
     }
   } catch {

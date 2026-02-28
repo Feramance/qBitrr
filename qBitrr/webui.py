@@ -140,7 +140,7 @@ class WebUI:
             "binary_download_size": None,
             "binary_download_error": None,
         }
-        self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+        self._version_cache_expiry = datetime.now(timezone.utc) - timedelta(seconds=1)
         self._update_state = {
             "in_progress": False,
             "last_result": None,
@@ -206,7 +206,7 @@ class WebUI:
         }
 
     def _ensure_version_info(self, force: bool = False) -> dict[str, Any]:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with self._version_lock:
             if not force and now < self._version_cache_expiry:
                 snapshot = dict(self._version_cache)
@@ -302,7 +302,7 @@ class WebUI:
             error_message = str(exc)
             self.logger.exception("Manual update failed")
         finally:
-            completed_at = datetime.utcnow().isoformat()
+            completed_at = datetime.now(timezone.utc).isoformat()
             with self._version_lock:
                 self._update_state.update(
                     {
@@ -313,7 +313,7 @@ class WebUI:
                     }
                 )
                 self._update_thread = None
-                self._version_cache_expiry = datetime.utcnow() - timedelta(seconds=1)
+                self._version_cache_expiry = datetime.now(timezone.utc) - timedelta(seconds=1)
             try:
                 self.manager.configure_auto_update()
             except Exception:
@@ -1372,7 +1372,7 @@ class WebUI:
             supplied = request.headers.get("Authorization", "").removeprefix(
                 "Bearer "
             ) or request.args.get("token")
-            return supplied == self.token
+            return secrets.compare_digest(supplied, self.token) if supplied else False
 
         def require_token():
             if not _authorized():
@@ -1553,7 +1553,6 @@ class WebUI:
                 queue_count = len(records)
                 if queue_count:
                     metrics["queue"] = queue_count
-                    records[0]
                 if qbit_client and category:
                     try:
                         torrents = qbit_client.torrents_info(
@@ -1810,6 +1809,8 @@ class WebUI:
 
         @app.post("/web/processes/<category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _restart_process(category, kind)
 
         @app.post("/api/processes/restart_all")
@@ -1821,6 +1822,8 @@ class WebUI:
 
         @app.post("/web/processes/restart_all")
         def web_restart_all():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -1847,6 +1850,8 @@ class WebUI:
 
         @app.post("/web/loglevel")
         def web_loglevel():
+            if (resp := require_token()) is not None:
+                return resp
             body = request.get_json(silent=True) or {}
             level = str(body.get("level", "INFO")).upper()
             valid = {"CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"}
@@ -1873,6 +1878,8 @@ class WebUI:
 
         @app.post("/web/arr/rebuild")
         def web_arr_rebuild():
+            if (resp := require_token()) is not None:
+                return resp
             self._reload_all()
             return jsonify({"status": "ok"})
 
@@ -2325,6 +2332,8 @@ class WebUI:
 
         @app.post("/web/update")
         def web_update():
+            if (resp := require_token()) is not None:
+                return resp
             ok, message = self._trigger_manual_update()
             if not ok:
                 return jsonify({"error": message}), 409
@@ -2547,6 +2556,8 @@ class WebUI:
 
         @app.post("/web/arr/<section>/restart")
         def web_arr_restart(section: str):
+            if (resp := require_token()) is not None:
+                return resp
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2746,6 +2757,8 @@ class WebUI:
 
         @app.post("/web/config")
         def web_update_config():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_config_update()
 
         @app.post("/api/arr/test-connection")
@@ -2925,8 +2938,9 @@ class WebUI:
             """
             Test connection to Arr instance without saving config.
             Accepts temporary URI/APIKey and returns connection status + quality profiles.
-            Public endpoint (mirrors /api/arr/test-connection).
             """
+            if (resp := require_token()) is not None:
+                return resp
             try:
                 data = request.get_json()
                 if not data:

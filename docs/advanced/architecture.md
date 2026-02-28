@@ -975,7 +975,7 @@ class DelayLoopException(qBitManagerError):
         self.length = length  # Seconds to delay
 
 # Usage: raised when qBittorrent or an Arr API is unreachable
-raise DelayLoopException(length=60, type="qbittorrent_offline")
+raise DelayLoopException(length=60, error_type="qbittorrent_offline")
 ```
 
 **RestartLoopException** -- restart from the beginning after a config reload:

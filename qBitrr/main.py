@@ -5,6 +5,7 @@ import contextlib
 import glob
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -283,9 +284,9 @@ class qBitManager:
             # Force kill any remaining child processes
             for proc in list(self.child_processes):
                 with contextlib.suppress(Exception):
-                    proc.kill()
-                with contextlib.suppress(Exception):
                     proc.terminate()
+                with contextlib.suppress(Exception):
+                    proc.kill()
 
             # Close database connections explicitly
             try:
@@ -1408,9 +1409,7 @@ def _report_config_issues():
                 issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
         # Check Arr sections
         for key in CONFIG.sections():
-            import re
-
-            m = re.match(r"radarr.*", key, re.IGNORECASE)
+            m = re.match(r"(rad|son|anim|lid)arr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)
@@ -1480,9 +1479,9 @@ def run():
                     p.join(timeout=5)
             for p in manager.child_processes:
                 with contextlib.suppress(Exception):
-                    p.kill()
-                with contextlib.suppress(Exception):
                     p.terminate()
+                with contextlib.suppress(Exception):
+                    p.kill()
 
         # Register signal handlers for graceful shutdown
         def _signal_handler(signum, frame):

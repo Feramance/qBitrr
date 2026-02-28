@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { LazyLog } from "@melloware/react-logviewer";
-import { getConfig, getLogDownloadUrl, getLogs } from "../api/client";
+import { getLogDownloadUrl, getLogTail, getLogs } from "../api/client";
 import { useToast } from "../context/ToastContext";
+import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { IconImage } from "../components/IconImage";
 import { CopyButton } from "../components/CopyButton";
@@ -12,9 +13,7 @@ interface LogOption {
   label: string;
 }
 
-// Helper function for react-select theme-aware styles
-const getSelectStyles = (): StylesConfig<LogOption, false> => {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+const getSelectStyles = (isDark: boolean): StylesConfig<LogOption, false> => {
   return {
     control: (base: CSSObjectWithLabel) => ({
       ...base,
@@ -70,6 +69,16 @@ interface LogsViewProps {
   active: boolean;
 }
 
+function describeError(reason: unknown, context: string): string {
+  if (reason instanceof Error && reason.message) {
+    return `${context}: ${reason.message}`;
+  }
+  if (typeof reason === "string" && reason.trim().length) {
+    return `${context}: ${reason}`;
+  }
+  return context;
+}
+
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("All.log");
@@ -77,20 +86,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [follow, setFollow] = useState(true);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
-  const [tokenReady, setTokenReady] = useState(false);
-  const tokenRef = useRef<string>("");
   const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
-
-  const describeError = useCallback((reason: unknown, context: string): string => {
-    if (reason instanceof Error && reason.message) {
-      return `${context}: ${reason.message}`;
-    }
-    if (typeof reason === "string" && reason.trim().length) {
-      return `${context}: ${reason}`;
-    }
-    return context;
-  }, []);
+  const { theme } = useWebUI();
+  const selectStyles = useMemo(() => getSelectStyles(theme === 'dark'), [theme]);
 
   const loadList = useCallback(async () => {
     setLoadingList(true);
@@ -115,24 +114,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
     } finally {
       setLoadingList(false);
     }
-  }, [describeError, push]);
-
-  // Fetch and cache the WebUI token from config on mount
-  useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const config = await getConfig();
-        // Extract token from WebUI.Token field
-        const webui = config?.WebUI as { Token?: string } | undefined;
-        tokenRef.current = webui?.Token || "";
-      } catch {
-        // token fetch failed, will proceed without token
-      } finally {
-        setTokenReady(true);
-      }
-    };
-    void fetchToken();
-  }, []);
+  }, [push]);
 
   useEffect(() => {
     void loadList();
@@ -144,23 +126,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
 
       if (showLoading) setLoadingContent(true);
       try {
-        const params = new URLSearchParams();
-        if (tokenRef.current) {
-          params.set("token", tokenRef.current);
-        }
-
-        const response = await fetch(
-          `/web/logs/${encodeURIComponent(selected)}?${params}`
-        );
-        if (!response.ok) {
-          throw new Error(`${response.status} ${response.statusText}`);
-        }
-
-        const newContent = await response.text();
+        const newContent = await getLogTail(selected);
         const newLines = newContent.split('\n');
         const currentLinesCount = newLines.length;
 
-        // Only update if content has changed (new lines added)
         if (currentLinesCount !== lastLinesCountRef.current) {
           setLogContent(newContent);
           lastLinesCountRef.current = currentLinesCount;
@@ -171,22 +140,19 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         if (showLoading) setLoadingContent(false);
       }
     },
-    [selected, push, describeError]
+    [selected, push]
   );
 
   useEffect(() => {
-    if (selected && tokenReady) {
+    if (selected) {
       lastLinesCountRef.current = 0;
       void fetchLogContent(true);
     }
-  }, [selected, tokenReady, fetchLogContent]);
+  }, [selected, fetchLogContent]);
 
-  // Refresh content periodically when tab is active
   useInterval(
     () => {
-      if (tokenReady) {
-        void fetchLogContent(false);
-      }
+      void fetchLogContent(false);
     },
     active ? 1000 : null
   );
@@ -206,7 +172,7 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 value={selected ? { value: selected, label: selected } : null}
                 onChange={(option) => setSelected(option?.value || "")}
                 isDisabled={!files.length}
-                styles={getSelectStyles()}
+                styles={selectStyles}
               />
             </div>
           </div>

@@ -23,18 +23,21 @@ class RequireConfigValue(qBitManagerError):
 
     def __init__(self, config_class: str, config_key: str):
         self.message = f"Config key '{config_key}' in '{config_class}' requires a value."
+        super().__init__(self.message)
 
 
 class NoConnectionrException(qBitManagerError):
-    def __init__(self, message: str, type: str = "delay"):
+    def __init__(self, message: str, error_type: str = "delay"):
         self.message = message
-        self.type = type
+        self.type = error_type
+        super().__init__(message)
 
 
 class DelayLoopException(qBitManagerError):
-    def __init__(self, length: int, type: str):
-        self.type = type
+    def __init__(self, length: int, error_type: str):
+        self.type = error_type
         self.length = length
+        super().__init__(f"Delay loop: {error_type}")
 
 
 class RestartLoopException(ArrManagerException):

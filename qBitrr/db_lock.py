@@ -382,15 +382,13 @@ def check_database_health(db_path: Path, logger=None) -> tuple[bool, str]:
     import sqlite3
 
     try:
-        # Use a short timeout to avoid blocking
         conn = sqlite3.connect(str(db_path), timeout=5.0)
-        cursor = conn.cursor()
-
-        # Quick integrity check (fast, catches major corruption)
-        cursor.execute("PRAGMA quick_check")
-        result = cursor.fetchone()[0]
-
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA quick_check")
+            result = cursor.fetchone()[0]
+        finally:
+            conn.close()
 
         if result != "ok":
             error_msg = f"PRAGMA quick_check failed: {result}"

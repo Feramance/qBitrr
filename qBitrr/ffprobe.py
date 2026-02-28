@@ -67,16 +67,17 @@ class FFprobeDownloader:
         self.logger.debug("Updating local version of FFprobe: %s", upstream_version)
         self.version_file.write_text(json.dumps({"version": upstream_version}))
         try:
-            os.chmod(self.probe_path, 0o777)
+            os.chmod(self.probe_path, 0o755)
             self.logger.debug("Successfully changed permissions for ffprobe")
         except Exception as e:
             self.logger.debug("Failed to change permissions for ffprobe, %s", e)
 
     def download_and_extract(self, ffprobe_url):
         r = requests.get(ffprobe_url)
-        z = zipfile.ZipFile(io.BytesIO(r.content))
-        self.logger.debug("Extracting downloaded FFprobe to: %s", FF_PROBE.parent)
-        z.extract(member=self.probe_path.name, path=FF_PROBE.parent)
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+            self.logger.debug("Extracting downloaded FFprobe to: %s", FF_PROBE.parent)
+            z.extract(member=self.probe_path.name, path=FF_PROBE.parent)
+        r.close()
 
     def get_arch(self):
         part1 = None

@@ -1,4 +1,4 @@
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { copyToClipboard } from "../utils/clipboard";
 
 interface CopyButtonProps {
@@ -15,13 +15,19 @@ export function CopyButton({
   onCopy,
 }: CopyButtonProps): JSX.Element {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    return () => { clearTimeout(timerRef.current); };
+  }, []);
 
   const handleCopy = async () => {
     const success = await copyToClipboard(text);
     if (success) {
       setCopied(true);
       onCopy?.();
-      setTimeout(() => setCopied(false), 2000);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
     }
   };
 
