@@ -4,7 +4,7 @@ This directory contains utility scripts for database maintenance, recovery, and 
 
 ## Rebuild and deploy on git sync
 
-To **rebuild and deploy qBitrr automatically after every `git pull`**, install the post-merge hook:
+To **rebuild and deploy qBitrr automatically after every `git pull`**, install the post-merge hook. The hook runs the Python rebuild script when available (works on Windows, Linux, macOS); otherwise it falls back to the bash script (requires bash, e.g. Git Bash on Windows).
 
 ```bash
 # From repo root (Linux/macOS or Git Bash on Windows)
@@ -28,16 +28,25 @@ export DEPLOY_MODE=native
 git pull
 ```
 
-**Manual run** (without git):
+**Manual run** (without git), any environment:
 
 ```bash
+# Cross-platform (Windows, Linux, macOS) — use when bash is not available
+python scripts/rebuild_and_deploy.py
+# or
+python3 scripts/rebuild_and_deploy.py
+```
+
+```bash
+# Linux/macOS or Git Bash on Windows
 bash scripts/rebuild-and-deploy.sh
 ```
 
 **Files:**
 
-- `scripts/rebuild-and-deploy.sh` — Rebuild and deploy logic.
-- `scripts/post-merge.hook` — Hook content (installed into `.git/hooks/post-merge` by the installer).
+- `scripts/rebuild_and_deploy.py` — Rebuild and deploy logic (Python; works in any environment).
+- `scripts/rebuild-and-deploy.sh` — Same logic for bash (Linux/macOS/Git Bash).
+- `scripts/post-merge.hook` — Hook content (installed into `.git/hooks/post-merge`; runs Python script when available, else bash).
 - `scripts/install-post-merge-hook.sh` — One-time installer for the hook.
 
 ---

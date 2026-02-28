@@ -27,12 +27,12 @@ const SUFFIX_TO_MINUTES: Record<string, number> = {
 const DURATION_PATTERN = /^\s*(-?\d+)\s*([smhdwM]?)\s*$/i;
 
 export const DURATION_UNITS: { value: DurationUnit; label: string }[] = [
-  { value: "s", label: "s" },
-  { value: "m", label: "m" },
-  { value: "h", label: "h" },
-  { value: "d", label: "d" },
-  { value: "w", label: "w" },
-  { value: "M", label: "M" },
+  { value: "s", label: "seconds" },
+  { value: "m", label: "minutes" },
+  { value: "h", label: "hours" },
+  { value: "d", label: "days" },
+  { value: "w", label: "weeks" },
+  { value: "M", label: "months" },
 ];
 
 function parseSuffixed(
