@@ -5,6 +5,7 @@ import contextlib
 import glob
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -43,14 +44,11 @@ from qBitrr.webui import WebUI
 if CONFIG_EXISTS:
     from qBitrr.arss import ArrManager
 else:
-    sys.exit(0)
+    print("Configuration not found. Please create a config file and restart.")
+    sys.exit(1)
 
 logger = logging.getLogger("qBitrr")
 run_logs(logger, "Main")
-
-
-def _mask_secret(value: str | None) -> str:
-    return "[redacted]" if value else ""
 
 
 def _delete_all_databases() -> None:
@@ -101,12 +99,13 @@ class qBitManager:
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
+        _masked_pwd = "[redacted]" if self.qBit_Password else ""
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
-            _mask_secret(self.qBit_Password),
+            _masked_pwd,
         )
         self._validated_version = False
         self.current_qbit_version = None
@@ -142,8 +141,12 @@ class qBitManager:
         self._pending_spawns: list[tuple] = []  # (arr_instance, meta) tuples to retry
         self.auto_restart_enabled = CONFIG.get("Settings.AutoRestartProcesses", fallback=True)
         self.max_process_restarts = CONFIG.get("Settings.MaxProcessRestarts", fallback=5)
-        self.process_restart_window = CONFIG.get("Settings.ProcessRestartWindow", fallback=300)
-        self.process_restart_delay = CONFIG.get("Settings.ProcessRestartDelay", fallback=5)
+        self.process_restart_window = CONFIG.get_duration(
+            "Settings.ProcessRestartWindow", fallback=300
+        )
+        self.process_restart_delay = CONFIG.get_duration(
+            "Settings.ProcessRestartDelay", fallback=5
+        )
         # Start WebUI immediately, before any blocking network calls
         try:
             web_port = int(CONFIG.get("WebUI.Port", fallback=6969) or 6969)
@@ -279,9 +282,9 @@ class qBitManager:
             # Force kill any remaining child processes
             for proc in list(self.child_processes):
                 with contextlib.suppress(Exception):
-                    proc.kill()
-                with contextlib.suppress(Exception):
                     proc.terminate()
+                with contextlib.suppress(Exception):
+                    proc.kill()
 
             # Close database connections explicitly
             try:
@@ -330,7 +333,12 @@ class qBitManager:
 
     def _prepare_arr_processes(self, arr, timeout_seconds: int = 30) -> None:
         timeout = max(
-            1, int(CONFIG.get("Settings.ProcessSpawnTimeoutSeconds", fallback=timeout_seconds))
+            1,
+            int(
+                CONFIG.get_duration(
+                    "Settings.ProcessSpawnTimeoutSeconds", fallback=timeout_seconds
+                )
+            ),
         )
         result_queue: SimpleQueue = SimpleQueue()
 
@@ -560,21 +568,31 @@ class qBitManager:
                 "RemoveTorrent",
             ]
             for key in seeding_keys:
-                value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
+                if key == "MaxSeedingTime":
+                    value = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
+                else:
+                    value = CONFIG.get(f"{section_name}.CategorySeeding.{key}", fallback=-1)
                 default_seeding[key] = value
 
             # Load HnR protection settings
             hnr_keys = {
-                "HitAndRunMode": False,
+                "HitAndRunMode": "disabled",
                 "MinSeedRatio": 1.0,
                 "MinSeedingTimeDays": 0,
                 "HitAndRunPartialSeedRatio": 1.0,
                 "TrackerUpdateBuffer": 0,
             }
             for key, fallback in hnr_keys.items():
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                )
+                if key == "TrackerUpdateBuffer":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
 
             # Load per-category overrides
             category_overrides = {}
@@ -587,12 +605,23 @@ class qBitManager:
             # Load qBit-level shared trackers
             instance_trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
 
+            # Stalled handling for qBit-managed categories (same semantics as Arr)
+            stalled_delay = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
+            )
+            ignore_younger = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
+                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+            )
+
             # Store config for later initialization
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
                 "trackers": instance_trackers,
+                "stalled_delay": stalled_delay,
+                "ignore_torrents_younger_than": ignore_younger,
             }
             self.logger.debug(
                 "Loaded qBit category config for '%s': %d managed categories",
@@ -696,7 +725,7 @@ class qBitManager:
             "RemoveTorrent",
         ]
         hnr_keys = {
-            "HitAndRunMode": False,
+            "HitAndRunMode": "disabled",
             "MinSeedRatio": 1.0,
             "MinSeedingTimeDays": 0,
             "HitAndRunPartialSeedRatio": 1.0,
@@ -709,13 +738,23 @@ class qBitManager:
                 return
             default_seeding = {}
             for key in seeding_keys:
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=-1
-                )
+                if key == "MaxSeedingTime":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=-1
+                    )
             for key, fallback in hnr_keys.items():
-                default_seeding[key] = CONFIG.get(
-                    f"{section_name}.CategorySeeding.{key}", fallback=fallback
-                )
+                if key == "TrackerUpdateBuffer":
+                    default_seeding[key] = CONFIG.get_duration(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
+                else:
+                    default_seeding[key] = CONFIG.get(
+                        f"{section_name}.CategorySeeding.{key}", fallback=fallback
+                    )
             category_overrides = {}
             for cat_config in CONFIG.get(
                 f"{section_name}.CategorySeeding.Categories", fallback=[]
@@ -723,11 +762,20 @@ class qBitManager:
                 if isinstance(cat_config, dict) and "Name" in cat_config:
                     category_overrides[cat_config["Name"]] = cat_config
             trackers = CONFIG.get(f"{section_name}.Trackers", fallback=[])
+            stalled_delay = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.StalledDelay", fallback=-1, unit="minutes"
+            )
+            ignore_younger = CONFIG.get_duration(
+                f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
+                fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
+            )
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
                 "category_overrides": category_overrides,
                 "trackers": trackers,
+                "stalled_delay": stalled_delay,
+                "ignore_torrents_younger_than": ignore_younger,
             }
 
         for section in CONFIG.sections():
@@ -1269,7 +1317,7 @@ class qBitManager:
         """
         category = meta.get("category", "")
         role = meta.get("role", "worker")
-        meta.get("name", "")
+        name = meta.get("name", "")
 
         try:
             # Wait before restarting
@@ -1359,9 +1407,7 @@ def _report_config_issues():
                 issues.append("Settings.FreeSpaceFolder must be set when FreeSpace is enabled")
         # Check Arr sections
         for key in CONFIG.sections():
-            import re
-
-            m = re.match(r"radarr.*", key, re.IGNORECASE)
+            m = re.match(r"(rad|son|anim|lid)arr.*", key, re.IGNORECASE)
             if not m:
                 continue
             managed = CONFIG.get(f"{key}.Managed", fallback=False)
@@ -1390,10 +1436,9 @@ def run():
     # Delete all databases on startup
     _delete_all_databases()
 
-    try:
-        manager = qBitManager()
-    except NameError:
-        sys.exit(0)
+    if not CONFIG_EXISTS:
+        sys.exit(1)
+    manager = qBitManager()
     run_logs(logger)
     # Early consolidated config validation feedback
     _report_config_issues()
@@ -1431,9 +1476,9 @@ def run():
                     p.join(timeout=5)
             for p in manager.child_processes:
                 with contextlib.suppress(Exception):
-                    p.kill()
-                with contextlib.suppress(Exception):
                     p.terminate()
+                with contextlib.suppress(Exception):
+                    p.kill()
 
         # Register signal handlers for graceful shutdown
         def _signal_handler(signum, frame):

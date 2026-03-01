@@ -267,7 +267,7 @@ qBitrr implements graceful shutdown to ensure data consistency:
 
 ### Shutdown Timeout
 
-If a process doesn't terminate within 30 seconds, it's forcefully killed (SIGKILL).
+If a process doesn't terminate within a short period after receiving SIGTERM, it is forcefully killed (SIGKILL). The exact delay is implementation-defined (e.g. a few seconds in recovery paths).
 
 ---
 
@@ -369,7 +369,7 @@ If a process doesn't terminate within 30 seconds, it's forcefully killed (SIGKIL
 1. **Enable Auto-Restart**: `AutoRestartProcesses = true`
 2. **Set Reasonable Limits**: Default settings (5 restarts in 5 minutes) work for most cases
 3. **Monitor Logs**: Set up log aggregation or alerts for restart events
-4. **Use External Health Checks**: Monitor qBitrr's WebUI endpoint (`/api/health`) with Uptime Kuma, Healthchecks.io, etc.
+4. **Use External Health Checks**: Monitor qBitrr's WebUI endpoint (`/health`) with Uptime Kuma, Healthchecks.io, etc.
 
 ---
 
@@ -391,7 +391,7 @@ services:
     image: feramance/qbitrr:latest
     restart: unless-stopped  # Container-level restart
     environment:
-      - QBITRR_SETTINGS__AUTORESTARTPROCESSES=true  # Process-level restart
+      - QBITRR_SETTINGS_AUTO_RESTART_PROCESSES=true  # Process-level restart
 ```
 
 **Layered Restart:**
@@ -441,13 +441,13 @@ services:
     image: feramance/qbitrr:latest
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
     environment:
-      - QBITRR_SETTINGS__AUTORESTARTPROCESSES=true
+      - QBITRR_SETTINGS_AUTO_RESTART_PROCESSES=true
 ```
 
 ---
@@ -463,14 +463,14 @@ services:
 # Monitor qBitrr WebUI
 - name: qBitrr
   type: HTTP
-  url: http://localhost:6969/api/health
+  url: http://localhost:6969/health
   interval: 60
 ```
 
 **Healthchecks.io:**
 ```bash
 # Cron job to ping healthchecks.io if qBitrr is running
-*/5 * * * * curl -fsS --retry 3 http://localhost:6969/api/health && curl -fsS https://hc-ping.com/YOUR-UUID
+*/5 * * * * curl -fsS --retry 3 http://localhost:6969/health && curl -fsS https://hc-ping.com/YOUR-UUID
 ```
 
 ---
@@ -529,13 +529,24 @@ GET /api/processes
 {
   "processes": [
     {
-      "name": "Radarr-Movies",
       "category": "radarr-movies",
-      "status": "running",
+      "name": "Radarr-Movies",
+      "kind": "search",
       "pid": 12345,
-      "uptime": 3600,
-      "restart_count": 2,
-      "last_restart": "2024-01-15T10:30:00Z"
+      "alive": true,
+      "rebuilding": false,
+      "searchSummary": "Found 12 missing movies, searched 5",
+      "searchTimestamp": "2025-11-27T12:00:00Z"
+    },
+    {
+      "category": "radarr-movies",
+      "name": "Radarr-Movies",
+      "kind": "torrent",
+      "pid": 12346,
+      "alive": true,
+      "rebuilding": false,
+      "queueCount": 3,
+      "categoryCount": 8
     }
   ]
 }

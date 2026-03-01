@@ -6,7 +6,7 @@ import random
 import re
 import socket
 import time
-from typing import Iterator
+from collections.abc import Iterator
 
 import ping3
 import qbittorrentapi
@@ -64,46 +64,26 @@ def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]
             file_counter += 1
             if file_counter == 1:
                 logger.warning("%s - %s", e.strerror, e.filename)
+            time.sleep(0.1)
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
     path = pathlib.Path(file)
     if path.is_file():
         path = path.parent.absolute()
-    count = 9
-    while not path.exists():
+    for attempt in range(10):
+        if path.exists() and str(path) != ".":
+            return path
         logger.debug(
             "Attempt %s/10: File does not yet exist! (Possibly being moved?) | "
             "%s | Sleeping for 0.1s",
-            10 - count,
+            attempt + 1,
             path,
         )
         time.sleep(0.1)
-        if count == 0:
-            break
-        count -= 1
-    else:
-        count = 0
-    while str(path) == ".":
         path = pathlib.Path(file)
         if path.is_file():
             path = path.parent.absolute()
-        while not path.exists():
-            logger.debug(
-                "Attempt %s/10: File does not yet exist! (Possibly being moved?) | "
-                "%s | Sleeping for 0.1s",
-                10 - count,
-                path,
-            )
-            time.sleep(0.1)
-            if count == 0:
-                break
-            count -= 1
-        else:
-            count = 0
-        if count == 0:
-            break
-        count -= 1
     return path
 
 
@@ -162,6 +142,7 @@ def is_connected(hostname):
         return True
     except ping3.errors.PingError as e:  # All ping3 errors are subclasses of `PingError`.
         logger.debug("Error when connecting to host: %s %s", hostname, e)
+        return False
     except (
         Exception
     ):  # Ping3 is far more robust but may requite root access, if root access is not available then run the basic mode
@@ -264,7 +245,6 @@ class ExpiringSet:
         for k, b in self.container.copy().items():
             if time.time() - b > self.age:
                 del self.container[k]
-                return False
 
     def __eq__(self, other):
         if not isinstance(other, ExpiringSet):
@@ -272,3 +252,8 @@ class ExpiringSet:
         self.__update__()
         other.__update__()
         return set(self.container.keys()) == set(other.container.keys())
+
+
+def mask_secret(value: str | None) -> str:
+    """Return '[redacted]' if value is truthy, else empty string."""
+    return "[redacted]" if value else ""

@@ -99,7 +99,9 @@ AutoUpdateCron = "0 3 * * 0"
 - **WebUI Token**: Optional bearer token for API/UI authentication (auto-generated if empty)
 - **Live Arr**: Enable real-time Arr data (bypasses database cache, increases API load)
 - **Group Sonarr by Series**: Group episodes by series and seasons in collapsible sections
+- **Group Lidarr by Artist**: Group Lidarr albums by artist in collapsible sections
 - **Theme**: Visual theme (`Light` or `Dark`) — **changes apply immediately**
+- **View Density**: List density (`Comfortable` or `Compact`) — applied on next load
 
 **Example**:
 ```toml
@@ -109,7 +111,9 @@ Port = 6969
 Token = "abc123def456..."
 LiveArr = false
 GroupSonarr = true
+GroupLidarr = true
 Theme = "Dark"
+ViewDensity = "Comfortable"
 ```
 
 **Validation**:
@@ -117,10 +121,12 @@ Theme = "Dark"
 - `Host` must not be empty
 - `Port` must be between 1 and 65535
 - `Token` accepts any string (empty = no authentication)
+- `ViewDensity` must be `Comfortable` or `Compact`
 
 **Special Behavior**:
 
 - **Theme**: Changes apply immediately via JavaScript (no save required)
+- **ViewDensity**: Persisted to config; applied when the page is loaded
 - **Host/Port/Token**: Trigger WebUI restart after save
 
 ---
@@ -398,7 +404,7 @@ RemoveTrackerWithMessage = ["skipping tracker announce (unreachable)", "No such 
 **Validation**:
 
 - All numeric fields must be non-negative
-- `MaximumDeletablePercentage` must be between 0 and 100
+- `MaximumDeletablePercentage` must be a decimal between 0 and 1 (e.g. 0.99 = 99%)
 
 ---
 
@@ -408,8 +414,8 @@ Configure per-instance seeding policies.
 
 **Key Fields**:
 
-- **Download Rate Limit Per Torrent**: Bytes/s download limit (-1 = unlimited)
-- **Upload Rate Limit Per Torrent**: Bytes/s upload limit (-1 = unlimited)
+- **Download Rate Limit Per Torrent**: KB/s download limit (-1 = unlimited). qBitrr converts to bytes/s for qBittorrent.
+- **Upload Rate Limit Per Torrent**: KB/s upload limit (-1 = unlimited). qBitrr converts to bytes/s for qBittorrent.
 - **Max Upload Ratio**: Maximum upload ratio (-1 = unlimited)
 - **Max Seeding Time (s)**: Maximum seeding duration (-1 = unlimited)
 - **Remove Torrent (policy)**: Removal policy:
@@ -501,6 +507,9 @@ Numeric field with spinner controls.
 <input type="number" value="42" />
 ```
 
+### Duration Input
+Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Disabled values (e.g. `-1`) appear as "Disabled" where supported.
+
 ### Checkbox
 Toggle boolean values.
 
@@ -584,7 +593,7 @@ The editor validates fields **on change** and **before save**, displaying inline
 | `Arr.Category` | Must not be empty |
 | `EntrySearch.SearchLimit` | Must be ≥ 1 |
 | `AutoUpdateCron` | Must contain 5 or 6 space-separated fields |
-| `Torrent.MaximumDeletablePercentage` | Must be 0-100 |
+| `Torrent.MaximumDeletablePercentage` | Decimal 0–1 (e.g. 0.99 = 99%) |
 | `Torrent.SeedingMode.RemoveTorrent` | Must be -1, 1, 2, 3, or 4 |
 
 ### Error Display
@@ -623,7 +632,7 @@ The backend uses **intelligent reload detection** to minimize disruption:
 
 | Change Type | Reload Type | Behavior |
 |-------------|-------------|----------|
-| **Frontend-only** (`WebUI.Theme`, `WebUI.LiveArr`, `WebUI.GroupSonarr`) | `frontend` | No reload (changes apply in browser) |
+| **Frontend-only** (`WebUI.Theme`, `WebUI.LiveArr`, `WebUI.GroupSonarr`, `WebUI.GroupLidarr`, `WebUI.ViewDensity`) | `frontend` | No backend reload (Theme applies immediately; ViewDensity applies on next load) |
 | **WebUI Server** (`WebUI.Host`, `WebUI.Port`, `WebUI.Token`) | `webui` | Restart WebUI server (brief downtime) |
 | **Single Arr Instance** (e.g., `Radarr-4K.*`) | `single_arr` | Reload only that Arr instance |
 | **Multiple Arr Instances** (e.g., `Radarr-4K.*` + `Sonarr-TV.*`) | `multi_arr` | Reload each affected instance sequentially |

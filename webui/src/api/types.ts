@@ -1,4 +1,4 @@
-export type ArrType = "radarr" | "sonarr" | "lidarr" | string;
+export type ArrType = "radarr" | "sonarr" | "lidarr";
 
 export interface ProcessInfo {
   category: string;
@@ -108,6 +108,7 @@ export interface RadarrCounts {
 }
 
 export interface RadarrMovie {
+  [key: string]: unknown;
   id?: number;
   title?: string;
   year?: number;
@@ -116,7 +117,6 @@ export interface RadarrMovie {
   reason?: string | null;
   qualityProfileId?: number | null;
   qualityProfileName?: string | null;
-  [key: string]: unknown;
 }
 
 export interface RadarrMoviesResponse {
@@ -137,7 +137,6 @@ export interface SonarrEpisode {
   hasFile?: boolean;
   airDateUtc?: string;
   reason?: string | null;
-  [key: string]: unknown;
 }
 
 export interface SonarrSeason {
@@ -207,10 +206,10 @@ export interface LidarrAlbum {
   percentOfTracks?: number;
   qualityProfileId?: number | null;
   qualityProfileName?: string | null;
-  [key: string]: unknown;
 }
 
 export interface LidarrAlbumEntry {
+  [key: string]: unknown;
   album: Record<string, unknown> & {
     qualityProfileId?: number | null;
     qualityProfileName?: string | null;
@@ -221,7 +220,6 @@ export interface LidarrAlbumEntry {
     missing?: number;
   };
   tracks: LidarrTrack[];
-  [key: string]: unknown;
 }
 
 export interface LidarrAlbumsResponse {

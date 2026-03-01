@@ -46,6 +46,21 @@ name = "first"
 name = "second"
 ```
 
+### Time values (durations)
+
+Many settings accept **time durations**. You can use:
+
+- **Integers (legacy)**: Plain numbers in the key's base unit (seconds or minutes, depending on the setting). Example: `LoopSleepTimer = 5` (5 seconds), `StalledDelay = 15` (15 minutes).
+- **Suffixed strings**: A number followed by a unit letter for human-readable values:
+  - `s` = seconds
+  - `m` = minutes
+  - `h` = hours
+  - `d` = days
+  - `w` = weeks
+  - `M` = months (30 days; uppercase to distinguish from minutes)
+
+Examples: `MaxSeedingTime = "1w"` (1 week in seconds), `StalledDelay = "1440m"` (1440 minutes). Unsupplied or empty suffix is treated as the key's base unit (seconds or minutes). Use `-1` or `"-1"` where a setting supports "disabled".
+
 ---
 
 ## Configuration Sections
@@ -69,8 +84,8 @@ The `[Settings]` section contains global configuration that applies to all qBitr
 
 ```toml
 [Settings]
-# Internal config schema version - DO NOT MODIFY
-ConfigVersion = 3
+# Internal config schema version - DO NOT MODIFY (managed automatically)
+# ConfigVersion = "5.9.2"
 
 # Logging
 ConsoleLevel = "INFO"
@@ -119,11 +134,11 @@ ProcessRestartDelay = 5
 ### ConfigVersion
 
 ```toml
-ConfigVersion = 3
+ConfigVersion = "5.9.2"
 ```
 
-**Type:** Integer
-**Default:** `3`
+**Type:** String
+**Default:** Set automatically by qBitrr (e.g. `"5.9.2"`). Legacy integer values 1–4 are accepted and mapped to semver strings.
 **Required:** Yes (managed automatically)
 
 Internal configuration schema version. **DO NOT MODIFY** this value manually. qBitrr uses it to detect when config migrations are needed.
@@ -270,7 +285,7 @@ FreeSpaceFolder = "/data/downloads"
 ```
 
 **Type:** String (path)
-**Default:** Same as `CompletedDownloadFolder`
+**Default:** `"CHANGE_ME"` in generated config. Must be set explicitly when `FreeSpace != "-1"`.
 
 Folder to monitor for free space checks. Usually the same as `CompletedDownloadFolder`.
 
@@ -412,6 +427,8 @@ qBittorrent category for manually marking torrents as failed.
 - Wrong content
 - Manual intervention needed
 
+Torrents in this category receive the same qBit-side behaviour as Arr-managed categories (recheck on error, missing files handling, stalled detection, etc.). Only research and blocklisting (notifying Arr, re-search) are Arr-specific; for the `failed` category, qBitrr still marks the release as failed in Arr and removes the torrent when so configured.
+
 ---
 
 ### RecheckCategory
@@ -437,6 +454,8 @@ qBittorrent category for forcing torrent recheck.
 - Fix "missing files" errors
 - After restoring from backup
 - After moving download location
+
+Torrents in this category receive the same qBit-side behaviour as Arr-managed categories (recheck on error, missing files handling, stalled detection, etc.). Only research and blocklisting remain Arr-specific; for the `recheck` category, qBitrr forces a full recheck and moves the torrent back to its original category.
 
 ---
 
@@ -736,6 +755,7 @@ LiveArr = true
 GroupSonarr = true
 GroupLidarr = true
 Theme = "Dark"
+ViewDensity = "Comfortable"
 ```
 
 ---
@@ -933,6 +953,20 @@ WebUI color theme.
 
 ---
 
+### ViewDensity
+
+```toml
+ViewDensity = "Comfortable"
+```
+
+**Type:** String
+**Default:** `"Comfortable"`
+**Options:** `Comfortable`, `Compact`
+
+List view density in the WebUI (e.g. Arr views, process list). `Comfortable` uses more spacing; `Compact` fits more rows on screen.
+
+---
+
 ## qBit Section
 
 The `[qBit]` section configures the connection to qBittorrent.
@@ -946,9 +980,10 @@ Host = "localhost"
 Port = 8080
 UserName = "admin"
 Password = "adminpass"
+ManagedCategories = []
 ```
 
-For detailed qBittorrent configuration, see the [qBittorrent Configuration Guide](qbittorrent.md).
+For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, see the [qBittorrent Configuration Guide](qbittorrent.md).
 
 ---
 
@@ -1170,11 +1205,10 @@ Host = "localhost"  # Required
 
 ## Complete Minimal Config
 
-Absolute minimum configuration to get started:
+Absolute minimum configuration to get started. `ConfigVersion` is managed automatically by qBitrr; omit it or leave as set by `--gen-config`.
 
 ```toml
 [Settings]
-ConfigVersion = 3
 CompletedDownloadFolder = "/data/downloads"
 
 [WebUI]

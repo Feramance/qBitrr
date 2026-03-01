@@ -6,8 +6,6 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from qbittorrentapi import TorrentStates
-
 from qBitrr.arss import _extract_tracker_host
 from qBitrr.errors import DelayLoopException
 
@@ -34,6 +32,9 @@ class qBitCategoryManager:
                 - managed_categories: List of category names
                 - default_seeding: Default seeding settings
                 - category_overrides: Per-category seeding overrides
+                - trackers: Tracker config list
+                - stalled_delay: Minutes before removing stalled downloads (-1 = disabled)
+                - ignore_torrents_younger_than: Seconds; don't remove torrents younger than this
         """
         self.instance_name = instance_name
         self.qbit_manager = qbit_manager
@@ -41,6 +42,9 @@ class qBitCategoryManager:
         self.default_seeding = config.get("default_seeding", {})
         self.category_overrides = config.get("category_overrides", {})
         self.trackers = self._build_merged_trackers(config.get("trackers", []))
+        self.stalled_delay = config.get("stalled_delay", -1)
+        self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
+        self.allowed_stalled = self.stalled_delay != -1
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
@@ -133,7 +137,7 @@ class qBitCategoryManager:
 
     def _process_single_torrent(self, torrent: TorrentDictionary, category: str):
         """
-        Process a single torrent - apply seeding settings and check removal.
+        Process a single torrent - apply seeding settings, stalled removal, and ratio/time removal.
 
         Args:
             torrent: qBittorrent torrent object
@@ -173,10 +177,8 @@ class qBitCategoryManager:
             # Apply seeding limits using effective (possibly tracker-overridden) config
             self._apply_seeding_limits(torrent, effective_config)
 
-            # Check if torrent should be removed
-            if self._should_remove_torrent(torrent, effective_config):
-                self._remove_torrent(torrent, category)
-
+            # PlaceHolderArr runs the full state machine for qBit-managed categories (stalled,
+            # ratio/time removal, missing files, recheck). No duplicate removal here.
         except Exception as e:
             self.logger.error(
                 "Error processing torrent '%s' in category '%s': %s",
@@ -260,84 +262,6 @@ class qBitCategoryManager:
                     e,
                 )
 
-    def _should_remove_torrent(self, torrent: TorrentDictionary, config: dict) -> bool:
-        """
-        Check if torrent meets removal conditions.
-
-        - Seeding limits (ratio/time) only apply to COMPLETED/UPLOADING torrents
-        - HnR protection only applies to DOWNLOADING torrents
-
-        Args:
-            torrent: qBittorrent torrent object
-            config: Seeding configuration dict
-
-        Returns:
-            True if torrent should be removed, False otherwise
-        """
-        remove_mode = config.get("RemoveTorrent", -1)
-
-        if remove_mode == -1:
-            return False
-
-        is_uploading = torrent.state_enum in (
-            TorrentStates.UPLOADING,
-            TorrentStates.STALLED_UPLOAD,
-            TorrentStates.QUEUED_UPLOAD,
-            TorrentStates.PAUSED_UPLOAD,
-            TorrentStates.FORCED_UPLOAD,
-        )
-        is_downloading = torrent.state_enum in (
-            TorrentStates.DOWNLOADING,
-            TorrentStates.STALLED_DOWNLOAD,
-            TorrentStates.QUEUED_DOWNLOAD,
-            TorrentStates.PAUSED_DOWNLOAD,
-            TorrentStates.FORCED_DOWNLOAD,
-            TorrentStates.METADATA_DOWNLOAD,
-        )
-
-        if not is_uploading:
-            return False
-
-        ratio_limit = config.get("MaxUploadRatio", -1)
-        time_limit = config.get("MaxSeedingTime", -1)
-
-        ratio_met = ratio_limit > 0 and torrent.ratio >= ratio_limit
-        time_met = time_limit > 0 and torrent.seeding_time >= time_limit
-
-        should_remove = False
-        if remove_mode == 1:
-            should_remove = ratio_met
-        elif remove_mode == 2:
-            should_remove = time_met
-        elif remove_mode == 3:
-            should_remove = ratio_met or time_met
-        elif remove_mode == 4:
-            should_remove = ratio_met and time_met
-
-        if should_remove:
-            tracker_config = self._get_tracker_config(torrent)
-            hnr_config = tracker_config if tracker_config else config
-
-            if hnr_config.get("HitAndRunMode", False) and self._hnr_tracker_is_dead(
-                torrent, hnr_config
-            ):
-                self.logger.debug(
-                    "HnR bypass: tracker reports torrent as unregistered/dead '%s'",
-                    torrent.name,
-                )
-                return True
-
-            if is_downloading and not self._hnr_safe_to_remove(torrent, hnr_config):
-                self.logger.debug(
-                    "HnR protection: keeping downloading torrent '%s' (ratio=%.2f, seeding=%ds)",
-                    torrent.name,
-                    torrent.ratio,
-                    torrent.seeding_time,
-                )
-                return False
-
-        return should_remove
-
     def _get_tracker_config(self, torrent: TorrentDictionary) -> dict | None:
         """Find the highest-priority matching tracker config for this torrent."""
         if not self.trackers:
@@ -377,97 +301,6 @@ class qBitCategoryManager:
                 best = tracker_cfg
                 best_priority = priority
         return best
-
-    def _hnr_tracker_is_dead(self, torrent: TorrentDictionary, config: dict) -> bool:
-        """Check if the HnR-enabled tracker reports the torrent as unregistered."""
-        _dead_keywords = {
-            "unregistered torrent",
-            "torrent not registered",
-            "info hash is not authorized",
-            "torrent is not authorized",
-            "not found",
-            "torrent not found",
-        }
-        uri = (config.get("URI") or "").strip().rstrip("/")
-        cfg_host = _extract_tracker_host(uri)
-        if not cfg_host:
-            return False
-        try:
-            for tracker in torrent.trackers:
-                tracker_url = (getattr(tracker, "url", None) or "").rstrip("/")
-                if _extract_tracker_host(tracker_url) != cfg_host:
-                    continue
-                message_text = (getattr(tracker, "msg", "") or "").lower()
-                if any(keyword in message_text for keyword in _dead_keywords):
-                    return True
-        except Exception:
-            pass
-        return False
-
-    def _hnr_safe_to_remove(self, torrent: TorrentDictionary, config: dict) -> bool:
-        """
-        Check if Hit and Run obligations are met for this torrent.
-
-        Args:
-            torrent: qBittorrent torrent object
-            config: Seeding configuration dict
-
-        Returns:
-            True if HnR obligations are met (safe to remove), False otherwise
-        """
-        if not config.get("HitAndRunMode", False):
-            return True
-
-        min_ratio = config.get("MinSeedRatio", 1.0)
-        min_time_secs = config.get("MinSeedingTimeDays", 0) * 86400
-        min_dl_pct = config.get("HitAndRunMinimumDownloadPercent", 10) / 100.0
-        partial_ratio = config.get("HitAndRunPartialSeedRatio", 1.0)
-        buffer_secs = config.get("TrackerUpdateBuffer", 0)
-
-        is_partial = torrent.progress < 1.0 and torrent.progress >= min_dl_pct
-        effective_seeding_time = torrent.seeding_time - buffer_secs
-
-        if torrent.progress < min_dl_pct:
-            return True  # Below minimum download threshold, no HnR obligation
-        if is_partial:
-            return torrent.ratio >= partial_ratio  # Partial: ratio only
-
-        ratio_met = torrent.ratio >= min_ratio if min_ratio > 0 else False
-        time_met = effective_seeding_time >= min_time_secs if min_time_secs > 0 else False
-
-        if min_ratio > 0 and min_time_secs > 0:
-            return ratio_met or time_met  # Either clears HnR
-        elif min_ratio > 0:
-            return ratio_met
-        elif min_time_secs > 0:
-            return time_met
-        return True
-
-    def _remove_torrent(self, torrent: TorrentDictionary, category: str):
-        """
-        Remove torrent that met seeding goals.
-
-        Args:
-            torrent: qBittorrent torrent object
-            category: Category name
-        """
-        try:
-            self.logger.info(
-                "Removing torrent '%s' from category '%s' " "(ratio: %.2f, seeding time: %ds)",
-                torrent.name,
-                category,
-                torrent.ratio,
-                torrent.seeding_time,
-            )
-            # Remove from qBit but keep files
-            torrent.delete(delete_files=False)
-        except Exception as e:
-            self.logger.error(
-                "Failed to remove torrent '%s': %s",
-                torrent.name,
-                e,
-                exc_info=True,
-            )
 
     def _create_dedicated_client(self):
         """Create a dedicated qBit client for this process to avoid HTTP session sharing."""

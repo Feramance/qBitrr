@@ -676,7 +676,7 @@ The #1 reason qBitrr doesn't process torrents is **mismatched categories**.
 
 2. **Test connection:**
    ```bash
-   curl http://localhost:6969/api/health
+   curl http://localhost:6969/health
    ```
 
 3. **Check firewall:**

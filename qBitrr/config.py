@@ -11,6 +11,8 @@ from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, _write_config_file, apply_config_migrations, generate_doc
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
+CHANGE_ME_SENTINEL = "CHANGE_ME"
+
 
 def process_flags() -> argparse.Namespace | bool:
     parser = argparse.ArgumentParser(description="An interface to interact with qBit and *arrs.")
@@ -45,8 +47,6 @@ def process_flags() -> argparse.Namespace | bool:
     args = parser.parse_args()
 
     if args.gen_config:
-        from qBitrr.gen_config import _write_config_file
-
         _write_config_file()
         return True
     elif args.license:
@@ -97,7 +97,8 @@ else:
     ):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
         shutil.copy(CONFIG_PATH, CONFIG_FILE)
         COPIED_TO_NEW_DIR = True
-    CONFIG = MyConfig("./config.toml")
+    # Load from CONFIG_FILE after copy so we use the same path regardless of cwd
+    CONFIG = MyConfig(CONFIG_FILE if CONFIG_FILE.exists() else CONFIG_PATH.resolve())
 
 if COPIED_TO_NEW_DIR is not None:
     # print(f"STARTING QBITRR | {CONFIG.path} |\n{CONFIG}")
@@ -135,13 +136,13 @@ FREE_SPACE_FOLDER = (
     if FREE_SPACE != "-1"
     else None
 )
-NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get(
+NO_INTERNET_SLEEP_TIMER = ENVIRO_CONFIG.settings.no_internet_sleep_timer or CONFIG.get_duration(
     "Settings.NoInternetSleepTimer", fallback=15
 )
-LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get(
+LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get_duration(
     "Settings.LoopSleepTimer", fallback=5
 )
-SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get(
+SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get_duration(
     "Settings.SearchLoopDelay", fallback=-1
 )
 AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
@@ -150,8 +151,9 @@ AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
 PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
     "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
 )
-IGNORE_TORRENTS_YOUNGER_THAN = ENVIRO_CONFIG.settings.ignore_torrents_younger_than or CONFIG.get(
-    "Settings.IgnoreTorrentsYoungerThan", fallback=180
+IGNORE_TORRENTS_YOUNGER_THAN = (
+    ENVIRO_CONFIG.settings.ignore_torrents_younger_than
+    or CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180)
 )
 
 
@@ -176,7 +178,7 @@ if QBIT_DISABLED and PROCESS_ONLY:
     print("Exiting...")
     sys.exit(1)
 
-if SEARCH_ONLY and QBIT_DISABLED is False:
+if SEARCH_ONLY and not QBIT_DISABLED:
     QBIT_DISABLED = True
     print("QBITRR_OVERRIDES_SEARCH_ONLY is enabled, forcing qBitTorrent setting off")
 

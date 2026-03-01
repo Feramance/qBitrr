@@ -12,14 +12,13 @@ exclude_docs: |
   includes/abbreviations.md
 
 # Copyright
-copyright: Copyright &copy; 2025 Feramance
+copyright: Copyright &copy; 2026 Feramance
 
 # Configuration
 theme:
   name: material
   language: en
-  logo: assets/logov2-clean.png
-  favicon: assets/favicon.ico
+  logo: assets/logov2-clean.svg
   icon:
     repo: fontawesome/brands/github
   palette:
@@ -120,9 +119,11 @@ markdown_extensions:
 plugins:
 - search:
     separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+- include-markdown
 - git-revision-date-localized:
     enable_creation_date: true
     type: timeago
+    enable_parallel_processing: false
 - minify:
     minify_html: true
     minify_js: true
@@ -197,7 +198,6 @@ nav:
   - Changelog: changelog.md
 
 - Getting Started:
-  - getting-started/index.md
   - Installation:
     - getting-started/installation/index.md
     - getting-started/installation/docker.md
@@ -208,7 +208,7 @@ nav:
   - Migration Guide: getting-started/migration.md
 
 - Configuration:
-  - configuration/index.md
+  - Overview: configuration/index.md
   - Configuration File: configuration/config-file.md
   - qBittorrent: configuration/qbittorrent.md
   - Arr Instances:
@@ -228,7 +228,6 @@ nav:
   - Environment Variables: configuration/environment.md
 
 - Features:
-  - features/index.md
   - Torrent Health Monitoring: features/health-monitoring.md
   - Instant Imports: features/instant-imports.md
   - Automated Search: features/automated-search.md

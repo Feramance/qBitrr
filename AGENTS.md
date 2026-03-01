@@ -307,7 +307,7 @@ Each release produces:
 - **Tagging**: Radarr/Sonarr downloads MUST have tags matching the category configured for qBitrr to track them
 - **Paths**: qBit's "Save Path" must be accessible to Radarr/Sonarr (common issue in Docker with mismatched volumes)
 - **WebUI Token**: If `Settings.WebUIToken` is set, all `/api/*` calls require `X-API-Token` header
-- **Database Locks**: Use `db_lock.py:locked_database()` context manager for all Peewee queries to avoid conflicts
+- **Database Locks**: Use `db_lock.py:database_lock()` context manager for all Peewee queries to avoid conflicts
 
 ## Documentation Maintenance
 

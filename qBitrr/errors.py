@@ -23,18 +23,35 @@ class RequireConfigValue(qBitManagerError):
 
     def __init__(self, config_class: str, config_key: str):
         self.message = f"Config key '{config_key}' in '{config_class}' requires a value."
+        super().__init__(self.message)
 
 
 class NoConnectionrException(qBitManagerError):
-    def __init__(self, message: str, type: str = "delay"):
+    """Raised when a connection to a service cannot be established.
+
+    The ``error_type`` attribute (``"delay"`` or ``"no_internet"``) controls
+    whether the caller should retry after a short delay or treat the outage
+    as a prolonged connectivity failure.
+    """
+
+    def __init__(self, message: str, error_type: str = "delay"):
         self.message = message
-        self.type = type
+        self.error_type = error_type
+        super().__init__(message)
 
 
 class DelayLoopException(qBitManagerError):
-    def __init__(self, length: int, type: str):
-        self.type = type
+    """Raised to signal that the current event-loop iteration should pause.
+
+    This is a control-flow exception, not an error.  ``length`` is the
+    requested sleep duration in seconds and ``error_type`` indicates the
+    reason (e.g. ``"delay"`` or ``"no_internet"``).
+    """
+
+    def __init__(self, length: int, error_type: str):
+        self.error_type = error_type
         self.length = length
+        super().__init__(f"Delay loop: {error_type}")
 
 
 class RestartLoopException(ArrManagerException):

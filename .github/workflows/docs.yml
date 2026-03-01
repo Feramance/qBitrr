@@ -55,6 +55,13 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
+    - name: Ensure changelog page exists
+      run: |
+        if [ ! -f docs/changelog.md ] || [ -L docs/changelog.md ]; then
+          rm -f docs/changelog.md
+          cp CHANGELOG.md docs/changelog.md
+        fi
+
     - name: Build documentation
       run: mkdocs build --strict --verbose
 
@@ -98,6 +105,13 @@ jobs:
       run: |
         pip install -r requirements.docs.txt
         pip install linkchecker
+
+    - name: Ensure changelog page exists
+      run: |
+        if [ ! -f docs/changelog.md ] || [ -L docs/changelog.md ]; then
+          rm -f docs/changelog.md
+          cp CHANGELOG.md docs/changelog.md
+        fi
 
     - name: Build docs
       run: mkdocs build

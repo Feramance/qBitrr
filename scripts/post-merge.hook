@@ -1,0 +1,15 @@
+#!/bin/sh
+# Git post-merge hook: rebuild and deploy qBitrr after every git pull (merge).
+# Install with: scripts/install-post-merge-hook.sh
+# Uses Python script when available (cross-platform); falls back to bash script.
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+if command -v python3 >/dev/null 2>&1; then
+  exec python3 scripts/rebuild_and_deploy.py
+fi
+if command -v python >/dev/null 2>&1; then
+  exec python scripts/rebuild_and_deploy.py
+fi
+exec bash scripts/rebuild-and-deploy.sh

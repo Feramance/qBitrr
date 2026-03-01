@@ -169,9 +169,9 @@ QBITRR_SETTINGS_LOOP_SLEEP_TIMER=10
 ### QBITRR_SETTINGS_SEARCH_LOOP_DELAY
 
 **Type:** Integer
-**Default:** `-1` (disabled)
+**Default:** `-1` (use internal 30-second delay between each search command)
 
-Seconds to sleep between posting search commands.
+Seconds between posting individual search commands when processing a batch. When `-1`, qBitrr uses an internal 30-second delay.
 
 ```bash
 QBITRR_SETTINGS_SEARCH_LOOP_DELAY=300
@@ -841,6 +841,8 @@ QBITRR_QBIT_PASSWORD: <base64 encoded>
 
 ### Complete Environment Variable List
 
+The following environment variables are supported by qBitrr. Process management and WebUI settings (e.g. `AutoRestartProcesses`, `WebUI.Port`, `WebUI.Token`) are not currently overridable via environment variables; use `config.toml` for those.
+
 | Environment Variable | Type | Default | Description |
 |---------------------|------|---------|-------------|
 | `QBITRR_SETTINGS_CONSOLE_LEVEL` | String | `INFO` | Console logging level |
@@ -851,7 +853,7 @@ QBITRR_QBIT_PASSWORD: <base64 encoded>
 | `QBITRR_SETTINGS_AUTO_PAUSE_RESUME` | Boolean | `true` | Auto pause/resume torrents |
 | `QBITRR_SETTINGS_NO_INTERNET_SLEEP_TIMER` | Integer | `15` | Sleep seconds when no internet |
 | `QBITRR_SETTINGS_LOOP_SLEEP_TIMER` | Integer | `5` | Sleep seconds between loops |
-| `QBITRR_SETTINGS_SEARCH_LOOP_DELAY` | Integer | `-1` | Delay between search commands |
+| `QBITRR_SETTINGS_SEARCH_LOOP_DELAY` | Integer | `-1` | Seconds between search commands (-1 = internal 30s delay) |
 | `QBITRR_SETTINGS_FAILED_CATEGORY` | String | `failed` | Failed torrents category |
 | `QBITRR_SETTINGS_RECHECK_CATEGORY` | String | `recheck` | Recheck torrents category |
 | `QBITRR_SETTINGS_TAGLESS` | Boolean | `false` | Process all torrents (ignore tags) |

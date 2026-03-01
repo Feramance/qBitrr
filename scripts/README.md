@@ -1,6 +1,55 @@
 # qBitrr Database Recovery Scripts
 
-This directory contains utility scripts for database maintenance and recovery.
+This directory contains utility scripts for database maintenance, recovery, and deployment.
+
+## Rebuild and deploy on git sync
+
+To **rebuild and deploy qBitrr automatically after every `git pull`**, install the post-merge hook. The hook runs the Python rebuild script when available (works on Windows, Linux, macOS); otherwise it falls back to the bash script (requires bash, e.g. Git Bash on Windows).
+
+```bash
+# From repo root (Linux/macOS or Git Bash on Windows)
+bash scripts/install-post-merge-hook.sh
+```
+
+After installation, each time you run `git pull` (and a merge happens), the hook will:
+
+- **If `docker-compose.yml` exists:** run `docker compose build --no-cache` and `docker compose up -d`.
+- **Otherwise:** run `make syncenv` (sync venv and build WebUI). Restart qBitrr manually if you use systemd.
+
+**Override behaviour** with `DEPLOY_MODE`:
+
+- `DEPLOY_MODE=docker` — force Docker Compose rebuild and deploy.
+- `DEPLOY_MODE=native` — force `make syncenv` only (no Docker).
+
+Example (before pulling):
+
+```bash
+export DEPLOY_MODE=native
+git pull
+```
+
+**Manual run** (without git), any environment:
+
+```bash
+# Cross-platform (Windows, Linux, macOS) — use when bash is not available
+python scripts/rebuild_and_deploy.py
+# or
+python3 scripts/rebuild_and_deploy.py
+```
+
+```bash
+# Linux/macOS or Git Bash on Windows
+bash scripts/rebuild-and-deploy.sh
+```
+
+**Files:**
+
+- `scripts/rebuild_and_deploy.py` — Rebuild and deploy logic (Python; works in any environment).
+- `scripts/rebuild-and-deploy.sh` — Same logic for bash (Linux/macOS/Git Bash).
+- `scripts/post-merge.hook` — Hook content (installed into `.git/hooks/post-merge`; runs Python script when available, else bash).
+- `scripts/install-post-merge-hook.sh` — One-time installer for the hook.
+
+---
 
 ## Scripts
 

@@ -544,7 +544,7 @@ curl -H "X-Api-Key: your-api-key" http://sonarr:8989/api/v3/system/status
 
 ### Test qBitrr WebUI
 ```bash
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 
 # Expected: {"status":"healthy","version":"5.5.5"}
 ```

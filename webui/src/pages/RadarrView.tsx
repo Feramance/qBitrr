@@ -34,7 +34,6 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import RestartIcon from "../icons/refresh-arrow.svg";
 
 interface RadarrAggRow extends RadarrMovie {
   __instance: string;
@@ -224,7 +223,6 @@ interface RadarrInstanceViewProps {
   onlyMissing: boolean;
   reasonFilter: string;
   onPageChange: (page: number) => void;
-  onRefresh: () => void;
   onRestart: () => void;
   lastUpdated: string | null;
 }
@@ -358,7 +356,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
-          <IconImage src={RestartIcon} />
+          <IconImage src={RefreshIcon} />
           Restart
         </button>
       </div>
@@ -758,7 +756,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, aggFilter]);
+  }, [instances, globalSearch, push, aggFilter, aggSummary]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 
@@ -963,15 +961,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     );
   }, []);
 
-  const handleInstanceRefresh = useCallback(() => {
-    if (selection && selection !== "aggregate") {
-      void fetchInstance(selection, instancePage, instanceQuery, {
-        preloadAll: false,
-        showLoading: true,
-      });
-    }
-  }, [selection, instancePage, instanceQuery, fetchInstance]);
-
   const handleInstanceSelection = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
       const next = (event.target.value || "aggregate") as string | "aggregate";
@@ -1100,7 +1089,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                     preloadAll: true,
                   });
                 }}
-                onRefresh={handleInstanceRefresh}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
               />

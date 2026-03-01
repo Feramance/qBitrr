@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from qBitrr.gen_config import MyConfig
 
 # Current expected config version - updated automatically by bump2version
-EXPECTED_CONFIG_VERSION = "5.9.1"
+EXPECTED_CONFIG_VERSION = "5.9.2"
 
 # Legacy integer version → semver mapping
 _LEGACY_VERSION_MAP = {
@@ -36,7 +36,7 @@ def _parse_version(v: str | int) -> Version:
     try:
         return Version(str(v))
     except InvalidVersion:
-        logger.warning(f"Invalid version string: {v}, falling back to 0.0.1")
+        logger.warning("Invalid version string: %s, falling back to 0.0.1", v)
         return Version("0.0.1")
 
 
@@ -57,7 +57,7 @@ def get_config_version(config: MyConfig) -> str:
         Version(str(version))
         return str(version)
     except InvalidVersion:
-        logger.warning(f"Invalid ConfigVersion value: {version}, defaulting to 0.0.1")
+        logger.warning("Invalid ConfigVersion value: %s, defaulting to 0.0.1", version)
         return "0.0.1"
 
 
@@ -75,7 +75,7 @@ def set_config_version(config: MyConfig, version: str) -> None:
         config.config["Settings"] = table()
 
     config.config["Settings"]["ConfigVersion"] = version
-    logger.info(f"Set ConfigVersion to {version}")
+    logger.info("Set ConfigVersion to %s", version)
 
 
 def validate_config_version(config: MyConfig) -> tuple[bool, str | None]:
@@ -95,12 +95,12 @@ def validate_config_version(config: MyConfig) -> tuple[bool, str | None]:
     expected = _parse_version(EXPECTED_CONFIG_VERSION)
 
     if current == expected:
-        logger.debug(f"Config version matches expected: {EXPECTED_CONFIG_VERSION}")
+        logger.debug("Config version matches expected: %s", EXPECTED_CONFIG_VERSION)
         return True, None
 
     if current < expected:
         logger.info(
-            f"Config version {current} is older than expected {expected}, " "migration needed"
+            "Config version %s is older than expected %s, migration needed", current, expected
         )
         return True, "migration_needed"
 
@@ -125,7 +125,7 @@ def backup_config(config_path: Path) -> Path | None:
         Path to backup file, or None if backup failed
     """
     if not config_path.exists():
-        logger.warning(f"Config file not found for backup: {config_path}")
+        logger.warning("Config file not found for backup: %s", config_path)
         return None
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -135,10 +135,10 @@ def backup_config(config_path: Path) -> Path | None:
         import shutil
 
         shutil.copy2(config_path, backup_path)
-        logger.info(f"Created config backup: {backup_path}")
+        logger.info("Created config backup: %s", backup_path)
         return backup_path
     except Exception as e:
-        logger.error(f"Failed to create config backup: {e}")
+        logger.error("Failed to create config backup: %s", e)
         return None
 
 
@@ -154,15 +154,15 @@ def restore_config_backup(backup_path: Path, config_path: Path) -> bool:
         True if restore succeeded, False otherwise
     """
     if not backup_path.exists():
-        logger.error(f"Backup file not found: {backup_path}")
+        logger.error("Backup file not found: %s", backup_path)
         return False
 
     try:
         import shutil
 
         shutil.copy2(backup_path, config_path)
-        logger.info(f"Restored config from backup: {backup_path}")
+        logger.info("Restored config from backup: %s", backup_path)
         return True
     except Exception as e:
-        logger.error(f"Failed to restore config from backup: {e}")
+        logger.error("Failed to restore config from backup: %s", e)
         return False

@@ -8,10 +8,16 @@ from tomlkit import comment, document, inline_table, nl, parse, table
 from tomlkit.items import Table
 from tomlkit.toml_document import TOMLDocument
 
+from qBitrr.duration_config import parse_duration_to_minutes, parse_duration_to_seconds
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
 
 T = TypeVar("T")
+
+
+def _default(value, fallback):
+    """Return value if not None, otherwise fallback. Unlike ``or``, preserves falsy values like False and 0."""
+    return value if value is not None else fallback
 
 
 def _add_web_settings_section(config: TOMLDocument):
@@ -102,67 +108,70 @@ def _add_settings_section(config: TOMLDocument):
         settings,
         "Level of logging; One of CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACE",
         "ConsoleLevel",
-        ENVIRO_CONFIG.settings.console_level or "INFO",
+        _default(ENVIRO_CONFIG.settings.console_level, "INFO"),
     )
     _gen_default_line(
-        settings, "Enable logging to files", "Logging", ENVIRO_CONFIG.settings.logging or True
+        settings,
+        "Enable logging to files",
+        "Logging",
+        _default(ENVIRO_CONFIG.settings.logging, True),
     )
     _gen_default_line(
         settings,
         "Folder where your completed downloads are put into. Can be found in qBitTorrent -> Options -> Downloads -> Default Save Path (Please note, replace all '\\' with '/')",
         "CompletedDownloadFolder",
-        ENVIRO_CONFIG.settings.completed_download_folder or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.settings.completed_download_folder, "CHANGE_ME"),
     )
     _gen_default_line(
         settings,
         "The desired amount of free space in the downloads directory [K=kilobytes, M=megabytes, G=gigabytes, T=terabytes] (set to -1 to disable, this bypasses AutoPauseResume)",
         "FreeSpace",
-        ENVIRO_CONFIG.settings.free_space or "-1",
+        _default(ENVIRO_CONFIG.settings.free_space, "-1"),
     )
     _gen_default_line(
         settings,
         "Folder where the free space handler will check for free space (Please note, replace all '' with '/')",
         "FreeSpaceFolder",
-        ENVIRO_CONFIG.settings.free_space_folder or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.settings.free_space_folder, "CHANGE_ME"),
     )
     _gen_default_line(
         settings,
         "Enable automation of pausing and resuming torrents as needed (Required enabled for the FreeSpace logic to function)",
         "AutoPauseResume",
-        ENVIRO_CONFIG.settings.auto_pause_resume or True,
+        _default(ENVIRO_CONFIG.settings.auto_pause_resume, True),
     )
     _gen_default_line(
         settings,
         "Time to sleep for if there is no internet (in seconds: 600 = 10 Minutes)",
         "NoInternetSleepTimer",
-        ENVIRO_CONFIG.settings.no_internet_sleep_timer or 15,
+        _default(ENVIRO_CONFIG.settings.no_internet_sleep_timer, 15),
     )
     _gen_default_line(
         settings,
         "Time to sleep between reprocessing torrents (in seconds: 600 = 10 Minutes)",
         "LoopSleepTimer",
-        ENVIRO_CONFIG.settings.loop_sleep_timer or 5,
+        _default(ENVIRO_CONFIG.settings.loop_sleep_timer, 5),
     )
     _gen_default_line(
         settings,
         "Time to sleep between posting search commands (in seconds: 600 = 10 Minutes)",
         "SearchLoopDelay",
-        ENVIRO_CONFIG.settings.search_loop_delay or -1,
+        _default(ENVIRO_CONFIG.settings.search_loop_delay, -1),
     )
     _gen_default_line(
         settings,
         "Add torrents to this category to mark them as failed",
         "FailedCategory",
-        ENVIRO_CONFIG.settings.failed_category or "failed",
+        _default(ENVIRO_CONFIG.settings.failed_category, "failed"),
     )
     _gen_default_line(
         settings,
         "Add torrents to this category to trigger them to be rechecked properly",
         "RecheckCategory",
-        ENVIRO_CONFIG.settings.recheck_category or "recheck",
+        _default(ENVIRO_CONFIG.settings.recheck_category, "recheck"),
     )
     _gen_default_line(
-        settings, "Tagless operation", "Tagless", ENVIRO_CONFIG.settings.tagless or False
+        settings, "Tagless operation", "Tagless", _default(ENVIRO_CONFIG.settings.tagless, False)
     )
     _gen_default_line(
         settings,
@@ -171,7 +180,7 @@ def _add_settings_section(config: TOMLDocument):
             "Only applicable to Re-check and failed categories",
         ],
         "IgnoreTorrentsYoungerThan",
-        ENVIRO_CONFIG.settings.ignore_torrents_younger_than or 180,
+        _default(ENVIRO_CONFIG.settings.ignore_torrents_younger_than, 180),
     )
     _gen_default_line(
         settings,
@@ -180,7 +189,7 @@ def _add_settings_section(config: TOMLDocument):
             "These will be pinged a **LOT** make sure the service is okay with you sending all the continuous pings.",
         ],
         "PingURLS",
-        ENVIRO_CONFIG.settings.ping_urls or ["one.one.one.one", "dns.google.com"],
+        _default(ENVIRO_CONFIG.settings.ping_urls, ["one.one.one.one", "dns.google.com"]),
     )
     _gen_default_line(
         settings,
@@ -219,7 +228,7 @@ def _add_settings_section(config: TOMLDocument):
             "Default is weekly Sunday at 03:00 (0 3 * * 0).",
         ],
         "AutoUpdateCron",
-        ENVIRO_CONFIG.settings.auto_update_cron or "0 3 * * 0",
+        _default(ENVIRO_CONFIG.settings.auto_update_cron, "0 3 * * 0"),
     )
     _gen_default_line(
         settings,
@@ -273,25 +282,25 @@ def _add_qbit_section(config: TOMLDocument):
         qbit,
         'qbittorrent WebUI URL/IP - Can be found in Options > Web UI (called "IP Address")',
         "Host",
-        ENVIRO_CONFIG.qbit.host or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.host, "CHANGE_ME"),
     )
     _gen_default_line(
         qbit,
         'qbittorrent WebUI Port - Can be found in Options > Web UI (called "Port" on top right corner of the window)',
         "Port",
-        ENVIRO_CONFIG.qbit.port or 8080,
+        _default(ENVIRO_CONFIG.qbit.port, 8080),
     )
     _gen_default_line(
         qbit,
         "qbittorrent WebUI Authentication - Can be found in Options > Web UI > Authentication",
         "UserName",
-        ENVIRO_CONFIG.qbit.username or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.username, "CHANGE_ME"),
     )
     _gen_default_line(
         qbit,
         'If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.',
         "Password",
-        ENVIRO_CONFIG.qbit.password or "CHANGE_ME",
+        _default(ENVIRO_CONFIG.qbit.password, "CHANGE_ME"),
     )
     _gen_default_line(
         qbit,
@@ -345,9 +354,11 @@ def _add_qbit_section(config: TOMLDocument):
     )
     _gen_default_line(
         category_seeding,
-        "Enable Hit and Run protection for managed category torrents",
+        [
+            "Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR.",
+        ],
         "HitAndRunMode",
-        False,
+        "disabled",
     )
     _gen_default_line(
         category_seeding,
@@ -378,6 +389,18 @@ def _add_qbit_section(config: TOMLDocument):
         "Extra seconds buffer for tracker stats lag (0 = disabled)",
         "TrackerUpdateBuffer",
         0,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite).",
+        "StalledDelay",
+        -1,
+    )
+    _gen_default_line(
+        category_seeding,
+        "Ignore torrents younger than this (seconds). Stalled removal also requires last_activity older than this.",
+        "IgnoreTorrentsYoungerThan",
+        180,
     )
     _gen_qbit_tracker_tables(qbit)
 
@@ -997,6 +1020,18 @@ class MyConfig:
     def get(self, section: str, fallback: Any = None) -> T:
         return self._deep_get(section, default=fallback)
 
+    def get_duration(self, dotted_key: str, fallback: int = -1, unit: str = "seconds") -> int:
+        """
+        Get a time value in seconds or minutes. Accepts int or suffixed string (e.g. "1w", "60m").
+        Plain numbers are treated as the key's base unit (seconds or minutes).
+        """
+        raw = self._deep_get(dotted_key, default=fallback)
+        if raw is ... or raw is None:
+            return fallback
+        if unit == "minutes":
+            return parse_duration_to_minutes(raw, fallback)
+        return parse_duration_to_seconds(raw, fallback)
+
     def get_or_raise(self, section: str) -> T:
         if (r := self._deep_get(section, default=KeyError)) is KeyError:
             raise KeyError(f"{section} does not exist")
@@ -1181,12 +1216,12 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
                 inline_mappings.update(mappings)
                 config.config[str(key)]["EntrySearch"]["QualityProfileMappings"] = inline_mappings
                 changes_made = True
-                logger.info(f"Migrated {key} to QualityProfileMappings: {mappings}")
+                logger.info("Migrated %s to QualityProfileMappings: %s", key, mappings)
 
                 # Remove old format
                 del config.config[str(key)]["EntrySearch"]["MainQualityProfile"]
                 del config.config[str(key)]["EntrySearch"]["TempQualityProfile"]
-                logger.debug(f"Removed legacy profile lists from {key}")
+                logger.debug("Removed legacy profile lists from %s", key)
 
     return changes_made
 
@@ -1234,7 +1269,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             seeding["MaxUploadRatio"] = -1
             seeding["MaxSeedingTime"] = -1
             seeding["RemoveTorrent"] = -1
-            seeding["HitAndRunMode"] = False
+            seeding["HitAndRunMode"] = "disabled"
             seeding["MinSeedRatio"] = 1.0
             seeding["MinSeedingTimeDays"] = 0
             seeding["HitAndRunMinimumDownloadPercent"] = 10
@@ -1251,7 +1286,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
             if "ManagedCategories" not in qbit_section:
                 qbit_section["ManagedCategories"] = []
                 changes_made = True
-                logger.info(f"Added ManagedCategories = [] to [{section}]")
+                logger.info("Added ManagedCategories = [] to [%s]", section)
 
             if "CategorySeeding" not in qbit_section:
                 seeding = table()
@@ -1260,7 +1295,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["MaxUploadRatio"] = -1
                 seeding["MaxSeedingTime"] = -1
                 seeding["RemoveTorrent"] = -1
-                seeding["HitAndRunMode"] = False
+                seeding["HitAndRunMode"] = "disabled"
                 seeding["MinSeedRatio"] = 1.0
                 seeding["MinSeedingTimeDays"] = 0
                 seeding["HitAndRunMinimumDownloadPercent"] = 10
@@ -1268,7 +1303,7 @@ def _migrate_qbit_category_settings(config: MyConfig) -> bool:
                 seeding["TrackerUpdateBuffer"] = 0
                 qbit_section["CategorySeeding"] = seeding
                 changes_made = True
-                logger.info(f"Added CategorySeeding configuration to [{section}]")
+                logger.info("Added CategorySeeding configuration to [%s]", section)
 
     if changes_made:
         print("Migration v3→v4: Added qBit category management settings")
@@ -1301,7 +1336,7 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     changes_made = False
     arr_types = ["Radarr", "Sonarr", "Lidarr", "Animarr"]
     hnr_seeding_defaults = {
-        "HitAndRunMode": False,
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1438,6 +1473,101 @@ def _migrate_hnr_settings(config: MyConfig) -> bool:
     return changes_made
 
 
+def _migrate_hnr_single_key(config: MyConfig) -> bool:
+    """
+    Consolidate HitAndRunMode (bool) + HitAndRunClearMode (string) into single HitAndRunMode string.
+
+    Runs when ConfigVersion < "5.9.2" or when already 5.9.2 but HitAndRunClearMode is present.
+    Sets HitAndRunMode = "and" | "or" | "disabled", removes HitAndRunClearMode.
+    Returns True if any change was made.
+    """
+    from qBitrr.config_version import _parse_version, get_config_version
+
+    current_version = _parse_version(get_config_version(config))
+    valid_modes = ("and", "or", "disabled")
+
+    def _has_hnr_clear_mode_anywhere() -> bool:
+        for key in list(config.config.keys()):
+            section = config.config.get(str(key))
+            if not isinstance(section, dict):
+                continue
+            if "CategorySeeding" in section:
+                cs = section["CategorySeeding"]
+                if isinstance(cs, dict) and "HitAndRunClearMode" in cs:
+                    return True
+            if "Trackers" in section and isinstance(section["Trackers"], list):
+                for t in section["Trackers"]:
+                    if isinstance(t, dict) and "HitAndRunClearMode" in t:
+                        return True
+            if "Torrent" in section and isinstance(section["Torrent"], dict):
+                tt = section["Torrent"]
+                if "Trackers" in tt and isinstance(tt["Trackers"], list):
+                    for t in tt["Trackers"]:
+                        if isinstance(t, dict) and "HitAndRunClearMode" in t:
+                            return True
+        return False
+
+    if current_version >= _parse_version("5.9.2") and not _has_hnr_clear_mode_anywhere():
+        return False
+
+    def _resolve(d: dict) -> str:
+        raw_clear = d.get("HitAndRunClearMode")
+        if isinstance(raw_clear, str) and raw_clear.strip().lower() in valid_modes:
+            return raw_clear.strip().lower()
+        raw_mode = d.get("HitAndRunMode")
+        if isinstance(raw_mode, str) and raw_mode.strip().lower() in valid_modes:
+            return raw_mode.strip().lower()
+        # Legacy boolean HitAndRunMode
+        if raw_mode is True:
+            return "and"
+        return "disabled"
+
+    changes_made = False
+    for key in list(config.config.keys()):
+        section = config.config[str(key)]
+        if not isinstance(section, dict):
+            continue
+        if "CategorySeeding" in section:
+            cs = section["CategorySeeding"]
+            if isinstance(cs, dict):
+                had_clear = "HitAndRunClearMode" in cs
+                had_bool = isinstance(cs.get("HitAndRunMode"), bool)
+                resolved = _resolve(cs)
+                cs["HitAndRunMode"] = resolved
+                if had_clear:
+                    del cs["HitAndRunClearMode"]
+                if had_clear or had_bool:
+                    changes_made = True
+        if "Trackers" in section and isinstance(section["Trackers"], list):
+            for tracker in section["Trackers"]:
+                if isinstance(tracker, dict):
+                    had_clear = "HitAndRunClearMode" in tracker
+                    had_bool = isinstance(tracker.get("HitAndRunMode"), bool)
+                    resolved = _resolve(tracker)
+                    tracker["HitAndRunMode"] = resolved
+                    if had_clear:
+                        del tracker["HitAndRunClearMode"]
+                    if had_clear or had_bool:
+                        changes_made = True
+        if "Torrent" in section and isinstance(section["Torrent"], dict):
+            tt = section["Torrent"]
+            if "Trackers" in tt and isinstance(tt["Trackers"], list):
+                for tracker in tt["Trackers"]:
+                    if isinstance(tracker, dict):
+                        had_clear = "HitAndRunClearMode" in tracker
+                        had_bool = isinstance(tracker.get("HitAndRunMode"), bool)
+                        resolved = _resolve(tracker)
+                        tracker["HitAndRunMode"] = resolved
+                        if had_clear:
+                            del tracker["HitAndRunClearMode"]
+                        if had_clear or had_bool:
+                            changes_made = True
+
+    if changes_made:
+        print("Migration 5.9.x→5.9.2: Consolidated HitAndRunMode to single key (and/or/disabled)")
+    return changes_made
+
+
 def _normalize_theme_value(value: Any) -> str:
     """
     Normalize theme value to always be 'Light' or 'Dark' (case insensitive input).
@@ -1516,7 +1646,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("FailedCategory", "failed"),
         ("RecheckCategory", "recheck"),
         ("Tagless", False),
-        ("IgnoreTorrentsYoungerThan", 600),
+        ("IgnoreTorrentsYoungerThan", 180),
         ("PingURLS", ["one.one.one.one", "dns.google.com"]),
         ("FFprobeAutoUpdate", True),
         ("AutoUpdateEnabled", False),
@@ -1609,7 +1739,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate HnR fields on CategorySeeding and Tracker sections
     hnr_category_defaults = {
-        "HitAndRunMode": False,
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1617,7 +1747,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         "TrackerUpdateBuffer": 0,
     }
     hnr_tracker_defaults = {
-        "HitAndRunMode": False,
+        "HitAndRunMode": "disabled",
         "MinSeedRatio": 1.0,
         "MinSeedingTimeDays": 0,
         "HitAndRunMinimumDownloadPercent": 10,
@@ -1720,6 +1850,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Add Hit and Run protection settings to trackers/CategorySeeding (< 5.8.8)
     if _migrate_hnr_settings(config):
+        changes_made = True
+
+    # Consolidate HitAndRunMode to single key and/or/disabled (< 5.9.2 or 5.9.2 with ClearMode)
+    if _migrate_hnr_single_key(config):
         changes_made = True
 
     # Validate and fill config (this also ensures ConfigVersion field exists)

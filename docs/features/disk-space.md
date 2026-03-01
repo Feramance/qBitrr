@@ -31,7 +31,7 @@ graph TD
     A[qBitrr monitoring loop] --> B{Check free space}
     B --> C{Space < FreeSpace?}
     C -->|No| D[Continue normally]
-    C -->|Yes| E[Pause all downloads]
+    C -->|Yes| E[Pause downloads in managed categories]
     E --> F[Log warning]
     F --> G[Keep seeding active]
     G --> H[Wait for next loop]
@@ -46,12 +46,21 @@ graph TD
 1. qBitrr checks free space every `LoopSleepTimer` seconds (default: 5)
 2. Compares available space to `FreeSpace` threshold
 3. If space < threshold:
-   - Pauses all downloading torrents
+   - Pauses **downloading** torrents in **managed** categories (Arr-managed and qBit-managed) so that free space would not fall below the threshold
    - Keeps seeding torrents active
    - Logs warning message
 4. When space frees up (files imported/deleted):
    - Automatically resumes paused downloads
    - Continues normal operation
+
+**Which torrents are monitored:**
+
+The Free Space Manager monitors torrents in **all categories** that qBitrr manages:
+
+- **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, and Lidarr instance (e.g. `radarr`, `sonarr`, `radarr4k`).
+- **qBit-managed categories** — Categories listed in `[qBit].ManagedCategories` (e.g. `autobrr`).
+
+Torrents in any of these categories are included in free-space checks and can be paused when disk is low. Torrents in other qBittorrent categories (not used by any Arr instance and not in `ManagedCategories`) are not monitored.
 
 ---
 
@@ -130,7 +139,7 @@ FreeSpaceFolder = "/data/downloads"
 ```
 
 **Type:** String (path)
-**Default:** Same as `CompletedDownloadFolder`
+**Default:** `"CHANGE_ME"` in generated config; must be set when `FreeSpace != "-1"`
 
 Folder to monitor for free space.
 
@@ -160,6 +169,8 @@ FreeSpaceFolder = "/mnt/storage"
 CompletedDownloadFolder = "/downloads"
 FreeSpaceFolder = "/downloads"
 ```
+
+**Docker:** The path is **inside the container**. You must mount your host torrent directory at that path (e.g. `-v /host/torrents:/torrents`). If the path does not exist in the container, qBitrr falls back to `/` and reports the container root filesystem's free space (usually very small), which will trigger constant pausing. Ensure your compose/run mounts the volume at the same path as `FreeSpaceFolder`.
 
 ---
 
@@ -298,7 +309,7 @@ State:
 
 qBitrr Actions:
 1. Detects: 48 GB < 50 GB threshold
-2. Pauses all downloading torrents
+2. Pauses downloading torrents in managed categories (see "Which torrents are monitored" below)
 3. Logs: "Disk space low, pausing downloads"
 4. Keeps seeding torrents active
 5. Waits for space to free up
@@ -456,9 +467,14 @@ Check paused torrents in qBittorrent:
    df -h /data/downloads
    ```
 
-4. **Check logs for errors:**
+4. **Ensure torrents are in monitored categories:**
+   Free Space Manager only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
+
+5. **Check logs for errors:**
    ```bash
    grep -i "space\|error" ~/logs/Main.log
+   # Or FreeSpaceManager log
+   tail -f ~/config/logs/FreeSpaceManager.log
    ```
 
 ---
@@ -497,6 +513,14 @@ Check paused torrents in qBittorrent:
    # Use container path
    FreeSpaceFolder = "/downloads"
    ```
+
+4. **Windows: Use the actual drive path**
+   If `FreeSpaceFolder` is set to a Unix-style path (e.g. `/torrents`) and qBitrr runs natively on Windows, that path is resolved to the current drive (e.g. `C:\torrents`). If that path does not exist, qBitrr falls back to the drive root (e.g. `C:\`) and reports that drive's free space. Set `FreeSpaceFolder` (and `CompletedDownloadFolder`) to the real path where torrents are stored, for example:
+   ```toml
+   CompletedDownloadFolder = "D:\\torrents"
+   FreeSpaceFolder = "D:\\torrents"
+   ```
+   Check the FreeSpaceManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
 
 ---
 
