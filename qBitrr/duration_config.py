@@ -30,7 +30,7 @@ SUFFIX_TO_MINUTES = {
     "M": 43200,  # 30 days
 }
 
-_DURATION_PATTERN = re.compile(r"^\s*(-?\d+)\s*([smhdwM]?)\s*$", re.IGNORECASE)
+_DURATION_PATTERN = re.compile(r"^\s*(-?\d+)\s*([sSmMhHdDwWM]?)\s*$")
 
 
 def parse_duration_to_seconds(value: Any, fallback: int = -1) -> int:
@@ -92,4 +92,7 @@ def parse_duration_to_minutes(value: Any, fallback: int = -1) -> int:
         mult = SUFFIX_TO_MINUTES["M"]
     else:
         mult = SUFFIX_TO_MINUTES.get(raw_suffix.lower(), 1)
-    return int(num * mult)
+    minutes = num * mult
+    if 0 < minutes < 1:
+        return 1
+    return int(minutes)
