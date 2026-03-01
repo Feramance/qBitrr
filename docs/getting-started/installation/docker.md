@@ -319,7 +319,7 @@ services:
 
 ### Health Checks
 
-Add a health check:
+Add a health check (the official image includes `curl` for this):
 
 ```yaml
 services:
@@ -578,6 +578,8 @@ services:
 ```
 
 ### 3. Use Health Checks
+
+The official image includes `curl` for the health check. Example:
 
 ```yaml
 services:

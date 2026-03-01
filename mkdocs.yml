@@ -19,6 +19,7 @@ theme:
   name: material
   language: en
   logo: assets/logov2-clean.svg
+  favicon: assets/favicon.ico
   icon:
     repo: fontawesome/brands/github
   palette:
