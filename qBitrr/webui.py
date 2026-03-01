@@ -2628,6 +2628,7 @@ class WebUI:
                 self.logger.debug("api_get_config failed", exc_info=True)
                 return jsonify({"error": "Failed to load config"}), 500
 
+        @app.get("/web/config")
         def web_get_config():
             try:
                 try:
