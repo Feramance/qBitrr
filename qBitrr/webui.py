@@ -70,13 +70,24 @@ _SENSITIVE_KEY_PATTERNS = re.compile(
     r"(apikey|api_key|token|password|secret|passkey|credential)", re.IGNORECASE
 )
 
+# Placeholder returned by API/Web UI for sensitive values; never send real secrets.
+# When config update sends this value for a sensitive key, the existing secret is left unchanged.
+REDACTED_PLACEHOLDER = "[redacted]"
+
+
+def _is_sensitive_dotted_key(dotted_key: str) -> bool:
+    """Return True if the config key is considered sensitive (e.g. qBit.Password, Radarr-x.APIKey)."""
+    if not dotted_key or "." not in dotted_key:
+        return bool(_SENSITIVE_KEY_PATTERNS.search(dotted_key))
+    return bool(_SENSITIVE_KEY_PATTERNS.search(dotted_key.split(".")[-1]))
+
 
 def _strip_sensitive_keys(obj: Any, _parent_key: str = "") -> Any:
     """Recursively redact values whose keys look like secrets."""
     if isinstance(obj, dict):
         return {
             k: (
-                "[redacted]"
+                REDACTED_PLACEHOLDER
                 if isinstance(v, str) and _SENSITIVE_KEY_PATTERNS.search(k)
                 else _strip_sensitive_keys(v, k)
             )
@@ -2621,8 +2632,9 @@ class WebUI:
                     CONFIG.load()
                 except Exception:
                     self.logger.debug("CONFIG.load failed in api_get_config", exc_info=True)
-                # Render current config as a JSON-able dict via tomlkit
+                # Render current config as a JSON-able dict via tomlkit; never expose secrets
                 data = _toml_to_jsonable(CONFIG.config)
+                data = _strip_sensitive_keys(data)
                 return jsonify(data)
             except Exception:
                 self.logger.debug("api_get_config failed", exc_info=True)
@@ -2636,9 +2648,8 @@ class WebUI:
                 except Exception:
                     self.logger.debug("CONFIG.load failed in web_get_config", exc_info=True)
                 data = _toml_to_jsonable(CONFIG.config)
-
-                if not _authorized():
-                    data = _strip_sensitive_keys(data)
+                # Always redact secrets so API/Web UI never expose qBit passwords or Arr API keys
+                data = _strip_sensitive_keys(data)
 
                 # Check config version and add warning if mismatch
                 from qBitrr.config_version import get_config_version, validate_config_version
@@ -2721,6 +2732,9 @@ class WebUI:
                     _toml_delete(CONFIG.config, key)
                     if key == "WebUI.Token":
                         self.token = ""
+                    continue
+                # Never overwrite a real secret with the redaction placeholder from the client
+                if _is_sensitive_dotted_key(key) and str(val).strip() == REDACTED_PLACEHOLDER:
                     continue
                 _toml_set(CONFIG.config, key, val)
                 if key == "WebUI.Token":
