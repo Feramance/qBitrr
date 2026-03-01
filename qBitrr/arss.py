@@ -79,7 +79,6 @@ from qBitrr.utils import (
     absolute_file_paths,
     format_bytes,
     has_internet,
-    mask_secret,
     parse_size,
     validate_and_return_torrent_file,
     with_retry,
@@ -619,6 +618,7 @@ class Arr:
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
 
+        _masked_apikey = "[redacted]" if self.apikey else ""
         self.logger.debug(
             "%s Config: "
             "Managed: %s, "
@@ -635,7 +635,7 @@ class Arr:
             self.re_search,
             self.category,
             self.uri,
-            mask_secret(self.apikey),
+            _masked_apikey,
             self.refresh_downloads_timer,
             self.rss_sync_timer,
         )
@@ -681,16 +681,16 @@ class Arr:
             self.logger.debug("Script Config:  SearchOmbiRequests=%s", self.ombi_search_requests)
             if self.ombi_search_requests:
                 self.logger.debug("Script Config:  OmbiURI=%s", self.ombi_uri)
-                self.logger.debug("Script Config:  OmbiAPIKey=%s", mask_secret(self.ombi_api_key))
+                _masked_ombi = "[redacted]" if self.ombi_api_key else ""
+                self.logger.debug("Script Config:  OmbiAPIKey=%s", _masked_ombi)
                 self.logger.debug("Script Config:  ApprovedOnly=%s", self.ombi_approved_only)
             self.logger.debug(
                 "Script Config:  SearchOverseerrRequests=%s", self.overseerr_requests
             )
             if self.overseerr_requests:
                 self.logger.debug("Script Config:  OverseerrURI=%s", self.overseerr_uri)
-                self.logger.debug(
-                    "Script Config:  OverseerrAPIKey=%s", mask_secret(self.overseerr_api_key)
-                )
+                _masked_overseerr = "[redacted]" if self.overseerr_api_key else ""
+                self.logger.debug("Script Config:  OverseerrAPIKey=%s", _masked_overseerr)
             if self.ombi_search_requests or self.overseerr_requests:
                 self.logger.debug(
                     "Script Config:  SearchRequestsEvery=%s", self.search_requests_every_x_seconds
@@ -7686,8 +7686,8 @@ class PlaceHolderArr(Arr):
                         "Cannot delete %d torrent(s): no qBit client (manager.qbit is None)",
                         len(rest),
                     )
-            to_delete_all = to_delete_all.union(temp_to_delete).union(deleted_hashes)
-            for h in to_delete_all:
+            cleaned_hashes = deleted_hashes.union(temp_to_delete)
+            for h in cleaned_hashes:
                 self.cleaned_torrents.discard(h)
                 self.sent_to_scan_hashes.discard(h)
                 if h in self.manager.qbit_manager.name_cache:
