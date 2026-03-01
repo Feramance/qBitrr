@@ -34,14 +34,12 @@ def checkpoint_wal(db_path: Path, logger_override=None) -> bool:
     try:
         log.info("Starting WAL checkpoint for database: %s", db_path)
         conn = sqlite3.connect(str(db_path), timeout=10.0)
-        cursor = conn.cursor()
-
-        # Force WAL checkpoint with TRUNCATE mode
-        # This checkpoints all frames and truncates the WAL file
-        cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        result = cursor.fetchone()
-
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            result = cursor.fetchone()
+        finally:
+            conn.close()
 
         # Result is (busy, log_pages, checkpointed_pages)
         # If busy=0, checkpoint was fully successful
@@ -73,7 +71,7 @@ def repair_database(db_path: Path, backup: bool = True, logger_override=None) ->
 
     This operation:
     1. Creates a backup of the corrupted database
-    2. Dumps all recoverable data to a temporary database
+    2. Dumps all recoverable data to a temporary database (handles partial dumps)
     3. Replaces the original with the repaired copy
     4. Verifies integrity of the repaired database
 
@@ -94,73 +92,93 @@ def repair_database(db_path: Path, backup: bool = True, logger_override=None) ->
 
     backup_path = db_path.with_suffix(".db.backup")
     temp_path = db_path.with_suffix(".db.temp")
+    source_conn = None
+    temp_conn = None
 
     try:
-        # Step 1: Backup original
         if backup:
             log.info("Creating backup: %s", backup_path)
             shutil.copy2(db_path, backup_path)
 
-        # Step 2: Dump recoverable data
         log.info("Dumping recoverable data from corrupted database...")
         source_conn = sqlite3.connect(str(db_path))
-
         temp_conn = sqlite3.connect(str(temp_path))
 
-        # Dump schema and data
+        recovered_count = 0
         skipped_rows = 0
-        for line in source_conn.iterdump():
-            try:
-                temp_conn.execute(line)
-            except sqlite3.Error as e:
-                # Log but continue - recover what we can
-                skipped_rows += 1
-                log.debug("Skipping corrupted row during dump: %s", e)
+        dump_interrupted = False
+        try:
+            for line in source_conn.iterdump():
+                try:
+                    temp_conn.execute(line)
+                    recovered_count += 1
+                except sqlite3.Error as e:
+                    skipped_rows += 1
+                    log.debug("Skipping corrupted row during dump: %s", e)
+        except Exception as e:
+            dump_interrupted = True
+            log.warning(
+                "iterdump stopped early due to corruption (%s recovered, %s skipped): %s",
+                recovered_count,
+                skipped_rows,
+                e,
+            )
+
+        temp_conn.commit()
 
         if skipped_rows > 0:
             log.warning("Skipped %s corrupted rows during dump", skipped_rows)
 
-        temp_conn.commit()
-        temp_conn.close()
         source_conn.close()
+        source_conn = None
+        temp_conn.close()
+        temp_conn = None
 
-        # Step 3: Replace original with repaired copy
-        log.info("Replacing database with repaired version...")
-        db_path.unlink()
-        shutil.move(str(temp_path), str(db_path))
+        if recovered_count == 0:
+            raise DatabaseRecoveryError("No data could be recovered from corrupt database")
 
-        # Step 4: Verify integrity
-        log.info("Verifying integrity of repaired database...")
-        verify_conn = sqlite3.connect(str(db_path))
+        verify_conn = sqlite3.connect(str(temp_path))
         cursor = verify_conn.cursor()
         cursor.execute("PRAGMA integrity_check")
         result = cursor.fetchone()[0]
         verify_conn.close()
 
         if result != "ok":
-            raise DatabaseRecoveryError(f"Repair verification failed: {result}")
+            raise DatabaseRecoveryError(f"Repaired database failed integrity check: {result}")
 
-        log.info("Database repair successful!")
+        log.info("Replacing database with repaired version...")
+        for stale in (
+            db_path,
+            db_path.parent / f"{db_path.name}-wal",
+            db_path.parent / f"{db_path.name}-shm",
+        ):
+            try:
+                stale.unlink()
+            except FileNotFoundError:
+                pass
+        shutil.move(str(temp_path), str(db_path))
+
+        status = "with partial data (dump interrupted)" if dump_interrupted else "fully"
+        log.info(
+            "Database repair successful (%s) - %s statements recovered", status, recovered_count
+        )
         return True
 
     except Exception as e:
         log.error("Database repair failed: %s", e)
 
-        # Attempt to restore backup
-        if backup and backup_path.exists():
-            log.warning("Restoring from backup...")
-            try:
-                shutil.copy2(backup_path, db_path)
-                log.info("Backup restored successfully")
-            except Exception as restore_error:
-                log.error("Failed to restore backup: %s", restore_error)
+        for conn in (source_conn, temp_conn):
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
-        # Cleanup temp files
         if temp_path.exists():
             try:
                 temp_path.unlink()
             except Exception:
-                pass  # Best effort cleanup
+                pass
 
         raise DatabaseRecoveryError(f"Repair failed: {e}") from e
 
@@ -187,9 +205,10 @@ def vacuum_database(db_path: Path, logger_override=None) -> bool:
     try:
         log.info("Running VACUUM on database: %s", db_path)
         conn = sqlite3.connect(str(db_path), timeout=30.0)
-
-        conn.execute("VACUUM")
-        conn.close()
+        try:
+            conn.execute("VACUUM")
+        finally:
+            conn.close()
 
         log.info("VACUUM completed successfully")
         return True

@@ -32,7 +32,6 @@ import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
 import { IconImage } from "../components/IconImage";
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import RestartIcon from "../icons/refresh-arrow.svg";
 
 interface LidarrAggRow extends LidarrAlbumEntry {
   __instance: string;
@@ -573,26 +572,6 @@ function LidarrInstanceView({
   const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = reasonFilteredAlbums.length;
 
-  // Count total tracks for instance view
-  // Track counts (for potential future use)
-  // const totalTracks = useMemo(() => {
-  //   let count = 0;
-  //   allAlbums.forEach(entry => {
-  //     const tracks = entry.tracks || [];
-  //     count += tracks.length;
-  //   });
-  //   return count;
-  // }, [allAlbums]);
-
-  // const filteredTracks = useMemo(() => {
-  //   let count = 0;
-  //   reasonFilteredAlbums.forEach(entry => {
-  //     const tracks = entry.tracks || [];
-  //     count += tracks.length;
-  //   });
-  //   return count;
-  // }, [reasonFilteredAlbums]);
-
   // Reset flat page when filters change
   useEffect(() => {
     setFlatPage(0);
@@ -777,7 +756,7 @@ function LidarrInstanceView({
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
-          <IconImage src={RestartIcon} />
+          <IconImage src={RefreshIcon} />
           Restart
         </button>
       </div>
@@ -1365,7 +1344,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, aggFilter, groupLidarr]);
+  }, [instances, globalSearch, push, aggFilter, groupLidarr, aggSummary]);
 
   // LiveArr is now loaded via WebUIContext, no need to load config here
 

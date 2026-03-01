@@ -314,14 +314,14 @@ sqlite3.OperationalError: database is locked
 ```
 sqlite3.DatabaseError: database disk image is malformed
 sqlite3.OperationalError: disk I/O error
+PRAGMA integrity_check: Freelist: size is 1 but should be 3 / btreeInitPage() returns error code 11
 ```
 
-**Causes**:
+**Why this happens**:
 
-- Unexpected shutdown (power loss, container crash)
-- Disk full during write operation
-- Hardware failures (bad sectors, memory errors)
-- File system corruption (ext4, btrfs, zfs)
+- **Unclean shutdown** — Container or process killed (e.g. `docker kill`, OOM, or Docker stop before cleanup runs) so the database WAL is never checkpointed. This is the most common cause in Docker when the main process is PID 1 and does not receive SIGTERM.
+- **Storage or filesystem** — NFS/CIFS, failing disk, full disk, or power loss during a write.
+- **Multiple writers / locking** — Rare if only qBitrr uses the DB; ensure no other app touches `qbitrr.db`.
 
 **Automatic Recovery**:
 
@@ -396,11 +396,12 @@ qBitrr automatically attempts recovery when corruption is detected:
 
 Follow these practices to minimize corruption risk:
 
-1. **Use local storage** — SQLite on NFS/CIFS is unreliable due to file locking issues
-2. **Graceful shutdown** — Always use `docker stop` (not `docker kill`); set `stop_grace_period: 30s` in Docker Compose
-3. **Ensure adequate disk space** — WAL operations need temporary space; configure `FreeSpace` in config
-4. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup-restore))
-5. **Proper permissions** — Ensure the qBitrr user owns the database files (`chown 1000:1000 /config/qBitManager/qbitrr.db`)
+1. **Use local storage** — SQLite on NFS/CIFS is unreliable due to file locking and sync semantics. Keep `qbitrr.db` on a local disk or a volume backed by local storage.
+2. **Graceful shutdown** — Always use `docker stop` (not `docker kill`). Use a stop grace period so the app has time to run its shutdown handler and checkpoint the DB (see Docker section below).
+3. **Docker: init process and stop_grace_period** — The official image uses **tini** as PID 1 so that when Docker sends SIGTERM, it is forwarded to the Python process. That allows the app to run its cleanup (checkpoint WAL, then exit). Set `stop_grace_period: 30s` (or more) in your Compose file so Docker does not send SIGKILL before cleanup finishes.
+4. **Ensure adequate disk space** — WAL operations need temporary space; configure `FreeSpace` in config.
+5. **Regular backups** — Set up daily backups of `qbitrr.db` (see [Backup & Restore](#database-backup-restore)).
+6. **Proper permissions** — Ensure the qBitrr user owns the database files (`chown 1000:1000 /config/qBitManager/qbitrr.db`).
 
 !!! note "Historical Fix: synchronous Setting"
     Prior to the fix in commit `465c306d`, qBitrr used `PRAGMA synchronous=0` (OFF), which traded data integrity for write speed. This was changed to `synchronous=1` (NORMAL), which prevents corruption from power loss/crashes with minimal performance impact (~5-10% write latency increase, mitigated by WAL mode).

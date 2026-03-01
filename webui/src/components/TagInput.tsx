@@ -33,7 +33,7 @@ export function TagInput({ value, onChange, placeholder, disabled }: TagInputPro
     <div className="tag-input-container">
       <div className="tag-input-wrapper">
         {value.map((tag, index) => (
-          <span key={index} className="tag">
+          <span key={tag} className="tag">
             {tag}
             {!disabled && (
               <button

@@ -1,0 +1,32 @@
+services:
+  qbitrr:
+    container_name: qbitrr
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+    - UMASK=000
+    - TZ=${TZ}
+    - PUID=${USER_ID}
+    - PGID=${USER_ID}
+    restart: always
+    tty: true
+    stop_grace_period: 30s
+    volumes:
+    - torrents:/torrents
+    - .config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: 1
+    ports:
+    - 6969:6969
+
+volumes:
+  torrents:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: ${CIFS_PATH}
+      o: username=${CIFS_USER},password=${CIFS_PASS},vers=3.1.1,iocharset=utf8

@@ -349,7 +349,7 @@ Optimize for private tracker requirements:
 
 ### Current Version
 
-**Latest Release**: v5.9.1 (January 2025)
+**Latest Release**: v5.9.1 (February 2026)
 
 - ✅ Production ready
 - ✅ Active development
@@ -457,7 +457,7 @@ copies of the Software.
 - [Python](https://python.org) - Backend language
 - [Flask](https://flask.palletsprojects.com/) - API framework
 - [React](https://react.dev/) - WebUI framework
-- [Mantine](https://mantine.dev/) - UI component library
+- Custom CSS - Theming and layout (no external UI runtime)
 
 **Thanks To**:
 

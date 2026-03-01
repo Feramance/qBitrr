@@ -935,6 +935,20 @@ body {
 .field input[type="checkbox"] {
     width: auto;
 }
+.duration-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.duration-input input {
+    flex: 1;
+    min-width: 0;
+}
+.duration-input select {
+    flex: 0 0 auto;
+    min-width: 7.5em;
+    width: auto;
+}
 .field.mobile-instance-select {
     display: none;
 }

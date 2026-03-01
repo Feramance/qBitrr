@@ -155,8 +155,8 @@ MaxSeedingTime = -1
 #    4 = Remove when both conditions are met (AND)
 RemoveTorrent = -1
 
-# Enable Hit and Run protection for managed category torrents
-HitAndRunMode = false
+# Hit and Run mode: and = require both ratio and time; or = either clears; disabled = no HnR
+HitAndRunMode = "disabled"
 
 # Minimum seed ratio before removal allowed (HnR protection)
 MinSeedRatio = 1.0

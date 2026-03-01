@@ -319,13 +319,13 @@ services:
 
 ### Health Checks
 
-Add a health check:
+Add a health check (the official image includes `curl` for this):
 
 ```yaml
 services:
   qbitrr:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -579,11 +579,13 @@ services:
 
 ### 3. Use Health Checks
 
+The official image includes `curl` for the health check. Example:
+
 ```yaml
 services:
   qbitrr:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6969/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:6969/health"]
       interval: 30s
       timeout: 10s
       retries: 3

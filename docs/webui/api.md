@@ -514,6 +514,26 @@ Restart specific Arr instance (both search and torrent processes).
 
 ---
 
+### Get qBit Categories
+
+Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with seeding statistics.
+
+**Endpoint**:
+- `GET /web/qbit/categories` (public only; no `/api/` variant)
+
+**Authentication**: None (public endpoint).
+
+**Response**: Array of category objects, each including:
+- `category` - Category name
+- `instance` - qBittorrent instance name
+- `managedBy` - `"qbit"` or `"arr"`
+- `torrentCount`, `seedingCount`, `totalSize`, `avgRatio`, `avgSeedingTime`
+- `seedingConfig` - Per-category seeding limits (e.g. `maxRatio`, `maxTime`, `removeMode`, `downloadLimit`, `uploadLimit`)
+
+**Use Case**: Category management UI, seeding stats display.
+
+---
+
 ### Get Torrent Distribution
 
 Get torrent distribution statistics across all categories.

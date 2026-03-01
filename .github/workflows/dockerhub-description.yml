@@ -13,6 +13,8 @@ jobs:
   publish-descriptions:
     name: Update Docker Hub and PyPI metadata
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: Check out repository
       uses: actions/checkout@v6

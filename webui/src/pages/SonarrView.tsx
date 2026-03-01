@@ -81,7 +81,11 @@ function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyM
 }
 
 function createFilteredSignature(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): string {
-  return JSON.stringify(filterSeriesEntriesForMissing(seriesEntries, onlyMissing));
+  const filtered = filterSeriesEntriesForMissing(seriesEntries, onlyMissing);
+  if (filtered.length === 0) return "empty";
+  const first = filtered[0];
+  const last = filtered[filtered.length - 1];
+  return `${filtered.length}:${first?.series?.["title"] ?? ''}:${last?.series?.["title"] ?? ''}:${onlyMissing}`;
 }
 
 export function SonarrView({ active }: SonarrViewProps): JSX.Element {
@@ -426,7 +430,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     } finally {
       setAggLoading(false);
     }
-  }, [instances, globalSearch, push, onlyMissing, aggFilter]);
+  }, [instances, globalSearch, push, onlyMissing, aggFilter, aggSummary]);
 
   useEffect(() => {
     if (!active) return;
@@ -458,7 +462,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       showLoading: true,
       missingOnly: onlyMissing,
     });
-  }, [active, selection, onlyMissing, fetchInstance, instancePage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- instancePage excluded to prevent infinite loop
+  }, [active, selection, onlyMissing, fetchInstance]);
 
   useEffect(() => {
     if (!active) return;
@@ -557,21 +562,10 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
   const isAggFiltered = Boolean(debouncedAggFilter) || onlyMissing || reasonFilter !== "all";
 
-  const sortedAggRows = filteredAggRows;
-
   const aggPages = Math.max(
     1,
-    Math.ceil(sortedAggRows.length / SONARR_AGG_PAGE_SIZE)
+    Math.ceil(filteredAggRows.length / SONARR_AGG_PAGE_SIZE)
   );
-  // Paginated rows (for potential future use)
-  // const aggPageRows = useMemo(
-  //   () => sortedAggRows.slice(
-  //     aggPage * SONARR_AGG_PAGE_SIZE,
-  //     aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE
-  //   ),
-  //   [sortedAggRows, aggPage]
-  // );
-
   const currentSeries = instancePages[instancePage] ?? [];
 
   const allSeries = useMemo(() => {
@@ -708,8 +702,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             {isAggregate ? (
               <SonarrAggregateView
                 loading={aggLoading}
-                rows={sortedAggRows}
-                total={sortedAggRows.length}
+                rows={filteredAggRows}
+                total={filteredAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
                 onPageChange={setAggPage}
@@ -1067,16 +1061,16 @@ function SonarrAggregateView({
 
   const columns = groupSonarr ? groupedColumns : flatColumns;
 
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // eslint-disable-next-line react-hooks/incompatible-library -- useReactTable is a valid hook; false positive from the linter
   const groupedTable = useReactTable({
-    data: tableData,
+    data: groupSonarr ? tableData : [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
   });
 
   const flatTable = useReactTable({
-    data: tableData,
+    data: groupSonarr ? [] : tableData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),

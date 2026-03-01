@@ -1,6 +1,6 @@
 # WebUI Overview
 
-qBitrr includes a modern, React-based web interface for real-time monitoring, configuration management, and system control. Built with TypeScript and Mantine UI components, the WebUI provides a responsive, intuitive interface for managing your qBitrr instance.
+qBitrr includes a modern, React-based web interface for real-time monitoring, configuration management, and system control. Built with TypeScript and custom CSS, the WebUI provides a responsive, intuitive interface for managing your qBitrr instance.
 
 ---
 
@@ -655,7 +655,7 @@ GET  /api/sonarr/series       # List Sonarr series
 GET  /api/lidarr/albums       # List Lidarr albums
 GET  /api/config              # Get configuration
 POST /api/config              # Update configuration
-GET  /api/health              # Health check
+GET  /health               # Health check
 ```
 
 ### Authentication
@@ -737,10 +737,10 @@ All responses are JSON:
 
     ```bash
     # From server
-    curl http://localhost:6969/api/health
+    curl http://localhost:6969/health
 
     # From remote machine
-    curl http://SERVER_IP:6969/api/health
+    curl http://SERVER_IP:6969/health
     ```
 
 5. **Check firewall rules:**
@@ -883,7 +883,7 @@ All responses are JSON:
 
     ```bash
     # Test API response time
-    time curl http://localhost:6969/api/health
+    time curl http://localhost:6969/health
     ```
 
 5. **Database size:**

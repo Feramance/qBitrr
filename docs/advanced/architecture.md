@@ -939,7 +939,7 @@ def run_loop(self):
             time.sleep(LOOP_SLEEP_TIMER)
 
         except DelayLoopException as e:
-            logger.warning(f"Delaying loop for {e.length}s: {e.type}")
+            logger.warning(f"Delaying loop for {e.length}s: {e.error_type}")
             time.sleep(e.length)
 
         except RestartLoopException:
@@ -970,12 +970,12 @@ if torrent['category'] not in self.categories:
 
 ```python
 class DelayLoopException(qBitManagerError):
-    def __init__(self, length: int, type: str):
-        self.type = type      # Reason for delay
-        self.length = length  # Seconds to delay
+    def __init__(self, length: int, error_type: str):
+        self.error_type = error_type  # Reason for delay
+        self.length = length          # Seconds to delay
 
 # Usage: raised when qBittorrent or an Arr API is unreachable
-raise DelayLoopException(length=60, type="qbittorrent_offline")
+raise DelayLoopException(length=60, error_type="qbittorrent_offline")
 ```
 
 **RestartLoopException** -- restart from the beginning after a config reload:
@@ -989,9 +989,9 @@ class RestartLoopException(ArrManagerException):
 
 ```python
 class NoConnectionrException(qBitManagerError):
-    def __init__(self, message: str, type: str = "delay"):
+    def __init__(self, message: str, error_type: str = "delay"):
         self.message = message
-        self.type = type  # "delay" or "fatal"
+        self.error_type = error_type  # "delay" or "fatal"
 ```
 
 ### Torrent State Machine

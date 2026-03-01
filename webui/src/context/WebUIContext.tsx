@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type JSX, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type JSX, type ReactNode } from "react";
 import { getConfig, updateConfig } from "../api/client";
 import { useToast } from "./ToastContext";
 
@@ -38,7 +38,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     theme: "dark",
   });
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
+  const { push } = useToast();
 
   // Load initial settings
   useEffect(() => {
@@ -51,7 +51,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
         const warningMessage = sessionStorage.getItem("config_version_warning");
         if (warningMessage) {
           // Show error toast with longer duration for config version mismatch
-          toast.push(warningMessage, "error");
+          push(warningMessage, "error");
           // Clear the warning after showing it
           sessionStorage.removeItem("config_version_warning");
         }
@@ -85,7 +85,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     };
 
     void loadSettings();
-  }, [toast]);
+  }, [push]);
 
   // Auto-save settings to backend
   const saveSettings = useCallback(async (key: string, value: boolean | string) => {
@@ -131,7 +131,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     void saveSettings("Theme", capitalizedTheme);
   }, [saveSettings]);
 
-  const value: WebUIContextValue = {
+  const value = useMemo<WebUIContextValue>(() => ({
     liveArr: settings.liveArr,
     groupSonarr: settings.groupSonarr,
     groupLidarr: settings.groupLidarr,
@@ -143,7 +143,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
     setViewDensity,
     setTheme,
     loading,
-  };
+  }), [settings, setLiveArr, setGroupSonarr, setGroupLidarr, setViewDensity, setTheme, loading]);
 
   return <WebUIContext.Provider value={value}>{children}</WebUIContext.Provider>;
 }

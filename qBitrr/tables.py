@@ -12,7 +12,7 @@ class MoviesFilesModel(Model):
     TmdbId = IntegerField()
     Year = IntegerField()
     ArrInstance = CharField(null=True, default="")
-    EntryId = IntegerField(unique=True)
+    EntryId = IntegerField(primary_key=True)
     Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
     IsRequest = BooleanField(default=False)
@@ -29,6 +29,12 @@ class MoviesFilesModel(Model):
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
+
+    class Meta:
+        indexes = (
+            (("ArrInstance",), False),
+            (("Searched",), False),
+        )
 
 
 class EpisodeFilesModel(Model):
@@ -60,6 +66,13 @@ class EpisodeFilesModel(Model):
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
 
+    class Meta:
+        indexes = (
+            (("SeriesId", "SeasonNumber"), False),
+            (("ArrInstance",), False),
+            (("Searched",), False),
+        )
+
 
 class SeriesFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
@@ -72,6 +85,9 @@ class SeriesFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+
+    class Meta:
+        indexes = ((("ArrInstance",), False),)
 
 
 class MovieQueueModel(Model):
@@ -91,7 +107,7 @@ class AlbumFilesModel(Model):
     Monitored = BooleanField()
     ForeignAlbumId = CharField()
     ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
-    EntryId = IntegerField(unique=True)
+    EntryId = IntegerField(primary_key=True)
     ArrInstance = CharField(null=True, default="")
     Searched = BooleanField(default=False)
     AlbumFileId = IntegerField()
@@ -112,6 +128,13 @@ class AlbumFilesModel(Model):
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
 
+    class Meta:
+        indexes = (
+            (("ArrInstance",), False),
+            (("ArtistId",), False),
+            (("Searched",), False),
+        )
+
 
 class TrackFilesModel(Model):
     EntryId = IntegerField(primary_key=True)
@@ -123,6 +146,12 @@ class TrackFilesModel(Model):
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
     Monitored = BooleanField(default=False)
+
+    class Meta:
+        indexes = (
+            (("AlbumId",), False),
+            (("ArrInstance",), False),
+        )
 
 
 class ArtistFilesModel(Model):
@@ -136,6 +165,9 @@ class ArtistFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+
+    class Meta:
+        indexes = ((("ArrInstance",), False),)
 
 
 class AlbumQueueModel(Model):

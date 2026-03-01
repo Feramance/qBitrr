@@ -26,10 +26,13 @@ export function ConfirmDialog({
       <div
         className="modal"
         style={{ maxWidth: '500px' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2>{title}</h2>
+          <h2 id="confirm-dialog-title">{title}</h2>
           <button className="btn ghost" onClick={onCancel}>
             <IconImage src={CloseIcon} />
           </button>

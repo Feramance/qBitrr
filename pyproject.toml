@@ -26,39 +26,6 @@ known_local_folder = ["qBitrr"]
 line-length = 99
 target-version = ['py311']
 
-[tool.poetry]
-name = "pypi-public"
-version = "5.9.1"
-description = "Intelligent automation for qBittorrent and *Arr apps (Radarr/Sonarr/Lidarr) - health monitoring, instant imports, quality upgrades, request integration"
-authors = ["Drapersniper", "Feramance"]
-readme = "README.md"
-repository = "https://github.com/Feramance/qBitrr"
-documentation = "https://github.com/Feramance/qBitrr/blob/master/API_DOCUMENTATION.md"
-homepage = "https://github.com/Feramance/qBitrr"
-url = "https://pypi.org/simple/"
-keywords = ["qbittorrent", "radarr", "sonarr", "lidarr", "arr", "automation", "torrent", "media", "plex", "jellyfin"]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Developers",
-    "Intended Audience :: End Users/Desktop",
-    "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
-    "Natural Language :: English",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
-    "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Topic :: Communications",
-    "Topic :: Internet",
-    "Topic :: Multimedia :: Video",
-    "Topic :: System :: Monitoring",
-    "Topic :: Utilities",
-    "Typing :: Typed",
-]
-
 [tool.autopep8]
 max_line_length = 99
 ignore = "E712"

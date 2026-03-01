@@ -9,10 +9,10 @@ import subprocess
 import sys
 import textwrap
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Iterable
 from zipfile import ZipFile
 
 import requests

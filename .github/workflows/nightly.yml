@@ -23,9 +23,6 @@ jobs:
       packages: write
       contents: read
     if: ${{ ! startsWith(github.event.head_commit.message, '[patch]') && ! startsWith(github.event.head_commit.message, '[minor]') && ! startsWith(github.event.head_commit.message, '[major]') }}
-    strategy:
-      matrix:
-        platform: [amd64, arm64]
     steps:
     - id: string
       uses: ASzc/change-string-case-action@v6
@@ -65,7 +62,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        platforms: linux/amd64
+        platforms: linux/amd64,linux/arm64
         push: true
         tags: feramance/qbitrr:nightly,ghcr.io/${{ steps.string.outputs.lowercase }}:nightly
         labels: ${{ steps.meta.outputs.labels }}

@@ -7,10 +7,9 @@ This script extracts changelog entries and updates corresponding GitHub releases
 import re
 import subprocess
 import sys
-from typing import Dict, List
 
 
-def extract_changelog_entries() -> Dict[str, str]:
+def extract_changelog_entries() -> dict[str, str]:
     """Extract all changelog entries from CHANGELOG.md"""
     with open("CHANGELOG.md") as f:
         content = f.read()
@@ -31,7 +30,7 @@ def extract_changelog_entries() -> Dict[str, str]:
     return entries
 
 
-def get_existing_releases() -> List[str]:
+def get_existing_releases() -> list[str]:
     """Get list of existing GitHub releases"""
     result = subprocess.run(
         ["gh", "release", "list", "--limit", "100"], capture_output=True, text=True, check=True

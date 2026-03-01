@@ -14,10 +14,9 @@ import { IconImage } from "../components/IconImage";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 
 import RefreshIcon from "../icons/refresh-arrow.svg";
-import RestartIcon from "../icons/refresh-arrow.svg";
 import ToolsIcon from "../icons/build.svg";
 
-const RELEASE_TOKEN_REGEX =
+const QUALITY_TOKEN_REGEX =
   /\b(480p|576p|720p|1080p|2160p|4k|8k|web[-_. ]?(?:dl|rip)|hdrip|hdtv|bluray|bd(?:rip)?|brrip|webrip|remux|x264|x265|hevc|dts|truehd|atmos|proper|repack|dvdrip|hdr|amzn|nf)\b/i;
 const EPISODE_TOKEN_REGEX = /\bS\d{1,3}E\d{1,3}\b/i;
 const SEASON_TOKEN_REGEX = /\bSeason\s+\d+\b/i;
@@ -40,7 +39,8 @@ function sanitizeSearchSummary(raw: string): string {
     const rest = releaseMatch.groups?.rest ?? "";
     const looksLikeEpisode =
       EPISODE_TOKEN_REGEX.test(rest) || SEASON_TOKEN_REGEX.test(rest);
-    if (rest && !looksLikeEpisode && RELEASE_TOKEN_REGEX.test(rest)) {
+    if (rest && !looksLikeEpisode &&
+      QUALITY_TOKEN_REGEX.test(rest)) {
       const rawTitle = releaseMatch.groups?.title ?? "";
       const cleanedTitle = rawTitle
         .replace(/[-_.]/g, " ")
@@ -191,7 +191,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     [load, push]
   );
 
-  const handleRestartAll = useCallback(async () => {
+  const handleRestartAll = useCallback(() => {
     setConfirmAction({
       title: "Restart All Processes",
       message: "Are you sure you want to restart all processes? This will temporarily interrupt all operations.",
@@ -214,7 +214,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
   }, [load, push]);
 
-  const handleRebuildArrs = useCallback(async () => {
+  const handleRebuildArrs = useCallback(() => {
     setConfirmAction({
       title: "Rebuild Arrs",
       message: "Are you sure you want to rebuild all Arr instances? This will refresh all connections and may take some time.",
@@ -271,6 +271,13 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
     const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
 
+    const qbitInstanceNames = statusData?.qbitInstances
+      ? Object.keys(statusData.qbitInstances)
+      : [];
+    const qbitCategoryNames = new Set(
+      qbitCategories.map((c) => c.category.toLowerCase())
+    );
+
     processes.forEach((proc) => {
       const app = classifyApp(proc);
 
@@ -279,6 +286,25 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       if (app === "Sonarr" && !hasSonarr) return;
       if (app === "Lidarr" && !hasLidarr) return;
 
+      // Skip qBit category processes that would otherwise show as separate cards in Other.
+      // They are already represented by the category chips in the qBittorrent card.
+      const kindLower = (proc.kind ?? "").toLowerCase();
+      const procCategoryLower = (proc.category ?? "").toLowerCase();
+      if (app === "Other" && qbitInstanceNames.length > 0) {
+        const isQbitCategoryKind = kindLower === "category";
+        const matchesQbitInstance = isQbitCategoryKind && qbitInstanceNames.some((inst) => {
+          const instLower = inst.toLowerCase();
+          return (
+            procCategoryLower === instLower ||
+            procCategoryLower === `qbit-${instLower}` ||
+            procCategoryLower.endsWith(`-${instLower}`) ||
+            procCategoryLower.endsWith(`_${instLower}`)
+          );
+        });
+        const isConfiguredQbitCategory = qbitCategoryNames.has(procCategoryLower);
+        if (matchesQbitInstance || isConfiguredQbitCategory) return;
+      }
+
       if (!appBuckets.has(app)) appBuckets.set(app, new Map());
       const instances = appBuckets.get(app)!;
       const instanceKey =
@@ -286,6 +312,21 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       if (!instances.has(instanceKey)) instances.set(instanceKey, []);
       instances.get(instanceKey)!.push(proc);
     });
+
+    // Ensure a qBittorrent card exists for every defined qBit instance (even with no processes)
+    if (qbitInstanceNames.length > 0) {
+      if (!appBuckets.has("qBittorrent")) appBuckets.set("qBittorrent", new Map());
+      const qbitInstances = appBuckets.get("qBittorrent")!;
+      for (const instanceName of qbitInstanceNames) {
+        const displayName =
+          instanceName.toLowerCase().startsWith("qbit")
+            ? instanceName
+            : `qBit-${instanceName}`;
+        if (!qbitInstances.has(displayName)) {
+          qbitInstances.set(displayName, []);
+        }
+      }
+    }
 
     const appOrder = ["Radarr", "Sonarr", "Lidarr", "qBittorrent", "Other"];
 
@@ -310,7 +351,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
 
     return result;
-  }, [processes, statusData]);
+  }, [processes, statusData, qbitCategories]);
 
   const handleRestartGroup = useCallback(
     async (items: ProcessInfo[]) => {
@@ -356,10 +397,27 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               : runningCount === 0
               ? "status-indicator--bad"
               : "";
+          // For qBittorrent with no processes, use instance alive from status
+          const qbitInstanceKey =
+            app === "qBittorrent" && totalCount === 0
+              ? (instanceName.toLowerCase().startsWith("qbit-")
+                  ? instanceName.slice(5)
+                  : instanceName)
+              : null;
+          const qbitInstanceAlive =
+            qbitInstanceKey != null
+              ? statusData?.qbitInstances?.[qbitInstanceKey]?.alive ?? false
+              : null;
           const statusClass = ["status-indicator"];
           if (tone) statusClass.push(tone);
+          else if (qbitInstanceAlive !== null)
+            statusClass.push(qbitInstanceAlive ? "status-indicator--ok" : "status-indicator--bad");
           const statusLabel =
-            totalCount === 0
+            totalCount === 0 && qbitInstanceAlive !== null
+              ? qbitInstanceAlive
+                ? "Instance running"
+                : "Instance stopped"
+              : totalCount === 0
               ? "No processes"
               : runningCount === totalCount
               ? "All running"
@@ -382,7 +440,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                 <div className="process-card__title">
                   <div className="process-card__name">{displayName}</div>
                   <div className="process-card__summary">{summaryLabel}</div>
-                  {filteredKinds.length ? (
+                  {app !== "qBittorrent" && filteredKinds.length ? (
                     <div className="process-card__badges">
                       {filteredKinds.map((kind) => (
                         <span key={`${name}:${kind}:badge`} className="process-card__badge">
@@ -464,9 +522,6 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                       <div className="process-chip__top">
                         <div className="process-chip__name">
                           {cat.category}
-                          <span className="process-chip__managed-badge">
-                            {cat.managedBy === "arr" ? "Arr" : "qBit"}
-                          </span>
                         </div>
                         <div className={`status-pill__dot ${instanceAlive ? "text-success" : "text-danger"}`} />
                       </div>
@@ -475,6 +530,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   );
                 })}
               </div>
+              {(items.length > 0 && (
               <div className="process-card__footer">
                 <button
                   className="btn small"
@@ -483,6 +539,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                   Restart All
                 </button>
               </div>
+              )) || null}
             </div>
           );
         });
@@ -503,7 +560,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               </button>
               <button className="btn" onClick={() => void handleRestartAll()} disabled={restartingAll}>
                 {restartingAll && <span className="spinner" />}
-                <IconImage src={RestartIcon} />
+                <IconImage src={RefreshIcon} />
                 {restartingAll ? 'Restarting...' : 'Restart All'}
               </button>
               <button className="btn" onClick={() => void handleRebuildArrs()} disabled={rebuildingArrs}>

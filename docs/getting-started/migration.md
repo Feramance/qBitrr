@@ -305,6 +305,19 @@ qBittorrent-Manager users will find qBitrr familiar but with many enhancements.
 
 ---
 
+### From Huntarr
+
+Huntarr focuses on scheduled hunt cycles for missing/upgrade content and optional Swaparr (stalled-download swapping) and Movie Hunt (standalone grabber). qBitrr focuses on missing-item search and torrent handling—instant import, stalled/failed handling—in one place with a single config. For a focused comparison of what qBitrr does as well or better for search and torrents, see [Comparison: qBitrr vs Huntarr](comparison-huntarr.md).
+
+#### Migration steps
+
+1. **Install qBitrr** — Follow the [Installation Guide](installation/index.md).
+2. **Configure** — Point qBitrr at the same qBittorrent and Arr instances; set categories to match your Arr download clients.
+3. **Enable search** — Set `SearchMissing = true` and `DoUpgradeSearch = true` in each Arr's `EntrySearch` section; optionally add [Overseerr](../configuration/search/overseerr.md) or [Ombi](../configuration/search/ombi.md).
+4. **Disable Huntarr hunt cycles** (or stop Huntarr) once qBitrr is handling search and torrents to your satisfaction.
+
+---
+
 ### From Arr-Scripts
 
 Users running custom Arr scripts can consolidate functionality into qBitrr.
@@ -531,7 +544,7 @@ tail -f ~/logs/Main.log  # Native
 docker logs -f qbitrr  # Docker
 
 # Test API
-curl http://localhost:6969/api/health
+curl http://localhost:6969/health
 
 # Test qBittorrent connection
 curl http://localhost:6969/api/qbittorrent/status
