@@ -207,6 +207,7 @@ nav:
     - getting-started/installation/binary.md
   - Quick Start: getting-started/quickstart.md
   - Migration Guide: getting-started/migration.md
+  - 'Comparison: qBitrr vs Huntarr': getting-started/comparison-huntarr.md
 
 - Configuration:
   - Overview: configuration/index.md
