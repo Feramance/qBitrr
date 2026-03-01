@@ -115,9 +115,11 @@ function WelcomeModal({
           </div>
           <div className="changelog-section">
             <h3>Release Notes</h3>
-            <pre className="changelog-body">
-              {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
-            </pre>
+            <div className="changelog-body markdown-content">
+              <ReactMarkdown>
+                {changelog?.trim() ? changelog.trim() : "No changelog available for this version."}
+              </ReactMarkdown>
+            </div>
           </div>
         </div>
         <div className="modal-footer">
@@ -137,6 +139,77 @@ function WelcomeModal({
           <div className="changelog-buttons">
             <button className="btn primary" type="button" onClick={onClose}>
               Got it!
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface AlreadyUpToDateModalProps {
+  currentVersion: string;
+  changelog: string | null;
+  changelogUrl: string | null;
+  repositoryUrl: string;
+  onClose: () => void;
+}
+
+function AlreadyUpToDateModal({
+  currentVersion,
+  changelog,
+  changelogUrl,
+  repositoryUrl,
+  onClose,
+}: AlreadyUpToDateModalProps): JSX.Element {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="already-up-to-date-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 id="already-up-to-date-title">✓ You're on the latest version</h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body changelog-modal__body">
+          <div className="changelog-meta">
+            <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
+              Current version: <strong>{formatVersionLabel(currentVersion)}</strong>
+            </p>
+          </div>
+          {changelog?.trim() ? (
+            <div className="changelog-section">
+              <h3>Release Notes</h3>
+              <div className="changelog-body markdown-content">
+                <ReactMarkdown>{changelog.trim()}</ReactMarkdown>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <div className="modal-footer">
+          <div className="changelog-links">
+            {(changelogUrl || repositoryUrl) && (
+              <a
+                className="btn ghost small"
+                href={changelogUrl ?? repositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <IconImage src={ExternalIcon} />
+                View on GitHub
+              </a>
+            )}
+          </div>
+          <div className="changelog-buttons">
+            <button className="btn primary" type="button" onClick={onClose}>
+              Got it
             </button>
           </div>
         </div>
@@ -359,6 +432,7 @@ function AppShell(): JSX.Element {
   const [meta, setMeta] = useState<MetaResponse | null>(null);
   const [metaLoading, setMetaLoading] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showAlreadyUpToDateModal, setShowAlreadyUpToDateModal] = useState(false);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [backendRestarting, setBackendRestarting] = useState(false);
   const restartPollCount = useRef(0);
@@ -389,7 +463,7 @@ function AppShell(): JSX.Element {
   }, []);
 
   const refreshMeta = useCallback(
-    async (options?: { force?: boolean; silent?: boolean }) => {
+    async (options?: { force?: boolean; silent?: boolean }): Promise<MetaResponse | null> => {
       const force = options?.force ?? false;
       const silent = options?.silent ?? !force;
       if (!silent) {
@@ -398,12 +472,14 @@ function AppShell(): JSX.Element {
       try {
         const data = await getMeta({ force });
         setMeta(data);
+        return data;
       } catch (error) {
         if (!silent) {
           const message =
             error instanceof Error ? error.message : "Failed to fetch version information";
           push(message, "error");
         }
+        return null;
       } finally {
         if (!silent) {
           setMetaLoading(false);
@@ -682,8 +758,15 @@ function AppShell(): JSX.Element {
     }
   }, [tabs, activeTab]);
 
-  const handleCheckUpdates = useCallback(() => {
-    void refreshMeta({ force: true });
+  const handleCheckUpdates = useCallback(async () => {
+    const data = await refreshMeta({ force: true });
+    if (data) {
+      if (data.update_available) {
+        setShowChangelog(true);
+      } else {
+        setShowAlreadyUpToDateModal(true);
+      }
+    }
   }, [refreshMeta]);
 
   const handleOpenChangelog = useCallback(() => {
@@ -695,6 +778,10 @@ function AppShell(): JSX.Element {
 
   const handleCloseChangelog = useCallback(() => {
     setShowChangelog(false);
+  }, []);
+
+  const handleCloseAlreadyUpToDateModal = useCallback(() => {
+    setShowAlreadyUpToDateModal(false);
   }, []);
 
   const handleCloseWelcomeChangelog = useCallback(() => {
@@ -775,7 +862,7 @@ function AppShell(): JSX.Element {
             <button
               type="button"
               className="btn small ghost"
-              onClick={handleCheckUpdates}
+              onClick={() => void handleCheckUpdates()}
               disabled={metaLoading}
             >
               <IconImage src={RefreshIcon} />
@@ -864,6 +951,15 @@ function AppShell(): JSX.Element {
           changelogUrl={changelogUrl}
           repositoryUrl={repositoryUrl}
           onClose={handleCloseWelcomeChangelog}
+        />
+      ) : null}
+      {showAlreadyUpToDateModal && meta ? (
+        <AlreadyUpToDateModal
+          currentVersion={meta.current_version}
+          changelog={meta.current_version_changelog || meta.changelog}
+          changelogUrl={changelogUrl}
+          repositoryUrl={repositoryUrl}
+          onClose={handleCloseAlreadyUpToDateModal}
         />
       ) : null}
     </div>
