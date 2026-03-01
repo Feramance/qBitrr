@@ -37,7 +37,7 @@ from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.qbit_category_manager import qBitCategoryManager
-from qBitrr.utils import ExpiringSet, mask_secret
+from qBitrr.utils import ExpiringSet
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
@@ -99,12 +99,13 @@ class qBitManager:
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
+        _masked_pwd = "[redacted]" if self.qBit_Password else ""
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
             self.qBit_UserName,
-            mask_secret(self.qBit_Password),
+            _masked_pwd,
         )
         self._validated_version = False
         self.current_qbit_version = None
