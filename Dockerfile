@@ -13,8 +13,8 @@ LABEL Maintainer="feramance"
 LABEL Version="5.9.1"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
-# Install tini (PID 1, SIGTERM forwarding) and gosu (drop privileges after chown)
-RUN apt-get update && apt-get install -y --no-install-recommends tini gosu \
+# Install tini (PID 1, SIGTERM forwarding), gosu (drop privileges after chown), and curl (health checks)
+RUN apt-get update && apt-get install -y --no-install-recommends tini gosu curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Env used by the script to determine if it's inside a docker -
