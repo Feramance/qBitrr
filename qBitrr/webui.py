@@ -2624,10 +2624,10 @@ class WebUI:
                 # Render current config as a JSON-able dict via tomlkit
                 data = _toml_to_jsonable(CONFIG.config)
                 return jsonify(data)
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
+            except Exception:
+                self.logger.debug("api_get_config failed", exc_info=True)
+                return jsonify({"error": "Failed to load config"}), 500
 
-        @app.get("/web/config")
         def web_get_config():
             try:
                 try:
@@ -2656,8 +2656,9 @@ class WebUI:
                     return jsonify(response_data)
 
                 return jsonify(data)
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
+            except Exception:
+                self.logger.debug("web_get_config failed", exc_info=True)
+                return jsonify({"error": "Failed to load config"}), 500
 
         def _handle_config_update():
             """Common handler for config updates with intelligent reload detection."""
@@ -2728,8 +2729,9 @@ class WebUI:
             # Persist config
             try:
                 CONFIG.save()
-            except Exception as e:
-                return jsonify({"error": f"Failed to save config: {e}"}), 500
+            except Exception:
+                self.logger.debug("Failed to save config", exc_info=True)
+                return jsonify({"error": "Failed to save config"}), 500
 
             # Determine reload strategy
             reload_type = "none"

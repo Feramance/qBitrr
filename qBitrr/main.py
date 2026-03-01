@@ -100,11 +100,12 @@ class qBitManager:
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
         _masked_pwd = "[redacted]" if self.qBit_Password else ""
+        _masked_user = "[redacted]" if self.qBit_UserName else ""
         self.logger.debug(
             "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
             self.qBit_Host,
             self.qBit_Port,
-            self.qBit_UserName,
+            _masked_user,
             _masked_pwd,
         )
         self._validated_version = False
