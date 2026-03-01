@@ -97,7 +97,8 @@ else:
     ):  # If file already exist or can't copy to APPDATA_FOLDER ignore the exception
         shutil.copy(CONFIG_PATH, CONFIG_FILE)
         COPIED_TO_NEW_DIR = True
-    CONFIG = MyConfig("./config.toml")
+    # Load from CONFIG_FILE after copy so we use the same path regardless of cwd
+    CONFIG = MyConfig(CONFIG_FILE if CONFIG_FILE.exists() else CONFIG_PATH.resolve())
 
 if COPIED_TO_NEW_DIR is not None:
     # print(f"STARTING QBITRR | {CONFIG.path} |\n{CONFIG}")

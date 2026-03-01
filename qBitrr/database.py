@@ -11,7 +11,7 @@ from pathlib import Path
 from peewee import OperationalError, SqliteDatabase
 
 from qBitrr.config import APPDATA_FOLDER
-from qBitrr.db_lock import with_database_retry
+from qBitrr.db_lock import database_lock, with_database_retry
 from qBitrr.tables import (
     AlbumFilesModel,
     AlbumQueueModel,
@@ -179,57 +179,58 @@ def get_database() -> SqliteDatabase:
                 db_path,
             )
 
-        with_database_retry(
-            lambda: _db.connect(reuse_if_open=True),
-            logger=logger,
-        )
+        with database_lock():
+            with_database_retry(
+                lambda: _db.connect(reuse_if_open=True),
+                logger=logger,
+            )
 
-        # Bind models to database
-        models = [
-            MoviesFilesModel,
-            EpisodeFilesModel,
-            AlbumFilesModel,
-            SeriesFilesModel,
-            ArtistFilesModel,
-            TrackFilesModel,
-            MovieQueueModel,
-            EpisodeQueueModel,
-            AlbumQueueModel,
-            FilesQueued,
-            TorrentLibrary,
-        ]
-        _db.bind(models)
+            # Bind models to database
+            models = [
+                MoviesFilesModel,
+                EpisodeFilesModel,
+                AlbumFilesModel,
+                SeriesFilesModel,
+                ArtistFilesModel,
+                TrackFilesModel,
+                MovieQueueModel,
+                EpisodeQueueModel,
+                AlbumQueueModel,
+                FilesQueued,
+                TorrentLibrary,
+            ]
+            _db.bind(models)
 
-        # Create all tables (and indexes); retry once if readonly (e.g. Docker volume perms)
-        def _create_tables_and_indexes() -> None:
-            _db.create_tables(models, safe=True)
-            _migrate_arrinstance_field(models)
-            _create_arrinstance_indexes(_db, models)
+            # Create all tables (and indexes); retry once if readonly (e.g. Docker volume perms)
+            def _create_tables_and_indexes() -> None:
+                _db.create_tables(models, safe=True)
+                _migrate_arrinstance_field(models)
+                _create_arrinstance_indexes(_db, models)
 
-        try:
-            _create_tables_and_indexes()
-        except OperationalError as e:
-            if "readonly" in str(e).lower():
-                logger.warning(
-                    "Database is read-only (often due to volume permissions). "
-                    "Attempting to fix permissions and retry..."
-                )
-                _ensure_db_directory_writable(db_path)
-                try:
-                    _create_tables_and_indexes()
-                except OperationalError as e2:
-                    if "readonly" in str(e2).lower():
-                        logger.critical(
-                            "Database directory or file is read-only. "
-                            "Ensure the config volume is writable by the container user (e.g. set PUID/PGID in docker-compose). "
-                            "On the host: chown -R PUID:PGID /path/to/config. "
-                            "Alternatively remove the database directory and restart to recreate it (data loss)."
-                        )
-                        _db.close()
-                        _db = None
+            try:
+                _create_tables_and_indexes()
+            except OperationalError as e:
+                if "readonly" in str(e).lower():
+                    logger.warning(
+                        "Database is read-only (often due to volume permissions). "
+                        "Attempting to fix permissions and retry..."
+                    )
+                    _ensure_db_directory_writable(db_path)
+                    try:
+                        _create_tables_and_indexes()
+                    except OperationalError as e2:
+                        if "readonly" in str(e2).lower():
+                            logger.critical(
+                                "Database directory or file is read-only. "
+                                "Ensure the config volume is writable by the container user (e.g. set PUID/PGID in docker-compose). "
+                                "On the host: chown -R PUID:PGID /path/to/config. "
+                                "Alternatively remove the database directory and restart to recreate it (data loss)."
+                            )
+                            _db.close()
+                            _db = None
+                        raise
+                else:
                     raise
-            else:
-                raise
 
         logger.info("Initialized single database: %s", db_path)
 

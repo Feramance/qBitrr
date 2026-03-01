@@ -18,6 +18,7 @@ from peewee import fn
 from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
+from qBitrr.db_lock import database_lock
 from qBitrr.logger import run_logs
 from qBitrr.search_activity_store import (
     clear_search_activity,
@@ -96,6 +97,7 @@ def _toml_to_jsonable(obj: Any) -> Any:
             return [_toml_to_jsonable(v) for v in obj]
         return obj
     except Exception:
+        logging.getLogger("qBitrr.WebUI").debug("_toml_to_jsonable failed", exc_info=True)
         return obj
 
 
@@ -139,7 +141,9 @@ class WebUI:
                 _toml_set(CONFIG.config, "WebUI.Token", self.token)
                 CONFIG.save()
             except Exception:
-                pass
+                self.logger.warning(
+                    "Failed to persist generated WebUI token to config", exc_info=True
+                )
             else:
                 self.logger.notice("Generated new WebUI token")
         self._github_repo = "Feramance/qBitrr"
@@ -355,6 +359,9 @@ class WebUI:
             try:
                 arr.register_search_mode()
             except Exception:
+                self.logger.debug(
+                    "register_search_mode failed for %s", getattr(arr, "_name", arr), exc_info=True
+                )
                 return False
         if not getattr(arr, "search_setup_completed", False):
             return False
@@ -363,6 +370,9 @@ class WebUI:
                 arr.db_update()
                 arr._webui_db_loaded = True
             except Exception:
+                self.logger.debug(
+                    "db_update failed for %s", getattr(arr, "_name", arr), exc_info=True
+                )
                 arr._webui_db_loaded = False
         return True
 
@@ -416,107 +426,110 @@ class WebUI:
         page = max(page, 0)
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
-        with db.connection_context():
-            # Filter by ArrInstance
-            base_query = model.select().where(model.ArrInstance == arr_instance)
+        with database_lock():
+            with db.connection_context():
+                # Filter by ArrInstance
+                base_query = model.select().where(model.ArrInstance == arr_instance)
 
-            # Calculate counts
-            monitored_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.Monitored == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-            available_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance)
-                    & (model.Monitored == True)  # noqa: E712
-                    & (model.MovieFileId.is_null(False))
-                    & (model.MovieFileId != 0)
+                # Calculate counts
+                monitored_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.Monitored == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
                 )
-                .scalar()
-                or 0
-            )
-            missing_count = max(monitored_count - available_count, 0)
-            quality_met_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.QualityMet == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-            request_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.IsRequest == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-
-            # Build filtered query
-            query = base_query
-            if search:
-                query = query.where(model.Title.contains(search))
-            if year_min is not None:
-                query = query.where(model.Year >= year_min)
-            if year_max is not None:
-                query = query.where(model.Year <= year_max)
-            if monitored is not None:
-                query = query.where(model.Monitored == monitored)
-            if has_file is not None:
-                if has_file:
-                    query = query.where(
-                        (model.MovieFileId.is_null(False)) & (model.MovieFileId != 0)
+                available_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance)
+                        & (model.Monitored == True)  # noqa: E712
+                        & (model.MovieFileId.is_null(False))
+                        & (model.MovieFileId != 0)
                     )
-                else:
-                    query = query.where(
-                        (model.MovieFileId.is_null(True)) | (model.MovieFileId == 0)
+                    .scalar()
+                    or 0
+                )
+                missing_count = max(monitored_count - available_count, 0)
+                quality_met_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.QualityMet == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
+                )
+                request_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.IsRequest == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
+                )
+
+                # Build filtered query
+                query = base_query
+                if search:
+                    query = query.where(model.Title.contains(search))
+                if year_min is not None:
+                    query = query.where(model.Year >= year_min)
+                if year_max is not None:
+                    query = query.where(model.Year <= year_max)
+                if monitored is not None:
+                    query = query.where(model.Monitored == monitored)
+                if has_file is not None:
+                    if has_file:
+                        query = query.where(
+                            (model.MovieFileId.is_null(False)) & (model.MovieFileId != 0)
+                        )
+                    else:
+                        query = query.where(
+                            (model.MovieFileId.is_null(True)) | (model.MovieFileId == 0)
+                        )
+                if quality_met is not None:
+                    query = query.where(model.QualityMet == quality_met)
+                if is_request is not None:
+                    query = query.where(model.IsRequest == is_request)
+
+                # Total should be ALL items for this instance, not filtered results
+                total = base_query.count()
+                page_items = (
+                    query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
+                )
+                movies = []
+                for movie in page_items:
+                    # Read quality profile from database
+                    quality_profile_id = (
+                        getattr(movie, "QualityProfileId", None)
+                        if hasattr(model, "QualityProfileId")
+                        else None
                     )
-            if quality_met is not None:
-                query = query.where(model.QualityMet == quality_met)
-            if is_request is not None:
-                query = query.where(model.IsRequest == is_request)
+                    quality_profile_name = (
+                        getattr(movie, "QualityProfileName", None)
+                        if hasattr(model, "QualityProfileName")
+                        else None
+                    )
 
-            # Total should be ALL items for this instance, not filtered results
-            total = base_query.count()
-            page_items = query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
-            movies = []
-            for movie in page_items:
-                # Read quality profile from database
-                quality_profile_id = (
-                    getattr(movie, "QualityProfileId", None)
-                    if hasattr(model, "QualityProfileId")
-                    else None
-                )
-                quality_profile_name = (
-                    getattr(movie, "QualityProfileName", None)
-                    if hasattr(model, "QualityProfileName")
-                    else None
-                )
-
-                movies.append(
-                    {
-                        "id": movie.EntryId,
-                        "title": movie.Title or "",
-                        "year": movie.Year,
-                        "monitored": self._safe_bool(movie.Monitored),
-                        "hasFile": self._safe_bool(movie.MovieFileId),
-                        "qualityMet": self._safe_bool(movie.QualityMet),
-                        "isRequest": self._safe_bool(movie.IsRequest),
-                        "upgrade": self._safe_bool(movie.Upgrade),
-                        "customFormatScore": movie.CustomFormatScore,
-                        "minCustomFormatScore": movie.MinCustomFormatScore,
-                        "customFormatMet": self._safe_bool(movie.CustomFormatMet),
-                        "reason": movie.Reason,
-                        "qualityProfileId": quality_profile_id,
-                        "qualityProfileName": quality_profile_name,
-                    }
-                )
+                    movies.append(
+                        {
+                            "id": movie.EntryId,
+                            "title": movie.Title or "",
+                            "year": movie.Year,
+                            "monitored": self._safe_bool(movie.Monitored),
+                            "hasFile": self._safe_bool(movie.MovieFileId),
+                            "qualityMet": self._safe_bool(movie.QualityMet),
+                            "isRequest": self._safe_bool(movie.IsRequest),
+                            "upgrade": self._safe_bool(movie.Upgrade),
+                            "customFormatScore": movie.CustomFormatScore,
+                            "minCustomFormatScore": movie.MinCustomFormatScore,
+                            "customFormatMet": self._safe_bool(movie.CustomFormatMet),
+                            "reason": movie.Reason,
+                            "qualityProfileId": quality_profile_id,
+                            "qualityProfileName": quality_profile_name,
+                        }
+                    )
         return {
             "counts": {
                 "available": available_count,
@@ -580,194 +593,199 @@ class WebUI:
         # Quality profiles are now stored in the database
         # No need to fetch from API
 
-        with db.connection_context():
-            # Filter by ArrInstance
-            base_query = model.select().where(model.ArrInstance == arr_instance)
+        with database_lock():
+            with db.connection_context():
+                # Filter by ArrInstance
+                base_query = model.select().where(model.ArrInstance == arr_instance)
 
-            # Calculate counts
-            monitored_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.Monitored == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-            available_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance)
-                    & (model.Monitored == True)  # noqa: E712
-                    & (model.AlbumFileId.is_null(False))
-                    & (model.AlbumFileId != 0)
+                # Calculate counts
+                monitored_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.Monitored == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
                 )
-                .scalar()
-                or 0
-            )
-            missing_count = max(monitored_count - available_count, 0)
-            quality_met_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.QualityMet == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-            request_count = (
-                model.select(fn.COUNT(model.EntryId))
-                .where(
-                    (model.ArrInstance == arr_instance) & (model.IsRequest == True)
-                )  # noqa: E712
-                .scalar()
-                or 0
-            )
-
-            # Build filtered query
-            query = base_query
-            if search:
-                query = query.where(model.Title.contains(search))
-            if monitored is not None:
-                query = query.where(model.Monitored == monitored)
-            if has_file is not None:
-                if has_file:
-                    query = query.where(
-                        (model.AlbumFileId.is_null(False)) & (model.AlbumFileId != 0)
+                available_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance)
+                        & (model.Monitored == True)  # noqa: E712
+                        & (model.AlbumFileId.is_null(False))
+                        & (model.AlbumFileId != 0)
                     )
-                else:
-                    query = query.where(
-                        (model.AlbumFileId.is_null(True)) | (model.AlbumFileId == 0)
-                    )
-            if quality_met is not None:
-                query = query.where(model.QualityMet == quality_met)
-            if is_request is not None:
-                query = query.where(model.IsRequest == is_request)
-
-            albums = []
-
-            # Total should be ALL albums for this instance, not filtered results
-            total = base_query.count()
-
-            if group_by_artist:
-                # Paginate by artists: Two-pass approach with Peewee
-                # First, get all distinct artist names from the filtered query
-                # Use a subquery to get distinct artists efficiently
-                artists_subquery = (
-                    query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
+                    .scalar()
+                    or 0
+                )
+                missing_count = max(monitored_count - available_count, 0)
+                quality_met_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.QualityMet == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
+                )
+                request_count = (
+                    model.select(fn.COUNT(model.EntryId))
+                    .where(
+                        (model.ArrInstance == arr_instance) & (model.IsRequest == True)
+                    )  # noqa: E712
+                    .scalar()
+                    or 0
                 )
 
-                # Convert to list to avoid multiple iterations
-                all_artists = [row.ArtistTitle for row in artists_subquery]
-
-                # Paginate the artist list in Python
-                start_idx = page * page_size
-                end_idx = start_idx + page_size
-                paginated_artists = all_artists[start_idx:end_idx]
-
-                # Fetch all albums for these paginated artists
-                if paginated_artists:
-                    album_results = list(
-                        query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
-                            model.ArtistTitle, model.ReleaseDate
+                # Build filtered query
+                query = base_query
+                if search:
+                    query = query.where(model.Title.contains(search))
+                if monitored is not None:
+                    query = query.where(model.Monitored == monitored)
+                if has_file is not None:
+                    if has_file:
+                        query = query.where(
+                            (model.AlbumFileId.is_null(False)) & (model.AlbumFileId != 0)
                         )
+                    else:
+                        query = query.where(
+                            (model.AlbumFileId.is_null(True)) | (model.AlbumFileId == 0)
+                        )
+                if quality_met is not None:
+                    query = query.where(model.QualityMet == quality_met)
+                if is_request is not None:
+                    query = query.where(model.IsRequest == is_request)
+
+                albums = []
+
+                # Total should be ALL albums for this instance, not filtered results
+                total = base_query.count()
+
+                if group_by_artist:
+                    # Paginate by artists: Two-pass approach with Peewee
+                    # First, get all distinct artist names from the filtered query
+                    # Use a subquery to get distinct artists efficiently
+                    artists_subquery = (
+                        query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
                     )
-                else:
-                    album_results = []
-            else:
-                # Flat mode: paginate by albums as before
-                # Note: total is already set to base_query.count() above
-                album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
 
-            for album in album_results:
-                # Always fetch tracks from database (Lidarr only)
-                track_model = getattr(arr, "track_file_model", None)
-                tracks_list = []
-                track_monitored_count = 0
-                track_available_count = 0
+                    # Convert to list to avoid multiple iterations
+                    all_artists = [row.ArtistTitle for row in artists_subquery]
 
-                if track_model:
-                    try:
-                        # Query tracks from database for this album
-                        track_query = (
-                            track_model.select()
-                            .where(track_model.AlbumId == album.EntryId)
-                            .order_by(track_model.TrackNumber)
-                        )
-                        track_count = track_query.count()
-                        self.logger.debug(
-                            "Album %s (%s): Found %d tracks in database",
-                            album.EntryId,
-                            album.Title,
-                            track_count,
-                        )
+                    # Paginate the artist list in Python
+                    start_idx = page * page_size
+                    end_idx = start_idx + page_size
+                    paginated_artists = all_artists[start_idx:end_idx]
 
-                        for track in track_query:
-                            is_monitored = self._safe_bool(track.Monitored)
-                            has_file = self._safe_bool(track.HasFile)
-
-                            if is_monitored:
-                                track_monitored_count += 1
-                            if has_file:
-                                track_available_count += 1
-
-                            tracks_list.append(
-                                {
-                                    "id": track.EntryId,
-                                    "trackNumber": track.TrackNumber,
-                                    "title": track.Title,
-                                    "duration": track.Duration,
-                                    "hasFile": has_file,
-                                    "trackFileId": track.TrackFileId,
-                                    "monitored": is_monitored,
-                                }
+                    # Fetch all albums for these paginated artists
+                    if paginated_artists:
+                        album_results = list(
+                            query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
+                                model.ArtistTitle, model.ReleaseDate
                             )
-                    except Exception as e:
-                        self.logger.warning(
-                            "Failed to fetch tracks for album %s (%s): %s",
-                            album.EntryId,
-                            album.Title,
-                            e,
                         )
+                    else:
+                        album_results = []
+                else:
+                    # Flat mode: paginate by albums as before
+                    # Note: total is already set to base_query.count() above
+                    album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
 
-                track_missing_count = max(track_monitored_count - track_available_count, 0)
+                for album in album_results:
+                    # Always fetch tracks from database (Lidarr only)
+                    track_model = getattr(arr, "track_file_model", None)
+                    tracks_list = []
+                    track_monitored_count = 0
+                    track_available_count = 0
 
-                # Get quality profile from database model
-                quality_profile_id = getattr(album, "QualityProfileId", None)
-                quality_profile_name = getattr(album, "QualityProfileName", None)
+                    if track_model:
+                        try:
+                            # Query tracks from database for this album
+                            track_query = (
+                                track_model.select()
+                                .where(track_model.AlbumId == album.EntryId)
+                                .order_by(track_model.TrackNumber)
+                            )
+                            track_count = track_query.count()
+                            self.logger.debug(
+                                "Album %s (%s): Found %d tracks in database",
+                                album.EntryId,
+                                album.Title,
+                                track_count,
+                            )
 
-                # Build album data in Sonarr-like structure
-                album_item = {
-                    "album": {
-                        "id": album.EntryId,
-                        "title": album.Title,
-                        "artistId": album.ArtistId,
-                        "artistName": album.ArtistTitle,
-                        "monitored": self._safe_bool(album.Monitored),
-                        "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
-                        "foreignAlbumId": album.ForeignAlbumId,
-                        "releaseDate": (
-                            album.ReleaseDate.isoformat()
-                            if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
-                            else album.ReleaseDate if isinstance(album.ReleaseDate, str) else None
-                        ),
-                        "qualityMet": self._safe_bool(album.QualityMet),
-                        "isRequest": self._safe_bool(album.IsRequest),
-                        "upgrade": self._safe_bool(album.Upgrade),
-                        "customFormatScore": album.CustomFormatScore,
-                        "minCustomFormatScore": album.MinCustomFormatScore,
-                        "customFormatMet": self._safe_bool(album.CustomFormatMet),
-                        "reason": album.Reason,
-                        "qualityProfileId": quality_profile_id,
-                        "qualityProfileName": quality_profile_name,
-                    },
-                    "totals": {
-                        "available": track_available_count,
-                        "monitored": track_monitored_count,
-                        "missing": track_missing_count,
-                    },
-                    "tracks": tracks_list,
-                }
+                            for track in track_query:
+                                is_monitored = self._safe_bool(track.Monitored)
+                                has_file = self._safe_bool(track.HasFile)
 
-                albums.append(album_item)
+                                if is_monitored:
+                                    track_monitored_count += 1
+                                if has_file:
+                                    track_available_count += 1
+
+                                tracks_list.append(
+                                    {
+                                        "id": track.EntryId,
+                                        "trackNumber": track.TrackNumber,
+                                        "title": track.Title,
+                                        "duration": track.Duration,
+                                        "hasFile": has_file,
+                                        "trackFileId": track.TrackFileId,
+                                        "monitored": is_monitored,
+                                    }
+                                )
+                        except Exception as e:
+                            self.logger.warning(
+                                "Failed to fetch tracks for album %s (%s): %s",
+                                album.EntryId,
+                                album.Title,
+                                e,
+                            )
+
+                    track_missing_count = max(track_monitored_count - track_available_count, 0)
+
+                    # Get quality profile from database model
+                    quality_profile_id = getattr(album, "QualityProfileId", None)
+                    quality_profile_name = getattr(album, "QualityProfileName", None)
+
+                    # Build album data in Sonarr-like structure
+                    album_item = {
+                        "album": {
+                            "id": album.EntryId,
+                            "title": album.Title,
+                            "artistId": album.ArtistId,
+                            "artistName": album.ArtistTitle,
+                            "monitored": self._safe_bool(album.Monitored),
+                            "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                            "foreignAlbumId": album.ForeignAlbumId,
+                            "releaseDate": (
+                                album.ReleaseDate.isoformat()
+                                if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                                else (
+                                    album.ReleaseDate
+                                    if isinstance(album.ReleaseDate, str)
+                                    else None
+                                )
+                            ),
+                            "qualityMet": self._safe_bool(album.QualityMet),
+                            "isRequest": self._safe_bool(album.IsRequest),
+                            "upgrade": self._safe_bool(album.Upgrade),
+                            "customFormatScore": album.CustomFormatScore,
+                            "minCustomFormatScore": album.MinCustomFormatScore,
+                            "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                            "reason": album.Reason,
+                            "qualityProfileId": quality_profile_id,
+                            "qualityProfileName": quality_profile_name,
+                        },
+                        "totals": {
+                            "available": track_available_count,
+                            "monitored": track_monitored_count,
+                            "missing": track_missing_count,
+                        },
+                        "tracks": tracks_list,
+                    }
+
+                    albums.append(album_item)
         return {
             "counts": {
                 "available": available_count,
@@ -961,16 +979,17 @@ class WebUI:
             episodes_model.EpisodeFileId == 0
         )
 
-        with db.connection_context():
-            monitored_count = (
-                episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                .where(
-                    (episodes_model.ArrInstance == arr_instance)
-                    & (episodes_model.Monitored == True)  # noqa: E712
+        with database_lock():
+            with db.connection_context():
+                monitored_count = (
+                    episodes_model.select(fn.COUNT(episodes_model.EntryId))
+                    .where(
+                        (episodes_model.ArrInstance == arr_instance)
+                        & (episodes_model.Monitored == True)  # noqa: E712
+                    )
+                    .scalar()
+                    or 0
                 )
-                .scalar()
-                or 0
-            )
             available_count = (
                 episodes_model.select(fn.COUNT(episodes_model.EntryId))
                 .where(
@@ -1312,9 +1331,12 @@ class WebUI:
                                                     profile.get("name") if profile else None
                                                 )
                                             except Exception:
-                                                pass
+                                                self.logger.debug(
+                                                    "Sonarr quality profile lookup failed",
+                                                    exc_info=True,
+                                                )
                         except Exception:
-                            pass
+                            self.logger.debug("Sonarr series payload build failed", exc_info=True)
 
                     payload.append(
                         {
@@ -1373,9 +1395,17 @@ class WebUI:
         logs_root = (HOME_PATH / "logs").resolve()
 
         def _resolve_log_file(name: str) -> Path | None:
+            # Restrict to safe log file names (alphanumeric, dash, underscore, dot)
+            if not name or not name.strip():
+                return None
+            safe = "".join(c for c in name if c.isalnum() or c in "._-").strip() or None
+            if safe is None or safe != name:
+                self.logger.debug("Rejected log file name (invalid characters): %r", name)
+                return None
             try:
-                candidate = (logs_root / name).resolve(strict=False)
+                candidate = (logs_root / safe).resolve(strict=False)
             except Exception:
+                self.logger.debug("Failed to resolve log path for %r", safe, exc_info=True)
                 return None
             try:
                 candidate.relative_to(logs_root)
@@ -1547,7 +1577,9 @@ class WebUI:
                             metrics["category"] = count
                             metrics["queue"] = count
                         except Exception:
-                            pass
+                            self.logger.debug(
+                                "Process metrics (free_space) fetch failed", exc_info=True
+                            )
                     return metrics
 
                 if isinstance(arr_obj, PlaceHolderArr):
@@ -1565,7 +1597,9 @@ class WebUI:
                             metrics["queue"] = count
                             metrics["category"] = count
                         except Exception:
-                            pass
+                            self.logger.debug(
+                                "Process metrics (PlaceHolderArr) fetch failed", exc_info=True
+                            )
                     return metrics
 
                 # Standard Arr (Radarr/Sonarr)
@@ -1596,7 +1630,7 @@ class WebUI:
                             if getattr(torrent, "category", None) == category
                         )
                     except Exception:
-                        pass
+                        self.logger.debug("Process metrics (category count) failed", exc_info=True)
                 category_key = getattr(arr_obj, "category", None)
                 if category_key:
                     entry = search_activity_map.get(str(category_key))
@@ -1757,15 +1791,23 @@ class WebUI:
                 try:
                     target_proc.kill()
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "Category manager process kill failed for %s", category, exc_info=True
+                    )
                 try:
                     target_proc.terminate()
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "Category manager process terminate failed for %s", category, exc_info=True
+                    )
                 try:
                     self.manager.child_processes.remove(target_proc)
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "child_processes.remove failed for category manager %s",
+                        category,
+                        exc_info=True,
+                    )
                 self.manager._process_registry.pop(target_proc, None)
                 manager = self.manager.qbit_category_managers.get(instance_name)
                 if manager is None:
@@ -1806,15 +1848,27 @@ class WebUI:
                     try:
                         process.kill()
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "Process kill failed for %s %s", category, loop_kind, exc_info=True
+                        )
                     try:
                         process.terminate()
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "Process terminate failed for %s %s",
+                            category,
+                            loop_kind,
+                            exc_info=True,
+                        )
                     try:
                         self.manager.child_processes.remove(process)
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "child_processes.remove failed for %s %s",
+                            category,
+                            loop_kind,
+                            exc_info=True,
+                        )
                     self.manager._process_registry.pop(process, None)
                 target = getattr(arr, f"run_{loop_kind}_loop", None)
                 if target is None:
@@ -1874,7 +1928,7 @@ class WebUI:
                 _toml_set(CONFIG.config, "Settings.ConsoleLevel", level)
                 CONFIG.save()
             except Exception:
-                pass
+                self.logger.debug("Failed to persist log level to config", exc_info=True)
             return jsonify({"status": "ok", "level": level})
 
         @app.post("/api/loglevel")
@@ -1974,6 +2028,7 @@ class WebUI:
                 else:
                     content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
+                self.logger.debug("Failed to read log file %s", file, exc_info=True)
                 content = ""
             response = send_file(
                 io.BytesIO(content.encode("utf-8")),
@@ -2408,7 +2463,9 @@ class WebUI:
                                     alive = True
                                     break
                             except Exception:
-                                pass
+                                self.logger.debug(
+                                    "Process is_alive check failed for %s", k, exc_info=True
+                                )
                     name = getattr(arr, "_name", k)
                     category = getattr(arr, "category", k)
                     arrs.append({"category": category, "name": name, "type": t, "alive": alive})
@@ -2485,15 +2542,30 @@ class WebUI:
                     try:
                         p.kill()
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "Process kill failed for %s %s",
+                            getattr(arr, "_name", ""),
+                            k,
+                            exc_info=True,
+                        )
                     try:
                         p.terminate()
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "Process terminate failed for %s %s",
+                            getattr(arr, "_name", ""),
+                            k,
+                            exc_info=True,
+                        )
                     try:
                         self.manager.child_processes.remove(p)
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "child_processes.remove failed for %s %s",
+                            getattr(arr, "_name", ""),
+                            k,
+                            exc_info=True,
+                        )
                     self.manager._process_registry.pop(p, None)
                 import pathos
 
@@ -2548,7 +2620,7 @@ class WebUI:
                 try:
                     CONFIG.load()
                 except Exception:
-                    pass
+                    self.logger.debug("CONFIG.load failed in api_get_config", exc_info=True)
                 # Render current config as a JSON-able dict via tomlkit
                 data = _toml_to_jsonable(CONFIG.config)
                 return jsonify(data)
@@ -2561,7 +2633,7 @@ class WebUI:
                 try:
                     CONFIG.load()
                 except Exception:
-                    pass
+                    self.logger.debug("CONFIG.load failed in web_get_config", exc_info=True)
                 data = _toml_to_jsonable(CONFIG.config)
 
                 if not _authorized():
@@ -2944,11 +3016,11 @@ class WebUI:
                 try:
                     p.kill()
                 except Exception:
-                    pass
+                    self.logger.debug("Reload: process kill failed", exc_info=True)
                 try:
                     p.terminate()
                 except Exception:
-                    pass
+                    self.logger.debug("Reload: process terminate failed", exc_info=True)
             self.manager.child_processes.clear()
             self.manager._process_registry.clear()
 
@@ -2989,7 +3061,11 @@ class WebUI:
                     try:
                         p.start()
                     except Exception:
-                        pass
+                        self.logger.debug(
+                            "Reload: failed to start process for %s",
+                            getattr(arr, "_name", ""),
+                            exc_info=True,
+                        )
 
             # Rebuild qBit category managers from fresh config
             self.manager.qbit_category_configs.clear()
@@ -3053,15 +3129,30 @@ class WebUI:
                 try:
                     process.kill()
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "Stop instance: process kill failed for %s %s",
+                        category,
+                        loop_kind,
+                        exc_info=True,
+                    )
                 try:
                     process.terminate()
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "Stop instance: process terminate failed for %s %s",
+                        category,
+                        loop_kind,
+                        exc_info=True,
+                    )
                 try:
                     self.manager.child_processes.remove(process)
                 except Exception:
-                    pass
+                    self.logger.debug(
+                        "Stop instance: child_processes.remove failed for %s %s",
+                        category,
+                        loop_kind,
+                        exc_info=True,
+                    )
                 self.logger.debug("Stopped %s process for %s", loop_kind, category)
 
         # Delete database files

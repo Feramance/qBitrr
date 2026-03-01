@@ -47,7 +47,7 @@ from qBitrr.config import (
     SEARCH_ONLY,
     TAGLESS,
 )
-from qBitrr.db_lock import with_database_retry
+from qBitrr.db_lock import database_lock, with_database_retry
 from qBitrr.errors import (
     DelayLoopException,
     NoConnectionrException,
@@ -973,21 +973,22 @@ class Arr:
         self, torrent: TorrentDictionary, instance_name: str = "default"
     ) -> None:
         """Ensure a TorrentLibrary row exists for the given torrent."""
-        query = (
-            self.torrents.select()
-            .where(
-                (self.torrents.Hash == torrent.hash)
-                & (self.torrents.Category == torrent.category)
-                & (self.torrents.QbitInstance == instance_name)
+        with database_lock():
+            query = (
+                self.torrents.select()
+                .where(
+                    (self.torrents.Hash == torrent.hash)
+                    & (self.torrents.Category == torrent.category)
+                    & (self.torrents.QbitInstance == instance_name)
+                )
+                .execute()
             )
-            .execute()
-        )
-        if not query:
-            self.torrents.insert(
-                Hash=torrent.hash,
-                Category=torrent.category,
-                QbitInstance=instance_name,
-            ).on_conflict_ignore().execute()
+            if not query:
+                self.torrents.insert(
+                    Hash=torrent.hash,
+                    Category=torrent.category,
+                    QbitInstance=instance_name,
+                ).on_conflict_ignore().execute()
 
     def _torrent_condition(self, torrent: TorrentDictionary, instance_name: str = "default"):
         """Return the base WHERE condition for a torrent row."""
@@ -1005,12 +1006,13 @@ class Arr:
             if tag == "qBitrr-ignored":
                 return_value = "qBitrr-ignored" in torrent.tags
             else:
-                self._ensure_torrent_row(torrent, instance_name)
-                condition = self._torrent_condition(torrent, instance_name)
-                field_name = self._TAGLESS_FIELD_MAP.get(tag)
-                if field_name:
-                    condition &= getattr(self.torrents, field_name) == True
-                return_value = bool(self.torrents.select().where(condition).execute())
+                with database_lock():
+                    self._ensure_torrent_row(torrent, instance_name)
+                    condition = self._torrent_condition(torrent, instance_name)
+                    field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                    if field_name:
+                        condition &= getattr(self.torrents, field_name) == True
+                    return_value = bool(self.torrents.select().where(condition).execute())
         else:
             return_value = tag in torrent.tags
 
@@ -1026,14 +1028,15 @@ class Arr:
         for tag in tags:
             self.logger.trace("Removing tag %s from %s", tag, torrent.name)
         if TAGLESS:
-            self._ensure_torrent_row(torrent, instance_name)
-            condition = self._torrent_condition(torrent, instance_name)
-            for tag in tags:
-                field_name = self._TAGLESS_FIELD_MAP.get(tag)
-                if field_name:
-                    self.torrents.update({getattr(self.torrents, field_name): False}).where(
-                        condition
-                    ).execute()
+            with database_lock():
+                self._ensure_torrent_row(torrent, instance_name)
+                condition = self._torrent_condition(torrent, instance_name)
+                for tag in tags:
+                    field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                    if field_name:
+                        self.torrents.update({getattr(self.torrents, field_name): False}).where(
+                            condition
+                        ).execute()
         else:
             with contextlib.suppress(Exception):
                 with_retry(
@@ -1054,14 +1057,15 @@ class Arr:
         for tag in tags:
             self.logger.trace("Adding tag %s from %s", tag, torrent.name)
         if TAGLESS:
-            self._ensure_torrent_row(torrent, instance_name)
-            condition = self._torrent_condition(torrent, instance_name)
-            for tag in tags:
-                field_name = self._TAGLESS_FIELD_MAP.get(tag)
-                if field_name:
-                    self.torrents.update({getattr(self.torrents, field_name): True}).where(
-                        condition
-                    ).execute()
+            with database_lock():
+                self._ensure_torrent_row(torrent, instance_name)
+                condition = self._torrent_condition(torrent, instance_name)
+                for tag in tags:
+                    field_name = self._TAGLESS_FIELD_MAP.get(tag)
+                    if field_name:
+                        self.torrents.update({getattr(self.torrents, field_name): True}).where(
+                            condition
+                        ).execute()
         else:
             with contextlib.suppress(Exception):
                 with_retry(
@@ -1985,10 +1989,11 @@ class Arr:
         if (
             self.loop_completed and self.reset_on_completion and self.series_search
         ):  # Only wipe if a loop completed was tagged
-            self.series_file_model.update(Searched=False, Upgrade=False).where(
-                (self.series_file_model.Searched == True)
-                & (self.series_file_model.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.series_file_model.update(Searched=False, Upgrade=False).where(
+                    (self.series_file_model.Searched == True)
+                    & (self.series_file_model.ArrInstance == self._name)
+                ).execute()
             series = with_retry(
                 lambda: self.client.get_series(),
                 retries=5,
@@ -1998,10 +2003,11 @@ class Arr:
             )
             for s in series:
                 ids.append(s["id"])
-            self.series_file_model.delete().where(
-                (self.series_file_model.EntryId.not_in(ids))
-                & (self.series_file_model.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.series_file_model.delete().where(
+                    (self.series_file_model.EntryId.not_in(ids))
+                    & (self.series_file_model.ArrInstance == self._name)
+                ).execute()
             self.loop_completed = False
 
     def db_reset__episode_searched_state(self):
@@ -2010,9 +2016,11 @@ class Arr:
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.model_file.update(Searched=False, Upgrade=False).where(
-                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.update(Searched=False, Upgrade=False).where(
+                    (self.model_file.Searched == True)
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             series = with_retry(
                 lambda: self.client.get_series(),
                 retries=5,
@@ -2030,9 +2038,11 @@ class Arr:
                 )
                 for e in episodes:
                     ids.append(e["id"])
-            self.model_file.delete().where(
-                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.delete().where(
+                    (self.model_file.EntryId.not_in(ids))
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             self.loop_completed = False
 
     def db_reset__movie_searched_state(self):
@@ -2041,9 +2051,11 @@ class Arr:
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.model_file.update(Searched=False, Upgrade=False).where(
-                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.update(Searched=False, Upgrade=False).where(
+                    (self.model_file.Searched == True)
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             movies = with_retry(
                 lambda: self.client.get_movie(),
                 retries=5,
@@ -2053,9 +2065,11 @@ class Arr:
             )
             for m in movies:
                 ids.append(m["id"])
-            self.model_file.delete().where(
-                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.delete().where(
+                    (self.model_file.EntryId.not_in(ids))
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             self.loop_completed = False
 
     def db_reset__album_searched_state(self):
@@ -2064,9 +2078,11 @@ class Arr:
         if (
             self.loop_completed is True and self.reset_on_completion
         ):  # Only wipe if a loop completed was tagged
-            self.model_file.update(Searched=False, Upgrade=False).where(
-                (self.model_file.Searched == True) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.update(Searched=False, Upgrade=False).where(
+                    (self.model_file.Searched == True)
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             artists = with_retry(
                 lambda: self.client.get_artist(),
                 retries=5,
@@ -2084,9 +2100,11 @@ class Arr:
                 )
                 for album in albums:
                     ids.append(album["id"])
-            self.model_file.delete().where(
-                (self.model_file.EntryId.not_in(ids)) & (self.model_file.ArrInstance == self._name)
-            ).execute()
+            with database_lock():
+                self.model_file.delete().where(
+                    (self.model_file.EntryId.not_in(ids))
+                    & (self.model_file.ArrInstance == self._name)
+                ).execute()
             self.loop_completed = False
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
@@ -6474,15 +6492,16 @@ class Arr:
                         entry["episodeId"] for entry in self.queue if entry.get("episodeId")
                     }
                     if self.model_queue:
-                        with_database_retry(
-                            lambda: self.model_queue.delete()
-                            .where(
-                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
-                                & (self.model_queue.ArrInstance == self._name)
+                        with database_lock():
+                            with_database_retry(
+                                lambda: self.model_queue.delete()
+                                .where(
+                                    (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                    & (self.model_queue.ArrInstance == self._name)
+                                )
+                                .execute(),
+                                logger=self.logger,
                             )
-                            .execute(),
-                            logger=self.logger,
-                        )
                 else:
                     for entry in self.queue:
                         if r := entry.get("seriesId"):
@@ -6491,15 +6510,16 @@ class Arr:
                         entry["seriesId"] for entry in self.queue if entry.get("seriesId")
                     }
                     if self.model_queue:
-                        with_database_retry(
-                            lambda: self.model_queue.delete()
-                            .where(
-                                (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
-                                & (self.model_queue.ArrInstance == self._name)
+                        with database_lock():
+                            with_database_retry(
+                                lambda: self.model_queue.delete()
+                                .where(
+                                    (self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                                    & (self.model_queue.ArrInstance == self._name)
+                                )
+                                .execute(),
+                                logger=self.logger,
                             )
-                            .execute(),
-                            logger=self.logger,
-                        )
             elif self.type == "radarr":
                 self.requeue_cache = {
                     entry["id"]: entry["movieId"] for entry in self.queue if entry.get("movieId")
@@ -6508,12 +6528,13 @@ class Arr:
                     entry["movieId"] for entry in self.queue if entry.get("movieId")
                 }
                 if self.model_queue:
-                    with_database_retry(
-                        lambda: self.model_queue.delete()
-                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
-                        .execute(),
-                        logger=self.logger,
-                    )
+                    with database_lock():
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
             elif self.type == "lidarr":
                 self.requeue_cache = {
                     entry["id"]: entry["albumId"] for entry in self.queue if entry.get("albumId")
@@ -6522,12 +6543,13 @@ class Arr:
                     entry["albumId"] for entry in self.queue if entry.get("albumId")
                 }
                 if self.model_queue:
-                    with_database_retry(
-                        lambda: self.model_queue.delete()
-                        .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
-                        .execute(),
-                        logger=self.logger,
-                    )
+                    with database_lock():
+                        with_database_retry(
+                            lambda: self.model_queue.delete()
+                            .where(self.model_queue.EntryId.not_in(list(self.queue_file_ids)))
+                            .execute(),
+                            logger=self.logger,
+                        )
 
         self._update_bad_queue_items()
 
