@@ -271,6 +271,10 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     const hasSonarr = arrs.some((arr) => arr.type === "sonarr");
     const hasLidarr = arrs.some((arr) => arr.type === "lidarr");
 
+    const qbitInstanceNames = statusData?.qbitInstances
+      ? Object.keys(statusData.qbitInstances)
+      : [];
+
     processes.forEach((proc) => {
       const app = classifyApp(proc);
 
@@ -278,6 +282,23 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       if (app === "Radarr" && !hasRadarr) return;
       if (app === "Sonarr" && !hasSonarr) return;
       if (app === "Lidarr" && !hasLidarr) return;
+
+      // Skip qBit category processes that would otherwise show as separate cards in Other.
+      // They are already represented by the category chips in the qBittorrent card.
+      const kindLower = (proc.kind ?? "").toLowerCase();
+      if (app === "Other" && kindLower === "category" && qbitInstanceNames.length > 0) {
+        const procCategory = (proc.category ?? "").toLowerCase();
+      const matchesQbitInstance = qbitInstanceNames.some((inst) => {
+        const instLower = inst.toLowerCase();
+        return (
+          procCategory === instLower ||
+          procCategory === `qbit-${instLower}` ||
+          procCategory.endsWith(`-${instLower}`) ||
+          procCategory.endsWith(`_${instLower}`)
+        );
+      });
+        if (matchesQbitInstance) return;
+      }
 
       if (!appBuckets.has(app)) appBuckets.set(app, new Map());
       const instances = appBuckets.get(app)!;
@@ -288,9 +309,6 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
 
     // Ensure a qBittorrent card exists for every defined qBit instance (even with no processes)
-    const qbitInstanceNames = statusData?.qbitInstances
-      ? Object.keys(statusData.qbitInstances)
-      : [];
     if (qbitInstanceNames.length > 0) {
       if (!appBuckets.has("qBittorrent")) appBuckets.set("qBittorrent", new Map());
       const qbitInstances = appBuckets.get("qBittorrent")!;
