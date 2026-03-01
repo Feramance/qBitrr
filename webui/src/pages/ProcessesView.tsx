@@ -274,6 +274,9 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     const qbitInstanceNames = statusData?.qbitInstances
       ? Object.keys(statusData.qbitInstances)
       : [];
+    const qbitCategoryNames = new Set(
+      qbitCategories.map((c) => c.category.toLowerCase())
+    );
 
     processes.forEach((proc) => {
       const app = classifyApp(proc);
@@ -286,18 +289,20 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
       // Skip qBit category processes that would otherwise show as separate cards in Other.
       // They are already represented by the category chips in the qBittorrent card.
       const kindLower = (proc.kind ?? "").toLowerCase();
-      if (app === "Other" && kindLower === "category" && qbitInstanceNames.length > 0) {
-        const procCategory = (proc.category ?? "").toLowerCase();
-      const matchesQbitInstance = qbitInstanceNames.some((inst) => {
-        const instLower = inst.toLowerCase();
-        return (
-          procCategory === instLower ||
-          procCategory === `qbit-${instLower}` ||
-          procCategory.endsWith(`-${instLower}`) ||
-          procCategory.endsWith(`_${instLower}`)
-        );
-      });
-        if (matchesQbitInstance) return;
+      const procCategoryLower = (proc.category ?? "").toLowerCase();
+      if (app === "Other" && qbitInstanceNames.length > 0) {
+        const isQbitCategoryKind = kindLower === "category";
+        const matchesQbitInstance = isQbitCategoryKind && qbitInstanceNames.some((inst) => {
+          const instLower = inst.toLowerCase();
+          return (
+            procCategoryLower === instLower ||
+            procCategoryLower === `qbit-${instLower}` ||
+            procCategoryLower.endsWith(`-${instLower}`) ||
+            procCategoryLower.endsWith(`_${instLower}`)
+          );
+        });
+        const isConfiguredQbitCategory = qbitCategoryNames.has(procCategoryLower);
+        if (matchesQbitInstance || isConfiguredQbitCategory) return;
       }
 
       if (!appBuckets.has(app)) appBuckets.set(app, new Map());
@@ -346,7 +351,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
     });
 
     return result;
-  }, [processes, statusData]);
+  }, [processes, statusData, qbitCategories]);
 
   const handleRestartGroup = useCallback(
     async (items: ProcessInfo[]) => {
