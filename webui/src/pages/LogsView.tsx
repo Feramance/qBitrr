@@ -79,13 +79,22 @@ function describeError(reason: unknown, context: string): string {
   return context;
 }
 
+/** Number of lines to fetch per chunk for the log viewer; keeps load fast. */
+const DEFAULT_LOG_TAIL_LINES = 2000;
+
 export function LogsView({ active }: LogsViewProps): JSX.Element {
   const [files, setFiles] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>("All.log");
   const [logContent, setLogContent] = useState<string>("");
   const [follow, setFollow] = useState(true);
+  /** When true, poll for new log content every second; when false, only refresh on manual Refresh. */
+  const [liveUpdates, setLiveUpdates] = useState(true);
+  /** Number of lines we've loaded "above" the tail (for load-more). When 0, we only have the tail. */
+  const [offsetFromEnd, setOffsetFromEnd] = useState(0);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreAbove, setHasMoreAbove] = useState(true);
   const lastLinesCountRef = useRef<number>(0);
   const { push } = useToast();
   const { theme } = useWebUI();
@@ -122,18 +131,23 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   }, [loadList]);
 
   const fetchLogContent = useCallback(
-    async (showLoading: boolean = false) => {
+    async (showLoading: boolean = false, onlyIfTail: boolean = false) => {
       if (!selected) return;
+      if (onlyIfTail && offsetFromEnd > 0) return;
 
       if (showLoading) setLoadingContent(true);
       try {
-        const newContent = await getLogTail(selected);
-        const newLines = newContent.split('\n');
+        const newContent = await getLogTail(selected, DEFAULT_LOG_TAIL_LINES, 0);
+        const newLines = newContent.split("\n");
         const currentLinesCount = newLines.length;
 
-        if (currentLinesCount !== lastLinesCountRef.current) {
+        if (currentLinesCount !== lastLinesCountRef.current || !onlyIfTail) {
           setLogContent(newContent);
           lastLinesCountRef.current = currentLinesCount;
+          if (!onlyIfTail) {
+            setOffsetFromEnd(0);
+            setHasMoreAbove(true);
+          }
         }
       } catch (error) {
         push(describeError(error, `Failed to read ${selected}`), "error");
@@ -141,21 +155,55 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
         if (showLoading) setLoadingContent(false);
       }
     },
-    [selected, push]
+    [selected, push, offsetFromEnd]
   );
+
+  const loadMoreAbove = useCallback(async () => {
+    if (!selected || loadingMore || !hasMoreAbove) return;
+    const nextOffset = offsetFromEnd + DEFAULT_LOG_TAIL_LINES;
+    setLoadingMore(true);
+    try {
+      const olderContent = await getLogTail(
+        selected,
+        DEFAULT_LOG_TAIL_LINES,
+        nextOffset
+      );
+      if (olderContent.length === 0) {
+        setHasMoreAbove(false);
+      } else {
+        setLogContent((prev) =>
+          prev ? `${olderContent}\n${prev}` : olderContent
+        );
+        setOffsetFromEnd(nextOffset);
+      }
+    } catch (error) {
+      push(
+        describeError(error, `Failed to load older logs for ${selected}`),
+        "error"
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [selected, offsetFromEnd, loadingMore, hasMoreAbove, push]);
+
+  const handleRefreshLogs = useCallback(() => {
+    void fetchLogContent(true, false);
+  }, [fetchLogContent]);
 
   useEffect(() => {
     if (selected) {
       lastLinesCountRef.current = 0;
+      setOffsetFromEnd(0);
+      setHasMoreAbove(true);
       void fetchLogContent(true);
     }
   }, [selected, fetchLogContent]);
 
   useInterval(
     () => {
-      void fetchLogContent(false);
+      void fetchLogContent(false, true);
     },
-    active ? 1000 : null
+    active && liveUpdates ? 1000 : null
   );
 
 
@@ -185,6 +233,14 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 Reload List
               </button>
               <button
+                className="btn ghost"
+                onClick={handleRefreshLogs}
+                disabled={!selected || loadingContent}
+              >
+                <IconImage src={RefreshIcon} />
+                Refresh
+              </button>
+              <button
                 className="btn"
                 onClick={() =>
                   selected && window.open(getLogDownloadUrl(selected), "_blank")
@@ -202,10 +258,18 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               <label className="hint inline" style={{ cursor: "pointer" }}>
                 <input
                   type="checkbox"
+                  checked={liveUpdates}
+                  onChange={(e) => setLiveUpdates(e.target.checked)}
+                />
+                <IconImage src={LiveIcon} />
+                <span>Live</span>
+              </label>
+              <label className="hint inline" style={{ cursor: "pointer" }}>
+                <input
+                  type="checkbox"
                   checked={follow}
                   onChange={(event) => setFollow(event.target.checked)}
                 />
-                <IconImage src={LiveIcon} />
                 <span>Auto-scroll</span>
               </label>
             </div>
@@ -215,7 +279,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
           flex: 1,
           minHeight: 0,
           overflow: 'hidden',
-          borderRadius: '4px'
+          borderRadius: '4px',
+          display: 'flex',
+          flexDirection: 'column'
         }}>
           {loadingContent ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: isDark ? '#666' : '#999', backgroundColor: isDark ? '#0a0e14' : '#fafafa' }}>
@@ -223,7 +289,28 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
               Loading logs...
             </div>
           ) : logContent ? (
-            <LazyLog
+            <>
+              {hasMoreAbove && (
+                <div style={{ flexShrink: 0, padding: '8px 12px', borderBottom: `1px solid ${isDark ? '#2a2f36' : '#e5e5e5'}`, backgroundColor: isDark ? '#0f131a' : '#f5f5f5' }}>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => void loadMoreAbove()}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <span className="spinner" style={{ marginRight: '6px' }} />
+                        Loading…
+                      </>
+                    ) : (
+                      'Load older logs'
+                    )}
+                  </button>
+                </div>
+              )}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <LazyLog
               text={logContent}
               follow={follow}
               enableSearch
@@ -238,7 +325,9 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
                 fontSize: '13px',
                 lineHeight: '1.5'
               }}
-            />
+                />
+              </div>
+            </>
           ) : (
             <div style={{ color: isDark ? '#666' : '#999', backgroundColor: isDark ? '#0a0e14' : '#fafafa', padding: '16px' }}>Select a log file to view...</div>
           )}

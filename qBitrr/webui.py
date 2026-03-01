@@ -1919,12 +1919,60 @@ class WebUI:
         def web_logs():
             return jsonify({"files": _list_logs()})
 
+        def _read_tail(path: Path, n: int, offset: int = 0) -> str:
+            """Read n lines from the end of the file, optionally skipping the last `offset` lines.
+            So offset=0 returns the last n lines; offset=2000 returns the n lines before that.
+            """
+            if n <= 0:
+                return ""
+            to_read = n + offset
+            if to_read <= 0:
+                return ""
+            try:
+                size = path.stat().st_size
+            except OSError:
+                return ""
+            if size == 0:
+                return ""
+            chunk_size = 65536
+            with path.open("rb") as f:
+                buf = b""
+                pos = size
+                while pos > 0:
+                    read_size = min(chunk_size, pos)
+                    pos -= read_size
+                    f.seek(pos)
+                    buf = f.read(read_size) + buf
+                    text = buf.decode("utf-8", errors="ignore")
+                    if text.count("\n") + (1 if text.rstrip("\n") else 0) >= to_read:
+                        break
+                text = buf.decode("utf-8", errors="ignore")
+            lines = text.splitlines()
+            total = len(lines)
+            if total <= offset:
+                return ""
+            # Return the n lines ending at (end - offset): lines[-(offset+n):-offset] or lines[-n:] when offset==0
+            start = -(offset + n) if (offset + n) <= total else 0
+            end = -offset if offset > 0 else total
+            if start >= end:
+                return ""
+            return "\n".join(lines[start:end])
+
         def _serve_log_content(name: str):
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
+            lines_param = request.args.get("lines", type=int)
+            offset_param = request.args.get("offset", default=0, type=int)
             try:
-                content = file.read_text(encoding="utf-8", errors="ignore")
+                if lines_param is not None and lines_param > 0:
+                    content = _read_tail(
+                        file,
+                        min(lines_param, 50000),
+                        offset=max(0, offset_param),
+                    )
+                else:
+                    content = file.read_text(encoding="utf-8", errors="ignore")
             except Exception:
                 content = ""
             response = send_file(

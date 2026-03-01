@@ -205,8 +205,20 @@ export async function getLogs(): Promise<LogsListResponse> {
   return fetchJson<LogsListResponse>("/web/logs");
 }
 
-export async function getLogTail(name: string): Promise<string> {
-  return fetchTextResponse(`/web/logs/${encodeURIComponent(name)}`);
+export async function getLogTail(
+  name: string,
+  lines?: number,
+  offset?: number
+): Promise<string> {
+  const base = `/web/logs/${encodeURIComponent(name)}`;
+  if (lines == null || lines <= 0) {
+    return fetchTextResponse(base);
+  }
+  const params = new URLSearchParams({ lines: String(lines) });
+  if (offset != null && offset > 0) {
+    params.set("offset", String(offset));
+  }
+  return fetchTextResponse(`${base}?${params.toString()}`);
 }
 
 export function getLogDownloadUrl(name: string): string {
