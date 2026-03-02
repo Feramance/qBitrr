@@ -3999,6 +3999,37 @@ svg[height] {
   letter-spacing: 0.04em;
 }
 
+.torrent-handling-summary .torrent-handling-summary-body {
+  margin: 0;
+}
+
+.torrent-handling-summary .torrent-handling-summary-body h3 {
+  margin: 10px 0 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-surface);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.torrent-handling-summary .torrent-handling-summary-body h3:first-child {
+  margin-top: 0;
+}
+
+.torrent-handling-summary .torrent-handling-summary-body ul {
+  margin: 0 0 4px 0;
+  padding-left: 18px;
+}
+
+.torrent-handling-summary .torrent-handling-summary-body li {
+  margin: 2px 0;
+}
+
+.torrent-handling-summary .torrent-handling-summary-body p {
+  margin: 0 0 4px 0;
+  color: var(--on-surface);
+}
+
 .torrent-handling-summary p {
   margin: 0;
   color: var(--on-surface);

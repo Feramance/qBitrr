@@ -106,7 +106,7 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
   const stalledDelayMin = parseDurationToMinutes(torrent.StalledDelay, -1);
   const reSearchStalled = Boolean(torrent.ReSearchStalled);
 
-  // Torrent: 2–3 short lines
+  // Torrent: markdown section with bullets
   const torrentParts: string[] = [];
   torrentParts.push(
     (caseSensitive ? "Case-sensitive" : "Case-insensitive") +
@@ -123,17 +123,19 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
     torrentOpts.push(`Deletable up to: ${maxDeletable}%`);
   }
   torrentOpts.push(doNotRemoveSlow ? "Slow: kept" : "Slow: may remove");
-  lines.push("Torrent: " + torrentParts.join("") + ".");
-  lines.push(torrentOpts.join(". "));
+  lines.push("### Torrent");
+  lines.push("- " + torrentParts.join("") + ".");
+  lines.push("- " + torrentOpts.join(". "));
 
-  // Stalled: one short line
+  // Stalled
+  lines.push("### Stalled");
   if (!Number.isFinite(stalledDelayMin) || stalledDelayMin < 0) {
-    lines.push("Stalled: Not removed.");
+    lines.push("- Not removed.");
   } else if (stalledDelayMin === 0) {
-    lines.push("Stalled: Not removed (infinite delay).");
+    lines.push("- Not removed (infinite delay).");
   } else {
     lines.push(
-      `Stalled: Removed after ${formatMinutes(stalledDelayMin)}. Re-search before remove: ${reSearchStalled ? "yes" : "no"}.`,
+      `- Removed after ${formatMinutes(stalledDelayMin)}. Re-search before remove: ${reSearchStalled ? "yes" : "no"}.`,
     );
   }
 
@@ -146,7 +148,7 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
     ? (seeding.RemoveTrackerWithMessage as string[]).length
     : 0;
 
-  // Seeding: one short line
+  lines.push("### Seeding");
   const seedParts: string[] = [removeTorrentLabel(removeTorrent)];
   if (Number.isFinite(maxRatio) && maxRatio >= 0) seedParts.push(`max ratio ${maxRatio}`);
   if (Number.isFinite(maxTimeSec) && maxTimeSec >= 0) {
@@ -154,27 +156,27 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
   }
   seedParts.push(removeDead ? "Dead trackers: removed" : "Dead trackers: kept");
   if (removeMessages > 0) seedParts.push(`${removeMessages} message(s) trigger removal`);
-  lines.push("Seeding: " + seedParts.join(". ") + ".");
+  lines.push("- " + seedParts.join(". ") + ".");
 
-  // HnR: one short line
   const hnrMode = resolveHnrMode(seeding.HitAndRunMode);
   const minRatio = Number(seeding.MinSeedRatio ?? 1);
   const minDays = Number(seeding.MinSeedingTimeDays ?? 0);
+  lines.push("### HnR");
   if (hnrMode === "disabled") {
-    lines.push("HnR: Off.");
+    lines.push("- Off.");
   } else {
     const daysVal = Number.isFinite(minDays) ? minDays : 0;
     const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
     lines.push(
-      `HnR: ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
+      `- ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
     );
   }
 
   const trackers = get(state, ["Torrent", "Trackers"]) as ConfigDocument[] | undefined;
+  lines.push("### Trackers");
   if (!Array.isArray(trackers) || trackers.length === 0) {
-    lines.push("Trackers: No custom rules; using qBit instance defaults.");
+    lines.push("- No custom rules; using qBit instance defaults.");
   } else {
-    lines.push("Trackers:");
     trackers.forEach((raw) => {
       const t = raw as Record<string, unknown>;
       const name = String(t.Name ?? "Tracker").trim() || "Tracker";
@@ -185,9 +187,9 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
       const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
       const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
       if (mode === "disabled") {
-        lines.push(`  ${name} — HnR off`);
+        lines.push(`- **${name}** — HnR off`);
       } else {
-        lines.push(`  ${name} — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
+        lines.push(`- **${name}** — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
       }
     });
   }
@@ -215,55 +217,58 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
   const dlLimit = Number(seeding.DownloadRateLimitPerTorrent ?? -1);
   const ulLimit = Number(seeding.UploadRateLimitPerTorrent ?? -1);
 
-  // Seeding: one short line
+  // Seeding
+  lines.push("### Seeding");
   const seedParts: string[] = [removeTorrentLabel(removeTorrent)];
   if (Number.isFinite(maxRatio) && maxRatio >= 0) seedParts.push(`max ratio ${maxRatio}`);
   if (Number.isFinite(maxTimeSec) && maxTimeSec >= 0) {
     seedParts.push(`max time ${formatSeconds(maxTimeSec)}`);
   }
   seedParts.push(dlLimit >= 0 || ulLimit >= 0 ? "Rate limits: on" : "Rate limits: off");
-  lines.push("Seeding: " + seedParts.join(". ") + ".");
+  lines.push("- " + seedParts.join(". ") + ".");
 
-  // Stalled: one short line
+  // Stalled
+  lines.push("### Stalled");
   const stalledDelayMin = parseDurationToMinutes(seeding.StalledDelay, -1);
   const ignoreYounger = parseDurationToSeconds(seeding.IgnoreTorrentsYoungerThan, -1);
   if (!Number.isFinite(stalledDelayMin) || stalledDelayMin < 0) {
-    lines.push("Stalled: Not removed.");
+    lines.push("- Not removed.");
   } else if (stalledDelayMin === 0) {
-    let s = "Stalled: Not removed (infinite delay)";
+    let s = "Not removed (infinite delay)";
     if (managedPreview) s += ` in ${managedPreview}`;
     if (Number.isFinite(ignoreYounger) && ignoreYounger >= 0) {
       s += `. Ignore new under ${formatSeconds(ignoreYounger)}`;
     }
-    lines.push(s + ".");
+    lines.push("- " + s + ".");
   } else {
-    let s = `Stalled: Removed after ${formatMinutes(stalledDelayMin)}`;
+    let s = `Removed after ${formatMinutes(stalledDelayMin)}`;
     if (managedPreview) s += ` in ${managedPreview}`;
     if (Number.isFinite(ignoreYounger) && ignoreYounger >= 0) {
       s += `. Ignore new under ${formatSeconds(ignoreYounger)}`;
     }
-    lines.push(s + ".");
+    lines.push("- " + s + ".");
   }
 
-  // HnR: one short line
+  // HnR
+  lines.push("### HnR");
   const hnrMode = resolveHnrMode(seeding.HitAndRunMode);
   const minRatio = Number(seeding.MinSeedRatio ?? 1);
   const minDays = Number(seeding.MinSeedingTimeDays ?? 0);
   if (hnrMode === "disabled") {
-    lines.push("HnR: Off.");
+    lines.push("- Off.");
   } else {
     const daysVal = Number.isFinite(minDays) ? minDays : 0;
     const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
     lines.push(
-      `HnR: ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
+      `- ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
     );
   }
 
   const trackers = get(state, ["Trackers"]) as ConfigDocument[] | undefined;
+  lines.push("### Trackers");
   if (!Array.isArray(trackers) || trackers.length === 0) {
-    lines.push("Trackers: No custom rules configured.");
+    lines.push("- No custom rules configured.");
   } else {
-    lines.push("Trackers:");
     trackers.forEach((raw) => {
       const t = raw as Record<string, unknown>;
       const name = String(t.Name ?? "Tracker").trim() || "Tracker";
@@ -274,9 +279,9 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
       const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
       const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
       if (mode === "disabled") {
-        lines.push(`  ${name} — HnR off`);
+        lines.push(`- **${name}** — HnR off`);
       } else {
-        lines.push(`  ${name} — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
+        lines.push(`- **${name}** — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
       }
     });
   }
