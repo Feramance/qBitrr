@@ -59,7 +59,7 @@ jobs:
       id: git_hash
     - name: Set archive name
       run: "ARCHIVE_NAME=${{ env.project-name }}-${{ steps.git_hash.outputs.HASH }}-${{ matrix.os }}-${{ matrix.arch }}\necho \"Archive name set to: $ARCHIVE_NAME\"\necho \"NAME=$ARCHIVE_NAME\" >> $GITHUB_OUTPUT\n"
-      id: archieve
+      id: archive
     - name: Update git hash
       env:
         RELEASE_HASH: ${{ steps.git_hash.outputs.HASH }}
@@ -89,16 +89,16 @@ jobs:
       run: "find dist\n# Archive the PyInstaller build using the appropriate tool for the platform.\n"
     - name: Tar files
       if: runner.os != 'Windows'
-      run: "tar --format=ustar -czvf ${{ steps.archieve.outputs.NAME }}.tar.gz dist/\n"
+      run: "tar --format=ustar -czvf ${{ steps.archive.outputs.NAME }}.tar.gz dist/\n"
     - name: Archive files
       if: runner.os == 'Windows'
       shell: pwsh
-      run: "Compress-Archive dist/* ${{ steps.archieve.outputs.NAME }}.zip\n"
+      run: "Compress-Archive dist/* ${{ steps.archive.outputs.NAME }}.zip\n"
     - name: Upload Artifact
       uses: actions/upload-artifact@v7
       with:
-        name: automated-build-${{ steps.archieve.outputs.NAME }}
-        path: ${{ steps.archieve.outputs.NAME }}.*
+        name: automated-build-${{ steps.archive.outputs.NAME }}
+        path: ${{ steps.archive.outputs.NAME }}.*
         if-no-files-found: error
   docker_image:
     name: Build Docker Images
