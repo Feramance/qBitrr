@@ -21,20 +21,40 @@ function getVal<T = unknown>(state: ConfigDocument | null, path: string[], fallb
   return (v === undefined || v === null ? fallback : v) as T;
 }
 
+function plural(n: number, singular: string, pluralStr: string): string {
+  return n === 1 ? singular : pluralStr;
+}
+
 function formatSeconds(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "disabled";
-  if (seconds >= 86400 * 14) return `${Math.round(seconds / 86400)}d`;
-  if (seconds >= 86400) return `${Math.round(seconds / 86400)}d`;
-  if (seconds >= 3600) return `${Math.round(seconds / 3600)}h`;
-  if (seconds >= 60) return `${Math.round(seconds / 60)}m`;
-  return `${seconds}s`;
+  if (seconds >= 86400) {
+    const days = Math.round(seconds / 86400);
+    return `${days} ${plural(days, "day", "days")}`;
+  }
+  if (seconds >= 3600) {
+    const hours = Math.round(seconds / 3600);
+    return `${hours} ${plural(hours, "hour", "hours")}`;
+  }
+  if (seconds >= 60) {
+    const minutes = Math.round(seconds / 60);
+    return `${minutes} ${plural(minutes, "minute", "minutes")}`;
+  }
+  const secs = Math.round(seconds);
+  return `${secs} ${plural(secs, "second", "seconds")}`;
 }
 
 function formatMinutes(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes < 0) return "disabled";
-  if (minutes >= 1440) return `${Math.round(minutes / 1440)}d`;
-  if (minutes >= 60) return `${Math.round(minutes / 60)}h`;
-  return `${minutes}m`;
+  if (minutes >= 1440) {
+    const days = Math.round(minutes / 1440);
+    return `${days} ${plural(days, "day", "days")}`;
+  }
+  if (minutes >= 60) {
+    const hours = Math.round(minutes / 60);
+    return `${hours} ${plural(hours, "hour", "hours")}`;
+  }
+  const mins = Math.round(minutes);
+  return `${mins} ${plural(mins, "minute", "minutes")}`;
 }
 
 function resolveHnrMode(v: unknown): "and" | "or" | "disabled" {
@@ -91,30 +111,35 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
       (caseSensitive ? "Case-sensitive" : "Case-insensitive") +
       " matches. " +
       (folderExcl || fileExcl
-        ? `Folder/file name exclusions (${folderExcl + fileExcl} pattern(s)). `
+        ? `Folder or file name exclusions (${folderExcl + fileExcl} pattern(s)). `
         : "") +
-      (allowlistPreview ? `Extension allowlist (${allowlistPreview}). ` : "") +
-      `Auto-delete non-media ${autoDelete ? "on" : "off"}. ` +
+      (allowlistPreview ? `Allowed file types include ${allowlistPreview}. ` : "") +
+      (autoDelete
+        ? "Files that are not recognised as media are automatically deleted. "
+        : "Files that are not recognised as media are kept. ") +
       (Number.isFinite(ignoreYounger) && ignoreYounger >= 0
-        ? `Ignore torrents younger than ${formatSeconds(ignoreYounger)}. `
+        ? `New torrents are ignored for the first ${formatSeconds(ignoreYounger)}. `
         : "") +
-      (maxEta >= 0 ? `Max ETA ${formatSeconds(maxEta)}. ` : "Max ETA disabled. ") +
+      (maxEta >= 0
+        ? `If a download makes no progress for ${formatSeconds(maxEta)}, it may be treated as stalled. `
+        : "No limit on how long a download can run before being treated as stalled. ") +
       (Number.isFinite(maxDeletable) && maxDeletable <= 100
-        ? `Deletable up to ${maxDeletable}%. `
+        ? `Torrents may be removed when completion is at or below ${maxDeletable}%. `
         : "") +
       `Slow torrents ${doNotRemoveSlow ? "are not removed" : "may be removed"}.`
   );
 
   if (Number.isFinite(stalledDelayMin) && stalledDelayMin >= 0) {
     lines.push(
-      "Stalled: After " +
+      "Stalled: If a download makes no progress for " +
         formatMinutes(stalledDelayMin) +
-        " torrents are treated as stalled; re-search " +
-        (reSearchStalled ? "enabled" : "disabled") +
-        " before/after removal."
+        ", it is treated as stalled. " +
+        (reSearchStalled
+          ? "qBitrr will search again for a replacement before or after the torrent is removed."
+          : "qBitrr will not search again for a replacement.")
     );
   } else {
-    lines.push("Stalled: Stalled handling disabled.");
+    lines.push("Stalled: Stalled handling is disabled.");
   }
 
   const seeding = getVal<Record<string, unknown>>(state, ["Torrent", "SeedingMode"], {});
@@ -130,35 +155,39 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
     "Seeding: " +
       removeTorrentLabel(removeTorrent) +
       ". " +
-      (Number.isFinite(maxRatio) && maxRatio >= 0 ? `Max ratio ${maxRatio}. ` : "") +
-      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0
-        ? `Max time ${formatSeconds(maxTimeSec)}. `
+      (Number.isFinite(maxRatio) && maxRatio >= 0
+        ? `Maximum upload ratio (uploaded ÷ downloaded): ${maxRatio}. `
         : "") +
-      (removeDead ? "Dead trackers removed. " : "Dead trackers not removed. ") +
-      (removeMessages > 0 ? `Specific tracker messages (${removeMessages}) trigger removal.` : "")
+      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0
+        ? `Maximum seeding time: ${formatSeconds(maxTimeSec)}. `
+        : "") +
+      (removeDead
+        ? "Trackers that no longer respond are removed. "
+        : "Trackers that no longer respond are not removed. ") +
+      (removeMessages > 0
+        ? `Removal is triggered when the tracker shows any of ${removeMessages} specific message(s).`
+        : "")
   );
 
   const hnrMode = resolveHnrMode(seeding.HitAndRunMode);
   const minRatio = Number(seeding.MinSeedRatio ?? 1);
   const minDays = Number(seeding.MinSeedingTimeDays ?? 0);
   lines.push(
-    "HnR: " +
+    "Hit and Run (HnR): " +
       (hnrMode === "disabled"
-        ? "Disabled"
+        ? "Disabled. (No minimum seeding required before removal.)"
         : hnrMode === "and"
-          ? "Require both ratio and time"
-          : "Either ratio or time clears") +
-      " in SeedingMode. Min ratio " +
-      (Number.isFinite(minRatio) ? minRatio : "1") +
-      ", min time " +
-      (Number.isFinite(minDays) ? minDays : 0) +
-      " days."
+          ? "Tracker rules require both a minimum ratio and minimum seeding time before removal is allowed."
+          : "Tracker rules allow removal once either the minimum ratio or minimum seeding time is met.") +
+      (hnrMode !== "disabled"
+        ? ` Minimum ratio: ${Number.isFinite(minRatio) ? minRatio : "1"}. Minimum seeding time: ${Number.isFinite(minDays) ? minDays : 0} ${plural(Number.isFinite(minDays) && minDays === 1 ? 1 : Math.max(0, minDays), "day", "days")}.`
+        : "")
   );
 
   const trackers = get(state, ["Torrent", "Trackers"]) as ConfigDocument[] | undefined;
   const trackerCount = Array.isArray(trackers) ? trackers.length : 0;
   if (trackerCount === 0) {
-    lines.push("Trackers: No per-tracker overrides; using qBit instance defaults.");
+    lines.push("Trackers: No custom rules; using qBit instance defaults.");
   } else {
     const withHnr = Array.isArray(trackers)
       ? trackers.filter((t) => resolveHnrMode((t as Record<string, unknown>).HitAndRunMode) !== "disabled").length
@@ -168,7 +197,7 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
       : [];
     const namePreview = listPreview(names, 2);
     lines.push(
-      `Trackers: ${trackerCount} override(s)${namePreview ? ` (e.g. ${namePreview})` : ""}. ` +
+      `Trackers: ${trackerCount} custom rule(s)${namePreview ? ` (e.g. ${namePreview})` : ""}. ` +
         (withHnr > 0 ? `${withHnr} with HnR rules.` : "HnR disabled on all.")
     );
   }
@@ -199,10 +228,13 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
   lines.push(
     "Seeding: " +
       removeTorrentLabel(removeTorrent) +
-      (removeTorrent !== -1 ? ` (${removeTorrent}).` : ".") +
-      " " +
-      (Number.isFinite(maxRatio) && maxRatio >= 0 ? `Max ratio ${maxRatio}, ` : "") +
-      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0 ? `max time ${formatSeconds(maxTimeSec)}. ` : "") +
+      ". " +
+      (Number.isFinite(maxRatio) && maxRatio >= 0
+        ? `Maximum upload ratio (uploaded ÷ downloaded): ${maxRatio}. `
+        : "") +
+      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0
+        ? `Maximum seeding time: ${formatSeconds(maxTimeSec)}. `
+        : "") +
       (dlLimit >= 0 || ulLimit >= 0 ? "Rate limits set. " : "No per-torrent rate limits.")
   );
 
@@ -210,13 +242,14 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
   const ignoreYounger = parseDurationToSeconds(seeding.IgnoreTorrentsYoungerThan, -1);
   if (Number.isFinite(stalledDelayMin) && stalledDelayMin >= 0) {
     lines.push(
-      "Stalled: Stalled downloads in managed categories" +
-        (managedPreview ? ` (${managedPreview})` : "") +
-        " are removed after " +
+      "Stalled: If a download makes no progress for " +
         formatMinutes(stalledDelayMin) +
-        "; torrents younger than " +
-        (Number.isFinite(ignoreYounger) && ignoreYounger >= 0 ? formatSeconds(ignoreYounger) : "—") +
-        " are ignored."
+        ", it is treated as stalled in managed categories" +
+        (managedPreview ? ` (${managedPreview})` : "") +
+        ". " +
+        (Number.isFinite(ignoreYounger) && ignoreYounger >= 0
+          ? `New torrents are ignored for the first ${formatSeconds(ignoreYounger)}.`
+          : "")
     );
   }
 
@@ -226,27 +259,21 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
   const minDlPct = Number(seeding.HitAndRunMinimumDownloadPercent ?? 10);
   const partialRatio = Number(seeding.HitAndRunPartialSeedRatio ?? 1);
   lines.push(
-    "HnR: " +
+    "Hit and Run (HnR): " +
       (hnrMode === "disabled"
-        ? "Disabled at category level"
+        ? "Disabled at category level. (No minimum seeding required before removal.)"
         : hnrMode === "and"
-          ? "Require both ratio and time"
-          : "Either ratio or time clears") +
-      ". Min ratio " +
-      (Number.isFinite(minRatio) ? minRatio : "1") +
-      ", min time " +
-      (Number.isFinite(minDays) ? minDays : 0) +
-      " days, min download % " +
-      (Number.isFinite(minDlPct) ? minDlPct : 10) +
-      ", partial ratio " +
-      (Number.isFinite(partialRatio) ? partialRatio : "1") +
-      "."
+          ? "Tracker rules require both a minimum ratio and minimum seeding time before removal is allowed."
+          : "Tracker rules allow removal once either the minimum ratio or minimum seeding time is met.") +
+      (hnrMode !== "disabled"
+        ? ` Minimum ratio: ${Number.isFinite(minRatio) ? minRatio : "1"}. Minimum seeding time: ${Number.isFinite(minDays) ? minDays : 0} ${plural(Number.isFinite(minDays) && minDays === 1 ? 1 : Math.max(0, minDays), "day", "days")}. Minimum download: ${Number.isFinite(minDlPct) ? minDlPct : 10}%. Partial-seed ratio: ${Number.isFinite(partialRatio) ? partialRatio : "1"}.`
+        : "")
   );
 
   const trackers = get(state, ["Trackers"]) as ConfigDocument[] | undefined;
   const trackerCount = Array.isArray(trackers) ? trackers.length : 0;
   if (trackerCount === 0) {
-    lines.push("Trackers: None configured.");
+    lines.push("Trackers: No custom rules configured.");
   } else {
     const withHnrAnd = Array.isArray(trackers)
       ? trackers.filter((t) => resolveHnrMode((t as Record<string, unknown>).HitAndRunMode) === "and").length
@@ -258,11 +285,11 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
       ? trackers.map((t) => String((t as Record<string, unknown>).Name ?? "Tracker").trim()).filter(Boolean)
       : [];
     const namePreview = listPreview(names, 2);
-    let trackerDesc = `${trackerCount} configured${namePreview ? ` (e.g. ${namePreview})` : ""}.`;
+    let trackerDesc = `${trackerCount} custom rule(s)${namePreview ? ` (e.g. ${namePreview})` : ""}.`;
     if (withHnrAnd + withHnrOr > 0) {
       const parts: string[] = [];
-      if (withHnrAnd) parts.push(`${withHnrAnd} with HnR "and" (ratio and time)`);
-      if (withHnrOr) parts.push(`${withHnrOr} with HnR "or"`);
+      if (withHnrAnd) parts.push(`${withHnrAnd} with HnR requiring both ratio and time`);
+      if (withHnrOr) parts.push(`${withHnrOr} with HnR allowing ratio or time`);
       trackerDesc += " " + parts.join("; ") + "; others with HnR disabled.";
     }
     lines.push("Trackers: " + trackerDesc);
