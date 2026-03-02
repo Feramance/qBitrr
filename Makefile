@@ -95,6 +95,7 @@ syncenv:
 	"$(VENV_PYTHON)" -m pip install --upgrade pip
 	"$(VENV_PYTHON)" -m pip install -e ".[all]"
 	"$(VENV_PYTHON)" -m pre_commit install
+	@-$(VENV_PYTHON) -c "p='.git/hooks/pre-commit'; d=open(p,'rb').read(); open(p,'wb').write(d.replace(b'\r\n',b'\n'))" 2>/dev/null || true
 	@$(WEBUI_BUILD)
 help:
 	@echo "$$HELP_BODY"
