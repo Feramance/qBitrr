@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "rea
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
+import ReactMarkdown from "react-markdown";
 import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
@@ -69,6 +70,8 @@ interface ValidationError {
 
 const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
+/** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
+const REDACTED_PLACEHOLDER = "[redacted]";
 
 const getSelectStyles = (isDark: boolean) => {
   return {
@@ -2654,7 +2657,9 @@ function FieldGroup({
         ? `Enable or disable ${field.label}.`
         : `Set the ${field.label} value.`);
 
-    const isArrInstance = basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "");
+    const isArrInstance =
+      (basePath.length > 0 && SERVARR_SECTION_REGEX.test(basePath[0] ?? "")) ||
+      (!!sectionName && SERVARR_SECTION_REGEX.test(sectionName));
     const isArrApiKey = isArrInstance && (field.path?.[field.path.length - 1] ?? "") === "APIKey";
     const fieldClassName = field.fullWidth ? "field field--full-width" : "field";
 
@@ -3039,7 +3044,9 @@ function ArrTorrentSummary({
   return (
     <div className="torrent-handling-summary" aria-live="polite">
       <h3>How torrents are handled</h3>
-      <p style={{ whiteSpace: "pre-line", margin: 0 }}>{summary}</p>
+      <div className="torrent-handling-summary-body markdown-content">
+        <ReactMarkdown>{summary}</ReactMarkdown>
+      </div>
     </div>
   );
 }
@@ -3102,7 +3109,7 @@ function ArrInstanceModal({
   const handleTestConnection = async (silent = false) => {
     const uri = getValue(["URI"]) as string;
     const apiKey = getValue(["APIKey"]) as string;
-    const isApiKeyRedacted = (apiKey ?? "").trim() === "[redacted]";
+    const isApiKeyRedacted = (apiKey ?? "").trim() === REDACTED_PLACEHOLDER;
 
     // Determine Arr type from keyName
     const keyLower = keyName.toLowerCase();
@@ -3335,7 +3342,9 @@ function QbitTorrentSummary({
   return (
     <div className="torrent-handling-summary" aria-live="polite">
       <h3>How torrents are handled</h3>
-      <p style={{ whiteSpace: "pre-line", margin: 0 }}>{summary}</p>
+      <div className="torrent-handling-summary-body markdown-content">
+        <ReactMarkdown>{summary}</ReactMarkdown>
+      </div>
     </div>
   );
 }
