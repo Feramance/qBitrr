@@ -1079,7 +1079,9 @@ Test connection to Arr instance without saving configuration.
 - `POST /api/arr/test-connection` (requires auth)
 - `POST /web/arr/test-connection` (public)
 
-**Request Body**:
+**Request Body**: Either credentials or an instance key:
+
+- **By credentials** (e.g. new instance or form has real values):
 ```json
 {
   "arrType": "radarr",
@@ -1087,6 +1089,15 @@ Test connection to Arr instance without saving configuration.
   "apiKey": "abc123..."
 }
 ```
+
+- **By instance key** (when API key is redacted in the UI; backend uses stored config):
+```json
+{
+  "arrType": "radarr",
+  "instanceKey": "Radarr-Movies"
+}
+```
+When `instanceKey` is present, `uri` and `apiKey` are not required.
 
 **Valid Arr Types**: `radarr`, `sonarr`, `lidarr`
 

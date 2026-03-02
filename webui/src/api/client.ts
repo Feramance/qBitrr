@@ -340,8 +340,10 @@ export async function triggerUpdate(): Promise<void> {
 
 export interface TestConnectionRequest {
   arrType: "radarr" | "sonarr" | "lidarr";
-  uri: string;
-  apiKey: string;
+  /** When present, backend uses stored config for this instance (e.g. when API key is redacted). */
+  instanceKey?: string;
+  uri?: string;
+  apiKey?: string;
 }
 
 export interface TestConnectionResponse {

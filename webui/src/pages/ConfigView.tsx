@@ -3102,6 +3102,7 @@ function ArrInstanceModal({
   const handleTestConnection = async (silent = false) => {
     const uri = getValue(["URI"]) as string;
     const apiKey = getValue(["APIKey"]) as string;
+    const isApiKeyRedacted = (apiKey ?? "").trim() === "[redacted]";
 
     // Determine Arr type from keyName
     const keyLower = keyName.toLowerCase();
@@ -3111,7 +3112,7 @@ function ArrInstanceModal({
         ? "sonarr"
         : "lidarr";
 
-    if (!uri || !apiKey) {
+    if (!isApiKeyRedacted && (!uri || !apiKey)) {
       if (!silent) {
         push("Please configure URI and API Key first", "error");
       }
@@ -3121,7 +3122,11 @@ function ArrInstanceModal({
     setTestState({ testing: true, result: null });
 
     try {
-      const result = await testArrConnection({ arrType, uri, apiKey });
+      const result = await testArrConnection(
+        isApiKeyRedacted
+          ? { arrType, instanceKey: keyName }
+          : { arrType, uri: uri ?? "", apiKey: apiKey ?? "" }
+      );
       setTestState({ testing: false, result });
 
       if (result.success) {

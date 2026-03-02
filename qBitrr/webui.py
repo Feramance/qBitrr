@@ -2834,10 +2834,37 @@ class WebUI:
                     return jsonify({"success": False, "message": "Missing request body"}), 400
 
                 arr_type = data.get("arrType")  # "radarr" | "sonarr" | "lidarr"
+                instance_key = data.get("instanceKey")
                 uri = data.get("uri")
                 api_key = data.get("apiKey")
 
-                # Validate inputs
+                # When instanceKey is provided, load URI and APIKey from config (e.g. redacted UI)
+                if instance_key:
+                    if not arr_type:
+                        return (
+                            jsonify(
+                                {"success": False, "message": "Missing required field: arrType"}
+                            ),
+                            400,
+                        )
+                    try:
+                        CONFIG.load()
+                    except Exception:
+                        pass
+                    uri = CONFIG.get(f"{instance_key}.URI", fallback=None)
+                    api_key = CONFIG.get(f"{instance_key}.APIKey", fallback=None)
+                    if not uri or not api_key:
+                        return (
+                            jsonify(
+                                {
+                                    "success": False,
+                                    "message": "Instance not found or missing URI/APIKey in config",
+                                }
+                            ),
+                            400,
+                        )
+
+                # Validate inputs (uri and api_key either from body or from instanceKey path above)
                 if not all([arr_type, uri, api_key]):
                     return (
                         jsonify(
