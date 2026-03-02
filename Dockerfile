@@ -6,7 +6,7 @@ RUN cd webui && npm ci
 COPY webui webui
 RUN mkdir -p qBitrr/static && cd webui && npm run build
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
