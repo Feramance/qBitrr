@@ -1,5 +1,34 @@
 # Changelog
 
+## v5.9.2 (02/03/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: premature torrent removals, HnR clear mode, tests, .cursor in gi… (#308)](https://github.com/Feramance/qBitrr/commit/356b53de2f41f1b3cb093c13e764b604e8cc38d6) - @Feramance
+
+### 📝 Documentation
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/7d5a32d3bdbefbbb1c794a2f36aa56324ce04f6f) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/cef75f9ed47bc5f9965370db973df6e2265e93ee) - @Feramance
+- [docs: sync PKG-INFO description](https://github.com/Feramance/qBitrr/commit/463dff1e70ce8d6a92c4fb3ffdc820f92be891bb) - @Feramance
+
+### 🔧 Maintenance
+- [version fix](https://github.com/Feramance/qBitrr/commit/bdf2f35016f9161346aee34ffd0491bc39fe59fd) - @Feramance
+- [Fixex cile errors during workflows](https://github.com/Feramance/qBitrr/commit/dfd5e62e27e45d369b98d2c6875ba430dcdb306e) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/0386ef846e97dab365abff7322fcc64c501a9540) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/dac6dd1387c0c76b820776358bc0aa5acf18bb96) - @Feramance
+- [Update README.md](https://github.com/Feramance/qBitrr/commit/aa1c35ea93345c4970a46ad39fd7f7279d9a4423) - @Feramance
+- [Build(deps-dev): Bump minimatch from 9.0.6 to 9.0.9 in /webui (#311)](https://github.com/Feramance/qBitrr/commit/b1cbf9c7eb8d94d43fa192f7e2d0f299ef17f590) - @Feramance
+- [Build(deps): Bump rollup from 4.57.1 to 4.59.0 in /webui (#310)](https://github.com/Feramance/qBitrr/commit/5de63e4e8cb5abb1884f691d46961a1ce8dd5b28) - @Feramance
+- [Build(deps): Bump actions/upload-artifact from 6 to 7 (#309)](https://github.com/Feramance/qBitrr/commit/a4ad6c9b053cf38f452c10e378be3e19548a05c4) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.55.0 to 8.56.0 in /webui (#307)](https://github.com/Feramance/qBitrr/commit/3e64028c35360edda54331fdc0fe403f32bbbdba) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.0.0 to 10.0.1 in /webui (#306)](https://github.com/Feramance/qBitrr/commit/7b6fd5a78891a1e8f5dddec692f163faa15e5ef8) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.71.1 to 7.71.2 in /webui (#305)](https://github.com/Feramance/qBitrr/commit/01a2ba435af8217efe3984cd8f14807c175372e9) - @Feramance
+- [Build(deps-dev): Bump eslint-plugin-react-refresh from 0.5.0 to 0.5.1 in /webui (#304)](https://github.com/Feramance/qBitrr/commit/f0eadf981eec5dc464ab3a0de20e6db6f2bd8bb5) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.2.3 to 25.3.0 in /webui (#303)](https://github.com/Feramance/qBitrr/commit/f99620a76fc1a8a4b9e45ed95fa6e7a9f0c92953) - @Feramance
+- [Build(deps-dev): Bump tailwindcss from 4.1.18 to 4.2.0 in /webui (#302)](https://github.com/Feramance/qBitrr/commit/a4e5169d67cba7a28664c0009e79aa661ee82ccd) - @Feramance
+- [Build(deps-dev): Bump @tailwindcss/postcss from 4.1.18 to 4.2.0 in /webui (#301)](https://github.com/Feramance/qBitrr/commit/64e42e1aeb03095583ba2703b7773505da7a9bd2) - @Feramance
+
+---
+
 ## v5.9.1 (20/02/2026)
 
 ### 🐛 Bug Fixes
