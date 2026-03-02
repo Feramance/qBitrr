@@ -10,7 +10,7 @@ FROM python:3.12-slim
 
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
-LABEL Version="5.9.1"
+LABEL Version="5.9.2"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
 # Install tini (PID 1, SIGTERM forwarding), gosu (drop privileges after chown), and curl (health checks)
