@@ -2999,34 +2999,26 @@ class WebUI:
                     )
 
                 except Exception as e:
-                    # Handle specific error types
+                    # Handle specific error types. Return 200 with success: false so the
+                    # frontend does not treat Arr errors as WebUI auth failure (which uses 401).
                     error_msg = str(e)
                     # Log full error for debugging but sanitize user-facing message
                     self.logger.error("Connection test failed: %s", error_msg)
 
                     if "401" in error_msg or "Unauthorized" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": "Unauthorized: Invalid API key"}
-                            ),
-                            401,
+                        return jsonify(
+                            {"success": False, "message": "Unauthorized: Invalid API key"}
                         )
                     elif "404" in error_msg:
-                        return (
-                            jsonify(
-                                {"success": False, "message": f"Not found: Check URI ({uri})"}
-                            ),
-                            404,
+                        return jsonify(
+                            {"success": False, "message": f"Not found: Check URI ({uri})"}
                         )
                     elif "Connection refused" in error_msg or "ConnectionError" in error_msg:
-                        return (
-                            jsonify(
-                                {
-                                    "success": False,
-                                    "message": f"Connection refused: Cannot reach {uri}",
-                                }
-                            ),
-                            503,
+                        return jsonify(
+                            {
+                                "success": False,
+                                "message": f"Connection refused: Cannot reach {uri}",
+                            }
                         )
                     else:
                         # Generic error message - details logged above
@@ -3047,8 +3039,6 @@ class WebUI:
 
         @app.post("/web/arr/test-connection")
         def web_arr_test_connection():
-            if (resp := require_token()) is not None:
-                return resp
             return _handle_test_connection()
 
     def _reload_all(self):
