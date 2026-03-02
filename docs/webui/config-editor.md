@@ -10,6 +10,7 @@ The Configuration Editor replaces manual TOML editing with a structured form int
 
 - **Organized Sections**: Core settings, WebUI, qBittorrent, and per-instance Arr configurations
 - **Live Validation**: Real-time field validation with helpful error messages
+- **Torrent Handling Summary**: When configuring an Arr or qBittorrent instance, a live "How torrents are handled" summary is shown at the top of the modal, describing torrent rules, stalled handling, trackers, seeding, and HnR based on current form values (updates as you edit, before saving).
 - **Intelligent Reload**: Automatic detection of which components need reloading after save
 - **Visual Feedback**: Dirty state tracking, save confirmation, and unsaved changes warnings
 - **Theme Support**: Live theme switching without page reload

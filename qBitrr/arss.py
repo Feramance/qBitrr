@@ -615,6 +615,7 @@ class Arr:
         self.search_api_command = None
 
         self._webui_db_loaded = False
+        self.db_update_processed = False
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
 

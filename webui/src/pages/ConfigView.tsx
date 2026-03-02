@@ -8,6 +8,10 @@ import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import {
+  getArrTorrentHandlingSummary,
+  getQbitTorrentHandlingSummary,
+} from "../config/torrentHandlingSummary";
+import {
   DURATION_UNITS,
   durationDisplayToValue,
   parseDurationDisplay,
@@ -3023,6 +3027,23 @@ function SecureField({
   );
 }
 
+function ArrTorrentSummary({
+  state,
+}: {
+  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
+}): JSX.Element {
+  const summary = useMemo(
+    () => getArrTorrentHandlingSummary(state as ConfigDocument | null),
+    [state]
+  );
+  return (
+    <div className="torrent-handling-summary" aria-live="polite">
+      <h3>How torrents are handled</h3>
+      <p style={{ whiteSpace: "pre-line", margin: 0 }}>{summary}</p>
+    </div>
+  );
+}
+
 interface ArrInstanceModalProps {
   keyName: string;
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
@@ -3165,6 +3186,7 @@ function ArrInstanceModal({
           </button>
         </div>
         <div className="modal-body">
+          <ArrTorrentSummary state={state} />
           <FieldGroup
             title={null}
             fields={generalFields}
@@ -3296,6 +3318,23 @@ function ArrInstanceModal({
   );
 }
 
+function QbitTorrentSummary({
+  state,
+}: {
+  state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
+}): JSX.Element {
+  const summary = useMemo(
+    () => getQbitTorrentHandlingSummary(state as ConfigDocument | null),
+    [state]
+  );
+  return (
+    <div className="torrent-handling-summary" aria-live="polite">
+      <h3>How torrents are handled</h3>
+      <p style={{ whiteSpace: "pre-line", margin: 0 }}>{summary}</p>
+    </div>
+  );
+}
+
 interface QbitInstanceModalProps {
   keyName: string;
   state: ConfigDocument | ConfigDocument[keyof ConfigDocument] | null;
@@ -3332,6 +3371,7 @@ function QbitInstanceModal({
           </button>
         </div>
         <div className="modal-body">
+          <QbitTorrentSummary state={state} />
           <FieldGroup
             title={null}
             fields={QBIT_FIELDS}

@@ -3979,6 +3979,41 @@ svg[height] {
   font-weight: 600;
 }
 
+/* Live torrent handling summary in config instance modals */
+.torrent-handling-summary {
+  padding: 12px 14px;
+  background: rgba(122, 162, 247, 0.06);
+  border: 1px solid rgba(122, 162, 247, 0.15);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--on-surface);
+}
+
+.torrent-handling-summary h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.torrent-handling-summary p {
+  margin: 0;
+  color: var(--on-surface);
+  white-space: pre-line;
+}
+
+[data-theme="light"] .torrent-handling-summary {
+  background: rgba(0, 113, 227, 0.04);
+  border-color: rgba(0, 113, 227, 0.12);
+}
+
+[data-theme="light"] .torrent-handling-summary h3 {
+  color: var(--muted);
+}
+
 /* Tag Input Component */
 .tag-input-container {
   width: 100%;
