@@ -106,43 +106,34 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
   const stalledDelayMin = parseDurationToMinutes(torrent.StalledDelay, -1);
   const reSearchStalled = Boolean(torrent.ReSearchStalled);
 
-  lines.push(
-    "Torrent: " +
-      (caseSensitive ? "Case-sensitive" : "Case-insensitive") +
-      " matches. " +
-      (folderExcl || fileExcl
-        ? `Folder or file name exclusions (${folderExcl + fileExcl} pattern(s)). `
-        : "") +
-      (allowlistPreview ? `Allowed file types include ${allowlistPreview}. ` : "") +
-      (autoDelete
-        ? "Files that are not recognised as media are automatically deleted. "
-        : "Files that are not recognised as media are kept. ") +
-      (Number.isFinite(ignoreYounger) && ignoreYounger >= 0
-        ? `New torrents are ignored for the first ${formatSeconds(ignoreYounger)}. `
-        : "") +
-      (maxEta >= 0
-        ? `Torrents with an estimated time remaining longer than ${formatSeconds(maxEta)} are treated as stuck and may be cleaned up. `
-        : "No maximum ETA; torrents are not treated as stuck based on their estimated time remaining. ") +
-      (Number.isFinite(maxDeletable) && maxDeletable <= 100
-        ? `Torrents may be removed when completion is at or below ${maxDeletable}%. `
-        : "") +
-      `Slow torrents ${doNotRemoveSlow ? "are not removed" : "may be removed"}.`
+  // Torrent: 2–3 short lines
+  const torrentParts: string[] = [];
+  torrentParts.push(
+    (caseSensitive ? "Case-sensitive" : "Case-insensitive") +
+      (folderExcl || fileExcl ? `, ${folderExcl + fileExcl} exclusion(s)` : "") +
+      (allowlistPreview ? `, allowlist ${allowlistPreview}` : ""),
   );
+  const torrentOpts: string[] = [];
+  torrentOpts.push(autoDelete ? "Auto-delete non-media: yes" : "Auto-delete non-media: no");
+  if (Number.isFinite(ignoreYounger) && ignoreYounger >= 0) {
+    torrentOpts.push(`Ignore new: ${formatSeconds(ignoreYounger)}`);
+  }
+  torrentOpts.push(maxEta >= 0 ? `Max ETA: ${formatSeconds(maxEta)}` : "Max ETA: off");
+  if (Number.isFinite(maxDeletable) && maxDeletable <= 100) {
+    torrentOpts.push(`Deletable up to: ${maxDeletable}%`);
+  }
+  torrentOpts.push(doNotRemoveSlow ? "Slow: kept" : "Slow: may remove");
+  lines.push("Torrent: " + torrentParts.join("") + ".");
+  lines.push(torrentOpts.join(". "));
 
+  // Stalled: one short line
   if (!Number.isFinite(stalledDelayMin) || stalledDelayMin < 0) {
-    lines.push("Stalled: Stalled handling is disabled.");
+    lines.push("Stalled: Not removed.");
   } else if (stalledDelayMin === 0) {
-    lines.push(
-      "Stalled: Torrents that qBittorrent marks as stalled are not removed automatically (stall delay is infinite)."
-    );
+    lines.push("Stalled: Not removed (infinite delay).");
   } else {
     lines.push(
-      "Stalled: Torrents that qBittorrent has already marked as stalled are allowed to sit for up to " +
-        formatMinutes(stalledDelayMin) +
-        " before qBitrr removes them. " +
-        (reSearchStalled
-          ? "qBitrr will search again for a replacement before removing the stalled torrent."
-          : "qBitrr will remove stalled torrents without performing a replacement search first.")
+      `Stalled: Removed after ${formatMinutes(stalledDelayMin)}. Re-search before remove: ${reSearchStalled ? "yes" : "no"}.`,
     );
   }
 
@@ -155,86 +146,49 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
     ? (seeding.RemoveTrackerWithMessage as string[]).length
     : 0;
 
-  lines.push(
-    "Seeding: " +
-      removeTorrentLabel(removeTorrent) +
-      ". " +
-      (Number.isFinite(maxRatio) && maxRatio >= 0
-        ? `Maximum upload ratio (uploaded ÷ downloaded): ${maxRatio}. `
-        : "") +
-      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0
-        ? `Maximum seeding time: ${formatSeconds(maxTimeSec)}. `
-        : "") +
-      (removeDead
-        ? "Trackers that no longer respond are removed. "
-        : "Trackers that no longer respond are not removed. ") +
-      (removeMessages > 0
-        ? `Removal is triggered when the tracker shows any of ${removeMessages} specific message(s).`
-        : "")
-  );
+  // Seeding: one short line
+  const seedParts: string[] = [removeTorrentLabel(removeTorrent)];
+  if (Number.isFinite(maxRatio) && maxRatio >= 0) seedParts.push(`max ratio ${maxRatio}`);
+  if (Number.isFinite(maxTimeSec) && maxTimeSec >= 0) {
+    seedParts.push(`max time ${formatSeconds(maxTimeSec)}`);
+  }
+  seedParts.push(removeDead ? "Dead trackers: removed" : "Dead trackers: kept");
+  if (removeMessages > 0) seedParts.push(`${removeMessages} message(s) trigger removal`);
+  lines.push("Seeding: " + seedParts.join(". ") + ".");
 
+  // HnR: one short line
   const hnrMode = resolveHnrMode(seeding.HitAndRunMode);
   const minRatio = Number(seeding.MinSeedRatio ?? 1);
   const minDays = Number(seeding.MinSeedingTimeDays ?? 0);
-  lines.push(
-    "Hit and Run (HnR): " +
-      (hnrMode === "disabled"
-        ? "Disabled. (No minimum seeding required before removal; torrents are removed based only on seeding limits and stalled/failed checks.)"
-        : hnrMode === "and"
-          ? "Tracker rules require both a minimum ratio and minimum seeding time before removal is allowed."
-          : "Tracker rules allow removal once either the minimum ratio or minimum seeding time is met.") +
-      (hnrMode !== "disabled"
-        ? ` Minimum ratio: ${Number.isFinite(minRatio) ? minRatio : "1"}. Minimum seeding time: ${Number.isFinite(minDays) ? minDays : 0} ${plural(Number.isFinite(minDays) && minDays === 1 ? 1 : Math.max(0, minDays), "day", "days")}. Torrents will not be removed for seeding limits or stalled status until these HnR thresholds are met (except when the tracker itself bypasses HnR, such as unregistered torrents).`
-        : "")
-  );
+  if (hnrMode === "disabled") {
+    lines.push("HnR: Off.");
+  } else {
+    const daysVal = Number.isFinite(minDays) ? minDays : 0;
+    const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
+    lines.push(
+      `HnR: ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
+    );
+  }
 
   const trackers = get(state, ["Torrent", "Trackers"]) as ConfigDocument[] | undefined;
-  const trackerCount = Array.isArray(trackers) ? trackers.length : 0;
-  if (trackerCount === 0) {
+  if (!Array.isArray(trackers) || trackers.length === 0) {
     lines.push("Trackers: No custom rules; using qBit instance defaults.");
   } else {
     lines.push("Trackers:");
-    (trackers as ConfigDocument[]).forEach((raw) => {
+    trackers.forEach((raw) => {
       const t = raw as Record<string, unknown>;
-      const nameRaw = String((t as Record<string, unknown>).Name ?? "Tracker").trim();
-      const name = nameRaw || "Tracker";
-      const mode = resolveHnrMode((t as Record<string, unknown>).HitAndRunMode);
-      const tMinRatio = Number((t as Record<string, unknown>).MinSeedRatio ?? 1);
-      const tMinDays = Number((t as Record<string, unknown>).MinSeedingTimeDays ?? 0);
-      const tMinDlPct = Number(
-        (t as Record<string, unknown>).HitAndRunMinimumDownloadPercent ?? 10,
-      );
-      const tPartialRatio = Number(
-        (t as Record<string, unknown>).HitAndRunPartialSeedRatio ?? 1,
-      );
-
-      let desc = `- ${name}: `;
+      const name = String(t.Name ?? "Tracker").trim() || "Tracker";
+      const mode = resolveHnrMode(t.HitAndRunMode);
+      const tMinRatio = Number(t.MinSeedRatio ?? 1);
+      const tMinDays = Number(t.MinSeedingTimeDays ?? 0);
+      const ratioStr = Number.isFinite(tMinRatio) ? tMinRatio : 1;
+      const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
+      const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
       if (mode === "disabled") {
-        desc +=
-          "HnR disabled; torrents with this tracker can be removed based on seeding limits and stalled/failed checks only.";
-      } else if (mode === "and") {
-        desc +=
-          "HnR enabled; torrents with this tracker will not be removed until both the minimum ratio and minimum seeding time are met, even if they are stalled or hit other remove conditions.";
+        lines.push(`  ${name} — HnR off`);
       } else {
-        desc +=
-          "HnR enabled; torrents with this tracker will not be removed until either the minimum ratio or minimum seeding time is met, even if they are stalled or hit other remove conditions.";
+        lines.push(`  ${name} — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
       }
-
-      if (mode !== "disabled") {
-        const ratioStr = Number.isFinite(tMinRatio) ? tMinRatio : 1;
-        const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
-        const daysLabel = plural(
-          Number.isFinite(daysVal) && daysVal === 1 ? 1 : Math.max(0, daysVal),
-          "day",
-          "days",
-        );
-        const dlPctStr = Number.isFinite(tMinDlPct) ? tMinDlPct : 10;
-        const partialStr = Number.isFinite(tPartialRatio) ? tPartialRatio : 1;
-
-        desc += ` Minimum ratio: ${ratioStr}. Minimum seeding time: ${daysVal} ${daysLabel}. Minimum download: ${dlPctStr}%. Partial-download ratio: ${partialStr}.`;
-      }
-
-      lines.push(desc);
     });
   }
 
@@ -261,109 +215,69 @@ export function getQbitTorrentHandlingSummary(state: ConfigDocument | null): str
   const dlLimit = Number(seeding.DownloadRateLimitPerTorrent ?? -1);
   const ulLimit = Number(seeding.UploadRateLimitPerTorrent ?? -1);
 
-  lines.push(
-    "Seeding: " +
-      removeTorrentLabel(removeTorrent) +
-      ". " +
-      (Number.isFinite(maxRatio) && maxRatio >= 0
-        ? `Maximum upload ratio (uploaded ÷ downloaded): ${maxRatio}. `
-        : "") +
-      (Number.isFinite(maxTimeSec) && maxTimeSec >= 0
-        ? `Maximum seeding time: ${formatSeconds(maxTimeSec)}. `
-        : "") +
-      (dlLimit >= 0 || ulLimit >= 0 ? "Rate limits set. " : "No per-torrent rate limits.")
-  );
+  // Seeding: one short line
+  const seedParts: string[] = [removeTorrentLabel(removeTorrent)];
+  if (Number.isFinite(maxRatio) && maxRatio >= 0) seedParts.push(`max ratio ${maxRatio}`);
+  if (Number.isFinite(maxTimeSec) && maxTimeSec >= 0) {
+    seedParts.push(`max time ${formatSeconds(maxTimeSec)}`);
+  }
+  seedParts.push(dlLimit >= 0 || ulLimit >= 0 ? "Rate limits: on" : "Rate limits: off");
+  lines.push("Seeding: " + seedParts.join(". ") + ".");
 
+  // Stalled: one short line
   const stalledDelayMin = parseDurationToMinutes(seeding.StalledDelay, -1);
   const ignoreYounger = parseDurationToSeconds(seeding.IgnoreTorrentsYoungerThan, -1);
   if (!Number.isFinite(stalledDelayMin) || stalledDelayMin < 0) {
-    lines.push("Stalled: Stalled download cleanup is disabled for managed categories.");
+    lines.push("Stalled: Not removed.");
   } else if (stalledDelayMin === 0) {
-    lines.push(
-      "Stalled: Downloads that qBittorrent marks as stalled in managed categories" +
-        (managedPreview ? ` (${managedPreview})` : "") +
-        " are not removed automatically (stall delay is infinite)." +
-        (Number.isFinite(ignoreYounger) && ignoreYounger >= 0
-          ? ` Torrents younger than ${formatSeconds(ignoreYounger)} are ignored when checking for stalled downloads.`
-          : ""),
-    );
+    let s = "Stalled: Not removed (infinite delay)";
+    if (managedPreview) s += ` in ${managedPreview}`;
+    if (Number.isFinite(ignoreYounger) && ignoreYounger >= 0) {
+      s += `. Ignore new under ${formatSeconds(ignoreYounger)}`;
+    }
+    lines.push(s + ".");
   } else {
-    lines.push(
-      "Stalled: Downloads that qBittorrent marks as stalled in managed categories" +
-        (managedPreview ? ` (${managedPreview})` : "") +
-        " can sit for up to " +
-        formatMinutes(stalledDelayMin) +
-        " before qBitrr removes them." +
-        (Number.isFinite(ignoreYounger) && ignoreYounger >= 0
-          ? ` Torrents younger than ${formatSeconds(ignoreYounger)} are ignored when checking for stalled downloads.`
-          : ""),
-    );
+    let s = `Stalled: Removed after ${formatMinutes(stalledDelayMin)}`;
+    if (managedPreview) s += ` in ${managedPreview}`;
+    if (Number.isFinite(ignoreYounger) && ignoreYounger >= 0) {
+      s += `. Ignore new under ${formatSeconds(ignoreYounger)}`;
+    }
+    lines.push(s + ".");
   }
 
+  // HnR: one short line
   const hnrMode = resolveHnrMode(seeding.HitAndRunMode);
   const minRatio = Number(seeding.MinSeedRatio ?? 1);
   const minDays = Number(seeding.MinSeedingTimeDays ?? 0);
-  const minDlPct = Number(seeding.HitAndRunMinimumDownloadPercent ?? 10);
-  const partialRatio = Number(seeding.HitAndRunPartialSeedRatio ?? 1);
-  lines.push(
-    "Hit and Run (HnR): " +
-      (hnrMode === "disabled"
-        ? "Disabled at category level. (No minimum seeding required before removal; torrents are removed based only on seeding limits and stalled/failed checks.)"
-        : hnrMode === "and"
-          ? "Tracker rules require both a minimum ratio and minimum seeding time before removal is allowed."
-          : "Tracker rules allow removal once either the minimum ratio or minimum seeding time is met.") +
-      (hnrMode !== "disabled"
-        ? ` Minimum ratio: ${Number.isFinite(minRatio) ? minRatio : "1"}. Minimum seeding time: ${Number.isFinite(minDays) ? minDays : 0} ${plural(Number.isFinite(minDays) && minDays === 1 ? 1 : Math.max(0, minDays), "day", "days")}. Minimum download: ${Number.isFinite(minDlPct) ? minDlPct : 10}%. Partial-seed ratio: ${Number.isFinite(partialRatio) ? partialRatio : "1"}. Torrents will not be removed for seeding limits or stalled status until these HnR thresholds are met (except when the tracker itself bypasses HnR, such as unregistered torrents).`
-        : "")
-  );
+  if (hnrMode === "disabled") {
+    lines.push("HnR: Off.");
+  } else {
+    const daysVal = Number.isFinite(minDays) ? minDays : 0;
+    const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
+    lines.push(
+      `HnR: ${hnrMode} — min ratio ${Number.isFinite(minRatio) ? minRatio : 1}, min time ${daysVal} ${daysLabel}.`,
+    );
+  }
 
   const trackers = get(state, ["Trackers"]) as ConfigDocument[] | undefined;
-  const trackerCount = Array.isArray(trackers) ? trackers.length : 0;
-  if (trackerCount === 0) {
+  if (!Array.isArray(trackers) || trackers.length === 0) {
     lines.push("Trackers: No custom rules configured.");
   } else {
     lines.push("Trackers:");
-    (trackers as ConfigDocument[]).forEach((raw) => {
+    trackers.forEach((raw) => {
       const t = raw as Record<string, unknown>;
-      const nameRaw = String((t as Record<string, unknown>).Name ?? "Tracker").trim();
-      const name = nameRaw || "Tracker";
-      const mode = resolveHnrMode((t as Record<string, unknown>).HitAndRunMode);
-      const tMinRatio = Number((t as Record<string, unknown>).MinSeedRatio ?? 1);
-      const tMinDays = Number((t as Record<string, unknown>).MinSeedingTimeDays ?? 0);
-      const tMinDlPct = Number(
-        (t as Record<string, unknown>).HitAndRunMinimumDownloadPercent ?? 10,
-      );
-      const tPartialRatio = Number(
-        (t as Record<string, unknown>).HitAndRunPartialSeedRatio ?? 1,
-      );
-
-      let desc = `- ${name}: `;
+      const name = String(t.Name ?? "Tracker").trim() || "Tracker";
+      const mode = resolveHnrMode(t.HitAndRunMode);
+      const tMinRatio = Number(t.MinSeedRatio ?? 1);
+      const tMinDays = Number(t.MinSeedingTimeDays ?? 0);
+      const ratioStr = Number.isFinite(tMinRatio) ? tMinRatio : 1;
+      const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
+      const daysLabel = plural(daysVal === 1 ? 1 : Math.max(0, daysVal), "day", "days");
       if (mode === "disabled") {
-        desc +=
-          "HnR disabled; torrents with this tracker can be removed based on seeding limits and stalled/failed checks only.";
-      } else if (mode === "and") {
-        desc +=
-          "HnR enabled; torrents with this tracker will not be removed until both the minimum ratio and minimum seeding time are met, even if they are stalled or hit other remove conditions.";
+        lines.push(`  ${name} — HnR off`);
       } else {
-        desc +=
-          "HnR enabled; torrents with this tracker will not be removed until either the minimum ratio or minimum seeding time is met, even if they are stalled or hit other remove conditions.";
+        lines.push(`  ${name} — HnR ${mode}: ratio ${ratioStr}, ${daysVal} ${daysLabel}`);
       }
-
-      if (mode !== "disabled") {
-        const ratioStr = Number.isFinite(tMinRatio) ? tMinRatio : 1;
-        const daysVal = Number.isFinite(tMinDays) ? tMinDays : 0;
-        const daysLabel = plural(
-          Number.isFinite(daysVal) && daysVal === 1 ? 1 : Math.max(0, daysVal),
-          "day",
-          "days",
-        );
-        const dlPctStr = Number.isFinite(tMinDlPct) ? tMinDlPct : 10;
-        const partialStr = Number.isFinite(tPartialRatio) ? tPartialRatio : 1;
-
-        desc += ` Minimum ratio: ${ratioStr}. Minimum seeding time: ${daysVal} ${daysLabel}. Minimum download: ${dlPctStr}%. Partial-download ratio: ${partialStr}.`;
-      }
-
-      lines.push(desc);
     });
   }
 
