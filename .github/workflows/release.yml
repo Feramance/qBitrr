@@ -64,7 +64,7 @@ jobs:
       run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
     - name: Import GPG key
       id: import_gpg
-      uses: crazy-max/ghaction-import-gpg@v6.3.0
+      uses: crazy-max/ghaction-import-gpg@v7.0.0
       with:
         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}
@@ -547,7 +547,7 @@ jobs:
         fi
     - name: Import GPG key
       id: changelog_gpg
-      uses: crazy-max/ghaction-import-gpg@v6.3.0
+      uses: crazy-max/ghaction-import-gpg@v7.0.0
       with:
         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}
