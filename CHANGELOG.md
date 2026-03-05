@@ -1,5 +1,36 @@
 # Changelog
 
+## v5.9.3 (05/03/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Superseed hotfix error](https://github.com/Feramance/qBitrr/commit/bf30db36aede0f02ec6939f026bf473b95ccfa2c) - @Feramance
+- [fix: SuperSeedMode walrus operator precedence in _process_single_torrent_trackers](https://github.com/Feramance/qBitrr/commit/61cedc8eb679c888bdc44c329081f33682767a01) - @Feramance
+- [fix: SuperSeedMode walrus operator precedence in _process_single_torrent_trackers](https://github.com/Feramance/qBitrr/commit/9ae023687ea066811776cd5fdc62aa5f33b737b1) - @Feramance
+- [Fix formatting in FUNDING.yml](https://github.com/Feramance/qBitrr/commit/bc48b782f17bc570967a40d8682724a57360288e) - @Feramance
+- [fix: normalize pre-commit hook to LF on Windows after install](https://github.com/Feramance/qBitrr/commit/1a5b45857d8afa2eed6e7604c2ba835383910cfe) - @Feramance
+
+### 🔧 Maintenance
+- [Update funding information in FUNDING.yml](https://github.com/Feramance/qBitrr/commit/8feb1bcb14d12830f1d93a1ff1b3f6915a97ab07) - @Feramance
+- [refactor(webui): torrent-handling summary as lifetime narrative and per-tracker behaviour](https://github.com/Feramance/qBitrr/commit/00c853bc0ac0cab99dbd29b664249d245d4d208c) - @Feramance
+- [fix(webui): add brief explanations to torrent-handling summary so values are clear](https://github.com/Feramance/qBitrr/commit/1a9a5efa644429470e54e627dc5240e7f65fd308) - @Feramance
+- [fix(webui): test-connection no auth; return 200 for Arr errors](https://github.com/Feramance/qBitrr/commit/6f68e737e2dd63373f487a3aab8b01295f7403e5) - @Feramance
+- [chore: reformat package-lock.json per pre-commit hooks](https://github.com/Feramance/qBitrr/commit/7df0fd92305d20c9133c754ea6479c05a5bb3bb5) - @Feramance
+- [feat(webui): render torrent-handling summary as markdown with section headers and lists](https://github.com/Feramance/qBitrr/commit/9dbd571bf074d42dfafad21d5a127be52edfcdb9) - @Feramance
+- [fix(webui): hide Arr API key refresh in modal; use REDACTED_PLACEHOLDER for test](https://github.com/Feramance/qBitrr/commit/368150267075ec22c0dc507c408adc2362ec0557) - @Feramance
+- [fix(webui): Arr test button with redacted API key; hide refresh for Arr API key](https://github.com/Feramance/qBitrr/commit/b16923d0de9df2b7920e20056690ff2c715d15b6) - @Feramance
+- [fix(webui): simplify torrent-handling summary wording (short lines, direct outcomes)](https://github.com/Feramance/qBitrr/commit/e5ddc5d6db66e19ce5445e6db4fa4151dd6cf139) - @Feramance
+- [fix(webui): correct stalled/ETA wording and list trackers individually in torrent summary](https://github.com/Feramance/qBitrr/commit/c5e368daa58836a7849199929e49897382a65678) - @Feramance
+- [fix(webui): full time units and clearer wording in torrent-handling summary](https://github.com/Feramance/qBitrr/commit/78936fa264ebc6d06d005b2516ef7b6f3c784cd5) - @Feramance
+- [feat(webui): live torrent handling summary in config modals; fix(arss): init db_update_processed in Arr.__init__](https://github.com/Feramance/qBitrr/commit/0fbfbe932e8d88c78a7cc8084d223cd4092e6fd9) - @Feramance
+- [Build(deps): Bump react-syntax-highlighter from 16.1.0 to 16.1.1 in /webui (#318)](https://github.com/Feramance/qBitrr/commit/ad839695b3658b529e09ee8f01c6540708c3f728) - @Feramance
+- [Build(deps-dev): Bump autoprefixer from 10.4.24 to 10.4.27 in /webui (#317)](https://github.com/Feramance/qBitrr/commit/7697b677921492c49bad22d11e6efd6e91981327) - @Feramance
+- [Build(deps-dev): Bump tailwindcss from 4.2.0 to 4.2.1 in /webui (#316)](https://github.com/Feramance/qBitrr/commit/573663b94a701a0e012e84340db51e079d26acb6) - @Feramance
+- [Build(deps-dev): Bump globals from 17.3.0 to 17.4.0 in /webui (#315)](https://github.com/Feramance/qBitrr/commit/9bf1e7cafb113e040b029da8e3abbcf4c65add11) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.3.0 to 25.3.3 in /webui (#314)](https://github.com/Feramance/qBitrr/commit/84c1195c3c3005d90d9d191ad7a5597893869cb4) - @Feramance
+- [Build(deps): Bump python from 3.12-slim to 3.14-slim (#312)](https://github.com/Feramance/qBitrr/commit/6d8b793b62fb6a8efea5579525c6853b2091ce45) - @Feramance
+
+---
+
 ## v5.9.2 (02/03/2026)
 
 ### 🐛 Bug Fixes
