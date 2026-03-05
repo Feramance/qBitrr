@@ -70,7 +70,7 @@ sudo chown -R qbitrr:qbitrr /opt/qbitrr
 Run qBitrr once to generate the default configuration:
 
 ```bash
-sudo -u qbitrr QBITRR_CONFIG_PATH=/opt/qbitrr/config qbitrr
+sudo -u qbitrr QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr/config qbitrr
 ```
 
 Press ++ctrl+c++ to stop, then edit:
@@ -108,7 +108,7 @@ WorkingDirectory=/opt/qbitrr
 ExecStart=/usr/bin/python3 -m qBitrr.main
 
 # Environment variables
-Environment="QBITRR_CONFIG_PATH=/opt/qbitrr/config"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr/config"
 
 # Restart policy
 Restart=always
@@ -244,7 +244,7 @@ To use a different config location, update the service file:
 
 ```ini
 [Service]
-Environment="QBITRR_CONFIG_PATH=/etc/qbitrr"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/etc/qbitrr"
 WorkingDirectory=/etc/qbitrr
 ExecStart=/usr/bin/python3 -m qBitrr.main
 ```
@@ -262,8 +262,8 @@ Add environment variables to the service file:
 
 ```ini
 [Service]
-Environment="QBITRR_CONFIG_PATH=/opt/qbitrr/config"
-Environment="QBITRR_LOG_LEVEL=DEBUG"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr/config"
+Environment="QBITRR_SETTINGS_CONSOLE_LEVEL=DEBUG"
 Environment="TZ=America/New_York"
 ```
 
@@ -336,7 +336,7 @@ Edit `qbitrr-movies.service`:
 [Service]
 User=qbitrr-movies
 WorkingDirectory=/opt/qbitrr-movies
-Environment="QBITRR_CONFIG_PATH=/opt/qbitrr-movies/config"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr-movies/config"
 ```
 
 Edit `qbitrr-tv.service`:
@@ -345,7 +345,7 @@ Edit `qbitrr-tv.service`:
 [Service]
 User=qbitrr-tv
 WorkingDirectory=/opt/qbitrr-tv
-Environment="QBITRR_CONFIG_PATH=/opt/qbitrr-tv/config"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr-tv/config"
 ```
 
 ### 3. Create Users and Directories
@@ -467,7 +467,7 @@ WorkingDirectory=/opt/qbitrr
 ExecStart=/usr/bin/python3 -m qBitrr.main
 
 # Environment
-Environment="QBITRR_CONFIG_PATH=/opt/qbitrr/config"
+Environment="QBITRR_OVERRIDES_DATA_PATH=/opt/qbitrr/config"
 Environment="TZ=America/New_York"
 
 # Restart policy

@@ -2,6 +2,28 @@
 
 qBitrr can automatically search your Arr instances for missing media and quality upgrades, eliminating manual intervention for building and maintaining your library.
 
+## Contents
+
+- [Overview](#overview)
+- [How It Works](#how-it-works)
+- [Basic Configuration](#basic-configuration)
+- [Search Settings](#search-settings)
+- [Search Ordering](#search-ordering)
+- [Sonarr-Specific Settings](#sonarr-specific-settings)
+- [Quality Upgrade Searches](#quality-upgrade-searches)
+- [Search Type Interactions](#search-type-interactions)
+- [Temporary Quality Profiles](#temporary-quality-profiles)
+- [Request Integration](#request-integration)
+- [Complete Configuration Examples](#complete-configuration-examples)
+- [Monitoring Searches](#monitoring-searches)
+- [Search Performance](#search-performance)
+- [Troubleshooting](#troubleshooting)
+- [Best Practices](#best-practices)
+- [Integration with Other Features](#integration-with-other-features)
+- [Temporary Profile Troubleshooting](#temporary-profile-troubleshooting)
+- [FAQ](#faq)
+- [See Also](#see-also)
+
 ---
 
 ## Overview

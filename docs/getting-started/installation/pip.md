@@ -140,14 +140,14 @@ By default, qBitrr stores configuration in:
 Set a custom config directory:
 
 ```bash
-export QBITRR_CONFIG_PATH=/path/to/config
+export QBITRR_OVERRIDES_DATA_PATH=/path/to/config
 qbitrr
 ```
 
 Or on Windows:
 
 ```powershell
-$env:QBITRR_CONFIG_PATH = "C:\path\to\config"
+$env:QBITRR_OVERRIDES_DATA_PATH = "C:\path\to\config"
 qbitrr
 ```
 

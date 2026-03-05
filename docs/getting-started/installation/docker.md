@@ -60,11 +60,11 @@ docker-compose up -d
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PUID` | `1000` | User ID for file permissions |
-| `PGID` | `1000` | Group ID for file permissions |
+| `PUID` | `1000` | User ID for file permissions (Docker/image convention; not read by qBitrr) |
+| `PGID` | `1000` | Group ID for file permissions (Docker/image convention; not read by qBitrr) |
 | `TZ` | `UTC` | Timezone (e.g., `America/New_York`, `Europe/London`) |
-| `QBITRR_CONFIG_PATH` | `/config` | Path to config directory |
-| `QBITRR_LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `QBITRR_OVERRIDES_DATA_PATH` | *(none)* | Override config/data directory (default: `/config` in Docker) |
+| `QBITRR_SETTINGS_CONSOLE_LEVEL` | *(from config)* | Console log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ### Volume Mapping
 
@@ -665,7 +665,7 @@ image: feramance/qbitrr:5.5.5  # Not latest
 
 ```yaml
 environment:
-  - QBITRR_LOG_LEVEL=INFO  # Not DEBUG
+  - QBITRR_SETTINGS_CONSOLE_LEVEL=INFO  # Not DEBUG
 ```
 
 ### 4. Use Local DNS

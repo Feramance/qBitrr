@@ -19,18 +19,20 @@ qBitrr's configuration is organized into several logical sections, each controll
 [WebUI]                       # WebUI configuration
 [qBit]                        # qBittorrent connection
 
-[[Radarr]]                    # Radarr instance(s)
-  [Radarr.Torrent]           # Torrent settings
-  [Radarr.EntrySearch]       # Search settings
+[Radarr-Movies]               # Radarr instance (name your own)
+  [Radarr-Movies.Torrent]     # Torrent settings
+  [Radarr-Movies.EntrySearch] # Search settings
 
-[[Sonarr]]                    # Sonarr instance(s)
-  [Sonarr.Torrent]
-  [Sonarr.EntrySearch]
+[Sonarr-TV]                   # Sonarr instance
+  [Sonarr-TV.Torrent]
+  [Sonarr-TV.EntrySearch]
 
-[[Lidarr]]                    # Lidarr instance(s)
-  [Lidarr.Torrent]
-  [Lidarr.EntrySearch]
+[Lidarr-Music]                # Lidarr instance
+  [Lidarr-Music.Torrent]
+  [Lidarr-Music.EntrySearch]
 ```
+
+Section names use the pattern `Arr-Name` (e.g. `Radarr-Movies`, `Sonarr-TV`), not `[[Radarr]]`.
 
 **Minimum required:**
 ```toml
@@ -232,8 +234,8 @@ Configure qBitrr via environment variables:
 
 **Common variables:**
 ```bash
-QBITRR_LOG_LEVEL=DEBUG
-QBITRR_CONFIG_PATH=/custom/path
+QBITRR_SETTINGS_CONSOLE_LEVEL=DEBUG
+QBITRR_OVERRIDES_DATA_PATH=/custom/path
 QBITRR_QBITTORRENT_HOST=http://qbittorrent:8080
 ```
 

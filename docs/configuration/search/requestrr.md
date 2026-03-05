@@ -119,16 +119,26 @@ services:
     container_name: qbitrr
     environment:
       - TZ=America/New_York
-      # Overseerr integration
-      - QBITRR_RADARR_MOVIES__ENTRYSEARCH__OVERSEERR__SEARCHOVERSEERRQUESTS=true
-      - QBITRR_RADARR_MOVIES__ENTRYSEARCH__OVERSEERR__OVERSEERRURI=http://overseerr:5055
-      - QBITRR_RADARR_MOVIES__ENTRYSEARCH__OVERSEERR__OVERSEERRAPIKEY=overseerr-api-key
     volumes:
       - /path/to/qbitrr/config:/config
     depends_on:
       - overseerr
     restart: unless-stopped
 ```
+
+!!! note "Overseerr/Ombi configuration"
+    qBitrr does **not** support Arr-specific or Overseerr/Ombi settings via environment variables. Add the Overseerr (or Ombi) block to your `config.toml` in the qBitrr config volume, for example:
+
+    ```toml
+    [Radarr-Movies.EntrySearch]
+    SearchMissing = true
+
+    [Radarr-Movies.EntrySearch.Overseerr]
+    SearchOverseerrRequests = true
+    OverseerrURI = "http://overseerr:5055"
+    OverseerrAPIKey = "your-overseerr-api-key"
+    ApprovedOnly = true
+    ```
 
 ## Frequently Asked Questions
 

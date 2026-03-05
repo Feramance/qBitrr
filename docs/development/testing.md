@@ -16,15 +16,23 @@ qBitrr uses manual testing against real services:
 
 **Test Environment Setup:**
 
+Use a dedicated config directory so qBitrr loads your test config:
+
 ```bash
-# 1. Set up test config
-cp config.example.toml test-config.toml
+# Option 1: Run from a directory that has your test config as config.toml
+mkdir -p test-env/.config
+cp config.example.toml test-env/.config/config.toml
+# Edit test-env/.config/config.toml with test service URLs
+cd test-env && qbitrr
 
-# Edit test-config.toml with test service URLs
-
-# 2. Run qBitrr with test config
-qbitrr --config test-config.toml --foreground
+# Option 2: Override the config/data path with an environment variable
+cp config.example.toml /path/to/test-config/config.toml
+# Edit /path/to/test-config/config.toml
+export QBITRR_OVERRIDES_DATA_PATH=/path/to/test-config
+qbitrr
 ```
+
+There is no `--config` or `--foreground` CLI flag; qBitrr runs in the foreground by default when started from the command line.
 
 ### Testing Checklist
 
@@ -67,7 +75,7 @@ When making changes, test these scenarios:
 - [ ] Config file changes detected
 - [ ] Environment variables override TOML
 - [ ] Invalid config generates helpful errors
-- [ ] Config validation works (--validate-config)
+- [ ] Config validation works (e.g. on save in WebUI or at startup)
 
 #### WebUI
 - [ ] Dashboard loads correctly
@@ -339,7 +347,7 @@ open htmlcov/index.html
 
 **Setup:**
 1. qBitrr running
-2. Edit config.toml (change CheckInterval)
+2. Edit config.toml (e.g. change LoopSleepTimer)
 
 **Expected Behavior:**
 1. qBitrr detects config change

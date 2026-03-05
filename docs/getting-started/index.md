@@ -579,23 +579,36 @@ Need complex features?
 qbitrr [OPTIONS]
 ```
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--config PATH` | Path to config.toml file | `~/config/config.toml` (native), `/config/config.toml` (Docker) |
-| `--gen-config` | Generate default configuration file and exit | - |
-| `--version` | Show version information and exit | - |
-| `--help` | Show help message and exit | - |
+| Option | Description |
+|--------|-------------|
+| `--gen-config`, `-g` | Generate default configuration file and exit |
+| `--version`, `-v` | Show version information and exit |
+| `--help`, `-h` | Show help message and exit |
+
+qBitrr does not support a `--config PATH` option. The config file location is determined automatically (see [Config File Location](#config-file-location) below).
 
 ### Environment Variables
 
+qBitrr reads only a subset of settings from environment variables. Supported variables use the format `QBITRR_<SECTION>_<KEY>` (e.g. `QBITRR_SETTINGS_CONSOLE_LEVEL`). For the full list, see [Environment Variables](../configuration/environment.md).
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `QBITRR_CONFIG` | Path to config.toml | `~/config/config.toml` |
-| `QBITRR_LOG_LEVEL` | Logging level | `INFO` |
-| `PUID` / `PGID` | User/Group ID (Docker) | `1000` |
-| `TZ` | Timezone | `UTC` |
+| `QBITRR_OVERRIDES_DATA_PATH` | Override the config/data directory (replaces default path) | Platform-dependent (see below) |
+| `QBITRR_SETTINGS_CONSOLE_LEVEL` | Console logging level | `INFO` |
+| `QBITRR_SETTINGS_*`, `QBITRR_QBIT_*` | Other overrides | See [environment.md](../configuration/environment.md) |
 
-Environment variables can override config.toml settings using the format `QBITRR_SECTION__KEY=value` (double underscore as separator).
+`PUID` and `PGID` are used by some Docker images for file ownership; they are not read by qBitrr itself. `TZ` is a general timezone variable used by the system or container.
+
+### Config File Location
+
+Config is loaded from `config.toml` in the following order:
+
+1. **If `QBITRR_OVERRIDES_DATA_PATH` is set** and the path exists: `<that path>/config.toml`
+2. **Docker:** `/config/config.toml`
+3. **Native (no override):** `<current working directory>/.config/config.toml`
+4. **If `config.toml` exists in the current directory** but not in the path above: it is copied to the config directory and used
+
+See [Configuration File Reference](../configuration/config-file.md#configuration-file-location) for details.
 
 ### Signals
 
@@ -615,14 +628,6 @@ Environment variables can override config.toml settings using the format `QBITRR
 | `3` | Connection error |
 | `130` | SIGINT (Ctrl+C) |
 | `143` | SIGTERM |
-
-### Config File Search Order
-
-1. `--config` option
-2. `QBITRR_CONFIG` environment variable
-3. `/config/config.toml` (Docker)
-4. `~/config/config.toml` (native)
-5. `~/.config/qBitrr/config.toml` (pip install)
 
 ---
 
