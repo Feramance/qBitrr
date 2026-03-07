@@ -884,18 +884,6 @@ def _gen_default_search_table(category: str, cat_default: Table):
         "ProfileSwitchRetryAttempts",
         3,
     )
-    _gen_default_line(
-        search_table,
-        "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",
-        "MainQualityProfile",
-        [],
-    )
-    _gen_default_line(
-        search_table,
-        "Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)",
-        "TempQualityProfile",
-        [],
-    )
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,

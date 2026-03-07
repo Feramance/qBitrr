@@ -121,15 +121,6 @@ const getSelectStyles = (isDark: boolean) => {
   };
 };
 
-const parseList = (value: string | boolean): string[] =>
-  String(value)
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-const formatList = (value: unknown): string =>
-  Array.isArray(value) ? value.join(", ") : String(value ?? "");
-
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
 const REMOVE_TORRENT_OPTIONS = [
@@ -280,10 +271,8 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   {
     label: "Ping URLs",
     path: ["Settings", "PingURLS"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
-    placeholder: "one.one.one.one, dns.google.com",
+    type: "tags",
+    placeholder: "one.one.one.one",
   },
   {
     label: "FFprobe Auto Update",
@@ -680,9 +669,8 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
   {
     label: "Arr Error Codes To Blocklist",
     path: ["ArrErrorCodesToBlocklist"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
 ];
 
@@ -842,11 +830,6 @@ const ARR_ENTRY_SEARCH_OMBI_FIELDS: FieldDefinition[] = [
     path: ["EntrySearch", "Ombi", "ApprovedOnly"],
     type: "checkbox",
   },
-  {
-    label: "Is 4K Instance",
-    path: ["EntrySearch", "Ombi", "Is4K"],
-    type: "checkbox",
-  },
 ];
 
 const ARR_ENTRY_SEARCH_OVERSEERR_FIELDS: FieldDefinition[] = [
@@ -887,23 +870,20 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
   {
     label: "Folder Exclusion Regex",
     path: ["Torrent", "FolderExclusionRegex"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "File Name Exclusion Regex",
     path: ["Torrent", "FileNameExclusionRegex"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "File Extension Allowlist",
     path: ["Torrent", "FileExtensionAllowlist"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "Auto Delete",
@@ -942,10 +922,19 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     label: "Maximum Deletable Percentage",
     path: ["Torrent", "MaximumDeletablePercentage"],
     type: "number",
+    placeholder: "0–100 (e.g. 99 = 99%)",
+    format: (value: unknown) => {
+      const n = typeof value === "number" ? value : Number(value ?? 0.99);
+      return Number.isFinite(n) ? String(Math.round(n * 10000) / 100) : "99";
+    },
+    parse: (value: string | boolean) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.round(n) / 100 : 0.99;
+    },
     validate: (value) => {
       const num = typeof value === "number" ? value : Number(value);
       if (!Number.isFinite(num) || num < 0 || num > 100) {
-        return "Maximum Deletable Percentage must be between 0 and 100.";
+        return "Maximum Deletable Percentage must be between 0 and 100 (e.g. 99 = 99%).";
       }
       return undefined;
     },
@@ -960,10 +949,13 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     path: ["Torrent", "StalledDelay"],
     type: "duration",
     nativeUnit: "minutes",
+    allowNegative: true,
+    placeholder: "-1 (disabled), 0 (infinite), or minutes before removing stalled downloads",
     validate: (value) => {
-      const total = parseDurationToMinutes(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Stalled Delay must be a non-negative duration.";
+      const total = parseDurationToMinutes(value, -2);
+      if (total === -1) return undefined;
+      if (!Number.isFinite(total) || total < -1) {
+        return "Stalled Delay must be -1 (disabled), 0 (infinite), or a positive duration.";
       }
       return undefined;
     },
@@ -1052,9 +1044,7 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
   {
     label: "Remove Tracker Messages",
     path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
     fullWidth: true,
   },
 ];
@@ -1150,9 +1140,7 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
   {
     label: "Add Tags",
     path: ["AddTags"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
   },
   {
     label: "Hit and Run Mode",
@@ -1831,6 +1819,23 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       Port: 8080,
       UserName: "",
       Password: "",
+      ManagedCategories: [],
+      Trackers: [],
+      CategorySeeding: {
+        DownloadRateLimitPerTorrent: -1,
+        UploadRateLimitPerTorrent: -1,
+        MaxUploadRatio: -1,
+        MaxSeedingTime: -1,
+        RemoveTorrent: -1,
+        HitAndRunMode: "disabled",
+        MinSeedRatio: 1.0,
+        MinSeedingTimeDays: 0,
+        HitAndRunMinimumDownloadPercent: 10,
+        HitAndRunPartialSeedRatio: 1.0,
+        TrackerUpdateBuffer: 0,
+        StalledDelay: -1,
+        IgnoreTorrentsYoungerThan: 180,
+      },
     };
     setFormState(
       produce(formState, (draft) => {
@@ -2555,15 +2560,24 @@ function FieldGroup({
       const nextTrackers = [
         ...trackers,
         {
+          Name: "",
           URI: "",
+          Priority: 0,
           MaximumETA: -1,
           DownloadRateLimit: -1,
           UploadRateLimit: -1,
           MaxUploadRatio: -1,
           MaxSeedingTime: -1,
+          AddTrackerIfMissing: false,
           RemoveIfExists: false,
           SuperSeedMode: false,
           AddTags: [],
+          HitAndRunMode: "disabled",
+          MinSeedRatio: 1.0,
+          MinSeedingTimeDays: 0,
+          HitAndRunMinimumDownloadPercent: 10,
+          HitAndRunPartialSeedRatio: 1.0,
+          TrackerUpdateBuffer: 0,
         },
       ];
       onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
