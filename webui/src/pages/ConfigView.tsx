@@ -371,6 +371,15 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     },
   },
   {
+    label: "Behind HTTPS Proxy",
+    path: ["WebUI", "BehindHttpsProxy"],
+    type: "checkbox",
+    description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
+  },
+];
+
+const AUTH_SETTINGS_FIELDS: FieldDefinition[] = [
+  {
     label: "WebUI Token",
     path: ["WebUI", "Token"],
     type: "password",
@@ -382,12 +391,6 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     path: ["WebUI", "AuthDisabled"],
     type: "checkbox",
     description: "Disable login requirement (default: true for backward compatibility)",
-  },
-  {
-    label: "Behind HTTPS Proxy",
-    path: ["WebUI", "BehindHttpsProxy"],
-    type: "checkbox",
-    description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
   },
   {
     label: "Local Auth Enabled",
@@ -1438,6 +1441,7 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   const rootContext: ValidationContext = { root: formState };
   validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
   validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
+  validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], rootContext);
 
   for (const [key, value] of Object.entries(formState)) {
     if (QBIT_SECTION_REGEX.test(key) && value && typeof value === "object") {
@@ -1728,6 +1732,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [activeQbitKey, setActiveQbitKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
+  const [isAuthSettingsOpen, setAuthSettingsOpen] = useState(false);
   const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
@@ -1797,7 +1802,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen || isSetPasswordOpen);
+    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen || isAuthSettingsOpen || isSetPasswordOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1805,6 +1810,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setActiveQbitKey(null);
         setSettingsOpen(false);
         setWebSettingsOpen(false);
+        setAuthSettingsOpen(false);
         setSetPasswordOpen(false);
       }
     };
@@ -1816,7 +1822,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen, isSetPasswordOpen]);
+  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen, isAuthSettingsOpen, isSetPasswordOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -2123,13 +2129,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                 />
                 <ConfigSummaryCard
                   title="Web Settings"
-                  description="Web UI configuration"
+                  description="Host, port, and proxy"
                   onConfigure={() => setWebSettingsOpen(true)}
                 />
                 <ConfigSummaryCard
                   title="Authentication"
                   description="Login, local auth, and OIDC settings"
-                  onConfigure={() => setWebSettingsOpen(true)}
+                  onConfigure={() => setAuthSettingsOpen(true)}
                 />
               </div>
             </details>
@@ -2313,6 +2319,16 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
           showLiveSettings={true}
+        />
+      ) : null}
+      {isAuthSettingsOpen ? (
+        <SimpleConfigModal
+          title="Authentication"
+          fields={AUTH_SETTINGS_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setAuthSettingsOpen(false)}
           onSetPassword={() => setSetPasswordOpen(true)}
         />
       ) : null}
