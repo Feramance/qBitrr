@@ -384,6 +384,12 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     description: "Disable login requirement (default: true for backward compatibility)",
   },
   {
+    label: "Behind HTTPS Proxy",
+    path: ["WebUI", "BehindHttpsProxy"],
+    type: "checkbox",
+    description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
+  },
+  {
     label: "Local Auth Enabled",
     path: ["WebUI", "LocalAuthEnabled"],
     type: "checkbox",
@@ -2118,6 +2124,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                 <ConfigSummaryCard
                   title="Web Settings"
                   description="Web UI configuration"
+                  onConfigure={() => setWebSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="Authentication"
+                  description="Login, local auth, and OIDC settings"
                   onConfigure={() => setWebSettingsOpen(true)}
                 />
               </div>
