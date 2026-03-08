@@ -1655,9 +1655,6 @@ class WebUI:
                 and bool(setup_token)
                 and secrets.compare_digest(setup_token, env_token)
             )
-            is_authorized = _authorized()
-            if first_time and not is_authorized and not token_ok:
-                return jsonify({"error": "Not allowed"}), 403
             if not first_time and not token_ok:
                 return jsonify({"error": "Not allowed"}), 403
             new_hash = _pw_hash(password)
