@@ -371,6 +371,13 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     },
   },
   {
+    label: "WebUI Token",
+    path: ["WebUI", "Token"],
+    type: "password",
+    secure: true,
+    fullWidth: true,
+  },
+  {
     label: "Behind HTTPS Proxy",
     path: ["WebUI", "BehindHttpsProxy"],
     type: "checkbox",
@@ -379,13 +386,6 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
 ];
 
 const AUTH_SETTINGS_FIELDS: FieldDefinition[] = [
-  {
-    label: "WebUI Token",
-    path: ["WebUI", "Token"],
-    type: "password",
-    secure: true,
-    fullWidth: true,
-  },
   {
     label: "Auth Disabled",
     path: ["WebUI", "AuthDisabled"],
