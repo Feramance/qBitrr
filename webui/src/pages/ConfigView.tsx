@@ -998,7 +998,7 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     },
     validate: (value) => {
       const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0 || num > 100) {
+      if (!Number.isFinite(num) || num < 0 || num > 1) {
         return "Maximum Deletable Percentage must be between 0 and 100 (e.g. 99 = 99%).";
       }
       return undefined;

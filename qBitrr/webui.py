@@ -1655,6 +1655,9 @@ class WebUI:
                 and bool(setup_token)
                 and secrets.compare_digest(setup_token, env_token)
             )
+            is_authorized = _authorized()
+            if first_time and not is_authorized and not token_ok:
+                return jsonify({"error": "Not allowed"}), 403
             if not first_time and not token_ok:
                 return jsonify({"error": "Not allowed"}), 403
             new_hash = _pw_hash(password)
@@ -2600,7 +2603,7 @@ class WebUI:
         @app.get("/web/meta")
         def web_meta():
             force = self._safe_bool(request.args.get("force"))
-            result = self._ensure_version_info(force=force)
+            result = dict(self._ensure_version_info(force=force))
             result["auth_required"] = not _auth_disabled()
             result["local_auth_enabled"] = _local_auth_enabled()
             result["oidc_enabled"] = _oidc_enabled()
