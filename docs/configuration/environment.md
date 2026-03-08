@@ -39,7 +39,8 @@ QBITRR_<SECTION>_<KEY>=value
 |-------------|---------------------|
 | `[Settings]`<br>`ConsoleLevel = "INFO"` | `QBITRR_SETTINGS_CONSOLE_LEVEL=INFO` |
 | `[qBit]`<br>`Host = "localhost"` | `QBITRR_QBIT_HOST=localhost` |
-| `[WebUI]`<br>`Port = 6969` | `QBITRR_WEBUI_PORT=6969` |
+
+WebUI host, port, and token are **not** currently overridable via environment variables; use `config.toml` or the in-app config editor.
 
 ---
 
@@ -476,17 +477,14 @@ services:
       - ./config:/config
       - /mnt/downloads:/downloads
     environment:
-      QBITRR_QBIT_PASSWORD_FILE: /run/secrets/qbit_password
-    secrets:
-      - qbit_password
-
-secrets:
-  qbit_password:
-    file: ./secrets/qbit_password.txt
+      # Use QBITRR_QBIT_PASSWORD for the password; for secrets, pass via env from Docker secrets or .env
+      QBITRR_QBIT_PASSWORD: ${QBIT_PASSWORD}
+    env_file:
+      - .env
 ```
 
-!!! note "Secret Files"
-    qBitrr supports `_FILE` suffix for sensitive variables. The value will be read from the file path specified.
+!!! note "Secrets"
+    Pass sensitive values (e.g. `QBITRR_QBIT_PASSWORD`) via your orchestration's secret mechanism (Docker secrets, Kubernetes Secrets, or a non-committed `.env` file). A `_FILE` suffix to read the value from a file path is **not currently supported** by qBitrr.
 
 ---
 

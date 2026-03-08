@@ -450,17 +450,22 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         return;
       }
     } catch {
-      // Network error or server down — allow through without auth
-      setAuthState("authenticated");
+      // Network error or server down — do not bypass auth; treat as unauthenticated
+      setAuthState("unauthenticated");
       return;
     }
 
     // Try to fetch token (succeeds if session cookie or token already valid)
-    const token = await fetchWebToken().catch(() => null);
-    if (token) {
-      localStorage.setItem("token", token);
-      setAuthState("authenticated");
-    } else {
+    try {
+      const token = await fetchWebToken();
+      if (token) {
+        localStorage.setItem("token", token);
+        setAuthState("authenticated");
+      } else {
+        setAuthState("unauthenticated");
+      }
+    } catch {
+      // Token fetch failed while auth is required — remain unauthenticated
       setAuthState("unauthenticated");
     }
   }, []);

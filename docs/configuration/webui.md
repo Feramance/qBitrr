@@ -570,26 +570,9 @@ ports:
 
 ---
 
-## Environment Variable Overrides
+## WebUI Settings
 
-Override WebUI settings with environment variables:
-
-```bash
-# Docker
-docker run -d \
-  -e QBITRR_WEBUI_HOST="127.0.0.1" \
-  -e QBITRR_WEBUI_PORT="8080" \
-  -e QBITRR_WEBUI_TOKEN="my-token" \
-  feramance/qbitrr:latest
-
-# Docker Compose
-environment:
-  - QBITRR_WEBUI_HOST=127.0.0.1
-  - QBITRR_WEBUI_PORT=8080
-  - QBITRR_WEBUI_TOKEN=my-token
-```
-
-**Format:** `QBITRR_<SECTION>_<KEY>=value`
+WebUI host, port, and token are configured in `config.toml` under the `[WebUI]` section. They are **not** currently overridable via environment variables; use the config file or the in-app config editor.
 
 ---
 

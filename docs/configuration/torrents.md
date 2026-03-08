@@ -414,7 +414,7 @@ DownloadRateLimitPerTorrent = -1        # KB/s download limit (-1 = unlimited)
 UploadRateLimitPerTorrent = -1          # KB/s upload limit (-1 = unlimited)
 MaxUploadRatio = 2.0                    # Remove after 2:1 ratio
 MaxSeedingTime = 43200                  # Remove after 12 hours (seconds)
-RemoveTorrent = -1                      # Additional removal delay (seconds)
+RemoveTorrent = -1                      # Removal policy (-1=do not remove, 1–4=when to remove; see seeding.md)
 RemoveDeadTrackers = false              # Remove torrents with dead trackers
 RemoveTrackerWithMessage = []           # Remove if tracker message matches
 ```
@@ -439,7 +439,7 @@ DownloadRateLimit = -1
 UploadRateLimit = -1
 MaxUploadRatio = 3.0                    # Seed to 3:1
 MaxSeedingTime = 86400                  # 24 hours
-RemoveTorrent = -1
+RemoveTorrent = -1   # Removal policy (see seeding.md)
 TrackerURLInclude = ["passthepopcorn.me"]
 ```
 

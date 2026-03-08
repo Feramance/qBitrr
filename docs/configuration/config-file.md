@@ -2,6 +2,23 @@
 
 This comprehensive guide explains every setting in qBitrr's `config.toml` configuration file.
 
+## Contents
+
+- [Configuration File Location](#configuration-file-location)
+- [File Format](#file-format)
+- [Configuration Sections](#configuration-sections)
+- [Settings Section](#settings-section)
+- [WebUI Section](#webui-section)
+- [qBit Section](#qbit-section)
+- [Arr Sections](#arr-sections)
+- [Configuration Best Practices](#configuration-best-practices)
+- [Troubleshooting Config Issues](#troubleshooting-config-issues)
+- [Complete Minimal Config](#complete-minimal-config)
+- [Advanced/Hidden Settings](#advancedhidden-settings)
+- [Edge Case Behaviors](#edge-case-behaviors)
+- [Implementation Details](#implementation-details-not-user-configurable)
+- [See Also](#see-also)
+
 ---
 
 ## Configuration File Location
@@ -85,7 +102,7 @@ The `[Settings]` section contains global configuration that applies to all qBitr
 ```toml
 [Settings]
 # Internal config schema version - DO NOT MODIFY (managed automatically)
-# ConfigVersion = "5.9.2"
+# ConfigVersion = "5.9.3"
 
 # Logging
 ConsoleLevel = "INFO"
@@ -134,11 +151,11 @@ ProcessRestartDelay = 5
 ### ConfigVersion
 
 ```toml
-ConfigVersion = "5.9.2"
+ConfigVersion = "5.9.3"
 ```
 
 **Type:** String
-**Default:** Set automatically by qBitrr (e.g. `"5.9.2"`). Legacy integer values 1–4 are accepted and mapped to semver strings.
+**Default:** Set automatically by qBitrr (e.g. `"5.9.x"`). Legacy integer values 1–4 are accepted and mapped to semver strings.
 **Required:** Yes (managed automatically)
 
 Internal configuration schema version. **DO NOT MODIFY** this value manually. qBitrr uses it to detect when config migrations are needed.
@@ -1015,13 +1032,25 @@ For complete Arr configuration documentation:
 
 ### 1. Start with Example Config
 
-```bash
-# Generate example config
-qbitrr --gen-config
+You can get a config file in either of these ways:
 
-# Copy to config location
-cp config.example.toml ~/config/config.toml
+**Option A: Generate with qBitrr**
+
+```bash
+qbitrr --gen-config
 ```
+
+This writes `config.toml` to the config directory (Docker: `/config`; native: `.config` in the current working directory, or the path set by `QBITRR_OVERRIDES_DATA_PATH`). If a config already exists there, qBitrr writes `config_new.toml` in the current directory instead. Move or copy the generated file to your config location if needed.
+
+**Option B: Copy from the repository**
+
+```bash
+# Copy the example file to your config directory
+cp config.example.toml ~/config/config.toml   # Linux/macOS native
+# Or for Docker: copy to the host path that you mount at /config
+```
+
+Then edit the file to match your setup (paths, API keys, categories).
 
 ---
 
@@ -1030,11 +1059,13 @@ cp config.example.toml ~/config/config.toml
 Override settings with environment variables (Docker-friendly):
 
 ```bash
-# Format: QBITRR_<SECTION>_<KEY>
-export QBITRR_SETTINGS_CONSOLELEVEL=DEBUG
-export QBITRR_WEBUI_PORT=8080
+# Format: QBITRR_<SECTION>_<KEY> (use underscores, e.g. CONSOLE_LEVEL not CONSOLELEVEL)
+# WebUI host/port/token are not overridable via env; use config.toml
+export QBITRR_SETTINGS_CONSOLE_LEVEL=DEBUG
 export QBITRR_QBIT_HOST=qbittorrent
 ```
+
+See [Environment Variables](environment.md) for the full list of supported variables.
 
 ---
 
@@ -1175,14 +1206,11 @@ MaximumETA = 172800  # 48 hours for large 4K files
 **Solution:** Restart qBitrr after config changes:
 
 ```bash
-# Native
-qbitrr --restart
+# Systemd
+sudo systemctl restart qbitrr
 
 # Docker
 docker restart qbitrr
-
-# Systemd
-sudo systemctl restart qbitrr
 ```
 
 ---

@@ -2,6 +2,23 @@
 
 This guide covers path mapping issues between qBittorrent, Arr instances (Radarr/Sonarr/Lidarr), and qBitrr, focusing on Docker volume mapping and file accessibility.
 
+## Contents
+
+- [Overview](#overview)
+- [Path Mapping Basics](#path-mapping-basics)
+- [Docker Volume Mapping](#docker-volume-mapping)
+- [Arr Configuration](#arr-configuration)
+- [qBitrr Configuration](#qbitrr-configuration)
+- [Common Path Mapping Scenarios](#common-path-mapping-scenarios)
+- [Diagnosing Path Issues](#diagnosing-path-issues)
+- [Fixing Path Mismatches](#fixing-path-mismatches)
+- [Testing Path Accessibility](#testing-path-accessibility)
+- [Advanced Topics](#advanced-topics)
+- [Real-World Examples](#real-world-examples)
+- [Quick Reference](#quick-reference)
+- [Related Documentation](#related-documentation)
+- [External Resources](#external-resources)
+
 ## Overview
 
 Path mapping is one of the most common sources of confusion and errors in qBitrr deployments. When qBittorrent, Arr instances, and qBitrr run in separate containers (or a mix of containers and host installs), they each see the file system differently.

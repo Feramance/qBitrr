@@ -5997,8 +5997,7 @@ class Arr:
                 torrent.set_upload_limit(limit=-1)
             if (
                 r := most_important_tracker.get("SuperSeedMode", False)
-                and torrent.super_seeding != r
-            ):
+            ) and torrent.super_seeding != r:
                 torrent.set_super_seeding(enabled=r)
 
         else:

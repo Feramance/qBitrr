@@ -68,7 +68,7 @@ Find and edit your `config.toml` file:
 
 === "Systemd"
 
-    Location: Set via `Environment="QBITRR_CONFIG_PATH=/path/to/config"` in service file
+    Location: Set via `Environment="QBITRR_OVERRIDES_DATA_PATH=/path/to/config"` in service file
 
 ### Minimal Configuration
 

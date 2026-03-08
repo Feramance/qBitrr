@@ -2,6 +2,21 @@
 
 This page covers the most frequently encountered issues with qBitrr and their solutions.
 
+## Contents
+
+- [Connection Issues](#connection-issues)
+- [Torrent Processing Issues](#torrent-processing-issues)
+- [Search Issues](#search-issues)
+- [Import Issues](#import-issues)
+- [Performance Issues](#performance-issues)
+- [Disk Space Issues](#disk-space-issues)
+- [Configuration Issues](#configuration-issues)
+- [WebUI Issues](#webui-issues)
+- [Logging Issues](#logging-issues)
+- [Getting More Help](#getting-more-help)
+- [Error Reference](#error-reference)
+- [Related Documentation](#related-documentation)
+
 ---
 
 ## Connection Issues

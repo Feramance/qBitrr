@@ -21,9 +21,9 @@ qBitrr solves several common problems:
 qBitrr works with:
 
 - **qBittorrent**: v4.x and v5.x
-- **Radarr**: v3.x and v4.x
+- **Radarr**: v3.x, v4.x, and v5.x
 - **Sonarr**: v3.x and v4.x
-- **Lidarr**: v1.x
+- **Lidarr**: v1.x and v2.x
 - **Python**: 3.11 or higher
 - **Platforms**: Linux, macOS, Windows, Docker
 

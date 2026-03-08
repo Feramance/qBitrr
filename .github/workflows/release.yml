@@ -64,7 +64,7 @@ jobs:
       run: "VERSION=$(python -c \"import configparser; c = configparser.ConfigParser(); c.read('setup.cfg'); print(c['metadata']['version'])\")\necho \"value=${VERSION}\" >> \"${GITHUB_OUTPUT}\"\necho \"New version: ${VERSION}\"\n"
     - name: Import GPG key
       id: import_gpg
-      uses: crazy-max/ghaction-import-gpg@v6.3.0
+      uses: crazy-max/ghaction-import-gpg@v7.0.0
       with:
         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}
@@ -148,15 +148,15 @@ jobs:
       with:
         fetch-depth: 0
         ref: master
-    - uses: docker/setup-qemu-action@v3
-    - uses: docker/setup-buildx-action@v3
+    - uses: docker/setup-qemu-action@v4
+    - uses: docker/setup-buildx-action@v4
     - name: Login to DockerHub
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -168,7 +168,7 @@ jobs:
         images: "feramance/qbitrr\nghcr.io/${{ steps.repo.outputs.lowercase }}\n"
         tags: "type=raw,value=latest\ntype=raw,value=nightly\ntype=raw,value=v${{ env.VERSION }}\n"
     - name: Build and push Docker images
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         platforms: linux/amd64,linux/arm64
@@ -547,7 +547,7 @@ jobs:
         fi
     - name: Import GPG key
       id: changelog_gpg
-      uses: crazy-max/ghaction-import-gpg@v6.3.0
+      uses: crazy-max/ghaction-import-gpg@v7.0.0
       with:
         gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
         passphrase: ${{ secrets.PASSPHRASE }}

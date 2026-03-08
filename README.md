@@ -21,7 +21,7 @@
 - [Features](https://feramance.github.io/qBitrr/features/) – Health monitoring, automated search, quality management, disk space, auto-updates
 - [WebUI](https://feramance.github.io/qBitrr/webui/) – Built-in React dashboard with live monitoring and config editor
 - [Troubleshooting](https://feramance.github.io/qBitrr/troubleshooting/) – Common issues and debug logging
-- [API Reference](https://feramance.github.io/qBitrr/reference/api/) – REST API documentation
+- [API Reference](https://feramance.github.io/qBitrr/webui/api/) – REST API documentation
 
 ## ⚡ Quick Start
 
@@ -31,7 +31,7 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install qBitrr2
 
-# First run creates ~/config/config.toml
+# First run creates config (Docker: /config/config.toml; native: .config/config.toml in current directory, or set QBITRR_OVERRIDES_DATA_PATH)
 qbitrr
 ```
 
@@ -82,7 +82,7 @@ Access the WebUI at `http://<host>:6969/ui` after startup.
 
 ## 🛠️ Essential Configuration
 
-1. **Configure qBittorrent** in `~/config/config.toml`:
+1. **Configure qBittorrent** in your config file (Docker: `/config/config.toml`; native: `.config/config.toml` in the current directory, or path set by `QBITRR_OVERRIDES_DATA_PATH`):
    ```toml
    [qBit]
    Host = "localhost"
@@ -123,7 +123,7 @@ UserName = "admin"
 Password = "seedboxpass"
 ```
 
-See [Multi-qBittorrent Guide](MULTI_QBIT_V3_USER_GUIDE.md) for complete documentation.
+See [qBittorrent configuration](docs/configuration/qbittorrent.md) (multi-instance section) for complete documentation.
 
 ---
 
@@ -135,7 +135,7 @@ See [Configuration Guide](https://feramance.github.io/qBitrr/configuration/) and
 - **PyPI Package:** https://pypi.org/project/qBitrr2/
 - **Docker Hub:** https://hub.docker.com/r/feramance/qbitrr
 - **Example Config:** [config.example.toml](config.example.toml)
-- **API Documentation:** [docs/reference/api.md](docs/reference/api.md)
+- **API Documentation:** [docs/webui/api.md](docs/webui/api.md)
 - **Systemd Setup:** [docs/getting-started/installation/systemd.md](docs/getting-started/installation/systemd.md)
 
 ## 🐛 Issues & Support

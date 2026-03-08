@@ -164,14 +164,14 @@ Set a custom config directory:
 === "Linux/macOS"
 
     ```bash
-    export QBITRR_CONFIG_PATH=/path/to/config
+    export QBITRR_OVERRIDES_DATA_PATH=/path/to/config
     ./qbitrr
     ```
 
 === "Windows"
 
     ```powershell
-    $env:QBITRR_CONFIG_PATH = "C:\path\to\config"
+    $env:QBITRR_OVERRIDES_DATA_PATH = "C:\path\to\config"
     .\qbitrr.exe
     ```
 

@@ -25,7 +25,7 @@ qBittorrent → qBitrr → Process Torrents → Arr Instance
 
 qBitrr uses SQLite for persistent state:
 
-- **Location:** `~/config/qBitrr.db`
+- **Location:** `<config_dir>/qBitManager/qbitrr.db` (config directory is `/config` in Docker, `.config` in the current working directory for native installs, or the path set by `QBITRR_OVERRIDES_DATA_PATH`)
 - **Tables:**
   - `downloads` - Tracked torrent information
   - `searches` - Search activity history
@@ -33,48 +33,43 @@ qBitrr uses SQLite for persistent state:
 
 **Backup:**
 ```bash
-cp ~/config/qBitrr.db ~/config/qBitrr.db.backup
+cp <config_dir>/qBitManager/qbitrr.db <config_dir>/qBitManager/qbitrr.db.backup
 ```
 
 ## Performance Tuning
 
-### Optimize Check Intervals
+### Optimize Loop Interval
 
 Balance responsiveness vs. resource usage:
 
 ```toml
 [Settings]
-# How often to check torrents (seconds)
-CheckInterval = 60  # Default
+# How often each Arr instance's event loop runs a full check cycle (seconds)
+LoopSleepTimer = 60  # Default: check every 60 seconds
 
 # Reduce for faster response (more CPU)
-CheckInterval = 30
+LoopSleepTimer = 30
 
 # Increase for lower resource usage
-CheckInterval = 300
+LoopSleepTimer = 300
 ```
+
+!!! note "Actual key"
+    The setting is `LoopSleepTimer`, not `CheckInterval`.
 
 ### Concurrent Operations
 
-Limit concurrent health checks:
+Limit concurrent health checks (if supported by your version; see [Configuration Reference](../configuration/config-file.md) for current Settings keys):
 
 ```toml
 [Settings]
-MaxConcurrentChecks = 10  # Adjust based on system resources
+# Example: adjust based on system resources
+# (Key names may vary; run qbitrr --gen-config to see generated options.)
 ```
 
 ### Memory Usage
 
-For systems with limited RAM:
-
-```toml
-[Settings]
-# Reduce log retention
-LogRetentionDays = 7
-
-# Limit torrent history
-TorrentHistoryDays = 30
-```
+For systems with limited RAM, reduce logging verbosity or retention if your config supports it (see generated config from `qbitrr --gen-config`). Log files are stored under `<config_dir>/logs/`.
 
 ## Custom Tracker Configuration
 
@@ -107,13 +102,14 @@ AutoDelete = false  # Never auto-delete
 
 ### Media Validation
 
-qBitrr can validate media files before import:
+qBitrr can validate media files before import. The only FFprobe-related setting in the main config is:
 
 ```toml
 [Settings]
 FFprobeAutoUpdate = true
-FFprobePath = "/usr/bin/ffprobe"
 ```
+
+The FFprobe binary is stored in the qBitrr data folder (`<config_dir>/qBitManager/`). There is no configurable `FFprobePath` in the current config schema.
 
 **Benefits:**
 - Detect corrupt files before import
@@ -121,17 +117,7 @@ FFprobePath = "/usr/bin/ffprobe"
 - Check for audio/video tracks
 - Validate container format
 
-### FFprobe Rules
-
-Configure what qBitrr checks:
-
-```toml
-[Settings.FFprobe]
-CheckVideoCodec = true
-CheckAudioCodec = true
-CheckDuration = true
-MinDuration = 60  # Reject files shorter than 1 minute
-```
+For advanced FFprobe validation options (e.g. codec checks, minimum duration), see [Health Monitoring](../features/health-monitoring.md). Those options are documented as future reference and are not all implemented in the current version.
 
 ## Event Loops
 
@@ -197,20 +183,14 @@ AnimeMode = true  # Special anime handling
 
 ### Automatic Cleanup
 
-qBitrr automatically cleans old data:
-
-```toml
-[Settings]
-RetentionDays = 30  # Keep data for 30 days
-AutoVacuum = true   # Automatically vacuum database
-```
+qBitrr automatically cleans old data. See the generated config (`qbitrr --gen-config`) and [Configuration Reference](../configuration/config-file.md) for retention and cleanup options.
 
 ### Manual Vacuum
 
 Optimize database size:
 
 ```bash
-sqlite3 ~/config/qBitrr.db "VACUUM;"
+sqlite3 <config_dir>/qBitManager/qbitrr.db "VACUUM;"
 ```
 
 ### Recovery
@@ -220,8 +200,8 @@ If database becomes corrupt:
 ```bash
 # qBitrr has automatic recovery
 # Check logs for recovery messages
-# Or manually delete and regenerate:
-rm ~/config/qBitrr.db
+# Or manually delete and regenerate (stops qBitrr first):
+rm <config_dir>/qBitManager/qbitrr.db
 ```
 
 ## Network Optimization
@@ -255,8 +235,8 @@ BackoffMultiplier = 2  # Exponential backoff
 Protect the WebUI with authentication:
 
 ```toml
-[Settings]
-WebUIToken = "your-very-secure-random-token-here"
+[WebUI]
+Token = "your-very-secure-random-token-here"
 ```
 
 Generate a secure token:
@@ -266,52 +246,37 @@ openssl rand -base64 32
 
 ### Network Security
 
-Bind to specific interfaces:
+Bind to specific interfaces in `config.toml`:
 
 ```toml
-[Settings]
-WebUIHost = "127.0.0.1"  # Localhost only
-WebUIPort = 6969
+[WebUI]
+Host = "127.0.0.1"  # Localhost only
+Port = 6969
 ```
 
 Or for Docker:
 ```toml
-[Settings]
-WebUIHost = "0.0.0.0"  # All interfaces (secured by Docker)
-WebUIPort = 6969
+[WebUI]
+Host = "0.0.0.0"  # All interfaces (secured by Docker)
+Port = 6969
 ```
 
 ## Logging Configuration
 
 ### Log Levels
 
-```toml
-[Settings]
-LogLevel = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
-```
-
-**Levels:**
-- **DEBUG** - Everything (very verbose)
-- **INFO** - Normal operations
-- **WARNING** - Potential issues
-- **ERROR** - Errors that don't stop execution
-- **CRITICAL** - Fatal errors
+Console output level is set in `[Settings]` (e.g. `ConsoleLevel = "INFO"`). See [Configuration Reference](../configuration/config-file.md) and run `qbitrr --gen-config` for the exact key. Environment override: `QBITRR_SETTINGS_CONSOLE_LEVEL`.
 
 ### Log Rotation
 
-```toml
-[Settings]
-LogRotation = true
-LogMaxSize = 10485760  # 10 MB
-LogBackupCount = 5
-```
+Log files are written to `<config_dir>/logs/`. Rotation and retention depend on your setup; see the configuration reference for available options.
 
 ### Separate Log Files
 
-Each Arr instance gets its own log file:
+Each Arr instance gets its own log file under `<config_dir>/logs/`:
 
 ```
-~/config/logs/
+<config_dir>/logs/
 ├── Main.log
 ├── WebUI.log
 ├── Radarr-Main.log
@@ -399,9 +364,9 @@ ps aux | grep qbitrr
 
 What to backup:
 
-1. **Configuration:** `~/config/config.toml`
-2. **Database:** `~/config/qBitrr.db`
-3. **Logs (optional):** `~/config/logs/`
+1. **Configuration:** `<config_dir>/config.toml`
+2. **Database:** `<config_dir>/qBitManager/qbitrr.db`
+3. **Logs (optional):** `<config_dir>/logs/`
 
 ### Restore Procedure
 
@@ -414,17 +379,14 @@ What to backup:
 
 ### Enable Debug Logging
 
-```toml
-[Settings]
-LogLevel = "DEBUG"
-```
+Set console log level to DEBUG in config (`Settings.ConsoleLevel`) or use the environment variable `QBITRR_SETTINGS_CONSOLE_LEVEL=DEBUG`.
 
 ### Trace Specific Torrents
 
 Follow a torrent through the system:
 
 ```bash
-grep "torrent_hash" ~/config/logs/Main.log
+grep "torrent_hash" <config_dir>/logs/Main.log
 ```
 
 ### Database Inspection
@@ -432,7 +394,7 @@ grep "torrent_hash" ~/config/logs/Main.log
 Query the database directly:
 
 ```bash
-sqlite3 ~/config/qBitrr.db
+sqlite3 <config_dir>/qBitManager/qbitrr.db
 sqlite> SELECT * FROM downloads WHERE hash = 'torrent_hash';
 sqlite> .quit
 ```

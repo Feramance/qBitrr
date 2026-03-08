@@ -2,6 +2,25 @@
 
 The Configuration Editor provides a user-friendly interface for managing qBitrr's configuration through the WebUI. All changes are saved to the `config.toml` file and can trigger live reloads of affected components without requiring a full application restart.
 
+## Contents
+
+- [Overview](#overview)
+- [Accessing the Configuration Editor](#accessing-the-configuration-editor)
+- [Configuration Structure](#configuration-structure)
+- [Field Types and Widgets](#field-types-and-widgets)
+- [Validation System](#validation-system)
+- [Save Behavior and Live Reload](#save-behavior-and-live-reload)
+- [Modal State Persistence](#modal-state-persistence)
+- [Dirty State Tracking](#dirty-state-tracking)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Tooltips and Descriptions](#tooltips-and-descriptions)
+- [API Endpoints](#api-endpoints)
+- [Common Workflows](#common-workflows)
+- [Troubleshooting](#troubleshooting)
+- [Best Practices](#best-practices)
+- [Related Pages](#related-pages)
+- [See Also](#see-also)
+
 ---
 
 ## Overview
