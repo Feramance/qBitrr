@@ -2293,6 +2293,9 @@ interface FieldGroupProps {
   qbitTrackers?: boolean;
 }
 
+/** Regex for valid in-progress numeric input: empty, "-", or a valid number string */
+const NUMERIC_INPUT_RE = /^-?\d*\.?\d*$/;
+
 function NumberInput({
   value,
   onChange,
@@ -2316,6 +2319,7 @@ function NumberInput({
   return (
     <input
       type="text"
+      inputMode="decimal"
       value={localValue}
       onFocus={() => {
         isEditing.current = true;
@@ -2325,8 +2329,11 @@ function NumberInput({
         setLocalValue(externalStr);
       }}
       onChange={(e) => {
-        setLocalValue(e.target.value);
-        onChange(e.target.value);
+        const raw = e.target.value;
+        // Only allow numeric characters, optional leading minus, optional decimal
+        if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
+        setLocalValue(raw);
+        onChange(raw);
       }}
       placeholder={placeholder}
     />
@@ -2350,6 +2357,8 @@ function DurationInput({
   const display = parseDurationDisplay(value, nativeUnit, fallback);
   const [num, setNum] = useState(display.number);
   const [unit, setUnit] = useState<DurationUnit>(display.unit);
+  // rawInput tracks the user's in-progress text; null when not actively editing
+  const [rawInput, setRawInput] = useState<string | null>(null);
   const isEditing = useRef(false);
 
   useEffect(() => {
@@ -2363,7 +2372,12 @@ function DurationInput({
   }, [value, nativeUnit, fallback]);
 
   const handleNumChange = (raw: string) => {
-    const n = raw.trim() === "" ? (allowNegative ? -1 : 0) : Number(raw);
+    // Only allow numeric characters, optional leading minus, optional decimal
+    if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
+    setRawInput(raw);
+    // Don't commit empty or incomplete strings — wait until blur
+    if (raw === "" || raw === "-") return;
+    const n = Number(raw);
     if (!Number.isFinite(n)) return;
     setNum(n);
     const out = durationDisplayToValue(n, unit, nativeUnit, allowNegative);
@@ -2376,21 +2390,33 @@ function DurationInput({
     onChange(out);
   };
 
-  const displayVal = num === -1 && allowNegative ? "Disabled" : String(num);
+  const handleFocus = () => {
+    isEditing.current = true;
+    // When field shows "Disabled" (-1), clear to empty so user can type a value
+    setRawInput(num === -1 && allowNegative ? "" : String(num));
+  };
+
+  const handleBlur = () => {
+    isEditing.current = false;
+    setRawInput(null);
+    // Revert to the last externally-committed value (reverts empty/invalid edits)
+    const d = parseDurationDisplay(value, nativeUnit, fallback);
+    setNum(d.number);
+    setUnit(d.unit);
+  };
+
+  // While editing show the raw string; otherwise show the formatted display value
+  const displayVal = rawInput !== null
+    ? rawInput
+    : (num === -1 && allowNegative ? "Disabled" : String(num));
+
   return (
     <div className="duration-input">
       <input
         type="text"
         value={displayVal}
-        onFocus={() => {
-          isEditing.current = true;
-        }}
-        onBlur={() => {
-          isEditing.current = false;
-          const d = parseDurationDisplay(value, nativeUnit, fallback);
-          setNum(d.number);
-          setUnit(d.unit);
-        }}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         onChange={(e) => handleNumChange(e.target.value)}
         placeholder={placeholder}
       />
