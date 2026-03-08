@@ -2005,10 +2005,17 @@ class Arr:
             for s in series:
                 ids.append(s["id"])
             with database_lock():
-                self.series_file_model.delete().where(
-                    (self.series_file_model.EntryId.not_in(ids))
-                    & (self.series_file_model.ArrInstance == self._name)
-                ).execute()
+                if ids:
+                    self.series_file_model.delete().where(
+                        (self.series_file_model.EntryId.not_in(ids))
+                        & (self.series_file_model.ArrInstance == self._name)
+                    ).execute()
+                else:
+                    self.logger.warning(
+                        "%s: No series returned from Arr API during reset; "
+                        "skipping DB prune to prevent data loss",
+                        self._name,
+                    )
             self.loop_completed = False
 
     def db_reset__episode_searched_state(self):
@@ -2067,10 +2074,17 @@ class Arr:
             for m in movies:
                 ids.append(m["id"])
             with database_lock():
-                self.model_file.delete().where(
-                    (self.model_file.EntryId.not_in(ids))
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
+                if ids:
+                    self.model_file.delete().where(
+                        (self.model_file.EntryId.not_in(ids))
+                        & (self.model_file.ArrInstance == self._name)
+                    ).execute()
+                else:
+                    self.logger.warning(
+                        "%s: No movies returned from Arr API during reset; "
+                        "skipping DB prune to prevent data loss",
+                        self._name,
+                    )
             self.loop_completed = False
 
     def db_reset__album_searched_state(self):
@@ -2102,10 +2116,17 @@ class Arr:
                 for album in albums:
                     ids.append(album["id"])
             with database_lock():
-                self.model_file.delete().where(
-                    (self.model_file.EntryId.not_in(ids))
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
+                if ids:
+                    self.model_file.delete().where(
+                        (self.model_file.EntryId.not_in(ids))
+                        & (self.model_file.ArrInstance == self._name)
+                    ).execute()
+                else:
+                    self.logger.warning(
+                        "%s: No albums returned from Arr API during reset; "
+                        "skipping DB prune to prevent data loss",
+                        self._name,
+                    )
             self.loop_completed = False
 
     def db_get_files_series(self) -> list[list[SeriesFilesModel, bool, bool]] | None:
@@ -2659,8 +2680,8 @@ class Arr:
                         if "releaseDate" in album:
                             release_date = datetime.strptime(
                                 album["releaseDate"], "%Y-%m-%dT%H:%M:%SZ"
-                            )
-                            if release_date > datetime.now():
+                            ).replace(tzinfo=timezone.utc)
+                            if release_date > datetime.now(timezone.utc):
                                 continue
                         self.db_update_single_series(db_entry=album)
                 # Process artists for artist-level tracking
