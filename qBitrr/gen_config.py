@@ -24,9 +24,9 @@ def _add_web_settings_section(config: TOMLDocument):
     web_settings = table()
     _gen_default_line(
         web_settings,
-        "WebUI listen host (default 127.0.0.1; use 0.0.0.0 to bind all interfaces e.g. Docker)",
+        "WebUI listen host (default 0.0.0.0; use 127.0.0.1 for localhost-only)",
         "Host",
-        "127.0.0.1",
+        "0.0.0.0",
     )
     _gen_default_line(
         web_settings,
@@ -1736,7 +1736,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate WebUI section
     webui_defaults = [
-        ("Host", "127.0.0.1"),
+        ("Host", "0.0.0.0"),
         ("Port", 6969),
         ("Token", ""),
         ("BehindHttpsProxy", False),
