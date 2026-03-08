@@ -1673,7 +1673,9 @@ class WebUI:
             self.logger.info("Password set for user %s", username)
             return jsonify({"success": True})
 
-        oidc_callback_path = CONFIG.get("WebUI.OIDC.CallbackPath", fallback="/signin-oidc") or "/signin-oidc"
+        oidc_callback_path = (
+            CONFIG.get("WebUI.OIDC.CallbackPath", fallback="/signin-oidc") or "/signin-oidc"
+        )
         if not oidc_callback_path.startswith("/"):
             oidc_callback_path = f"/{oidc_callback_path}"
 
