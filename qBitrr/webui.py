@@ -1673,17 +1673,18 @@ class WebUI:
             self.logger.info("Password set for user %s", username)
             return jsonify({"success": True})
 
+        oidc_callback_path = CONFIG.get("WebUI.OIDC.CallbackPath", fallback="/signin-oidc") or "/signin-oidc"
+        if not oidc_callback_path.startswith("/"):
+            oidc_callback_path = f"/{oidc_callback_path}"
+
         @app.get("/web/auth/oidc/challenge")
         def web_oidc_challenge():
             if not _oidc_enabled():
                 return jsonify({"error": "OIDC not configured"}), 400
-            callback_path = (
-                CONFIG.get("WebUI.OIDC.CallbackPath", fallback="/signin-oidc") or "/signin-oidc"
-            )
-            redirect_uri = request.host_url.rstrip("/") + callback_path
+            redirect_uri = request.host_url.rstrip("/") + oidc_callback_path
             return self._oauth.oidc.authorize_redirect(redirect_uri)
 
-        @app.get("/signin-oidc")
+        @app.get(oidc_callback_path)
         def web_oidc_callback():
             if not _oidc_enabled():
                 return redirect("/ui")

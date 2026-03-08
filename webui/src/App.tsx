@@ -449,17 +449,19 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         setAuthState("authenticated");
         return;
       }
-      // Try to fetch token (succeeds if session cookie or token already valid)
-      const token = await fetchWebToken();
-      if (token) {
-        localStorage.setItem("token", token);
-        setAuthState("authenticated");
-      } else {
-        setAuthState("unauthenticated");
-      }
     } catch {
       // Network error or server down — allow through without auth
       setAuthState("authenticated");
+      return;
+    }
+
+    // Try to fetch token (succeeds if session cookie or token already valid)
+    const token = await fetchWebToken().catch(() => null);
+    if (token) {
+      localStorage.setItem("token", token);
+      setAuthState("authenticated");
+    } else {
+      setAuthState("unauthenticated");
     }
   }, []);
 
