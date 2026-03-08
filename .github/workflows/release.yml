@@ -168,7 +168,7 @@ jobs:
         images: "feramance/qbitrr\nghcr.io/${{ steps.repo.outputs.lowercase }}\n"
         tags: "type=raw,value=latest\ntype=raw,value=nightly\ntype=raw,value=v${{ env.VERSION }}\n"
     - name: Build and push Docker images
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         platforms: linux/amd64,linux/arm64
