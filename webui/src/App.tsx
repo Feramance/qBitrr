@@ -9,7 +9,8 @@ import { ToastProvider, ToastViewport, useToast } from "./context/ToastContext";
 import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
-import { getMeta, getStatus, triggerUpdate } from "./api/client";
+import { getMeta, getStatus, triggerUpdate, logout, fetchWebToken } from "./api/client";
+import { LoginPage } from "./pages/LoginPage";
 import type { MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
@@ -422,7 +423,85 @@ function ChangelogModal({
   );
 }
 
-function AppShell(): JSX.Element {
+type AuthState = "loading" | "authenticated" | "unauthenticated";
+
+interface AuthInfo {
+  authRequired: boolean;
+  localAuthEnabled: boolean;
+  oidcEnabled: boolean;
+}
+
+function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: () => void) => React.ReactNode }): JSX.Element {
+  const [authState, setAuthState] = useState<AuthState>("loading");
+  const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false });
+
+  const checkAuth = useCallback(async () => {
+    setAuthState("loading");
+    try {
+      const meta = await getMeta();
+      const authRequired = Boolean(meta.auth_required);
+      setAuthInfo({
+        authRequired,
+        localAuthEnabled: Boolean(meta.local_auth_enabled),
+        oidcEnabled: Boolean(meta.oidc_enabled),
+      });
+      if (!authRequired) {
+        setAuthState("authenticated");
+        return;
+      }
+      // Try to fetch token (succeeds if session cookie or token already valid)
+      const token = await fetchWebToken();
+      if (token) {
+        localStorage.setItem("token", token);
+        setAuthState("authenticated");
+      } else {
+        setAuthState("unauthenticated");
+      }
+    } catch {
+      // Network error or server down — allow through without auth
+      setAuthState("authenticated");
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkAuth();
+  }, [checkAuth]);
+
+  const handleSignOut = useCallback(async () => {
+    await logout();
+    setAuthState("unauthenticated");
+  }, []);
+
+  const handleLoginSuccess = useCallback(async () => {
+    const token = await fetchWebToken().catch(() => null);
+    if (token) {
+      localStorage.setItem("token", token);
+    }
+    setAuthState("authenticated");
+  }, []);
+
+  if (authState === "loading") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
+        <span className="spinner" aria-hidden="true" />
+      </div>
+    );
+  }
+
+  if (authState === "unauthenticated") {
+    return (
+      <LoginPage
+        onSuccess={() => void handleLoginSuccess()}
+        localAuthEnabled={authInfo.localAuthEnabled}
+        oidcEnabled={authInfo.oidcEnabled}
+      />
+    );
+  }
+
+  return <>{children(authInfo.authRequired, handleSignOut)}</>;
+}
+
+function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOut: () => void }): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
   const [configDirty, setConfigDirty] = useState(false);
   const { push } = useToast();
@@ -886,6 +965,15 @@ function AppShell(): JSX.Element {
               <IconImage src={ExternalIcon} />
               Docs
             </a>
+            {authRequired && (
+              <button
+                type="button"
+                className="btn small ghost"
+                onClick={() => void onSignOut()}
+              >
+                Sign Out
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -972,7 +1060,11 @@ export default function App(): JSX.Element {
       <ToastProvider>
         <SearchProvider>
           <WebUIProvider>
-            <AppShell />
+            <AuthGate>
+              {(authRequired, onSignOut) => (
+                <AppShell authRequired={authRequired} onSignOut={onSignOut} />
+              )}
+            </AuthGate>
             <ToastViewport />
           </WebUIProvider>
         </SearchProvider>

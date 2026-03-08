@@ -45,6 +45,74 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
+        "Disable all auth — set to false to require login (default true for backward compat)",
+        "AuthDisabled",
+        True,
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable username/password login",
+        "LocalAuthEnabled",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable OIDC login",
+        "OIDCEnabled",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        "Username for local auth",
+        "Username",
+        "",
+    )
+    _gen_default_line(
+        web_settings,
+        "BCrypt password hash — set via the WebUI 'Set Password' button, never plain text",
+        "PasswordHash",
+        "",
+    )
+    oidc_settings = table()
+    _gen_default_line(
+        oidc_settings,
+        "OIDC issuer/authority URL (e.g. https://auth.example.com/application/o/qbitrr)",
+        "Authority",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OAuth2 client ID",
+        "ClientId",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OAuth2 client secret",
+        "ClientSecret",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "Space-separated OIDC scopes",
+        "Scopes",
+        "openid profile",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OIDC callback path (must match IdP redirect URI)",
+        "CallbackPath",
+        "/signin-oidc",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "Require HTTPS for IdP metadata (set false only for local dev OIDC)",
+        "RequireHttpsMetadata",
+        True,
+    )
+    web_settings.add("OIDC", oidc_settings)
+    _gen_default_line(
+        web_settings,
         "Enable live updates for Arr views",
         "LiveArr",
         True,

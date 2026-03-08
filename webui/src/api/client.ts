@@ -4,17 +4,28 @@ import type {
   ConfigResponseWithWarning,
   ConfigUpdatePayload,
   ConfigUpdateResponse,
+  LoginRequest,
   MetaResponse,
   LogsListResponse,
   ProcessesResponse,
   QbitCategoriesResponse,
   RadarrMoviesResponse,
   RestartResponse,
+  SetPasswordRequest,
   SonarrSeriesResponse,
   LidarrAlbumsResponse,
   LidarrTracksResponse,
   StatusResponse,
 } from "./types";
+
+export class AuthError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "AuthError";
+    this.code = code;
+  }
+}
 
 const JSON_HEADERS = { "Content-Type": "application/json" } as const;
 const TOKEN_STORAGE_KEYS = ["token", "webui-token", "webui_token"] as const;
@@ -80,6 +91,7 @@ function buildInit(init: RequestInit | undefined, token: string | null): Request
   return {
     ...init,
     headers,
+    credentials: "include",
   };
 }
 
@@ -363,4 +375,47 @@ export async function testArrConnection(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function login(req: LoginRequest): Promise<{ success: boolean }> {
+  const res = await fetch("/web/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(req),
+  });
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+  if (!res.ok) {
+    const code = typeof data.code === "string" ? data.code : undefined;
+    const message = typeof data.error === "string" ? data.error : `${res.status} ${res.statusText}`;
+    throw new AuthError(message, code);
+  }
+  return data as { success: boolean };
+}
+
+export async function setPassword(req: SetPasswordRequest): Promise<{ success: boolean }> {
+  const res = await fetch("/web/auth/set-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(req),
+  });
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+  if (!res.ok) {
+    const message = typeof data.error === "string" ? data.error : `${res.status} ${res.statusText}`;
+    throw new AuthError(message);
+  }
+  return data as { success: boolean };
+}
+
+export async function logout(): Promise<void> {
+  await fetch("/web/logout", { method: "POST", credentials: "include" });
+  clearStoredToken();
+}
+
+export async function fetchWebToken(): Promise<string | null> {
+  const res = await fetch("/web/token", { credentials: "include" });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+  return typeof data.token === "string" ? data.token : null;
 }

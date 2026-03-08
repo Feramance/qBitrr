@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
 import ReactMarkdown from "react-markdown";
-import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
+import { getConfig, updateConfig, testArrConnection, setPassword as apiSetPassword, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
@@ -376,6 +376,71 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     type: "password",
     secure: true,
     fullWidth: true,
+  },
+  {
+    label: "Auth Disabled",
+    path: ["WebUI", "AuthDisabled"],
+    type: "checkbox",
+    description: "Disable login requirement (default: true for backward compatibility)",
+  },
+  {
+    label: "Local Auth Enabled",
+    path: ["WebUI", "LocalAuthEnabled"],
+    type: "checkbox",
+    description: "Enable username/password login",
+  },
+  {
+    label: "OIDC Enabled",
+    path: ["WebUI", "OIDCEnabled"],
+    type: "checkbox",
+    description: "Enable OpenID Connect login",
+  },
+  {
+    label: "Username",
+    path: ["WebUI", "Username"],
+    type: "text",
+    description: "Username for local auth login",
+  },
+  {
+    label: "OIDC Authority",
+    path: ["WebUI", "OIDC", "Authority"],
+    type: "text",
+    placeholder: "https://auth.example.com/application/o/qbitrr",
+    description: "OIDC issuer/authority URL",
+    fullWidth: true,
+  },
+  {
+    label: "OIDC Client ID",
+    path: ["WebUI", "OIDC", "ClientId"],
+    type: "text",
+    description: "OAuth2 client ID",
+  },
+  {
+    label: "OIDC Client Secret",
+    path: ["WebUI", "OIDC", "ClientSecret"],
+    type: "password",
+    secure: true,
+    description: "OAuth2 client secret",
+  },
+  {
+    label: "OIDC Scopes",
+    path: ["WebUI", "OIDC", "Scopes"],
+    type: "text",
+    placeholder: "openid profile",
+    description: "Space-separated OIDC scopes",
+  },
+  {
+    label: "OIDC Callback Path",
+    path: ["WebUI", "OIDC", "CallbackPath"],
+    type: "text",
+    placeholder: "/signin-oidc",
+    description: "OIDC callback path (must match IdP redirect URI)",
+  },
+  {
+    label: "Require HTTPS Metadata",
+    path: ["WebUI", "OIDC", "RequireHttpsMetadata"],
+    type: "checkbox",
+    description: "Require HTTPS for IdP metadata (set false only for local dev OIDC)",
   },
 ];
 
@@ -1657,6 +1722,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [activeQbitKey, setActiveQbitKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
+  const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -1725,7 +1791,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen);
+    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen || isSetPasswordOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1733,6 +1799,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setActiveQbitKey(null);
         setSettingsOpen(false);
         setWebSettingsOpen(false);
+        setSetPasswordOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1743,7 +1810,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen]);
+  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen, isSetPasswordOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -2235,7 +2302,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onClose={() => setWebSettingsOpen(false)}
           showLiveSettings={true}
+          onSetPassword={() => setSetPasswordOpen(true)}
         />
+      ) : null}
+      {isSetPasswordOpen ? (
+        <SetPasswordModal onClose={() => setSetPasswordOpen(false)} />
       ) : null}
       {activeQbitKey && formState ? (
         <QbitInstanceModal
@@ -3478,6 +3549,7 @@ interface SimpleConfigModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
   showLiveSettings?: boolean;
+  onSetPassword?: () => void;
 }
 
 function SimpleConfigModal({
@@ -3488,6 +3560,7 @@ function SimpleConfigModal({
   onChange,
   onClose,
   showLiveSettings = false,
+  onSetPassword,
 }: SimpleConfigModalProps): JSX.Element | null {
   const webUI = useWebUI();
 
@@ -3568,6 +3641,22 @@ function SimpleConfigModal({
               </div>
             </div>
           )}
+          {onSetPassword && (
+            <div className="field-group">
+              <h3 className="field-group-title">Password Management</h3>
+              <div className="field-group-content">
+                <div className="field">
+                  <p className="field-description">
+                    Set or change the login password for local auth. The password hash is stored
+                    securely in config and never exposed via the API.
+                  </p>
+                  <button className="btn primary" type="button" onClick={onSetPassword}>
+                    Set Password
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
@@ -3575,6 +3664,144 @@ function SimpleConfigModal({
             Done
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface SetPasswordModalProps {
+  onClose: () => void;
+}
+
+function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
+  const [username, setUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [setupToken, setSetupToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const { push } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!username.trim()) {
+      setError("Username is required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiSetPassword({ username: username.trim(), password: newPassword, setupToken: setupToken || undefined });
+      setSuccess(true);
+      push("Password set successfully.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set password.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="set-password-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 480 }}
+      >
+        <div className="modal-header">
+          <h2 id="set-password-modal-title">Set Password</h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body">
+          {success ? (
+            <div style={{ padding: "1rem 0", color: "var(--success)" }}>
+              Password set successfully. Auth is now enabled with local login.
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div className="field">
+                <label htmlFor="sp-username">Username</label>
+                <input
+                  id="sp-username"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="sp-password">New Password</label>
+                <input
+                  id="sp-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+                <p className="field-description">Minimum 8 characters.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="sp-confirm">Confirm Password</label>
+                <input
+                  id="sp-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="sp-setup-token">Setup Token (optional)</label>
+                <input
+                  id="sp-setup-token"
+                  type="password"
+                  autoComplete="off"
+                  value={setupToken}
+                  onChange={(e) => setSetupToken(e.target.value)}
+                  placeholder="Required only when changing an existing password"
+                />
+                <p className="field-description">
+                  Provide <code>QBITRR_SETUP_TOKEN</code> env var value to reset an existing password.
+                </p>
+              </div>
+              {error && <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</div>}
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                <button className="btn ghost" type="button" onClick={onClose} disabled={submitting}>
+                  Cancel
+                </button>
+                <button className="btn primary" type="submit" disabled={submitting}>
+                  {submitting ? "Setting…" : "Set Password"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+        {success && (
+          <div className="modal-footer">
+            <button className="btn primary" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

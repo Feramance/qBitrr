@@ -91,6 +91,40 @@ Port = 6969
 # Set a non-empty value to require Authorization: Bearer <token>.
 Token = ""
 
+# Disable all auth — set to false to require login (default true for backward compat)
+AuthDisabled = true
+
+# Enable username/password login
+LocalAuthEnabled = false
+
+# Enable OIDC login
+OIDCEnabled = false
+
+# Username for local auth
+Username = ""
+
+# BCrypt password hash — set via the WebUI 'Set Password' button, never plain text
+PasswordHash = ""
+
+[WebUI.OIDC]
+# OIDC issuer/authority URL (e.g. https://auth.example.com/application/o/qbitrr)
+Authority = ""
+
+# OAuth2 client ID
+ClientId = ""
+
+# OAuth2 client secret
+ClientSecret = ""
+
+# Space-separated OIDC scopes
+Scopes = "openid profile"
+
+# OIDC callback path (must match IdP redirect URI)
+CallbackPath = "/signin-oidc"
+
+# Require HTTPS for IdP metadata (set false only for local dev OIDC)
+RequireHttpsMetadata = true
+
 # Enable live updates for Arr views
 LiveArr = true
 
