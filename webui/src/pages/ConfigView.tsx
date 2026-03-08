@@ -1000,7 +1000,7 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     },
     parse: (value: string | boolean) => {
       const n = Number(value);
-      return Number.isFinite(n) ? Math.round(n) / 100 : 0.99;
+      return Number.isFinite(n) ? n / 100 : 0.99;
     },
     validate: (value) => {
       const num = typeof value === "number" ? value : Number(value);
