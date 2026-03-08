@@ -5,6 +5,7 @@ import pathlib
 import random
 import re
 import socket
+import threading
 import time
 from collections.abc import Iterator
 
@@ -51,20 +52,23 @@ def with_retry(
 
 
 def absolute_file_paths(directory: pathlib.Path | str) -> Iterator[pathlib.Path]:
-    file_counter = 0
-    error = True
-    while error:
+    """Yield all file paths under directory. Retries on transient FileNotFoundError."""
+    max_retries = 10
+    for attempt in range(max_retries):
         try:
-            if file_counter == 50:
-                error = False
-            yield from pathlib.Path(directory).glob("**/*")
-            error = False
-            file_counter = 0
+            # Collect full list before yielding so retries do not duplicate items
+            items = list(pathlib.Path(directory).glob("**/*"))
+            yield from items
+            return
         except FileNotFoundError as e:
-            file_counter += 1
-            if file_counter == 1:
+            if attempt == 0:
                 logger.warning("%s - %s", e.strerror, e.filename)
-            time.sleep(0.1)
+            if attempt < max_retries - 1:
+                time.sleep(0.1)
+            else:
+                logger.warning(
+                    "Giving up on directory after %d retries: %s", max_retries, directory
+                )
 
 
 def validate_and_return_torrent_file(file: str) -> pathlib.Path:
@@ -194,13 +198,15 @@ class ExpiringSet:
         max_age_seconds = kwargs.get("max_age_seconds", 0)
         assert max_age_seconds > 0
         self.age = max_age_seconds
+        self._lock = threading.Lock()
         self.container = {}
         for arg in args:
             self.add(arg)
 
     def __repr__(self):
-        self.__update__()
-        return f"{self.__class__.__name__}({', '.join(map(str, self.container.keys()))})"
+        with self._lock:
+            self.__update__()
+            return f"{self.__class__.__name__}({', '.join(map(str, self.container.keys()))})"
 
     def extend(self, args):
         """Add several items at once."""
@@ -208,50 +214,63 @@ class ExpiringSet:
             self.add(arg)
 
     def add(self, value):
-        self.container[value] = time.time()
+        with self._lock:
+            self.container[value] = time.time()
 
     def remove(self, item):
-        del self.container[item]
+        with self._lock:
+            del self.container[item]
 
     def contains(self, value):
-        if value not in self.container:
-            return False
-        if time.time() - self.container[value] > self.age:
-            del self.container[value]
-            return False
-        return True
+        with self._lock:
+            if value not in self.container:
+                return False
+            if time.time() - self.container[value] > self.age:
+                del self.container[value]
+                return False
+            return True
 
     __contains__ = contains
 
     def __getitem__(self, index):
-        self.__update__()
-        return list(self.container.keys())[index]
+        with self._lock:
+            self.__update__()
+            return list(self.container.keys())[index]
 
     def __iter__(self):
-        self.__update__()
-        return iter(self.container.copy())
+        with self._lock:
+            self.__update__()
+            return iter(self.container.copy())
 
     def __len__(self):
-        self.__update__()
-        return len(self.container)
+        with self._lock:
+            self.__update__()
+            return len(self.container)
 
     def __copy__(self):
-        self.__update__()
-        temp = ExpiringSet(max_age_seconds=self.age)
-        temp.container = self.container.copy()
-        return temp
+        with self._lock:
+            self.__update__()
+            temp = ExpiringSet(max_age_seconds=self.age)
+            temp.container = self.container.copy()
+            return temp
 
     def __update__(self):
-        for k, b in self.container.copy().items():
-            if time.time() - b > self.age:
-                del self.container[k]
+        """Expire old entries. Caller must hold self._lock."""
+        now = time.time()
+        expired = [k for k, b in self.container.items() if now - b > self.age]
+        for k in expired:
+            del self.container[k]
 
     def __eq__(self, other):
         if not isinstance(other, ExpiringSet):
             return False
-        self.__update__()
-        other.__update__()
-        return set(self.container.keys()) == set(other.container.keys())
+        # Acquire locks in a consistent order (by object id) to prevent deadlock
+        first, second = (self, other) if id(self) < id(other) else (other, self)
+        with first._lock:
+            with second._lock:
+                self.__update__()
+                other.__update__()
+                return set(self.container.keys()) == set(other.container.keys())
 
 
 def mask_secret(value: str | None) -> str:

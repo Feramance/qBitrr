@@ -180,7 +180,44 @@ curl -H "Authorization: Bearer my-secure-token-12345" \
 
     - Behind reverse proxy with its own authentication
     - Only accessible from localhost
+    - Only accessible from localhost
     - Running in a trusted private network
+
+---
+
+## BehindHttpsProxy
+
+```toml
+BehindHttpsProxy = false
+```
+
+**Type:** Boolean
+**Default:** `false`
+
+Set to `true` when the WebUI is reached over HTTPS (e.g. behind a reverse proxy such as Nginx, Caddy, or Traefik).
+
+**When `true`:**
+
+- The app trusts the `X-Forwarded-Proto` header so `request.is_secure` and generated URLs (e.g. OIDC redirect) reflect the client-facing HTTPS.
+- Werkzeug's ProxyFix middleware is applied (`x_proto=1`).
+- The session cookie is set with the `Secure` flag so browsers only send it over HTTPS.
+
+**When `false` (default):**
+
+- No proxy headers are trusted; suitable for plain HTTP or when qBitrr is not behind a proxy.
+- Session cookie is not marked Secure, so login works over HTTP.
+
+!!! tip "When to enable"
+    Enable **BehindHttpsProxy** when you access the WebUI via `https://` and your reverse proxy sets `X-Forwarded-Proto: https`. Leave `false` for local `http://localhost` or plain HTTP to avoid login/session issues.
+
+**Example (HTTPS behind Nginx):**
+
+```toml
+[WebUI]
+Host = "127.0.0.1"
+Port = 6969
+BehindHttpsProxy = true
+```
 
 ---
 
@@ -439,6 +476,7 @@ server {
 [WebUI]
 Host = "127.0.0.1"  # Only listen on localhost
 Port = 6969
+BehindHttpsProxy = true  # When using HTTPS reverse proxy; trusts X-Forwarded-Proto and sets Secure cookie
 ```
 
 ---

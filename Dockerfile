@@ -8,9 +8,10 @@ RUN mkdir -p qBitrr/static && cd webui && npm run build
 
 FROM python:3.14-slim
 
+ARG VERSION=dev
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
-LABEL Version="5.9.2"
+LABEL Version="${VERSION}"
 LABEL org.opencontainers.image.source=https://github.com/feramance/qbitrr
 
 # Install tini (PID 1, SIGTERM forwarding), gosu (drop privileges after chown), and curl (health checks)

@@ -94,6 +94,10 @@ Token = ""
 # Disable all auth — set to false to require login (default true for backward compat)
 AuthDisabled = true
 
+# Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy).
+# When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure. Leave false for plain HTTP.
+BehindHttpsProxy = false
+
 # Enable username/password login
 LocalAuthEnabled = false
 

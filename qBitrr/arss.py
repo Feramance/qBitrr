@@ -631,9 +631,9 @@ class Arr:
             "RefreshDownloadsTimer=%s, "
             "RssSyncTimer=%s",
             self._name,
-            self.import_mode,
             self.managed,
             self.re_search,
+            self.import_mode,
             self.category,
             self.uri,
             _masked_apikey,
@@ -1039,9 +1039,9 @@ class Arr:
                             condition
                         ).execute()
         else:
-            with contextlib.suppress(Exception):
+            try:
                 with_retry(
-                    lambda: torrent.remove_tags(tags),
+                    lambda t=torrent, tg=tags: t.remove_tags(tg),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
@@ -1051,12 +1051,14 @@ class Arr:
                         requests.exceptions.RequestException,
                     ),
                 )
+            except Exception as e:
+                self.logger.warning("Failed to remove tags %s from %s: %s", tags, torrent.name, e)
 
     def add_tags(
         self, torrent: TorrentDictionary, tags: list, instance_name: str = "default"
     ) -> None:
         for tag in tags:
-            self.logger.trace("Adding tag %s from %s", tag, torrent.name)
+            self.logger.trace("Adding tag %s to %s", tag, torrent.name)
         if TAGLESS:
             with database_lock():
                 self._ensure_torrent_row(torrent, instance_name)
@@ -1068,9 +1070,9 @@ class Arr:
                             condition
                         ).execute()
         else:
-            with contextlib.suppress(Exception):
+            try:
                 with_retry(
-                    lambda: torrent.add_tags(tags),
+                    lambda t=torrent, tg=tags: t.add_tags(tg),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
@@ -1080,6 +1082,8 @@ class Arr:
                         requests.exceptions.RequestException,
                     ),
                 )
+            except Exception as e:
+                self.logger.warning("Failed to add tags %s to %s: %s", tags, torrent.name, e)
 
     def _get_oversee_requests_all(self) -> dict[str, set]:
         try:
@@ -1092,7 +1096,7 @@ class Arr:
                 type_ = "movie"
             elif self.type == "sonarr":
                 type_ = "tv"
-            _now = datetime.now()
+            _now = datetime.now(timezone.utc)
             while True:
                 response = self.session.get(
                     url=f"{self.overseerr_uri}/api/v1/request",
@@ -1174,7 +1178,9 @@ class Arr:
                                 date_string = _entry.json().get("firstAirDate")
                             if not date_string:
                                 date_string = date_string_backup
-                            date = datetime.strptime(date_string[:10], "%Y-%m-%d")
+                            date = datetime.strptime(date_string[:10], "%Y-%m-%d").replace(
+                                tzinfo=timezone.utc
+                            )
                             if date > _now:
                                 continue
                             self.overseerr_requests_release_cache[id__] = date
@@ -1429,8 +1435,8 @@ class Arr:
                     if series_id:
                         self.logger.trace("Research series id: %s", series_id)
                         with_retry(
-                            lambda: self.client.post_command(
-                                self.search_api_command, seriesId=series_id
+                            lambda sid=series_id: self.client.post_command(
+                                self.search_api_command, seriesId=sid
                             ),
                             retries=5,
                             backoff=0.5,
@@ -1810,7 +1816,7 @@ class Arr:
         if not self.completed_folder.exists():
             return
         for path in absolute_file_paths(self.completed_folder):
-            if path.is_dir() and not len(list(absolute_file_paths(path))):
+            if path.is_dir() and next(path.iterdir(), None) is None:
                 with contextlib.suppress(FileNotFoundError):
                     path.rmdir()
                 self.logger.trace("Removing empty folder: %s", path)
@@ -1819,7 +1825,7 @@ class Arr:
                 else:
                     new_sent_to_scan.add(path)
         self.sent_to_scan = new_sent_to_scan
-        if not len(list(absolute_file_paths(self.completed_folder))):
+        if next(self.completed_folder.iterdir(), None) is None:
             self.sent_to_scan = set()
             self.sent_to_scan_hashes = set()
 
@@ -2047,10 +2053,17 @@ class Arr:
                 for e in episodes:
                     ids.append(e["id"])
             with database_lock():
-                self.model_file.delete().where(
-                    (self.model_file.EntryId.not_in(ids))
-                    & (self.model_file.ArrInstance == self._name)
-                ).execute()
+                if ids:
+                    self.model_file.delete().where(
+                        (self.model_file.EntryId.not_in(ids))
+                        & (self.model_file.ArrInstance == self._name)
+                    ).execute()
+                else:
+                    self.logger.warning(
+                        "%s: No episodes returned from Arr API during reset; "
+                        "skipping DB prune to prevent data loss",
+                        self._name,
+                    )
             self.loop_completed = False
 
     def db_reset__movie_searched_state(self):
@@ -2169,7 +2182,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
-            if self.search_by_year:
+            if self.search_by_year and self.search_current_year is not None:
                 condition &= (
                     self.model_file.AirDateUtc
                     >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
@@ -2192,27 +2205,36 @@ class Arr:
 
             # Collect series entries with their priority based on episode reasons
             # Missing > CustomFormat > Quality > Upgrade
-            series_entries = []
-            for entry_ in self.series_file_model.select().where(condition).execute():
-                # Get the highest priority reason from this series' episodes
-                reason_priority_map = {
-                    "Missing": 1,
-                    "CustomFormat": 2,
-                    "Quality": 3,
-                    "Upgrade": 4,
-                }
-                # Find the minimum priority (highest importance) reason for this series
-                min_priority = 5  # Default
-                episode_reasons = (
-                    self.model_file.select(self.model_file.Reason)
-                    .where(self.model_file.SeriesId == entry_.EntryId)
+            reason_priority_map = {
+                "Missing": 1,
+                "CustomFormat": 2,
+                "Quality": 3,
+                "Upgrade": 4,
+            }
+
+            # Pre-fetch all episode reasons in a single query, grouped by SeriesId
+            series_ids = [
+                e.EntryId
+                for e in self.series_file_model.select(self.series_file_model.EntryId)
+                .where(condition)
+                .execute()
+            ]
+            reasons_by_series: dict[int, int] = {}
+            if series_ids:
+                for ep in (
+                    self.model_file.select(self.model_file.SeriesId, self.model_file.Reason)
+                    .where(self.model_file.SeriesId.in_(series_ids))
                     .execute()
-                )
-                for ep in episode_reasons:
+                ):
                     if ep.Reason:
                         priority = reason_priority_map.get(ep.Reason, 5)
-                        min_priority = min(min_priority, priority)
+                        sid = ep.SeriesId
+                        if sid not in reasons_by_series or priority < reasons_by_series[sid]:
+                            reasons_by_series[sid] = priority
 
+            series_entries = []
+            for entry_ in self.series_file_model.select().where(condition).execute():
+                min_priority = reasons_by_series.get(entry_.EntryId, 5)
                 series_entries.append((entry_, min_priority))
 
             # Sort by priority, then by EntryId
@@ -2263,7 +2285,7 @@ class Arr:
             condition &= self.model_file.AirDateUtc < (
                 datetime.now(timezone.utc) - timedelta(days=1)
             )
-            if self.search_by_year:
+            if self.search_by_year and self.search_current_year is not None:
                 condition &= (
                     self.model_file.AirDateUtc
                     >= datetime(month=1, day=1, year=int(self.search_current_year)).date()
@@ -2470,7 +2492,13 @@ class Arr:
                 exceptions=_ARR_RETRY_EXCEPTIONS,
             )
             for s in series:
-                episodes = self.client.get_episode(s["id"], True)
+                episodes = with_retry(
+                    lambda s=s: self.client.get_episode(s["id"], True),
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                )
                 for e in episodes:
                     if "airDateUtc" in e:
                         if datetime.strptime(e["airDateUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(

@@ -188,6 +188,12 @@ class WebUI:
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
 
+        # When behind HTTPS proxy, trust X-Forwarded-Proto so request.is_secure and URLs are correct
+        if CONFIG.get("WebUI.BehindHttpsProxy", fallback=False):
+            from werkzeug.middleware.proxy_fix import ProxyFix
+
+            self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_proto=1)
+
         # Add cache control and security headers
         @self.app.after_request
         def add_cache_headers(response):
@@ -222,7 +228,7 @@ class WebUI:
             SESSION_COOKIE_NAME="qbitrr_session",
             SESSION_COOKIE_HTTPONLY=True,
             SESSION_COOKIE_SAMESITE="Lax",
-            SESSION_COOKIE_SECURE=False,
+            SESSION_COOKIE_SECURE=bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
             PERMANENT_SESSION_LIFETIME=timedelta(days=7),
         )
 
@@ -987,7 +993,11 @@ class WebUI:
             missing_count = (
                 track_model.select()
                 .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(track_model.HasFile == False)
+                .where(
+                    (track_model.ArrInstance == arr_instance)
+                    & (album_model.ArrInstance == arr_instance)
+                    & (track_model.HasFile == False)
+                )
                 .count()
             )
 
@@ -1523,18 +1533,32 @@ class WebUI:
             return redirect("/ui")
 
         def _authorized():
+            _webui_logger = logging.getLogger("qBitrr.WebUI")
+
+            def _get_supplied_token():
+                header_token = (
+                    request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+                )
+                if header_token:
+                    return header_token
+                query_token = request.args.get("token")
+                if query_token:
+                    _webui_logger.warning(
+                        "Token supplied via query parameter from %s — this is insecure "
+                        "(token visible in logs and browser history). Use Authorization header instead.",
+                        request.remote_addr,
+                    )
+                    return query_token
+                return None
+
             # Auth disabled globally → always authorized
             if _auth_disabled():
                 if not self.token:
                     return True
-                supplied = request.headers.get("Authorization", "").removeprefix(
-                    "Bearer "
-                ).strip() or request.args.get("token")
+                supplied = _get_supplied_token()
                 return secrets.compare_digest(supplied, self.token) if supplied else True
             # Bearer token (API path) — constant-time comparison
-            supplied = request.headers.get("Authorization", "").removeprefix(
-                "Bearer "
-            ).strip() or request.args.get("token")
+            supplied = _get_supplied_token()
             if supplied and self.token and secrets.compare_digest(supplied, self.token):
                 return True
             # Session cookie (web login path)
@@ -2907,6 +2931,7 @@ class WebUI:
                 "WebUI.Port",
                 "WebUI.Token",
                 "WebUI.AuthDisabled",
+                "WebUI.BehindHttpsProxy",
                 "WebUI.LocalAuthEnabled",
                 "WebUI.OIDCEnabled",
                 "WebUI.PasswordHash",

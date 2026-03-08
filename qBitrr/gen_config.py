@@ -24,9 +24,9 @@ def _add_web_settings_section(config: TOMLDocument):
     web_settings = table()
     _gen_default_line(
         web_settings,
-        "WebUI listen host (default 0.0.0.0)",
+        "WebUI listen host (default 127.0.0.1; use 0.0.0.0 to bind all interfaces e.g. Docker)",
         "Host",
-        "0.0.0.0",
+        "127.0.0.1",
     )
     _gen_default_line(
         web_settings,
@@ -48,6 +48,16 @@ def _add_web_settings_section(config: TOMLDocument):
         "Disable all auth — set to false to require login (default true for backward compat)",
         "AuthDisabled",
         True,
+    )
+    _gen_default_line(
+        web_settings,
+        [
+            "Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy).",
+            "When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure.",
+            "Leave false for plain HTTP.",
+        ],
+        "BehindHttpsProxy",
+        False,
     )
     _gen_default_line(
         web_settings,
@@ -1143,6 +1153,13 @@ def _migrate_webui_config(config: MyConfig) -> bool:
             migrated = True
             print(f"Migrated WebUI Token from Settings to WebUI section")
 
+    # Rename SecureCookies to BehindHttpsProxy
+    if "SecureCookies" in webui_section and "BehindHttpsProxy" not in webui_section:
+        webui_section["BehindHttpsProxy"] = webui_section["SecureCookies"]
+        del webui_section["SecureCookies"]
+        migrated = True
+        print("Migrated WebUI SecureCookies to BehindHttpsProxy")
+
     return migrated
 
 
@@ -1719,9 +1736,10 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
 
     # Validate WebUI section
     webui_defaults = [
-        ("Host", "0.0.0.0"),
+        ("Host", "127.0.0.1"),
         ("Port", 6969),
         ("Token", ""),
+        ("BehindHttpsProxy", False),
         ("LiveArr", True),
         ("GroupSonarr", True),
         ("GroupLidarr", True),
