@@ -163,7 +163,7 @@ jobs:
         password: ${{ secrets.REG_TOKEN }}
     - name: Extract Docker metadata
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: "feramance/qbitrr\nghcr.io/${{ steps.repo.outputs.lowercase }}\n"
         tags: "type=raw,value=latest\ntype=raw,value=nightly\ntype=raw,value=v${{ env.VERSION }}\n"
