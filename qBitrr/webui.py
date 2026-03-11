@@ -228,7 +228,8 @@ class WebUI:
                 self.logger.notice("Generated new WebUI token")
 
         # Flask session config (HttpOnly signed cookies for web login)
-        self.app.secret_key = self.token or secrets.token_hex(32)
+        # Keep session signing separate from bearer token auth.
+        self.app.secret_key = secrets.token_hex(32)
         self.app.config.update(
             SESSION_COOKIE_NAME="qbitrr_session",
             SESSION_COOKIE_HTTPONLY=True,

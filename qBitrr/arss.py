@@ -1816,7 +1816,13 @@ class Arr:
         if not self.completed_folder.exists():
             return
         for path in absolute_file_paths(self.completed_folder):
-            if path.is_dir() and next(path.iterdir(), None) is None:
+            if not path.is_dir():
+                continue
+            try:
+                is_empty_dir = next(path.iterdir(), None) is None
+            except FileNotFoundError:
+                continue
+            if is_empty_dir:
                 with contextlib.suppress(FileNotFoundError):
                     path.rmdir()
                 self.logger.trace("Removing empty folder: %s", path)
@@ -1825,7 +1831,11 @@ class Arr:
                 else:
                     new_sent_to_scan.add(path)
         self.sent_to_scan = new_sent_to_scan
-        if next(self.completed_folder.iterdir(), None) is None:
+        try:
+            is_completed_folder_empty = next(self.completed_folder.iterdir(), None) is None
+        except FileNotFoundError:
+            is_completed_folder_empty = True
+        if is_completed_folder_empty:
             self.sent_to_scan = set()
             self.sent_to_scan_hashes = set()
 
