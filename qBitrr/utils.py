@@ -264,6 +264,8 @@ class ExpiringSet:
     def __eq__(self, other):
         if not isinstance(other, ExpiringSet):
             return False
+        if self is other:
+            return True
         # Acquire locks in a consistent order (by object id) to prevent deadlock
         first, second = (self, other) if id(self) < id(other) else (other, self)
         with first._lock:
