@@ -2008,6 +2008,8 @@ class WebUI:
         # UI endpoints (mirror of /api/* for first-party WebUI clients)
         @app.get("/web/processes")
         def web_processes():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_processes_payload())
 
         def _restart_process(category: str, kind: str):
@@ -2210,6 +2212,8 @@ class WebUI:
 
         @app.get("/web/logs")
         def web_logs():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify({"files": _list_logs()})
 
         def _read_tail(path: Path, n: int, offset: int = 0) -> str:
@@ -2286,6 +2290,8 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _serve_log_content(name)
 
         @app.get("/api/logs/<name>/download")
@@ -2299,6 +2305,8 @@ class WebUI:
 
         @app.get("/web/logs/<name>/download")
         def web_log_download(name: str):
+            if (resp := require_token()) is not None:
+                return resp
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -2360,6 +2368,8 @@ class WebUI:
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_radarr_movies(category)
 
         def _handle_sonarr_series(category: str):
@@ -2390,10 +2400,14 @@ class WebUI:
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_sonarr_series(category)
 
         @app.get("/web/lidarr/<category>/albums")
         def web_lidarr_albums(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2471,11 +2485,15 @@ class WebUI:
 
         @app.get("/web/arr")
         def web_arr_list():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_arr_list_payload())
 
         @app.get("/web/qbit/categories")
         def web_qbit_categories():
             """Get all qBit-managed and Arr-managed categories with seeding statistics."""
+            if (resp := require_token()) is not None:
+                return resp
             categories_data = []
 
             # Add qBit-managed categories
@@ -2671,6 +2689,8 @@ class WebUI:
 
         @app.get("/web/download-update")
         def web_download_update():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_download_update()
 
         def _status_payload() -> dict[str, Any]:
@@ -2742,6 +2762,8 @@ class WebUI:
 
         @app.get("/web/status")
         def web_status():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_status_payload())
 
         @app.get("/api/torrents/distribution")
@@ -3295,6 +3317,8 @@ class WebUI:
 
         @app.post("/web/arr/test-connection")
         def web_arr_test_connection():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_test_connection()
 
     def _reload_all(self):
