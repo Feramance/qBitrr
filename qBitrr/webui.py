@@ -41,9 +41,16 @@ class _RateLimiter:
     def allow(self, key: str) -> bool:
         now = time.monotonic()
         with self._lock:
-            times = [t for t in self._data.get(key, []) if now - t < self._window]
+            # Opportunistically prune stale entries so old IP keys do not accumulate forever.
+            for existing_key, existing_times in list(self._data.items()):
+                filtered_times = [t for t in existing_times if now - t < self._window]
+                if filtered_times:
+                    self._data[existing_key] = filtered_times
+                else:
+                    self._data.pop(existing_key, None)
+
+            times = self._data.get(key, [])
             if len(times) >= self._max:
-                self._data[key] = times
                 return False
             times.append(now)
             self._data[key] = times
@@ -52,6 +59,7 @@ class _RateLimiter:
 
 _login_limiter = _RateLimiter(max_attempts=10, window_seconds=900)
 _setpw_limiter = _RateLimiter(max_attempts=5, window_seconds=900)
+_setpw_lock = threading.Lock()
 
 
 def _pw_hash(password: str) -> str:
@@ -1559,10 +1567,7 @@ class WebUI:
 
             # Auth disabled globally → always authorized
             if _auth_disabled():
-                if not self.token:
-                    return True
-                supplied = _get_supplied_token()
-                return secrets.compare_digest(supplied, self.token) if supplied else True
+                return True
             # Bearer token (API path) — constant-time comparison
             supplied = _get_supplied_token()
             if supplied and self.token and secrets.compare_digest(supplied, self.token):
@@ -1653,26 +1658,27 @@ class WebUI:
                 return jsonify({"error": "Username and password required"}), 400
             if len(password) < 8:
                 return jsonify({"error": "Password must be at least 8 characters"}), 400
-            stored_hash = CONFIG.get("WebUI.PasswordHash", fallback="") or ""
             env_token = os.environ.get("QBITRR_SETUP_TOKEN", "")
-            first_time = not stored_hash
             token_ok = (
                 bool(env_token)
                 and bool(setup_token)
                 and secrets.compare_digest(setup_token, env_token)
             )
-            if not first_time and not token_ok:
-                return jsonify({"error": "Not allowed"}), 403
-            new_hash = _pw_hash(password)
-            try:
-                _toml_set(CONFIG.config, "WebUI.Username", username)
-                _toml_set(CONFIG.config, "WebUI.PasswordHash", new_hash)
-                _toml_set(CONFIG.config, "WebUI.AuthDisabled", False)
-                _toml_set(CONFIG.config, "WebUI.LocalAuthEnabled", True)
-                CONFIG.save()
-            except Exception:
-                self.logger.error("Failed to save config after set-password", exc_info=True)
-                return jsonify({"error": "Failed to save configuration"}), 500
+            with _setpw_lock:
+                stored_hash = CONFIG.get("WebUI.PasswordHash", fallback="") or ""
+                first_time = not stored_hash
+                if not first_time and not token_ok:
+                    return jsonify({"error": "Not allowed"}), 403
+                new_hash = _pw_hash(password)
+                try:
+                    _toml_set(CONFIG.config, "WebUI.Username", username)
+                    _toml_set(CONFIG.config, "WebUI.PasswordHash", new_hash)
+                    _toml_set(CONFIG.config, "WebUI.AuthDisabled", False)
+                    _toml_set(CONFIG.config, "WebUI.LocalAuthEnabled", True)
+                    CONFIG.save()
+                except Exception:
+                    self.logger.error("Failed to save config after set-password", exc_info=True)
+                    return jsonify({"error": "Failed to save configuration"}), 500
             self.logger.info("Password set for user %s", username)
             return jsonify({"success": True})
 
