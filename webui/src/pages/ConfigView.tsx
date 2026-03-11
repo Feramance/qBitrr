@@ -1418,8 +1418,13 @@ function validateFieldGroup(
     const rawValue = pathSegments.length
       ? getValue(state as ConfigDocument, pathSegments)
       : undefined;
-    // Apply format function if it exists to convert raw value to expected validation format
-    const value = field.format ? field.format(rawValue) : rawValue;
+    // When field has both format and parse, validate the stored (raw) value; otherwise use formatted value
+    const value =
+      field.format && field.parse
+        ? rawValue
+        : field.format
+          ? field.format(rawValue)
+          : rawValue;
     const fullPath = [...basePath, ...pathSegments];
     const baseError = basicValidation(field, value);
     if (baseError) {
