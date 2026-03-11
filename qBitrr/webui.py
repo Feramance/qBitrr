@@ -188,11 +188,11 @@ class WebUI:
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
 
-        # When behind HTTPS proxy, trust X-Forwarded-Proto so request.is_secure and URLs are correct
+        # When behind HTTPS proxy, trust forwarded proto/ip for secure URLs and per-client limits
         if CONFIG.get("WebUI.BehindHttpsProxy", fallback=False):
             from werkzeug.middleware.proxy_fix import ProxyFix
 
-            self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_proto=1)
+            self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_for=1, x_proto=1)
 
         # Add cache control and security headers
         @self.app.after_request
