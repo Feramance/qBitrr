@@ -87,7 +87,14 @@ def _toml_set(doc, dotted_key: str, value: Any):
     keys = dotted_key.split(".")
     cur = doc
     for k in keys[:-1]:
-        if k not in cur or not isinstance(cur[k], dict):
+        # Reuse existing node if it is a dict or a dict-like container (e.g. tomlkit
+        # Table/InlineTable), so we do not replace CategorySeeding and lose other keys
+        # when only one dotted key (e.g. qBit.CategorySeeding.MaxSeedingTime) is set.
+        existing = cur.get(k) if k in cur else None
+        is_nested_container = isinstance(existing, dict) or (
+            hasattr(existing, "__setitem__") and hasattr(existing, "__contains__")
+        )
+        if k not in cur or not is_nested_container:
             cur[k] = table()
         cur = cur[k]
 
