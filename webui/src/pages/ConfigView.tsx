@@ -1418,13 +1418,16 @@ function validateFieldGroup(
     const rawValue = pathSegments.length
       ? getValue(state as ConfigDocument, pathSegments)
       : undefined;
-    // When field has both format and parse, validate the stored (raw) value; otherwise use formatted value
+    // When field has both format and parse, validate the stored (raw) value; otherwise use formatted value.
+    // For type "select", use formatted value for basicValidation so stored numbers (e.g. RemoveTorrent -1..4) pass.
     const value =
-      field.format && field.parse
-        ? rawValue
-        : field.format
-          ? field.format(rawValue)
-          : rawValue;
+      field.type === "select" && field.format
+        ? field.format(rawValue)
+        : field.format && field.parse
+          ? rawValue
+          : field.format
+            ? field.format(rawValue)
+            : rawValue;
     const fullPath = [...basePath, ...pathSegments];
     const baseError = basicValidation(field, value);
     if (baseError) {
