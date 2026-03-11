@@ -91,9 +91,7 @@ def _toml_set(doc, dotted_key: str, value: Any):
         # Table/InlineTable), so we do not replace CategorySeeding and lose other keys
         # when only one dotted key (e.g. qBit.CategorySeeding.MaxSeedingTime) is set.
         existing = cur.get(k) if k in cur else None
-        is_nested_container = isinstance(existing, dict) or (
-            hasattr(existing, "__setitem__") and hasattr(existing, "__contains__")
-        )
+        is_nested_container = isinstance(existing, Mapping)
         if k not in cur or not is_nested_container:
             cur[k] = table()
         cur = cur[k]

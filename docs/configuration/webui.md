@@ -190,7 +190,6 @@ curl -H "Authorization: Bearer my-secure-token-12345" \
 
     - Behind reverse proxy with its own authentication
     - Only accessible from localhost
-    - Only accessible from localhost
     - Running in a trusted private network
 
 ---
