@@ -18,6 +18,16 @@ The qBitrr WebUI provides:
 
 ---
 
+## Authentication and first-run
+
+On **new installs**, authentication is required by default. When you open the WebUI for the first time, you will see a **create credentials** screen: choose a username and password to secure qBitrr. After you set them, you are logged in and local username/password login is enabled. You can change the password later via **Set Password** in WebUI settings.
+
+- **First-run flow:** Open `/ui` → create username and password → set password & sign in → use the WebUI.
+- **Existing configs:** If your config file was created before this behavior (or does not set `AuthDisabled`), the app continues to treat auth as disabled for backward compatibility until you set `AuthDisabled = false` or configure a password.
+- **Disable auth:** To run without login (e.g. behind your own reverse proxy or in a fully trusted environment), set `AuthDisabled = true` in the `[WebUI]` section of `config.toml`. See [AuthDisabled](#authdisabled) below.
+
+---
+
 ## Configuration Section
 
 WebUI settings are configured in the `[WebUI]` section:
@@ -182,6 +192,34 @@ curl -H "Authorization: Bearer my-secure-token-12345" \
     - Only accessible from localhost
     - Only accessible from localhost
     - Running in a trusted private network
+
+---
+
+## AuthDisabled
+
+```toml
+AuthDisabled = false
+```
+
+**Type:** Boolean
+**Default (new installs):** `false` (auth required; user is prompted to create credentials)
+**Default (configs without this key):** Treated as `true` for backward compatibility (auth disabled)
+
+When `false`, the WebUI requires authentication. On first run with no password set, the user sees the create-credentials screen. When `true`, no login is required and the WebUI is open to anyone with network access.
+
+**Use cases:**
+
+| Value  | Use case |
+|--------|----------|
+| `false` | New installs; require username/password (default for newly generated configs). |
+| `true`  | Disable auth (e.g. behind reverse proxy with its own auth, or trusted network). |
+
+**Example (disable auth):**
+
+```toml
+[WebUI]
+AuthDisabled = true
+```
 
 ---
 

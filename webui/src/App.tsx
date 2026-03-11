@@ -429,11 +429,12 @@ interface AuthInfo {
   authRequired: boolean;
   localAuthEnabled: boolean;
   oidcEnabled: boolean;
+  setupRequired: boolean;
 }
 
 function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: () => void) => React.ReactNode }): JSX.Element {
   const [authState, setAuthState] = useState<AuthState>("loading");
-  const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false });
+  const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false, setupRequired: false });
 
   const checkAuth = useCallback(async () => {
     setAuthState("loading");
@@ -444,6 +445,7 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         authRequired,
         localAuthEnabled: Boolean(meta.local_auth_enabled),
         oidcEnabled: Boolean(meta.oidc_enabled),
+        setupRequired: Boolean(meta.setup_required),
       });
       if (!authRequired) {
         setAuthState("authenticated");
@@ -501,6 +503,7 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         onSuccess={() => void handleLoginSuccess()}
         localAuthEnabled={authInfo.localAuthEnabled}
         oidcEnabled={authInfo.oidcEnabled}
+        setupRequired={authInfo.setupRequired}
       />
     );
   }

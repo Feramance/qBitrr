@@ -290,6 +290,7 @@ export interface MetaResponse {
   auth_required?: boolean;
   local_auth_enabled?: boolean;
   oidc_enabled?: boolean;
+  setup_required?: boolean;
 }
 
 export interface LoginRequest {

@@ -45,9 +45,9 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "Disable all auth — set to false to require login (default true for backward compat)",
+        "Require login on new installs; user is prompted to create credentials. Set to true to disable auth (backward compat for configs without this key).",
         "AuthDisabled",
-        True,
+        False,
     )
     _gen_default_line(
         web_settings,

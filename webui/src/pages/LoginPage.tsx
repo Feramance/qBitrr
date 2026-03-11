@@ -5,12 +5,13 @@ interface LoginPageProps {
   onSuccess: () => void;
   localAuthEnabled: boolean;
   oidcEnabled: boolean;
+  setupRequired?: boolean;
 }
 
 type View = "login" | "setup";
 
-export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled }: LoginPageProps) {
-  const [view, setView] = useState<View>("login");
+export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled, setupRequired = false }: LoginPageProps) {
+  const [view, setView] = useState<View>(setupRequired ? "setup" : "login");
 
   // Login form state
   const [username, setUsername] = useState("");
@@ -131,7 +132,11 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled }: LoginPag
           </>
         ) : (
           <>
-            <p className="login-subtitle">Set up your password to continue</p>
+            <p className="login-subtitle">
+              {setupRequired
+                ? "Create your username and password to secure qBitrr"
+                : "Set up your password to continue"}
+            </p>
             <form onSubmit={handleSetup} className="login-form">
               <div className="login-field">
                 <label htmlFor="setup-username">Username</label>
@@ -175,15 +180,17 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled }: LoginPag
               <button className="btn primary login-submit" type="submit" disabled={setupSubmitting}>
                 {setupSubmitting ? "Setting up…" : "Set Password & Sign In"}
               </button>
-              <button
-                className="btn ghost"
-                type="button"
-                onClick={() => setView("login")}
-                disabled={setupSubmitting}
-                style={{ marginTop: "0.5rem" }}
-              >
-                Back to Sign In
-              </button>
+              {!setupRequired && (
+                <button
+                  className="btn ghost"
+                  type="button"
+                  onClick={() => setView("login")}
+                  disabled={setupSubmitting}
+                  style={{ marginTop: "0.5rem" }}
+                >
+                  Back to Sign In
+                </button>
+              )}
             </form>
           </>
         )}
