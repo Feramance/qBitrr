@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { produce } from "immer";
 import equal from "fast-deep-equal";
 import { get, set } from "lodash-es";
 import ReactMarkdown from "react-markdown";
-import { getConfig, updateConfig, testArrConnection, type TestConnectionResponse } from "../api/client";
+import { getConfig, updateConfig, testArrConnection, setPassword as apiSetPassword, type TestConnectionResponse } from "../api/client";
 import type { ConfigDocument } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
@@ -120,15 +120,6 @@ const getSelectStyles = (isDark: boolean) => {
     }),
   };
 };
-
-const parseList = (value: string | boolean): string[] =>
-  String(value)
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-const formatList = (value: unknown): string =>
-  Array.isArray(value) ? value.join(", ") : String(value ?? "");
 
 const IMPORT_MODE_OPTIONS = ["Move", "Copy", "Auto"];
 
@@ -280,10 +271,8 @@ const SETTINGS_FIELDS: FieldDefinition[] = [
   {
     label: "Ping URLs",
     path: ["Settings", "PingURLS"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
-    placeholder: "one.one.one.one, dns.google.com",
+    type: "tags",
+    placeholder: "one.one.one.one",
   },
   {
     label: "FFprobe Auto Update",
@@ -387,6 +376,80 @@ const WEB_SETTINGS_FIELDS: FieldDefinition[] = [
     type: "password",
     secure: true,
     fullWidth: true,
+  },
+  {
+    label: "Behind HTTPS Proxy",
+    path: ["WebUI", "BehindHttpsProxy"],
+    type: "checkbox",
+    description: "Set when the WebUI is reached over HTTPS (e.g. reverse proxy). Enables Secure cookies.",
+  },
+];
+
+const AUTH_SETTINGS_FIELDS: FieldDefinition[] = [
+  {
+    label: "Auth Disabled",
+    path: ["WebUI", "AuthDisabled"],
+    type: "checkbox",
+    description: "Disable login requirement (default: true for backward compatibility)",
+  },
+  {
+    label: "Local Auth Enabled",
+    path: ["WebUI", "LocalAuthEnabled"],
+    type: "checkbox",
+    description: "Enable username/password login",
+  },
+  {
+    label: "OIDC Enabled",
+    path: ["WebUI", "OIDCEnabled"],
+    type: "checkbox",
+    description: "Enable OpenID Connect login",
+  },
+  {
+    label: "Username",
+    path: ["WebUI", "Username"],
+    type: "text",
+    description: "Username for local auth login",
+  },
+  {
+    label: "OIDC Authority",
+    path: ["WebUI", "OIDC", "Authority"],
+    type: "text",
+    placeholder: "https://auth.example.com/application/o/qbitrr",
+    description: "OIDC issuer/authority URL",
+    fullWidth: true,
+  },
+  {
+    label: "OIDC Client ID",
+    path: ["WebUI", "OIDC", "ClientId"],
+    type: "text",
+    description: "OAuth2 client ID",
+  },
+  {
+    label: "OIDC Client Secret",
+    path: ["WebUI", "OIDC", "ClientSecret"],
+    type: "password",
+    secure: true,
+    description: "OAuth2 client secret",
+  },
+  {
+    label: "OIDC Scopes",
+    path: ["WebUI", "OIDC", "Scopes"],
+    type: "text",
+    placeholder: "openid profile",
+    description: "Space-separated OIDC scopes",
+  },
+  {
+    label: "OIDC Callback Path",
+    path: ["WebUI", "OIDC", "CallbackPath"],
+    type: "text",
+    placeholder: "/signin-oidc",
+    description: "OIDC callback path (must match IdP redirect URI)",
+  },
+  {
+    label: "Require HTTPS Metadata",
+    path: ["WebUI", "OIDC", "RequireHttpsMetadata"],
+    type: "checkbox",
+    description: "Require HTTPS for IdP metadata (set false only for local dev OIDC)",
   },
 ];
 
@@ -680,9 +743,8 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
   {
     label: "Arr Error Codes To Blocklist",
     path: ["ArrErrorCodesToBlocklist"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
 ];
 
@@ -842,11 +904,6 @@ const ARR_ENTRY_SEARCH_OMBI_FIELDS: FieldDefinition[] = [
     path: ["EntrySearch", "Ombi", "ApprovedOnly"],
     type: "checkbox",
   },
-  {
-    label: "Is 4K Instance",
-    path: ["EntrySearch", "Ombi", "Is4K"],
-    type: "checkbox",
-  },
 ];
 
 const ARR_ENTRY_SEARCH_OVERSEERR_FIELDS: FieldDefinition[] = [
@@ -887,23 +944,20 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
   {
     label: "Folder Exclusion Regex",
     path: ["Torrent", "FolderExclusionRegex"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "File Name Exclusion Regex",
     path: ["Torrent", "FileNameExclusionRegex"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "File Extension Allowlist",
     path: ["Torrent", "FileExtensionAllowlist"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
+    fullWidth: true,
   },
   {
     label: "Auto Delete",
@@ -942,10 +996,19 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     label: "Maximum Deletable Percentage",
     path: ["Torrent", "MaximumDeletablePercentage"],
     type: "number",
+    placeholder: "0–100 (e.g. 99 = 99%)",
+    format: (value: unknown) => {
+      const n = typeof value === "number" ? value : Number(value ?? 0.99);
+      return Number.isFinite(n) ? String(Math.round(n * 10000) / 100) : "99";
+    },
+    parse: (value: string | boolean) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n / 100 : 0.99;
+    },
     validate: (value) => {
       const num = typeof value === "number" ? value : Number(value);
-      if (!Number.isFinite(num) || num < 0 || num > 100) {
-        return "Maximum Deletable Percentage must be between 0 and 100.";
+      if (!Number.isFinite(num) || num < 0 || num > 1) {
+        return "Maximum Deletable Percentage must be between 0 and 100 (e.g. 99 = 99%).";
       }
       return undefined;
     },
@@ -960,10 +1023,13 @@ const ARR_TORRENT_FIELDS: FieldDefinition[] = [
     path: ["Torrent", "StalledDelay"],
     type: "duration",
     nativeUnit: "minutes",
+    allowNegative: true,
+    placeholder: "-1 (disabled), 0 (infinite), or minutes before removing stalled downloads",
     validate: (value) => {
-      const total = parseDurationToMinutes(value, -1);
-      if (!Number.isFinite(total) || total < 0) {
-        return "Stalled Delay must be a non-negative duration.";
+      const total = parseDurationToMinutes(value, -2);
+      if (total === -1) return undefined;
+      if (!Number.isFinite(total) || total < -1) {
+        return "Stalled Delay must be -1 (disabled), 0 (infinite), or a positive duration.";
       }
       return undefined;
     },
@@ -1052,9 +1118,7 @@ const ARR_SEEDING_FIELDS: FieldDefinition[] = [
   {
     label: "Remove Tracker Messages",
     path: ["Torrent", "SeedingMode", "RemoveTrackerWithMessage"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
     fullWidth: true,
   },
 ];
@@ -1150,9 +1214,7 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
   {
     label: "Add Tags",
     path: ["AddTags"],
-    type: "text",
-    parse: parseList,
-    format: formatList,
+    type: "tags",
   },
   {
     label: "Hit and Run Mode",
@@ -1356,8 +1418,16 @@ function validateFieldGroup(
     const rawValue = pathSegments.length
       ? getValue(state as ConfigDocument, pathSegments)
       : undefined;
-    // Apply format function if it exists to convert raw value to expected validation format
-    const value = field.format ? field.format(rawValue) : rawValue;
+    // When field has both format and parse, validate the stored (raw) value; otherwise use formatted value.
+    // For type "select", use formatted value for basicValidation so stored numbers (e.g. RemoveTorrent -1..4) pass.
+    const value =
+      field.type === "select" && field.format
+        ? field.format(rawValue)
+        : field.format && field.parse
+          ? rawValue
+          : field.format
+            ? field.format(rawValue)
+            : rawValue;
     const fullPath = [...basePath, ...pathSegments];
     const baseError = basicValidation(field, value);
     if (baseError) {
@@ -1379,6 +1449,7 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
   const rootContext: ValidationContext = { root: formState };
   validateFieldGroup(errors, SETTINGS_FIELDS, formState, [], rootContext);
   validateFieldGroup(errors, WEB_SETTINGS_FIELDS, formState, [], rootContext);
+  validateFieldGroup(errors, AUTH_SETTINGS_FIELDS, formState, [], rootContext);
 
   for (const [key, value] of Object.entries(formState)) {
     if (QBIT_SECTION_REGEX.test(key) && value && typeof value === "object") {
@@ -1669,6 +1740,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   const [activeQbitKey, setActiveQbitKey] = useState<string | null>(null);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [isWebSettingsOpen, setWebSettingsOpen] = useState(false);
+  const [isAuthSettingsOpen, setAuthSettingsOpen] = useState(false);
+  const [isSetPasswordOpen, setSetPasswordOpen] = useState(false);
   const [isDirty, setDirty] = useState(false);
 
   useEffect(() => {
@@ -1737,7 +1810,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [onDirtyChange]);
 
   useEffect(() => {
-    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen);
+    const anyModalOpen = Boolean(activeArrKey || activeQbitKey || isSettingsOpen || isWebSettingsOpen || isAuthSettingsOpen || isSetPasswordOpen);
     if (!anyModalOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1745,6 +1818,8 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         setActiveQbitKey(null);
         setSettingsOpen(false);
         setWebSettingsOpen(false);
+        setAuthSettingsOpen(false);
+        setSetPasswordOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1755,7 +1830,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       window.removeEventListener("keydown", handleKeyDown);
       style.overflow = originalOverflow;
     };
-  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen]);
+  }, [activeArrKey, activeQbitKey, isSettingsOpen, isWebSettingsOpen, isAuthSettingsOpen, isSetPasswordOpen]);
 
   useEffect(() => {
     if (!activeArrKey) return;
@@ -1831,6 +1906,23 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       Port: 8080,
       UserName: "",
       Password: "",
+      ManagedCategories: [],
+      Trackers: [],
+      CategorySeeding: {
+        DownloadRateLimitPerTorrent: -1,
+        UploadRateLimitPerTorrent: -1,
+        MaxUploadRatio: -1,
+        MaxSeedingTime: -1,
+        RemoveTorrent: -1,
+        HitAndRunMode: "disabled",
+        MinSeedRatio: 1.0,
+        MinSeedingTimeDays: 0,
+        HitAndRunMinimumDownloadPercent: 10,
+        HitAndRunPartialSeedRatio: 1.0,
+        TrackerUpdateBuffer: 0,
+        StalledDelay: -1,
+        IgnoreTorrentsYoungerThan: 180,
+      },
     };
     setFormState(
       produce(formState, (draft) => {
@@ -2045,8 +2137,13 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
                 />
                 <ConfigSummaryCard
                   title="Web Settings"
-                  description="Web UI configuration"
+                  description="Host, port, and proxy"
                   onConfigure={() => setWebSettingsOpen(true)}
+                />
+                <ConfigSummaryCard
+                  title="Authentication"
+                  description="Login, local auth, and OIDC settings"
+                  onConfigure={() => setAuthSettingsOpen(true)}
                 />
               </div>
             </details>
@@ -2232,6 +2329,20 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           showLiveSettings={true}
         />
       ) : null}
+      {isAuthSettingsOpen ? (
+        <SimpleConfigModal
+          title="Authentication"
+          fields={AUTH_SETTINGS_FIELDS}
+          state={formState}
+          basePath={[]}
+          onChange={handleFieldChange}
+          onClose={() => setAuthSettingsOpen(false)}
+          onSetPassword={() => setSetPasswordOpen(true)}
+        />
+      ) : null}
+      {isSetPasswordOpen ? (
+        <SetPasswordModal onClose={() => setSetPasswordOpen(false)} />
+      ) : null}
       {activeQbitKey && formState ? (
         <QbitInstanceModal
           keyName={activeQbitKey}
@@ -2288,6 +2399,9 @@ interface FieldGroupProps {
   qbitTrackers?: boolean;
 }
 
+/** Regex for valid in-progress numeric input: empty, "-", or a valid number string */
+const NUMERIC_INPUT_RE = /^-?\d*\.?\d*$/;
+
 function NumberInput({
   value,
   onChange,
@@ -2311,6 +2425,7 @@ function NumberInput({
   return (
     <input
       type="text"
+      inputMode="decimal"
       value={localValue}
       onFocus={() => {
         isEditing.current = true;
@@ -2320,8 +2435,11 @@ function NumberInput({
         setLocalValue(externalStr);
       }}
       onChange={(e) => {
-        setLocalValue(e.target.value);
-        onChange(e.target.value);
+        const raw = e.target.value;
+        // Only allow numeric characters, optional leading minus, optional decimal
+        if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
+        setLocalValue(raw);
+        onChange(raw);
       }}
       placeholder={placeholder}
     />
@@ -2345,6 +2463,8 @@ function DurationInput({
   const display = parseDurationDisplay(value, nativeUnit, fallback);
   const [num, setNum] = useState(display.number);
   const [unit, setUnit] = useState<DurationUnit>(display.unit);
+  // rawInput tracks the user's in-progress text; null when not actively editing
+  const [rawInput, setRawInput] = useState<string | null>(null);
   const isEditing = useRef(false);
 
   useEffect(() => {
@@ -2358,7 +2478,12 @@ function DurationInput({
   }, [value, nativeUnit, fallback]);
 
   const handleNumChange = (raw: string) => {
-    const n = raw.trim() === "" ? (allowNegative ? -1 : 0) : Number(raw);
+    // Only allow numeric characters, optional leading minus, optional decimal
+    if (raw !== "" && !NUMERIC_INPUT_RE.test(raw)) return;
+    setRawInput(raw);
+    // Don't commit empty or incomplete strings — wait until blur
+    if (raw === "" || raw === "-") return;
+    const n = Number(raw);
     if (!Number.isFinite(n)) return;
     setNum(n);
     const out = durationDisplayToValue(n, unit, nativeUnit, allowNegative);
@@ -2371,21 +2496,33 @@ function DurationInput({
     onChange(out);
   };
 
-  const displayVal = num === -1 && allowNegative ? "Disabled" : String(num);
+  const handleFocus = () => {
+    isEditing.current = true;
+    // When field shows "Disabled" (-1), clear to empty so user can type a value
+    setRawInput(num === -1 && allowNegative ? "" : String(num));
+  };
+
+  const handleBlur = () => {
+    isEditing.current = false;
+    setRawInput(null);
+    // Revert to the last externally-committed value (reverts empty/invalid edits)
+    const d = parseDurationDisplay(value, nativeUnit, fallback);
+    setNum(d.number);
+    setUnit(d.unit);
+  };
+
+  // While editing show the raw string; otherwise show the formatted display value
+  const displayVal = rawInput !== null
+    ? rawInput
+    : (num === -1 && allowNegative ? "Disabled" : String(num));
+
   return (
     <div className="duration-input">
       <input
         type="text"
         value={displayVal}
-        onFocus={() => {
-          isEditing.current = true;
-        }}
-        onBlur={() => {
-          isEditing.current = false;
-          const d = parseDurationDisplay(value, nativeUnit, fallback);
-          setNum(d.number);
-          setUnit(d.unit);
-        }}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         onChange={(e) => handleNumChange(e.target.value)}
         placeholder={placeholder}
       />
@@ -2555,15 +2692,24 @@ function FieldGroup({
       const nextTrackers = [
         ...trackers,
         {
+          Name: "",
           URI: "",
+          Priority: 0,
           MaximumETA: -1,
           DownloadRateLimit: -1,
           UploadRateLimit: -1,
           MaxUploadRatio: -1,
           MaxSeedingTime: -1,
+          AddTrackerIfMissing: false,
           RemoveIfExists: false,
           SuperSeedMode: false,
           AddTags: [],
+          HitAndRunMode: "disabled",
+          MinSeedRatio: 1.0,
+          MinSeedingTimeDays: 0,
+          HitAndRunMinimumDownloadPercent: 10,
+          HitAndRunPartialSeedRatio: 1.0,
+          TrackerUpdateBuffer: 0,
         },
       ];
       onChange([...basePath, ...trackerPath], {} as FieldDefinition, nextTrackers);
@@ -3180,7 +3326,7 @@ function ArrInstanceModal({
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3367,7 +3513,7 @@ function QbitInstanceModal({
   onDelete,
 }: QbitInstanceModalProps): JSX.Element {
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3438,6 +3584,7 @@ interface SimpleConfigModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onClose: () => void;
   showLiveSettings?: boolean;
+  onSetPassword?: () => void;
 }
 
 function SimpleConfigModal({
@@ -3448,12 +3595,13 @@ function SimpleConfigModal({
   onChange,
   onClose,
   showLiveSettings = false,
+  onSetPassword,
 }: SimpleConfigModalProps): JSX.Element | null {
   const webUI = useWebUI();
 
   if (!state) return null;
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3528,6 +3676,22 @@ function SimpleConfigModal({
               </div>
             </div>
           )}
+          {onSetPassword && (
+            <div className="field-group">
+              <h3 className="field-group-title">Password Management</h3>
+              <div className="field-group-content">
+                <div className="field">
+                  <p className="field-description">
+                    Set or change the login password for local auth. The password hash is stored
+                    securely in config and never exposed via the API.
+                  </p>
+                  <button className="btn primary" type="button" onClick={onSetPassword}>
+                    Set Password
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn primary" type="button" onClick={onClose}>
@@ -3535,6 +3699,144 @@ function SimpleConfigModal({
             Done
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface SetPasswordModalProps {
+  onClose: () => void;
+}
+
+function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
+  const [username, setUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [setupToken, setSetupToken] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const { push } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!username.trim()) {
+      setError("Username is required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await apiSetPassword({ username: username.trim(), password: newPassword, setupToken: setupToken || undefined });
+      setSuccess(true);
+      push("Password set successfully.", "success");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set password.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="set-password-modal-title"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 480 }}
+      >
+        <div className="modal-header">
+          <h2 id="set-password-modal-title">Set Password</h2>
+          <button className="btn ghost" type="button" onClick={onClose}>
+            <IconImage src={CloseIcon} />
+            Close
+          </button>
+        </div>
+        <div className="modal-body">
+          {success ? (
+            <div style={{ padding: "1rem 0", color: "var(--success)" }}>
+              Password set successfully. Auth is now enabled with local login.
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div className="field">
+                <label htmlFor="sp-username">Username</label>
+                <input
+                  id="sp-username"
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="sp-password">New Password</label>
+                <input
+                  id="sp-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  minLength={8}
+                  required
+                />
+                <p className="field-description">Minimum 8 characters.</p>
+              </div>
+              <div className="field">
+                <label htmlFor="sp-confirm">Confirm Password</label>
+                <input
+                  id="sp-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="sp-setup-token">Setup Token (optional)</label>
+                <input
+                  id="sp-setup-token"
+                  type="password"
+                  autoComplete="off"
+                  value={setupToken}
+                  onChange={(e) => setSetupToken(e.target.value)}
+                  placeholder="Required only when changing an existing password"
+                />
+                <p className="field-description">
+                  Provide <code>QBITRR_SETUP_TOKEN</code> env var value to reset an existing password.
+                </p>
+              </div>
+              {error && <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</div>}
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                <button className="btn ghost" type="button" onClick={onClose} disabled={submitting}>
+                  Cancel
+                </button>
+                <button className="btn primary" type="submit" disabled={submitting}>
+                  {submitting ? "Setting…" : "Set Password"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+        {success && (
+          <div className="modal-footer">
+            <button className="btn primary" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

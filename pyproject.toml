@@ -3,6 +3,8 @@ profile = "black"
 line_length = 99
 py_version = 311
 known_third_party = [
+    "authlib",
+    "bcrypt",
     "cachetools",
     "colorama",
     "coloredlogs",

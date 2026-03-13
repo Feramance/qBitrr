@@ -62,6 +62,7 @@ ENV/
 *~
 .DS_Store
 Thumbs.db
+/.pre-commit-cache/
 
 # Test and session files
 session-ses_*.md

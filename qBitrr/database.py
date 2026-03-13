@@ -178,6 +178,10 @@ def get_database() -> SqliteDatabase:
                 "Please manually delete '%s' and restart.",
                 db_path,
             )
+            raise RuntimeError(
+                f"Database '{db_path}' is corrupt and could not be repaired or removed. "
+                "Please manually delete it and restart."
+            )
 
         with database_lock():
             with_database_retry(

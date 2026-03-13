@@ -91,6 +91,44 @@ Port = 6969
 # Set a non-empty value to require Authorization: Bearer <token>.
 Token = ""
 
+# Disable all auth — set to false to require login (default true for backward compat)
+AuthDisabled = true
+
+# Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy).
+# When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure. Leave false for plain HTTP.
+BehindHttpsProxy = false
+
+# Enable username/password login
+LocalAuthEnabled = false
+
+# Enable OIDC login
+OIDCEnabled = false
+
+# Username for local auth
+Username = ""
+
+# BCrypt password hash — set via the WebUI 'Set Password' button, never plain text
+PasswordHash = ""
+
+[WebUI.OIDC]
+# OIDC issuer/authority URL (e.g. https://auth.example.com/application/o/qbitrr)
+Authority = ""
+
+# OAuth2 client ID
+ClientId = ""
+
+# OAuth2 client secret
+ClientSecret = ""
+
+# Space-separated OIDC scopes
+Scopes = "openid profile"
+
+# OIDC callback path (must match IdP redirect URI)
+CallbackPath = "/signin-oidc"
+
+# Require HTTPS for IdP metadata (set false only for local dev OIDC)
+RequireHttpsMetadata = true
+
 # Enable live updates for Arr views
 LiveArr = true
 
@@ -172,6 +210,12 @@ HitAndRunPartialSeedRatio = 1.0
 
 # Extra seconds buffer for tracker stats lag (0 = disabled)
 TrackerUpdateBuffer = 0
+
+# Maximum time stalled downloads can sit before removal, in minutes (-1 = disabled, 0 = infinite)
+StalledDelay = -1
+
+# Ignore torrents younger than this (seconds). Stalled removal also requires last_activity older than this.
+IgnoreTorrentsYoungerThan = 180
 
 
 [Sonarr-TV]
@@ -263,11 +307,6 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
-# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
-MainQualityProfile = []
-
-# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
-TempQualityProfile = []
 
 # Search mode: true (always series search), false (always episode search), or 'smart' (automatic)
 # Smart mode: uses series search for entire seasons/series, episode search for single episodes
@@ -470,11 +509,6 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
-# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
-MainQualityProfile = []
-
-# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
-TempQualityProfile = []
 
 # Search mode: true (always series search), false (always episode search), or 'smart' (automatic)
 # Smart mode: uses series search for entire seasons/series, episode search for single episodes
@@ -676,11 +710,6 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
-# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
-MainQualityProfile = []
-
-# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
-TempQualityProfile = []
 
 [Radarr-1080.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -874,11 +903,6 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
-# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
-MainQualityProfile = []
-
-# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
-TempQualityProfile = []
 
 [Radarr-4K.EntrySearch.Ombi]
 # Search Ombi for pending requests (Will only work if 'SearchMissing' is enabled.)
@@ -1060,11 +1084,6 @@ TempProfileResetTimeoutMinutes = 0
 # Number of retry attempts for profile switch API calls (default: 3)
 ProfileSwitchRetryAttempts = 3
 
-# Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)
-MainQualityProfile = []
-
-# Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)
-TempQualityProfile = []
 
 [Lidarr-Music.Torrent]
 # Set it to regex matches to respect/ignore case.

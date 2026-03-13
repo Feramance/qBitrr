@@ -37,7 +37,7 @@ from qBitrr.ffprobe import FFprobeDownloader
 from qBitrr.home_path import APPDATA_FOLDER
 from qBitrr.logger import run_logs
 from qBitrr.qbit_category_manager import qBitCategoryManager
-from qBitrr.utils import ExpiringSet
+from qBitrr.utils import ExpiringSet, mask_secret
 from qBitrr.versioning import fetch_latest_release
 from qBitrr.webui import WebUI
 
@@ -509,7 +509,7 @@ class qBitManager:
             instance_name,
             host,
             port,
-            username,
+            mask_secret(username) if username else "(none)",
         )
 
         client = qbittorrentapi.Client(
