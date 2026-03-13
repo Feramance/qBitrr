@@ -8,7 +8,7 @@ RUN mkdir -p qBitrr/static && cd webui && npm run build
 
 FROM python:3.14-slim
 
-ARG VERSION=dev
+ARG VERSION="5.9.3"
 LABEL Name="qBitrr"
 LABEL Maintainer="feramance"
 LABEL Version="${VERSION}"
