@@ -351,7 +351,7 @@ Optimize for private tracker requirements:
 
 ### Current Version
 
-**Latest Release**: v5.9.3
+**Latest Release**: v5.10.0
 
 - ✅ Production ready
 - ✅ Active development
