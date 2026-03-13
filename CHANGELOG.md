@@ -1,5 +1,32 @@
 # Changelog
 
+## v5.10.0 (13/03/2026)
+
+### 🚀 Features
+- [[minor] fix dockerfile version](https://github.com/Feramance/qBitrr/commit/64cfeca0867d2d4e1bc6750183244eadab379bbb) - @Feramance
+- [[minor] gitigore fixes](https://github.com/Feramance/qBitrr/commit/1567b117281c710ac78c3d63fb0c2924e5a9b0c9) - @Feramance
+- [[minor] Release v5.10.0: auth hardening, OIDC, security fixes (#324)](https://github.com/Feramance/qBitrr/commit/7f2b6b8f72cc1ef90b542e52d24e923ea7f92298) - @Feramance
+
+### 📝 Documentation
+- [docs: fact-check and restructure per plan - fix CLI/env, config schema, bump2version](https://github.com/Feramance/qBitrr/commit/5046ff13b5baa71b976461555ef4bd3f8ad7c32e) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump postcss from 8.5.6 to 8.5.8 in /webui (#331)](https://github.com/Feramance/qBitrr/commit/b321b6d4580427d18f66306cef7abcfdc3a213f1) - @Feramance
+- [Build(deps): Bump @mantine/dates from 8.3.15 to 8.3.16 in /webui (#330)](https://github.com/Feramance/qBitrr/commit/7c829e82318e61fc5f17e4477869df5b2b51d6eb) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.3.3 to 25.3.5 in /webui (#329)](https://github.com/Feramance/qBitrr/commit/9adf5781e1deaebe822ef39e70a3e07b91a5518b) - @Feramance
+- [Build(deps-dev): Bump eslint-plugin-react-refresh from 0.5.1 to 0.5.2 in /webui (#327)](https://github.com/Feramance/qBitrr/commit/bc3087a9654d66a1c62dd179a17301effeb442a0) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.0.1 to 10.0.3 in /webui (#328)](https://github.com/Feramance/qBitrr/commit/642a35fc42d7df9652e0965a46a69cad66a212db) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 8.3.15 to 8.3.16 in /webui (#326)](https://github.com/Feramance/qBitrr/commit/0805731bbe0daf8aa772ec328fddc0e576ee96e3) - @Feramance
+- [Build(deps): Bump docker/setup-buildx-action from 3 to 4 (#321)](https://github.com/Feramance/qBitrr/commit/9aac68a21bd58b1289ab8f062d8778c781d2aa5c) - @Feramance
+- [Build(deps): Bump docker/login-action from 3 to 4 (#322)](https://github.com/Feramance/qBitrr/commit/a9c1a5f65197ae6766c8a36abcd9ad00b18d7554) - @Feramance
+- [Build(deps): Bump docker/build-push-action from 6 to 7 (#323)](https://github.com/Feramance/qBitrr/commit/803de40d0de93a960edfd0a201c7f4e4c0c9d372) - @Feramance
+- [Build(deps): Bump crazy-max/ghaction-import-gpg from 6.3.0 to 7.0.0 (#319)](https://github.com/Feramance/qBitrr/commit/e137bf55dbe527ebf937aa34ef23b49dcf21d0c5) - @Feramance
+- [Build(deps): Bump docker/setup-qemu-action from 3 to 4 (#320)](https://github.com/Feramance/qBitrr/commit/02c060ec1c089c4703338c8eb4959c6c15c766aa) - @Feramance
+- [Build(deps-dev): Bump @tailwindcss/postcss from 4.2.0 to 4.2.1 in /webui (#313)](https://github.com/Feramance/qBitrr/commit/77a506f1b8c8e5230f0fd12877644b7830337f93) - @Feramance
+- [Update Patreon username to 'Feramance'](https://github.com/Feramance/qBitrr/commit/a95fbbf96236ff26e318c0c56d7526df995ef0f0) - @Feramance
+
+---
+
 ## v5.9.3 (05/03/2026)
 
 ### 🐛 Bug Fixes
