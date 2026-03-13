@@ -140,7 +140,7 @@ jobs:
         password: ${{ secrets.REG_TOKEN }}
     - name: Extract metadata (tags, labels) for Docker
       id: meta
-      uses: docker/metadata-action@v5
+      uses: docker/metadata-action@v6
       with:
         images: "feramance/qbitrr\nghcr.io/${{ steps.string.outputs.lowercase }}\n"
         tags: type=ref,event=pr${{ matrix.platform == 'arm64' && ',suffix=-arm' || '' }}
