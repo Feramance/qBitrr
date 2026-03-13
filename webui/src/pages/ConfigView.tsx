@@ -3326,7 +3326,7 @@ function ArrInstanceModal({
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3513,7 +3513,7 @@ function QbitInstanceModal({
   onDelete,
 }: QbitInstanceModalProps): JSX.Element {
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3601,7 +3601,7 @@ function SimpleConfigModal({
 
   if (!state) return null;
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
@@ -3746,7 +3746,7 @@ function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="modal"
         role="dialog"
