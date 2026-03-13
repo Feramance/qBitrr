@@ -18,6 +18,16 @@ The qBitrr WebUI provides:
 
 ---
 
+## Authentication and first-run
+
+On **new installs**, authentication is required by default. When you open the WebUI for the first time, you will see a **create credentials** screen: choose a username and password to secure qBitrr. After you set them, you are logged in and local username/password login is enabled. You can change the password later via **Set Password** in WebUI settings.
+
+- **First-run flow:** Open `/ui` → create username and password → set password & sign in → use the WebUI.
+- **Existing configs:** If your config file was created before this behavior (or does not set `AuthDisabled`), the app continues to treat auth as disabled for backward compatibility until you set `AuthDisabled = false` or configure a password.
+- **Disable auth:** To run without login (e.g. behind your own reverse proxy or in a fully trusted environment), set `AuthDisabled = true` in the `[WebUI]` section of `config.toml`. See [AuthDisabled](#authdisabled) below.
+
+---
+
 ## Configuration Section
 
 WebUI settings are configured in the `[WebUI]` section:
@@ -181,6 +191,70 @@ curl -H "Authorization: Bearer my-secure-token-12345" \
     - Behind reverse proxy with its own authentication
     - Only accessible from localhost
     - Running in a trusted private network
+
+---
+
+## AuthDisabled
+
+```toml
+AuthDisabled = false
+```
+
+**Type:** Boolean
+**Default (new installs):** `false` (auth required; user is prompted to create credentials)
+**Default (configs without this key):** Treated as `true` for backward compatibility (auth disabled)
+
+When `false`, the WebUI requires authentication. On first run with no password set, the user sees the create-credentials screen. When `true`, no login is required and the WebUI is open to anyone with network access.
+
+**Use cases:**
+
+| Value  | Use case |
+|--------|----------|
+| `false` | New installs; require username/password (default for newly generated configs). |
+| `true`  | Disable auth (e.g. behind reverse proxy with its own auth, or trusted network). |
+
+**Example (disable auth):**
+
+```toml
+[WebUI]
+AuthDisabled = true
+```
+
+---
+
+## BehindHttpsProxy
+
+```toml
+BehindHttpsProxy = false
+```
+
+**Type:** Boolean
+**Default:** `false`
+
+Set to `true` when the WebUI is reached over HTTPS (e.g. behind a reverse proxy such as Nginx, Caddy, or Traefik).
+
+**When `true`:**
+
+- The app trusts the `X-Forwarded-Proto` header so `request.is_secure` and generated URLs (e.g. OIDC redirect) reflect the client-facing HTTPS.
+- Werkzeug's ProxyFix middleware is applied (`x_proto=1`).
+- The session cookie is set with the `Secure` flag so browsers only send it over HTTPS.
+
+**When `false` (default):**
+
+- No proxy headers are trusted; suitable for plain HTTP or when qBitrr is not behind a proxy.
+- Session cookie is not marked Secure, so login works over HTTP.
+
+!!! tip "When to enable"
+    Enable **BehindHttpsProxy** when you access the WebUI via `https://` and your reverse proxy sets `X-Forwarded-Proto: https`. Leave `false` for local `http://localhost` or plain HTTP to avoid login/session issues.
+
+**Example (HTTPS behind Nginx):**
+
+```toml
+[WebUI]
+Host = "127.0.0.1"
+Port = 6969
+BehindHttpsProxy = true
+```
 
 ---
 
@@ -439,6 +513,7 @@ server {
 [WebUI]
 Host = "127.0.0.1"  # Only listen on localhost
 Port = 6969
+BehindHttpsProxy = true  # When using HTTPS reverse proxy; trusts X-Forwarded-Proto and sets Secure cookie
 ```
 
 ---

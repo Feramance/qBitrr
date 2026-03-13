@@ -12,7 +12,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, redirect, request, send_file
+import bcrypt
+from authlib.integrations.flask_client import OAuth
+from flask import Flask, jsonify, redirect, request, send_file, session
 from peewee import fn
 
 from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
@@ -27,13 +29,78 @@ from qBitrr.search_activity_store import (
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 
+class _RateLimiter:
+    """Sliding-window IP rate limiter (thread-safe)."""
+
+    def __init__(self, max_attempts: int, window_seconds: int):
+        self._max = max_attempts
+        self._window = window_seconds
+        self._data: dict[str, list[float]] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> bool:
+        now = time.monotonic()
+        with self._lock:
+            # Opportunistically prune stale entries so old IP keys do not accumulate forever.
+            for existing_key, existing_times in list(self._data.items()):
+                filtered_times = [t for t in existing_times if now - t < self._window]
+                if filtered_times:
+                    self._data[existing_key] = filtered_times
+                else:
+                    self._data.pop(existing_key, None)
+
+            times = self._data.get(key, [])
+            if len(times) >= self._max:
+                return False
+            times.append(now)
+            self._data[key] = times
+            return True
+
+
+_login_limiter = _RateLimiter(max_attempts=10, window_seconds=900)
+_setpw_limiter = _RateLimiter(max_attempts=5, window_seconds=900)
+_setpw_lock = threading.Lock()
+
+
+def _pw_hash(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+
+def _pw_verify(password: str, stored_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode(), stored_hash.encode())
+    except Exception:
+        return False
+
+
+def _auth_disabled() -> bool:
+    return bool(CONFIG.get("WebUI.AuthDisabled", fallback=True))
+
+
+def _local_auth_enabled() -> bool:
+    return bool(CONFIG.get("WebUI.LocalAuthEnabled", fallback=False))
+
+
+def _oidc_enabled() -> bool:
+    return (
+        bool(CONFIG.get("WebUI.OIDCEnabled", fallback=False))
+        and bool(CONFIG.get("WebUI.OIDC.Authority", fallback=""))
+        and bool(CONFIG.get("WebUI.OIDC.ClientId", fallback=""))
+    )
+
+
 def _toml_set(doc, dotted_key: str, value: Any):
     from tomlkit import inline_table, table
 
     keys = dotted_key.split(".")
     cur = doc
     for k in keys[:-1]:
-        if k not in cur or not isinstance(cur[k], dict):
+        # Reuse existing node if it is a dict or a dict-like container (e.g. tomlkit
+        # Table/InlineTable), so we do not replace CategorySeeding and lose other keys
+        # when only one dotted key (e.g. qBit.CategorySeeding.MaxSeedingTime) is set.
+        existing = cur.get(k) if k in cur else None
+        is_nested_container = isinstance(existing, Mapping)
+        if k not in cur or not is_nested_container:
             cur[k] = table()
         cur = cur[k]
 
@@ -134,9 +201,19 @@ class WebUI:
         werkzeug_logger.propagate = True
         werkzeug_logger.setLevel(self.logger.level)
 
-        # Add cache control for static files to support config reload
+        # When behind HTTPS proxy, trust forwarded proto/ip for secure URLs and per-client limits
+        if CONFIG.get("WebUI.BehindHttpsProxy", fallback=False):
+            from werkzeug.middleware.proxy_fix import ProxyFix
+
+            self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_for=1, x_proto=1)
+
+        # Add cache control and security headers
         @self.app.after_request
         def add_cache_headers(response):
+            # Security headers
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
             # Prevent caching of index.html and service worker to ensure fresh config loads
             if request.path in ("/static/index.html", "/ui", "/static/sw.js", "/sw.js"):
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -157,6 +234,32 @@ class WebUI:
                 )
             else:
                 self.logger.notice("Generated new WebUI token")
+
+        # Flask session config (HttpOnly signed cookies for web login)
+        # Keep session signing separate from bearer token auth.
+        self.app.secret_key = secrets.token_hex(32)
+        self.app.config.update(
+            SESSION_COOKIE_NAME="qbitrr_session",
+            SESSION_COOKIE_HTTPONLY=True,
+            SESSION_COOKIE_SAMESITE="Lax",
+            SESSION_COOKIE_SECURE=bool(CONFIG.get("WebUI.BehindHttpsProxy", fallback=False)),
+            PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+        )
+
+        # OIDC via Authlib
+        self._oauth = OAuth(self.app)
+        if _oidc_enabled():
+            authority = (CONFIG.get("WebUI.OIDC.Authority", fallback="") or "").rstrip("/")
+            self._oauth.register(
+                name="oidc",
+                server_metadata_url=f"{authority}/.well-known/openid-configuration",
+                client_id=CONFIG.get("WebUI.OIDC.ClientId", fallback=""),
+                client_secret=CONFIG.get("WebUI.OIDC.ClientSecret", fallback=""),
+                client_kwargs={
+                    "scope": CONFIG.get("WebUI.OIDC.Scopes", fallback="openid profile")
+                },
+            )
+
         self._github_repo = "Feramance/qBitrr"
         self._version_lock = threading.Lock()
         self._version_cache = {
@@ -904,7 +1007,11 @@ class WebUI:
             missing_count = (
                 track_model.select()
                 .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(track_model.HasFile == False)
+                .where(
+                    (track_model.ArrInstance == arr_instance)
+                    & (album_model.ArrInstance == arr_instance)
+                    & (track_model.HasFile == False)
+                )
                 .count()
             )
 
@@ -1440,12 +1547,33 @@ class WebUI:
             return redirect("/ui")
 
         def _authorized():
-            if not self.token:
+            _webui_logger = logging.getLogger("qBitrr.WebUI")
+
+            def _get_supplied_token():
+                header_token = (
+                    request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+                )
+                if header_token:
+                    return header_token
+                query_token = request.args.get("token")
+                if query_token:
+                    _webui_logger.warning(
+                        "Token supplied via query parameter from %s — this is insecure "
+                        "(token visible in logs and browser history). Use Authorization header instead.",
+                        request.remote_addr,
+                    )
+                    return query_token
+                return None
+
+            # Auth disabled globally → always authorized
+            if _auth_disabled():
                 return True
-            supplied = request.headers.get("Authorization", "").removeprefix(
-                "Bearer "
-            ) or request.args.get("token")
-            return secrets.compare_digest(supplied, self.token) if supplied else False
+            # Bearer token (API path) — constant-time comparison
+            supplied = _get_supplied_token()
+            if supplied and self.token and secrets.compare_digest(supplied, self.token):
+                return True
+            # Session cookie (web login path)
+            return bool(session.get("authenticated"))
 
         def require_token():
             if not _authorized():
@@ -1480,6 +1608,111 @@ class WebUI:
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
             return response
+
+        @app.get("/login")
+        def login_page():
+            return redirect("/ui")
+
+        @app.post("/web/login")
+        def web_login():
+            ip = request.remote_addr or "unknown"
+            if not _login_limiter.allow(ip):
+                return jsonify({"error": "Too many login attempts. Try again later."}), 429
+            if not _local_auth_enabled():
+                return jsonify({"error": "Local login not configured"}), 400
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "")).strip()
+            password = str(body.get("password", ""))
+            if not username or not password:
+                return jsonify({"error": "Username and password required"}), 400
+            stored_hash = CONFIG.get("WebUI.PasswordHash", fallback="") or ""
+            if not stored_hash:
+                return jsonify({"error": "Password not set", "code": "SETUP_REQUIRED"}), 403
+            # Always verify both to prevent timing-based username enumeration
+            pw_ok = _pw_verify(password, stored_hash)
+            stored_username = CONFIG.get("WebUI.Username", fallback="") or ""
+            user_ok = bool(stored_username) and secrets.compare_digest(username, stored_username)
+            if not pw_ok or not user_ok:
+                return jsonify({"error": "Invalid credentials"}), 401
+            session.permanent = True
+            session["authenticated"] = True
+            session["username"] = username
+            self.logger.info("User %s logged in via local auth", username)
+            return jsonify({"success": True})
+
+        @app.post("/web/logout")
+        def web_logout():
+            session.clear()
+            return jsonify({"success": True})
+
+        @app.post("/web/auth/set-password")
+        def web_set_password():
+            ip = request.remote_addr or "unknown"
+            if not _setpw_limiter.allow(ip):
+                return jsonify({"error": "Too many attempts. Try again later."}), 429
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "")).strip()
+            password = str(body.get("password", ""))
+            setup_token = str(body.get("setupToken", "")).strip()
+            if not username or not password:
+                return jsonify({"error": "Username and password required"}), 400
+            if len(password) < 8:
+                return jsonify({"error": "Password must be at least 8 characters"}), 400
+            env_token = os.environ.get("QBITRR_SETUP_TOKEN", "")
+            token_ok = (
+                bool(env_token)
+                and bool(setup_token)
+                and secrets.compare_digest(setup_token, env_token)
+            )
+            with _setpw_lock:
+                stored_hash = CONFIG.get("WebUI.PasswordHash", fallback="") or ""
+                first_time = not stored_hash
+                if not first_time and not token_ok:
+                    return jsonify({"error": "Not allowed"}), 403
+                new_hash = _pw_hash(password)
+                try:
+                    _toml_set(CONFIG.config, "WebUI.Username", username)
+                    _toml_set(CONFIG.config, "WebUI.PasswordHash", new_hash)
+                    _toml_set(CONFIG.config, "WebUI.AuthDisabled", False)
+                    _toml_set(CONFIG.config, "WebUI.LocalAuthEnabled", True)
+                    CONFIG.save()
+                except Exception:
+                    self.logger.error("Failed to save config after set-password", exc_info=True)
+                    return jsonify({"error": "Failed to save configuration"}), 500
+            self.logger.info("Password set for user %s", username)
+            return jsonify({"success": True})
+
+        oidc_callback_path = (
+            CONFIG.get("WebUI.OIDC.CallbackPath", fallback="/signin-oidc") or "/signin-oidc"
+        )
+        if not oidc_callback_path.startswith("/"):
+            oidc_callback_path = f"/{oidc_callback_path}"
+
+        @app.get("/web/auth/oidc/challenge")
+        def web_oidc_challenge():
+            if not _oidc_enabled():
+                return jsonify({"error": "OIDC not configured"}), 400
+            redirect_uri = request.host_url.rstrip("/") + oidc_callback_path
+            return self._oauth.oidc.authorize_redirect(redirect_uri)
+
+        @app.get(oidc_callback_path)
+        def web_oidc_callback():
+            if not _oidc_enabled():
+                return redirect("/ui")
+            try:
+                token = self._oauth.oidc.authorize_access_token()
+                userinfo = token.get("userinfo") or self._oauth.oidc.userinfo()
+                username = (
+                    userinfo.get("preferred_username") or userinfo.get("email") or "oidc-user"
+                )
+                session.permanent = True
+                session["authenticated"] = True
+                session["username"] = username
+                self.logger.info("User %s logged in via OIDC", username)
+            except Exception:
+                self.logger.warning("OIDC callback failed", exc_info=True)
+                return redirect("/ui?auth_error=1")
+            return redirect("/ui")
 
         def _processes_payload() -> dict[str, Any]:
             procs = []
@@ -1780,6 +2013,8 @@ class WebUI:
         # UI endpoints (mirror of /api/* for first-party WebUI clients)
         @app.get("/web/processes")
         def web_processes():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_processes_payload())
 
         def _restart_process(category: str, kind: str):
@@ -1982,6 +2217,8 @@ class WebUI:
 
         @app.get("/web/logs")
         def web_logs():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify({"files": _list_logs()})
 
         def _read_tail(path: Path, n: int, offset: int = 0) -> str:
@@ -2058,6 +2295,8 @@ class WebUI:
 
         @app.get("/web/logs/<name>")
         def web_log(name: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _serve_log_content(name)
 
         @app.get("/api/logs/<name>/download")
@@ -2071,6 +2310,8 @@ class WebUI:
 
         @app.get("/web/logs/<name>/download")
         def web_log_download(name: str):
+            if (resp := require_token()) is not None:
+                return resp
             file = _resolve_log_file(name)
             if file is None or not file.exists():
                 return jsonify({"error": "not found"}), 404
@@ -2132,6 +2373,8 @@ class WebUI:
 
         @app.get("/web/radarr/<category>/movies")
         def web_radarr_movies(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_radarr_movies(category)
 
         def _handle_sonarr_series(category: str):
@@ -2162,10 +2405,14 @@ class WebUI:
 
         @app.get("/web/sonarr/<category>/series")
         def web_sonarr_series(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_sonarr_series(category)
 
         @app.get("/web/lidarr/<category>/albums")
         def web_lidarr_albums(category: str):
+            if (resp := require_token()) is not None:
+                return resp
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2243,11 +2490,15 @@ class WebUI:
 
         @app.get("/web/arr")
         def web_arr_list():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_arr_list_payload())
 
         @app.get("/web/qbit/categories")
         def web_qbit_categories():
             """Get all qBit-managed and Arr-managed categories with seeding statistics."""
+            if (resp := require_token()) is not None:
+                return resp
             categories_data = []
 
             # Add qBit-managed categories
@@ -2382,7 +2633,16 @@ class WebUI:
         @app.get("/web/meta")
         def web_meta():
             force = self._safe_bool(request.args.get("force"))
-            return jsonify(self._ensure_version_info(force=force))
+            result = dict(self._ensure_version_info(force=force))
+            result["auth_required"] = not _auth_disabled()
+            result["local_auth_enabled"] = _local_auth_enabled()
+            result["oidc_enabled"] = _oidc_enabled()
+            # First-time setup: auth required, no password set, no OIDC — show create-credentials screen
+            stored_hash = (CONFIG.get("WebUI.PasswordHash", fallback="") or "").strip()
+            result["setup_required"] = (
+                not _auth_disabled() and not stored_hash and not _oidc_enabled()
+            )
+            return jsonify(result)
 
         def _handle_update():
             ok, message = self._trigger_manual_update()
@@ -2434,6 +2694,8 @@ class WebUI:
 
         @app.get("/web/download-update")
         def web_download_update():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_download_update()
 
         def _status_payload() -> dict[str, Any]:
@@ -2505,6 +2767,8 @@ class WebUI:
 
         @app.get("/web/status")
         def web_status():
+            if (resp := require_token()) is not None:
+                return resp
             return jsonify(_status_payload())
 
         @app.get("/api/torrents/distribution")
@@ -2541,6 +2805,12 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             # Expose token for API clients only; UI uses /web endpoints
+            return jsonify({"token": self.token})
+
+        @app.get("/web/token")
+        def web_token():
+            if not _auth_disabled() and not _authorized():
+                return jsonify({"token": ""}), 401
             return jsonify({"token": self.token})
 
         def _restart_arr_instance(arr):
@@ -2642,6 +2912,8 @@ class WebUI:
 
         @app.get("/web/config")
         def web_get_config():
+            if (resp := require_token()) is not None:
+                return resp
             try:
                 try:
                     CONFIG.load()
@@ -2700,6 +2972,17 @@ class WebUI:
                 "WebUI.Host",
                 "WebUI.Port",
                 "WebUI.Token",
+                "WebUI.AuthDisabled",
+                "WebUI.BehindHttpsProxy",
+                "WebUI.LocalAuthEnabled",
+                "WebUI.OIDCEnabled",
+                "WebUI.PasswordHash",
+                "WebUI.OIDC.Authority",
+                "WebUI.OIDC.ClientId",
+                "WebUI.OIDC.ClientSecret",
+                "WebUI.OIDC.Scopes",
+                "WebUI.OIDC.CallbackPath",
+                "WebUI.OIDC.RequireHttpsMetadata",
             }
 
             # Analyze changes to determine reload strategy
@@ -3039,6 +3322,8 @@ class WebUI:
 
         @app.post("/web/arr/test-connection")
         def web_arr_test_connection():
+            if (resp := require_token()) is not None:
+                return resp
             return _handle_test_connection()
 
     def _reload_all(self):

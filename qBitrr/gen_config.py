@@ -24,7 +24,7 @@ def _add_web_settings_section(config: TOMLDocument):
     web_settings = table()
     _gen_default_line(
         web_settings,
-        "WebUI listen host (default 0.0.0.0)",
+        "WebUI listen host (default 0.0.0.0; use 127.0.0.1 for localhost-only)",
         "Host",
         "0.0.0.0",
     )
@@ -43,6 +43,84 @@ def _add_web_settings_section(config: TOMLDocument):
         "Token",
         "",
     )
+    _gen_default_line(
+        web_settings,
+        "Require login on new installs; user is prompted to create credentials. Set to true to disable auth (backward compat for configs without this key).",
+        "AuthDisabled",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        [
+            "Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy).",
+            "When true, the app trusts X-Forwarded-Proto and sets the session cookie as Secure.",
+            "Leave false for plain HTTP.",
+        ],
+        "BehindHttpsProxy",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable username/password login",
+        "LocalAuthEnabled",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        "Enable OIDC login",
+        "OIDCEnabled",
+        False,
+    )
+    _gen_default_line(
+        web_settings,
+        "Username for local auth",
+        "Username",
+        "",
+    )
+    _gen_default_line(
+        web_settings,
+        "BCrypt password hash — set via the WebUI 'Set Password' button, never plain text",
+        "PasswordHash",
+        "",
+    )
+    oidc_settings = table()
+    _gen_default_line(
+        oidc_settings,
+        "OIDC issuer/authority URL (e.g. https://auth.example.com/application/o/qbitrr)",
+        "Authority",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OAuth2 client ID",
+        "ClientId",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OAuth2 client secret",
+        "ClientSecret",
+        "",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "Space-separated OIDC scopes",
+        "Scopes",
+        "openid profile",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "OIDC callback path (must match IdP redirect URI)",
+        "CallbackPath",
+        "/signin-oidc",
+    )
+    _gen_default_line(
+        oidc_settings,
+        "Require HTTPS for IdP metadata (set false only for local dev OIDC)",
+        "RequireHttpsMetadata",
+        True,
+    )
+    web_settings.add("OIDC", oidc_settings)
     _gen_default_line(
         web_settings,
         "Enable live updates for Arr views",
@@ -884,18 +962,6 @@ def _gen_default_search_table(category: str, cat_default: Table):
         "ProfileSwitchRetryAttempts",
         3,
     )
-    _gen_default_line(
-        search_table,
-        "Main quality profile (To pair quality profiles, ensure they are in the same order as in the temp profiles)",
-        "MainQualityProfile",
-        [],
-    )
-    _gen_default_line(
-        search_table,
-        "Temp quality profile (To pair quality profiles, ensure they are in the same order as in the main profiles)",
-        "TempQualityProfile",
-        [],
-    )
     if "sonarr" in category.lower():
         _gen_default_line(
             search_table,
@@ -1086,6 +1152,13 @@ def _migrate_webui_config(config: MyConfig) -> bool:
             webui_section["Token"] = old_token
             migrated = True
             print(f"Migrated WebUI Token from Settings to WebUI section")
+
+    # Rename SecureCookies to BehindHttpsProxy
+    if "SecureCookies" in webui_section and "BehindHttpsProxy" not in webui_section:
+        webui_section["BehindHttpsProxy"] = webui_section["SecureCookies"]
+        del webui_section["SecureCookies"]
+        migrated = True
+        print("Migrated WebUI SecureCookies to BehindHttpsProxy")
 
     return migrated
 
@@ -1666,6 +1739,7 @@ def _validate_and_fill_config(config: MyConfig) -> bool:
         ("Host", "0.0.0.0"),
         ("Port", 6969),
         ("Token", ""),
+        ("BehindHttpsProxy", False),
         ("LiveArr", True),
         ("GroupSonarr", True),
         ("GroupLidarr", True),
