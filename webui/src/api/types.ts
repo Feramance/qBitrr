@@ -287,6 +287,21 @@ export interface MetaResponse {
   binary_download_name: string | null;
   binary_download_size: number | null;
   binary_download_error: string | null;
+  auth_required?: boolean;
+  local_auth_enabled?: boolean;
+  oidc_enabled?: boolean;
+  setup_required?: boolean;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface SetPasswordRequest {
+  username: string;
+  password: string;
+  setupToken?: string;
 }
 
 export interface ConfigUpdateResponse {

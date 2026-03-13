@@ -44,6 +44,13 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
   "WebUI.Port": "Port number for the built-in WebUI.",
   "WebUI.Token":
     "Optional bearer token required by the WebUI/API. Leave empty to disable authentication.",
+  "WebUI.AuthDisabled":
+    "When true, no login is required. Set to false to enforce local and/or OIDC authentication.",
+  "WebUI.BehindHttpsProxy":
+    "Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy). Enables Secure session cookies.",
+  "WebUI.LocalAuthEnabled": "Enable username/password login (requires Username and Set Password).",
+  "WebUI.OIDCEnabled": "Enable OpenID Connect login. Configure OIDC Authority and Client ID/Secret.",
+  "WebUI.Username": "Username for local auth login. Used together with the password set via Set Password.",
    "WebUI.LiveArr": "Enable live updates for Arr views.",
    "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
    "WebUI.GroupLidarr": "Group Lidarr views by artist and albums in collapsible sections.",
