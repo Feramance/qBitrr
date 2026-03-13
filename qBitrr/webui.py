@@ -74,7 +74,7 @@ def _pw_verify(password: str, stored_hash: str) -> bool:
 
 
 def _auth_disabled() -> bool:
-    return bool(CONFIG.get("WebUI.AuthDisabled", fallback=True))
+    return bool(CONFIG.get("WebUI.AuthDisabled", fallback=False))
 
 
 def _local_auth_enabled() -> bool:
