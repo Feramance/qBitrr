@@ -1842,7 +1842,7 @@ class Arr:
     def api_calls(self) -> None:
         if not self.is_alive:
             raise NoConnectionrException(
-                f"Service: {self._name} did not respond on {self.uri}", type="arr"
+                f"Service: {self._name} did not respond on {self.uri}", error_type="arr"
             )
         now = datetime.now()
         if (
@@ -7322,11 +7322,11 @@ class Arr:
                     try:
                         if not self.manager.qbit_manager.is_alive:
                             raise NoConnectionrException(
-                                "Could not connect to qBit client.", type="qbit"
+                                "Could not connect to qBit client.", error_type="qbit"
                             )
                         if not self.is_alive:
                             raise NoConnectionrException(
-                                f"Could not connect to {self.uri}", type="arr"
+                                f"Could not connect to {self.uri}", error_type="arr"
                             )
                         self.process_torrents()
                     except NoConnectionrException as e:
