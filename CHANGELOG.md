@@ -1,5 +1,15 @@
 # Changelog
 
+## v5.10.1 (14/03/2026)
+
+### 🐛 Bug Fixes
+- [[patch] fix: use error_type= instead of type= in NoConnectionrException calls (#335)](https://github.com/Feramance/qBitrr/commit/b5dd5b6f43bd8da183506b2d7b789bedf0e6d6eb) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps): Bump docker/metadata-action from 5 to 6 (#325)](https://github.com/Feramance/qBitrr/commit/6a4247406d9a560ae5f16ed4618d85ef2a1703ac) - @Feramance
+
+---
+
 ## v5.10.0 (13/03/2026)
 
 ### 🚀 Features
