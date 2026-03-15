@@ -329,6 +329,7 @@ class Arr:
         self._normalized_bad_tracker_msgs: set[str] = {
             msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
         }
+        self.sort_torrents = any(i.get("SortTorrents", False) for i in self.monitored_trackers)
 
         if (
             self.auto_delete is True
@@ -4870,6 +4871,42 @@ class Arr:
         )
         return all_torrents
 
+    def _sort_torrents_by_tracker_priority(
+        self,
+        torrents_with_instances: list[tuple[str, qbittorrentapi.TorrentDictionary]],
+    ) -> None:
+        """
+        Reorder torrents in each qBittorrent instance by tracker priority (highest first).
+        Requires qBittorrent Torrent Queuing to be enabled.
+        """
+        by_instance: dict[str, list[qbittorrentapi.TorrentDictionary]] = defaultdict(list)
+        for instance_name, torrent in torrents_with_instances:
+            by_instance[instance_name].append(torrent)
+
+        qbit_manager = self.manager.qbit_manager
+        for instance_name, torrent_list in by_instance.items():
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                continue
+            try:
+                sorted_torrents = sorted(
+                    torrent_list,
+                    key=lambda t: self._get_torrent_tracker_priority(t),
+                    reverse=True,
+                )
+                hashes = [t.hash for t in sorted_torrents]
+                if hashes:
+                    client.torrents_top_priority(torrent_hashes=list(reversed(hashes)))
+            except (
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+            ) as e:
+                self.logger.warning(
+                    "Failed to sort torrents by tracker priority on instance '%s': %s",
+                    instance_name,
+                    e,
+                )
+
     def process_torrents(self):
         try:
             try:
@@ -4931,6 +4968,8 @@ class Arr:
 
                 self.api_calls()
                 self.refresh_download_queue()
+                if self.sort_torrents:
+                    self._sort_torrents_by_tracker_priority(torrents_with_instances)
                 # Multi-instance: Process torrents from all instances
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
@@ -5781,6 +5820,14 @@ class Arr:
         ]
         max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
+
+    def _get_torrent_tracker_priority(self, torrent: qbittorrentapi.TorrentDictionary) -> int:
+        """Return the tracker Priority for this torrent's most important monitored tracker."""
+        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        most_important_tracker, _ = self._get_most_important_tracker_and_tags(
+            monitored_trackers, {}
+        )
+        return most_important_tracker.get("Priority", -100)
 
     def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
         """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
@@ -7594,6 +7641,7 @@ class PlaceHolderArr(Arr):
         self._remove_tracker_hosts = {
             h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
         }
+        self.sort_torrents = any(i.get("SortTorrents", False) for i in self.monitored_trackers)
         self.logger.debug(
             "Applied qBit seeding config from section '%s' for category '%s': "
             "RemoveTorrent=%s, StalledDelay=%s",
