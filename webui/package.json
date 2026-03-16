@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@mantine/core": "^8.3.15",
+    "@mantine/core": "^8.3.17",
     "@mantine/dates": "^8.3.17",
     "@mantine/hooks": "^8.3.16",
     "@melloware/react-logviewer": "^6.3.5",
