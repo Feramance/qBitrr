@@ -141,7 +141,7 @@ jobs:
       VERSION: ${{ needs.prepare_release.outputs.new_version }}
     steps:
     - id: repo
-      uses: ASzc/change-string-case-action@v6
+      uses: ASzc/change-string-case-action@v8
       with:
         string: ${{ github.repository }}
     - uses: actions/checkout@v6
