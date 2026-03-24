@@ -193,6 +193,14 @@ class WebUI:
                 "WebUI configured to listen on %s. Expose this only behind a trusted reverse proxy.",
                 self.host,
             )
+            if _auth_disabled():
+                self.logger.warning(
+                    "WebUI authentication is disabled: all API and WebUI actions are available "
+                    "without credentials to any client that can reach this port. If that is not "
+                    "intentional, enable authentication (see WebUI.AuthDisabled and login/token in "
+                    "the docs), bind WebUI.Host to 127.0.0.1, or place the service behind a "
+                    "trusted reverse proxy with its own access controls."
+                )
         self.app.logger.handlers.clear()
         self.app.logger.propagate = True
         self.app.logger.setLevel(self.logger.level)
