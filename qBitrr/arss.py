@@ -4925,6 +4925,14 @@ class Arr:
                     # Move torrents one-by-one (lowest first) to enforce tracker-priority order.
                     for torrent in reversed(sorted_torrents):
                         client.torrents_top_priority(torrent_hashes=[torrent.hash])
+            except DelayLoopException as e:
+                if e.error_type != "qbit":
+                    raise
+                self.logger.warning(
+                    "Failed to sort torrents by tracker priority on instance '%s': %s",
+                    instance_name,
+                    e,
+                )
             except (
                 DelayLoopException,
                 qbittorrentapi.exceptions.APIError,

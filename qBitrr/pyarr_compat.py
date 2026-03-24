@@ -29,8 +29,12 @@ try:
     from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 except ImportError:  # pragma: no cover
     # Last-resort fallback keeps importers working even if pyarr reshuffles modules.
-    PyarrResourceNotFound = Exception
-    PyarrServerError = Exception
+    class PyarrResourceNotFound(Exception):
+        """Fallback pyarr resource-not-found exception type."""
+
+
+    class PyarrServerError(Exception):
+        """Fallback pyarr server-error exception type."""
 
 try:
     from pyarr.exceptions import PyarrConnectionError
