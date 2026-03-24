@@ -7529,6 +7529,7 @@ class PlaceHolderArr(Arr):
         self._add_trackers_if_missing = set()
         self._remove_trackers_if_exists = set()
         self._monitored_tracker_urls = set()
+        self.sort_torrents = False
         self.remove_dead_trackers = False
         self._remove_tracker_hosts = set()
         self._normalized_bad_tracker_msgs = set()
