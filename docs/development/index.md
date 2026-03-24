@@ -28,6 +28,7 @@ python -m qBitrr.main
 - **Node.js 18+** - For WebUI development
 - **Git** - Version control
 - **Make** - Build automation (optional but recommended)
+- **pyarr compatibility** - qBitrr currently supports pyarr v5 and v6 (`pyarr>=5.2,<7`)
 
 ### Repository Structure
 

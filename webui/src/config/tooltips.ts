@@ -200,6 +200,8 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Minimum ratio for partial downloads (>=threshold but <100% complete). Time does not apply to partials.",
   TrackerUpdateBuffer:
     "Extra seconds to wait after meeting HnR criteria. Accounts for tracker stats lag (~30 min behind client).",
+  SortTorrents:
+    "When enabled (on any tracker), qBitrr reorders torrents in the qBittorrent queue by tracker priority (highest first). Requires qBittorrent Torrent Queuing to be enabled.",
 };
 
 export function getTooltip(path: string[]): string | undefined {

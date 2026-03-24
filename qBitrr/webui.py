@@ -193,6 +193,14 @@ class WebUI:
                 "WebUI configured to listen on %s. Expose this only behind a trusted reverse proxy.",
                 self.host,
             )
+            if _auth_disabled():
+                self.logger.warning(
+                    "WebUI authentication is disabled: all API and WebUI actions are available "
+                    "without credentials to any client that can reach this port. If that is not "
+                    "intentional, enable authentication (see WebUI.AuthDisabled and login/token in "
+                    "the docs), bind WebUI.Host to 127.0.0.1, or place the service behind a "
+                    "trusted reverse proxy with its own access controls."
+                )
         self.app.logger.handlers.clear()
         self.app.logger.propagate = True
         self.app.logger.setLevel(self.logger.level)
@@ -3195,15 +3203,15 @@ class WebUI:
                     # Create temporary Arr API client
                     self.logger.info("Creating temporary %s client for %s", arr_type, uri)
                     if arr_type == "radarr":
-                        from pyarr import RadarrAPI
+                        from qBitrr.pyarr_compat import RadarrAPI
 
                         client = RadarrAPI(uri, api_key)
                     elif arr_type == "sonarr":
-                        from pyarr import SonarrAPI
+                        from qBitrr.pyarr_compat import SonarrAPI
 
                         client = SonarrAPI(uri, api_key)
                     elif arr_type == "lidarr":
-                        from pyarr import LidarrAPI
+                        from qBitrr.pyarr_compat import LidarrAPI
 
                         client = LidarrAPI(uri, api_key)
                     else:
@@ -3226,7 +3234,8 @@ class WebUI:
                     from json import JSONDecodeError
 
                     import requests
-                    from pyarr.exceptions import PyarrServerError
+
+                    from qBitrr.pyarr_compat import PyarrServerError
 
                     max_retries = 3
                     retry_count = 0
@@ -3514,15 +3523,15 @@ class WebUI:
         # Determine client class based on name
         client_cls = None
         if re.match(r"^(Rad|rad)arr", instance_name):
-            from pyarr import RadarrAPI
+            from qBitrr.pyarr_compat import RadarrAPI
 
             client_cls = RadarrAPI
         elif re.match(r"^(Son|son|Anim|anim)arr", instance_name):
-            from pyarr import SonarrAPI
+            from qBitrr.pyarr_compat import SonarrAPI
 
             client_cls = SonarrAPI
         elif re.match(r"^(Lid|lid)arr", instance_name):
-            from pyarr import LidarrAPI
+            from qBitrr.pyarr_compat import LidarrAPI
 
             client_cls = LidarrAPI
         else:
