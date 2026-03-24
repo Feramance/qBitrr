@@ -51,6 +51,32 @@ Final trackers = qBit trackers (base) ← Arr trackers override by URI
 
 ---
 
+### SortTorrents
+
+**Type:** Boolean (per-tracker)
+**Default:** `false`
+
+Set on individual tracker entries in `[[qBit.Trackers]]` or `[[<Arr>.Torrent.Trackers]]`, **right under [Priority](#priority)**.
+
+When `true` on **any** configured tracker, qBitrr reorders torrents in the qBittorrent queue each processing cycle so that torrents are at the top of the queue in order of their **tracker priority** (highest first). Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+
+**Requirements:**
+
+- **qBittorrent Torrent Queuing** must be enabled (Options → BitTorrent → Torrent Queuing).
+
+**Example:**
+
+```toml
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "BeyondHD"
+URI = "https://tracker.beyond-hd.me/announce"
+Priority = 10
+SortTorrents = true
+MaxUploadRatio = 1.0
+```
+
+---
+
 ## Global Seeding Settings
 
 ### Complete Example
