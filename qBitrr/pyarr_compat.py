@@ -33,6 +33,14 @@ except ImportError:  # pragma: no cover
     PyarrServerError = Exception
 
 try:
+    from pyarr.exceptions import PyarrConnectionError
+except ImportError:  # pragma: no cover
+
+    class PyarrConnectionError(ConnectionError):
+        """Placeholder when pyarr does not expose connection errors."""
+
+
+try:
     from pyarr.types import JsonObject
 except ImportError:  # pragma: no cover
     JsonObject = dict[str, Any]
@@ -213,7 +221,11 @@ class _CompatArrClient:
 
 
 def _normalize_v6_client_args(
-    args: tuple[Any, ...], kwargs: dict[str, Any], default_port: int
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    default_port: int,
+    *,
+    default_api_ver: str | None = None,
 ) -> tuple[tuple[Any, ...], dict[str, Any]]:
     """Map legacy qBitrr constructor args into pyarr v6 constructor shape."""
     new_args = list(args)
@@ -245,6 +257,9 @@ def _normalize_v6_client_args(
     if "port" not in new_kwargs:
         new_kwargs["port"] = default_port
 
+    if default_api_ver is not None and "api_ver" not in new_kwargs:
+        new_kwargs["api_ver"] = default_api_ver
+
     return tuple(new_args), new_kwargs
 
 
@@ -255,7 +270,9 @@ class RadarrAPI(_CompatArrClient):
             return
         if _Radarr is None:
             raise ImportError("pyarr Radarr client not found")
-        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=7878)
+        call_args, call_kwargs = _normalize_v6_client_args(
+            args, kwargs, default_port=7878, default_api_ver="v3"
+        )
         super().__init__(_Radarr(*call_args, **call_kwargs))
 
 
@@ -266,7 +283,9 @@ class SonarrAPI(_CompatArrClient):
             return
         if _Sonarr is None:
             raise ImportError("pyarr Sonarr client not found")
-        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=8989)
+        call_args, call_kwargs = _normalize_v6_client_args(
+            args, kwargs, default_port=8989, default_api_ver="v3"
+        )
         super().__init__(_Sonarr(*call_args, **call_kwargs))
 
 
@@ -277,13 +296,16 @@ class LidarrAPI(_CompatArrClient):
             return
         if _Lidarr is None:
             raise ImportError("pyarr Lidarr client not found")
-        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=8686)
+        call_args, call_kwargs = _normalize_v6_client_args(
+            args, kwargs, default_port=8686, default_api_ver="v1"
+        )
         super().__init__(_Lidarr(*call_args, **call_kwargs))
 
 
 __all__ = [
     "JsonObject",
     "LidarrAPI",
+    "PyarrConnectionError",
     "PyarrResourceNotFound",
     "PyarrServerError",
     "RadarrAPI",

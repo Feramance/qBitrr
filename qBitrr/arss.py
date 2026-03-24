@@ -56,6 +56,7 @@ from qBitrr.logger import run_logs
 from qBitrr.pyarr_compat import (
     JsonObject,
     LidarrAPI,
+    PyarrConnectionError,
     PyarrResourceNotFound,
     PyarrServerError,
     RadarrAPI,
@@ -102,6 +103,7 @@ _ARR_RETRY_EXCEPTIONS_EXTENDED = (
     requests.exceptions.ConnectionError,
     JSONDecodeError,
     requests.exceptions.RequestException,
+    PyarrConnectionError,
 )
 
 
@@ -7338,29 +7340,38 @@ class Arr:
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
-                except DelayLoopException as e:
-                    if e.error_type == "qbit":
+                except (PyarrConnectionError, DelayLoopException) as e:
+                    if isinstance(e, PyarrConnectionError):
+                        self.logger.warning(
+                            "Could not reach %s Arr API during search loop: %s",
+                            self._name,
+                            e,
+                        )
+                        delay_exc = DelayLoopException(length=300, error_type="arr")
+                    else:
+                        delay_exc = e
+                    if delay_exc.error_type == "qbit":
                         self.logger.critical(
                             "Failed to connected to qBit client, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "internet":
+                    elif delay_exc.error_type == "internet":
                         self.logger.critical(
                             "Failed to connected to the internet, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "arr":
+                    elif delay_exc.error_type == "arr":
                         self.logger.critical(
                             "Failed to connected to the Arr instance, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "delay":
+                    elif delay_exc.error_type == "delay":
                         self.logger.critical(
                             "Forced delay due to temporary issue with environment, "
                             "sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    event.wait(e.length)
+                    event.wait(delay_exc.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
