@@ -32,9 +32,9 @@ except ImportError:  # pragma: no cover
     class PyarrResourceNotFound(Exception):
         """Fallback pyarr resource-not-found exception type."""
 
-
     class PyarrServerError(Exception):
         """Fallback pyarr server-error exception type."""
+
 
 try:
     from pyarr.exceptions import PyarrConnectionError

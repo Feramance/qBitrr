@@ -5012,6 +5012,9 @@ class Arr:
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except PyarrConnectionError as e:
+                self.logger.warning("Couldn't connect to %s: %s", self.type, e)
+                raise DelayLoopException(length=300, error_type="arr") from e
             except requests.exceptions.ConnectionError:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
