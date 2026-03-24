@@ -4903,6 +4903,24 @@ class Arr:
                     reverse=True,
                 )
                 if len(sorted_torrents) > 1:
+                    # Skip queue updates when the current queue order already matches
+                    # desired tracker-priority ordering for this instance.
+                    current_queue_order = [
+                        torrent.hash
+                        for torrent in sorted(
+                            torrent_list,
+                            key=lambda torrent: (
+                                not (
+                                    isinstance(getattr(torrent, "priority", -1), int)
+                                    and getattr(torrent, "priority", -1) > 0
+                                ),
+                                getattr(torrent, "priority", -1),
+                            ),
+                        )
+                    ]
+                    desired_queue_order = [torrent.hash for torrent in sorted_torrents]
+                    if current_queue_order == desired_queue_order:
+                        continue
                     # qBittorrent may ignore hash input ordering in batch topPrio calls.
                     # Move torrents one-by-one (lowest first) to enforce tracker-priority order.
                     for torrent in reversed(sorted_torrents):
