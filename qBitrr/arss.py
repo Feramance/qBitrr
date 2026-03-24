@@ -5907,7 +5907,9 @@ class Arr:
                 remove_for_message = (
                     self.remove_dead_trackers
                     and self._normalized_bad_tracker_msgs
-                    and any(keyword in message_text for keyword in self._normalized_bad_tracker_msgs)
+                    and any(
+                        keyword in message_text for keyword in self._normalized_bad_tracker_msgs
+                    )
                 )
                 if not tracker_url:
                     continue
@@ -7410,19 +7412,17 @@ class Arr:
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, error_type="qbit")
-                    except Exception as e:
-                        self.logger.exception(e, exc_info=sys.exc_info())
-                    event.wait(LOOP_SLEEP_TIMER)
-                except (PyarrConnectionError, DelayLoopException) as e:
-                    if isinstance(e, PyarrConnectionError):
+                    except PyarrConnectionError as e:
                         self.logger.warning(
                             "Could not reach %s Arr API during search loop: %s",
                             self._name,
                             e,
                         )
-                        delay_exc = DelayLoopException(length=300, error_type="arr")
-                    else:
-                        delay_exc = e
+                        raise DelayLoopException(length=300, error_type="arr") from e
+                    except Exception as e:
+                        self.logger.exception(e, exc_info=sys.exc_info())
+                    event.wait(LOOP_SLEEP_TIMER)
+                except DelayLoopException as delay_exc:
                     if delay_exc.error_type == "qbit":
                         self.logger.critical(
                             "Failed to connected to qBit client, sleeping for %s",
