@@ -1,20 +1,251 @@
 from __future__ import annotations
 
-"""Compatibility imports for pyarr client class naming changes.
+"""Compatibility layer for pyarr v5/v6 API differences."""
 
-Recent pyarr versions expose client classes as ``Radarr``, ``Sonarr``, and
-``Lidarr`` instead of ``RadarrAPI``, ``SonarrAPI``, and ``LidarrAPI``.
-qBitrr historically used the ``*API`` names. This module normalizes imports so
-the rest of the code can keep using ``RadarrAPI``/``SonarrAPI``/``LidarrAPI``.
-"""
+from typing import Any
 
 try:
-    # Legacy pyarr naming (<= v5.x style)
-    from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
-except ImportError:
-    # Newer pyarr naming (v6+ style)
-    from pyarr import Lidarr as LidarrAPI
-    from pyarr import Radarr as RadarrAPI
-    from pyarr import Sonarr as SonarrAPI
+    # pyarr <= v5
+    from pyarr import LidarrAPI as _LegacyLidarrAPI
+    from pyarr import RadarrAPI as _LegacyRadarrAPI
+    from pyarr import SonarrAPI as _LegacySonarrAPI
+except ImportError:  # pragma: no cover - import path only differs by installed pyarr version
+    _LegacyLidarrAPI = None
+    _LegacyRadarrAPI = None
+    _LegacySonarrAPI = None
 
-__all__ = ["RadarrAPI", "SonarrAPI", "LidarrAPI"]
+try:
+    # pyarr >= v6
+    from pyarr import Lidarr as _Lidarr
+    from pyarr import Radarr as _Radarr
+    from pyarr import Sonarr as _Sonarr
+except ImportError:  # pragma: no cover - import path only differs by installed pyarr version
+    _Lidarr = None
+    _Radarr = None
+    _Sonarr = None
+
+try:
+    from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
+except ImportError:  # pragma: no cover
+    # Last-resort fallback keeps importers working even if pyarr reshuffles modules.
+    PyarrResourceNotFound = Exception
+    PyarrServerError = Exception
+
+try:
+    from pyarr.types import JsonObject
+except ImportError:  # pragma: no cover
+    JsonObject = dict[str, Any]
+
+
+class _CompatArrClient:
+    """Adapter that preserves qBitrr's legacy pyarr call surface."""
+
+    def __init__(self, client: Any):
+        self._client = client
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._client, name)
+
+    def _legacy_call(self, method: str, *args: Any, **kwargs: Any) -> Any:
+        return getattr(self._client, method)(*args, **kwargs)
+
+    def _has_legacy(self, method: str) -> bool:
+        return hasattr(self._client, method)
+
+    def get_update(self) -> Any:
+        if self._has_legacy("get_update"):
+            return self._legacy_call("get_update")
+        return self._client.update.get()
+
+    def get_command(self, item_id: int | None = None) -> Any:
+        if self._has_legacy("get_command"):
+            if item_id is None:
+                return self._legacy_call("get_command")
+            return self._legacy_call("get_command", item_id)
+        return self._client.command.get(item_id=item_id)
+
+    def post_command(self, command: str, **kwargs: Any) -> Any:
+        if self._has_legacy("post_command"):
+            return self._legacy_call("post_command", command, **kwargs)
+        return self._client.command.execute(command, **kwargs)
+
+    def get_queue(self, **kwargs: Any) -> JsonObject:
+        if self._has_legacy("get_queue"):
+            return self._legacy_call("get_queue", **kwargs)
+        return self._client.queue.get(**kwargs)
+
+    def del_queue(
+        self,
+        item_id: int,
+        remove_from_client: bool | None = None,
+        blacklist: bool | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        if self._has_legacy("del_queue"):
+            return self._legacy_call("del_queue", item_id, remove_from_client, blacklist, **kwargs)
+        blocklist = kwargs.pop("blocklist", blacklist)
+        return self._client.queue.delete(
+            item_id=item_id, remove_from_client=remove_from_client, blocklist=blocklist, **kwargs
+        )
+
+    def get_system_status(self) -> JsonObject:
+        if self._has_legacy("get_system_status"):
+            return self._legacy_call("get_system_status")
+        return self._client.system.get_status()
+
+    def get_quality_profile(self, item_id: int | None = None) -> Any:
+        if self._has_legacy("get_quality_profile"):
+            if item_id is None:
+                return self._legacy_call("get_quality_profile")
+            return self._legacy_call("get_quality_profile", item_id)
+        return self._client.quality_profile.get(item_id=item_id)
+
+    def get_series(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_series"):
+            if item_id is None and "id_" in kwargs:
+                item_id = kwargs.pop("id_")
+            if item_id is None:
+                return self._legacy_call("get_series", **kwargs)
+            return self._legacy_call("get_series", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.series.get(item_id=item_id, **kwargs)
+
+    def get_episode(self, item_id: int | None = None, series: bool = False, **kwargs: Any) -> Any:
+        if self._has_legacy("get_episode"):
+            if item_id is None:
+                item_id = kwargs.pop("id_", None)
+            if item_id is None:
+                return self._legacy_call("get_episode", **kwargs)
+            return self._legacy_call("get_episode", item_id, series, **kwargs)
+        if series:
+            return self._client.episode.get(series_id=item_id)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.episode.get(item_id=item_id, **kwargs)
+
+    def get_episode_file(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_episode_file"):
+            if item_id is None:
+                return self._legacy_call("get_episode_file", **kwargs)
+            return self._legacy_call("get_episode_file", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.episode_file.get(item_id=item_id, **kwargs)
+
+    def upd_episode(self, item_id: int, data: JsonObject) -> JsonObject:
+        if self._has_legacy("upd_episode"):
+            return self._legacy_call("upd_episode", item_id, data)
+        return self._client.episode.update(item_id=item_id, data=data)
+
+    def upd_series(self, data: JsonObject) -> JsonObject:
+        if self._has_legacy("upd_series"):
+            return self._legacy_call("upd_series", data)
+        return self._client.series.update(data=data)
+
+    def get_movie(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_movie"):
+            if item_id is None:
+                return self._legacy_call("get_movie", **kwargs)
+            return self._legacy_call("get_movie", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.movie.get(item_id=item_id, **kwargs)
+
+    def get_movie_file(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_movie_file"):
+            if item_id is None:
+                return self._legacy_call("get_movie_file", **kwargs)
+            return self._legacy_call("get_movie_file", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.movie_file.get(item_id=item_id, **kwargs)
+
+    def upd_movie(self, data: JsonObject, move_files: bool | None = None) -> JsonObject:
+        if self._has_legacy("upd_movie"):
+            if move_files is None:
+                return self._legacy_call("upd_movie", data)
+            return self._legacy_call("upd_movie", data, move_files)
+        return self._client.movie.update(data=data, move_files=move_files)
+
+    def get_artist(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_artist"):
+            if item_id is None and "id_" in kwargs:
+                item_id = kwargs.pop("id_")
+            if item_id is None:
+                return self._legacy_call("get_artist", **kwargs)
+            return self._legacy_call("get_artist", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        return self._client.artist.get(item_id=item_id, **kwargs)
+
+    def get_album(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_album"):
+            if item_id is None:
+                return self._legacy_call("get_album", **kwargs)
+            return self._legacy_call("get_album", item_id, **kwargs)
+        if item_id is None:
+            item_id = kwargs.pop("id_", None)
+        artist_id = kwargs.pop("artistId", kwargs.pop("artist_id", None))
+        return self._client.album.get(item_id=item_id, artist_id=artist_id, **kwargs)
+
+    def get_tracks(self, **kwargs: Any) -> Any:
+        if self._has_legacy("get_tracks"):
+            return self._legacy_call("get_tracks", **kwargs)
+        album_id = kwargs.pop("albumId", kwargs.pop("album_id", None))
+        artist_id = kwargs.pop("artistId", kwargs.pop("artist_id", None))
+        return self._client.track.get(album_id=album_id, artist_id=artist_id, **kwargs)
+
+    def get_track_file(self, item_id: int | None = None, **kwargs: Any) -> Any:
+        if self._has_legacy("get_track_file"):
+            if item_id is None:
+                return self._legacy_call("get_track_file", **kwargs)
+            return self._legacy_call("get_track_file", item_id, **kwargs)
+        if item_id is not None:
+            kwargs["track_file_ids"] = [item_id]
+        return self._client.track_file.get(**kwargs)
+
+    def upd_artist(self, data: JsonObject) -> JsonObject:
+        if self._has_legacy("upd_artist"):
+            return self._legacy_call("upd_artist", data)
+        return self._client.artist.update(data=data)
+
+
+class RadarrAPI(_CompatArrClient):
+    def __init__(self, *args: Any, **kwargs: Any):
+        if _LegacyRadarrAPI is not None:
+            super().__init__(_LegacyRadarrAPI(*args, **kwargs))
+            return
+        if _Radarr is None:
+            raise ImportError("pyarr Radarr client not found")
+        super().__init__(_Radarr(*args, **kwargs))
+
+
+class SonarrAPI(_CompatArrClient):
+    def __init__(self, *args: Any, **kwargs: Any):
+        if _LegacySonarrAPI is not None:
+            super().__init__(_LegacySonarrAPI(*args, **kwargs))
+            return
+        if _Sonarr is None:
+            raise ImportError("pyarr Sonarr client not found")
+        super().__init__(_Sonarr(*args, **kwargs))
+
+
+class LidarrAPI(_CompatArrClient):
+    def __init__(self, *args: Any, **kwargs: Any):
+        if _LegacyLidarrAPI is not None:
+            super().__init__(_LegacyLidarrAPI(*args, **kwargs))
+            return
+        if _Lidarr is None:
+            raise ImportError("pyarr Lidarr client not found")
+        super().__init__(_Lidarr(*args, **kwargs))
+
+
+__all__ = [
+    "JsonObject",
+    "LidarrAPI",
+    "PyarrResourceNotFound",
+    "PyarrServerError",
+    "RadarrAPI",
+    "SonarrAPI",
+]

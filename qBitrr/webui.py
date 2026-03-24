@@ -3234,7 +3234,8 @@ class WebUI:
                     from json import JSONDecodeError
 
                     import requests
-                    from pyarr.exceptions import PyarrServerError
+
+                    from qBitrr.pyarr_compat import PyarrServerError
 
                     max_retries = 3
                     retry_count = 0

@@ -31,6 +31,7 @@ Ensure your contribution meets these requirements:
 - [ ] Code follows [style guidelines](code-style.md)
 - [ ] Pre-commit hooks pass (`pre-commit run --all-files`)
 - [ ] Changes tested locally with live qBittorrent + Arr instances
+- [ ] If touching Arr integrations, validate against supported pyarr versions (v5 and v6)
 - [ ] Documentation updated (if adding features)
 - [ ] Commit messages follow conventional commits format
 
