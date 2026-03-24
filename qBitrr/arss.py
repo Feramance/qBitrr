@@ -5836,7 +5836,7 @@ class Arr:
         """Return the tracker Priority for this torrent's most important monitored tracker."""
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         most_important_tracker, _ = self._get_most_important_tracker_and_tags(
-            monitored_trackers, {}
+            monitored_trackers, set()
         )
         return most_important_tracker.get("Priority", -100)
 
