@@ -437,7 +437,6 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
   const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false, setupRequired: false });
 
   const checkAuth = useCallback(async () => {
-    setAuthState("loading");
     try {
       const meta = await getMeta();
       const authRequired = Boolean(meta.auth_required);
@@ -473,7 +472,11 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
   }, []);
 
   useEffect(() => {
-    void checkAuth();
+    // Defer so the effect body does not synchronously trigger setState (react-hooks/set-state-in-effect).
+    const id = window.setTimeout(() => {
+      void checkAuth();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [checkAuth]);
 
   const handleSignOut = useCallback(async () => {

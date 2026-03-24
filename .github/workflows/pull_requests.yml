@@ -114,7 +114,7 @@ jobs:
         - arm64
     steps:
     - id: string
-      uses: ASzc/change-string-case-action@v6
+      uses: ASzc/change-string-case-action@v8
       with:
         string: ${{ github.repository }}
     - name: Checkout
