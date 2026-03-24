@@ -4906,6 +4906,7 @@ class Arr:
                     for torrent in reversed(sorted_torrents):
                         client.torrents_top_priority(torrent_hashes=[torrent.hash])
             except (
+                DelayLoopException,
                 qbittorrentapi.exceptions.APIError,
                 qbittorrentapi.exceptions.APIConnectionError,
             ) as e:
