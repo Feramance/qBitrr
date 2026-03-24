@@ -595,6 +595,7 @@ class Arr:
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
         self._warned_no_seeding_limits = False
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
 
         self.last_search_description: str | None = None
         self.last_search_timestamp: str | None = None
@@ -4891,12 +4892,14 @@ class Arr:
             try:
                 sorted_torrents = sorted(
                     torrent_list,
-                    key=lambda t: self._get_torrent_tracker_priority(t),
+                    key=self._get_torrent_tracker_priority,
                     reverse=True,
                 )
-                hashes = [t.hash for t in sorted_torrents]
-                if hashes:
-                    client.torrents_top_priority(torrent_hashes=list(reversed(hashes)))
+                if len(sorted_torrents) > 1:
+                    # qBittorrent may ignore hash input ordering in batch topPrio calls.
+                    # Move torrents one-by-one (lowest first) to enforce tracker-priority order.
+                    for torrent in reversed(sorted_torrents):
+                        client.torrents_top_priority(torrent_hashes=[torrent.hash])
             except (
                 qbittorrentapi.exceptions.APIError,
                 qbittorrentapi.exceptions.APIConnectionError,
@@ -4926,6 +4929,7 @@ class Arr:
                 ]
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
+                self._torrent_important_trackers_cache.clear()
                 if not len(torrents_with_instances):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
@@ -5767,8 +5771,12 @@ class Arr:
         )
 
     def _get_torrent_important_trackers(
-        self, torrent: qbittorrentapi.TorrentDictionary
+        self, torrent: qbittorrentapi.TorrentDictionary, *, use_cache: bool = True
     ) -> tuple[set[str], set[str]]:
+        torrent_hash = getattr(torrent, "hash", "")
+        if use_cache and torrent_hash:
+            if cached := self._torrent_important_trackers_cache.get(torrent_hash):
+                return cached
         try:
             current_tracker_urls = {
                 i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")
@@ -5798,7 +5806,10 @@ class Arr:
             if _extract_tracker_host(uri) not in current_hosts
         }
         monitored_trackers = monitored_trackers.union(need_to_be_added)
-        return need_to_be_added, monitored_trackers
+        result = (need_to_be_added, monitored_trackers)
+        if use_cache and torrent_hash:
+            self._torrent_important_trackers_cache[torrent_hash] = result
+        return result
 
     @staticmethod
     def __return_max(x: dict):
@@ -6005,8 +6016,10 @@ class Arr:
         self.tracker_delay.add(torrent.hash)
         _remove_urls = set()
         need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        tracker_set_changed = False
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
+            tracker_set_changed = True
         with contextlib.suppress(BaseException):
             for tracker in torrent.trackers:
                 tracker_url = getattr(tracker, "url", None)
@@ -6034,6 +6047,9 @@ class Arr:
             )
             with contextlib.suppress(qbittorrentapi.Conflict409Error):
                 torrent.remove_trackers(_remove_urls)
+            tracker_set_changed = True
+        if tracker_set_changed:
+            self._torrent_important_trackers_cache.pop(torrent.hash, None)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, _remove_urls
         )
@@ -7488,6 +7504,7 @@ class PlaceHolderArr(Arr):
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
         self._warned_no_seeding_limits = False
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
         self.custom_format_unmet_search = False
         self.do_not_remove_slow = False
         self.maximum_eta = CONFIG.get_duration("Settings.Torrent.MaximumETA", fallback=86400)
