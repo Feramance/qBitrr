@@ -3,6 +3,7 @@ from __future__ import annotations
 """Compatibility layer for pyarr v5/v6 API differences."""
 
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     # pyarr <= v5
@@ -211,6 +212,42 @@ class _CompatArrClient:
         return self._client.artist.update(data=data)
 
 
+def _normalize_v6_client_args(
+    args: tuple[Any, ...], kwargs: dict[str, Any], default_port: int
+) -> tuple[tuple[Any, ...], dict[str, Any]]:
+    """Map legacy qBitrr constructor args into pyarr v6 constructor shape."""
+    new_args = list(args)
+    new_kwargs = dict(kwargs)
+
+    host_url = new_kwargs.pop("host_url", None)
+    if host_url and "host" not in new_kwargs:
+        new_kwargs["host"] = host_url
+
+    # qBitrr frequently passes a full URL as first positional argument.
+    if new_args and isinstance(new_args[0], str) and "host" not in new_kwargs:
+        new_kwargs["host"] = new_args.pop(0)
+        if new_args and "api_key" not in new_kwargs:
+            new_kwargs["api_key"] = new_args.pop(0)
+
+    host_value = new_kwargs.get("host")
+    if isinstance(host_value, str):
+        parsed = urlparse(host_value)
+        if parsed.scheme and parsed.netloc:
+            if parsed.hostname:
+                new_kwargs["host"] = parsed.hostname
+            if "port" not in new_kwargs:
+                new_kwargs["port"] = parsed.port or default_port
+            if "tls" not in new_kwargs:
+                new_kwargs["tls"] = parsed.scheme.lower() == "https"
+            if "base_path" not in new_kwargs and parsed.path not in ("", "/"):
+                new_kwargs["base_path"] = parsed.path.rstrip("/")
+
+    if "port" not in new_kwargs:
+        new_kwargs["port"] = default_port
+
+    return tuple(new_args), new_kwargs
+
+
 class RadarrAPI(_CompatArrClient):
     def __init__(self, *args: Any, **kwargs: Any):
         if _LegacyRadarrAPI is not None:
@@ -218,7 +255,8 @@ class RadarrAPI(_CompatArrClient):
             return
         if _Radarr is None:
             raise ImportError("pyarr Radarr client not found")
-        super().__init__(_Radarr(*args, **kwargs))
+        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=7878)
+        super().__init__(_Radarr(*call_args, **call_kwargs))
 
 
 class SonarrAPI(_CompatArrClient):
@@ -228,7 +266,8 @@ class SonarrAPI(_CompatArrClient):
             return
         if _Sonarr is None:
             raise ImportError("pyarr Sonarr client not found")
-        super().__init__(_Sonarr(*args, **kwargs))
+        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=8989)
+        super().__init__(_Sonarr(*call_args, **call_kwargs))
 
 
 class LidarrAPI(_CompatArrClient):
@@ -238,7 +277,8 @@ class LidarrAPI(_CompatArrClient):
             return
         if _Lidarr is None:
             raise ImportError("pyarr Lidarr client not found")
-        super().__init__(_Lidarr(*args, **kwargs))
+        call_args, call_kwargs = _normalize_v6_client_args(args, kwargs, default_port=8686)
+        super().__init__(_Lidarr(*call_args, **call_kwargs))
 
 
 __all__ = [
