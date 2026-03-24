@@ -24,7 +24,6 @@ import requests
 from jaraco.docker import is_docker
 from packaging import version as version_parser
 from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
-from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
 from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
 from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
@@ -56,6 +55,7 @@ from qBitrr.errors import (
     UnhandledError,
 )
 from qBitrr.logger import run_logs
+from qBitrr.pyarr_compat import LidarrAPI, RadarrAPI, SonarrAPI
 from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
