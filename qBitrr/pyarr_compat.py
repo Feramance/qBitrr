@@ -9,6 +9,12 @@ the rest of the code can keep using ``RadarrAPI``/``SonarrAPI``/``LidarrAPI``.
 """
 
 try:
-    pass
+    # Legacy pyarr naming (<= v5.x style)
+    from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
 except ImportError:
-    pass
+    # Newer pyarr naming (v6+ style)
+    from pyarr import Lidarr as LidarrAPI
+    from pyarr import Radarr as RadarrAPI
+    from pyarr import Sonarr as SonarrAPI
+
+__all__ = ["RadarrAPI", "SonarrAPI", "LidarrAPI"]
