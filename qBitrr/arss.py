@@ -4905,26 +4905,56 @@ class Arr:
                 if len(sorted_torrents) > 1:
                     # Skip queue updates when the current queue order already matches
                     # desired tracker-priority ordering for this instance.
-                    current_queue_order = [
-                        torrent.hash
-                        for torrent in sorted(
-                            torrent_list,
-                            key=lambda torrent: (
-                                not (
-                                    isinstance(getattr(torrent, "priority", -1), int)
-                                    and getattr(torrent, "priority", -1) > 0
-                                ),
-                                getattr(torrent, "priority", -1),
+                    queue_membership = {
+                        torrent.hash: self.is_complete_state(torrent) for torrent in torrent_list
+                    }
+                    current_order_by_qbit_priority = sorted(
+                        torrent_list,
+                        key=lambda torrent: (
+                            not (
+                                isinstance(getattr(torrent, "priority", -1), int)
+                                and getattr(torrent, "priority", -1) > 0
                             ),
-                        )
+                            getattr(torrent, "priority", -1),
+                        ),
+                    )
+                    current_downloading_order = [
+                        torrent.hash
+                        for torrent in current_order_by_qbit_priority
+                        if not queue_membership.get(torrent.hash, False)
                     ]
-                    desired_queue_order = [torrent.hash for torrent in sorted_torrents]
-                    if current_queue_order == desired_queue_order:
+                    current_seeding_order = [
+                        torrent.hash
+                        for torrent in current_order_by_qbit_priority
+                        if queue_membership.get(torrent.hash, False)
+                    ]
+                    desired_downloading_order = [
+                        torrent.hash
+                        for torrent in sorted_torrents
+                        if not queue_membership.get(torrent.hash, False)
+                    ]
+                    desired_seeding_order = [
+                        torrent.hash
+                        for torrent in sorted_torrents
+                        if queue_membership.get(torrent.hash, False)
+                    ]
+                    if (
+                        current_downloading_order == desired_downloading_order
+                        and current_seeding_order == desired_seeding_order
+                    ):
                         continue
                     # qBittorrent may ignore hash input ordering in batch topPrio calls.
-                    # Move torrents one-by-one (lowest first) to enforce tracker-priority order.
-                    for torrent in reversed(sorted_torrents):
-                        client.torrents_top_priority(torrent_hashes=[torrent.hash])
+                    # Move torrents one-by-one (lowest first) to enforce tracker-priority
+                    # order within each queue, since qBittorrent keeps download/upload
+                    # queues separate.
+                    for queue_is_seeding in (False, True):
+                        queue_torrents = [
+                            torrent
+                            for torrent in sorted_torrents
+                            if queue_membership.get(torrent.hash, False) == queue_is_seeding
+                        ]
+                        for torrent in reversed(queue_torrents):
+                            client.torrents_top_priority(torrent_hashes=[torrent.hash])
             except DelayLoopException as e:
                 self.logger.warning(
                     "Failed to sort torrents by tracker priority on instance '%s': %s",
