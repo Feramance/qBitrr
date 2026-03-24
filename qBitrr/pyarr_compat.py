@@ -132,10 +132,10 @@ class _CompatArrClient:
             if item_id is None:
                 return self._legacy_call("get_episode", **kwargs)
             return self._legacy_call("get_episode", item_id, series, **kwargs)
-        if series:
-            return self._client.episode.get(series_id=item_id)
         if item_id is None:
             item_id = kwargs.pop("id_", None)
+        if series:
+            return self._client.episode.get(series_id=item_id)
         return self._client.episode.get(item_id=item_id, **kwargs)
 
     def get_episode_file(self, item_id: int | None = None, **kwargs: Any) -> Any:
