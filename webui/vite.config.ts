@@ -24,10 +24,6 @@ export default defineConfig({
           }
           return "assets/[name][extname]";
         },
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          table: ['@tanstack/react-table'],
-        },
       },
     },
   },
