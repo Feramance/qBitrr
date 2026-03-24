@@ -5899,8 +5899,25 @@ class Arr:
     def _get_torrent_tracker_priority(self, torrent: qbittorrentapi.TorrentDictionary) -> int:
         """Return the tracker Priority for this torrent's most important monitored tracker."""
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        remove_urls = set()
+        with contextlib.suppress(BaseException):
+            for tracker in torrent.trackers:
+                tracker_url = getattr(tracker, "url", None)
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                remove_for_message = (
+                    self.remove_dead_trackers
+                    and self._normalized_bad_tracker_msgs
+                    and any(keyword in message_text for keyword in self._normalized_bad_tracker_msgs)
+                )
+                if not tracker_url:
+                    continue
+                if (
+                    remove_for_message
+                    or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
+                ):
+                    remove_urls.add(tracker_url)
         most_important_tracker, _ = self._get_most_important_tracker_and_tags(
-            monitored_trackers, set()
+            monitored_trackers, remove_urls
         )
         return most_important_tracker.get("Priority", -100)
 
