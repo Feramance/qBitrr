@@ -7894,6 +7894,7 @@ class PlaceHolderArr(Arr):
                 ]
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
+                self._torrent_important_trackers_cache.clear()
                 if not torrents_with_instances:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
@@ -7903,6 +7904,8 @@ class PlaceHolderArr(Arr):
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
+                if self.sort_torrents:
+                    self._sort_torrents_by_tracker_priority(torrents_with_instances)
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent, instance_name=instance_name)
