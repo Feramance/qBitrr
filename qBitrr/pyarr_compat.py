@@ -252,7 +252,16 @@ def _normalize_v6_client_args(
             if parsed.hostname:
                 new_kwargs["host"] = parsed.hostname
             if "port" not in new_kwargs:
-                new_kwargs["port"] = parsed.port or default_port
+                if parsed.port is not None:
+                    new_kwargs["port"] = parsed.port
+                else:
+                    scheme = parsed.scheme.lower()
+                    if scheme == "https":
+                        new_kwargs["port"] = 443
+                    elif scheme == "http":
+                        new_kwargs["port"] = 80
+                    else:
+                        new_kwargs["port"] = default_port
             if "tls" not in new_kwargs:
                 new_kwargs["tls"] = parsed.scheme.lower() == "https"
             if "base_path" not in new_kwargs and parsed.path not in ("", "/"):
