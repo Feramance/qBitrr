@@ -95,7 +95,8 @@ class _CompatArrClient:
         **kwargs: Any,
     ) -> Any:
         if self._has_legacy("del_queue"):
-            return self._legacy_call("del_queue", item_id, remove_from_client, blacklist, **kwargs)
+            blocklist = kwargs.pop("blocklist", blacklist)
+            return self._legacy_call("del_queue", item_id, remove_from_client, blocklist, **kwargs)
         blocklist = kwargs.pop("blocklist", blacklist)
         return self._client.queue.delete(
             item_id=item_id, remove_from_client=remove_from_client, blocklist=blocklist, **kwargs
