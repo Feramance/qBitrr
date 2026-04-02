@@ -5983,7 +5983,7 @@ class Arr:
         """Return the tracker Priority for this torrent's most important monitored tracker."""
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         remove_urls = set()
-        with contextlib.suppress(BaseException):
+        try:
             for tracker in torrent.trackers:
                 tracker_url = getattr(tracker, "url", None)
                 message_text = (getattr(tracker, "msg", "") or "").lower()
@@ -6001,6 +6001,18 @@ class Arr:
                     or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
                 ):
                     remove_urls.add(tracker_url)
+        except (
+            qbittorrentapi.exceptions.APIError,
+            qbittorrentapi.exceptions.APIConnectionError,
+            AttributeError,
+            TypeError,
+            ValueError,
+        ) as e:
+            self.logger.debug(
+                "Failed to inspect tracker metadata for torrent '%s' while calculating priority",
+                getattr(torrent, "hash", "<unknown>"),
+                exc_info=e,
+            )
         most_important_tracker, _ = self._get_most_important_tracker_and_tags(
             monitored_trackers, remove_urls
         )
