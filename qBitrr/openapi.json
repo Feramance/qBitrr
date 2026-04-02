@@ -2168,12 +2168,10 @@
           }
         },
         "security": [
-          [],
-          [
-            {
-              "bearerAuth": []
-            }
-          ]
+          {},
+          {
+            "bearerAuth": []
+          }
         ],
         "summary": "API token when auth disabled or session valid; 401 with empty token if auth required and not signed in",
         "tags": [
