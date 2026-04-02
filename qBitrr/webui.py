@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.resources
 import io
+import json
 import logging
 import os
 import re
@@ -27,6 +29,55 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
 )
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
+
+_openapi_spec_lock = threading.Lock()
+_openapi_spec: dict[str, Any] | None = None
+
+
+def _load_openapi_spec() -> dict[str, Any]:
+    """Load bundled OpenAPI document (cached, thread-safe)."""
+    global _openapi_spec
+    with _openapi_spec_lock:
+        if _openapi_spec is None:
+            raw = (
+                importlib.resources.files("qBitrr")
+                .joinpath("openapi.json")
+                .read_text(encoding="utf-8")
+            )
+            _openapi_spec = json.loads(raw)
+        return _openapi_spec
+
+
+def _swagger_ui_html(spec_url: str) -> str:
+    """Minimal Swagger UI page loading the given OpenAPI spec URL (same-origin)."""
+    spec_url_json = json.dumps(spec_url)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>qBitrr API — Swagger UI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui.css" crossorigin="anonymous"/>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" crossorigin="anonymous"></script>
+  <script>
+    window.onload = function () {{
+      window.ui = SwaggerUIBundle({{
+        url: {spec_url_json},
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        persistAuthorization: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+        layout: "StandaloneLayout",
+      }});
+    }};
+  </script>
+</body>
+</html>"""
 
 
 class _RateLimiter:
@@ -1587,6 +1638,44 @@ class WebUI:
             if not _authorized():
                 return jsonify({"error": "unauthorized"}), 401
             return None
+
+        def _openapi_json_response():
+            spec = _load_openapi_spec()
+            response = jsonify(spec)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+        def _swagger_ui_response(spec_path: str):
+            from flask import make_response
+
+            response = make_response(_swagger_ui_html(spec_path))
+            response.headers["Content-Type"] = "text/html; charset=utf-8"
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+        @app.get("/api/openapi.json")
+        def api_openapi_json():
+            if (resp := require_token()) is not None:
+                return resp
+            return _openapi_json_response()
+
+        @app.get("/web/openapi.json")
+        def web_openapi_json():
+            if (resp := require_token()) is not None:
+                return resp
+            return _openapi_json_response()
+
+        @app.get("/api/docs")
+        def api_swagger_docs():
+            if (resp := require_token()) is not None:
+                return resp
+            return _swagger_ui_response("/api/openapi.json")
+
+        @app.get("/web/docs")
+        def web_swagger_docs():
+            if (resp := require_token()) is not None:
+                return resp
+            return _swagger_ui_response("/web/openapi.json")
 
         @app.get("/ui")
         def ui_index():

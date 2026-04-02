@@ -346,7 +346,7 @@ When making code changes, update the following documentation as applicable:
 
 #### 4. API Documentation
 - **`docs/reference/api.md`**: Update if adding/changing WebUI API endpoints
-- **OpenAPI/Swagger**: Update specs if applicable
+- **OpenAPI/Swagger**: Keep [`qBitrr/openapi.json`](qBitrr/openapi.json) in sync when adding or changing REST routes; interactive UI is served at `/web/docs` and `/api/docs` (see [`docs/webui/api.md`](docs/webui/api.md))
 
 ### Documentation Quality Standards
 
