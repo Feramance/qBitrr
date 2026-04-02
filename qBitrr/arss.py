@@ -8406,6 +8406,7 @@ class TrackerSortManager(Arr):
 
     def __init__(self, manager: ArrManager):
         self._name = "TrackerSortManager"
+        self.category = "TrackerSortManager"
         self.type = "TrackerSortManager"
         self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
