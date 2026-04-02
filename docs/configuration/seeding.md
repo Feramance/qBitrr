@@ -58,7 +58,11 @@ Final trackers = qBit trackers (base) ← Arr trackers override by URI
 
 Set on individual tracker entries in `[[qBit.Trackers]]` or `[[<Arr>.Torrent.Trackers]]`, **right under [Priority](#priority)**.
 
-When `true` on **any** configured tracker, qBitrr reorders torrents in the qBittorrent queue each processing cycle so that torrents are at the top of the queue in order of their **tracker priority** (highest first). Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+When `true` on **any** merged tracker entry, qBitrr runs a **dedicated** `TrackerSortManager` worker (same lifecycle pattern as `FreeSpaceManager`) that reorders torrents on each loop so the qBittorrent queue follows **tracker priority** (highest first). Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+
+**Merge scope:** Sorting uses one unified map: start with `[[qBit.Trackers]]`, then merge every `[[<Arr>.Torrent.Trackers]]` block (same URI-keyed rules as per-Arr merge—**later Arr sections in the config file overwrite earlier entries for the same URI**, including overrides to qBit-level defaults). `RemoveDeadTrackers` / `RemoveTrackerWithMessage` for deciding which announce URLs count as "removed" during priority resolution use the **union** of all Arr `Torrent.SeedingMode` settings (`RemoveDeadTrackers` is enabled if **any** Arr enables it; messages are combined and deduplicated).
+
+Reordering applies to the **global** transfer list (all categories on each qBittorrent instance), not a single Arr category.
 
 **Requirements:**
 
