@@ -5028,7 +5028,18 @@ class Arr:
                             if queue_membership.get(torrent.hash, False) == queue_is_seeding
                         ]
                         for torrent in reversed(queue_torrents):
-                            client.torrents_top_priority(torrent_hashes=[torrent.hash])
+                            try:
+                                client.torrents_top_priority(torrent_hashes=[torrent.hash])
+                            except (
+                                qbittorrentapi.exceptions.APIError,
+                                qbittorrentapi.exceptions.APIConnectionError,
+                            ) as e:
+                                self.logger.warning(
+                                    "Failed to change torrent priority for hash '%s' on instance '%s': %s",
+                                    torrent.hash,
+                                    instance_name,
+                                    e,
+                                )
             except DelayLoopException as e:
                 self.logger.warning(
                     "Failed to sort torrents by tracker priority on instance '%s': %s",
