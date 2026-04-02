@@ -51,6 +51,36 @@ Final trackers = qBit trackers (base) ← Arr trackers override by URI
 
 ---
 
+### SortTorrents
+
+**Type:** Boolean (per-tracker)
+**Default:** `false`
+
+Set on individual tracker entries in `[[qBit.Trackers]]` or `[[<Arr>.Torrent.Trackers]]`, **right under [Priority](#priority)**.
+
+When `true` on **any** merged tracker entry, qBitrr runs a **dedicated** `TrackerSortManager` worker (same lifecycle pattern as `FreeSpaceManager`) that reorders torrents on each loop so the qBittorrent queue follows **tracker priority** (highest first). Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+
+**Merge scope:** Sorting uses one unified map: start with `[[qBit.Trackers]]`, then merge every `[[<Arr>.Torrent.Trackers]]` block (same URI-keyed rules as per-Arr merge—**later Arr sections in the config file overwrite earlier entries for the same URI**, including overrides to qBit-level defaults). `RemoveDeadTrackers` / `RemoveTrackerWithMessage` for deciding which announce URLs count as "removed" during priority resolution use the **union** of all Arr `Torrent.SeedingMode` settings (`RemoveDeadTrackers` is enabled if **any** Arr enables it; messages are combined and deduplicated).
+
+Reordering applies to **all qBitrr-monitored categories** on each qBittorrent instance—the union of every Arr `Category` and every qBit instance `ManagedCategories` (same scope as free-space monitoring). Torrents outside that set are not reordered. If there are no monitored categories, the `TrackerSortManager` worker is not started.
+
+**Requirements:**
+
+- **qBittorrent Torrent Queuing** must be enabled (Options → BitTorrent → Torrent Queuing).
+
+**Example:**
+
+```toml
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "BeyondHD"
+URI = "https://tracker.beyond-hd.me/announce"
+Priority = 10
+SortTorrents = true
+MaxUploadRatio = 1.0
+```
+
+---
+
 ## Global Seeding Settings
 
 ### Complete Example

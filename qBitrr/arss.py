@@ -24,9 +24,6 @@ import requests
 from jaraco.docker import is_docker
 from packaging import version as version_parser
 from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
-from pyarr import LidarrAPI, RadarrAPI, SonarrAPI
-from pyarr.exceptions import PyarrResourceNotFound, PyarrServerError
-from pyarr.types import JsonObject
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
@@ -56,6 +53,15 @@ from qBitrr.errors import (
     UnhandledError,
 )
 from qBitrr.logger import run_logs
+from qBitrr.pyarr_compat import (
+    JsonObject,
+    LidarrAPI,
+    PyarrConnectionError,
+    PyarrResourceNotFound,
+    PyarrServerError,
+    RadarrAPI,
+    SonarrAPI,
+)
 from qBitrr.search_activity_store import (
     clear_search_activity,
     fetch_search_activities,
@@ -97,6 +103,7 @@ _ARR_RETRY_EXCEPTIONS_EXTENDED = (
     requests.exceptions.ConnectionError,
     JSONDecodeError,
     requests.exceptions.RequestException,
+    PyarrConnectionError,
 )
 
 
@@ -594,6 +601,7 @@ class Arr:
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
         self._warned_no_seeding_limits = False
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
 
         self.last_search_description: str | None = None
         self.last_search_timestamp: str | None = None
@@ -784,6 +792,66 @@ class Arr:
                 if uri:
                     merged[uri] = dict(tracker)
         return list(merged.values())
+
+    @staticmethod
+    def merge_global_tracker_blocks() -> list[dict]:
+        """
+        Merge ``[[qBit.Trackers]]`` with every ``[[<Arr>.Torrent.Trackers]]`` section.
+
+        URI-keyed merge: qBit entries are loaded first; each Arr section in config file
+        order overwrites earlier entries for the same URI (including qBit).
+        """
+        merged: dict[str, dict] = {}
+        for tracker in CONFIG.get("qBit.Trackers", fallback=[]):
+            if isinstance(tracker, dict):
+                uri = (tracker.get("URI") or "").strip().rstrip("/")
+                if uri:
+                    merged[uri] = dict(tracker)
+        for section in CONFIG.sections():
+            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+                continue
+            for tracker in CONFIG.get(f"{section}.Torrent.Trackers", fallback=[]):
+                if isinstance(tracker, dict):
+                    uri = (tracker.get("URI") or "").strip().rstrip("/")
+                    if uri:
+                        merged[uri] = dict(tracker)
+        return list(merged.values())
+
+    @staticmethod
+    def global_sort_torrents_enabled() -> bool:
+        """True if any merged tracker (qBit + all Arr) has ``SortTorrents`` set."""
+        return any(i.get("SortTorrents", False) for i in Arr.merge_global_tracker_blocks())
+
+    @staticmethod
+    def global_remove_dead_trackers_union() -> bool:
+        """True if any Arr section enables ``RemoveDeadTrackers`` (for priority sorting)."""
+        for section in CONFIG.sections():
+            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+                continue
+            if CONFIG.get(f"{section}.Torrent.SeedingMode.RemoveDeadTrackers", fallback=False):
+                return True
+        return False
+
+    @staticmethod
+    def global_bad_tracker_messages_union() -> list[str]:
+        """Union of ``RemoveTrackerWithMessage`` strings from all Arr sections (deduped)."""
+        seen: set[str] = set()
+        out: list[str] = []
+        for section in CONFIG.sections():
+            if not re.match(r"(rad|son|anim|lid)arr.*", section, re.IGNORECASE):
+                continue
+            raw = CONFIG.get(
+                f"{section}.Torrent.SeedingMode.RemoveTrackerWithMessage", fallback=[]
+            )
+            if isinstance(raw, str):
+                items = [raw]
+            else:
+                items = list(raw) if raw else []
+            for msg in items:
+                if isinstance(msg, str) and msg not in seen:
+                    seen.add(msg)
+                    out.append(msg)
+        return out
 
     def _ensure_category_on_all_instances(self) -> None:
         """
@@ -4870,6 +4938,131 @@ class Arr:
         )
         return all_torrents
 
+    def _sort_torrents_by_tracker_priority(self) -> None:
+        """
+        Reorder torrents in each qBittorrent instance by tracker priority (highest first).
+
+        When :attr:`categories` is set (e.g. :class:`TrackerSortManager`), only torrents
+        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
+        Otherwise all torrents from ``torrents.info`` are considered.
+
+        Invoked by :class:`TrackerSortManager` (single dedicated worker).
+
+        Requires qBittorrent Torrent Queuing to be enabled.
+        """
+        qbit_manager = self.manager.qbit_manager
+        for instance_name in qbit_manager.get_all_instances():
+            if not qbit_manager.is_instance_alive(instance_name):
+                continue
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                continue
+            try:
+                try:
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        sort="priority",
+                        reverse=False,
+                    )
+                except (qbittorrentapi.exceptions.APIError, TypeError, ValueError):
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        sort="added_on",
+                        reverse=False,
+                    )
+                torrent_list = [t for t in torrents if hasattr(t, "category")]
+                monitored = getattr(self, "categories", None)
+                if monitored:
+                    torrent_list = [
+                        t for t in torrent_list if getattr(t, "category", None) in monitored
+                    ]
+                sorted_torrents = sorted(
+                    torrent_list,
+                    key=lambda t: (
+                        -self._get_torrent_tracker_priority(t),
+                        getattr(t, "name", "") or "",
+                    ),
+                )
+                if len(sorted_torrents) > 1:
+                    # Skip queue updates when the current queue order already matches
+                    # desired tracker-priority ordering for this instance.
+                    queue_membership = {
+                        torrent.hash: self.is_complete_state(torrent) for torrent in torrent_list
+                    }
+                    current_order_by_qbit_priority = sorted(
+                        torrent_list,
+                        key=lambda torrent: (
+                            not (
+                                isinstance(getattr(torrent, "priority", -1), int)
+                                and getattr(torrent, "priority", -1) > 0
+                            ),
+                            getattr(torrent, "priority", -1),
+                        ),
+                    )
+                    current_downloading_order = [
+                        torrent.hash
+                        for torrent in current_order_by_qbit_priority
+                        if not queue_membership.get(torrent.hash, False)
+                    ]
+                    current_seeding_order = [
+                        torrent.hash
+                        for torrent in current_order_by_qbit_priority
+                        if queue_membership.get(torrent.hash, False)
+                    ]
+                    desired_downloading_order = [
+                        torrent.hash
+                        for torrent in sorted_torrents
+                        if not queue_membership.get(torrent.hash, False)
+                    ]
+                    desired_seeding_order = [
+                        torrent.hash
+                        for torrent in sorted_torrents
+                        if queue_membership.get(torrent.hash, False)
+                    ]
+                    if (
+                        current_downloading_order == desired_downloading_order
+                        and current_seeding_order == desired_seeding_order
+                    ):
+                        continue
+                    # qBittorrent may ignore hash input ordering in batch topPrio calls.
+                    # Move torrents one-by-one (lowest first) to enforce tracker-priority
+                    # order within each queue, since qBittorrent keeps download/upload
+                    # queues separate.
+                    for queue_is_seeding in (False, True):
+                        queue_torrents = [
+                            torrent
+                            for torrent in sorted_torrents
+                            if queue_membership.get(torrent.hash, False) == queue_is_seeding
+                        ]
+                        for torrent in reversed(queue_torrents):
+                            try:
+                                client.torrents_top_priority(torrent_hashes=[torrent.hash])
+                            except (
+                                qbittorrentapi.exceptions.APIError,
+                                qbittorrentapi.exceptions.APIConnectionError,
+                            ) as e:
+                                self.logger.warning(
+                                    "Failed to change torrent priority for hash '%s' on instance '%s': %s",
+                                    torrent.hash,
+                                    instance_name,
+                                    e,
+                                )
+            except DelayLoopException as e:
+                self.logger.warning(
+                    "Failed to sort torrents by tracker priority on instance '%s': %s",
+                    instance_name,
+                    e,
+                )
+            except (
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+            ) as e:
+                self.logger.warning(
+                    "Failed to sort torrents by tracker priority on instance '%s': %s",
+                    instance_name,
+                    e,
+                )
+
     def process_torrents(self):
         try:
             try:
@@ -4889,6 +5082,7 @@ class Arr:
                 ]
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
+                self._torrent_important_trackers_cache.clear()
                 if not len(torrents_with_instances):
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
@@ -4938,6 +5132,9 @@ class Arr:
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
+            except PyarrConnectionError as e:
+                self.logger.warning("Couldn't connect to %s: %s", self.type, e)
+                raise DelayLoopException(length=300, error_type="arr") from e
             except requests.exceptions.ConnectionError:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
@@ -5728,8 +5925,12 @@ class Arr:
         )
 
     def _get_torrent_important_trackers(
-        self, torrent: qbittorrentapi.TorrentDictionary
+        self, torrent: qbittorrentapi.TorrentDictionary, *, use_cache: bool = True
     ) -> tuple[set[str], set[str]]:
+        torrent_hash = getattr(torrent, "hash", "")
+        if use_cache and torrent_hash:
+            if cached := self._torrent_important_trackers_cache.get(torrent_hash):
+                return cached
         try:
             current_tracker_urls = {
                 i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")
@@ -5759,7 +5960,10 @@ class Arr:
             if _extract_tracker_host(uri) not in current_hosts
         }
         monitored_trackers = monitored_trackers.union(need_to_be_added)
-        return need_to_be_added, monitored_trackers
+        result = (need_to_be_added, monitored_trackers)
+        if use_cache and torrent_hash:
+            self._torrent_important_trackers_cache[torrent_hash] = result
+        return result
 
     @staticmethod
     def __return_max(x: dict):
@@ -5781,6 +5985,45 @@ class Arr:
         ]
         max_item = max(new_list, key=self.__return_max) if new_list else {}
         return max_item, set(itertools.chain.from_iterable(_list_of_tags))
+
+    def _get_torrent_tracker_priority(self, torrent: qbittorrentapi.TorrentDictionary) -> int:
+        """Return the tracker Priority for this torrent's most important monitored tracker."""
+        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        remove_urls = set()
+        try:
+            for tracker in torrent.trackers:
+                tracker_url = getattr(tracker, "url", None)
+                message_text = (getattr(tracker, "msg", "") or "").lower()
+                remove_for_message = (
+                    self.remove_dead_trackers
+                    and self._normalized_bad_tracker_msgs
+                    and any(
+                        keyword in message_text for keyword in self._normalized_bad_tracker_msgs
+                    )
+                )
+                if not tracker_url:
+                    continue
+                if (
+                    remove_for_message
+                    or _extract_tracker_host(tracker_url) in self._remove_tracker_hosts
+                ):
+                    remove_urls.add(tracker_url)
+        except (
+            qbittorrentapi.exceptions.APIError,
+            qbittorrentapi.exceptions.APIConnectionError,
+            AttributeError,
+            TypeError,
+            ValueError,
+        ) as e:
+            self.logger.debug(
+                "Failed to inspect tracker metadata for torrent '%s' while calculating priority",
+                getattr(torrent, "hash", "<unknown>"),
+                exc_info=e,
+            )
+        most_important_tracker, _ = self._get_most_important_tracker_and_tags(
+            monitored_trackers, remove_urls
+        )
+        return most_important_tracker.get("Priority", -100)
 
     def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
         """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
@@ -5958,8 +6201,10 @@ class Arr:
         self.tracker_delay.add(torrent.hash)
         _remove_urls = set()
         need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        tracker_set_changed = False
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
+            tracker_set_changed = True
         with contextlib.suppress(BaseException):
             for tracker in torrent.trackers:
                 tracker_url = getattr(tracker, "url", None)
@@ -5987,6 +6232,11 @@ class Arr:
             )
             with contextlib.suppress(qbittorrentapi.Conflict409Error):
                 torrent.remove_trackers(_remove_urls)
+            tracker_set_changed = True
+        if tracker_set_changed:
+            self._torrent_important_trackers_cache.pop(torrent.hash, None)
+            # Tracker membership changed (add/remove), so recompute from fresh data.
+            _, monitored_trackers = self._get_torrent_important_trackers(torrent, use_cache=False)
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, _remove_urls
         )
@@ -7266,32 +7516,39 @@ class Arr:
                     except qbittorrentapi.exceptions.APIConnectionError as e:
                         self.logger.warning(e)
                         raise DelayLoopException(length=300, error_type="qbit")
+                    except PyarrConnectionError as e:
+                        self.logger.warning(
+                            "Could not reach %s Arr API during search loop: %s",
+                            self._name,
+                            e,
+                        )
+                        raise DelayLoopException(length=300, error_type="arr") from e
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
-                except DelayLoopException as e:
-                    if e.error_type == "qbit":
+                except DelayLoopException as delay_exc:
+                    if delay_exc.error_type == "qbit":
                         self.logger.critical(
                             "Failed to connected to qBit client, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "internet":
+                    elif delay_exc.error_type == "internet":
                         self.logger.critical(
                             "Failed to connected to the internet, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "arr":
+                    elif delay_exc.error_type == "arr":
                         self.logger.critical(
                             "Failed to connected to the Arr instance, sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    elif e.error_type == "delay":
+                    elif delay_exc.error_type == "delay":
                         self.logger.critical(
                             "Forced delay due to temporary issue with environment, "
                             "sleeping for %s",
-                            timedelta(seconds=e.length),
+                            timedelta(seconds=delay_exc.length),
                         )
-                    event.wait(e.length)
+                    event.wait(delay_exc.length)
                     self.manager.qbit_manager.should_delay_torrent_scan = False
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
@@ -7441,6 +7698,7 @@ class PlaceHolderArr(Arr):
         self.downloads_with_bad_error_message_blocklist = set()
         self.needs_cleanup = False
         self._warned_no_seeding_limits = False
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
         self.custom_format_unmet_search = False
         self.do_not_remove_slow = False
         self.maximum_eta = CONFIG.get_duration("Settings.Torrent.MaximumETA", fallback=86400)
@@ -7829,6 +8087,7 @@ class PlaceHolderArr(Arr):
                 ]
                 self._warned_no_seeding_limits = False
                 self.category_torrent_count = len(torrents_with_instances)
+                self._torrent_important_trackers_cache.clear()
                 if not torrents_with_instances:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
 
@@ -8167,6 +8426,145 @@ class FreeSpaceManager(Arr):
         return
 
 
+class TrackerSortManager(Arr):
+    """
+    Dedicated worker that applies qBittorrent queue ordering by tracker priority.
+
+    Uses a single merged tracker map (``qBit.Trackers`` + every ``<Arr>.Torrent.Trackers``)
+    so ordering is consistent across Arr and qBit-managed categories (same scope as
+    :class:`FreeSpaceManager`).
+    """
+
+    def __init__(self, categories: set[str], manager: ArrManager):
+        self._name = "TrackerSortManager"
+        self.type = "TrackerSortManager"
+        self.manager = manager
+        self.logger = logging.getLogger(f"qBitrr.{self._name}")
+        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
+        run_logs(self.logger, self._name)
+        self.cache = {}
+        self.categories = set(categories)
+        self.monitored_trackers = Arr.merge_global_tracker_blocks()
+        self._remove_trackers_if_exists = {
+            uri
+            for i in self.monitored_trackers
+            if i.get("RemoveIfExists") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
+        }
+        self._monitored_tracker_urls = {
+            uri
+            for i in self.monitored_trackers
+            if (uri := (i.get("URI") or "").strip().rstrip("/"))
+            and uri not in self._remove_trackers_if_exists
+        }
+        self._add_trackers_if_missing = {
+            uri
+            for i in self.monitored_trackers
+            if i.get("AddTrackerIfMissing") is True
+            and (uri := (i.get("URI") or "").strip().rstrip("/"))
+        }
+        self._host_to_config_uri = {}
+        for _uri in self._monitored_tracker_urls:
+            _host = _extract_tracker_host(_uri)
+            if _host:
+                self._host_to_config_uri[_host] = _uri
+        self._remove_tracker_hosts = {
+            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
+        }
+        self.remove_dead_trackers = Arr.global_remove_dead_trackers_union()
+        bad_msgs = Arr.global_bad_tracker_messages_union()
+        self.seeding_mode_global_bad_tracker_msg = bad_msgs
+        self._normalized_bad_tracker_msgs = {
+            msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
+        }
+        self.pause = set()
+        self.resume = set()
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
+        self.ignore_torrents_younger_than = CONFIG.get_duration(
+            "Settings.IgnoreTorrentsYoungerThan", fallback=180
+        )
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
+        self.needs_cleanup = False
+        self._app_data_folder = APPDATA_FOLDER
+        self.search_setup_completed = False
+        self.search_missing = False
+        self.do_upgrade_search = False
+        self.quality_unmet_search = False
+        self.custom_format_unmet_search = False
+        self.ombi_search_requests = False
+        self.overseerr_requests = False
+        self.session = None
+        self.torrents = None
+        self.torrent_db: SqliteDatabase | None = None
+        self.last_search_description: str | None = None
+        self.last_search_timestamp: str | None = None
+        self.queue_active_count = 0
+        self.category_torrent_count = 0
+        self.free_space_tagged_count = 0
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
+        self.register_search_mode()
+        self.logger.hnotice(
+            "Starting %s | Monitored categories: %d | Merged tracker rules: %d",
+            self._name,
+            len(self.categories),
+            len(self.monitored_trackers),
+        )
+        atexit.register(
+            lambda: (
+                hasattr(self, "torrent_db")
+                and self.torrent_db
+                and not self.torrent_db.is_closed()
+                and self.torrent_db.close()
+            )
+        )
+
+    @property
+    def is_alive(self) -> bool:
+        """No *arr HTTP API; inherited torrent loop must not call system/status."""
+        return True
+
+    def _get_models(
+        self,
+    ) -> tuple[
+        None,
+        None,
+        None,
+        None,
+        type[TorrentLibrary] | None,
+    ]:
+        return None, None, None, None, (TorrentLibrary if TAGLESS else None)
+
+    def process_torrents(self):
+        try:
+            try:
+                if not self.manager.qbit_manager.clients:
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+                self._torrent_important_trackers_cache.clear()
+                if not has_internet(self.manager.qbit_manager.client):
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+                if self.manager.qbit_manager.should_delay_torrent_scan:
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
+                self._sort_torrents_by_tracker_priority()
+            except NoConnectionrException as e:
+                self.logger.error(e.message)
+            except DelayLoopException:
+                raise
+            except KeyboardInterrupt:
+                self.logger.hnotice("Detected Ctrl+C - Terminating process")
+                sys.exit(0)
+            except Exception as e:
+                self.logger.error(e, exc_info=sys.exc_info())
+        except KeyboardInterrupt:
+            self.logger.hnotice("Detected Ctrl+C - Terminating process")
+            sys.exit(0)
+        except DelayLoopException:
+            raise
+
+    def run_search_loop(self) -> None:
+        return
+
+
 class ArrManager:
     def __init__(self, qbitmanager: qBitManager):
         self.groups: set[str] = set()
@@ -8310,6 +8708,15 @@ class ArrManager:
         ):
             managed_object = FreeSpaceManager(all_monitored_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
+        if (
+            Arr.global_sort_torrents_enabled()
+            and not QBIT_DISABLED
+            and not SEARCH_ONLY
+            and len(all_monitored_categories) > 0
+        ):
+            self.managed_objects["TrackerSortManager"] = TrackerSortManager(
+                all_monitored_categories, self
+            )
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object

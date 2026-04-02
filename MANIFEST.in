@@ -1,2 +1,3 @@
 recursive-include qBitrr/static *
+include qBitrr/openapi.json
 include config.example.toml

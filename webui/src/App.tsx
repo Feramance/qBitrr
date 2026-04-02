@@ -970,6 +970,16 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
               GitHub
             </a>
             <a
+              href="/web/docs"
+              target="_blank"
+              rel="noreferrer"
+              className="btn small ghost"
+              title="Interactive API docs (Swagger UI)"
+            >
+              <IconImage src={ExternalIcon} />
+              OpenAPI
+            </a>
+            <a
               href="https://feramance.github.io/qBitrr/"
               target="_blank"
               rel="noreferrer"

@@ -1139,6 +1139,11 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
     },
   },
   {
+    label: "Sort Torrents by Tracker Priority",
+    path: ["SortTorrents"],
+    type: "checkbox",
+  },
+  {
     label: "Maximum ETA",
     path: ["MaximumETA"],
     type: "duration",
@@ -2695,6 +2700,7 @@ function FieldGroup({
           Name: "",
           URI: "",
           Priority: 0,
+          SortTorrents: false,
           MaximumETA: -1,
           DownloadRateLimit: -1,
           UploadRateLimit: -1,
