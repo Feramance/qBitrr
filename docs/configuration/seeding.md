@@ -62,7 +62,7 @@ When `true` on **any** merged tracker entry, qBitrr runs a **dedicated** `Tracke
 
 **Merge scope:** Sorting uses one unified map: start with `[[qBit.Trackers]]`, then merge every `[[<Arr>.Torrent.Trackers]]` block (same URI-keyed rules as per-Arr merge—**later Arr sections in the config file overwrite earlier entries for the same URI**, including overrides to qBit-level defaults). `RemoveDeadTrackers` / `RemoveTrackerWithMessage` for deciding which announce URLs count as "removed" during priority resolution use the **union** of all Arr `Torrent.SeedingMode` settings (`RemoveDeadTrackers` is enabled if **any** Arr enables it; messages are combined and deduplicated).
 
-Reordering applies to the **global** transfer list (all categories on each qBittorrent instance), not a single Arr category.
+Reordering applies to **all qBitrr-monitored categories** on each qBittorrent instance—the union of every Arr `Category` and every qBit instance `ManagedCategories` (same scope as free-space monitoring). Torrents outside that set are not reordered. If there are no monitored categories, the `TrackerSortManager` worker is not started.
 
 **Requirements:**
 

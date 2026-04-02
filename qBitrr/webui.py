@@ -17,7 +17,7 @@ from authlib.integrations.flask_client import OAuth
 from flask import Flask, jsonify, redirect, request, send_file, session
 from peewee import fn
 
-from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
+from qBitrr.arss import FreeSpaceManager, PlaceHolderArr, TrackerSortManager
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.db_lock import database_lock
@@ -1834,6 +1834,23 @@ class WebUI:
                             )
                     return metrics
 
+                if isinstance(arr_obj, TrackerSortManager):
+                    metrics["metric_type"] = "tracker-sort"
+                    monitored = getattr(arr_obj, "categories", set()) or set()
+                    if qbit_client and monitored:
+                        try:
+                            torrents = qbit_client.torrents_info(status_filter="all")
+                            total = sum(
+                                1 for t in torrents if getattr(t, "category", None) in monitored
+                            )
+                            metrics["category"] = total
+                            metrics["queue"] = total
+                        except Exception:
+                            self.logger.debug(
+                                "Process metrics (TrackerSortManager) fetch failed", exc_info=True
+                            )
+                    return metrics
+
                 if isinstance(arr_obj, PlaceHolderArr):
                     metrics["metric_type"] = "category"
                     if qbit_client and category:
@@ -2572,10 +2589,8 @@ class WebUI:
 
             # Add Arr-managed categories
             if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
-                from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
-
                 for arr in self.manager.arr_manager.managed_objects.values():
-                    if isinstance(arr, (PlaceHolderArr, FreeSpaceManager)):
+                    if isinstance(arr, (PlaceHolderArr, FreeSpaceManager, TrackerSortManager)):
                         continue
                     try:
                         # Get the qBit instance for this Arr (use default for now)

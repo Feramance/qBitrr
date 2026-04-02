@@ -4942,9 +4942,11 @@ class Arr:
         """
         Reorder torrents in each qBittorrent instance by tracker priority (highest first).
 
-        Uses the **global** torrent list (all categories), not only one Arr category, so
-        the transfer list queue order matches tracker priority. Invoked by
-        :class:`TrackerSortManager` (single dedicated worker).
+        When :attr:`categories` is set (e.g. :class:`TrackerSortManager`), only torrents
+        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
+        Otherwise all torrents from ``torrents.info`` are considered.
+
+        Invoked by :class:`TrackerSortManager` (single dedicated worker).
 
         Requires qBittorrent Torrent Queuing to be enabled.
         """
@@ -4969,6 +4971,11 @@ class Arr:
                         reverse=False,
                     )
                 torrent_list = [t for t in torrents if hasattr(t, "category")]
+                monitored = getattr(self, "categories", None)
+                if monitored:
+                    torrent_list = [
+                        t for t in torrent_list if getattr(t, "category", None) in monitored
+                    ]
                 sorted_torrents = sorted(
                     torrent_list,
                     key=lambda t: (
@@ -8421,22 +8428,22 @@ class FreeSpaceManager(Arr):
 
 class TrackerSortManager(Arr):
     """
-    Dedicated worker that applies global qBittorrent queue ordering by tracker priority.
+    Dedicated worker that applies qBittorrent queue ordering by tracker priority.
 
     Uses a single merged tracker map (``qBit.Trackers`` + every ``<Arr>.Torrent.Trackers``)
-    so ordering is consistent across categories and Arr instances.
+    so ordering is consistent across Arr and qBit-managed categories (same scope as
+    :class:`FreeSpaceManager`).
     """
 
-    def __init__(self, manager: ArrManager):
+    def __init__(self, categories: set[str], manager: ArrManager):
         self._name = "TrackerSortManager"
-        self.category = "TrackerSortManager"
         self.type = "TrackerSortManager"
         self.manager = manager
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         run_logs(self.logger, self._name)
         self.cache = {}
-        self.categories = set()
+        self.categories = set(categories)
         self.monitored_trackers = Arr.merge_global_tracker_blocks()
         self._remove_trackers_if_exists = {
             uri
@@ -8497,8 +8504,9 @@ class TrackerSortManager(Arr):
         self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
         self.register_search_mode()
         self.logger.hnotice(
-            "Starting %s | Merged tracker rules: %d",
+            "Starting %s | Monitored categories: %d | Merged tracker rules: %d",
             self._name,
+            len(self.categories),
             len(self.monitored_trackers),
         )
         atexit.register(
@@ -8509,6 +8517,11 @@ class TrackerSortManager(Arr):
                 and self.torrent_db.close()
             )
         )
+
+    @property
+    def is_alive(self) -> bool:
+        """No *arr HTTP API; inherited torrent loop must not call system/status."""
+        return True
 
     def _get_models(
         self,
@@ -8695,8 +8708,15 @@ class ArrManager:
         ):
             managed_object = FreeSpaceManager(all_monitored_categories, self)
             self.managed_objects["FreeSpaceManager"] = managed_object
-        if Arr.global_sort_torrents_enabled() and not QBIT_DISABLED and not SEARCH_ONLY:
-            self.managed_objects["TrackerSortManager"] = TrackerSortManager(self)
+        if (
+            Arr.global_sort_torrents_enabled()
+            and not QBIT_DISABLED
+            and not SEARCH_ONLY
+            and len(all_monitored_categories) > 0
+        ):
+            self.managed_objects["TrackerSortManager"] = TrackerSortManager(
+                all_monitored_categories, self
+            )
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
             self.managed_objects[cat] = managed_object
