@@ -5129,6 +5129,7 @@ class Arr:
                 self.logger.error(e.message)
             except PyarrConnectionError as e:
                 self.logger.warning("Couldn't connect to %s: %s", self.type, e)
+                self._temp_overseer_request_cache = defaultdict(set)
                 raise DelayLoopException(length=300, error_type="arr") from e
             except requests.exceptions.ConnectionError:
                 self.logger.warning("Couldn't connect to %s", self.type)
@@ -8802,8 +8803,7 @@ class ArrManager:
             self.managed_objects["FreeSpaceManager"] = managed_object
         if (
             Arr.global_sort_torrents_enabled()
-            and not QBIT_DISABLED
-            and not SEARCH_ONLY
+            and not get_effective_qbit_disabled()
             and len(all_monitored_categories) > 0
         ):
             self.managed_objects["TrackerSortManager"] = TrackerSortManager(
