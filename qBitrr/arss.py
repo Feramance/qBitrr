@@ -8536,6 +8536,11 @@ class TrackerSortManager(Arr):
         self._name = "TrackerSortManager"
         self.type = "TrackerSortManager"
         self.manager = manager
+        # Keep key Arr attributes available for inherited helper paths.
+        self.category = self._name
+        self.uri = ""
+        self.client = None
+        self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         run_logs(self.logger, self._name)
