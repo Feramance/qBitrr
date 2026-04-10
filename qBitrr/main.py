@@ -99,14 +99,12 @@ class qBitManager:
         self.qBit_Password = CONFIG.get("qBit.Password", fallback=None)
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
         run_logs(self.logger, self._name)
-        _masked_pwd = "[redacted]" if self.qBit_Password else ""
-        _masked_user = "[redacted]" if self.qBit_UserName else ""
         self.logger.debug(
-            "qBitTorrent Config: Host: %s Port: %s, Username: %s, Password: %s",
+            "qBitTorrent Config: Host: %s Port: %s, Username configured: %s, Password configured: %s",
             self.qBit_Host,
             self.qBit_Port,
-            _masked_user,
-            _masked_pwd,
+            bool(self.qBit_UserName),
+            bool(self.qBit_Password),
         )
         self._validated_version = False
         self.current_qbit_version = None

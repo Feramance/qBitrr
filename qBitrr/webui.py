@@ -2553,12 +2553,11 @@ class WebUI:
                                     },
                                 }
                             )
-                        except Exception as e:
+                        except Exception:
                             self.logger.debug(
-                                "Error fetching qBit category '%s' stats for instance '%s': %s",
+                                "Error fetching qBit category '%s' stats for instance '%s'",
                                 category,
                                 instance_name,
-                                e,
                             )
                             continue
 
@@ -2612,12 +2611,11 @@ class WebUI:
                                 },
                             }
                         )
-                    except Exception as e:
+                    except Exception:
                         self.logger.debug(
-                            "Error fetching Arr category '%s' stats for instance '%s': %s",
+                            "Error fetching Arr category '%s' stats for instance '%s'",
                             getattr(arr, "category", "unknown"),
                             getattr(arr, "_name", "unknown"),
-                            e,
                         )
                         continue
 
