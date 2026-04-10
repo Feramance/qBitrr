@@ -33,8 +33,6 @@ from qBitrr.config import (
     COMPLETED_DOWNLOAD_FOLDER,
     CONFIG,
     FAILED_CATEGORY,
-    FREE_SPACE,
-    FREE_SPACE_FOLDER,
     LOOP_SLEEP_TIMER,
     NO_INTERNET_SLEEP_TIMER,
     PROCESS_ONLY,
@@ -43,6 +41,9 @@ from qBitrr.config import (
     SEARCH_LOOP_DELAY,
     SEARCH_ONLY,
     TAGLESS,
+    get_auto_pause_resume_effective,
+    get_effective_qbit_disabled,
+    get_free_space_guard_settings,
 )
 from qBitrr.db_lock import database_lock, with_database_retry
 from qBitrr.errors import (
@@ -5047,12 +5048,6 @@ class Arr:
                                     instance_name,
                                     e,
                                 )
-            except DelayLoopException as e:
-                self.logger.warning(
-                    "Failed to sort torrents by tracker priority on instance '%s': %s",
-                    instance_name,
-                    e,
-                )
             except (
                 qbittorrentapi.exceptions.APIError,
                 qbittorrentapi.exceptions.APIConnectionError,
@@ -8148,7 +8143,8 @@ class FreeSpaceManager(Arr):
         self._app_data_folder = APPDATA_FOLDER
         # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
-        if FREE_SPACE_FOLDER == "CHANGE_ME":
+        _free_space, _free_space_folder = get_free_space_guard_settings()
+        if _free_space_folder == "CHANGE_ME":
             # Prefer an Arr-managed category so the path exists (Arr uses category subdirs).
             # qBit-managed-only categories may have no subdir under COMPLETED_DOWNLOAD_FOLDER.
             arr_cats = self.categories & self.manager.arr_categories
@@ -8159,15 +8155,15 @@ class FreeSpaceManager(Arr):
             # A category subdir may be a different mount and report much less free space.
             self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
         else:
-            self.completed_folder = pathlib.Path(FREE_SPACE_FOLDER)
-            self._disk_usage_path = pathlib.Path(FREE_SPACE_FOLDER).resolve()
-        self._free_space_folder_is_auto = FREE_SPACE_FOLDER == "CHANGE_ME"
-        self.min_free_space = FREE_SPACE
+            self.completed_folder = pathlib.Path(_free_space_folder)
+            self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
+        self._free_space_folder_is_auto = _free_space_folder == "CHANGE_ME"
+        self.min_free_space = _free_space
         # Parse once to avoid repeated conversions
         self._min_free_space_bytes = (
             parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
         )
-        if FREE_SPACE_FOLDER == "CHANGE_ME" and not self.completed_folder.exists():
+        if _free_space_folder == "CHANGE_ME" and not self.completed_folder.exists():
             # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
             parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
             if parent.exists():
@@ -8322,7 +8318,6 @@ class FreeSpaceManager(Arr):
                     format_bytes(self.current_free_space + self._min_free_space_bytes),
                     format_bytes(free_space_test + self._min_free_space_bytes),
                 )
-                self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 self.logger.info(
@@ -8331,8 +8326,10 @@ class FreeSpaceManager(Arr):
                     format_bytes(self.current_free_space + self._min_free_space_bytes),
                     format_bytes(free_space_test + self._min_free_space_bytes),
                 )
-                self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
+            # Always advance the running balance after subtracting this torrent's amount_left,
+            # including pause/keep-paused (<= 0) so later torrents do not see a stale balance.
+            self.current_free_space = free_space_test
         elif not self.is_free_space_download_state(torrent) and self.in_tags(
             torrent, "qBitrr-free_space_paused", instance_name
         ):
@@ -8794,10 +8791,11 @@ class ArrManager:
 
         # FreeSpaceManager monitors both Arr-managed and qBit-managed categories
         all_monitored_categories = self.arr_categories | self.qbit_managed_categories
+        _fs_guard, _ = get_free_space_guard_settings()
         if (
-            FREE_SPACE != "-1"
-            and AUTO_PAUSE_RESUME
-            and not QBIT_DISABLED
+            _fs_guard != "-1"
+            and get_auto_pause_resume_effective()
+            and not get_effective_qbit_disabled()
             and len(all_monitored_categories) > 0
         ):
             managed_object = FreeSpaceManager(all_monitored_categories, self)

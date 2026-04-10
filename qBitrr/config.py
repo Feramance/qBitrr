@@ -198,3 +198,34 @@ def get_auto_update_settings() -> tuple[bool, str]:
     cron = cron_env or CONFIG.get("Settings.AutoUpdateCron", fallback="0 3 * * 0")
     cron = str(cron or "0 3 * * 0")
     return bool(enabled), cron
+
+
+def get_auto_pause_resume_effective() -> bool:
+    """Return AutoPauseResume from env override or current CONFIG (for live reload)."""
+    return ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
+        "Settings.AutoPauseResume", fallback=True
+    )
+
+
+def get_effective_qbit_disabled() -> bool:
+    """Return whether qBit processing is disabled, matching startup QBIT_DISABLED semantics."""
+    if ENVIRO_CONFIG.qbit.disabled is not None:
+        qbit_disabled = ENVIRO_CONFIG.qbit.disabled
+    else:
+        qbit_disabled = not _has_any_qbit_section() or CONFIG.get("qBit.Disabled", fallback=False)
+    if SEARCH_ONLY and not qbit_disabled:
+        return True
+    return qbit_disabled
+
+
+def get_free_space_guard_settings() -> tuple[str, str]:
+    """Return (FreeSpace, FreeSpaceFolder) from env + current CONFIG; folder unused when FreeSpace is -1."""
+    free_space = ENVIRO_CONFIG.settings.free_space or CONFIG.get(
+        "Settings.FreeSpace", fallback="-1"
+    )
+    if free_space == "-1":
+        return "-1", ""
+    folder = ENVIRO_CONFIG.settings.free_space_folder or CONFIG.get_or_raise(
+        "Settings.FreeSpaceFolder"
+    )
+    return free_space, folder
