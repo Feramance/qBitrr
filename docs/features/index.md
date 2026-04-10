@@ -292,13 +292,11 @@ AutoPauseResume = true
 
 **How it works:**
 
-1. qBitrr monitors `FreeSpaceFolder` disk usage
-2. When free space drops below `FreeSpace` threshold:
-   - Pauses all downloads
-   - Keeps seeding active
-   - Logs warning message
-3. When space frees up (files imported/deleted):
-   - Resumes paused downloads
+1. qBitrr monitors `FreeSpaceFolder` disk usage each loop
+2. When remaining space above the threshold is tight, qBitrr walks **managed-category** downloads in **qBittorrent torrent `priority` order** and pauses those that would exceed a **simulated budget** (remaining download size is only "reserved" for torrents that still fit; oversized or paused-for-space torrents do not steal budget from smaller, lower-priority downloads). See [Disk Space Management — Queue order and simulated budget](disk-space.md#queue-order-and-simulated-budget).
+3. Keeps seeding active and logs when pauses occur
+4. When space frees up (files imported/deleted):
+   - Resumes eligible paused downloads
    - Continues normal operation
 
 **Benefits:**

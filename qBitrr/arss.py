@@ -8332,9 +8332,10 @@ class FreeSpaceManager(Arr):
                     format_bytes(free_space_test + self._min_free_space_bytes),
                 )
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
-            # Always advance the running balance after subtracting this torrent's amount_left,
-            # including pause/keep-paused (<= 0) so later torrents do not see a stale balance.
-            self.current_free_space = free_space_test
+            # Only torrents that fit reserve space from the simulated budget; paused / not-fitting
+            # torrents must not decrement it, or lower-priority torrents would be over-paused.
+            if free_space_test > 0:
+                self.current_free_space = free_space_test
         elif not self.is_free_space_download_state(torrent) and self.in_tags(
             torrent, "qBitrr-free_space_paused", instance_name
         ):

@@ -425,11 +425,11 @@ AutoPauseResume = true
 ```
 
 **Behavior:**
-1. Disk space drops below 50GB
-2. qBitrr pauses all torrents
+1. Usable space on `FreeSpaceFolder` falls toward or below your configured minimum (here, 50GB free)
+2. qBitrr evaluates **managed-category** downloads in **torrent `priority` order** and pauses those that would exceed the simulated remaining space (smaller, lower-priority downloads can still run if they fit; see [Queue order and simulated budget](features/disk-space.md#queue-order-and-simulated-budget))
 3. Arr imports completed downloads (frees space)
-4. Space increases above threshold
-5. qBitrr resumes torrents automatically
+4. Space increases above the comfortable margin
+5. qBitrr resumes eligible downloads automatically when `AutoPauseResume` is enabled
 
 [Disk space management →](features/disk-space.md)
 
