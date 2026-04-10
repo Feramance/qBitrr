@@ -8145,7 +8145,11 @@ class FreeSpaceManager(Arr):
         # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
         _free_space, _free_space_folder = get_free_space_guard_settings()
-        if _free_space_folder == "CHANGE_ME":
+        # When FreeSpace is -1, get_free_space_guard_settings returns ("-1", "") — not CHANGE_ME.
+        # Treat disabled + empty folder like auto CHANGE_ME so we never build pathlib.Path("")
+        # (which resolves to cwd).
+        _use_auto_free_space_paths = _free_space == "-1" or _free_space_folder == "CHANGE_ME"
+        if _use_auto_free_space_paths:
             # Prefer an Arr-managed category so the path exists (Arr uses category subdirs).
             # qBit-managed-only categories may have no subdir under COMPLETED_DOWNLOAD_FOLDER.
             arr_cats = self.categories & self.manager.arr_categories
@@ -8158,13 +8162,13 @@ class FreeSpaceManager(Arr):
         else:
             self.completed_folder = pathlib.Path(_free_space_folder)
             self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
-        self._free_space_folder_is_auto = _free_space_folder == "CHANGE_ME"
+        self._free_space_folder_is_auto = _use_auto_free_space_paths
         self.min_free_space = _free_space
         # Parse once to avoid repeated conversions
         self._min_free_space_bytes = (
             parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
         )
-        if _free_space_folder == "CHANGE_ME" and not self.completed_folder.exists():
+        if _use_auto_free_space_paths and not self.completed_folder.exists():
             # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
             parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
             if parent.exists():
