@@ -145,8 +145,10 @@ LOOP_SLEEP_TIMER = ENVIRO_CONFIG.settings.loop_sleep_timer or CONFIG.get_duratio
 SEARCH_LOOP_DELAY = ENVIRO_CONFIG.settings.search_loop_delay or CONFIG.get_duration(
     "Settings.SearchLoopDelay", fallback=-1
 )
-AUTO_PAUSE_RESUME = ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
-    "Settings.AutoPauseResume", fallback=True
+AUTO_PAUSE_RESUME = (
+    CONFIG.get("Settings.AutoPauseResume", fallback=True)
+    if ENVIRO_CONFIG.settings.auto_pause_resume is None
+    else ENVIRO_CONFIG.settings.auto_pause_resume
 )
 PING_URLS = ENVIRO_CONFIG.settings.ping_urls or CONFIG.get(
     "Settings.PingURLS", fallback=["one.one.one.one", "dns.google.com"]
@@ -202,9 +204,9 @@ def get_auto_update_settings() -> tuple[bool, str]:
 
 def get_auto_pause_resume_effective() -> bool:
     """Return AutoPauseResume from env override or current CONFIG (for live reload)."""
-    return ENVIRO_CONFIG.settings.auto_pause_resume or CONFIG.get(
-        "Settings.AutoPauseResume", fallback=True
-    )
+    if ENVIRO_CONFIG.settings.auto_pause_resume is not None:
+        return ENVIRO_CONFIG.settings.auto_pause_resume
+    return CONFIG.get("Settings.AutoPauseResume", fallback=True)
 
 
 def get_effective_qbit_disabled() -> bool:
