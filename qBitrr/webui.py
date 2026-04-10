@@ -19,7 +19,7 @@ from authlib.integrations.flask_client import OAuth
 from flask import Flask, jsonify, redirect, request, send_file, session
 from peewee import fn
 
-from qBitrr.arss import FreeSpaceManager, PlaceHolderArr, TrackerSortManager
+from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.db_lock import database_lock
@@ -1905,39 +1905,14 @@ class WebUI:
                 qbit_client = getattr(qbit_manager, "client", None)
                 category = getattr(arr_obj, "category", None)
 
-                if isinstance(arr_obj, FreeSpaceManager):
-                    metrics["metric_type"] = "free-space"
-                    if qbit_client:
-                        try:
-                            torrents = qbit_client.torrents_info(status_filter="all")
-                            count = 0
-                            for torrent in torrents:
-                                tags = getattr(torrent, "tags", "") or ""
-                                if "qBitrr-free_space_paused" in str(tags):
-                                    count += 1
-                            metrics["category"] = count
-                            metrics["queue"] = count
-                        except Exception:
-                            self.logger.debug(
-                                "Process metrics (free_space) fetch failed", exc_info=True
-                            )
-                    return metrics
-
-                if isinstance(arr_obj, TrackerSortManager):
-                    metrics["metric_type"] = "tracker-sort"
-                    monitored = getattr(arr_obj, "categories", set()) or set()
-                    if qbit_client and monitored:
-                        try:
-                            torrents = qbit_client.torrents_info(status_filter="all")
-                            total = sum(
-                                1 for t in torrents if getattr(t, "category", None) in monitored
-                            )
-                            metrics["category"] = total
-                            metrics["queue"] = total
-                        except Exception:
-                            self.logger.debug(
-                                "Process metrics (TrackerSortManager) fetch failed", exc_info=True
-                            )
+                if isinstance(arr_obj, TorrentPolicyManager):
+                    metrics["metric_type"] = "torrent-policy"
+                    metrics["category"] = int(getattr(arr_obj, "category_torrent_count", 0) or 0)
+                    # Keep queue metric aligned with monitored torrent count for process cards.
+                    metrics["queue"] = int(getattr(arr_obj, "category_torrent_count", 0) or 0)
+                    paused_for_space = int(getattr(arr_obj, "free_space_tagged_count", 0) or 0)
+                    if paused_for_space:
+                        metrics["free_space_paused"] = paused_for_space
                     return metrics
 
                 if isinstance(arr_obj, PlaceHolderArr):
@@ -2678,7 +2653,7 @@ class WebUI:
             # Add Arr-managed categories
             if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
                 for arr in self.manager.arr_manager.managed_objects.values():
-                    if isinstance(arr, (PlaceHolderArr, FreeSpaceManager, TrackerSortManager)):
+                    if isinstance(arr, (PlaceHolderArr, TorrentPolicyManager)):
                         continue
                     try:
                         # Get the qBit instance for this Arr (use default for now)
@@ -3304,18 +3279,25 @@ class WebUI:
                 else:
                     # Create temporary Arr API client
                     self.logger.info("Creating temporary %s client for %s", arr_type, uri)
+                    if instance_key:
+                        skip_tls_servarr = CONFIG.get(
+                            f"{instance_key}.SkipTLSVerify", fallback=False
+                        )
+                    else:
+                        skip_tls_servarr = bool(data.get("skipTlsVerify", False))
+                    verify_ssl = not skip_tls_servarr
                     if arr_type == "radarr":
                         from qBitrr.pyarr_compat import RadarrAPI
 
-                        client = RadarrAPI(uri, api_key)
+                        client = RadarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "sonarr":
                         from qBitrr.pyarr_compat import SonarrAPI
 
-                        client = SonarrAPI(uri, api_key)
+                        client = SonarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "lidarr":
                         from qBitrr.pyarr_compat import LidarrAPI
 
-                        client = LidarrAPI(uri, api_key)
+                        client = LidarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     else:
                         return (
                             jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),

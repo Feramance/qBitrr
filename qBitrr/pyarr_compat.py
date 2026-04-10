@@ -279,11 +279,15 @@ def _normalize_v6_client_args(
 
 class RadarrAPI(_CompatArrClient):
     def __init__(self, *args: Any, **kwargs: Any):
+        verify_ssl = kwargs.pop("verify_ssl", True)
         if _LegacyRadarrAPI is not None:
             super().__init__(_LegacyRadarrAPI(*args, **kwargs))
+            if not verify_ssl and hasattr(self._client, "session"):
+                self._client.session.verify = False
             return
         if _Radarr is None:
             raise ImportError("pyarr Radarr client not found")
+        kwargs["verify_ssl"] = verify_ssl
         call_args, call_kwargs = _normalize_v6_client_args(
             args, kwargs, default_port=7878, default_api_ver="v3"
         )
@@ -292,11 +296,15 @@ class RadarrAPI(_CompatArrClient):
 
 class SonarrAPI(_CompatArrClient):
     def __init__(self, *args: Any, **kwargs: Any):
+        verify_ssl = kwargs.pop("verify_ssl", True)
         if _LegacySonarrAPI is not None:
             super().__init__(_LegacySonarrAPI(*args, **kwargs))
+            if not verify_ssl and hasattr(self._client, "session"):
+                self._client.session.verify = False
             return
         if _Sonarr is None:
             raise ImportError("pyarr Sonarr client not found")
+        kwargs["verify_ssl"] = verify_ssl
         call_args, call_kwargs = _normalize_v6_client_args(
             args, kwargs, default_port=8989, default_api_ver="v3"
         )
@@ -305,11 +313,15 @@ class SonarrAPI(_CompatArrClient):
 
 class LidarrAPI(_CompatArrClient):
     def __init__(self, *args: Any, **kwargs: Any):
+        verify_ssl = kwargs.pop("verify_ssl", True)
         if _LegacyLidarrAPI is not None:
             super().__init__(_LegacyLidarrAPI(*args, **kwargs))
+            if not verify_ssl and hasattr(self._client, "session"):
+                self._client.session.verify = False
             return
         if _Lidarr is None:
             raise ImportError("pyarr Lidarr client not found")
+        kwargs["verify_ssl"] = verify_ssl
         call_args, call_kwargs = _normalize_v6_client_args(
             args, kwargs, default_port=8686, default_api_ver="v1"
         )

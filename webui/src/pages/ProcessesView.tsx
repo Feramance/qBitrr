@@ -425,7 +425,12 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               ? "Stopped"
               : `${runningCount}/${totalCount} running`;
           const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
-          const displayName = name === "FreeSpaceManager" ? "Free Space Manager" : name;
+          const displayName =
+            name === "FreeSpaceManager"
+              ? "Free Space Manager"
+              : name === "TorrentPolicyManager"
+              ? "Torrent Policy Manager"
+              : name;
           const uniqueKinds = Array.from(new Set(items.map((item) => item.kind)));
           const filteredKinds = uniqueKinds.filter((kind) => {
             const lower = kind.toLowerCase();

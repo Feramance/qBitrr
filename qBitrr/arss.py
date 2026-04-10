@@ -13,19 +13,22 @@ from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, NoReturn
-from urllib.parse import urlparse
 
 import ffmpeg
 import pathos
 import qbittorrentapi
 import qbittorrentapi.exceptions
 import requests
-from jaraco.docker import is_docker
 from packaging import version as version_parser
 from peewee import DatabaseError, Model, OperationalError, SqliteDatabase
 from qbittorrentapi import TorrentDictionary, TorrentStates
 from ujson import JSONDecodeError
 
+from qBitrr.arr_tracker_index import (
+    TrackerIndex,
+    build_tracker_index,
+)
+from qBitrr.arr_tracker_index import extract_tracker_host as _extract_tracker_host
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
@@ -83,7 +86,6 @@ from qBitrr.tables import (
 from qBitrr.utils import (
     ExpiringSet,
     absolute_file_paths,
-    format_bytes,
     has_internet,
     parse_size,
     validate_and_return_torrent_file,
@@ -106,29 +108,11 @@ _ARR_RETRY_EXCEPTIONS_EXTENDED = (
     PyarrConnectionError,
 )
 
-
-def _extract_tracker_host(uri: str) -> str:
-    """Extract the hostname from a tracker URI for matching purposes.
-
-    Handles bare domains (``tracker.example.org``), full announce URLs
-    (``https://tracker.example.org/a/key/announce``), and scheme-less paths
-    (``tracker.example.org/announce``).  Returns the lowercased hostname so
-    that a config URI ``tracker.example.org`` will match the qBit announce
-    URL ``https://tracker.example.org/a/passkey/announce``.
-    """
-    uri = uri.strip().rstrip("/")
-    if not uri:
-        return ""
-    # If no scheme, urlparse puts everything in `path` — add a scheme so it
-    # can extract the hostname properly.
-    if "://" not in uri:
-        uri = "https://" + uri
-    try:
-        parsed = urlparse(uri)
-        return (parsed.hostname or "").lower()
-    except ValueError:
-        # Python 3.14+ raises ValueError for malformed IPv6 URLs
-        return ""
+_QBIT_TORRENT_DELETE_EXCEPTIONS = (
+    qbittorrentapi.exceptions.APIError,
+    qbittorrentapi.exceptions.APIConnectionError,
+    requests.exceptions.RequestException,
+)
 
 
 def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
@@ -248,6 +232,7 @@ class Arr:
                     self.completed_folder,
                 )
         self.apikey = CONFIG.get_or_raise(f"{name}.APIKey")
+        self.skip_tls_verify_servarr = CONFIG.get(f"{name}.SkipTLSVerify", fallback=False)
         self.re_search = CONFIG.get(f"{name}.ReSearch", fallback=False)
         self.import_mode = CONFIG.get(f"{name}.importMode", fallback="Auto")
         if self.import_mode == "Hardlink":
@@ -311,38 +296,12 @@ class Arr:
         qbit_trackers = CONFIG.get("qBit.Trackers", fallback=[])
         arr_trackers = CONFIG.get(f"{name}.Torrent.Trackers", fallback=[])
         self.monitored_trackers = self._merge_trackers(qbit_trackers, arr_trackers)
-        self._remove_trackers_if_exists: set[str] = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("RemoveIfExists") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        self._monitored_tracker_urls: set[str] = {
-            uri
-            for i in self.monitored_trackers
-            if (uri := (i.get("URI") or "").strip().rstrip("/"))
-            and uri not in self._remove_trackers_if_exists
-        }
-        self._add_trackers_if_missing: set[str] = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("AddTrackerIfMissing") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        # Host-based lookup: maps extracted hostname → config URI for matching
-        # qBit announce URLs (e.g. "https://host/a/key/announce") against config
-        # URIs that may be bare domains (e.g. "host") or partial paths.
-        self._host_to_config_uri: dict[str, str] = {}
-        for _uri in self._monitored_tracker_urls:
-            _host = _extract_tracker_host(_uri)
-            if _host:
-                self._host_to_config_uri[_host] = _uri
-        self._remove_tracker_hosts: set[str] = {
-            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
-        }
-        self._normalized_bad_tracker_msgs: set[str] = {
-            msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
-        }
+        self._install_tracker_index(
+            build_tracker_index(
+                self.monitored_trackers,
+                bad_tracker_messages=self.seeding_mode_global_bad_tracker_msg,
+            )
+        )
 
         if (
             self.auto_delete is True
@@ -443,6 +402,12 @@ class Arr:
         self.overseerr_approved_only = CONFIG.get(
             f"{name}.EntrySearch.Overseerr.ApprovedOnly", fallback=True
         )
+        self.skip_tls_verify_overseerr = CONFIG.get(
+            f"{name}.EntrySearch.Overseerr.SkipTLSVerify", fallback=False
+        )
+        self.skip_tls_verify_ombi = CONFIG.get(
+            f"{name}.EntrySearch.Ombi.SkipTLSVerify", fallback=False
+        )
         self.search_requests_every_x_seconds = CONFIG.get_duration(
             f"{name}.EntrySearch.SearchRequestsEvery", fallback=300
         )
@@ -484,7 +449,11 @@ class Arr:
                 if self.file_extension_allowlist
                 else None
             )
-        self.client = client_cls(host_url=self.uri, api_key=self.apikey)
+        self.client = client_cls(
+            host_url=self.uri,
+            api_key=self.apikey,
+            verify_ssl=not self.skip_tls_verify_servarr,
+        )
         if isinstance(self.client, SonarrAPI):
             self.type = "sonarr"
         elif isinstance(self.client, RadarrAPI):
@@ -769,20 +738,124 @@ class Arr:
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
-        atexit.register(
-            lambda: (
-                hasattr(self, "db") and self.db and not self.db.is_closed() and self.db.close()
-            )
-        )
-        atexit.register(
-            lambda: (
-                hasattr(self, "torrent_db")
-                and self.torrent_db
-                and not self.torrent_db.is_closed()
-                and self.torrent_db.close()
-            )
-        )
+        self._register_sqlite_db_atexit("db")
+        self._register_sqlite_db_atexit("torrent_db")
         self.logger.hnotice("Starting %s monitor", self._name)
+
+    def _install_tracker_index(self, idx: TrackerIndex) -> None:
+        """Apply :class:`TrackerIndex` to instance tracker-derived fields."""
+        self._remove_trackers_if_exists = set(idx.remove_trackers_if_exists)
+        self._monitored_tracker_urls = set(idx.monitored_tracker_urls)
+        self._add_trackers_if_missing = set(idx.add_trackers_if_missing)
+        self._host_to_config_uri = dict(idx.host_to_config_uri)
+        self._remove_tracker_hosts = set(idx.remove_tracker_hosts)
+        self._normalized_bad_tracker_msgs = set(idx.normalized_bad_tracker_msgs)
+
+    def _arr_retry(
+        self,
+        fn: Callable,
+        *,
+        retries: int = 5,
+        backoff: float = 0.5,
+        max_backoff: float = 5,
+    ):
+        """Execute an Arr API call with the standard retry policy."""
+        return with_retry(
+            fn,
+            retries=retries,
+            backoff=backoff,
+            max_backoff=max_backoff,
+            exceptions=_ARR_RETRY_EXCEPTIONS,
+        )
+
+    def _arr_retry_extended(
+        self,
+        fn: Callable,
+        *,
+        retries: int = 5,
+        backoff: float = 0.5,
+        max_backoff: float = 5,
+    ):
+        """Execute an Arr API call with extended retry exceptions."""
+        return with_retry(
+            fn,
+            retries=retries,
+            backoff=backoff,
+            max_backoff=max_backoff,
+            exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
+        )
+
+    def _qbit_retry(
+        self,
+        fn: Callable,
+        *,
+        retries: int = 3,
+        backoff: float = 0.5,
+        max_backoff: float = 3,
+    ):
+        """Execute a qBittorrent API call with the standard retry policy."""
+        return with_retry(
+            fn,
+            retries=retries,
+            backoff=backoff,
+            max_backoff=max_backoff,
+            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
+        )
+
+    def _retry_profile_switch_update(self, update_fn: Callable, kind: str) -> bool:
+        """Retry Arr quality-profile updates using the configured switch-attempt count."""
+        for attempt in range(self.profile_switch_retry_attempts):
+            try:
+                update_fn()
+                return True
+            except _ARR_RETRY_EXCEPTIONS as e:
+                if attempt == self.profile_switch_retry_attempts - 1:
+                    self.logger.error(
+                        "Failed to update %s profile after %d attempts: %s",
+                        kind,
+                        self.profile_switch_retry_attempts,
+                        e,
+                    )
+                    return False
+                time.sleep(1)
+        return False
+
+    def _handle_delay_loop_exception(
+        self,
+        delay_exc: DelayLoopException,
+        wait_fn: Callable[[float], None],
+        *,
+        reset_torrent_scan_delay: bool = False,
+    ) -> None:
+        """Standardized DelayLoopException logging and backoff wait."""
+        if delay_exc.error_type == "qbit":
+            self.logger.critical(
+                "Failed to connected to qBit client, sleeping for %s",
+                timedelta(seconds=delay_exc.length),
+            )
+        elif delay_exc.error_type == "internet":
+            self.logger.critical(
+                "Failed to connected to the internet, sleeping for %s",
+                timedelta(seconds=delay_exc.length),
+            )
+        elif delay_exc.error_type == "arr":
+            self.logger.critical(
+                "Failed to connected to the Arr instance, sleeping for %s",
+                timedelta(seconds=delay_exc.length),
+            )
+        elif delay_exc.error_type == "delay":
+            self.logger.critical(
+                "Forced delay due to temporary issue with environment, sleeping for %s",
+                timedelta(seconds=delay_exc.length),
+            )
+        elif delay_exc.error_type == "no_downloads":
+            self.logger.debug(
+                "No downloads in category, sleeping for %s",
+                timedelta(seconds=delay_exc.length),
+            )
+        wait_fn(delay_exc.length)
+        if reset_torrent_scan_delay:
+            self.manager.qbit_manager.should_delay_torrent_scan = False
 
     @staticmethod
     def _merge_trackers(qbit_trackers: list, arr_trackers: list) -> list:
@@ -1006,6 +1079,38 @@ class Arr:
             self.last_search_timestamp,
         )
 
+    def _configure_worker_logging(self, worker_name: str) -> None:
+        """Initialize a worker logger compatible with Arr helper paths."""
+        self.logger = logging.getLogger(f"qBitrr.{worker_name}")
+        run_logs(self.logger, worker_name)
+
+    def _register_sqlite_db_atexit(self, attr_name: str) -> None:
+        """Register a safe close handler for optional sqlite attributes."""
+
+        def _close() -> None:
+            db = getattr(self, attr_name, None)
+            if db is None:
+                return
+            with contextlib.suppress(Exception):
+                if hasattr(db, "is_closed"):
+                    if not db.is_closed():
+                        db.close()
+                elif hasattr(db, "close"):
+                    db.close()
+
+        atexit.register(_close)
+
+    def _init_worker_expiring_timeouts(self) -> None:
+        """Initialize expiring caches used by lightweight worker classes."""
+        ignore_seconds = CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180)
+        self.ignore_torrents_younger_than = ignore_seconds
+        self.timed_ignore_cache = ExpiringSet(max_age_seconds=ignore_seconds)
+        self.timed_ignore_cache_2 = ExpiringSet(max_age_seconds=ignore_seconds * 2)
+        self.timed_skip = ExpiringSet(max_age_seconds=ignore_seconds)
+        self.tracker_delay = ExpiringSet(max_age_seconds=600)
+        self.special_casing_file_check = ExpiringSet(max_age_seconds=10)
+        self.expiring_bool = ExpiringSet(max_age_seconds=10)
+
     @property
     def is_alive(self) -> bool:
         try:
@@ -1018,6 +1123,7 @@ class Arr:
                 f"{self.uri}/api/v3/system/status",
                 timeout=10,
                 headers={"X-Api-Key": self.apikey},
+                verify=not self.skip_tls_verify_servarr,
             )
             req.raise_for_status()
             self.logger.trace("Successfully connected to %s", self.uri)
@@ -1262,6 +1368,7 @@ class Arr:
                     headers={"X-Api-Key": self.overseerr_api_key},
                     params={"take": take, "skip": skip, "sort": "added", "filter": key},
                     timeout=5,
+                    verify=not self.skip_tls_verify_overseerr,
                 )
                 response.raise_for_status()
                 payload = response.json()
@@ -1322,6 +1429,7 @@ class Arr:
                                     url=f"{self.overseerr_uri}/api/v1/movie/{id__}",
                                     headers={"X-Api-Key": self.overseerr_api_key},
                                     timeout=5,
+                                    verify=not self.skip_tls_verify_overseerr,
                                 )
                                 _entry.raise_for_status()
                                 date_string = _entry.json().get("releaseDate")
@@ -1330,6 +1438,7 @@ class Arr:
                                     url=f"{self.overseerr_uri}/api/v1/tv/{id__}",
                                     headers={"X-Api-Key": self.overseerr_api_key},
                                     timeout=5,
+                                    verify=not self.skip_tls_verify_overseerr,
                                 )
                                 _entry.raise_for_status()
                                 # We don't do granular (episode/season) searched here so no need to
@@ -1397,7 +1506,10 @@ class Arr:
         total = 0
         try:
             response = self.session.get(
-                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}, timeout=5
+                url=f"{self.ombi_uri}{extras}",
+                headers={"ApiKey": self.ombi_api_key},
+                timeout=5,
+                verify=not self.skip_tls_verify_ombi,
             )
             response.raise_for_status()
             payload = response.json()
@@ -1422,7 +1534,10 @@ class Arr:
             raise UnhandledError(f"Well you shouldn't have reached here, Arr.type={self.type}")
         try:
             response = self.session.get(
-                url=f"{self.ombi_uri}{extras}", headers={"ApiKey": self.ombi_api_key}, timeout=5
+                url=f"{self.ombi_uri}{extras}",
+                headers={"ApiKey": self.ombi_api_key},
+                timeout=5,
+                verify=not self.skip_tls_verify_ombi,
             )
             response.raise_for_status()
             payload = response.json()
@@ -1784,6 +1899,70 @@ class Arr:
                     self.timed_ignore_cache.add(k)
             self.recheck.clear()
 
+    def _log_deletion_summary_line(self) -> None:
+        n_delete = len(self.delete)
+        n_missing = len(self.missing_files_post_delete)
+        n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
+        n_remove = len(self.remove_from_qbit)
+        n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
+        n_skip = len(self.skip_blacklist)
+        self.logger.info(
+            "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
+            "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
+            n_delete,
+            n_missing,
+            n_bad_msg,
+            n_remove,
+            n_remove_by_inst,
+            n_skip,
+        )
+
+    def _log_deletion_sample_debug(self, to_delete_all: set[str]) -> None:
+        if not to_delete_all or not self.logger.isEnabledFor(10):
+            return
+        sample = list(to_delete_all)[:5]
+        names = [self.manager.qbit_manager.name_cache.get(h, h) for h in sample]
+        self.logger.debug(
+            "Deletion sample (first 5): %s",
+            list(zip(sample, names)),
+        )
+
+    def _evict_hashes_from_qbit_side_caches(self, hashes: Iterable[str]) -> None:
+        qm = self.manager.qbit_manager
+        for h in hashes:
+            self.cleaned_torrents.discard(h)
+            self.sent_to_scan_hashes.discard(h)
+            if h in qm.name_cache:
+                del qm.name_cache[h]
+            if h in qm.cache:
+                del qm.cache[h]
+
+    def _process_failed_dispatch_queue_deletes(
+        self,
+        to_delete_all: set[str],
+        skip_blacklist: set[str],
+        *,
+        cross_arr: bool,
+    ) -> None:
+        if not to_delete_all:
+            return
+        if cross_arr:
+            for arr in self.manager.managed_objects.values():
+                if payload := arr.process_entries(to_delete_all):
+                    for entry, hash_ in payload:
+                        if hash_ in arr.cache:
+                            arr._process_failed_individual(
+                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
+                            )
+        else:
+            self.needs_cleanup = True
+            payload = self.process_entries(to_delete_all)
+            if payload:
+                for entry, hash_ in payload:
+                    self._process_failed_individual(
+                        hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
+                    )
+
     def _process_failed(self) -> None:
         to_delete_all = self.delete.union(
             self.missing_files_post_delete, self.downloads_with_bad_error_message_blocklist
@@ -1797,37 +1976,9 @@ class Arr:
             or self.skip_blacklist
             or self.remove_from_qbit_by_instance
         ):
-            n_delete = len(self.delete)
-            n_missing = len(self.missing_files_post_delete)
-            n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
-            n_remove = len(self.remove_from_qbit)
-            n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
-            n_skip = len(self.skip_blacklist)
-            self.logger.info(
-                "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-                "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
-                n_delete,
-                n_missing,
-                n_bad_msg,
-                n_remove,
-                n_remove_by_inst,
-                n_skip,
-            )
-            if to_delete_all and self.logger.isEnabledFor(10):  # DEBUG
-                sample = list(to_delete_all)[:5]
-                names = [self.manager.qbit_manager.name_cache.get(h, h) for h in sample]
-                self.logger.debug(
-                    "Deletion sample (first 5): %s",
-                    list(zip(sample, names)),
-                )
-        if to_delete_all:
-            self.needs_cleanup = True
-            payload = self.process_entries(to_delete_all)
-            if payload:
-                for entry, hash_ in payload:
-                    self._process_failed_individual(
-                        hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                    )
+            self._log_deletion_summary_line()
+            self._log_deletion_sample_debug(to_delete_all)
+        self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=False)
         # Delete missing-files torrents from the correct qBit instance (multi-instance).
         per_instance_hashes = set()
         for hashes in self.remove_from_qbit_by_instance.values():
@@ -1843,31 +1994,11 @@ class Arr:
                 )
                 continue
             try:
-                with_retry(
-                    lambda c=client, h=list(hashes): c.torrents_delete(
-                        hashes=h, delete_files=True
-                    ),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
+                self._qbit_retry(
+                    lambda c=client, h=list(hashes): c.torrents_delete(hashes=h, delete_files=True)
                 )
-                for h in hashes:
-                    self.cleaned_torrents.discard(h)
-                    self.sent_to_scan_hashes.discard(h)
-                    if h in qbit_manager.name_cache:
-                        del qbit_manager.name_cache[h]
-                    if h in qbit_manager.cache:
-                        del qbit_manager.cache[h]
-            except (
-                qbittorrentapi.exceptions.APIError,
-                qbittorrentapi.exceptions.APIConnectionError,
-                requests.exceptions.RequestException,
-            ) as e:
+                self._evict_hashes_from_qbit_side_caches(hashes)
+            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                 self.logger.error(
                     "Failed to delete %d torrent(s) from qBit instance '%s': %s",
                     len(hashes),
@@ -1881,24 +2012,12 @@ class Arr:
             deleted_hashes: set[str] = set()
             if to_delete_all:
                 try:
-                    with_retry(
+                    self._qbit_retry(
                         lambda: self.manager.qbit.torrents_delete(
                             hashes=to_delete_all, delete_files=True
-                        ),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        )
                     )
-                except (
-                    qbittorrentapi.exceptions.APIError,
-                    qbittorrentapi.exceptions.APIConnectionError,
-                    requests.exceptions.RequestException,
-                ) as e:
+                except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                     self.logger.error(
                         "Failed to delete %d torrent(s) from qBit: %s",
                         len(to_delete_all),
@@ -1909,24 +2028,12 @@ class Arr:
             if self.remove_from_qbit or self.skip_blacklist:
                 temp_to_delete = self.remove_from_qbit.union(self.skip_blacklist)
                 try:
-                    with_retry(
+                    self._qbit_retry(
                         lambda: self.manager.qbit.torrents_delete(
                             hashes=temp_to_delete, delete_files=True
-                        ),
-                        retries=3,
-                        backoff=0.5,
-                        max_backoff=3,
-                        exceptions=(
-                            qbittorrentapi.exceptions.APIError,
-                            qbittorrentapi.exceptions.APIConnectionError,
-                            requests.exceptions.RequestException,
-                        ),
+                        )
                     )
-                except (
-                    qbittorrentapi.exceptions.APIError,
-                    qbittorrentapi.exceptions.APIConnectionError,
-                    requests.exceptions.RequestException,
-                ) as e:
+                except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                     self.logger.error(
                         "Failed to delete %d torrent(s) from qBit: %s",
                         len(temp_to_delete),
@@ -1934,13 +2041,7 @@ class Arr:
                     )
                 else:
                     deleted_hashes.update(temp_to_delete)
-            for h in deleted_hashes:
-                self.cleaned_torrents.discard(h)
-                self.sent_to_scan_hashes.discard(h)
-                if h in self.manager.qbit_manager.name_cache:
-                    del self.manager.qbit_manager.name_cache[h]
-                if h in self.manager.qbit_manager.cache:
-                    del self.manager.qbit_manager.cache[h]
+            self._evict_hashes_from_qbit_side_caches(deleted_hashes)
         if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
@@ -2808,7 +2909,7 @@ class Arr:
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                    exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                 )
 
                 # Process episodes for episode-level tracking (all episodes)
@@ -2841,7 +2942,7 @@ class Arr:
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                    exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                 )
                 # Process all movies
                 for m in movies:
@@ -2855,7 +2956,7 @@ class Arr:
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
-                    exceptions=_ARR_RETRY_EXCEPTIONS,
+                    exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                 )
                 for artist in artists:
                     if isinstance(artist, str):
@@ -2867,7 +2968,7 @@ class Arr:
                         retries=5,
                         backoff=0.5,
                         max_backoff=5,
-                        exceptions=_ARR_RETRY_EXCEPTIONS,
+                        exceptions=_ARR_RETRY_EXCEPTIONS_EXTENDED,
                     )
                     for album in albums:
                         if isinstance(album, str):
@@ -2900,6 +3001,10 @@ class Arr:
             self._webui_db_loaded = True
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
+        """Public wrapper kept stable while availability logic is extracted."""
+        return self._minimum_availability_check_impl(db_entry)
+
+    def _minimum_availability_check_impl(self, db_entry: JsonObject) -> bool:
         inCinemas = (
             datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
             if "inCinemas" in db_entry
@@ -3138,6 +3243,21 @@ class Arr:
         series: bool = False,
         artist: bool = False,
     ):
+        """Public wrapper kept stable while db-update internals are split incrementally."""
+        return self._db_update_single_series_impl(
+            db_entry=db_entry,
+            request=request,
+            series=series,
+            artist=artist,
+        )
+
+    def _db_update_single_series_impl(
+        self,
+        db_entry: JsonObject = None,
+        request: bool = False,
+        series: bool = False,
+        artist: bool = False,
+    ):
         if not (
             self.search_missing
             or self.do_upgrade_search
@@ -3339,27 +3459,10 @@ class Arr:
                                     quality_profile_id in self.temp_quality_profile_ids.keys(),
                                 )
                             if data:
-                                profile_update_success = False
-                                for attempt in range(self.profile_switch_retry_attempts):
-                                    try:
-                                        self.client.upd_episode(episode["id"], data)
-                                        profile_update_success = True
-                                        break
-                                    except (
-                                        requests.exceptions.ChunkedEncodingError,
-                                        requests.exceptions.ContentDecodingError,
-                                        requests.exceptions.ConnectionError,
-                                        JSONDecodeError,
-                                    ) as e:
-                                        if attempt == self.profile_switch_retry_attempts - 1:
-                                            self.logger.error(
-                                                "Failed to update episode profile after %d attempts: %s",
-                                                self.profile_switch_retry_attempts,
-                                                e,
-                                            )
-                                            break
-                                        time.sleep(1)
-                                        continue
+                                profile_update_success = self._retry_profile_switch_update(
+                                    lambda: self.client.upd_episode(episode["id"], data),
+                                    "episode",
+                                )
 
                                 # If profile update failed, don't track the change
                                 if not profile_update_success:
@@ -3589,25 +3692,10 @@ class Arr:
                                 self.logger.warning(
                                     "Check quality profile settings for %s", db_entry["title"]
                                 )
-                            for attempt in range(self.profile_switch_retry_attempts):
-                                try:
-                                    self.client.upd_series(db_entry)
-                                    break
-                                except (
-                                    requests.exceptions.ChunkedEncodingError,
-                                    requests.exceptions.ContentDecodingError,
-                                    requests.exceptions.ConnectionError,
-                                    JSONDecodeError,
-                                ) as e:
-                                    if attempt == self.profile_switch_retry_attempts - 1:
-                                        self.logger.error(
-                                            "Failed to update series profile after %d attempts: %s",
-                                            self.profile_switch_retry_attempts,
-                                            e,
-                                        )
-                                        break
-                                    time.sleep(1)
-                                    continue
+                            self._retry_profile_switch_update(
+                                lambda: self.client.upd_series(db_entry),
+                                "series",
+                            )
 
                         Title = seriesMetadata.get("title")
                         Monitored = db_entry["monitored"]
@@ -3798,27 +3886,10 @@ class Arr:
                             original_profile_for_db = quality_profile_id
                             current_profile_for_db = new_temp_id
 
-                        profile_update_success = False
-                        for attempt in range(self.profile_switch_retry_attempts):
-                            try:
-                                self.client.upd_movie(db_entry)
-                                profile_update_success = True
-                                break
-                            except (
-                                requests.exceptions.ChunkedEncodingError,
-                                requests.exceptions.ContentDecodingError,
-                                requests.exceptions.ConnectionError,
-                                JSONDecodeError,
-                            ) as e:
-                                if attempt == self.profile_switch_retry_attempts - 1:
-                                    self.logger.error(
-                                        "Failed to update movie profile after %d attempts: %s",
-                                        self.profile_switch_retry_attempts,
-                                        e,
-                                    )
-                                    break
-                                time.sleep(1)
-                                continue
+                        profile_update_success = self._retry_profile_switch_update(
+                            lambda: self.client.upd_movie(db_entry),
+                            "movie",
+                        )
 
                         # If profile update failed, don't track the change
                         if not profile_update_success:
@@ -4610,6 +4681,25 @@ class Arr:
         series_search: bool = False,
         commands: int = 0,
     ):
+        """Public wrapper kept stable while search-dispatch internals are split incrementally."""
+        return self._maybe_do_search_impl(
+            file_model=file_model,
+            request=request,
+            todays=todays,
+            bypass_limit=bypass_limit,
+            series_search=series_search,
+            commands=commands,
+        )
+
+    def _maybe_do_search_impl(
+        self,
+        file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
+        request: bool = False,
+        todays: bool = False,
+        bypass_limit: bool = False,
+        series_search: bool = False,
+        commands: int = 0,
+    ):
         request_tag = (
             "[OVERSEERR REQUEST]: "
             if request and self.overseerr_requests
@@ -5037,11 +5127,11 @@ class Arr:
         ``Priority`` among those labels present on the torrent (visible in the client);
         otherwise order uses announce URL matching as before.
 
-        When :attr:`categories` is set (e.g. :class:`TrackerSortManager`), only torrents
+        When :attr:`categories` is set (e.g. :class:`TorrentPolicyManager`), only torrents
         in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
         Otherwise all torrents from ``torrents.info`` are considered.
 
-        Invoked by :class:`TrackerSortManager` (single dedicated worker).
+        Invoked by a global torrent-policy worker (single dedicated process).
 
         Requires qBittorrent Torrent Queuing to be enabled.
         """
@@ -7144,35 +7234,18 @@ class Arr:
                     original_id = self.main_quality_profile_ids[profile_id]
                     item["qualityProfileId"] = original_id
 
-                    # Update via API with retry logic
-                    for attempt in range(self.profile_switch_retry_attempts):
-                        try:
-                            if item_type == "movie":
-                                self.client.upd_movie(item)
-                            elif item_type == "series":
-                                self.client.upd_series(item)
-                            elif item_type == "artist":
-                                self.client.upd_artist(item)
-
-                            reset_count += 1
-                            self.logger.info(
-                                f"Reset {item_type} '{item.get('title', item.get('artistName', 'Unknown'))}' "
-                                f"from temp profile (ID:{profile_id}) to main profile (ID:{original_id})"
-                            )
-                            break
-                        except (
-                            requests.exceptions.ChunkedEncodingError,
-                            requests.exceptions.ContentDecodingError,
-                            requests.exceptions.ConnectionError,
-                            JSONDecodeError,
-                        ) as e:
-                            if attempt == self.profile_switch_retry_attempts - 1:
-                                self.logger.error(
-                                    f"Failed to reset {item_type} profile after {self.profile_switch_retry_attempts} attempts: {e}"
-                                )
-                            else:
-                                time.sleep(1)
-                                continue
+                    if item_type == "movie":
+                        update_fn = lambda: self.client.upd_movie(item)
+                    elif item_type == "series":
+                        update_fn = lambda: self.client.upd_series(item)
+                    else:
+                        update_fn = lambda: self.client.upd_artist(item)
+                    if self._retry_profile_switch_update(update_fn, item_type):
+                        reset_count += 1
+                        self.logger.info(
+                            f"Reset {item_type} '{item.get('title', item.get('artistName', 'Unknown'))}' "
+                            f"from temp profile (ID:{profile_id}) to main profile (ID:{original_id})"
+                        )
 
             if reset_count > 0:
                 self.logger.info(
@@ -7410,32 +7483,11 @@ class Arr:
             except Exception as e:
                 self.logger.exception(e, exc_info=sys.exc_info())
         except DelayLoopException as e:
-            if e.error_type == "qbit":
-                self.logger.critical(
-                    "Failed to connected to qBit client, sleeping for %s",
-                    timedelta(seconds=e.length),
-                )
-            elif e.error_type == "internet":
-                self.logger.critical(
-                    "Failed to connected to the internet, sleeping for %s",
-                    timedelta(seconds=e.length),
-                )
-            elif e.error_type == "arr":
-                self.logger.critical(
-                    "Failed to connected to the Arr instance, sleeping for %s",
-                    timedelta(seconds=e.length),
-                )
-            elif e.error_type == "delay":
-                self.logger.critical(
-                    "Forced delay due to temporary issue with environment, sleeping for %s",
-                    timedelta(seconds=e.length),
-                )
-            elif e.error_type == "no_downloads":
-                self.logger.debug(
-                    "No downloads in category, sleeping for %s", timedelta(seconds=e.length)
-                )
-            # Respect shutdown signal
-            self.manager.qbit_manager.shutdown_event.wait(e.length)
+            self._handle_delay_loop_exception(
+                e,
+                self.manager.qbit_manager.shutdown_event.wait,
+                reset_torrent_scan_delay=False,
+            )
 
     def get_year_search(self) -> tuple[list[int], int]:
         years_list = set()
@@ -7650,30 +7702,19 @@ class Arr:
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
+                except PyarrConnectionError as e:
+                    self.logger.warning(
+                        "Could not reach %s Arr API during search loop: %s",
+                        self._name,
+                        e,
+                    )
+                    raise DelayLoopException(length=300, error_type="arr") from e
                 except DelayLoopException as delay_exc:
-                    if delay_exc.error_type == "qbit":
-                        self.logger.critical(
-                            "Failed to connected to qBit client, sleeping for %s",
-                            timedelta(seconds=delay_exc.length),
-                        )
-                    elif delay_exc.error_type == "internet":
-                        self.logger.critical(
-                            "Failed to connected to the internet, sleeping for %s",
-                            timedelta(seconds=delay_exc.length),
-                        )
-                    elif delay_exc.error_type == "arr":
-                        self.logger.critical(
-                            "Failed to connected to the Arr instance, sleeping for %s",
-                            timedelta(seconds=delay_exc.length),
-                        )
-                    elif delay_exc.error_type == "delay":
-                        self.logger.critical(
-                            "Forced delay due to temporary issue with environment, "
-                            "sleeping for %s",
-                            timedelta(seconds=delay_exc.length),
-                        )
-                    event.wait(delay_exc.length)
-                    self.manager.qbit_manager.should_delay_torrent_scan = False
+                    self._handle_delay_loop_exception(
+                        delay_exc,
+                        event.wait,
+                        reset_torrent_scan_delay=True,
+                    )
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
@@ -7729,34 +7770,11 @@ class Arr:
                         self.logger.error(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
                 except DelayLoopException as e:
-                    if e.error_type == "qbit":
-                        self.logger.critical(
-                            "Failed to connected to qBit client, sleeping for %s",
-                            timedelta(seconds=e.length),
-                        )
-                    elif e.error_type == "internet":
-                        self.logger.critical(
-                            "Failed to connected to the internet, sleeping for %s",
-                            timedelta(seconds=e.length),
-                        )
-                    elif e.error_type == "arr":
-                        self.logger.critical(
-                            "Failed to connected to the Arr instance, sleeping for %s",
-                            timedelta(seconds=e.length),
-                        )
-                    elif e.error_type == "delay":
-                        self.logger.critical(
-                            "Forced delay due to temporary issue with environment, "
-                            "sleeping for %s.",
-                            timedelta(seconds=e.length),
-                        )
-                    elif e.error_type == "no_downloads":
-                        self.logger.debug(
-                            "No downloads in category, sleeping for %s",
-                            timedelta(seconds=e.length),
-                        )
-                    event.wait(e.length)
-                    self.manager.qbit_manager.should_delay_torrent_scan = False
+                    self._handle_delay_loop_exception(
+                        e,
+                        event.wait,
+                        reset_torrent_scan_delay=True,
+                    )
                 except KeyboardInterrupt:
                     self.logger.hnotice("Detected Ctrl+C - Terminating process")
                     sys.exit(0)
@@ -7851,9 +7869,7 @@ class PlaceHolderArr(Arr):
         self.seeding_mode_global_upload_limit = -1
         self.seeding_mode_global_bad_tracker_msg = []
         self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(self.category)
-        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        run_logs(self.logger, self._name)
+        self._configure_worker_logging(self._name)
         self.manager.completed_folders.add(self.completed_folder)
         self.manager.category_allowlist.add(self.category)
         self.stalled_delay = -1
@@ -7950,32 +7966,12 @@ class PlaceHolderArr(Arr):
         )
         self.allowed_stalled = self.stalled_delay != -1
         self.monitored_trackers = CONFIG.get(f"{section}.Trackers", fallback=[])
-        self._remove_trackers_if_exists = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("RemoveIfExists") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        self._monitored_tracker_urls = {
-            uri
-            for i in self.monitored_trackers
-            if (uri := (i.get("URI") or "").strip().rstrip("/"))
-            and uri not in self._remove_trackers_if_exists
-        }
-        self._add_trackers_if_missing = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("AddTrackerIfMissing") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        self._host_to_config_uri = {}
-        for _uri in self._monitored_tracker_urls:
-            _host = _extract_tracker_host(_uri)
-            if _host:
-                self._host_to_config_uri[_host] = _uri
-        self._remove_tracker_hosts = {
-            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
-        }
+        self._install_tracker_index(
+            build_tracker_index(
+                self.monitored_trackers,
+                bad_tracker_messages=self.seeding_mode_global_bad_tracker_msg,
+            )
+        )
         self.logger.debug(
             "Applied qBit seeding config from section '%s' for category '%s': "
             "RemoveTorrent=%s, StalledDelay=%s",
@@ -8000,30 +7996,8 @@ class PlaceHolderArr(Arr):
             or self.remove_from_qbit_by_instance
         ):
             return
-        n_delete = len(self.delete)
-        n_missing = len(self.missing_files_post_delete)
-        n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
-        n_remove = len(self.remove_from_qbit)
-        n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
-        n_skip = len(self.skip_blacklist)
-        self.logger.info(
-            "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-            "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
-            n_delete,
-            n_missing,
-            n_bad_msg,
-            n_remove,
-            n_remove_by_inst,
-            n_skip,
-        )
-        if to_delete_all:
-            for arr in self.manager.managed_objects.values():
-                if payload := arr.process_entries(to_delete_all):
-                    for entry, hash_ in payload:
-                        if hash_ in arr.cache:
-                            arr._process_failed_individual(
-                                hash_=hash_, entry=entry, skip_blacklist=skip_blacklist
-                            )
+        self._log_deletion_summary_line()
+        self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=True)
         deleted_hashes: set[str] = set()
         qbit_manager = self.manager.qbit_manager
         # Delete per-instance (e.g. missing-files) so we use the correct qBit client.
@@ -8042,18 +8016,10 @@ class PlaceHolderArr(Arr):
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
+                    exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                 )
                 deleted_hashes.update(hashes)
-            except (
-                qbittorrentapi.exceptions.APIError,
-                qbittorrentapi.exceptions.APIConnectionError,
-                requests.exceptions.RequestException,
-            ) as e:
+            except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                 self.logger.error(
                     "Failed to delete %d torrent(s) from qBit instance '%s': %s",
                     len(hashes),
@@ -8073,18 +8039,10 @@ class PlaceHolderArr(Arr):
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
-                            exceptions=(
-                                qbittorrentapi.exceptions.APIError,
-                                qbittorrentapi.exceptions.APIConnectionError,
-                                requests.exceptions.RequestException,
-                            ),
+                            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                         )
                         temp_to_delete.update(to_delete_all)
-                    except (
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ) as e:
+                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                         self.logger.error(
                             "Failed to delete %d torrent(s) from qBit (to_delete_all): %s",
                             len(to_delete_all),
@@ -8105,18 +8063,10 @@ class PlaceHolderArr(Arr):
                             retries=3,
                             backoff=0.5,
                             max_backoff=3,
-                            exceptions=(
-                                qbittorrentapi.exceptions.APIError,
-                                qbittorrentapi.exceptions.APIConnectionError,
-                                requests.exceptions.RequestException,
-                            ),
+                            exceptions=_QBIT_TORRENT_DELETE_EXCEPTIONS,
                         )
                         temp_to_delete.update(rest)
-                    except (
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ) as e:
+                    except _QBIT_TORRENT_DELETE_EXCEPTIONS as e:
                         self.logger.error(
                             "Failed to delete %d torrent(s) from qBit (remove/blacklist): %s",
                             len(rest),
@@ -8128,13 +8078,7 @@ class PlaceHolderArr(Arr):
                         len(rest),
                     )
             cleaned_hashes = deleted_hashes.union(temp_to_delete)
-            for h in cleaned_hashes:
-                self.cleaned_torrents.discard(h)
-                self.sent_to_scan_hashes.discard(h)
-                if h in self.manager.qbit_manager.name_cache:
-                    del self.manager.qbit_manager.name_cache[h]
-                if h in self.manager.qbit_manager.cache:
-                    del self.manager.qbit_manager.cache[h]
+            self._evict_hashes_from_qbit_side_caches(cleaned_hashes)
         if self.missing_files_post_delete or self.downloads_with_bad_error_message_blocklist:
             self.missing_files_post_delete.clear()
             self.downloads_with_bad_error_message_blocklist.clear()
@@ -8248,94 +8192,38 @@ class PlaceHolderArr(Arr):
             raise
 
 
-class FreeSpaceManager(Arr):
-    def __init__(self, categories: set[str], manager: ArrManager):
-        self._name = "FreeSpaceManager"
-        self.type = "FreeSpaceManager"
+class TorrentPolicyManager(Arr):
+    """
+    Single global worker handling tracker sorting and free-space policy.
+
+    Processing order is deterministic and intentional:
+      1) tracker priority queue ordering
+      2) free-space pause/resume/tag handling
+    """
+
+    def __init__(
+        self,
+        categories: set[str],
+        manager: ArrManager,
+        *,
+        enable_tracker_sort: bool,
+        enable_free_space: bool,
+    ):
+        self._name = "TorrentPolicyManager"
+        self.type = "TorrentPolicyManager"
         self.manager = manager
-        self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        run_logs(self.logger, self._name)
+        self.category = self._name
+        self.uri = ""
+        self.client = None
+        self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
+        self._configure_worker_logging(self._name)
         self.cache = {}
-        # Full managed union from ArrManager: arr_categories ∪ qbit_managed_categories.
         self.categories = set(categories)
-        self.logger.trace("Categories: %s", self.categories)
-        self.pause = set()
-        self.pause_by_instance = defaultdict(set)
-        self.resume_by_instance = defaultdict(set)
-        self.resume = set()
-        self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get_duration(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=180
-        )
-        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
-        self.needs_cleanup = False
+        self.enable_tracker_sort = bool(enable_tracker_sort)
+        self.enable_free_space = bool(enable_free_space)
+        self._init_worker_expiring_timeouts()
         self._app_data_folder = APPDATA_FOLDER
-        # Track search setup state to cooperate with Arr.register_search_mode
         self.search_setup_completed = False
-        _free_space, _free_space_folder = get_free_space_guard_settings()
-        # When FreeSpace is -1, get_free_space_guard_settings returns ("-1", "") — not CHANGE_ME.
-        # Treat disabled + empty folder like auto CHANGE_ME so we never build pathlib.Path("")
-        # (which resolves to cwd).
-        _use_auto_free_space_paths = _free_space == "-1" or _free_space_folder == "CHANGE_ME"
-        if _use_auto_free_space_paths:
-            # Prefer an Arr-managed category so the path exists (Arr uses category subdirs).
-            # qBit-managed-only categories may have no subdir under COMPLETED_DOWNLOAD_FOLDER.
-            arr_cats = self.categories & self.manager.arr_categories
-            chosen = next(iter(arr_cats), None) or next(iter(self.categories))
-            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
-            # Use the main completed-download folder for disk usage so we report the same
-            # filesystem the user expects (doc default: "Same as CompletedDownloadFolder").
-            # A category subdir may be a different mount and report much less free space.
-            self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
-        else:
-            self.completed_folder = pathlib.Path(_free_space_folder)
-            self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
-        self._free_space_folder_is_auto = _use_auto_free_space_paths
-        self.min_free_space = _free_space
-        # Parse once to avoid repeated conversions
-        self._min_free_space_bytes = (
-            parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
-        )
-        if _use_auto_free_space_paths and not self.completed_folder.exists():
-            # Fallback to parent when chosen category subdir doesn't exist (e.g. qBit-only).
-            parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
-            if parent.exists():
-                self.completed_folder = parent
-            # else: keep completed_folder and let disk_usage raise so the user sees the error
-        # Path for disk usage: use resolved path. Only when path was auto-chosen (CHANGE_ME),
-        # allow falling back to first existing parent so we still report the correct volume;
-        # when the user explicitly set FreeSpaceFolder, do not substitute—missing path should
-        # error so they fix typo/mount instead of monitoring the wrong filesystem.
-        self._path_for_disk_usage = self._disk_usage_path
-        if self._free_space_folder_is_auto:
-            _p = self._first_existing_parent(self._disk_usage_path)
-            if _p:
-                self._path_for_disk_usage = _p
-                if self._path_for_disk_usage != self._disk_usage_path:
-                    self.logger.warning(
-                        "FreeSpaceFolder path does not exist, using parent for disk space check | "
-                        "Configured: %s | Using: %s%s",
-                        self._disk_usage_path,
-                        self._path_for_disk_usage,
-                        (
-                            " | In Docker: ensure the host volume is mounted at the configured path (e.g. -v /host/torrents:/torrents)"
-                            if is_docker()
-                            else ""
-                        ),
-                    )
-        self.current_free_space = (
-            shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
-        )
-        self.logger.trace(
-            "Free space monitor initialized | Path: %s | Available: %s | Threshold: %s",
-            self._path_for_disk_usage,
-            format_bytes(self.current_free_space + self._min_free_space_bytes),
-            format_bytes(self._min_free_space_bytes),
-        )
-        _client = self.manager.qbit_manager.client
-        if _client is not None:
-            _client.torrents_create_tags(["qBitrr-free_space_paused"])
         self.search_missing = False
         self.do_upgrade_search = False
         self.quality_unmet_search = False
@@ -8343,28 +8231,74 @@ class FreeSpaceManager(Arr):
         self.ombi_search_requests = False
         self.overseerr_requests = False
         self.session = None
-        # Ensure torrent tag-emulation tables exist when needed.
+        self.pause = set()
+        self.pause_by_instance = defaultdict(set)
+        self.resume_by_instance = defaultdict(set)
+        self.resume = set()
+        self.needs_cleanup = False
         self.torrents = None
         self.torrent_db: SqliteDatabase | None = None
         self.last_search_description: str | None = None
         self.last_search_timestamp: str | None = None
-        self.queue_active_count: int = 0
-        self.category_torrent_count: int = 0
-        self.free_space_tagged_count: int = 0
-        self.register_search_mode()
-        self.logger.hnotice("Starting %s monitor", self._name)
-        atexit.register(
-            lambda: (
-                hasattr(self, "torrent_db")
-                and self.torrent_db
-                and not self.torrent_db.is_closed()
-                and self.torrent_db.close()
-            )
+        self.queue_active_count = 0
+        self.category_torrent_count = 0
+        self.free_space_tagged_count = 0
+        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
+
+        # Tracker sort state
+        self.monitored_trackers = Arr.merge_global_tracker_blocks()
+        bad_msgs = Arr.global_bad_tracker_messages_union()
+        self.seeding_mode_global_bad_tracker_msg = bad_msgs
+        self._install_tracker_index(
+            build_tracker_index(self.monitored_trackers, bad_tracker_messages=bad_msgs)
         )
+        self.remove_dead_trackers = Arr.global_remove_dead_trackers_union()
+
+        # Free-space state
+        _free_space, _free_space_folder = get_free_space_guard_settings()
+        _use_auto_free_space_paths = _free_space == "-1" or _free_space_folder == "CHANGE_ME"
+        if _use_auto_free_space_paths:
+            arr_cats = self.categories & self.manager.arr_categories
+            chosen = next(iter(arr_cats), None) or next(iter(self.categories))
+            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
+            self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
+        else:
+            self.completed_folder = pathlib.Path(_free_space_folder)
+            self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
+        self._free_space_folder_is_auto = _use_auto_free_space_paths
+        self.min_free_space = _free_space
+        self._min_free_space_bytes = (
+            parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
+        )
+        if _use_auto_free_space_paths and not self.completed_folder.exists():
+            parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+            if parent.exists():
+                self.completed_folder = parent
+        self._path_for_disk_usage = self._disk_usage_path
+        if self._free_space_folder_is_auto:
+            _p = self._first_existing_parent(self._disk_usage_path)
+            if _p:
+                self._path_for_disk_usage = _p
+        self.current_free_space = (
+            shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
+        )
+
+        _client = self.manager.qbit_manager.client
+        if _client is not None:
+            _client.torrents_create_tags(["qBitrr-free_space_paused"])
+
+        self.register_search_mode()
+        self.logger.hnotice(
+            "Starting %s | Categories: %d | tracker_sort=%s | free_space=%s",
+            self._name,
+            len(self.categories),
+            self.enable_tracker_sort,
+            self.enable_free_space,
+        )
+        self._register_sqlite_db_atexit("torrent_db")
 
     @staticmethod
     def _first_existing_parent(path: pathlib.Path) -> pathlib.Path | None:
-        """Return the nearest existing parent path, or None if none exist (e.g. path below root)."""
         current = path
         while not current.exists():
             parent = current.parent
@@ -8372,6 +8306,10 @@ class FreeSpaceManager(Arr):
                 return None
             current = parent
         return current
+
+    @property
+    def is_alive(self) -> bool:
+        return True
 
     def _get_models(
         self,
@@ -8386,7 +8324,6 @@ class FreeSpaceManager(Arr):
 
     @staticmethod
     def is_free_space_download_state(torrent: TorrentDictionary) -> bool:
-        """Return True for states that can still consume disk during download lifecycle."""
         return torrent.state_enum in (
             TorrentStates.DOWNLOADING,
             TorrentStates.STALLED_DOWNLOAD,
@@ -8396,30 +8333,12 @@ class FreeSpaceManager(Arr):
             TorrentStates.METADATA_DOWNLOAD,
         )
 
-    def _process_single_torrent_pause_disk_space(
-        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
-    ):
-        self.logger.info(
-            "Pausing torrent due to insufficient disk space | "
-            "Name: %s | Progress: %s%% | Size remaining: %s | "
-            "Availability: %s%% | ETA: %s | State: %s | Hash: %s",
-            torrent.name,
-            round(torrent.progress * 100, 2),
-            format_bytes(torrent.amount_left),
-            round(torrent.availability * 100, 2),
-            timedelta(seconds=torrent.eta),
-            torrent.state_enum,
-            torrent.hash[:8],  # Shortened hash for readability
-        )
-        self.pause_by_instance[instance_name].add(torrent.hash)
-
     def _clear_free_space_paused_flags_for_hashes(
         self,
         client: qbittorrentapi.Client | None,
         instance_name: str,
         hashes: set[str],
     ) -> None:
-        """Clear ``qBitrr-free_space_paused`` in DB (TAGLESS) or via qBittorrent after resume."""
         if not hashes:
             return
         if TAGLESS:
@@ -8448,99 +8367,44 @@ class FreeSpaceManager(Arr):
             ),
         )
 
+    def _process_single_torrent_pause_disk_space(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
+        self.pause_by_instance[instance_name].add(torrent.hash)
+
     def _process_single_torrent(self, torrent, instance_name: str = "default"):
         if self.is_free_space_download_state(torrent):
-            free_space_test = self.current_free_space
-            free_space_test -= torrent["amount_left"]
-            self.logger.trace(
-                "Evaluating torrent: %s | Current space: %s | Space after download: %s | Remaining: %s",
-                torrent.name,
-                format_bytes(self.current_free_space + self._min_free_space_bytes),
-                format_bytes(free_space_test + self._min_free_space_bytes),
-                format_bytes(torrent.amount_left),
-            )
+            free_space_test = self.current_free_space - torrent["amount_left"]
             if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test <= 0:
-                self.logger.info(
-                    "Pausing download (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
-                    torrent.name,
-                    format_bytes(self.current_free_space + self._min_free_space_bytes),
-                    format_bytes(torrent.amount_left),
-                    format_bytes(-free_space_test),
-                )
                 self.add_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
                 self.remove_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
                 self._process_single_torrent_pause_disk_space(torrent, instance_name)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test <= 0:
-                self.logger.info(
-                    "Keeping paused (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
-                    torrent.name,
-                    format_bytes(self.current_free_space + self._min_free_space_bytes),
-                    format_bytes(torrent.amount_left),
-                    format_bytes(-free_space_test),
-                )
                 self.add_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
                 self.remove_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
             elif torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
-                self.logger.info(
-                    "Continuing download (sufficient space) | Torrent: %s | Available: %s | Space after: %s",
-                    torrent.name,
-                    format_bytes(self.current_free_space + self._min_free_space_bytes),
-                    format_bytes(free_space_test + self._min_free_space_bytes),
-                )
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
                 if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
-                    self.logger.info(
-                        "Resuming download (space available) | Torrent: %s | Available: %s | Space after: %s",
-                        torrent.name,
-                        format_bytes(self.current_free_space + self._min_free_space_bytes),
-                        format_bytes(free_space_test + self._min_free_space_bytes),
-                    )
                     self.resume_by_instance[instance_name].add(torrent.hash)
-            # Only torrents that fit reserve space from the simulated budget; paused / not-fitting
-            # torrents must not decrement it, or lower-priority torrents would be over-paused.
             if free_space_test > 0:
                 self.current_free_space = free_space_test
         elif not self.is_free_space_download_state(torrent) and self.in_tags(
             torrent, "qBitrr-free_space_paused", instance_name
         ):
-            self.logger.info(
-                "Torrent completed, removing free space tag | Torrent: %s | Available: %s",
-                torrent.name,
-                format_bytes(self.current_free_space + self._min_free_space_bytes),
-            )
             self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
 
     def _process_resume(self) -> None:
-        # Resume per-instance so multi-instance scans resume on the correct qBit clients.
         if self.resume_by_instance and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
-            total = sum(len(hashes) for hashes in self.resume_by_instance.values())
-            self.logger.debug(
-                "Resuming %s torrents across %s qBit instance(s)",
-                total,
-                len(self.resume_by_instance),
-            )
             still_pending: defaultdict[str, set[str]] = defaultdict(set)
             for instance_name, hashes in self.resume_by_instance.items():
                 if not hashes:
                     continue
                 client = self.manager.qbit_manager.get_client(instance_name)
                 if client is None:
-                    self.logger.warning(
-                        "Cannot resume %d torrent(s) for qBit instance '%s': no client",
-                        len(hashes),
-                        instance_name,
-                    )
                     still_pending[instance_name].update(hashes)
                     continue
-                for h in hashes:
-                    self.logger.debug(
-                        "Resuming %s (%s) on %s",
-                        h,
-                        self.manager.qbit_manager.name_cache.get(h),
-                        instance_name,
-                    )
                 try:
                     with_retry(
                         lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=list(hs)),
@@ -8553,91 +8417,24 @@ class FreeSpaceManager(Arr):
                             requests.exceptions.RequestException,
                         ),
                     )
-                except Exception as e:
-                    self.logger.warning(
-                        "Failed to resume %d torrent(s) on qBit instance '%s': %s",
-                        len(hashes),
-                        instance_name,
-                        e,
-                    )
+                except Exception:
                     still_pending[instance_name].update(hashes)
                     continue
-                try:
+                with contextlib.suppress(Exception):
                     self._clear_free_space_paused_flags_for_hashes(client, instance_name, hashes)
-                except Exception as e:
-                    self.logger.warning(
-                        "Failed to clear qBitrr-free_space_paused after resume on '%s': %s",
-                        instance_name,
-                        e,
-                        exc_info=True,
-                    )
                 for h in hashes:
                     self.timed_ignore_cache.add(h)
             self.resume_by_instance = still_pending
-        # Keep compatibility if any hash was queued in the legacy set path.
-        if self.resume and AUTO_PAUSE_RESUME and self.manager.qbit:
-            try:
-                with_retry(
-                    lambda: self.manager.qbit.torrents_resume(torrent_hashes=list(self.resume)),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
-                )
-            except Exception as e:
-                self.logger.warning(
-                    "Failed to resume %d torrent(s) on default qBit client: %s",
-                    len(self.resume),
-                    e,
-                )
-            else:
-                resume_hashes = set(self.resume)
-                try:
-                    self._clear_free_space_paused_flags_for_hashes(
-                        self.manager.qbit, "default", resume_hashes
-                    )
-                except Exception as e:
-                    self.logger.warning(
-                        "Failed to clear qBitrr-free_space_paused after resume: %s",
-                        e,
-                        exc_info=True,
-                    )
-                for k in self.resume:
-                    self.timed_ignore_cache.add(k)
-                self.resume.clear()
 
     def _process_paused(self) -> None:
-        # Pause per-instance so multi-instance scans pause on the correct qBit clients.
         if self.pause_by_instance and AUTO_PAUSE_RESUME:
             self.needs_cleanup = True
-            total = sum(len(hashes) for hashes in self.pause_by_instance.values())
-            self.logger.debug(
-                "Pausing %s torrents across %s qBit instance(s)",
-                total,
-                len(self.pause_by_instance),
-            )
             for instance_name, hashes in self.pause_by_instance.items():
                 if not hashes:
                     continue
                 client = self.manager.qbit_manager.get_client(instance_name)
                 if client is None:
-                    self.logger.warning(
-                        "Cannot pause %d torrent(s) for qBit instance '%s': no client",
-                        len(hashes),
-                        instance_name,
-                    )
                     continue
-                for h in hashes:
-                    self.logger.debug(
-                        "Pausing %s (%s) on %s",
-                        h,
-                        self.manager.qbit_manager.name_cache.get(h),
-                        instance_name,
-                    )
                 with contextlib.suppress(Exception):
                     with_retry(
                         lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=hs),
@@ -8651,81 +8448,74 @@ class FreeSpaceManager(Arr):
                         ),
                     )
             self.pause_by_instance.clear()
-        # Keep compatibility if any hash was queued in the legacy set path.
-        if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
-            with contextlib.suppress(Exception):
-                with_retry(
-                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=self.pause),
-                    retries=3,
-                    backoff=0.5,
-                    max_backoff=3,
-                    exceptions=(
-                        qbittorrentapi.exceptions.APIError,
-                        qbittorrentapi.exceptions.APIConnectionError,
-                        requests.exceptions.RequestException,
-                    ),
-                )
-            self.pause.clear()
 
-    def process(self):
+    def _process_free_space_actions(self) -> None:
         self._process_resume()
         self._process_paused()
+
+    def _collect_monitored_torrents(self) -> list[tuple[str, qbittorrentapi.TorrentDictionary]]:
+        qbit_manager = self.manager.qbit_manager
+        result = []
+        seen = set()
+        for instance_name in qbit_manager.get_all_instances():
+            if not qbit_manager.is_instance_alive(instance_name):
+                continue
+            client = qbit_manager.get_client(instance_name)
+            if client is None:
+                continue
+            for cat in self.categories:
+                with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        category=cat,
+                        sort="added_on",
+                        reverse=False,
+                    )
+                    for torrent in torrents:
+                        if not hasattr(torrent, "category"):
+                            continue
+                        if torrent.category not in self.categories:
+                            continue
+                        if "qBitrr-ignored" in torrent.tags:
+                            continue
+                        key = (instance_name, torrent.hash)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        result.append((instance_name, torrent))
+        return result
+
+    def _validate_qbit_preflight(self) -> None:
+        if not self.manager.qbit_manager.clients:
+            raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+        if not has_internet(self.manager.qbit_manager.client):
+            self.manager.qbit_manager.should_delay_torrent_scan = True
+            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+        if self.manager.qbit_manager.should_delay_torrent_scan:
+            raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
     def process_torrents(self):
         try:
             try:
-                qbit_manager = self.manager.qbit_manager
-                _client = qbit_manager.client
-                if _client is None:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-                # Re-resolve path each loop so we use the configured path once it appears
-                # (e.g. Docker volume mounted after process start). Only when path was
-                # auto-chosen (CHANGE_ME); explicit FreeSpaceFolder must exist or we error.
+                self._validate_qbit_preflight()
+
+                if self.enable_tracker_sort:
+                    self._torrent_important_trackers_cache.clear()
+                    self._sort_torrents_by_tracker_priority()
+
+                if not self.enable_free_space:
+                    return
+
                 if self._free_space_folder_is_auto:
                     _p = self._first_existing_parent(self._disk_usage_path)
                     if _p:
                         self._path_for_disk_usage = _p
+
                 self.current_free_space = (
                     shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
                 )
-
-                def _fetch_free_space_torrents():
-                    result = []
-                    seen = set()
-                    for instance_name in qbit_manager.get_all_instances():
-                        if not qbit_manager.is_instance_alive(instance_name):
-                            self.logger.debug(
-                                "Skipping unhealthy qBit instance '%s' during free space scan",
-                                instance_name,
-                            )
-                            continue
-                        client = qbit_manager.get_client(instance_name)
-                        if client is None:
-                            continue
-                        for cat in self.categories:
-                            with contextlib.suppress(qbittorrentapi.exceptions.APIError):
-                                torrents = client.torrents.info(
-                                    status_filter="all",
-                                    category=cat,
-                                    sort="added_on",
-                                    reverse=False,
-                                )
-                                for torrent in torrents:
-                                    if not hasattr(torrent, "category"):
-                                        continue
-                                    if torrent.category not in self.categories:
-                                        continue
-                                    if "qBitrr-ignored" in torrent.tags:
-                                        continue
-                                    key = (instance_name, torrent.hash)
-                                    if key in seen:
-                                        continue
-                                    seen.add(key)
-                                    result.append((instance_name, torrent))
-                    return result
-
                 torrents_with_instances = with_retry(
-                    _fetch_free_space_torrents,
+                    self._collect_monitored_torrents,
                     retries=5,
                     backoff=0.5,
                     max_backoff=5,
@@ -8741,20 +8531,7 @@ class FreeSpaceManager(Arr):
                     if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 )
                 if not torrents_with_instances:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-                if not has_internet(self.manager.qbit_manager.client):
-                    self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
-                if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
-                self.logger.trace(
-                    "Processing torrents | Available: %s | Threshold: %s | Usable: %s | Torrents: %d | Paused for space: %d",
-                    format_bytes(self.current_free_space + self._min_free_space_bytes),
-                    format_bytes(self._min_free_space_bytes),
-                    format_bytes(self.current_free_space),
-                    self.category_torrent_count,
-                    self.free_space_tagged_count,
-                )
+                    return
                 sorted_torrents = sorted(
                     torrents_with_instances,
                     key=lambda i: Arr._torrent_queue_position_sort_key(i[1]),
@@ -8762,9 +8539,7 @@ class FreeSpaceManager(Arr):
                 for instance_name, torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent, instance_name=instance_name)
-                if not self.pause and not any(self.pause_by_instance.values()):
-                    self.logger.trace("No torrents to pause")
-                self.process()
+                self._process_free_space_actions()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
             except qbittorrentapi.exceptions.APIError as e:
@@ -8788,154 +8563,6 @@ class FreeSpaceManager(Arr):
             raise
 
     def run_search_loop(self):
-        return
-
-
-class TrackerSortManager(Arr):
-    """
-    Dedicated worker that applies qBittorrent queue ordering by tracker priority.
-
-    Uses a single merged tracker map (``qBit.Trackers`` + every ``<Arr>.Torrent.Trackers``)
-    so ordering is consistent across Arr and qBit-managed categories (same scope as
-    :class:`FreeSpaceManager`).
-    """
-
-    def __init__(self, categories: set[str], manager: ArrManager):
-        self._name = "TrackerSortManager"
-        self.type = "TrackerSortManager"
-        self.manager = manager
-        # Keep key Arr attributes available for inherited helper paths.
-        self.category = self._name
-        self.uri = ""
-        self.client = None
-        self._temp_overseer_request_cache: dict[str, set[int | str]] = defaultdict(set)
-        self.logger = logging.getLogger(f"qBitrr.{self._name}")
-        self._LOG_LEVEL = self.manager.qbit_manager.logger.level
-        run_logs(self.logger, self._name)
-        self.cache = {}
-        self.categories = set(categories)
-        self.monitored_trackers = Arr.merge_global_tracker_blocks()
-        self._remove_trackers_if_exists = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("RemoveIfExists") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        self._monitored_tracker_urls = {
-            uri
-            for i in self.monitored_trackers
-            if (uri := (i.get("URI") or "").strip().rstrip("/"))
-            and uri not in self._remove_trackers_if_exists
-        }
-        self._add_trackers_if_missing = {
-            uri
-            for i in self.monitored_trackers
-            if i.get("AddTrackerIfMissing") is True
-            and (uri := (i.get("URI") or "").strip().rstrip("/"))
-        }
-        self._host_to_config_uri = {}
-        for _uri in self._monitored_tracker_urls:
-            _host = _extract_tracker_host(_uri)
-            if _host:
-                self._host_to_config_uri[_host] = _uri
-        self._remove_tracker_hosts = {
-            h for u in self._remove_trackers_if_exists if (h := _extract_tracker_host(u))
-        }
-        self.remove_dead_trackers = Arr.global_remove_dead_trackers_union()
-        bad_msgs = Arr.global_bad_tracker_messages_union()
-        self.seeding_mode_global_bad_tracker_msg = bad_msgs
-        self._normalized_bad_tracker_msgs = {
-            msg.lower() for msg in self.seeding_mode_global_bad_tracker_msg if isinstance(msg, str)
-        }
-        self.pause = set()
-        self.resume = set()
-        self.expiring_bool = ExpiringSet(max_age_seconds=10)
-        self.ignore_torrents_younger_than = CONFIG.get_duration(
-            "Settings.IgnoreTorrentsYoungerThan", fallback=180
-        )
-        self.timed_ignore_cache = ExpiringSet(max_age_seconds=self.ignore_torrents_younger_than)
-        self.needs_cleanup = False
-        self._app_data_folder = APPDATA_FOLDER
-        self.search_setup_completed = False
-        self.search_missing = False
-        self.do_upgrade_search = False
-        self.quality_unmet_search = False
-        self.custom_format_unmet_search = False
-        self.ombi_search_requests = False
-        self.overseerr_requests = False
-        self.session = None
-        self.torrents = None
-        self.torrent_db: SqliteDatabase | None = None
-        self.last_search_description: str | None = None
-        self.last_search_timestamp: str | None = None
-        self.queue_active_count = 0
-        self.category_torrent_count = 0
-        self.free_space_tagged_count = 0
-        self._torrent_important_trackers_cache: dict[str, tuple[set[str], set[str]]] = {}
-        self.register_search_mode()
-        self.logger.hnotice(
-            "Starting %s | Monitored categories: %d | Merged tracker rules: %d",
-            self._name,
-            len(self.categories),
-            len(self.monitored_trackers),
-        )
-        atexit.register(
-            lambda: (
-                hasattr(self, "torrent_db")
-                and self.torrent_db
-                and not self.torrent_db.is_closed()
-                and self.torrent_db.close()
-            )
-        )
-
-    @property
-    def is_alive(self) -> bool:
-        """No *arr HTTP API; inherited torrent loop must not call system/status."""
-        return True
-
-    def _get_models(
-        self,
-    ) -> tuple[
-        None,
-        None,
-        None,
-        None,
-        type[TorrentLibrary] | None,
-    ]:
-        return None, None, None, None, (TorrentLibrary if TAGLESS else None)
-
-    def process_torrents(self):
-        try:
-            try:
-                if not self.manager.qbit_manager.clients:
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-                self._torrent_important_trackers_cache.clear()
-                if not has_internet(self.manager.qbit_manager.client):
-                    self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
-                if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
-                self._sort_torrents_by_tracker_priority()
-                self.logger.debug(
-                    "TrackerSortManager: sort pass finished; next wait %ss (Settings.LoopSleepTimer)",
-                    LOOP_SLEEP_TIMER,
-                )
-            except NoConnectionrException as e:
-                self.logger.error(e.message)
-            except DelayLoopException:
-                raise
-            except KeyboardInterrupt:
-                self.logger.hnotice("Detected Ctrl+C - Terminating process")
-                sys.exit(0)
-            except Exception as e:
-                self.logger.error(e, exc_info=sys.exc_info())
-        except KeyboardInterrupt:
-            self.logger.hnotice("Detected Ctrl+C - Terminating process")
-            sys.exit(0)
-        except DelayLoopException:
-            raise
-
-    def run_search_loop(self) -> None:
         return
 
 
@@ -9072,24 +8699,21 @@ class ArrManager:
         # Validate category assignments after all Arr instances are initialized
         self._validate_category_assignments()
 
-        # FreeSpaceManager monitors both Arr-managed and qBit-managed categories
+        # Global torrent policy worker monitors both Arr-managed and qBit-managed categories
         all_monitored_categories = self.arr_categories | self.qbit_managed_categories
         _fs_guard, _ = get_free_space_guard_settings()
-        if (
+        fs_enabled = (
             _fs_guard != "-1"
             and get_auto_pause_resume_effective()
             and not get_effective_qbit_disabled()
-            and len(all_monitored_categories) > 0
-        ):
-            managed_object = FreeSpaceManager(all_monitored_categories, self)
-            self.managed_objects["FreeSpaceManager"] = managed_object
-        if (
-            Arr.global_sort_torrents_enabled()
-            and not get_effective_qbit_disabled()
-            and len(all_monitored_categories) > 0
-        ):
-            self.managed_objects["TrackerSortManager"] = TrackerSortManager(
-                all_monitored_categories, self
+        )
+        sort_enabled = Arr.global_sort_torrents_enabled() and not get_effective_qbit_disabled()
+        if (fs_enabled or sort_enabled) and len(all_monitored_categories) > 0:
+            self.managed_objects["TorrentPolicyManager"] = TorrentPolicyManager(
+                all_monitored_categories,
+                self,
+                enable_tracker_sort=sort_enabled,
+                enable_free_space=fs_enabled,
             )
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)

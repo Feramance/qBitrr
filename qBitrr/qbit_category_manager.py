@@ -6,7 +6,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from qBitrr.arss import _extract_tracker_host
+from qBitrr.arr_tracker_index import extract_tracker_host
 from qBitrr.errors import DelayLoopException
 
 if TYPE_CHECKING:
@@ -268,7 +268,7 @@ class qBitCategoryManager:
             return None
         try:
             torrent_hosts = {
-                _extract_tracker_host(getattr(t, "url", ""))
+                extract_tracker_host(getattr(t, "url", ""))
                 for t in torrent.trackers
                 if hasattr(t, "url")
             } - {""}
@@ -276,7 +276,7 @@ class qBitCategoryManager:
             self.logger.debug("Failed to get trackers for '%s': %s", torrent.name, e)
             return None
         config_hosts = {
-            _extract_tracker_host((tc.get("URI") or "").strip().rstrip("/"))
+            extract_tracker_host((tc.get("URI") or "").strip().rstrip("/"))
             for tc in self.trackers
             if isinstance(tc, dict)
         } - {""}
@@ -293,7 +293,7 @@ class qBitCategoryManager:
                 continue
             uri = (tracker_cfg.get("URI") or "").strip().rstrip("/")
             priority = tracker_cfg.get("Priority", 0)
-            cfg_host = _extract_tracker_host(uri)
+            cfg_host = extract_tracker_host(uri)
             # Use apex/suffix matching: cfg_host "example.com" matches both
             # "example.com" (exact) and "sub.example.com" (subdomain)
             host_match = any(h == cfg_host or h.endswith("." + cfg_host) for h in torrent_hosts)
@@ -315,12 +315,14 @@ class qBitCategoryManager:
 
         # instance_name is the config section name (e.g. "qBit" or "qBit-Seedbox")
         password = CONFIG.get(f"{self.instance_name}.Password", fallback=None)
+        skip_tls_verify = CONFIG.get(f"{self.instance_name}.SkipTLSVerify", fallback=False)
         client = qbittorrentapi.Client(
             host=host,
             port=port,
             username=username,
             password=password,
             SIMPLE_RESPONSES=False,
+            VERIFY_WEBUI_CERTIFICATE=not skip_tls_verify,
         )
         self.logger.debug(
             "Created dedicated qBit client for category manager '%s'",

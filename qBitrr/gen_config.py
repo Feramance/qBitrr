@@ -383,6 +383,15 @@ def _add_qbit_section(config: TOMLDocument):
     _gen_default_line(
         qbit,
         [
+            "If true, do not verify TLS certificates for HTTPS WebUI (self-signed certs). "
+            "Disables MITM protection for that connection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
+    _gen_default_line(
+        qbit,
+        [
             "Categories managed directly by this qBit instance (not managed by Arr instances).",
             "These categories will have seeding settings applied according to CategorySeeding configuration.",
             "Example: ['downloads', 'private-tracker', 'long-term-seed']",
@@ -528,6 +537,15 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         "The Servarr API Key, Can be found it Settings > General > Security",
         "APIKey",
         "CHANGE_ME",
+    )
+    _gen_default_line(
+        cat_default,
+        [
+            "If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi.",
+            "Disables MITM protection for that connection.",
+        ],
+        "SkipTLSVerify",
+        False,
     )
     _gen_default_line(
         cat_default,
@@ -1003,6 +1021,14 @@ def _gen_default_ombi_table(category: str, search_table: Table):
     )
     _gen_default_line(ombi_table, "Ombi's API Key", "OmbiAPIKey", "CHANGE_ME")
     _gen_default_line(ombi_table, "Only process approved requests", "ApprovedOnly", True)
+    _gen_default_line(
+        ombi_table,
+        [
+            "If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
     search_table.add("Ombi", ombi_table)
 
 
@@ -1022,6 +1048,14 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
     )
     _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
     _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
+    _gen_default_line(
+        overseerr_table,
+        [
+            "If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
     overseerr_table.add(comment("Only for 4K Instances"))
     if "radarr-4k" in category.lower():
         _gen_default_line(overseerr_table, "Only for 4K Instances", "Is4K", True)
