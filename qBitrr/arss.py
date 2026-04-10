@@ -8326,14 +8326,15 @@ class FreeSpaceManager(Arr):
                 )
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
             elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test > 0:
-                self.logger.info(
-                    "Resuming download (space available) | Torrent: %s | Available: %s | Space after: %s",
-                    torrent.name,
-                    format_bytes(self.current_free_space + self._min_free_space_bytes),
-                    format_bytes(free_space_test + self._min_free_space_bytes),
-                )
-                self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
-                self.resume_by_instance[instance_name].add(torrent.hash)
+                if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name):
+                    self.logger.info(
+                        "Resuming download (space available) | Torrent: %s | Available: %s | Space after: %s",
+                        torrent.name,
+                        format_bytes(self.current_free_space + self._min_free_space_bytes),
+                        format_bytes(free_space_test + self._min_free_space_bytes),
+                    )
+                    self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
+                    self.resume_by_instance[instance_name].add(torrent.hash)
             # Only torrents that fit reserve space from the simulated budget; paused / not-fitting
             # torrents must not decrement it, or lower-priority torrents would be over-paused.
             if free_space_test > 0:
