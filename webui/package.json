@@ -40,6 +40,9 @@
     "npm": ">=9.0.0"
   },
   "name": "webui",
+  "overrides": {
+    "yaml": "^2.8.3"
+  },
   "private": true,
   "scripts": {
     "build": "tsc -b && vite build",
