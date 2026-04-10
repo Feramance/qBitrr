@@ -8281,7 +8281,6 @@ class FreeSpaceManager(Arr):
             torrent.state_enum,
             torrent.hash[:8],  # Shortened hash for readability
         )
-        self.pause.add(torrent.hash)
         self.pause_by_instance[instance_name].add(torrent.hash)
 
     def _process_single_torrent(self, torrent, instance_name: str = "default"):
