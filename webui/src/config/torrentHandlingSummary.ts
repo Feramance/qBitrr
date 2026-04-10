@@ -112,7 +112,7 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
 
   if (sortTorrents) {
     blocks.push(
-      "Torrents are sorted in the qBittorrent queue by tracker priority (highest first). Requires qBittorrent Torrent Queuing to be enabled."
+      "Torrents are sorted in the qBittorrent queue by tracker priority (highest first). When AddTags are set on tracker rows, order prefers those labels when they are on the torrent. Requires qBittorrent Torrent Queuing to be enabled."
     );
   }
 

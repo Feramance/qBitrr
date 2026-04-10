@@ -58,7 +58,11 @@ Final trackers = qBit trackers (base) ← Arr trackers override by URI
 
 Set on individual tracker entries in `[[qBit.Trackers]]` or `[[<Arr>.Torrent.Trackers]]`, **right under [Priority](#priority)**.
 
-When `true` on **any** merged tracker entry, qBitrr runs a **dedicated** `TrackerSortManager` worker (same lifecycle pattern as `FreeSpaceManager`) that reorders torrents on each loop so the qBittorrent queue follows **tracker priority** (highest first). Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+When `true` on **any** merged tracker entry, qBitrr runs a **dedicated** `TrackerSortManager` worker (same lifecycle pattern as `FreeSpaceManager`) that reorders torrents on each main loop so the qBittorrent queue follows **tracker priority** (highest first). The worker sleeps **`Settings.LoopSleepTimer`** seconds between passes (same as other torrent loops; default **5**).
+
+**Order rule:** If your merged tracker rows define **`AddTags`**, queue order considers the **maximum `Priority`** among those labels that are **currently on the torrent** and also the announce-URL / host-based priority (same as when no tags match). The **higher** of the two values is used, so announce-based ordering is always a fallback when it would place the torrent higher, and when no configured tag is present only announce matching applies. Stale **`AddTags`** labels are removed when the tracker no longer applies (only tags listed in merged tracker config are managed this way).
+
+Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
 
 **Merge scope:** Sorting uses one unified map: start with `[[qBit.Trackers]]`, then merge every `[[<Arr>.Torrent.Trackers]]` block (same URI-keyed rules as per-Arr merge—**later Arr sections in the config file overwrite earlier entries for the same URI**, including overrides to qBit-level defaults). `RemoveDeadTrackers` / `RemoveTrackerWithMessage` for deciding which announce URLs count as "removed" during priority resolution use the **union** of all Arr `Torrent.SeedingMode` settings (`RemoveDeadTrackers` is enabled if **any** Arr enables it; messages are combined and deduplicated).
 
@@ -66,7 +70,11 @@ Reordering applies to **all qBitrr-monitored categories** on each qBittorrent in
 
 **Requirements:**
 
-- **qBittorrent Torrent Queuing** must be enabled (Options → BitTorrent → Torrent Queuing).
+- **qBittorrent Torrent Queuing** must be enabled (Options → BitTorrent → Torrent Queuing). When queuing is off, `priority` is `-1` and queue moves have no effect.
+
+**Queue split:** qBittorrent keeps separate download and seeding queues. qBitrr classifies **seeding** for ordering as upload states including **forced upload** and **checking** after complete (`forcedUP`, `checkingUP`), not only normal seeding.
+
+**Verification:** In the Web API, `priority` is the queue position (`-1` if queuing is disabled). Compare the **downloading** and **seeding** queues in the UI if order looks wrong; a torrent in **forced upload** belongs on the seeding side.
 
 **Example:**
 

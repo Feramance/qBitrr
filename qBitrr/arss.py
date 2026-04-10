@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import contextlib
-import itertools
 import logging
 import pathlib
 import re
@@ -137,6 +136,13 @@ def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
     return bool(
         (h := _extract_tracker_host(config_uri)) and h == _extract_tracker_host(tracker_url)
     )
+
+
+def _parse_qbittorrent_tag_list(tags_str: str | None) -> set[str]:
+    """Split qBittorrent's comma-separated ``tags`` string into non-empty labels."""
+    if not tags_str or not isinstance(tags_str, str):
+        return set()
+    return {p.strip() for p in tags_str.split(",") if p.strip()}
 
 
 def _normalize_media_status(value: int | str | None) -> str:
@@ -819,6 +825,50 @@ class Arr:
         return list(merged.values())
 
     @staticmethod
+    def merge_global_tracker_configured_add_tags() -> frozenset[str]:
+        """
+        All tag names that may be applied via merged tracker ``AddTags`` (qBit + Arr).
+
+        Used to remove stale qBitrr-applied tags without stripping user-added labels.
+        """
+        tags: set[str] = set()
+        for row in Arr.merge_global_tracker_blocks():
+            raw = row.get("AddTags") or []
+            if isinstance(raw, str):
+                items = [raw]
+            else:
+                items = list(raw) if raw else []
+            for tag in items:
+                if isinstance(tag, str) and tag.strip():
+                    tags.add(tag.strip())
+        return frozenset(tags)
+
+    @staticmethod
+    def merge_global_tracker_tag_to_priority_max() -> dict[str, int]:
+        """
+        Map each ``AddTags`` label to the maximum ``Priority`` among merged tracker rows.
+
+        Used when ``SortTorrents`` orders the queue so order matches visible tags.
+        """
+        out: dict[str, int] = {}
+        for row in Arr.merge_global_tracker_blocks():
+            pri_raw = row.get("Priority", -100)
+            try:
+                pri_int = int(pri_raw) if not isinstance(pri_raw, bool) else int(pri_raw)
+            except (TypeError, ValueError):
+                pri_int = -100
+            raw = row.get("AddTags") or []
+            if isinstance(raw, str):
+                items = [raw]
+            else:
+                items = list(raw) if raw else []
+            for tag in items:
+                if isinstance(tag, str) and tag.strip():
+                    t = tag.strip()
+                    out[t] = max(out.get(t, -100), pri_int)
+        return out
+
+    @staticmethod
     def global_sort_torrents_enabled() -> bool:
         """True if any merged tracker (qBit + all Arr) has ``SortTorrents`` set."""
         return any(i.get("SortTorrents", False) for i in Arr.merge_global_tracker_blocks())
@@ -1026,6 +1076,46 @@ class Arr:
             TorrentStates.PAUSED_UPLOAD,
             TorrentStates.QUEUED_UPLOAD,
         )
+
+    @staticmethod
+    def is_queue_seeding_for_sort(torrent: TorrentDictionary) -> bool:
+        """
+        True if the torrent is on qBittorrent's seeding/upload side of the queue.
+
+        Used by :meth:`_sort_torrents_by_tracker_priority` (separate from
+        :meth:`is_complete_state`, which drives other Arr import/seeding logic).
+        Includes forced upload and recheck-after-complete so ``topPrio`` targets
+        the correct queue (aligned with qBittorrent UI).
+        """
+        return torrent.state_enum in (
+            TorrentStates.UPLOADING,
+            TorrentStates.STALLED_UPLOAD,
+            TorrentStates.PAUSED_UPLOAD,
+            TorrentStates.QUEUED_UPLOAD,
+            TorrentStates.FORCED_UPLOAD,
+            TorrentStates.CHECKING_UPLOAD,
+        )
+
+    @staticmethod
+    def _normalize_torrent_queue_priority_value(torrent: TorrentDictionary) -> int:
+        """Normalize Web API ``priority`` (queue position; ``-1`` when queuing disabled)."""
+        raw = getattr(torrent, "priority", -1)
+        if isinstance(raw, bool):
+            return int(raw)
+        if isinstance(raw, int):
+            return raw
+        if isinstance(raw, float):
+            return int(raw)
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return -1
+
+    @staticmethod
+    def _torrent_queue_position_sort_key(torrent: TorrentDictionary) -> tuple[bool, int]:
+        """Sort key matching qBittorrent queue ordering (active queue first, then position)."""
+        nq = Arr._normalize_torrent_queue_priority_value(torrent)
+        return (not (nq > 0), nq)
 
     @staticmethod
     def is_downloading_state(torrent: TorrentDictionary) -> bool:
@@ -4943,6 +5033,10 @@ class Arr:
         """
         Reorder torrents in each qBittorrent instance by tracker priority (highest first).
 
+        When any merged tracker defines ``AddTags``, queue order prefers the maximum
+        ``Priority`` among those labels present on the torrent (visible in the client);
+        otherwise order uses announce URL matching as before.
+
         When :attr:`categories` is set (e.g. :class:`TrackerSortManager`), only torrents
         in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
         Otherwise all torrents from ``torrents.info`` are considered.
@@ -4951,6 +5045,7 @@ class Arr:
 
         Requires qBittorrent Torrent Queuing to be enabled.
         """
+        tag_to_priority = Arr.merge_global_tracker_tag_to_priority_max()
         qbit_manager = self.manager.qbit_manager
         for instance_name in qbit_manager.get_all_instances():
             if not qbit_manager.is_instance_alive(instance_name):
@@ -4980,7 +5075,7 @@ class Arr:
                 sorted_torrents = sorted(
                     torrent_list,
                     key=lambda t: (
-                        -self._get_torrent_tracker_priority(t),
+                        -self._get_torrent_queue_sort_priority(t, tag_to_priority),
                         getattr(t, "name", "") or "",
                     ),
                 )
@@ -4988,17 +5083,12 @@ class Arr:
                     # Skip queue updates when the current queue order already matches
                     # desired tracker-priority ordering for this instance.
                     queue_membership = {
-                        torrent.hash: self.is_complete_state(torrent) for torrent in torrent_list
+                        torrent.hash: self.is_queue_seeding_for_sort(torrent)
+                        for torrent in torrent_list
                     }
                     current_order_by_qbit_priority = sorted(
                         torrent_list,
-                        key=lambda torrent: (
-                            not (
-                                isinstance(getattr(torrent, "priority", -1), int)
-                                and getattr(torrent, "priority", -1) > 0
-                            ),
-                            getattr(torrent, "priority", -1),
-                        ),
+                        key=Arr._torrent_queue_position_sort_key,
                     )
                     current_downloading_order = [
                         torrent.hash
@@ -5921,10 +6011,14 @@ class Arr:
         )
 
     def _get_torrent_important_trackers(
-        self, torrent: qbittorrentapi.TorrentDictionary, *, use_cache: bool = True
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        *,
+        use_cache: bool = True,
+        for_queue_sort_priority: bool = False,
     ) -> tuple[set[str], set[str]]:
         torrent_hash = getattr(torrent, "hash", "")
-        if use_cache and torrent_hash:
+        if use_cache and torrent_hash and not for_queue_sort_priority:
             if cached := self._torrent_important_trackers_cache.get(torrent_hash):
                 return cached
         try:
@@ -5955,9 +6049,10 @@ class Arr:
             for uri in self._add_trackers_if_missing
             if _extract_tracker_host(uri) not in current_hosts
         }
-        monitored_trackers = monitored_trackers.union(need_to_be_added)
+        if not for_queue_sort_priority:
+            monitored_trackers = monitored_trackers.union(need_to_be_added)
         result = (need_to_be_added, monitored_trackers)
-        if use_cache and torrent_hash:
+        if use_cache and torrent_hash and not for_queue_sort_priority:
             self._torrent_important_trackers_cache[torrent_hash] = result
         return result
 
@@ -5974,17 +6069,24 @@ class Arr:
             for i in self.monitored_trackers
             if (i.get("URI") in monitored_trackers) and i.get("RemoveIfExists") is not True
         ]
-        _list_of_tags = [
-            i.get("AddTags", [])
-            for i in new_list
-            if _extract_tracker_host(i.get("URI") or "") not in removed_hosts
-        ]
+        _list_of_tags: list[list[str]] = []
+        for i in new_list:
+            if _extract_tracker_host(i.get("URI") or "") not in removed_hosts:
+                raw = i.get("AddTags", [])
+                if isinstance(raw, str):
+                    _list_of_tags.append([raw] if raw.strip() else [])
+                elif raw:
+                    _list_of_tags.append([x for x in raw if isinstance(x, str)])
         max_item = max(new_list, key=self.__return_max) if new_list else {}
-        return max_item, set(itertools.chain.from_iterable(_list_of_tags))
+        return max_item, {t for row in _list_of_tags for t in row if t.strip()}
 
-    def _get_torrent_tracker_priority(self, torrent: qbittorrentapi.TorrentDictionary) -> int:
+    def _get_torrent_tracker_priority(
+        self, torrent: qbittorrentapi.TorrentDictionary, *, for_queue_sort: bool = False
+    ) -> int:
         """Return the tracker Priority for this torrent's most important monitored tracker."""
-        _, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        _, monitored_trackers = self._get_torrent_important_trackers(
+            torrent, for_queue_sort_priority=for_queue_sort
+        )
         remove_urls = set()
         try:
             for tracker in torrent.trackers:
@@ -6020,6 +6122,28 @@ class Arr:
             monitored_trackers, remove_urls
         )
         return most_important_tracker.get("Priority", -100)
+
+    def _get_torrent_queue_sort_priority(
+        self, torrent: qbittorrentapi.TorrentDictionary, tag_to_priority: dict[str, int]
+    ) -> int:
+        """
+        Priority for ``SortTorrents`` ordering: blends tag-derived and announce-based
+        priority. Announce-based resolution (excluding ``AddTrackerIfMissing``-only URIs)
+        is always computed; when configured ``AddTags`` match the torrent, the
+        effective priority is the higher of tag-tier and announce-tier so stale or
+        misleading labels cannot override a stronger announce match.
+        """
+        announce_pri = self._get_torrent_tracker_priority(torrent, for_queue_sort=True)
+        if not tag_to_priority:
+            return announce_pri
+        present = _parse_qbittorrent_tag_list(getattr(torrent, "tags", None))
+        matched = [tag_to_priority[t] for t in present if t in tag_to_priority]
+        if not matched:
+            return announce_pri
+        tag_pri = max(matched)
+        if tag_pri <= -100:
+            return announce_pri
+        return max(tag_pri, announce_pri)
 
     def _resolve_hnr_clear_mode(self, tracker_or_config: dict) -> str:
         """Resolve HnR mode from single HitAndRunMode key: 'and' | 'or' | 'disabled'."""
@@ -6268,11 +6392,15 @@ class Arr:
             elif ul_r < 0:
                 torrent.set_upload_limit(limit=-1)
 
+        managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
+        current_tags = _parse_qbittorrent_tag_list(getattr(torrent, "tags", None))
         if unique_tags:
-            current_tags = set(torrent.tags.split(", "))
             add_tags = unique_tags.difference(current_tags)
             if add_tags:
                 self.add_tags(torrent, add_tags, instance_name)
+        tags_to_remove = list((current_tags & managed_tag_pool) - unique_tags)
+        if tags_to_remove:
+            self.remove_tags(torrent, tags_to_remove, instance_name)
 
     def _stalled_check(
         self,
@@ -8555,7 +8683,10 @@ class FreeSpaceManager(Arr):
                     self.category_torrent_count,
                     self.free_space_tagged_count,
                 )
-                sorted_torrents = sorted(torrents_with_instances, key=lambda i: i[1]["priority"])
+                sorted_torrents = sorted(
+                    torrents_with_instances,
+                    key=lambda i: Arr._normalize_torrent_queue_priority_value(i[1]),
+                )
                 for instance_name, torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent, instance_name=instance_name)
@@ -8713,6 +8844,10 @@ class TrackerSortManager(Arr):
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
                 self._sort_torrents_by_tracker_priority()
+                self.logger.debug(
+                    "TrackerSortManager: sort pass finished; next wait %ss (Settings.LoopSleepTimer)",
+                    LOOP_SLEEP_TIMER,
+                )
             except NoConnectionrException as e:
                 self.logger.error(e.message)
             except DelayLoopException:
