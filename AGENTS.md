@@ -8,7 +8,8 @@
 - **Entry Point**: `qBitrr.main:run` → spawns WebUI, ArrManager loops, auto-update watchers
 - **Key Modules**:
   - `qBitrr/main.py` – orchestrates multiprocessing, launches arr managers and WebUI
-  - `qBitrr/arss.py` – ArrManager classes (Radarr/Sonarr/Lidarr) with health checks & import logic
+  - `qBitrr/arss.py` – `Arr` (Radarr/Sonarr/Lidarr via `self.type`), `ArrManager`, `PlaceHolderArr`, `FreeSpaceManager`, `TrackerSortManager`; health checks & import logic
+  - `qBitrr/arr_tracker_index.py` – shared tracker config → derived URI/host sets (`build_tracker_index`, `extract_tracker_host`)
   - `qBitrr/config.py` – TOML config parsing, validation, migrations
   - `qBitrr/webui.py` – Flask routes for `/api/*` (token-protected) and `/web/*` (helpers)
   - `qBitrr/ffprobe.py` – media file verification via ffprobe
@@ -94,6 +95,7 @@
 - **User Messages**: Provide actionable error messages; reference config keys, Arr instance names, torrent hashes
 
 ## Architecture & Patterns
+- **Arr / Radarr-Sonarr-Lidarr**: One `Arr` class branches on `self.type` (`"radarr"`, `"sonarr"`, `"lidarr"`). Prefer extracting shared logic into helpers (e.g. `arr_tracker_index.py`) before adding subclasses; per-app handler objects are optional for future refactors
 - **Multiprocessing**: `pathos.multiprocessing` for cross-platform support; each Arr instance runs in a separate process
 - **Threading**: WebUI runs in main thread; auto-update, network monitor, and FFprobe downloads in background threads
 - **Database**: Peewee ORM with SQLite (thread-safe via `db_lock.py`); tables: `DownloadsModel`, `SearchModel`, `EntryExpiry`
@@ -108,7 +110,7 @@
 - **Config Changes**: Edit `qBitrr/gen_config.py` (MyConfig class); regenerate example via `qbitrr --gen-config`
 - **WebUI Changes**: Run `npm run dev` in webui/, API requests proxy to http://localhost:6969
 - **Database Schema**: Modify `qBitrr/tables.py`, add migration logic in `config.py:apply_config_migrations()`
-- **New Arr Type**: Subclass `ArrManagerBase` in `arss.py`, implement `_process_failed_individual()`, register in `main.py`
+- **New Arr Type**: Radarr/Sonarr/Lidarr share the `Arr` class (`self.type`); add API branches in `arss.py` and config in `gen_config.py`. Special workers subclass `Arr` (`PlaceHolderArr`, etc.) without calling full `Arr.__init__`. Register new managed instances in `ArrManager.build_arr_instances()` / `main.py` as needed
 - **Pre-commit Bypass**: `git commit --no-verify` (discouraged; use for emergency hotfixes only)
 
 ## Testing & Validation
