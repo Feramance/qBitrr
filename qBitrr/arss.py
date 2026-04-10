@@ -8413,6 +8413,41 @@ class FreeSpaceManager(Arr):
         )
         self.pause_by_instance[instance_name].add(torrent.hash)
 
+    def _clear_free_space_paused_flags_for_hashes(
+        self,
+        client: qbittorrentapi.Client | None,
+        instance_name: str,
+        hashes: set[str],
+    ) -> None:
+        """Clear ``qBitrr-free_space_paused`` in DB (TAGLESS) or via qBittorrent after resume."""
+        if not hashes:
+            return
+        if TAGLESS:
+            if self.torrents is None:
+                return
+            with database_lock():
+                self.torrents.update({self.torrents.FreeSpacePaused: False}).where(
+                    (self.torrents.Hash.in_(list(hashes)))
+                    & (self.torrents.QbitInstance == instance_name)
+                ).execute()
+            return
+        if client is None:
+            return
+        with_retry(
+            lambda: client.torrents_remove_tags(
+                tags=["qBitrr-free_space_paused"],
+                torrent_hashes=list(hashes),
+            ),
+            retries=3,
+            backoff=0.5,
+            max_backoff=3,
+            exceptions=(
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+                requests.exceptions.RequestException,
+            ),
+        )
+
     def _process_single_torrent(self, torrent, instance_name: str = "default"):
         if self.is_free_space_download_state(torrent):
             free_space_test = self.current_free_space
@@ -8461,7 +8496,6 @@ class FreeSpaceManager(Arr):
                         format_bytes(self.current_free_space + self._min_free_space_bytes),
                         format_bytes(free_space_test + self._min_free_space_bytes),
                     )
-                    self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
                     self.resume_by_instance[instance_name].add(torrent.hash)
             # Only torrents that fit reserve space from the simulated budget; paused / not-fitting
             # torrents must not decrement it, or lower-priority torrents would be over-paused.
@@ -8487,6 +8521,7 @@ class FreeSpaceManager(Arr):
                 total,
                 len(self.resume_by_instance),
             )
+            still_pending: defaultdict[str, set[str]] = defaultdict(set)
             for instance_name, hashes in self.resume_by_instance.items():
                 if not hashes:
                     continue
@@ -8497,6 +8532,7 @@ class FreeSpaceManager(Arr):
                         len(hashes),
                         instance_name,
                     )
+                    still_pending[instance_name].update(hashes)
                     continue
                 for h in hashes:
                     self.logger.debug(
@@ -8505,9 +8541,9 @@ class FreeSpaceManager(Arr):
                         self.manager.qbit_manager.name_cache.get(h),
                         instance_name,
                     )
-                with contextlib.suppress(Exception):
+                try:
                     with_retry(
-                        lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=hs),
+                        lambda c=client, hs=hashes: c.torrents_resume(torrent_hashes=list(hs)),
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
@@ -8517,14 +8553,32 @@ class FreeSpaceManager(Arr):
                             requests.exceptions.RequestException,
                         ),
                     )
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to resume %d torrent(s) on qBit instance '%s': %s",
+                        len(hashes),
+                        instance_name,
+                        e,
+                    )
+                    still_pending[instance_name].update(hashes)
+                    continue
+                try:
+                    self._clear_free_space_paused_flags_for_hashes(client, instance_name, hashes)
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to clear qBitrr-free_space_paused after resume on '%s': %s",
+                        instance_name,
+                        e,
+                        exc_info=True,
+                    )
                 for h in hashes:
                     self.timed_ignore_cache.add(h)
-            self.resume_by_instance.clear()
+            self.resume_by_instance = still_pending
         # Keep compatibility if any hash was queued in the legacy set path.
         if self.resume and AUTO_PAUSE_RESUME and self.manager.qbit:
-            with contextlib.suppress(Exception):
+            try:
                 with_retry(
-                    lambda: self.manager.qbit.torrents_resume(torrent_hashes=self.resume),
+                    lambda: self.manager.qbit.torrents_resume(torrent_hashes=list(self.resume)),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
@@ -8534,9 +8588,27 @@ class FreeSpaceManager(Arr):
                         requests.exceptions.RequestException,
                     ),
                 )
-            for k in self.resume:
-                self.timed_ignore_cache.add(k)
-            self.resume.clear()
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to resume %d torrent(s) on default qBit client: %s",
+                    len(self.resume),
+                    e,
+                )
+            else:
+                resume_hashes = set(self.resume)
+                try:
+                    self._clear_free_space_paused_flags_for_hashes(
+                        self.manager.qbit, "default", resume_hashes
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to clear qBitrr-free_space_paused after resume: %s",
+                        e,
+                        exc_info=True,
+                    )
+                for k in self.resume:
+                    self.timed_ignore_cache.add(k)
+                self.resume.clear()
 
     def _process_paused(self) -> None:
         # Pause per-instance so multi-instance scans pause on the correct qBit clients.
@@ -8685,7 +8757,7 @@ class FreeSpaceManager(Arr):
                 )
                 sorted_torrents = sorted(
                     torrents_with_instances,
-                    key=lambda i: Arr._normalize_torrent_queue_priority_value(i[1]),
+                    key=lambda i: Arr._torrent_queue_position_sort_key(i[1]),
                 )
                 for instance_name, torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
