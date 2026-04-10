@@ -8133,9 +8133,11 @@ class FreeSpaceManager(Arr):
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         run_logs(self.logger, self._name)
         self.cache = {}
-        self.categories = categories
+        # Full managed union from ArrManager: arr_categories ∪ qbit_managed_categories.
+        self.categories = set(categories)
         self.logger.trace("Categories: %s", self.categories)
         self.pause = set()
+        self.pause_by_instance = defaultdict(set)
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
         self.ignore_torrents_younger_than = CONFIG.get_duration(
@@ -8252,7 +8254,21 @@ class FreeSpaceManager(Arr):
     ]:
         return None, None, None, None, (TorrentLibrary if TAGLESS else None)
 
-    def _process_single_torrent_pause_disk_space(self, torrent: qbittorrentapi.TorrentDictionary):
+    @staticmethod
+    def is_free_space_download_state(torrent: TorrentDictionary) -> bool:
+        """Return True for states that can still consume disk during download lifecycle."""
+        return torrent.state_enum in (
+            TorrentStates.DOWNLOADING,
+            TorrentStates.STALLED_DOWNLOAD,
+            TorrentStates.QUEUED_DOWNLOAD,
+            TorrentStates.PAUSED_DOWNLOAD,
+            TorrentStates.FORCED_DOWNLOAD,
+            TorrentStates.METADATA_DOWNLOAD,
+        )
+
+    def _process_single_torrent_pause_disk_space(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         self.logger.info(
             "Pausing torrent due to insufficient disk space | "
             "Name: %s | Progress: %s%% | Size remaining: %s | "
@@ -8266,9 +8282,10 @@ class FreeSpaceManager(Arr):
             torrent.hash[:8],  # Shortened hash for readability
         )
         self.pause.add(torrent.hash)
+        self.pause_by_instance[instance_name].add(torrent.hash)
 
     def _process_single_torrent(self, torrent, instance_name: str = "default"):
-        if self.is_downloading_state(torrent):
+        if self.is_free_space_download_state(torrent):
             free_space_test = self.current_free_space
             free_space_test -= torrent["amount_left"]
             self.logger.trace(
@@ -8278,7 +8295,7 @@ class FreeSpaceManager(Arr):
                 format_bytes(free_space_test + self._min_free_space_bytes),
                 format_bytes(torrent.amount_left),
             )
-            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
+            if torrent.state_enum != TorrentStates.PAUSED_DOWNLOAD and free_space_test <= 0:
                 self.logger.info(
                     "Pausing download (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
                     torrent.name,
@@ -8288,8 +8305,8 @@ class FreeSpaceManager(Arr):
                 )
                 self.add_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
                 self.remove_tags(torrent, ["qBitrr-allowed_seeding"], instance_name)
-                self._process_single_torrent_pause_disk_space(torrent)
-            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test < 0:
+                self._process_single_torrent_pause_disk_space(torrent, instance_name)
+            elif torrent.state_enum == TorrentStates.PAUSED_DOWNLOAD and free_space_test <= 0:
                 self.logger.info(
                     "Keeping paused (insufficient space) | Torrent: %s | Available: %s | Needed: %s | Deficit: %s",
                     torrent.name,
@@ -8317,7 +8334,7 @@ class FreeSpaceManager(Arr):
                 )
                 self.current_free_space = free_space_test
                 self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
-        elif not self.is_downloading_state(torrent) and self.in_tags(
+        elif not self.is_free_space_download_state(torrent) and self.in_tags(
             torrent, "qBitrr-free_space_paused", instance_name
         ):
             self.logger.info(
@@ -8327,54 +8344,73 @@ class FreeSpaceManager(Arr):
             )
             self.remove_tags(torrent, ["qBitrr-free_space_paused"], instance_name)
 
+    def _process_paused(self) -> None:
+        # Pause per-instance so multi-instance scans pause on the correct qBit clients.
+        if self.pause_by_instance and AUTO_PAUSE_RESUME:
+            self.needs_cleanup = True
+            total = sum(len(hashes) for hashes in self.pause_by_instance.values())
+            self.logger.debug(
+                "Pausing %s torrents across %s qBit instance(s)",
+                total,
+                len(self.pause_by_instance),
+            )
+            for instance_name, hashes in self.pause_by_instance.items():
+                if not hashes:
+                    continue
+                client = self.manager.qbit_manager.get_client(instance_name)
+                if client is None:
+                    self.logger.warning(
+                        "Cannot pause %d torrent(s) for qBit instance '%s': no client",
+                        len(hashes),
+                        instance_name,
+                    )
+                    continue
+                for h in hashes:
+                    self.logger.debug(
+                        "Pausing %s (%s) on %s",
+                        h,
+                        self.manager.qbit_manager.name_cache.get(h),
+                        instance_name,
+                    )
+                with contextlib.suppress(Exception):
+                    with_retry(
+                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=hs),
+                        retries=3,
+                        backoff=0.5,
+                        max_backoff=3,
+                        exceptions=(
+                            qbittorrentapi.exceptions.APIError,
+                            qbittorrentapi.exceptions.APIConnectionError,
+                            requests.exceptions.RequestException,
+                        ),
+                    )
+            self.pause_by_instance.clear()
+        # Keep compatibility if any hash was queued in the legacy set path.
+        if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
+            with contextlib.suppress(Exception):
+                with_retry(
+                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=self.pause),
+                    retries=3,
+                    backoff=0.5,
+                    max_backoff=3,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                        requests.exceptions.RequestException,
+                    ),
+                )
+            self.pause.clear()
+
     def process(self):
         self._process_paused()
 
     def process_torrents(self):
         try:
             try:
-                _client = self.manager.qbit_manager.client
+                qbit_manager = self.manager.qbit_manager
+                _client = qbit_manager.client
                 if _client is None:
                     raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-
-                def _fetch_free_space_torrents():
-                    result = []
-                    for cat in self.categories:
-                        with contextlib.suppress(qbittorrentapi.exceptions.APIError):
-                            result.extend(
-                                _client.torrents.info(
-                                    status_filter="all",
-                                    category=cat,
-                                    sort="added_on",
-                                    reverse=False,
-                                )
-                            )
-                    return result
-
-                torrents = with_retry(
-                    _fetch_free_space_torrents,
-                    retries=5,
-                    backoff=0.5,
-                    max_backoff=5,
-                    exceptions=(qbittorrentapi.exceptions.APIError,),
-                )
-                torrents = [t for t in torrents if hasattr(t, "category")]
-                torrents = [t for t in torrents if t.category in self.categories]
-                torrents = [t for t in torrents if "qBitrr-ignored" not in t.tags]
-                self.category_torrent_count = len(torrents)
-                _first_instance = next(iter(self.manager.qbit_manager.clients), "qBit")
-                self.free_space_tagged_count = sum(
-                    1
-                    for t in torrents
-                    if self.in_tags(t, "qBitrr-free_space_paused", _first_instance)
-                )
-                if not len(torrents):
-                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
-                if not has_internet(self.manager.qbit_manager.client):
-                    self.manager.qbit_manager.should_delay_torrent_scan = True
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
-                if self.manager.qbit_manager.should_delay_torrent_scan:
-                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
                 # Re-resolve path each loop so we use the configured path once it appears
                 # (e.g. Docker volume mounted after process start). Only when path was
                 # auto-chosen (CHANGE_ME); explicit FreeSpaceFolder must exist or we error.
@@ -8385,6 +8421,65 @@ class FreeSpaceManager(Arr):
                 self.current_free_space = (
                     shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
                 )
+
+                def _fetch_free_space_torrents():
+                    result = []
+                    seen = set()
+                    for instance_name in qbit_manager.get_all_instances():
+                        if not qbit_manager.is_instance_alive(instance_name):
+                            self.logger.debug(
+                                "Skipping unhealthy qBit instance '%s' during free space scan",
+                                instance_name,
+                            )
+                            continue
+                        client = qbit_manager.get_client(instance_name)
+                        if client is None:
+                            continue
+                        for cat in self.categories:
+                            with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                                torrents = client.torrents.info(
+                                    status_filter="all",
+                                    category=cat,
+                                    sort="added_on",
+                                    reverse=False,
+                                )
+                                for torrent in torrents:
+                                    if not hasattr(torrent, "category"):
+                                        continue
+                                    if torrent.category not in self.categories:
+                                        continue
+                                    if "qBitrr-ignored" in torrent.tags:
+                                        continue
+                                    key = (instance_name, torrent.hash)
+                                    if key in seen:
+                                        continue
+                                    seen.add(key)
+                                    result.append((instance_name, torrent))
+                    return result
+
+                torrents_with_instances = with_retry(
+                    _fetch_free_space_torrents,
+                    retries=5,
+                    backoff=0.5,
+                    max_backoff=5,
+                    exceptions=(
+                        qbittorrentapi.exceptions.APIError,
+                        qbittorrentapi.exceptions.APIConnectionError,
+                    ),
+                )
+                self.category_torrent_count = len(torrents_with_instances)
+                self.free_space_tagged_count = sum(
+                    1
+                    for instance_name, torrent in torrents_with_instances
+                    if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
+                )
+                if not torrents_with_instances:
+                    raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
+                if not has_internet(self.manager.qbit_manager.client):
+                    self.manager.qbit_manager.should_delay_torrent_scan = True
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="internet")
+                if self.manager.qbit_manager.should_delay_torrent_scan:
+                    raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
                 self.logger.trace(
                     "Processing torrents | Available: %s | Threshold: %s | Usable: %s | Torrents: %d | Paused for space: %d",
                     format_bytes(self.current_free_space + self._min_free_space_bytes),
@@ -8393,11 +8488,11 @@ class FreeSpaceManager(Arr):
                     self.category_torrent_count,
                     self.free_space_tagged_count,
                 )
-                sorted_torrents = sorted(torrents, key=lambda t: t["priority"])
-                for torrent in sorted_torrents:
+                sorted_torrents = sorted(torrents_with_instances, key=lambda i: i[1]["priority"])
+                for instance_name, torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
-                        self._process_single_torrent(torrent)
-                if len(self.pause) == 0:
+                        self._process_single_torrent(torrent, instance_name=instance_name)
+                if not self.pause and not any(self.pause_by_instance.values()):
                     self.logger.trace("No torrents to pause")
                 self.process()
             except NoConnectionrException as e:
