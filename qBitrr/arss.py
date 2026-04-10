@@ -5210,10 +5210,15 @@ class Arr:
 
                 self.api_calls()
                 self.refresh_download_queue()
+                managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
                 # Multi-instance: Process torrents from all instances
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
-                        self._process_single_torrent(torrent, instance_name=instance_name)
+                        self._process_single_torrent(
+                            torrent,
+                            instance_name=instance_name,
+                            managed_tag_pool=managed_tag_pool,
+                        )
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
@@ -6314,7 +6319,10 @@ class Arr:
         )
 
     def _process_single_torrent_trackers(
-        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        instance_name: str = "default",
+        managed_tag_pool: frozenset[str] | None = None,
     ):
         if torrent.hash in self.tracker_delay:
             return
@@ -6392,7 +6400,8 @@ class Arr:
             elif ul_r < 0:
                 torrent.set_upload_limit(limit=-1)
 
-        managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
+        if managed_tag_pool is None:
+            managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
         current_tags = _parse_qbittorrent_tag_list(getattr(torrent, "tags", None))
         if unique_tags:
             add_tags = unique_tags.difference(current_tags)
@@ -6495,11 +6504,16 @@ class Arr:
         return stalled_ignore
 
     def _process_single_torrent(
-        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        instance_name: str = "default",
+        managed_tag_pool: frozenset[str] | None = None,
     ):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        self._process_single_torrent_trackers(torrent, instance_name)
+        self._process_single_torrent_trackers(
+            torrent, instance_name, managed_tag_pool=managed_tag_pool
+        )
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         leave_alone, _tracker_max_eta, remove_torrent, _data_settings, _data_torrent = (
@@ -8221,9 +8235,14 @@ class PlaceHolderArr(Arr):
                 if self.manager.qbit_manager.should_delay_torrent_scan:
                     raise DelayLoopException(length=NO_INTERNET_SLEEP_TIMER, error_type="delay")
 
+                managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
                 for instance_name, torrent in torrents_with_instances:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
-                        self._process_single_torrent(torrent, instance_name=instance_name)
+                        self._process_single_torrent(
+                            torrent,
+                            instance_name=instance_name,
+                            managed_tag_pool=managed_tag_pool,
+                        )
                 self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
@@ -8640,7 +8659,7 @@ class FreeSpaceManager(Arr):
                     )
                 with contextlib.suppress(Exception):
                     with_retry(
-                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=hs),
+                        lambda c=client, hs=hashes: c.torrents_pause(torrent_hashes=list(hs)),
                         retries=3,
                         backoff=0.5,
                         max_backoff=3,
@@ -8655,7 +8674,7 @@ class FreeSpaceManager(Arr):
         if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
             with contextlib.suppress(Exception):
                 with_retry(
-                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=self.pause),
+                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
