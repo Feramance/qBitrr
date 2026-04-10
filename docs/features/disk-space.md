@@ -55,7 +55,7 @@ graph TD
 
 **Which torrents are monitored:**
 
-The Free Space Manager monitors torrents in **all categories** that qBitrr manages:
+The torrent policy worker monitors torrents in **all categories** that qBitrr manages:
 
 - **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, and Lidarr instance (e.g. `radarr`, `sonarr`, `radarr4k`).
 - **qBit-managed categories** — Categories listed in `[qBit].ManagedCategories` (e.g. `autobrr`).
@@ -477,13 +477,13 @@ Check paused torrents in qBittorrent:
    ```
 
 4. **Ensure torrents are in monitored categories:**
-   Free Space Manager only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
+   The torrent policy worker only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
 
 5. **Check logs for errors:**
    ```bash
    grep -i "space\|error" ~/logs/Main.log
-   # Or FreeSpaceManager log
-   tail -f ~/config/logs/FreeSpaceManager.log
+   # Or TorrentPolicyManager log
+   tail -f ~/config/logs/TorrentPolicyManager.log
    ```
 
 ---
@@ -529,7 +529,7 @@ Check paused torrents in qBittorrent:
    CompletedDownloadFolder = "D:\\torrents"
    FreeSpaceFolder = "D:\\torrents"
    ```
-   Check the FreeSpaceManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
+   Check the TorrentPolicyManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
 
 ---
 

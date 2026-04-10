@@ -908,6 +908,14 @@ Number of retry attempts for profile switch API calls.
 
 Search for media requested via Overseerr or Ombi.
 
+### HTTPS and TLS verification
+
+- **Servarr (Radarr/Sonarr/Lidarr API):** On each Arr section, **`SkipTLSVerify`** (default `false`) controls certificate verification for HTTPS to that Servarr instance only.
+- **Overseerr:** Under **`[YourArr.EntrySearch.Overseerr]`**, **`SkipTLSVerify`** applies only to HTTPS calls to Overseerr.
+- **Ombi:** Under **`[YourArr.EntrySearch.Ombi]`**, **`SkipTLSVerify`** applies only to HTTPS calls to Ombi.
+
+These are independent: you can skip verification for one service and not another. Setting any of them to **`true`** disables TLS certificate verification for that target (suitable for self-signed certs on trusted networks; otherwise prefer fixing certificates or trust stores).
+
 ### Overseerr Configuration
 
 ```toml
@@ -923,6 +931,9 @@ OverseerrAPIKey = "your-api-key"
 
 # Only approved requests
 ApprovedOnly = true
+
+# Optional: HTTPS with self-signed cert (see HTTPS and TLS verification above)
+SkipTLSVerify = false
 
 # 4K instance flag
 Is4K = false
@@ -947,6 +958,9 @@ OmbiAPIKey = "your-api-key"
 
 # Only approved requests
 ApprovedOnly = true
+
+# Optional: HTTPS with self-signed cert (see HTTPS and TLS verification above)
+SkipTLSVerify = false
 ```
 
 **Note:** If both Overseerr and Ombi are enabled, Overseerr takes priority.

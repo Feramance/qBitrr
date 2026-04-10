@@ -21,6 +21,9 @@ URI = "http://localhost:8686"
 # Lidarr API Key (Settings > General > Security)
 APIKey = "your-lidarr-api-key"
 
+# Optional: set true only if Lidarr uses HTTPS with a self-signed or untrusted certificate
+SkipTLSVerify = false
+
 # Category applied by Lidarr to torrents in qBittorrent
 # MUST match: Lidarr > Settings > Download Clients > qBittorrent > Category
 Category = "lidarr-music"
