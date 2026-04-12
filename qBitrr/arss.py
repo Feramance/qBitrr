@@ -3001,10 +3001,6 @@ class Arr:
             self._webui_db_loaded = True
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
-        """Public wrapper kept stable while availability logic is extracted."""
-        return self._minimum_availability_check_impl(db_entry)
-
-    def _minimum_availability_check_impl(self, db_entry: JsonObject) -> bool:
         inCinemas = (
             datetime.strptime(db_entry["inCinemas"], "%Y-%m-%dT%H:%M:%SZ")
             if "inCinemas" in db_entry
@@ -3237,21 +3233,6 @@ class Arr:
             return False
 
     def db_update_single_series(
-        self,
-        db_entry: JsonObject = None,
-        request: bool = False,
-        series: bool = False,
-        artist: bool = False,
-    ):
-        """Public wrapper kept stable while db-update internals are split incrementally."""
-        return self._db_update_single_series_impl(
-            db_entry=db_entry,
-            request=request,
-            series=series,
-            artist=artist,
-        )
-
-    def _db_update_single_series_impl(
         self,
         db_entry: JsonObject = None,
         request: bool = False,
@@ -4673,25 +4654,6 @@ class Arr:
         self.needs_cleanup = False
 
     def maybe_do_search(
-        self,
-        file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
-        request: bool = False,
-        todays: bool = False,
-        bypass_limit: bool = False,
-        series_search: bool = False,
-        commands: int = 0,
-    ):
-        """Public wrapper kept stable while search-dispatch internals are split incrementally."""
-        return self._maybe_do_search_impl(
-            file_model=file_model,
-            request=request,
-            todays=todays,
-            bypass_limit=bypass_limit,
-            series_search=series_search,
-            commands=commands,
-        )
-
-    def _maybe_do_search_impl(
         self,
         file_model: EpisodeFilesModel | MoviesFilesModel | SeriesFilesModel,
         request: bool = False,
@@ -8474,7 +8436,7 @@ class TorrentPolicyManager(Arr):
         if self.pause and AUTO_PAUSE_RESUME and self.manager.qbit:
             with contextlib.suppress(Exception):
                 with_retry(
-                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=self.pause),
+                    lambda: self.manager.qbit.torrents_pause(torrent_hashes=list(self.pause)),
                     retries=3,
                     backoff=0.5,
                     max_backoff=3,
