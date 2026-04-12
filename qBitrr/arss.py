@@ -927,7 +927,7 @@ class Arr:
         for row in Arr.merge_global_tracker_blocks():
             pri_raw = row.get("Priority", -100)
             try:
-                pri_int = int(pri_raw) if not isinstance(pri_raw, bool) else int(pri_raw)
+                pri_int = int(pri_raw) if not isinstance(pri_raw, bool) else -100
             except (TypeError, ValueError):
                 pri_int = -100
             raw = row.get("AddTags") or []
