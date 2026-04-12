@@ -356,7 +356,8 @@ Get all Arr instance processes (search and torrent loops).
 
 - `queueCount` - Active downloads in Arr queue
 - `categoryCount` - Torrents in qBittorrent with matching category
-- `metricType` - Special metric type (`"free-space"` or `"category"` for PlaceHolderArr)
+- `freeSpacePaused` - Torrents tagged as paused due to free-space guard (Torrent Policy Manager only)
+- `metricType` - Special metric type (`"torrent-policy"` for Torrent Policy Manager, `"category"` for PlaceHolderArr)
 
 **Refresh Interval**: Poll this endpoint every 5-10 seconds for real-time updates.
 

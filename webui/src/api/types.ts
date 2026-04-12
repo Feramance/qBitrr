@@ -11,6 +11,7 @@ export interface ProcessInfo {
   searchTimestamp?: string;
   queueCount?: number;
   categoryCount?: number;
+  freeSpacePaused?: number;
   metricType?: string;
 }
 

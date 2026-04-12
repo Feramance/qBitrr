@@ -2025,11 +2025,14 @@ class WebUI:
                     category_count = metrics.get("category")
                     if category_count is None:
                         category_count = getattr(arr_obj, "category_torrent_count", None)
+                    free_space_paused = metrics.get("free_space_paused")
                     metric_type = metrics.get("metric_type")
                     if queue_count is not None:
                         payload_dict["queueCount"] = queue_count
                     if category_count is not None:
                         payload_dict["categoryCount"] = category_count
+                    if free_space_paused is not None:
+                        payload_dict["freeSpacePaused"] = free_space_paused
                     if metric_type:
                         payload_dict["metricType"] = metric_type
 
