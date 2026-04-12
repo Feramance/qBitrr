@@ -7247,18 +7247,21 @@ class Arr:
                     # This is a temp profile - get the original main profile
                     original_id = self.main_quality_profile_ids[profile_id]
                     item["qualityProfileId"] = original_id
+                    item_name = item.get("title", item.get("artistName", "Unknown"))
+                    from_profile_id = profile_id
+                    to_profile_id = original_id
 
                     if item_type == "movie":
-                        update_fn = lambda: self.client.upd_movie(item)
+                        update_fn = lambda item=item: self.client.upd_movie(item)
                     elif item_type == "series":
-                        update_fn = lambda: self.client.upd_series(item)
+                        update_fn = lambda item=item: self.client.upd_series(item)
                     else:
-                        update_fn = lambda: self.client.upd_artist(item)
+                        update_fn = lambda item=item: self.client.upd_artist(item)
                     if self._retry_profile_switch_update(update_fn, item_type):
                         reset_count += 1
                         self.logger.info(
-                            f"Reset {item_type} '{item.get('title', item.get('artistName', 'Unknown'))}' "
-                            f"from temp profile (ID:{profile_id}) to main profile (ID:{original_id})"
+                            f"Reset {item_type} '{item_name}' "
+                            f"from temp profile (ID:{from_profile_id}) to main profile (ID:{to_profile_id})"
                         )
 
             if reset_count > 0:
@@ -8573,7 +8576,7 @@ class TorrentPolicyManager(Arr):
                 for instance_name, torrent in sorted_torrents:
                     with contextlib.suppress(qbittorrentapi.NotFound404Error):
                         self._process_single_torrent(torrent, instance_name=instance_name)
-                self._process_free_space_actions()
+                self.process()
             except NoConnectionrException as e:
                 self.logger.error(e.message)
             except qbittorrentapi.exceptions.APIError as e:
