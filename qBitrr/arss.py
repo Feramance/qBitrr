@@ -7681,13 +7681,6 @@ class Arr:
                     except Exception as e:
                         self.logger.exception(e, exc_info=sys.exc_info())
                     event.wait(LOOP_SLEEP_TIMER)
-                except PyarrConnectionError as e:
-                    self.logger.warning(
-                        "Could not reach %s Arr API during search loop: %s",
-                        self._name,
-                        e,
-                    )
-                    raise DelayLoopException(length=300, error_type="arr") from e
                 except DelayLoopException as delay_exc:
                     self._handle_delay_loop_exception(
                         delay_exc,
