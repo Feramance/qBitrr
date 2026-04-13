@@ -7969,6 +7969,7 @@ class PlaceHolderArr(Arr):
         ):
             return
         self._log_deletion_summary_line()
+        self._log_deletion_sample_debug(to_delete_all)
         self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=True)
         deleted_hashes: set[str] = set()
         qbit_manager = self.manager.qbit_manager
@@ -8231,37 +8232,45 @@ class TorrentPolicyManager(Arr):
         )
         self.remove_dead_trackers = Arr.global_remove_dead_trackers_union()
 
-        # Free-space state
-        _free_space, _free_space_folder = get_free_space_guard_settings()
-        _use_auto_free_space_paths = _free_space == "-1" or _free_space_folder == "CHANGE_ME"
-        if _use_auto_free_space_paths:
-            arr_cats = self.categories & self.manager.arr_categories
-            chosen = next(iter(arr_cats), None) or next(iter(self.categories))
-            self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
-            self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
-        else:
-            self.completed_folder = pathlib.Path(_free_space_folder)
-            self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
-        self._free_space_folder_is_auto = _use_auto_free_space_paths
-        self.min_free_space = _free_space
-        self._min_free_space_bytes = (
-            parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
-        )
-        if _use_auto_free_space_paths and not self.completed_folder.exists():
-            parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
-            if parent.exists():
-                self.completed_folder = parent
+        # Free-space state (only needed when free-space policy is enabled).
+        self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+        self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
         self._path_for_disk_usage = self._disk_usage_path
-        if self._free_space_folder_is_auto:
-            _p = self._first_existing_parent(self._disk_usage_path)
-            if _p:
-                self._path_for_disk_usage = _p
-        self.current_free_space = (
-            shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
-        )
+        self._free_space_folder_is_auto = True
+        self.min_free_space = "-1"
+        self._min_free_space_bytes = 0
+        self.current_free_space = 0
+        if self.enable_free_space:
+            _free_space, _free_space_folder = get_free_space_guard_settings()
+            _use_auto_free_space_paths = _free_space == "-1" or _free_space_folder == "CHANGE_ME"
+            if _use_auto_free_space_paths:
+                arr_cats = self.categories & self.manager.arr_categories
+                chosen = next(iter(arr_cats), None) or next(iter(self.categories))
+                self.completed_folder = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).joinpath(chosen)
+                self._disk_usage_path = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER).resolve()
+            else:
+                self.completed_folder = pathlib.Path(_free_space_folder)
+                self._disk_usage_path = pathlib.Path(_free_space_folder).resolve()
+            self._free_space_folder_is_auto = _use_auto_free_space_paths
+            self.min_free_space = _free_space
+            self._min_free_space_bytes = (
+                parse_size(self.min_free_space) if self.min_free_space != "-1" else 0
+            )
+            if _use_auto_free_space_paths and not self.completed_folder.exists():
+                parent = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+                if parent.exists():
+                    self.completed_folder = parent
+            self._path_for_disk_usage = self._disk_usage_path
+            if self._free_space_folder_is_auto:
+                _p = self._first_existing_parent(self._disk_usage_path)
+                if _p:
+                    self._path_for_disk_usage = _p
+            self.current_free_space = (
+                shutil.disk_usage(self._path_for_disk_usage).free - self._min_free_space_bytes
+            )
 
         _client = self.manager.qbit_manager.client
-        if _client is not None:
+        if self.enable_free_space and _client is not None:
             _client.torrents_create_tags(["qBitrr-free_space_paused"])
 
         self.register_search_mode()
