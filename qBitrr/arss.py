@@ -1224,6 +1224,21 @@ class Arr:
         return (not (nq > 0), nq)
 
     @staticmethod
+    def _normalize_torrent_added_on_value(torrent: TorrentDictionary) -> int:
+        """Normalize qBittorrent ``added_on`` timestamp for deterministic ordering."""
+        raw = getattr(torrent, "added_on", 0)
+        if isinstance(raw, bool):
+            return int(raw)
+        if isinstance(raw, int):
+            return raw
+        if isinstance(raw, float):
+            return int(raw)
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
     def is_downloading_state(torrent: TorrentDictionary) -> bool:
         """Returns True if the State is categorized as Downloading."""
         return torrent.state_enum in (TorrentStates.DOWNLOADING, TorrentStates.PAUSED_DOWNLOAD)
@@ -5124,11 +5139,17 @@ class Arr:
                     torrent_list = [
                         t for t in torrent_list if getattr(t, "category", None) in monitored
                     ]
+                sort_priorities = {
+                    torrent.hash: self._get_torrent_queue_sort_priority(torrent, tag_to_priority)
+                    for torrent in torrent_list
+                }
                 sorted_torrents = sorted(
                     torrent_list,
                     key=lambda t: (
-                        -self._get_torrent_queue_sort_priority(t, tag_to_priority),
+                        -sort_priorities.get(t.hash, -100),
+                        -Arr._normalize_torrent_added_on_value(t),
                         getattr(t, "name", "") or "",
+                        getattr(t, "hash", "") or "",
                     ),
                 )
                 if len(sorted_torrents) > 1:
@@ -5170,13 +5191,40 @@ class Arr:
                     # qBittorrent may ignore hash input ordering in batch topPrio calls.
                     # Move torrents one-by-one (lowest first) to enforce tracker-priority
                     # order within each queue, since qBittorrent keeps download/upload
-                    # queues separate.
-                    for queue_is_seeding in (False, True):
+                    # queues separate. Process seeding first so download promotions
+                    # happen last and remain effectively higher priority.
+                    for queue_is_seeding in (True, False):
                         queue_torrents = [
                             torrent
                             for torrent in sorted_torrents
                             if queue_membership.get(torrent.hash, False) == queue_is_seeding
                         ]
+                        if queue_torrents and self.logger.isEnabledFor(logging.DEBUG):
+                            queue_name = "seeding" if queue_is_seeding else "downloading"
+                            preview = [
+                                (
+                                    t.hash[:8],
+                                    sort_priorities.get(t.hash, -100),
+                                    Arr._normalize_torrent_added_on_value(t),
+                                )
+                                for t in queue_torrents[:3]
+                            ]
+                            tail_preview = [
+                                (
+                                    t.hash[:8],
+                                    sort_priorities.get(t.hash, -100),
+                                    Arr._normalize_torrent_added_on_value(t),
+                                )
+                                for t in queue_torrents[-3:]
+                            ]
+                            self.logger.debug(
+                                "Queue sort target for instance '%s' (%s): count=%d head=%s tail=%s",
+                                instance_name,
+                                queue_name,
+                                len(queue_torrents),
+                                preview,
+                                tail_preview,
+                            )
                         for torrent in reversed(queue_torrents):
                             try:
                                 client.torrents_top_priority(torrent_hashes=[torrent.hash])
@@ -6563,9 +6611,22 @@ class Arr:
     ):
         if torrent.category != RECHECK_CATEGORY:
             self.manager.qbit_manager.cache[torrent.hash] = torrent.category
-        self._process_single_torrent_trackers(
-            torrent, instance_name, managed_tag_pool=managed_tag_pool
+        category = getattr(torrent, "category", None)
+        tracker_sync_owned_by_policy_manager = bool(
+            self.manager
+            and category
+            and self.manager.policy_manager_owns_tracker_sync_for_category(category)
         )
+        if tracker_sync_owned_by_policy_manager:
+            self.logger.trace(
+                "Tracker/tag sync owned by TorrentPolicyManager; skipping Arr sync for %s (%s)",
+                torrent.name,
+                torrent.hash,
+            )
+        if not tracker_sync_owned_by_policy_manager:
+            self._process_single_torrent_trackers(
+                torrent, instance_name, managed_tag_pool=managed_tag_pool
+            )
         self.manager.qbit_manager.name_cache[torrent.hash] = torrent.name
         time_now = time.time()
         leave_alone, _tracker_max_eta, remove_torrent, _data_settings, _data_torrent = (
@@ -8486,6 +8547,39 @@ class TorrentPolicyManager(Arr):
                         result.append((instance_name, torrent))
         return result
 
+    def _sync_tracker_tags_before_sort(self) -> None:
+        """
+        Refresh tracker checks and managed AddTags labels before queue sorting.
+
+        ``TorrentPolicyManager`` is the single owner of this path when sorting
+        is enabled, so Arr loops can skip duplicate tracker/tag sync work.
+        """
+        torrents_with_instances = with_retry(
+            self._collect_monitored_torrents,
+            retries=5,
+            backoff=0.5,
+            max_backoff=5,
+            exceptions=(
+                qbittorrentapi.exceptions.APIError,
+                qbittorrentapi.exceptions.APIConnectionError,
+            ),
+        )
+        if not torrents_with_instances:
+            self.logger.debug("Pre-sort tracker/tag sync skipped: no monitored torrents")
+            return
+        managed_tag_pool = Arr.merge_global_tracker_configured_add_tags()
+        for instance_name, torrent in torrents_with_instances:
+            with contextlib.suppress(qbittorrentapi.NotFound404Error):
+                self._process_single_torrent_trackers(
+                    torrent,
+                    instance_name=instance_name,
+                    managed_tag_pool=managed_tag_pool,
+                )
+        self.logger.debug(
+            "Pre-sort tracker/tag sync processed %d torrents",
+            len(torrents_with_instances),
+        )
+
     def _validate_qbit_preflight(self) -> None:
         if not self.manager.qbit_manager.clients:
             raise DelayLoopException(length=LOOP_SLEEP_TIMER, error_type="no_downloads")
@@ -8501,8 +8595,17 @@ class TorrentPolicyManager(Arr):
                 self._validate_qbit_preflight()
 
                 if self.enable_tracker_sort:
+                    self.logger.debug(
+                        "TorrentPolicyManager workflow: pre-sort tracker/tag sync -> queue sort -> free-space"
+                    )
+                    self._torrent_important_trackers_cache.clear()
+                    self._sync_tracker_tags_before_sort()
                     self._torrent_important_trackers_cache.clear()
                     self._sort_torrents_by_tracker_priority()
+                else:
+                    self.logger.debug(
+                        "TorrentPolicyManager tracker sorting disabled: Arr loops retain tracker/tag sync ownership"
+                    )
 
                 if not self.enable_free_space:
                     return
@@ -8575,6 +8678,8 @@ class ArrManager:
         self.arr_categories: set[str] = set()
         self.qbit_managed_categories: set[str] = set()
         self.qbit_managed_category_sections: dict[str, str] = {}
+        self.policy_manager_tracker_sync_owner: bool = False
+        self.policy_manager_tracker_sync_categories: set[str] = set()
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
@@ -8669,7 +8774,17 @@ class ArrManager:
             )
         self.logger.debug("Category validation passed - no conflicts detected")
 
+    def policy_manager_owns_tracker_sync_for_category(self, category: str | None) -> bool:
+        """Return True when TorrentPolicyManager owns tracker/tag sync for ``category``."""
+        if not category:
+            return False
+        if not self.policy_manager_tracker_sync_owner:
+            return False
+        return category in self.policy_manager_tracker_sync_categories
+
     def build_arr_instances(self):
+        self.policy_manager_tracker_sync_owner = False
+        self.policy_manager_tracker_sync_categories.clear()
         for key in CONFIG.sections():
             if search := re.match("(rad|son|anim|lid)arr.*", key, re.IGNORECASE):
                 name = search.group(0)
@@ -8702,6 +8817,12 @@ class ArrManager:
 
         # Global torrent policy worker monitors both Arr-managed and qBit-managed categories
         all_monitored_categories = self.arr_categories | self.qbit_managed_categories
+        configured_qbit_sections = [
+            section
+            for section in CONFIG.sections()
+            if section == "qBit" or section.startswith("qBit-")
+        ]
+        has_configured_qbit_instance = len(configured_qbit_sections) > 0
         _fs_guard, _ = get_free_space_guard_settings()
         fs_enabled = (
             _fs_guard != "-1"
@@ -8709,12 +8830,36 @@ class ArrManager:
             and not get_effective_qbit_disabled()
         )
         sort_enabled = Arr.global_sort_torrents_enabled() and not get_effective_qbit_disabled()
-        if (fs_enabled or sort_enabled) and len(all_monitored_categories) > 0:
+        should_start_torrent_policy_manager = bool(
+            all_monitored_categories and has_configured_qbit_instance
+        )
+        if should_start_torrent_policy_manager:
             self.managed_objects["TorrentPolicyManager"] = TorrentPolicyManager(
                 all_monitored_categories,
                 self,
                 enable_tracker_sort=sort_enabled,
                 enable_free_space=fs_enabled,
+            )
+            self.logger.info(
+                "Starting TorrentPolicyManager (categories=%d, configured_qbit_instances=%d, "
+                "tracker_sort=%s, free_space=%s)",
+                len(all_monitored_categories),
+                len(configured_qbit_sections),
+                sort_enabled,
+                fs_enabled,
+            )
+            if sort_enabled:
+                self.policy_manager_tracker_sync_owner = True
+                self.policy_manager_tracker_sync_categories = set(all_monitored_categories)
+                self.logger.debug(
+                    "Tracker/tag sync owner set to TorrentPolicyManager for %d categories",
+                    len(self.policy_manager_tracker_sync_categories),
+                )
+        else:
+            self.logger.debug(
+                "Skipping TorrentPolicyManager startup (categories=%d, configured_qbit_instances=%d)",
+                len(all_monitored_categories),
+                len(configured_qbit_sections),
             )
         for cat in self.special_categories:
             managed_object = PlaceHolderArr(cat, self)
