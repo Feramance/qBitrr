@@ -8608,6 +8608,8 @@ class TorrentPolicyManager(Arr):
                     )
 
                 if not self.enable_free_space:
+                    # Flush any pending pause/resume actions from previous loop state.
+                    self.process()
                     return
 
                 if self._free_space_folder_is_auto:
@@ -8635,6 +8637,8 @@ class TorrentPolicyManager(Arr):
                     if self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 )
                 if not torrents_with_instances:
+                    # Ensure queued pause/resume actions still apply when monitored torrents disappear.
+                    self.process()
                     return
                 sorted_torrents = sorted(
                     torrents_with_instances,

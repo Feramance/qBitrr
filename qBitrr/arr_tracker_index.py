@@ -51,21 +51,27 @@ def build_tracker_index(
         for i in monitored_trackers
         if i.get("RemoveIfExists") is True and (uri := (i.get("URI") or "").strip().rstrip("/"))
     }
-    monitored_urls: set[str] = {
-        uri
-        for i in monitored_trackers
-        if (uri := (i.get("URI") or "").strip().rstrip("/")) and uri not in remove_if_exists
-    }
+    monitored_urls_in_order: list[str] = []
+    for i in monitored_trackers:
+        uri = (i.get("URI") or "").strip().rstrip("/")
+        if not uri or uri in remove_if_exists:
+            continue
+        if uri not in monitored_urls_in_order:
+            monitored_urls_in_order.append(uri)
+    monitored_urls: set[str] = set(monitored_urls_in_order)
     add_if_missing: set[str] = {
         uri
         for i in monitored_trackers
         if i.get("AddTrackerIfMissing") is True
         and (uri := (i.get("URI") or "").strip().rstrip("/"))
+        and uri not in remove_if_exists
     }
     host_to_config_uri: dict[str, str] = {}
-    for _uri in monitored_urls:
+    for _uri in monitored_urls_in_order:
         _host = extract_tracker_host(_uri)
-        if _host:
+        if _host and _host not in host_to_config_uri:
+            # Keep first-seen host mapping in config order and avoid
+            # non-deterministic overwrite behavior from unordered sets.
             host_to_config_uri[_host] = _uri
     remove_hosts: set[str] = {h for u in remove_if_exists if (h := extract_tracker_host(u))}
     bad_iter = bad_tracker_messages if bad_tracker_messages is not None else ()
