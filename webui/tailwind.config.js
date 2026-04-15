@@ -21,9 +21,9 @@ export default {
           secondary: '#9aa3ac',
         },
         primary: {
-          DEFAULT: '#7aa2f7',
-          variant: '#3b82f6',
-          light: 'rgba(122, 162, 247, 0.15)',
+          DEFAULT: '#3b82f6',
+          variant: '#2563eb',
+          light: 'rgba(59, 130, 246, 0.15)',
         },
         success: {
           DEFAULT: '#22c55e',

@@ -8,8 +8,8 @@
     --surface: #1b1e22;
     --on-surface: #eaeef2;
     --muted: #9aa3ac;
-    --primary: #7aa2f7;
-    --primary-variant: #3b82f6;
+    --primary: #3b82f6;
+    --primary-variant: #2563eb;
     --success: #22c55e;
     --danger: #ef4444;
     --warning: #facc15;
@@ -23,8 +23,8 @@
     --surface: #ffffff;
     --on-surface: #1d1d1f;
     --muted: #6e6e73;
-    --primary: #0071e3;
-    --primary-variant: #0077ed;
+    --primary: #2563eb;
+    --primary-variant: #1d4ed8;
     --success: #34c759;
     --danger: #ff3b30;
     --warning: #ff9500;
@@ -131,14 +131,12 @@ body {
     font-size: 20px;
     font-weight: 700;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--on-surface) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #ffffff;
 }
-.appbar__logo {
+.icon.appbar__logo {
     width: 42px;
     height: 42px;
+    display: block;
     object-fit: contain;
     image-rendering: auto;
     flex-shrink: 0;
@@ -149,10 +147,7 @@ body {
 }
 
 [data-theme="light"] .appbar h1 {
-    background: linear-gradient(135deg, var(--on-surface) 0%, var(--primary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #ffffff;
 }
 .appbar__version {
     font-size: 12px;
@@ -1349,13 +1344,13 @@ pre::-webkit-scrollbar-thumb:hover {
     border-color: rgba(158, 206, 106, 0.4);
 }
 .badge-arr {
-    background: rgba(187, 154, 247, 0.15);
-    border-color: rgba(187, 154, 247, 0.25);
-    color: #bb9af7;
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.25);
+    color: #3b82f6;
 }
 .badge-arr:hover {
-    background: rgba(187, 154, 247, 0.25);
-    border-color: rgba(187, 154, 247, 0.4);
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.4);
 }
 
 .icon {
@@ -1579,6 +1574,7 @@ svg[height] {
 /* High-DPI displays (Retina, etc.) - ensure smooth SVG rendering */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .appbar__logo {
+        image-rendering: -webkit-optimize-contrast;
         image-rendering: auto;
     }
 }
@@ -1946,7 +1942,7 @@ svg[height] {
     font-weight: 600;
     border-radius: 4px;
     background: rgba(122, 162, 247, 0.15);
-    color: var(--accent, #7aa2f7);
+    color: var(--accent, #3b82f6);
     vertical-align: middle;
     line-height: 1.4;
 }

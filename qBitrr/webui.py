@@ -32,6 +32,7 @@ from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
 
 _openapi_spec_lock = threading.Lock()
 _openapi_spec: dict[str, Any] | None = None
+_openapi_spec_api_only: dict[str, Any] | None = None
 
 
 def _load_openapi_spec() -> dict[str, Any]:
@@ -46,6 +47,27 @@ def _load_openapi_spec() -> dict[str, Any]:
             )
             _openapi_spec = json.loads(raw)
         return _openapi_spec
+
+
+def _load_openapi_spec_api_only() -> dict[str, Any]:
+    """Load a cached OpenAPI view that excludes `/web/*` paths."""
+    global _openapi_spec, _openapi_spec_api_only
+    with _openapi_spec_lock:
+        if _openapi_spec is None:
+            raw = (
+                importlib.resources.files("qBitrr")
+                .joinpath("openapi.json")
+                .read_text(encoding="utf-8")
+            )
+            _openapi_spec = json.loads(raw)
+        if _openapi_spec_api_only is None:
+            filtered_paths = {
+                path: value
+                for path, value in _openapi_spec.get("paths", {}).items()
+                if not path.startswith("/web/")
+            }
+            _openapi_spec_api_only = {**_openapi_spec, "paths": filtered_paths}
+        return _openapi_spec_api_only
 
 
 def _swagger_ui_html(spec_url: str) -> str:
@@ -1640,7 +1662,7 @@ class WebUI:
             return None
 
         def _openapi_json_response():
-            spec = _load_openapi_spec()
+            spec = _load_openapi_spec_api_only()
             response = jsonify(spec)
             response.headers["Cache-Control"] = "no-store"
             return response
