@@ -31,12 +31,14 @@ The running WebUI serves a bundled **OpenAPI 3** document and **Swagger UI**:
 
 | Resource | URL | Description |
 |----------|-----|-------------|
-| Interactive docs | `GET /web/docs` or `GET /api/docs` | Swagger UI (loads the matching spec below on the same origin) |
+| Interactive docs | `GET /web/docs` or `GET /api/docs` | Swagger UI (both views load the same filtered spec on the same origin) |
 | OpenAPI JSON | `GET /web/openapi.json` or `GET /api/openapi.json` | Machine-readable spec for codegen or import into API clients |
 
 **Authentication:** When `WebUI.AuthDisabled` is `true`, these URLs work without credentials. When WebUI authentication is enabled, they use the same rules as other protected routes: open `/web/docs` in a browser **after** logging into the WebUI (session cookie), or pass `Authorization: Bearer <WebUI.Token>` (or use **Authorize** in Swagger for "Try it out"). The main WebUI header includes an **OpenAPI** link to `/web/docs`.
 
-The spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
+The served OpenAPI document intentionally includes only `/api/*` paths. `/web/*` routes remain available at runtime and are documented in this page, but they are excluded from Swagger/OpenAPI output.
+
+The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
 
 ---
 
