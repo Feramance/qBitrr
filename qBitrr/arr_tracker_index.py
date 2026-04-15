@@ -35,7 +35,7 @@ class TrackerIndex:
     remove_trackers_if_exists: frozenset[str]
     monitored_tracker_urls: frozenset[str]
     add_trackers_if_missing: frozenset[str]
-    host_to_config_uri: dict[str, str]
+    host_to_config_uri: frozenset[tuple[str, str]]
     remove_tracker_hosts: frozenset[str]
     normalized_bad_tracker_msgs: frozenset[str]
 
@@ -80,7 +80,7 @@ def build_tracker_index(
         remove_trackers_if_exists=frozenset(remove_if_exists),
         monitored_tracker_urls=frozenset(monitored_urls),
         add_trackers_if_missing=frozenset(add_if_missing),
-        host_to_config_uri=dict(host_to_config_uri),
+        host_to_config_uri=frozenset(host_to_config_uri.items()),
         remove_tracker_hosts=frozenset(remove_hosts),
         normalized_bad_tracker_msgs=frozenset(normalized_bad),
     )
