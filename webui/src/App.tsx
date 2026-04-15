@@ -25,8 +25,7 @@ import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
-
-const HEADER_LOGO = "/icon-192.png";
+import LogoIcon from "./icons/logo.svg";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -906,7 +905,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
       <header className="appbar">
         <div className="appbar__inner">
           <div className="appbar__title">
-            <IconImage src={HEADER_LOGO} alt="qBitrr Logo" className="appbar__logo" />
+            <IconImage src={LogoIcon} alt="qBitrr Logo" className="appbar__logo" />
             <h1>qBitrr</h1>
             <span className="appbar__version" title={versionTitle}>
               {displayVersion}
