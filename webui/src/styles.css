@@ -138,7 +138,8 @@ body {
     height: 42px;
     display: block;
     object-fit: contain;
-    image-rendering: auto;
+    image-rendering: crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
     flex-shrink: 0;
     user-select: none;
     -webkit-user-select: none;
@@ -1574,8 +1575,8 @@ svg[height] {
 /* High-DPI displays (Retina, etc.) - ensure smooth SVG rendering */
 @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
     .appbar__logo {
+        image-rendering: crisp-edges;
         image-rendering: -webkit-optimize-contrast;
-        image-rendering: auto;
     }
 }
 
