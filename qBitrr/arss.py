@@ -2978,7 +2978,7 @@ class Arr:
                         continue
                     albums = with_retry(
                         lambda a=artist: self.client.get_album(
-                            artistId=a["id"], allArtistAlbums=True
+                            artistId=a["id"], all_artist_albums=True
                         ),
                         retries=5,
                         backoff=0.5,
@@ -6131,6 +6131,17 @@ class Arr:
                 i.url.rstrip("/") for i in torrent.trackers if hasattr(i, "url")
             }
         except qbittorrentapi.exceptions.APIError as e:
+            message = str(e)
+            # Some qBittorrent builds intermittently return non-JSON/empty tracker payloads.
+            # Skip tracker-based logic for this torrent instead of delaying the entire loop.
+            if "JSONDecodeError" in message or "response parsing" in message.lower():
+                self.logger.warning(
+                    "Skipping tracker processing for torrent '%s' (%s): %s",
+                    getattr(torrent, "name", "<unknown>"),
+                    getattr(torrent, "hash", "<unknown>"),
+                    message,
+                )
+                return set(), set()
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, error_type="qbit")
@@ -8288,6 +8299,11 @@ class TorrentPolicyManager(Arr):
         self.monitored_trackers = Arr.merge_global_tracker_blocks()
         bad_msgs = Arr.global_bad_tracker_messages_union()
         self.seeding_mode_global_bad_tracker_msg = bad_msgs
+        self.seeding_mode_global_remove_torrent = -1
+        self.seeding_mode_global_max_upload_ratio = -1
+        self.seeding_mode_global_max_seeding_time = -1
+        self.seeding_mode_global_download_limit = -1
+        self.seeding_mode_global_upload_limit = -1
         self._install_tracker_index(
             build_tracker_index(self.monitored_trackers, bad_tracker_messages=bad_msgs)
         )
