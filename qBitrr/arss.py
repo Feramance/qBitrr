@@ -4249,28 +4249,36 @@ class Arr:
                             str(customFormatMet).ljust(5),
                         )
 
-                        db_commands = self.model_file.insert(
-                            Title=title,
-                            Monitored=monitored,
-                            ArtistTitle=artistName,
-                            ArtistId=artistId,
-                            ForeignAlbumId=foreignAlbumId,
-                            ReleaseDate=releaseDate,
-                            EntryId=entryId,
-                            Searched=searched,
-                            AlbumFileId=albumFileId,
-                            IsRequest=request,
-                            QualityMet=qualityMet,
-                            Upgrade=False,
-                            MinCustomFormatScore=minCustomFormat,
-                            CustomFormatScore=customFormat,
-                            CustomFormatMet=customFormatMet,
-                            Reason=reason,
-                            QualityProfileId=qualityProfileId,
-                            QualityProfileName=qualityProfileName,
-                            ArrInstance=self._name,
-                        ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
-                        db_commands.execute()
+                        updated_rows = (
+                            self.model_file.update(**to_update)
+                            .where(
+                                (self.model_file.EntryId == entryId)
+                                & (self.model_file.ArrInstance == self._name)
+                            )
+                            .execute()
+                        )
+                        if updated_rows == 0:
+                            self.model_file.insert(
+                                Title=title,
+                                Monitored=monitored,
+                                ArtistTitle=artistName,
+                                ArtistId=artistId,
+                                ForeignAlbumId=foreignAlbumId,
+                                ReleaseDate=releaseDate,
+                                EntryId=entryId,
+                                Searched=searched,
+                                AlbumFileId=albumFileId,
+                                IsRequest=request,
+                                QualityMet=qualityMet,
+                                Upgrade=False,
+                                MinCustomFormatScore=minCustomFormat,
+                                CustomFormatScore=customFormat,
+                                CustomFormatMet=customFormatMet,
+                                Reason=reason,
+                                QualityProfileId=qualityProfileId,
+                                QualityProfileName=qualityProfileName,
+                                ArrInstance=self._name,
+                            ).execute()
 
                         # Store tracks for this album (Lidarr only)
                         if self.track_file_model:
