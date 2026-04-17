@@ -3566,7 +3566,10 @@ class Arr:
                             CustomFormatMet=customFormatMet,
                             Reason=reason,
                             ArrInstance=self._name,
-                        ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
+                        ).on_conflict(
+                            conflict_target=[self.model_file.EntryId, self.model_file.ArrInstance],
+                            update=to_update,
+                        )
                         db_commands.execute()
                     else:
                         db_commands = self.model_file.delete().where(
@@ -3737,7 +3740,11 @@ class Arr:
                             QualityProfileName=qualityProfileName,
                             ArrInstance=self._name,
                         ).on_conflict(
-                            conflict_target=[self.series_file_model.EntryId], update=to_update
+                            conflict_target=[
+                                self.series_file_model.EntryId,
+                                self.series_file_model.ArrInstance,
+                            ],
+                            update=to_update,
                         )
                         db_commands.execute()
 
@@ -3981,7 +3988,10 @@ class Arr:
                         QualityProfileId=qualityProfileId,
                         QualityProfileName=qualityProfileName,
                         ArrInstance=self._name,
-                    ).on_conflict(conflict_target=[self.model_file.EntryId], update=to_update)
+                    ).on_conflict(
+                        conflict_target=[self.model_file.EntryId, self.model_file.ArrInstance],
+                        update=to_update,
+                    )
                     db_commands.execute()
                 else:
                     db_commands = self.model_file.delete().where(
@@ -4249,36 +4259,31 @@ class Arr:
                             str(customFormatMet).ljust(5),
                         )
 
-                        updated_rows = (
-                            self.model_file.update(to_update)
-                            .where(
-                                (self.model_file.EntryId == entryId)
-                                & (self.model_file.ArrInstance == self._name)
-                            )
-                            .execute()
+                        db_commands = self.model_file.insert(
+                            Title=title,
+                            Monitored=monitored,
+                            ArtistTitle=artistName,
+                            ArtistId=artistId,
+                            ForeignAlbumId=foreignAlbumId,
+                            ReleaseDate=releaseDate,
+                            EntryId=entryId,
+                            Searched=searched,
+                            AlbumFileId=albumFileId,
+                            IsRequest=request,
+                            QualityMet=qualityMet,
+                            Upgrade=False,
+                            MinCustomFormatScore=minCustomFormat,
+                            CustomFormatScore=customFormat,
+                            CustomFormatMet=customFormatMet,
+                            Reason=reason,
+                            QualityProfileId=qualityProfileId,
+                            QualityProfileName=qualityProfileName,
+                            ArrInstance=self._name,
+                        ).on_conflict(
+                            conflict_target=[self.model_file.EntryId, self.model_file.ArrInstance],
+                            update=to_update,
                         )
-                        if updated_rows == 0:
-                            self.model_file.insert(
-                                Title=title,
-                                Monitored=monitored,
-                                ArtistTitle=artistName,
-                                ArtistId=artistId,
-                                ForeignAlbumId=foreignAlbumId,
-                                ReleaseDate=releaseDate,
-                                EntryId=entryId,
-                                Searched=searched,
-                                AlbumFileId=albumFileId,
-                                IsRequest=request,
-                                QualityMet=qualityMet,
-                                Upgrade=False,
-                                MinCustomFormatScore=minCustomFormat,
-                                CustomFormatScore=customFormat,
-                                CustomFormatMet=customFormatMet,
-                                Reason=reason,
-                                QualityProfileId=qualityProfileId,
-                                QualityProfileName=qualityProfileName,
-                                ArrInstance=self._name,
-                            ).execute()
+                        db_commands.execute()
 
                         # Store tracks for this album (Lidarr only)
                         if self.track_file_model:
@@ -4293,7 +4298,8 @@ class Arr:
                                 if tracks and isinstance(tracks, list):
                                     # First, delete existing tracks for this album
                                     self.track_file_model.delete().where(
-                                        self.track_file_model.AlbumId == entryId
+                                        (self.track_file_model.AlbumId == entryId)
+                                        & (self.track_file_model.ArrInstance == self._name)
                                     ).execute()
 
                                     # Insert new tracks
@@ -4471,7 +4477,11 @@ class Arr:
                             MinCustomFormatScore=minCustomFormat,
                             ArrInstance=self._name,
                         ).on_conflict(
-                            conflict_target=[self.artists_file_model.EntryId], update=to_update
+                            conflict_target=[
+                                self.artists_file_model.EntryId,
+                                self.artists_file_model.ArrInstance,
+                            ],
+                            update=to_update,
                         )
                         db_commands.execute()
 
@@ -4479,7 +4489,8 @@ class Arr:
                         # No need to recursively process albums here to avoid duplication
                     else:
                         db_commands = self.artists_file_model.delete().where(
-                            self.artists_file_model.EntryId == EntryId
+                            (self.artists_file_model.EntryId == EntryId)
+                            & (self.artists_file_model.ArrInstance == self._name)
                         )
                         db_commands.execute()
 

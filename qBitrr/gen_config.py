@@ -180,7 +180,7 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        "5.8.8",
+        "5.10.1",
     )
     _gen_default_line(
         settings,
@@ -1963,6 +1963,10 @@ def apply_config_migrations(config: MyConfig) -> None:
     # Consolidate HitAndRunMode to single key and/or/disabled (< 5.9.2 or 5.9.2 with ClearMode)
     if _migrate_hnr_single_key(config):
         changes_made = True
+
+    # Database schema migrations are applied during DB startup in qBitrr.database
+    # and tracked with SQLite PRAGMA user_version. ConfigVersion is still bumped here
+    # so existing installs pick up release-level migration notes consistently.
 
     # Validate and fill config (this also ensures ConfigVersion field exists)
     if _validate_and_fill_config(config):
