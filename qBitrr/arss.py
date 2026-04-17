@@ -4250,7 +4250,7 @@ class Arr:
                         )
 
                         updated_rows = (
-                            self.model_file.update(**to_update)
+                            self.model_file.update(to_update)
                             .where(
                                 (self.model_file.EntryId == entryId)
                                 & (self.model_file.ArrInstance == self._name)
