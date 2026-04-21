@@ -32,7 +32,7 @@ qBitrr's configuration is organized into several logical sections, each controll
   [Lidarr-Music.EntrySearch]
 ```
 
-Section names use the pattern `Arr-Name` (e.g. `Radarr-Movies`, `Sonarr-TV`), not `[[Radarr]]`.
+Section names use the pattern `Arr-Name` (e.g. `Radarr-Movies`, `Sonarr-TV`), not legacy array-table instance syntax.
 
 **Minimum required:**
 ```toml
@@ -95,8 +95,7 @@ Configure at least one Arr application:
 
 **Minimum required:**
 ```toml
-[[Radarr]]
-Name = "Radarr"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "your-api-key-here"
 ```
@@ -354,8 +353,7 @@ Port = 8080
 Username = "admin"
 Password = "adminadmin"
 
-[[Radarr]]
-Name = "Radarr"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "your-radarr-api-key"
 ```
@@ -369,18 +367,15 @@ Complete media server with movies, TV, and music:
 Host = "http://localhost"
 Port = 8080
 
-[[Radarr]]
-Name = "Radarr-Movies"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "radarr-api-key"
 
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 APIKey = "sonarr-api-key"
 
-[[Lidarr]]
-Name = "Lidarr-Music"
+[Lidarr-Music]
 URI = "http://localhost:8686"
 APIKey = "lidarr-api-key"
 ```
@@ -394,8 +389,7 @@ Using Docker with custom network:
 Host = "http://qbittorrent"  # Container name
 Port = 8080
 
-[[Radarr]]
-Name = "Radarr"
+[Radarr-Movies]
 URI = "http://radarr:7878"   # Container name
 APIKey = "your-api-key"
 ```
@@ -445,8 +439,7 @@ Follow this recommended workflow when setting up qBitrr:
 
 3. **Configure Arr Instance(s)**:
    ```toml
-   [[Radarr]]
-   Name = "Radarr-Movies"
+   [Radarr-Movies]
    URI = "http://radarr:7878"
    APIKey = "your-radarr-api-key"
    ```
@@ -459,36 +452,36 @@ Choose which features to enable:
 
 **For Beginners** - Start simple:
 ```toml
-[[Radarr]]
+[Radarr-Movies]
 # Basic health monitoring only
-InstantImport = true
-HealthCheck = true
+Managed = true
+ReSearch = true
 ```
 
 **For Intermediate** - Add automation:
 ```toml
-[Radarr.EntrySearch]
+[Radarr-Movies.EntrySearch]
 SearchMissing = true
 SearchRequestsEvery = 300
 
-[Radarr.Torrent]
+[Radarr-Movies.Torrent]
 MaximumETA = 86400
 StalledDelay = 30
 ```
 
 **For Advanced** - Full automation:
 ```toml
-[Radarr.EntrySearch]
+[Radarr-Movies.EntrySearch]
 SearchMissing = true
 DoUpgradeSearch = true
 QualityUnmetSearch = true
 CustomFormatUnmetSearch = true
 
-[Radarr.Torrent.SeedingMode]
+[Radarr-Movies.Torrent.SeedingMode]
 MaxUploadRatio = 2.0
 MaxSeedingTime = 604800
 
-[Radarr.Overseerr]
+[Radarr-Movies.EntrySearch.Overseerr]
 OverseerrURL = "http://overseerr:5055"
 OverseerrAPIKey = "your-key"
 ```
@@ -558,22 +551,20 @@ Port = 8080
 Username = "admin"
 Password = "adminadmin"
 
-[[Radarr]]
-Name = "Radarr-Movies"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "your-radarr-api-key"
 Category = "radarr"
 
-[Radarr.Torrent]
+[Radarr-Movies.Torrent]
 MaximumETA = 86400
 
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 APIKey = "your-sonarr-api-key"
 Category = "sonarr"
 
-[Sonarr.Torrent]
+[Sonarr-TV.Torrent]
 MaximumETA = 172800  # 48 hours for TV
 ```
 
@@ -591,12 +582,11 @@ AutoPauseResume = true
 Host = "http://qbittorrent"
 Port = 8080
 
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 URI = "http://radarr:7878"
 APIKey = "radarr-api-key"
 Category = "radarr-4k"
-ImportMode = "Hardlink"
+importMode = "Auto"
 
 [Radarr-4K.EntrySearch]
 SearchMissing = true
@@ -642,18 +632,15 @@ Host = "0.0.0.0"
 Port = 6969
 Token = "change-this-secret-token"
 
-[[Radarr]]
-Name = "Radarr"
+[Radarr-Movies]
 URI = "http://radarr:7878"  # Container name
 APIKey = "${RADARR_API_KEY}"  # From environment
 
-[[Sonarr]]
-Name = "Sonarr"
+[Sonarr-TV]
 URI = "http://sonarr:8989"  # Container name
 APIKey = "${SONARR_API_KEY}"  # From environment
 
-[[Lidarr]]
-Name = "Lidarr"
+[Lidarr-Music]
 URI = "http://lidarr:8686"  # Container name
 APIKey = "${LIDARR_API_KEY}"  # From environment
 ```
@@ -670,12 +657,11 @@ LogLevel = "INFO"
 Host = "http://localhost"
 Port = 8080
 
-[[Radarr]]
-Name = "Radarr-Private"
+[Radarr-Private]
 URI = "http://localhost:7878"
 APIKey = "radarr-api-key"
 Category = "radarr-private"
-ImportMode = "Copy"  # Keep seeding after import
+importMode = "Copy"  # Keep seeding after import
 
 [Radarr-Private.Torrent]
 DoNotRemoveSlow = true  # Never remove slow torrents
@@ -705,8 +691,7 @@ Setup with Overseerr request management:
 Host = "http://qbittorrent"
 Port = 8080
 
-[[Radarr]]
-Name = "Radarr-1080p"
+[Radarr-1080p]
 URI = "http://radarr:7878"
 APIKey = "radarr-api-key"
 Category = "radarr-1080p"
@@ -721,8 +706,7 @@ OverseerrAPIKey = "overseerr-api-key"
 ApprovedOnly = true
 Is4K = false
 
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 URI = "http://radarr4k:7878"
 APIKey = "radarr4k-api-key"
 Category = "radarr-4k"
@@ -809,7 +793,7 @@ TOMLDecodeError: Invalid TOML syntax
 **Solutions**:
 - Check for missing quotes around strings
 - Ensure proper section headers: `[Settings]` not `[settings]`
-- Use correct array syntax: `[[Radarr]]` for instances
+- Use named Arr instance sections like `[Radarr-Movies]`
 - Validate at [TOML Checker](https://www.toml-lint.com/)
 
 **Example fixes**:
@@ -821,10 +805,10 @@ Host = http://localhost  # Missing quotes!
 Host = "http://localhost"
 
 # Wrong
-[radarr]  # Lowercase, should be array
+[radarr]  # Invalid section name for Arr instance
 
 # Right
-[[Radarr]]  # Double brackets for array
+[Radarr-Movies]  # Named Arr instance section
 ```
 
 ### Connection Failures
@@ -878,10 +862,10 @@ docker cp qbitrr:/config/config.toml ./config.toml.backup
 
 ```toml
 # config.toml
-[[Radarr]]
+[Radarr-Movies]
 APIKey = "${RADARR_API_KEY}"
 
-[[Sonarr]]
+[Sonarr-TV]
 APIKey = "${SONARR_API_KEY}"
 ```
 
