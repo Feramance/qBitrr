@@ -100,6 +100,9 @@ jobs:
     needs:
     - prepare_release
     if: needs.prepare_release.result == 'success'
+    outputs:
+      release_tag: ${{ steps.check_release.outputs.tag }}
+      release_exists: ${{ steps.check_release.outputs.exists }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -109,9 +112,10 @@ jobs:
     - name: Check if release exists
       id: check_release
       env:
-        GH_TOKEN: ${{ secrets.PAT }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         TAG="v${{ needs.prepare_release.outputs.new_version }}"
+        echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
         if gh release view "${TAG}" --repo ${{ github.repository }} >/dev/null 2>&1; then
           echo "exists=true" >> "${GITHUB_OUTPUT}"
           echo "⚠ Release ${TAG} already exists, will not create duplicate"
@@ -579,6 +583,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
     - prepare_release
+    - create_release
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
@@ -597,10 +602,9 @@ jobs:
         git pull origin master
         echo "✓ Latest changes pulled"
 
-    - name: Extract and update release notes from changelog
+    - name: Extract release notes from changelog
       id: extract_notes
       env:
-        GH_TOKEN: ${{ secrets.PAT }}
         VERSION: ${{ needs.prepare_release.outputs.new_version }}
       run: |
         TAG="v${VERSION}"
@@ -644,52 +648,43 @@ jobs:
             sys.exit(0)
         PYEOF
 
-        # Update the release with the changelog content
-        if [ -f /tmp/release_notes.md ]; then
-          echo "Updating release ${TAG} with changelog content..."
-          gh release edit "${TAG}" --notes-file /tmp/release_notes.md --repo ${{ github.repository }}
-          echo "✓ Release notes updated"
-        else
-          echo "⚠ No release notes file found, skipping update"
-        fi
     - name: Publish release
       if: steps.extract_notes.outcome == 'success'
       env:
-        GH_TOKEN: ${{ secrets.PAT }}
+        GH_TOKEN: ${{ github.token }}
       run: |
-        TAG="v${{ needs.prepare_release.outputs.new_version }}"
-        echo "Publishing release ${TAG} and marking as latest..."
+        TAG="${{ needs.create_release.outputs.release_tag }}"
+        echo "Publishing release ${TAG}, updating notes, and marking as latest..."
+        gh release edit "${TAG}" \
+          --notes-file /tmp/release_notes.md \
+          --draft=false \
+          --latest \
+          --repo ${{ github.repository }}
+        echo "✓ Release ${TAG} published successfully"
 
-        # Check if release exists before publishing
-        if gh release view "${TAG}" --repo ${{ github.repository }} >/dev/null 2>&1; then
-          gh release edit "${TAG}" --draft=false --latest --repo ${{ github.repository }}
-          echo "✓ Release ${TAG} published successfully"
-        else
-          echo "⚠ Release ${TAG} does not exist, cannot publish"
-          exit 1
-        fi
-
-    - name: Clean up old draft releases
+    - name: Clean up stale draft for current tag
       if: always()
       env:
-        GH_TOKEN: ${{ secrets.PAT }}
+        GH_TOKEN: ${{ github.token }}
       run: |
-        echo "Checking for stale draft releases..."
+        TAG="${{ needs.create_release.outputs.release_tag }}"
+        echo "Checking for stale drafts matching ${TAG}..."
+        DRAFT_IDS="$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+          --jq ".[] | select(.draft == true and .tag_name == \"${TAG}\") | .id")"
 
-        # Get all draft releases
-        gh api repos/${{ github.repository }}/releases \
-          --jq '.[] | select(.draft == true) | "\(.tag_name)|\(.id)"' | \
-        while IFS='|' read -r tag release_id; do
-          # Check if a published release with the same tag exists
-          if gh release view "${tag}" --repo ${{ github.repository }} 2>/dev/null | grep -q "^draft:[[:space:]]*false"; then
-            echo "Found published release for ${tag}, deleting draft release ID ${release_id}..."
+        if [ -z "${DRAFT_IDS}" ]; then
+          echo "No stale drafts found for ${TAG}"
+          exit 0
+        fi
+
+        while IFS= read -r release_id; do
+          if [ -n "${release_id}" ]; then
+            echo "Deleting stale draft release ID ${release_id} for ${TAG}..."
             gh api -X DELETE "repos/${{ github.repository }}/releases/${release_id}" || echo "⚠ Failed to delete draft ${release_id}"
-          else
-            echo "Draft release ${tag} has no published counterpart, keeping it"
           fi
-        done
+        done <<< "${DRAFT_IDS}"
 
-        echo "✓ Draft cleanup complete"
+        echo "✓ Current-tag draft cleanup complete"
 concurrency:
   group: release
-  cancel-in-progress: false
+  cancel-in-progress: true
