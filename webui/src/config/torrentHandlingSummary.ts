@@ -104,8 +104,17 @@ export function getArrTorrentHandlingSummary(state: ConfigDocument | null): stri
   const doNotRemoveSlow = Boolean(torrent.DoNotRemoveSlow);
   const stalledDelayMin = parseDurationToMinutes(torrent.StalledDelay, -1);
   const reSearchStalled = Boolean(torrent.ReSearchStalled);
+  const sortTorrents =
+    Array.isArray(torrent.Trackers) &&
+    torrent.Trackers.some((t: { SortTorrents?: boolean }) => Boolean(t.SortTorrents));
 
   blocks.push("### How a torrent is handled");
+
+  if (sortTorrents) {
+    blocks.push(
+      "Torrents are sorted in the qBittorrent queue by tracker priority (highest first). When AddTags are set on tracker rows, order prefers those labels when they are on the torrent. Requires qBittorrent Torrent Queuing to be enabled."
+    );
+  }
 
   // 1. New / downloading
   const newParts: string[] = [];

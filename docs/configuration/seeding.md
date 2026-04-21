@@ -45,8 +45,54 @@ Seeding is configured in the `[<Arr>-<Name>.Torrent.SeedingMode]` section. Track
 
 Trackers defined under `[[qBit.Trackers]]` are automatically available to every Arr instance. If an Arr instance defines a tracker with the same URI, the Arr version **fully replaces** the qBit version for that Arr only.
 
-```
+```text
 Final trackers = qBit trackers (base) ← Arr trackers override by URI
+```
+
+---
+
+### SortTorrents
+
+**Type:** Boolean (per-tracker)
+**Default:** `false`
+
+Set on individual tracker entries in `[[qBit.Trackers]]` or `[[<Arr>.Torrent.Trackers]]`, **right under [Priority](#priority)**.
+
+When `true` on **any** merged tracker entry, qBitrr enables tracker-order processing in the global **`TorrentPolicyManager`** worker (which also handles free-space policy) so the qBittorrent queue follows **tracker priority** (highest first). The worker sleeps **`Settings.LoopSleepTimer`** seconds between passes (same as other torrent loops; default **5**).
+
+Before each sort pass, `TorrentPolicyManager` performs tracker checks and managed `AddTags` reconciliation for monitored torrents. When this mode is enabled, this pre-sort path is the single owner of tracker/tag sync (Arr loops skip duplicate sync for those categories).
+
+When sorting is disabled, `TorrentPolicyManager` does not own tracker/tag sync and Arr category loops continue using the legacy tracker/tag maintenance path.
+
+**Order rule:** If your merged tracker rows define **`AddTags`**, queue order considers the **maximum `Priority`** among those labels that are **currently on the torrent** and also the announce-URL / host-based priority (same as when no tags match). The **higher** of the two values is used, so announce-based ordering is always a fallback when it would place the torrent higher, and when no configured tag is present only announce matching applies. Stale **`AddTags`** labels are removed when the tracker no longer applies (only tags listed in merged tracker config are managed this way).
+
+Within the same tracker-priority tier, torrents are ordered by `added_on` with **newest first** in the resulting queue.
+
+Torrents whose trackers are not in your configured trackers list are assigned the lowest priority and appear at the bottom.
+
+**Merge scope:** Sorting uses one unified map: start with `[[qBit.Trackers]]`, then merge every `[[<Arr>.Torrent.Trackers]]` block (same URI-keyed rules as per-Arr merge—**later Arr sections in the config file overwrite earlier entries for the same URI**, including overrides to qBit-level defaults). `RemoveDeadTrackers` / `RemoveTrackerWithMessage` for deciding which announce URLs count as "removed" during priority resolution use the **union** of all Arr `Torrent.SeedingMode` settings (`RemoveDeadTrackers` is enabled if **any** Arr enables it; messages are combined and deduplicated).
+
+Reordering applies to **all qBitrr-monitored categories** on each qBittorrent instance—the union of every Arr `Category` and every qBit instance `ManagedCategories` (same scope as free-space monitoring). Torrents outside that set are not reordered. If there are no monitored categories, the `TorrentPolicyManager` worker is not started.
+
+`TorrentPolicyManager` starts whenever monitored categories exist and at least one qBittorrent instance is configured. Feature flags still control behavior inside the worker: with sorting disabled, queue sorting and tracker/tag ownership are skipped; with free-space disabled, free-space pause/resume actions are skipped.
+
+**Requirements:**
+
+- **qBittorrent Torrent Queuing** must be enabled (Options → BitTorrent → Torrent Queuing). When queuing is off, `priority` is `-1` and queue moves have no effect.
+
+**Queue split:** qBittorrent keeps separate download and seeding queues. qBitrr classifies **seeding** for ordering as upload states including **forced upload** and **checking** after complete (`forcedUP`, `checkingUP`), not only normal seeding. Reorder calls are applied one-by-one (lowest tier first) and seeding queue promotions are executed before downloading queue promotions.
+
+**Verification:** In the Web API, `priority` is the queue position (`-1` if queuing is disabled). Compare the **downloading** and **seeding** queues in the UI if order looks wrong; a torrent in **forced upload** belongs on the seeding side.
+
+**Example:**
+
+```toml
+[[Radarr-Movies.Torrent.Trackers]]
+Name = "BeyondHD"
+URI = "https://tracker.beyond-hd.me/announce"
+Priority = 10
+SortTorrents = true
+MaxUploadRatio = 1.0
 ```
 
 ---
@@ -150,14 +196,14 @@ Maximum upload ratio (uploaded/downloaded) before triggering removal.
 
 **Ratio calculation:**
 
-```
+```text
 Ratio = Total Uploaded ÷ Total Downloaded
 ```
 
 **Examples:**
 
 | Ratio | Downloaded | Uploaded | Meaning |
-|-------|------------|----------|---------|
+| ----- | ---------- | -------- | ------- |
 | `1.0` | 10 GB | 10 GB | 1:1 ratio |
 | `2.0` | 10 GB | 20 GB | 2:1 ratio |
 | `0.5` | 10 GB | 5 GB | 0.5:1 ratio |
@@ -170,6 +216,7 @@ Ratio = Total Uploaded ÷ Total Downloaded
 - `2.0` - Very generous
 - `5.0` - Maximum for some trackers
 
+<!-- markdownlint-disable MD046 -->
 !!! warning "Private Tracker Requirements"
     Many private trackers **require** minimum ratios:
 
@@ -178,6 +225,7 @@ Ratio = Total Uploaded ÷ Total Downloaded
     - New users: May have higher requirements
 
     Check your tracker's rules before setting this value!
+<!-- markdownlint-enable MD046 -->
 
 ---
 
@@ -195,7 +243,7 @@ Maximum seeding duration before triggering removal.
 **Time conversions:**
 
 | Duration | Seconds | Config Value |
-|----------|---------|--------------|
+| -------- | ------- | ------------ |
 | 1 hour | 3,600 | `3600` |
 | 6 hours | 21,600 | `21600` |
 | 12 hours | 43,200 | `43200` |
@@ -236,7 +284,7 @@ Controls when qBitrr removes torrents based on seeding limits.
 **Options:**
 
 | Value | Condition | Behavior |
-|-------|-----------|----------|
+| ----- | --------- | -------- |
 | `-1` | **Never** | Keep seeding indefinitely |
 | `1` | **Ratio** | Remove when `MaxUploadRatio` reached |
 | `2` | **Time** | Remove when `MaxSeedingTime` reached |
@@ -250,7 +298,7 @@ Controls when qBitrr removes torrents based on seeding limits.
 ```
 
 | RemoveTorrent | After 1 day @ 3.0 ratio | After 5 days @ 0.5 ratio | After 4 days @ 2.5 ratio |
-|---------------|------------------------|-------------------------|-------------------------|
+| ------------ | ---------------------- | ----------------------- | ----------------------- |
 | `-1` | Keep | Keep | Keep |
 | `1` (ratio only) | Remove (ratio met) | Keep (ratio not met) | Remove (ratio met) |
 | `2` (time only) | Keep (time not met) | Remove (time met) | Remove (time met) |
@@ -260,7 +308,7 @@ Controls when qBitrr removes torrents based on seeding limits.
 **Recommendations:**
 
 | Use Case | RemoveTorrent | MaxUploadRatio | MaxSeedingTime |
-|----------|---------------|----------------|----------------|
+| -------- | ------------- | -------------- | -------------- |
 | **Public trackers** | `3` (OR) | `1.0` | `86400` (1 day) |
 | **Private trackers** | `4` (AND) | `1.5` | `259200` (3 days) |
 | **Long-term seeding** | `-1` (Never) | `-1` | `-1` |
@@ -292,6 +340,7 @@ When `true`:
 - Clean up dead backup trackers
 - Maintain healthy tracker lists
 
+<!-- markdownlint-disable MD046 -->
 !!! warning "Private Tracker Caution"
     Be careful with private trackers:
 
@@ -300,6 +349,7 @@ When `true`:
     - May lose credit for seeding time
 
     **Recommendation:** Keep `false` for private trackers.
+<!-- markdownlint-enable MD046 -->
 
 ---
 
@@ -612,7 +662,7 @@ HitAndRunMode = "and"   # or "or", "disabled"
 Single setting for Hit and Run (HnR) protection for this tracker:
 
 | Value | Meaning |
-|-------|---------|
+| ----- | ------- |
 | `"and"` | HnR enabled; clears only when **both** minimum ratio **and** minimum time are met |
 | `"or"` | HnR enabled; clears when **either** minimum ratio **or** minimum time is met |
 | `"disabled"` | No HnR protection; torrents can be removed per `RemoveTorrent` only |
@@ -854,6 +904,7 @@ importMode = "Move"
 - May violate private tracker rules
 - Hit-and-run risk
 
+<!-- markdownlint-disable MD046 -->
 !!! danger "Private Tracker Warning"
     Using `importMode = "Move"` on private trackers can result in:
 
@@ -863,6 +914,7 @@ importMode = "Move"
     - Permanent ban
 
     **Always use `importMode = "Copy"` for private trackers.**
+<!-- markdownlint-enable MD046 -->
 
 ---
 
@@ -896,7 +948,7 @@ importMode = "Copy"
 
 ### Private Music Trackers
 
-**RED, OPS, APL**
+#### RED, OPS, APL
 
 ```toml
 MaxUploadRatio = 1.0
@@ -952,7 +1004,7 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 
 **Example log output:**
 
-```
+```text
 2025-11-27 14:00:00 - INFO - Torrent reached 2.0 ratio: The Matrix (1999)
 2025-11-27 14:00:05 - INFO - Removing torrent (ratio met): The Matrix (1999)
 2025-11-27 14:00:10 - INFO - Torrent seeded for 7 days: Inception (2010)
@@ -970,23 +1022,28 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 **Solutions:**
 
 1. **Check RemoveTorrent setting:**
+
    ```toml
    RemoveTorrent = 3  # Must not be -1
    ```
 
 2. **Verify limits are set:**
+
    ```toml
    MaxUploadRatio = 2.0  # Must not be -1
    MaxSeedingTime = 604800  # Must not be -1
    ```
+
    If `RemoveTorrent` is 1–4 but **neither** `MaxUploadRatio` nor `MaxSeedingTime` is set (both -1 or unset), qBitrr will **not** remove torrents for seeding limits and will log a single warning per run. Set at least one limit to enable ratio/time-based removal.
 
 3. **Check import mode:**
+
    ```toml
    importMode = "Copy"  # Files must exist for seeding
    ```
 
 4. **Review logs:**
+
    ```bash
    grep -i "seed\|ratio" ~/logs/Radarr-Movies.log
    ```
@@ -1000,12 +1057,14 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 **Solutions:**
 
 1. **Increase limits:**
+
    ```toml
    MaxUploadRatio = 2.0  # Up from 1.0
    MaxSeedingTime = 604800  # 7 days instead of 3
    ```
 
 2. **Change removal condition:**
+
    ```toml
    RemoveTorrent = 4  # Require BOTH (was 3 = OR)
    ```
@@ -1023,11 +1082,13 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
 **Solutions:**
 
 1. **Use Copy mode:**
+
    ```toml
    importMode = "Copy"
    ```
 
 2. **Increase seeding requirements:**
+
    ```toml
    MaxUploadRatio = 1.5  # Higher than tracker minimum
    MaxSeedingTime = 432000  # 5 days
@@ -1035,6 +1096,7 @@ tail -f ~/logs/Radarr-Movies.log | grep -i "remov\|seed\|ratio"
    ```
 
 3. **Never remove:**
+
    ```toml
    RemoveTorrent = -1  # Seed forever
    ```
@@ -1156,7 +1218,7 @@ When a torrent has multiple trackers, the tracker with the highest [`Priority`](
 TorrentLeech enforces HnR with seeding time requirements based on user class:
 
 | User Class | Minimum Seed Time |
-|------------|-------------------|
+| ---------- | ----------------- |
 | Registered | 10 days |
 | Power User | 8 days |
 | Super User | 7 days |

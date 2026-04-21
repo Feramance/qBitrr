@@ -95,11 +95,11 @@ const getSelectStyles = (isDark: boolean) => {
     option: (base: CSSObjectWithLabel, state: { isFocused: boolean }) => ({
       ...base,
       background: state.isFocused
-        ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
+        ? (isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.1)')
         : (isDark ? '#0f131a' : '#ffffff'),
       color: isDark ? '#eaeef2' : '#1d1d1f',
       '&:active': {
-        background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
+        background: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
       }
     }),
     singleValue: (base: CSSObjectWithLabel) => ({
@@ -1137,6 +1137,11 @@ const ARR_TRACKER_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
+  },
+  {
+    label: "Sort Torrents by Tracker Priority",
+    path: ["SortTorrents"],
+    type: "checkbox",
   },
   {
     label: "Maximum ETA",
@@ -2695,6 +2700,7 @@ function FieldGroup({
           Name: "",
           URI: "",
           Priority: 0,
+          SortTorrents: false,
           MaximumETA: -1,
           DownloadRateLimit: -1,
           UploadRateLimit: -1,

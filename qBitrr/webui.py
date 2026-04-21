@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib.resources
 import io
+import json
 import logging
 import os
 import re
@@ -17,7 +19,7 @@ from authlib.integrations.flask_client import OAuth
 from flask import Flask, jsonify, redirect, request, send_file, session
 from peewee import fn
 
-from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
+from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.db_lock import database_lock
@@ -27,6 +29,77 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
 )
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
+
+_openapi_spec_lock = threading.Lock()
+_openapi_spec: dict[str, Any] | None = None
+_openapi_spec_api_only: dict[str, Any] | None = None
+
+
+def _load_openapi_spec() -> dict[str, Any]:
+    """Load bundled OpenAPI document (cached, thread-safe)."""
+    global _openapi_spec
+    with _openapi_spec_lock:
+        if _openapi_spec is None:
+            raw = (
+                importlib.resources.files("qBitrr")
+                .joinpath("openapi.json")
+                .read_text(encoding="utf-8")
+            )
+            _openapi_spec = json.loads(raw)
+        return _openapi_spec
+
+
+def _load_openapi_spec_api_only() -> dict[str, Any]:
+    """Load a cached OpenAPI view that excludes `/web/*` paths."""
+    global _openapi_spec, _openapi_spec_api_only
+    with _openapi_spec_lock:
+        if _openapi_spec is None:
+            raw = (
+                importlib.resources.files("qBitrr")
+                .joinpath("openapi.json")
+                .read_text(encoding="utf-8")
+            )
+            _openapi_spec = json.loads(raw)
+        if _openapi_spec_api_only is None:
+            filtered_paths = {
+                path: value
+                for path, value in _openapi_spec.get("paths", {}).items()
+                if not path.startswith("/web/")
+            }
+            _openapi_spec_api_only = {**_openapi_spec, "paths": filtered_paths}
+        return _openapi_spec_api_only
+
+
+def _swagger_ui_html(spec_url: str) -> str:
+    """Minimal Swagger UI page loading the given OpenAPI spec URL (same-origin)."""
+    spec_url_json = json.dumps(spec_url)
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>qBitrr API — Swagger UI</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui.css" integrity="sha384-+yyzNgM3K92sROwsXxYCxaiLWxWJ0G+v/9A+qIZ2rgefKgkdcmJI+L601cqPD/Ut" crossorigin="anonymous"/>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" integrity="sha384-qn5tagrAjZi8cSmvZ+k3zk4+eDEEUcP9myuR2J6V+/H6rne++v6ChO7EeHAEzqxQ" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" integrity="sha384-SiLF+uYBf9lVQW98s/XUYP14enXJN31bn0zu3BS1WFqr5hvnMF+w132WkE/v0uJw" crossorigin="anonymous"></script>
+  <script>
+    window.onload = function () {{
+      window.ui = SwaggerUIBundle({{
+        url: {spec_url_json},
+        dom_id: "#swagger-ui",
+        deepLinking: true,
+        persistAuthorization: true,
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        plugins: [SwaggerUIBundle.plugins.DownloadUrl],
+        layout: "StandaloneLayout",
+      }});
+    }};
+  </script>
+</body>
+</html>"""
 
 
 class _RateLimiter:
@@ -193,6 +266,14 @@ class WebUI:
                 "WebUI configured to listen on %s. Expose this only behind a trusted reverse proxy.",
                 self.host,
             )
+            if _auth_disabled():
+                self.logger.warning(
+                    "WebUI authentication is disabled: all API and WebUI actions are available "
+                    "without credentials to any client that can reach this port. If that is not "
+                    "intentional, enable authentication (see WebUI.AuthDisabled and login/token in "
+                    "the docs), bind WebUI.Host to 127.0.0.1, or place the service behind a "
+                    "trusted reverse proxy with its own access controls."
+                )
         self.app.logger.handlers.clear()
         self.app.logger.propagate = True
         self.app.logger.setLevel(self.logger.level)
@@ -1580,6 +1661,44 @@ class WebUI:
                 return jsonify({"error": "unauthorized"}), 401
             return None
 
+        def _openapi_json_response():
+            spec = _load_openapi_spec_api_only()
+            response = jsonify(spec)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+        def _swagger_ui_response(spec_path: str):
+            from flask import make_response
+
+            response = make_response(_swagger_ui_html(spec_path))
+            response.headers["Content-Type"] = "text/html; charset=utf-8"
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+        @app.get("/api/openapi.json")
+        def api_openapi_json():
+            if (resp := require_token()) is not None:
+                return resp
+            return _openapi_json_response()
+
+        @app.get("/web/openapi.json")
+        def web_openapi_json():
+            if (resp := require_token()) is not None:
+                return resp
+            return _openapi_json_response()
+
+        @app.get("/api/docs")
+        def api_swagger_docs():
+            if (resp := require_token()) is not None:
+                return resp
+            return _swagger_ui_response("/api/openapi.json")
+
+        @app.get("/web/docs")
+        def web_swagger_docs():
+            if (resp := require_token()) is not None:
+                return resp
+            return _swagger_ui_response("/web/openapi.json")
+
         @app.get("/ui")
         def ui_index():
             # Serve UI without requiring a token; API remains protected
@@ -1808,22 +1927,14 @@ class WebUI:
                 qbit_client = getattr(qbit_manager, "client", None)
                 category = getattr(arr_obj, "category", None)
 
-                if isinstance(arr_obj, FreeSpaceManager):
-                    metrics["metric_type"] = "free-space"
-                    if qbit_client:
-                        try:
-                            torrents = qbit_client.torrents_info(status_filter="all")
-                            count = 0
-                            for torrent in torrents:
-                                tags = getattr(torrent, "tags", "") or ""
-                                if "qBitrr-free_space_paused" in str(tags):
-                                    count += 1
-                            metrics["category"] = count
-                            metrics["queue"] = count
-                        except Exception:
-                            self.logger.debug(
-                                "Process metrics (free_space) fetch failed", exc_info=True
-                            )
+                if isinstance(arr_obj, TorrentPolicyManager):
+                    metrics["metric_type"] = "torrent-policy"
+                    metrics["category"] = int(getattr(arr_obj, "category_torrent_count", 0) or 0)
+                    # Keep queue metric aligned with monitored torrent count for process cards.
+                    metrics["queue"] = int(getattr(arr_obj, "category_torrent_count", 0) or 0)
+                    paused_for_space = int(getattr(arr_obj, "free_space_tagged_count", 0) or 0)
+                    if paused_for_space:
+                        metrics["free_space_paused"] = paused_for_space
                     return metrics
 
                 if isinstance(arr_obj, PlaceHolderArr):
@@ -1936,11 +2047,14 @@ class WebUI:
                     category_count = metrics.get("category")
                     if category_count is None:
                         category_count = getattr(arr_obj, "category_torrent_count", None)
+                    free_space_paused = metrics.get("free_space_paused")
                     metric_type = metrics.get("metric_type")
                     if queue_count is not None:
                         payload_dict["queueCount"] = queue_count
                     if category_count is not None:
                         payload_dict["categoryCount"] = category_count
+                    if free_space_paused is not None:
+                        payload_dict["freeSpacePaused"] = free_space_paused
                     if metric_type:
                         payload_dict["metricType"] = metric_type
 
@@ -2563,10 +2677,8 @@ class WebUI:
 
             # Add Arr-managed categories
             if hasattr(self.manager, "arr_manager") and self.manager.arr_manager:
-                from qBitrr.arss import FreeSpaceManager, PlaceHolderArr
-
                 for arr in self.manager.arr_manager.managed_objects.values():
-                    if isinstance(arr, (PlaceHolderArr, FreeSpaceManager)):
+                    if isinstance(arr, (PlaceHolderArr, TorrentPolicyManager)):
                         continue
                     try:
                         # Get the qBit instance for this Arr (use default for now)
@@ -3192,18 +3304,25 @@ class WebUI:
                 else:
                     # Create temporary Arr API client
                     self.logger.info("Creating temporary %s client for %s", arr_type, uri)
+                    if instance_key:
+                        skip_tls_servarr = CONFIG.get(
+                            f"{instance_key}.SkipTLSVerify", fallback=False
+                        )
+                    else:
+                        skip_tls_servarr = bool(data.get("skipTlsVerify", False))
+                    verify_ssl = not skip_tls_servarr
                     if arr_type == "radarr":
-                        from pyarr import RadarrAPI
+                        from qBitrr.pyarr_compat import RadarrAPI
 
-                        client = RadarrAPI(uri, api_key)
+                        client = RadarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "sonarr":
-                        from pyarr import SonarrAPI
+                        from qBitrr.pyarr_compat import SonarrAPI
 
-                        client = SonarrAPI(uri, api_key)
+                        client = SonarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     elif arr_type == "lidarr":
-                        from pyarr import LidarrAPI
+                        from qBitrr.pyarr_compat import LidarrAPI
 
-                        client = LidarrAPI(uri, api_key)
+                        client = LidarrAPI(uri, api_key, verify_ssl=verify_ssl)
                     else:
                         return (
                             jsonify({"success": False, "message": f"Invalid arrType: {arr_type}"}),
@@ -3224,7 +3343,8 @@ class WebUI:
                     from json import JSONDecodeError
 
                     import requests
-                    from pyarr.exceptions import PyarrServerError
+
+                    from qBitrr.pyarr_compat import PyarrServerError
 
                     max_retries = 3
                     retry_count = 0
@@ -3512,15 +3632,15 @@ class WebUI:
         # Determine client class based on name
         client_cls = None
         if re.match(r"^(Rad|rad)arr", instance_name):
-            from pyarr import RadarrAPI
+            from qBitrr.pyarr_compat import RadarrAPI
 
             client_cls = RadarrAPI
         elif re.match(r"^(Son|son|Anim|anim)arr", instance_name):
-            from pyarr import SonarrAPI
+            from qBitrr.pyarr_compat import SonarrAPI
 
             client_cls = SonarrAPI
         elif re.match(r"^(Lid|lid)arr", instance_name):
-            from pyarr import LidarrAPI
+            from qBitrr.pyarr_compat import LidarrAPI
 
             client_cls = LidarrAPI
         else:

@@ -35,11 +35,11 @@ const getSelectStyles = (isDark: boolean): StylesConfig<LogOption, false> => {
     option: (base: CSSObjectWithLabel, state: OptionProps<LogOption, false>) => ({
       ...base,
       background: state.isFocused
-        ? (isDark ? 'rgba(122, 162, 247, 0.15)' : 'rgba(0, 113, 227, 0.1)')
+        ? (isDark ? 'rgba(59, 130, 246, 0.15)' : 'rgba(37, 99, 235, 0.1)')
         : (isDark ? '#0f131a' : '#ffffff'),
       color: isDark ? '#eaeef2' : '#1d1d1f',
       '&:active': {
-        background: isDark ? 'rgba(122, 162, 247, 0.25)' : 'rgba(0, 113, 227, 0.2)',
+        background: isDark ? 'rgba(59, 130, 246, 0.25)' : 'rgba(37, 99, 235, 0.2)',
       }
     }),
     singleValue: (base: CSSObjectWithLabel) => ({

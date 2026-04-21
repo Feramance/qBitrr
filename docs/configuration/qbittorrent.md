@@ -21,7 +21,14 @@ Port = 8080
 # qBittorrent WebUI Authentication
 UserName = "admin"
 Password = "your-password"
+
+# Optional: set true only if the Web UI uses HTTPS with a self-signed or untrusted certificate
+SkipTLSVerify = false
 ```
+
+When **`SkipTLSVerify`** is **`true`**, qBitrr does not verify the TLS certificate for the qBittorrent Web API. Use only on trusted networks; verification is disabled for that connection (MITM risk).
+
+Additional qBittorrent instances use **`[qBit-<name>]`** with the same keys, including **`SkipTLSVerify`** per instance.
 
 !!! tip "Finding qBittorrent Settings"
     Open qBittorrent → **Tools** → **Options** → **Web UI** tab to find your connection details.

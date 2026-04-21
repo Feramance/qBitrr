@@ -162,6 +162,9 @@ UserName = "CHANGE_ME"
 # If you set "Bypass authentication on localhost or whitelisted IPs" remove this field.
 Password = "CHANGE_ME"
 
+# If true, do not verify TLS certificates for HTTPS WebUI (self-signed certs). Disables MITM protection for that connection.
+SkipTLSVerify = false
+
 # Categories managed directly by this qBit instance (not managed by Arr instances).
 # These categories will have seeding settings applied according to CategorySeeding configuration.
 # Example: ['downloads', 'private-tracker', 'long-term-seed']
@@ -228,6 +231,9 @@ URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
 APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi. Disables MITM protection for that connection.
+SkipTLSVerify = false
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "sonarr-tv"
@@ -329,6 +335,9 @@ OmbiAPIKey = "CHANGE_ME"
 # Only process approved requests
 ApprovedOnly = true
 
+# If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
+
 [Sonarr-TV.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
 # If this and Ombi are both enable, Ombi will be ignored
@@ -342,6 +351,9 @@ OverseerrAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
+
+# If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
 
 # Only for 4K Instances
 # Only for 4K Instances
@@ -430,6 +442,9 @@ URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
 APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi. Disables MITM protection for that connection.
+SkipTLSVerify = false
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "sonarr-anime"
@@ -531,6 +546,9 @@ OmbiAPIKey = "CHANGE_ME"
 # Only process approved requests
 ApprovedOnly = true
 
+# If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
+
 [Sonarr-Anime.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
 # If this and Ombi are both enable, Ombi will be ignored
@@ -544,6 +562,9 @@ OverseerrAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
+
+# If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
 
 # Only for 4K Instances
 # Only for 4K Instances
@@ -632,6 +653,9 @@ URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
 APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi. Disables MITM protection for that connection.
+SkipTLSVerify = false
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "radarr-1080"
@@ -724,6 +748,9 @@ OmbiAPIKey = "CHANGE_ME"
 # Only process approved requests
 ApprovedOnly = true
 
+# If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
+
 [Radarr-1080.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
 # If this and Ombi are both enable, Ombi will be ignored
@@ -737,6 +764,9 @@ OverseerrAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
+
+# If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
 
 # Only for 4K Instances
 # Only for 4K Instances
@@ -825,6 +855,9 @@ URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
 APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi. Disables MITM protection for that connection.
+SkipTLSVerify = false
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "radarr-4k"
@@ -917,6 +950,9 @@ OmbiAPIKey = "CHANGE_ME"
 # Only process approved requests
 ApprovedOnly = true
 
+# If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
+
 [Radarr-4K.EntrySearch.Overseerr]
 # Search Overseerr for pending requests (Will only work if 'SearchMissing' is enabled.)
 # If this and Ombi are both enable, Ombi will be ignored
@@ -930,6 +966,9 @@ OverseerrAPIKey = "CHANGE_ME"
 
 # Only process approved requests
 ApprovedOnly = true
+
+# If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.
+SkipTLSVerify = false
 
 # Only for 4K Instances
 # Only for 4K Instances
@@ -1018,6 +1057,9 @@ URI = "CHANGE_ME"
 
 # The Servarr API Key, Can be found it Settings > General > Security
 APIKey = "CHANGE_ME"
+
+# If true, do not verify TLS for this Servarr API (HTTPS). Disables MITM protection for that connection.
+SkipTLSVerify = false
 
 # Category applied by Servarr to torrents in qBitTorrent, can be found in Settings > Download Clients > qBit > Category
 Category = "lidarr-music"

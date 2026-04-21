@@ -180,7 +180,7 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        "5.8.8",
+        "5.10.1",
     )
     _gen_default_line(
         settings,
@@ -383,6 +383,15 @@ def _add_qbit_section(config: TOMLDocument):
     _gen_default_line(
         qbit,
         [
+            "If true, do not verify TLS certificates for HTTPS WebUI (self-signed certs). "
+            "Disables MITM protection for that connection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
+    _gen_default_line(
+        qbit,
+        [
             "Categories managed directly by this qBit instance (not managed by Arr instances).",
             "These categories will have seeding settings applied according to CategorySeeding configuration.",
             "Example: ['downloads', 'private-tracker', 'long-term-seed']",
@@ -528,6 +537,15 @@ def _gen_default_cat(category: str, config: TOMLDocument):
         "The Servarr API Key, Can be found it Settings > General > Security",
         "APIKey",
         "CHANGE_ME",
+    )
+    _gen_default_line(
+        cat_default,
+        [
+            "If true, do not verify TLS for this Servarr API (HTTPS). Does not affect Overseerr/Ombi.",
+            "Disables MITM protection for that connection.",
+        ],
+        "SkipTLSVerify",
+        False,
     )
     _gen_default_line(
         cat_default,
@@ -1003,6 +1021,14 @@ def _gen_default_ombi_table(category: str, search_table: Table):
     )
     _gen_default_line(ombi_table, "Ombi's API Key", "OmbiAPIKey", "CHANGE_ME")
     _gen_default_line(ombi_table, "Only process approved requests", "ApprovedOnly", True)
+    _gen_default_line(
+        ombi_table,
+        [
+            "If true, do not verify TLS for Ombi HTTPS (self-signed). Disables MITM protection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
     search_table.add("Ombi", ombi_table)
 
 
@@ -1022,6 +1048,14 @@ def _gen_default_overseerr_table(category: str, search_table: Table):
     )
     _gen_default_line(overseerr_table, "Overseerr's API Key", "OverseerrAPIKey", "CHANGE_ME")
     _gen_default_line(overseerr_table, "Only process approved requests", "ApprovedOnly", True)
+    _gen_default_line(
+        overseerr_table,
+        [
+            "If true, do not verify TLS for Overseerr HTTPS (self-signed). Disables MITM protection.",
+        ],
+        "SkipTLSVerify",
+        False,
+    )
     overseerr_table.add(comment("Only for 4K Instances"))
     if "radarr-4k" in category.lower():
         _gen_default_line(overseerr_table, "Only for 4K Instances", "Is4K", True)
@@ -1929,6 +1963,10 @@ def apply_config_migrations(config: MyConfig) -> None:
     # Consolidate HitAndRunMode to single key and/or/disabled (< 5.9.2 or 5.9.2 with ClearMode)
     if _migrate_hnr_single_key(config):
         changes_made = True
+
+    # Database schema migrations are applied during DB startup in qBitrr.database
+    # and tracked with SQLite PRAGMA user_version. ConfigVersion is still bumped here
+    # so existing installs pick up release-level migration notes consistently.
 
     # Validate and fill config (this also ensures ConfigVersion field exists)
     if _validate_and_fill_config(config):

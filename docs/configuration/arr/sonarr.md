@@ -21,6 +21,9 @@ URI = "http://localhost:8989"
 # Sonarr API Key (Settings > General > Security)
 APIKey = "your-sonarr-api-key"
 
+# Optional: set true only if Sonarr uses HTTPS with a self-signed or untrusted certificate
+SkipTLSVerify = false
+
 # Category applied by Sonarr to torrents in qBittorrent
 # MUST match: Sonarr > Settings > Download Clients > qBittorrent > Category
 Category = "sonarr-tv"

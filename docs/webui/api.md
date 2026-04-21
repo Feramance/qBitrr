@@ -18,12 +18,27 @@ http://<host>:<port>
 
 qBitrr provides dual endpoint patterns for flexibility:
 
-| Pattern | Purpose | Authentication | Use Case |
-|---------|---------|----------------|----------|
-| `/api/*` | API-first endpoints | **Required** (Bearer token) | External clients, scripts, automation |
-| `/web/*` | First-party endpoints | **Optional** (no token required) | WebUI, reverse proxies with auth bypass |
+| Pattern | Purpose | When authentication is required | Typical use |
+|---------|---------|--------------------------------|-------------|
+| `/api/*` | API-first endpoints | Same rules as `/web/*` for mirrored routes: when WebUI auth is enabled, use **Bearer `WebUI.Token`** or a **browser session** after login | External clients, scripts, automation |
+| `/web/*` | First-party endpoints | **Same as `/api/*`** for mirrored data/control routes (see [Public endpoints](#public-endpoints)); not a separate "anonymous API" | React WebUI, same-origin tools |
 
-Both patterns return identical responses. Choose based on your authentication requirements.
+Mirrored pairs (for example `GET /api/processes` and `GET /web/processes`) return the same JSON. Prefer `/api/*` for scripts (Bearer header) and `/web/*` for the bundled WebUI (session cookie).
+
+### OpenAPI and Swagger UI
+
+The running WebUI serves a bundled **OpenAPI 3** document and **Swagger UI**:
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| Interactive docs | `GET /web/docs` or `GET /api/docs` | Swagger UI (both views load the same filtered spec on the same origin) |
+| OpenAPI JSON | `GET /web/openapi.json` or `GET /api/openapi.json` | Machine-readable spec for codegen or import into API clients |
+
+**Authentication:** When `WebUI.AuthDisabled` is `true`, these URLs work without credentials. When WebUI authentication is enabled, they use the same rules as other protected routes: open `/web/docs` in a browser **after** logging into the WebUI (session cookie), or pass `Authorization: Bearer <WebUI.Token>` (or use **Authorize** in Swagger for "Try it out"). The main WebUI header includes an **OpenAPI** link to `/web/docs`.
+
+The served OpenAPI document intentionally includes only `/api/*` paths. `/web/*` routes remain available at runtime and are documented in this page, but they are excluded from Swagger/OpenAPI output.
+
+The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
 
 ---
 
@@ -31,7 +46,7 @@ Both patterns return identical responses. Choose based on your authentication re
 
 ### Bearer Token
 
-If `WebUI.Token` is configured, `/api/*` endpoints require authentication via Bearer token:
+When WebUI authentication is enabled, `/api/*` endpoints require authentication via Bearer token (or a valid session cookie for browser access):
 
 **Header**:
 ```http
@@ -50,14 +65,22 @@ curl -H "Authorization: Bearer abc123..." http://localhost:6969/api/processes
 
 ### Public Endpoints
 
-The following endpoints are **always public** (no authentication):
+The following endpoints are **always public** (no Bearer token or login session):
 
-- `GET /health` - Health check
-- `GET /` - Root redirect
-- `GET /ui` - WebUI entry point
-- `GET /sw.js` - Service worker
-- `GET /static/*` - Static assets
-- `GET /web/*` - All first-party endpoints
+- `GET /health` — Health check
+- `GET /` — Root redirect
+- `GET /ui` — WebUI entry point (redirect)
+- `GET /login` — Redirects into the WebUI login flow
+- `GET /sw.js` — Service worker
+- `GET /static/*` — Static assets for the WebUI
+- `POST /web/login`, `POST /web/logout`, `POST /web/auth/set-password` — Local auth flows
+- `GET /web/auth/oidc/challenge` — Starts OIDC login
+- `GET <WebUI.OIDC.CallbackPath>` — OIDC callback (default `/signin-oidc`; must match your IdP redirect URI)
+- `GET /web/meta` — Version and auth flags (used by the WebUI before login)
+
+**Special case:** `GET /web/token` returns the API token when auth is disabled, or when the caller is already authorized; when auth is enabled and the caller is not authorized, it responds with `401` and `{"token":""}` (so the SPA can detect auth without treating the response as a fatal error).
+
+All **other** `GET/POST /api/*` and `GET/POST /web/*` routes (including library views, config, logs, processes, OpenAPI/Swagger URLs, and `GET /api/meta`) require authentication when WebUI auth is enabled.
 
 ### Token Authentication
 
@@ -87,6 +110,7 @@ curl -H "Authorization: Bearer abc123..." http://localhost:6969/api/processes
 
 ## Endpoint Categories
 
+0. [OpenAPI / Swagger UI](#openapi-and-swagger-ui) — Interactive docs on the running server
 1. [System](#system-endpoints) - Health, status, version info
 2. [Processes](#process-endpoints) - Process monitoring and control
 3. [Logs](#log-endpoints) - Log file access
@@ -334,7 +358,8 @@ Get all Arr instance processes (search and torrent loops).
 
 - `queueCount` - Active downloads in Arr queue
 - `categoryCount` - Torrents in qBittorrent with matching category
-- `metricType` - Special metric type (`"free-space"` or `"category"` for PlaceHolderArr)
+- `freeSpacePaused` - Torrents tagged as paused due to free-space guard (Torrent Policy Manager only)
+- `metricType` - Special metric type (`"torrent-policy"` for Torrent Policy Manager, `"category"` for PlaceHolderArr)
 
 **Refresh Interval**: Poll this endpoint every 5-10 seconds for real-time updates.
 

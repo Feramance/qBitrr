@@ -41,6 +41,7 @@
   },
   "name": "webui",
   "overrides": {
+    "brace-expansion": "^5.0.5",
     "yaml": "^2.8.3"
   },
   "private": true,

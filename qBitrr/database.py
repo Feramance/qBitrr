@@ -8,7 +8,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-from peewee import OperationalError, SqliteDatabase
+from peewee import Model, OperationalError, SqliteDatabase
 
 from qBitrr.config import APPDATA_FOLDER
 from qBitrr.db_lock import database_lock, with_database_retry
@@ -30,6 +30,15 @@ logger = logging.getLogger("qBitrr.database")
 
 # Global database instance
 _db: SqliteDatabase | None = None
+_TARGET_DB_SCHEMA_VERSION = 1
+_ARR_FILE_TABLE_MODELS = (
+    MoviesFilesModel,
+    EpisodeFilesModel,
+    AlbumFilesModel,
+    SeriesFilesModel,
+    ArtistFilesModel,
+    TrackFilesModel,
+)
 
 
 def _ensure_db_directory_writable(db_path: Path) -> None:
@@ -209,6 +218,7 @@ def get_database() -> SqliteDatabase:
             def _create_tables_and_indexes() -> None:
                 _db.create_tables(models, safe=True)
                 _migrate_arrinstance_field(models)
+                _apply_db_schema_migrations(_db)
                 _create_arrinstance_indexes(_db, models)
 
             try:
@@ -310,6 +320,190 @@ def _create_arrinstance_indexes(db: SqliteDatabase, models: list) -> None:
                     logger.info("Created index: %s on %s.ArrInstance", index_name, table_name)
     except Exception as e:
         logger.error("Error creating ArrInstance indexes: %s", e)
+
+
+def _quote_identifier(identifier: str) -> str:
+    """Safely quote SQLite identifiers after validating expected characters."""
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", identifier):
+        raise ValueError(f"Invalid SQLite identifier: {identifier}")
+    return f'"{identifier}"'
+
+
+def _table_exists(db: SqliteDatabase, table_name: str) -> bool:
+    """Return True when the given table exists."""
+    cursor = db.execute_sql(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def _get_table_columns(db: SqliteDatabase, table_name: str) -> list[str]:
+    """Fetch table columns in declaration order."""
+    cursor = db.execute_sql(f"PRAGMA table_info({_quote_identifier(table_name)})")
+    return [row[1] for row in cursor.fetchall()]
+
+
+def _has_composite_primary_key(
+    db: SqliteDatabase,
+    table_name: str,
+    expected_columns: tuple[str, ...],
+) -> bool:
+    """Check whether table uses the expected composite primary key columns."""
+    cursor = db.execute_sql(f"PRAGMA table_info({_quote_identifier(table_name)})")
+    pk_rows = sorted(
+        ((row[5], row[1]) for row in cursor.fetchall() if row[5] > 0), key=lambda r: r[0]
+    )
+    pk_columns = tuple(name for _, name in pk_rows)
+    return pk_columns == expected_columns
+
+
+def _drop_non_auto_indexes_for_table(db: SqliteDatabase, table_name: str) -> None:
+    """Drop explicitly created indexes for a table before rebuilding it."""
+    cursor = db.execute_sql(f"PRAGMA index_list({_quote_identifier(table_name)})")
+    for row in cursor.fetchall():
+        # Columns: seq, name, unique, origin, partial
+        index_name = row[1]
+        if index_name.startswith("sqlite_autoindex_"):
+            continue
+        db.execute_sql(f"DROP INDEX IF EXISTS {_quote_identifier(index_name)}")
+
+
+def _copy_table_with_dedupe(
+    db: SqliteDatabase,
+    source_table: str,
+    destination_table: str,
+    copy_columns: list[str],
+) -> None:
+    """Copy rows from source to destination, deduping by (EntryId, ArrInstance)."""
+    quoted_columns = ", ".join(_quote_identifier(col) for col in copy_columns)
+    has_entry_id = "EntryId" in copy_columns
+    has_arr_instance = "ArrInstance" in copy_columns
+
+    if has_entry_id and has_arr_instance:
+        db.execute_sql(
+            f"""
+            INSERT INTO {_quote_identifier(destination_table)} ({quoted_columns})
+            SELECT {quoted_columns}
+            FROM (
+                SELECT
+                    {quoted_columns},
+                    ROW_NUMBER() OVER (
+                        PARTITION BY "EntryId", "ArrInstance"
+                        ORDER BY rowid DESC
+                    ) AS _qbitrr_rn
+                FROM {_quote_identifier(source_table)}
+            )
+            WHERE _qbitrr_rn = 1
+            """
+        )
+    else:
+        db.execute_sql(
+            f"""
+            INSERT INTO {_quote_identifier(destination_table)} ({quoted_columns})
+            SELECT {quoted_columns}
+            FROM {_quote_identifier(source_table)}
+            """
+        )
+
+
+def _rebuild_arr_file_table_with_composite_pk(db: SqliteDatabase, model: type[Model]) -> None:
+    """Rebuild an Arr file table to match canonical composite PK schema."""
+    table_name = model._meta.table_name
+    legacy_table_name = f"{table_name}__legacy_pre_schema_v{_TARGET_DB_SCHEMA_VERSION}"
+
+    if _table_exists(db, legacy_table_name):
+        raise RuntimeError(
+            f"Cannot migrate table {table_name}: legacy table {legacy_table_name} already exists."
+        )
+
+    with db.atomic():
+        old_row_count_cursor = db.execute_sql(
+            f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"
+        )
+        old_row_count = old_row_count_cursor.fetchone()[0]
+
+        db.execute_sql(
+            f"ALTER TABLE {_quote_identifier(table_name)} RENAME TO {_quote_identifier(legacy_table_name)}"
+        )
+        _drop_non_auto_indexes_for_table(db, legacy_table_name)
+        model.create_table(safe=False)
+
+        source_columns = set(_get_table_columns(db, legacy_table_name))
+        destination_columns = _get_table_columns(db, table_name)
+        copy_columns = [col for col in destination_columns if col in source_columns]
+        if not copy_columns:
+            raise RuntimeError(
+                f"Cannot migrate table {table_name}: no overlapping columns to copy"
+            )
+
+        _copy_table_with_dedupe(
+            db=db,
+            source_table=legacy_table_name,
+            destination_table=table_name,
+            copy_columns=copy_columns,
+        )
+
+        new_row_count_cursor = db.execute_sql(
+            f"SELECT COUNT(*) FROM {_quote_identifier(table_name)}"
+        )
+        new_row_count = new_row_count_cursor.fetchone()[0]
+        dropped_duplicates = max(0, old_row_count - new_row_count)
+
+        db.execute_sql(f"DROP TABLE {_quote_identifier(legacy_table_name)}")
+        logger.info(
+            "Migrated table %s to composite primary key (EntryId, ArrInstance); "
+            "rows before=%d, after=%d, duplicates dropped=%d",
+            table_name,
+            old_row_count,
+            new_row_count,
+            dropped_duplicates,
+        )
+
+
+def _migrate_arr_file_table_constraints(db: SqliteDatabase) -> None:
+    """Ensure all Arr file tables use the canonical composite PK schema."""
+    expected_pk = ("EntryId", "ArrInstance")
+    for model in _ARR_FILE_TABLE_MODELS:
+        table_name = model._meta.table_name
+        if not _table_exists(db, table_name):
+            continue
+        if _has_composite_primary_key(db, table_name, expected_pk):
+            continue
+        logger.warning(
+            "Schema drift detected for table %s. Rebuilding to enforce primary key %s.",
+            table_name,
+            expected_pk,
+        )
+        _rebuild_arr_file_table_with_composite_pk(db, model)
+
+
+def _get_db_schema_version(db: SqliteDatabase) -> int:
+    """Read the SQLite user_version schema marker."""
+    cursor = db.execute_sql("PRAGMA user_version")
+    row = cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+def _set_db_schema_version(db: SqliteDatabase, version: int) -> None:
+    """Write the SQLite user_version schema marker."""
+    db.execute_sql(f"PRAGMA user_version = {int(version)}")
+
+
+def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
+    """Run idempotent DB schema migrations guarded by user_version."""
+    current_version = _get_db_schema_version(db)
+    if current_version >= _TARGET_DB_SCHEMA_VERSION:
+        return
+
+    logger.info(
+        "Database schema upgrade needed (%d -> %d).",
+        current_version,
+        _TARGET_DB_SCHEMA_VERSION,
+    )
+    _migrate_arr_file_table_constraints(db)
+    _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
+    logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
 
 
 def get_database_path() -> Path:

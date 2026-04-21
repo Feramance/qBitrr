@@ -16,6 +16,8 @@ The qBitrr WebUI provides:
 
 **Access:** `http://localhost:6969/ui` (default)
 
+**OpenAPI / Swagger UI:** Interactive HTTP API documentation is served at [`/web/docs`](../webui/api.md#openapi-and-swagger-ui) (and `/api/docs`), with the machine-readable spec at `/web/openapi.json`. When authentication is enabled, open the docs after logging in or use a Bearer token. Details: [WebUI API Reference — OpenAPI](../webui/api.md#openapi-and-swagger-ui).
+
 ---
 
 ## Authentication and first-run

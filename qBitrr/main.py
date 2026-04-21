@@ -501,6 +501,7 @@ class qBitManager:
         port = CONFIG.get(f"{section_name}.Port", fallback=8105)
         username = CONFIG.get(f"{section_name}.UserName", fallback=None)
         password = CONFIG.get(f"{section_name}.Password", fallback=None)
+        skip_tls_verify = CONFIG.get(f"{section_name}.SkipTLSVerify", fallback=False)
 
         self.logger.debug(
             "Connecting to qBit instance '%s': %s:%s (user: %s)",
@@ -516,6 +517,7 @@ class qBitManager:
             username=username,
             password=password,
             SIMPLE_RESPONSES=False,
+            VERIFY_WEBUI_CERTIFICATE=not skip_tls_verify,
         )
 
         # Test connection and get version

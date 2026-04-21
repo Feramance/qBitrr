@@ -86,7 +86,7 @@ Each instance displays:
 | **Search Timestamp** | ISO 8601 timestamp of last search operation |
 | **Queue Count** | Number of items in Arr's download queue (`/api/v3/queue`) |
 | **Category Count** | Number of torrents in qBittorrent with matching category |
-| **Metric Type** | Special metric for Free Space (`free-space`) or qBit (`category`) |
+| **Metric Type** | Special metric for Torrent Policy (`torrent-policy`) or qBit (`category`) |
 
 ---
 
@@ -232,11 +232,11 @@ After:  "Inception (2010)"
 
 **Metric Types**:
 
-| Type | Description | Queue | Category |
-|------|-------------|-------|----------|
-| `arr` (default) | Standard Radarr/Sonarr | ✓ | ✓ |
-| `category` | qBit category tracker | ❌ | ✓ |
-| `free-space` | Free Space Manager | ✓ | ✓ (paused count) |
+| Type | Description | Queue | Category | Free-Space Paused |
+|------|-------------|-------|----------|-------------------|
+| `arr` (default) | Standard Radarr/Sonarr | ✓ | ✓ | ❌ |
+| `category` | qBit category tracker | ❌ | ✓ | ❌ |
+| `torrent-policy` | Torrent Policy Manager | ✓ (monitored) | ✓ (monitored) | ✓ |
 
 ---
 
@@ -292,7 +292,8 @@ Authorization: Bearer <token>
 | `searchTimestamp` | `string` | ISO 8601 timestamp (search only) |
 | `queueCount` | `int` | Arr queue count (torrent only) |
 | `categoryCount` | `int` | qBit category count (torrent only) |
-| `metricType` | `string` | `category`, `free-space`, or absent |
+| `freeSpacePaused` | `int` | Torrents paused/tagged by free-space guard (Torrent Policy Manager only) |
+| `metricType` | `string` | `category`, `torrent-policy`, or absent |
 
 ### POST /api/processes/:category/:kind/restart
 

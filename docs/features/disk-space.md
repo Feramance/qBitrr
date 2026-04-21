@@ -45,8 +45,8 @@ graph TD
 
 1. qBitrr checks free space every `LoopSleepTimer` seconds (default: 5)
 2. Compares available space to `FreeSpace` threshold
-3. If space < threshold:
-   - Pauses **downloading** torrents in **managed** categories (Arr-managed and qBit-managed) so that free space would not fall below the threshold
+3. If usable space (above the threshold) is insufficient for the simulated workload:
+   - Evaluates **downloading** torrents in **managed** categories in **torrent `priority` order** and pauses those that would exceed the simulated budget (see [Queue order and simulated budget](#queue-order-and-simulated-budget))
    - Keeps seeding torrents active
    - Logs warning message
 4. When space frees up (files imported/deleted):
@@ -55,12 +55,21 @@ graph TD
 
 **Which torrents are monitored:**
 
-The Free Space Manager monitors torrents in **all categories** that qBitrr manages:
+The torrent policy worker monitors torrents in **all categories** that qBitrr manages:
 
 - **Arr-managed categories** — The `Category` setting for each Radarr, Sonarr, and Lidarr instance (e.g. `radarr`, `sonarr`, `radarr4k`).
 - **qBit-managed categories** — Categories listed in `[qBit].ManagedCategories` (e.g. `autobrr`).
 
 Torrents in any of these categories are included in free-space checks and can be paused when disk is low. Torrents in other qBittorrent categories (not used by any Arr instance and not in `ManagedCategories`) are not monitored.
+
+### Queue order and simulated budget
+
+Each loop, qBitrr measures usable space on the monitored path (free space minus your `FreeSpace` threshold), then walks **active downloads** in those categories in **ascending order of qBittorrent's torrent `priority` field** (same ordering as `torrents.info` uses for the sort key). For each torrent it subtracts that torrent's remaining bytes (`amount_left`) from a **running simulated balance**.
+
+- **Torrents that still fit** (projected balance after subtracting `amount_left` is **greater than zero**) are treated as reserving that space: the running balance is reduced so later torrents see less room.
+- **Torrents that do not fit** (including those already paused for space) **do not** reduce the balance. They are tagged / kept paused so qBitrr can pause them when `AutoPauseResume` is enabled, but they do **not** consume space from the simulation—so a **lower-priority** torrent that is small enough can still be allowed even if a **higher-priority** torrent is too large for the current headroom.
+
+Completed downloads and seeding torrents are not part of this download-state simulation; seeding is generally left active unless other rules apply.
 
 ---
 
@@ -468,13 +477,13 @@ Check paused torrents in qBittorrent:
    ```
 
 4. **Ensure torrents are in monitored categories:**
-   Free Space Manager only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
+   The torrent policy worker only considers torrents in Arr-managed categories (each instance's `Category`) and in `[qBit].ManagedCategories`. If your torrents use a different qBittorrent category that is not in either set, they will not be paused. Add that category to an Arr instance's `Category` or to `qBit.ManagedCategories`.
 
 5. **Check logs for errors:**
    ```bash
    grep -i "space\|error" ~/logs/Main.log
-   # Or FreeSpaceManager log
-   tail -f ~/config/logs/FreeSpaceManager.log
+   # Or TorrentPolicyManager log
+   tail -f ~/config/logs/TorrentPolicyManager.log
    ```
 
 ---
@@ -520,7 +529,7 @@ Check paused torrents in qBittorrent:
    CompletedDownloadFolder = "D:\\torrents"
    FreeSpaceFolder = "D:\\torrents"
    ```
-   Check the FreeSpaceManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
+   Check the TorrentPolicyManager log (TRACE) for the line `Path: ...` to see which path is being used for the free-space check.
 
 ---
 

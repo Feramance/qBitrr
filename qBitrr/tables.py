@@ -1,4 +1,12 @@
-from peewee import BooleanField, CharField, DateTimeField, IntegerField, Model, TextField
+from peewee import (
+    BooleanField,
+    CharField,
+    CompositeKey,
+    DateTimeField,
+    IntegerField,
+    Model,
+    TextField,
+)
 
 
 class FilesQueued(Model):
@@ -11,8 +19,8 @@ class MoviesFilesModel(Model):
     Monitored = BooleanField()
     TmdbId = IntegerField()
     Year = IntegerField()
-    ArrInstance = CharField(null=True, default="")
-    EntryId = IntegerField(primary_key=True)
+    ArrInstance = CharField(default="")
+    EntryId = IntegerField()
     Searched = BooleanField(default=False)
     MovieFileId = IntegerField()
     IsRequest = BooleanField(default=False)
@@ -31,18 +39,20 @@ class MoviesFilesModel(Model):
     OriginalProfileId = IntegerField(null=True)
 
     class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
         indexes = (
+            (("EntryId", "ArrInstance"), True),
             (("ArrInstance",), False),
             (("Searched",), False),
         )
 
 
 class EpisodeFilesModel(Model):
-    EntryId = IntegerField(primary_key=True)
+    EntryId = IntegerField()
     SeriesTitle = TextField(null=True)
     Title = TextField(null=True)
     SeriesId = IntegerField(null=False)
-    ArrInstance = CharField(null=True, default="")
+    ArrInstance = CharField(default="")
     EpisodeFileId = IntegerField(null=True)
     EpisodeNumber = IntegerField(null=False)
     SeasonNumber = IntegerField(null=False)
@@ -67,7 +77,9 @@ class EpisodeFilesModel(Model):
     OriginalProfileId = IntegerField(null=True)
 
     class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
         indexes = (
+            (("EntryId", "ArrInstance"), True),
             (("SeriesId", "SeasonNumber"), False),
             (("ArrInstance",), False),
             (("Searched",), False),
@@ -75,10 +87,10 @@ class EpisodeFilesModel(Model):
 
 
 class SeriesFilesModel(Model):
-    EntryId = IntegerField(primary_key=True)
+    EntryId = IntegerField()
     Title = TextField(null=True)
     Monitored = BooleanField(null=True)
-    ArrInstance = CharField(null=True, default="")
+    ArrInstance = CharField(default="")
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
@@ -87,7 +99,11 @@ class SeriesFilesModel(Model):
     QualityProfileName = TextField(null=True)
 
     class Meta:
-        indexes = ((("ArrInstance",), False),)
+        primary_key = CompositeKey("EntryId", "ArrInstance")
+        indexes = (
+            (("EntryId", "ArrInstance"), True),
+            (("ArrInstance",), False),
+        )
 
 
 class MovieQueueModel(Model):
@@ -107,8 +123,8 @@ class AlbumFilesModel(Model):
     Monitored = BooleanField()
     ForeignAlbumId = CharField()
     ReleaseDate = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
-    EntryId = IntegerField(primary_key=True)
-    ArrInstance = CharField(null=True, default="")
+    EntryId = IntegerField()
+    ArrInstance = CharField(default="")
     Searched = BooleanField(default=False)
     AlbumFileId = IntegerField()
     IsRequest = BooleanField(default=False)
@@ -129,7 +145,9 @@ class AlbumFilesModel(Model):
     OriginalProfileId = IntegerField(null=True)
 
     class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
         indexes = (
+            (("EntryId", "ArrInstance"), True),
             (("ArrInstance",), False),
             (("ArtistId",), False),
             (("Searched",), False),
@@ -137,28 +155,30 @@ class AlbumFilesModel(Model):
 
 
 class TrackFilesModel(Model):
-    EntryId = IntegerField(primary_key=True)
+    EntryId = IntegerField()
     AlbumId = IntegerField(null=False)
     TrackNumber = IntegerField(null=True)
     Title = TextField(null=True)
-    ArrInstance = CharField(null=True, default="")
+    ArrInstance = CharField(default="")
     Duration = IntegerField(null=True)  # Duration in seconds
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
     Monitored = BooleanField(default=False)
 
     class Meta:
+        primary_key = CompositeKey("EntryId", "ArrInstance")
         indexes = (
+            (("EntryId", "ArrInstance"), True),
             (("AlbumId",), False),
             (("ArrInstance",), False),
         )
 
 
 class ArtistFilesModel(Model):
-    EntryId = IntegerField(primary_key=True)
+    EntryId = IntegerField()
     Title = TextField(null=True)
     Monitored = BooleanField(null=True)
-    ArrInstance = CharField(null=True, default="")
+    ArrInstance = CharField(default="")
     Searched = BooleanField(default=False)
     Upgrade = BooleanField(default=False)
     MinCustomFormatScore = IntegerField(null=True)
@@ -167,7 +187,11 @@ class ArtistFilesModel(Model):
     QualityProfileName = TextField(null=True)
 
     class Meta:
-        indexes = ((("ArrInstance",), False),)
+        primary_key = CompositeKey("EntryId", "ArrInstance")
+        indexes = (
+            (("EntryId", "ArrInstance"), True),
+            (("ArrInstance",), False),
+        )
 
 
 class AlbumQueueModel(Model):

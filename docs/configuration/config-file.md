@@ -263,7 +263,7 @@ FreeSpace = "50G"
 **Default:** `"-1"` (disabled)
 **Format:** Number + Unit (`K`, `M`, `G`, `T`)
 
-Minimum free space to maintain in download directory. When free space drops below this threshold, qBitrr pauses downloads.
+Minimum free space to maintain in download directory. When usable space above this threshold is insufficient, qBitrr pauses **managed-category** downloads as needed, in **torrent `priority` order**, using a simulated budget so torrents that do not fit do not block smaller ones (see [Disk Space Management — Queue order and simulated budget](../features/disk-space.md#queue-order-and-simulated-budget)).
 
 **Units:**
 
@@ -284,12 +284,10 @@ FreeSpace = "-1"     # Disabled
 **How it works:**
 
 1. qBitrr monitors `FreeSpaceFolder` every loop
-2. If free space < `FreeSpace` threshold:
-   - Pauses all downloads
-   - Keeps seeding active
-   - Logs warning
-3. When space frees up:
-   - Resumes downloads automatically
+2. If usable space is tight relative to the threshold, qBitrr evaluates downloads in monitored categories in **priority order** and pauses those that would exceed the simulated budget (see [Queue order and simulated budget](../features/disk-space.md#queue-order-and-simulated-budget))
+3. Keeps seeding active and logs warnings as needed
+4. When space frees up:
+   - Resumes downloads automatically where appropriate
 
 **Recommendation:** Set to 10-20% of your disk capacity.
 

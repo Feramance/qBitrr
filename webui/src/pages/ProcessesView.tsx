@@ -68,6 +68,7 @@ function isProcessEqual(a: ProcessInfo, b: ProcessInfo): boolean {
     (a.searchTimestamp ?? "") === (b.searchTimestamp ?? "") &&
     (a.queueCount ?? null) === (b.queueCount ?? null) &&
     (a.categoryCount ?? null) === (b.categoryCount ?? null) &&
+    (a.freeSpacePaused ?? null) === (b.freeSpacePaused ?? null) &&
     (a.metricType ?? "") === (b.metricType ?? "")
   );
 }
@@ -425,7 +426,12 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               ? "Stopped"
               : `${runningCount}/${totalCount} running`;
           const summaryLabel = totalCount === 1 ? "1 process" : `${totalCount} processes`;
-          const displayName = name === "FreeSpaceManager" ? "Free Space Manager" : name;
+          const displayName =
+            name === "FreeSpaceManager"
+              ? "Free Space Manager"
+              : name === "TorrentPolicyManager"
+              ? "Torrent Policy Manager"
+              : name;
           const uniqueKinds = Array.from(new Set(items.map((item) => item.kind)));
           const filteredKinds = uniqueKinds.filter((kind) => {
             const lower = kind.toLowerCase();
@@ -482,6 +488,8 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                             typeof item.categoryCount === "number" ? item.categoryCount : null;
                           const queueTotal =
                             typeof item.queueCount === "number" ? item.queueCount : null;
+                          const freeSpacePaused =
+                            typeof item.freeSpacePaused === "number" ? item.freeSpacePaused : null;
 
                           if (!metricType) {
                             const queueLabel = queueTotal !== null ? queueTotal : "?";
@@ -493,8 +501,28 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                             return `Torrent count ${categoryTotal}`;
                           }
 
+                          if (metricType === "torrent-policy") {
+                            const pausedLabel =
+                              freeSpacePaused !== null
+                                ? `${freeSpacePaused} torrent${freeSpacePaused === 1 ? "" : "s"} paused for free space`
+                                : null;
+                            const monitoredLabel =
+                              categoryTotal !== null
+                                ? `${categoryTotal} monitored`
+                                : null;
+                            if (freeSpacePaused !== null && categoryTotal !== null) {
+                              return `${pausedLabel} / ${monitoredLabel}`;
+                            }
+                            if (freeSpacePaused !== null) {
+                              return pausedLabel;
+                            }
+                            if (categoryTotal !== null) {
+                              return monitoredLabel;
+                            }
+                          }
+
                           if (metricType === "free-space" && queueTotal !== null) {
-                            return `Torrent count ${queueTotal}`;
+                            return `Monitored torrents ${queueTotal}`;
                           }
 
                           return "Torrent count unavailable";
