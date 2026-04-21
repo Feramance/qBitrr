@@ -1,5 +1,25 @@
 # Changelog
 
+## v5.11.1 (21/04/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Workflows fixes](https://github.com/Feramance/qBitrr/commit/e0dedcd63cd2f31992dcc4375d44a258f42b7eec) - @Feramance
+- [[patch] Fixes to Bumpversion config and config generation](https://github.com/Feramance/qBitrr/commit/cd3dbef88529f27c96e6aab2e33157ab9d8c3522) - @Feramance
+
+### 🔧 Maintenance
+- [Update setup.cfg](https://github.com/Feramance/qBitrr/commit/291749633d19aa3f0e25e7d97a41667670f7ebe3) - @Feramance
+- [Optimize workflow API calls](https://github.com/Feramance/qBitrr/commit/9f8f77fcbcefde778af7958f3a4e999bc749a177) - @Feramance
+- [[path] Workflow fixes](https://github.com/Feramance/qBitrr/commit/999eb8c8e4825a012b79802f199234eafb7136e4) - @Feramance
+- [Revert "Updated workflows to use self-hosted runner"](https://github.com/Feramance/qBitrr/commit/eb7a68bb4e4881dea517422348e00c6c159d2158) - @Feramance
+- [Revert "Added containers to workflows"](https://github.com/Feramance/qBitrr/commit/48f5c74cbb55f8c1b2d4ff4c5dff0d79f408a95d) - @Feramance
+- [Added containers to workflows](https://github.com/Feramance/qBitrr/commit/0895fed9bd27377d602b89f4694e31d10e8c76e2) - @Feramance
+- [Corrected instance naming and adjusted Import mode docs](https://github.com/Feramance/qBitrr/commit/b828788fd333b5a15c48007ecb6a6240d3cbcaa7) - @Feramance
+- [Updated workflows to use self-hosted runner](https://github.com/Feramance/qBitrr/commit/f00cd1250228173017f1352f004d399ed5cbaad8) - @Feramance
+- [Updated instance naming](https://github.com/Feramance/qBitrr/commit/331f8fe65348fc3a48d278f8fb6584fa62ef6eab) - @Feramance
+- [Updated instance naming docs](https://github.com/Feramance/qBitrr/commit/cad53559554b6ccec4b99d16fda4bebb3ee38ad7) - @Feramance
+
+---
+
 ## v5.10.1 (14/03/2026)
 
 ### 🐛 Bug Fixes
