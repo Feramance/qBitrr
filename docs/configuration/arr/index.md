@@ -47,21 +47,19 @@ All Arr instances share common configuration options:
 ### Required Settings
 
 ```toml
-[[Radarr]]  # or [[Sonarr]] or [[Lidarr]]
-Name = "Radarr-Main"
+[Radarr-Movies]  # or [Sonarr-TV] or [Lidarr-Music]
 URI = "http://localhost:7878"
 APIKey = "your-api-key-here"
 ```
 
-- **Name** - Unique identifier for this instance
+- **Section name** - Unique identifier for this instance (for example `Radarr-Movies`)
 - **URI** - Full URL to the Arr application
 - **APIKey** - API key from Settings → General in the Arr UI
 
 ### Optional Settings
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Main"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "your-api-key-here"
 
@@ -79,26 +77,22 @@ SearchPeriodDays = 7                   # Days to search for missing
 You can configure multiple instances of the same Arr type:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Movies-4K"
+[Radarr-4K]
 URI = "http://localhost:7878"
 APIKey = "radarr-api-key"
 Category = "radarr-4k"
 
-[[Radarr]]
-Name = "Radarr-Movies-1080p"
+[Radarr-1080p]
 URI = "http://localhost:7879"
 APIKey = "radarr2-api-key"
 Category = "radarr-1080p"
 
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 APIKey = "sonarr-api-key"
 Category = "sonarr"
 
-[[Sonarr]]
-Name = "Sonarr-Anime"
+[Sonarr-Anime]
 URI = "http://localhost:8990"
 APIKey = "sonarr-anime-api-key"
 Category = "sonarr-anime"
@@ -133,8 +127,7 @@ After configuring an Arr instance:
 When running in Docker with a custom network:
 
 ```toml
-[[Radarr]]
-Name = "Radarr"
+[Radarr-Movies]
 URI = "http://radarr:7878"  # Use container name
 APIKey = "your-api-key"
 ```
@@ -144,8 +137,7 @@ APIKey = "your-api-key"
 For Arr instances on different machines:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Remote"
+[Radarr-Remote]
 URI = "http://192.168.1.100:7878"
 APIKey = "your-api-key"
 ```
@@ -155,8 +147,7 @@ APIKey = "your-api-key"
 For secure connections:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Secure"
+[Radarr-Secure]
 URI = "https://radarr.yourdomain.com"
 APIKey = "your-api-key"
 ```
@@ -172,8 +163,7 @@ qBitrr uses qBittorrent categories to track which Arr instance owns each torrent
 
 - **Custom Categories:**
   ```toml
-  [[Radarr]]
-  Name = "Radarr-4K"
+  [Radarr-4K]
   Category = "movies-4k"  # Custom category
   ```
 
@@ -186,8 +176,8 @@ qBitrr uses qBittorrent categories to track which Arr instance owns each torrent
 qBitrr can trigger imports immediately when downloads complete:
 
 ```toml
-[[Radarr]]
-InstantImport = true
+[Radarr-Movies]
+Managed = true
 ```
 
 Benefits:
@@ -200,8 +190,8 @@ Benefits:
 Monitor and fix stalled or failed downloads:
 
 ```toml
-[[Radarr]]
-HealthCheck = true
+[Radarr-Movies]
+ReSearch = true
 ```
 
 Features:
@@ -215,9 +205,9 @@ Features:
 Automatically search for missing or wanted media:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies.EntrySearch]
 SearchMissing = true
-SearchPeriodDays = 7  # Search every 7 days
+SearchRequestsEvery = 300
 ```
 
 ## Troubleshooting
@@ -262,8 +252,8 @@ See: [Troubleshooting Guide](../../troubleshooting/common-issues.md#import-issue
 Control how files are handled when imported to your Arr instance:
 
 ```toml
-[[Radarr]]
-ImportMode = "Move"  # or "Copy" or "Hardlink"
+[Radarr-Movies]
+importMode = "Auto"  # or "Move" or "Copy"
 ```
 
 **Options:**
@@ -272,19 +262,21 @@ ImportMode = "Move"  # or "Copy" or "Hardlink"
 |------|----------|----------|
 | `Move` | Moves files from download to media folder | Fast, saves disk space |
 | `Copy` | Copies files, leaves original | Keep seeding after import |
-| `Hardlink` | Creates hardlink to original | Best of both (same filesystem required) |
+| `Auto` | Arr decides move/copy based on download state | Recommended default |
 
 **Recommendation:**
-- **Private trackers** - Use `Copy` or `Hardlink` to maintain seeding
+- **Private trackers** - Use `Copy` (or `Auto`) to maintain seeding
 - **Public trackers** - Use `Move` to save disk space
-- **Docker** - Use `Hardlink` if download and media paths are on same volume
+- **Docker** - Use `Auto` with proper Arr hardlink settings on same volume
+
+Legacy note: `Hardlink` is accepted for backward compatibility in qBitrr configs and is treated as `Auto`.
 
 ### Quality Profiles
 
 Map quality profiles for temporary searches:
 
 ```toml
-[[Lidarr]]
+[Lidarr-Music.EntrySearch]
 # Accept lower quality temporarily, upgrade later
 QualityProfileMappings = {
     "Lossless (FLAC)" = "Any (MP3-320)",
@@ -299,7 +291,7 @@ This allows qBitrr to temporarily lower quality requirements to get *something* 
 Enforce minimum custom format scores:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies.EntrySearch]
 # Require custom format score of at least 1000
 ForceMinimumCustomFormat = true
 MinimumCustomFormatScore = 1000
@@ -315,7 +307,7 @@ MinimumCustomFormatScore = 1000
 Configure when and how often qBitrr searches for missing content:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies.EntrySearch]
 SearchMissing = true
 SearchRequestsEvery = 300  # Search every 5 minutes
 SearchAgainOnSearchCompletion = true  # Restart after each cycle
@@ -333,15 +325,13 @@ SearchInReverse = false  # Start from newest to oldest
 Integrate with request management systems:
 
 ```toml
-[[Radarr]]
-[Radarr.Overseerr]
+[Radarr-1080p.EntrySearch.Overseerr]
 OverseerrURL = "http://localhost:5055"
 OverseerrAPIKey = "overseerr-api-key"
 ApprovedOnly = true  # Only process approved requests
 Is4K = false  # Route 4K requests to different instance
 
-[[Radarr-4K]]
-[Radarr-4K.Overseerr]
+[Radarr-4K.EntrySearch.Overseerr]
 OverseerrURL = "http://localhost:5055"
 OverseerrAPIKey = "overseerr-api-key"
 ApprovedOnly = true
@@ -361,7 +351,7 @@ Is4K = true  # This instance handles 4K requests
 Override global torrent settings per Arr instance:
 
 ```toml
-[[Radarr-Movies]]
+[Radarr-Movies]
 [Radarr-Movies.Torrent]
 MaximumETA = 86400  # 24 hours max
 DoNotRemoveSlow = true  # Keep slow but progressing torrents
@@ -379,8 +369,7 @@ RemoveTorrent = 3  # Remove when ratio OR time met
 Filter what content qBitrr searches for:
 
 ```toml
-[[Sonarr]]
-[Sonarr.EntrySearch]
+[Sonarr-TV.EntrySearch]
 # Only search for monitored content
 Monitored = true
 
@@ -402,7 +391,7 @@ SearchLimit = 50  # Search max 50 episodes per cycle
 Control logging per Arr instance:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies]
 LogLevel = "DEBUG"  # Override global log level
 ```
 
@@ -415,13 +404,12 @@ Useful for debugging specific instance issues without flooding logs from other i
 Simple single-instance configuration:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Movies"
+[Radarr-Movies]
 URI = "http://localhost:7878"
 APIKey = "your-radarr-api-key"
 Category = "radarr"
-InstantImport = true
-HealthCheck = true
+Managed = true
+ReSearch = true
 ```
 
 ### Example 2: 4K + 1080p Split
@@ -429,23 +417,21 @@ HealthCheck = true
 Separate instances for different qualities:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-1080p"
+[Radarr-1080p]
 URI = "http://localhost:7878"
 APIKey = "radarr-1080p-api-key"
 Category = "radarr-1080p"
-ImportMode = "Move"
+importMode = "Move"
 
 [Radarr-1080p.EntrySearch]
 SearchMissing = true
 DoUpgradeSearch = true
 
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 URI = "http://localhost:7879"
 APIKey = "radarr-4k-api-key"
 Category = "radarr-4k"
-ImportMode = "Hardlink"
+importMode = "Auto"
 
 [Radarr-4K.EntrySearch]
 SearchMissing = true
@@ -459,8 +445,7 @@ ForceMinimumCustomFormat = true
 Separate Sonarr instances for different content types:
 
 ```toml
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 APIKey = "sonarr-tv-api-key"
 Category = "sonarr-tv"
@@ -471,8 +456,7 @@ SearchLimit = 100  # Search up to 100 episodes
 AlsoSearchSpecials = false
 PrioritizeTodaysReleases = true
 
-[[Sonarr]]
-Name = "Sonarr-Anime"
+[Sonarr-Anime]
 URI = "http://localhost:8990"
 APIKey = "sonarr-anime-api-key"
 Category = "sonarr-anime"
@@ -487,8 +471,7 @@ AlsoSearchSpecials = true  # Search for OVAs, specials
 Lidarr with temporary quality profiles:
 
 ```toml
-[[Lidarr]]
-Name = "Lidarr-Music"
+[Lidarr-Music]
 URI = "http://localhost:8686"
 APIKey = "lidarr-api-key"
 Category = "lidarr"
@@ -513,12 +496,11 @@ ForceResetTempProfiles = true
 Configuration optimized for private trackers:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-Private"
+[Radarr-Private]
 URI = "http://localhost:7878"
 APIKey = "radarr-api-key"
 Category = "radarr-private"
-ImportMode = "Copy"  # Keep seeding after import
+importMode = "Copy"  # Keep seeding after import
 
 [Radarr-Private.Torrent]
 DoNotRemoveSlow = true  # Never remove slow torrents
@@ -536,8 +518,7 @@ RemoveTorrent = 2  # Only remove based on time, not ratio
 Complete Overseerr setup with 4K routing:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-1080p"
+[Radarr-1080p]
 URI = "http://localhost:7878"
 APIKey = "radarr-1080p-api-key"
 Category = "radarr-1080p"
@@ -548,8 +529,7 @@ OverseerrAPIKey = "overseerr-api-key"
 ApprovedOnly = true
 Is4K = false
 
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 URI = "http://localhost:7879"
 APIKey = "radarr-4k-api-key"
 Category = "radarr-4k"
@@ -560,8 +540,7 @@ OverseerrAPIKey = "overseerr-api-key"
 ApprovedOnly = true
 Is4K = true
 
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 APIKey = "sonarr-api-key"
 Category = "sonarr-tv"
@@ -578,12 +557,10 @@ ApprovedOnly = true
 
 ```toml
 # Good
-[[Radarr]]
-Name = "Radarr-Movies-4K-Private"
+[Radarr-Movies-4K-Private]
 
 # Bad
-[[Radarr]]
-Name = "Radarr1"
+[Radarr1]
 ```
 
 Descriptive names help you identify instances in logs and the WebUI.
@@ -593,17 +570,17 @@ Descriptive names help you identify instances in logs and the WebUI.
 Always use unique categories for each instance:
 
 ```toml
-[[Radarr]]
+[Radarr-4k]
 Category = "radarr-4k"  # Unique
 
-[[Radarr]]
+[Radarr-1080p]
 Category = "radarr-1080p"  # Different
 
 # Don't do this:
-[[Radarr]]
+[Radarr-Movies]
 Category = "radarr"  # Same!
 
-[[Radarr]]
+[Radarr-TV]
 Category = "radarr"  # Same! Will cause conflicts!
 ```
 
@@ -611,11 +588,11 @@ Category = "radarr"  # Same! Will cause conflicts!
 
 | Use Case | Import Mode | Reason |
 |----------|-------------|--------|
-| Private trackers | `Copy` or `Hardlink` | Keep seeding |
+| Private trackers | `Copy` or `Auto` | Keep seeding |
 | Public trackers | `Move` | Save disk space |
-| Upgrade workflow | `Hardlink` | Keep old version seeding |
-| Docker (same volume) | `Hardlink` | Best performance |
-| Docker (different volumes) | `Copy` or `Move` | Hardlink won't work |
+| Upgrade workflow | `Auto` | Lets Arr choose copy/move logic |
+| Docker (same volume) | `Auto` | Arr can hardlink when eligible |
+| Docker (different volumes) | `Copy` or `Move` | Hardlink cannot be used |
 
 ### 4. Configure Overseerr Per Instance
 
@@ -623,13 +600,11 @@ If using Overseerr, configure it on every relevant Arr instance:
 
 ```toml
 # Configure on Radarr
-[[Radarr]]
-[Radarr.Overseerr]
+[Radarr-Movies.EntrySearch.Overseerr]
 # ... config
 
 # Configure on Sonarr
-[[Sonarr]]
-[Sonarr.Overseerr]
+[Sonarr-TV.EntrySearch.Overseerr]
 # ... config
 
 # Don't configure on Lidarr (not supported)
@@ -647,7 +622,7 @@ If using Overseerr, configure it on every relevant Arr instance:
 Instead of hardcoding API keys:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies]
 APIKey = "${RADARR_API_KEY}"  # Reference environment variable
 ```
 

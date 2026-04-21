@@ -135,7 +135,7 @@ Each Arr instance runs its own event loop:
 Control delays between operations:
 
 ```toml
-[[Radarr]]
+[Radarr-Movies]
 DelayAfterImport = 60  # Wait 60s after import
 DelayAfterSearch = 300  # Wait 5m after search
 ```
@@ -147,15 +147,13 @@ DelayAfterSearch = 300  # Wait 5m after search
 Separate instances for different quality levels:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 URI = "http://localhost:7878"
 APIKey = "key1"
 Category = "movies-4k"
 QualityProfile = "Ultra HD"
 
-[[Radarr]]
-Name = "Radarr-1080p"
+[Radarr-1080p]
 URI = "http://localhost:7879"
 APIKey = "key2"
 Category = "movies-1080p"
@@ -167,13 +165,11 @@ QualityProfile = "HD-1080p"
 Different instances for different content types:
 
 ```toml
-[[Sonarr]]
-Name = "Sonarr-TV"
+[Sonarr-TV]
 URI = "http://localhost:8989"
 Category = "tv"
 
-[[Sonarr]]
-Name = "Sonarr-Anime"
+[Sonarr-Anime]
 URI = "http://localhost:8990"
 Category = "anime"
 AnimeMode = true  # Special anime handling

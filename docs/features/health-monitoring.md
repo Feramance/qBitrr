@@ -883,10 +883,9 @@ ValidateAllFiles = false  # Only validate largest (default)
 **Per-Arr instance validation** (not implemented) would allow different rules per library:
 
 ```toml
-[[Radarr]]
-Name = "Radarr-4K"
+[Radarr-4K]
 
-[Radarr.FFprobe]
+[Radarr-4K.FFprobe]
 MinWidth = 3840
 MinHeight = 2160
 ```

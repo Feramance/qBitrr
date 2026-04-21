@@ -23,7 +23,7 @@ Configuration lives under **`[<Arr>-<Name>.EntrySearch]`** (e.g. `[Radarr-Movies
 | Overseerr | `[Radarr-Movies.EntrySearch.Overseerr]` | `OverseerrURI`, `OverseerrAPIKey`, `SearchOverseerrRequests` |
 | Ombi | `[Radarr-Movies.EntrySearch.Ombi]` | `OmbiURI`, `OmbiAPIKey`, `SearchOmbiRequests` |
 
-There is no top-level `[Settings.Overseerr]` or `[[Radarr]]` search block; each Arr instance is named like `Radarr-Movies` and has its own `EntrySearch` (and optionally `EntrySearch.Overseerr` / `EntrySearch.Ombi`).
+There is no top-level `[Settings.Overseerr]` or legacy array-table search block; each Arr instance is named like `Radarr-Movies` and has its own `EntrySearch` (and optionally `EntrySearch.Overseerr` / `EntrySearch.Ombi`).
 
 ## Supported request systems
 

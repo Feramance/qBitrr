@@ -264,7 +264,7 @@ docker exec qbitrr ls -la /downloads
 [qBit]
 Host = "http://qbittorrent:8080"  # Use container name
 
-[[Radarr]]
+[Radarr-Movies]
 URI = "http://radarr:7878"  # Use container name
 ```
 
