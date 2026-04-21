@@ -12,7 +12,7 @@ on:
 jobs:
   publish-descriptions:
     name: Update Docker Hub metadata
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:

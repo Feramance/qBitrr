@@ -24,7 +24,7 @@ env:
 jobs:
   prepare_release:
     name: Prepare release metadata
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.event.head_commit.message || '', '[patch]') ||
@@ -96,7 +96,7 @@ jobs:
         commit_author: ${{ steps.import_gpg.outputs.name }} <${{ steps.import_gpg.outputs.email }}>
   create_release:
     name: Create GitHub release draft
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs:
     - prepare_release
     if: needs.prepare_release.result == 'success'
@@ -132,7 +132,7 @@ jobs:
         make_latest: false
   docker_images:
     name: Publish Docker images
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs:
     - prepare_release
     - create_release
@@ -269,7 +269,7 @@ jobs:
         overwrite: true
   publish_pypi:
     name: Publish to PyPI
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs:
     - prepare_release
     - docker_images
@@ -319,7 +319,7 @@ jobs:
         skip-existing: true
   changelog:
     name: Generate changelog and release notes
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs:
     - prepare_release
     - publish_pypi
@@ -576,7 +576,7 @@ jobs:
         commit_author: ${{ steps.changelog_gpg.outputs.name }} <${{ steps.changelog_gpg.outputs.email }}>
   publish_release:
     name: Publish GitHub release
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs:
     - prepare_release
     - changelog
