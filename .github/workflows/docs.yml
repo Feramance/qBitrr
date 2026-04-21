@@ -31,7 +31,7 @@ permissions:
 jobs:
   build:
     name: Build documentation
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -90,7 +90,7 @@ jobs:
 
   link-check:
     name: Check documentation links
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     if: github.event_name == 'pull_request'
     steps:
     - name: Checkout repository
