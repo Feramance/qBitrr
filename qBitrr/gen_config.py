@@ -180,7 +180,8 @@ def _add_settings_section(config: TOMLDocument):
             "This is managed automatically by qBitrr for config migrations",
         ],
         "ConfigVersion",
-        "5.10.1",
+        ""ConfigVersion",
+"5.11.0",",
     )
     _gen_default_line(
         settings,
