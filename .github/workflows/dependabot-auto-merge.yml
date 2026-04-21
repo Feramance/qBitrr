@@ -16,6 +16,8 @@ jobs:
   enable-automerge:
     if: github.actor == 'dependabot[bot]'
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     steps:
     - name: Fetch Dependabot metadata
       id: metadata

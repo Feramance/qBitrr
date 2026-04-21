@@ -32,7 +32,14 @@ jobs:
   build:
     name: Build documentation
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends git
+        rm -rf /var/lib/apt/lists/*
     - name: Checkout repository
       uses: actions/checkout@v6
       with:
@@ -92,7 +99,14 @@ jobs:
     name: Check documentation links
     runs-on: self-hosted
     if: github.event_name == 'pull_request'
+    container:
+      image: python:3.12-bookworm
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends git
+        rm -rf /var/lib/apt/lists/*
     - name: Checkout repository
       uses: actions/checkout@v6
 

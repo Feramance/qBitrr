@@ -25,6 +25,8 @@ jobs:
   prepare_release:
     name: Prepare release metadata
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     if: >-
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.event.head_commit.message || '', '[patch]') ||
@@ -35,6 +37,11 @@ jobs:
       new_version: ${{ steps.version.outputs.value }}
       release_hash: ${{ steps.release_hash.outputs.value }}
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends git gnupg
+        rm -rf /var/lib/apt/lists/*
     - name: Checkout repository
       uses: actions/checkout@v6
       with:
@@ -97,10 +104,17 @@ jobs:
   create_release:
     name: Create GitHub release draft
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     needs:
     - prepare_release
     if: needs.prepare_release.result == 'success'
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends gh git
+        rm -rf /var/lib/apt/lists/*
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
@@ -270,12 +284,19 @@ jobs:
   publish_pypi:
     name: Publish to PyPI
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     needs:
     - prepare_release
     - docker_images
     - package_binaries
     if: needs.prepare_release.result == 'success'
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends git
+        rm -rf /var/lib/apt/lists/*
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
@@ -320,11 +341,18 @@ jobs:
   changelog:
     name: Generate changelog and release notes
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     needs:
     - prepare_release
     - publish_pypi
     if: needs.prepare_release.result == 'success'
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends git gnupg
+        rm -rf /var/lib/apt/lists/*
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
@@ -577,11 +605,18 @@ jobs:
   publish_release:
     name: Publish GitHub release
     runs-on: self-hosted
+    container:
+      image: python:3.12-bookworm
     needs:
     - prepare_release
     - changelog
     if: needs.prepare_release.result == 'success'
     steps:
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y --no-install-recommends gh git
+        rm -rf /var/lib/apt/lists/*
     - uses: actions/checkout@v6
       with:
         fetch-depth: 0
