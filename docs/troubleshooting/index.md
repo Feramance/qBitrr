@@ -339,13 +339,13 @@ time curl http://localhost:6969/health
 
 1. **Enable instant imports:**
    ```toml
-   [[Radarr]]
-   InstantImport = true  # Trigger immediate imports
+   [Radarr-Movies]
+   Managed = true  # Trigger immediate handling for this Arr instance
    ```
 
 2. **Optimize Arr refresh intervals:**
    ```toml
-   [[Radarr]]
+   [Radarr-Movies]
    RefreshDownloadsTimer = 1  # Check every 1 minute
    ```
 
@@ -497,12 +497,12 @@ time curl http://localhost:6969/health
 3. **Unclosed brackets:**
    ```toml
    # ❌ Wrong
-   [[Radarr]
-   Name = "Movies"
+   [Radarr-Movies
+   URI = "http://radarr:7878"
 
    # ✅ Correct
-   [[Radarr]]
-   Name = "Movies"
+   [Radarr-Movies]
+   URI = "http://radarr:7878"
    ```
 
 4. **Duplicate sections:**
@@ -545,7 +545,7 @@ Check these required fields are set:
 Host = "http://localhost:8080"  # REQUIRED
 # Username and Password (if qBit has auth enabled)
 
-[[Radarr]]
+[Radarr-Movies]
 URI = "http://localhost:7878"   # REQUIRED
 APIKey = "your-api-key"         # REQUIRED
 Category = "radarr"             # REQUIRED (must match qBit download client)
@@ -593,8 +593,7 @@ Category = "radarr"             # REQUIRED (must match qBit download client)
 
 1. **Enable search functionality:**
    ```toml
-   [[Radarr]]
-   [Radarr.EntrySearch]
+   [Radarr-Movies.EntrySearch]
    SearchMissing = true
    ```
 
@@ -656,8 +655,7 @@ Category = "radarr"             # REQUIRED (must match qBit download client)
 
 1. **Adjust seeding limits:**
    ```toml
-   [[Radarr]]
-   [Radarr.Torrent.SeedingMode]
+   [Radarr-Movies.Torrent.SeedingMode]
    MaxUploadRatio = 2.0      # Increase ratio
    MaxSeedingTime = 1209600  # 14 days in seconds
    RemoveTorrent = 4         # Remove only when BOTH met
@@ -665,7 +663,7 @@ Category = "radarr"             # REQUIRED (must match qBit download client)
 
 2. **Check tracker-specific rules:**
    ```toml
-   [[Radarr.Torrent.Trackers]]
+   [[Radarr-Movies.Torrent.Trackers]]
    Name = "PrivateTracker"
    URI = "https://tracker.example.com"
    MaxUploadRatio = 3.0      # Higher for private trackers
