@@ -15,6 +15,9 @@ qBitrr's Arr views offer:
 - **Quality Profile Display**: See which quality profile is assigned to each entry
 - **Request Tracking**: Identify items added via Overseerr/Ombi integration
 - **Pagination**: Handle large libraries with server-side pagination
+- **List and Icon**: Toolbar **View** control on each Arr page — **List** is a text-only table (no poster column in the browse surface); **Icon** is a responsive tile grid with cached posters or cover art. The choice is stored in `localStorage` (default: Icon).
+- **Detail modals**: Click a movie, series, or album to open a modal with the same fields as the row/card; Sonarr and Lidarr use expandable season/album sections for episode and track details instead of nested tables on the main page.
+- **Posters**: Thumbnails are served by the WebUI (disk cache, Arr API source) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Images may append `?token=` when the session cookie is not used.
 
 **Supported Arr Types**:
 - **Radarr**: Movies with year, quality profile, file status
@@ -44,9 +47,9 @@ qBitrr's Arr views offer:
 | **Is Request** | Show only Overseerr/Ombi requests | All, Yes, No |
 | **Year Range** | Filter by release year | Min/Max year inputs |
 
-**Aggregation Mode**:
-- **Per-Instance View**: Browse one Radarr instance at a time (default)
-- **Aggregate View**: Combine all Radarr instances into a unified table
+**Instance vs aggregate**:
+- **Per-instance**: Browse one Radarr at a time.
+- **All Radarr (aggregate)**: Merged library across instances (instance column when multiple instances exist). Same **List** / **Icon** modes apply; row click opens the **movie** detail modal.
 
 **Example Display**:
 ```plaintext
@@ -152,23 +155,10 @@ qBitrr's Arr views offer:
 
 ### Features
 
-**TV Series Browser**:
-- Series title, season/episode breakdown, air dates
-- Monitored status per episode
-- File availability per episode
-- Quality profile name display
-- Episode-level reason tracking (why missing)
-
-**Grouping Modes**:
-
-1. **Grouped by Series** (default):
-   - Expandable rows showing seasons
-   - Episode counts per season (available/monitored/missing)
-   - Collapse/expand individual series
-
-2. **Flat Episode List**:
-   - All episodes in a single table
-   - Sortable by series, season, episode number, air date
+**Library browser**:
+- **List**: One row per series (columns include episode count and quality profile as applicable); no posters in the browse table.
+- **Icon**: One tile per series with a cached poster; metadata line shows episode count and profile.
+- **Detail modal**: Click opens the series; seasons expand to the same per-episode fields as before (monitored, has file, air date, reason).
 
 **Filtering Options**:
 
@@ -177,21 +167,13 @@ qBitrr's Arr views offer:
 | **Missing Only** | Show only episodes without files | All, Missing Only |
 | **Search** | Search series titles and episode names | Text input |
 
-**Example Display** (Grouped Mode):
+**Example (list mode)**:
 ```plaintext
 ┌─────────────────────────────────────────────────────────────────┐
-│ Sonarr-TV                                         [Refresh] [⚙] │
+│ Series              Episodes   Quality profile                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ Available: 4,532  Monitored: 5,000  Missing: 468               │
-├─────────────────────────────────────────────────────────────────┤
-│ Series                 Available  Monitored  Missing  Profile   │
-├─────────────────────────────────────────────────────────────────┤
-│ ▼ Breaking Bad         62         62         0         HD-1080p │
-│   Season 1: 7/7                                                  │
-│   Season 2: 13/13                                                │
-│   Season 3: 13/13                                                │
-│ ▶ Game of Thrones      73         80         7         Any      │
-│ ▶ The Office           201        201        0         HD-720p  │
+│ Breaking Bad        62         HD-1080p                          │
+│ Game of Thrones     73         Any                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -284,23 +266,10 @@ qBitrr's Arr views offer:
 
 ### Features
 
-**Album Browser**:
-- Artist name, album title, release date
-- Track count and availability
-- Monitored status per album
-- Quality profile assignment
-- Foreign album ID (MusicBrainz)
-
-**Grouping Modes**:
-
-1. **Grouped by Artist** (default):
-   - Albums grouped under artist name
-   - Track counts per album
-   - Expandable to show individual tracks
-
-2. **Flat Album List**:
-   - All albums in a single table
-   - Sortable by artist, album title, release date
+**Library browser**:
+- **List**: One row per album (artist, title, release date, monitored, has file, profile, reason).
+- **Icon**: One tile per album with cover art and key text.
+- **Detail modal**: Click opens the album; track list appears in the modal (same columns as the former inline track view).
 
 **Filtering Options**:
 
@@ -312,22 +281,13 @@ qBitrr's Arr views offer:
 | **Is Request** | Show only requests | All, Yes, No |
 | **Search** | Search artist/album names | Text input |
 
-**Example Display** (Grouped Mode):
+**Example (list mode)**:
 ```plaintext
-┌─────────────────────────────────────────────────────────────────┐
-│ Lidarr-Music                                      [Refresh] [⚙] │
-├─────────────────────────────────────────────────────────────────┤
-│ Available: 523  Monitored: 600  Missing: 77                    │
-├─────────────────────────────────────────────────────────────────┤
-│ Artist / Album            Tracks    Release Date  Profile       │
-├─────────────────────────────────────────────────────────────────┤
-│ ▼ Pink Floyd                                                     │
-│   The Dark Side of Moon   10/10     1973-03-01   Lossless      │
-│   Wish You Were Here      5/5       1975-09-12   Lossless      │
-│ ▼ The Beatles                                                    │
-│   Abbey Road              17/17     1969-09-26   Any           │
-│   Sgt. Pepper's...        13/13     1967-05-26   Any           │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Album                 Artist        Release   Monitored  Profile  │
+├──────────────────────────────────────────────────────────────────┤
+│ The Dark Side of...   Pink Floyd  1973-03   ✓          Lossless │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ### API Integration

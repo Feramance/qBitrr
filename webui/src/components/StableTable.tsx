@@ -10,9 +10,15 @@ interface StableTableProps<TData> {
   data: TData[];
   columns: ColumnDef<TData, unknown>[];
   getRowKey?: (row: TData) => string;
+  onRowClick?: (row: TData) => void;
 }
 
-function StableTableInner<TData>({ data, columns, getRowKey }: StableTableProps<TData>) {
+function StableTableInner<TData>({
+  data,
+  columns,
+  getRowKey,
+  onRowClick,
+}: StableTableProps<TData>) {
   const table = useReactTable({
     data,
     columns,
@@ -42,7 +48,11 @@ function StableTableInner<TData>({ data, columns, getRowKey }: StableTableProps<
           {table.getRowModel().rows.map((row) => {
             const stableKey = getRowKey ? getRowKey(row.original) : row.id;
             return (
-              <tr key={stableKey}>
+              <tr
+                key={stableKey}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                style={onRowClick ? { cursor: "pointer" } : undefined}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -58,6 +68,9 @@ function StableTableInner<TData>({ data, columns, getRowKey }: StableTableProps<
 }
 
 export const StableTable = memo(StableTableInner, (prevProps, nextProps) => {
-  // Only re-render if data reference changed
-  return prevProps.data === nextProps.data && prevProps.columns === nextProps.columns;
+  return (
+    prevProps.data === nextProps.data &&
+    prevProps.columns === nextProps.columns &&
+    prevProps.onRowClick === nextProps.onRowClick
+  );
 }) as typeof StableTableInner;

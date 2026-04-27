@@ -327,6 +327,68 @@
         ]
       }
     },
+    "/api/lidarr/{category}/album/{id}/thumbnail": {
+      "get": {
+        "operationId": "api_lidarr_album_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached album cover image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Album or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Lidarr album cover thumbnail (/api)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
     "/api/lidarr/{category}/albums": {
       "get": {
         "operationId": "api_lidarr_albums",
@@ -737,6 +799,68 @@
         ]
       }
     },
+    "/api/radarr/{category}/movie/{id}/thumbnail": {
+      "get": {
+        "operationId": "api_radarr_movie_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached movie poster image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Movie or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Radarr movie poster thumbnail (/api)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
     "/api/radarr/{category}/movies": {
       "get": {
         "operationId": "api_radarr_movies",
@@ -896,6 +1020,68 @@
           }
         ],
         "summary": "Sonarr series (/api)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
+    "/api/sonarr/{category}/series/{id}/thumbnail": {
+      "get": {
+        "operationId": "api_sonarr_series_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached series poster image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Series or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Sonarr series poster thumbnail (/api)",
         "tags": [
           "WebUI"
         ]
@@ -1441,6 +1627,68 @@
         ]
       }
     },
+    "/web/lidarr/{category}/album/{id}/thumbnail": {
+      "get": {
+        "operationId": "web_lidarr_album_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached album cover image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Album or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Lidarr album cover thumbnail (/web)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
     "/web/lidarr/{category}/albums": {
       "get": {
         "operationId": "web_lidarr_albums",
@@ -1946,6 +2194,68 @@
         ]
       }
     },
+    "/web/radarr/{category}/movie/{id}/thumbnail": {
+      "get": {
+        "operationId": "web_radarr_movie_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached movie poster image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Movie or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Radarr movie poster thumbnail (/web)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
     "/web/radarr/{category}/movies": {
       "get": {
         "operationId": "web_radarr_movies",
@@ -2105,6 +2415,68 @@
           }
         ],
         "summary": "Sonarr series (/web)",
+        "tags": [
+          "WebUI"
+        ]
+      }
+    },
+    "/web/sonarr/{category}/series/{id}/thumbnail": {
+      "get": {
+        "operationId": "web_sonarr_series_thumbnail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "category",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Cached series poster image bytes"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Series or image not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Sonarr series poster thumbnail (/web)",
         "tags": [
           "WebUI"
         ]

@@ -16,7 +16,7 @@ from typing import Any
 
 import bcrypt
 from authlib.integrations.flask_client import OAuth
-from flask import Flask, jsonify, redirect, request, send_file, session
+from flask import Flask, Response, jsonify, redirect, request, send_file, session
 from peewee import fn
 
 from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
@@ -29,6 +29,7 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
 )
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
+from qBitrr.webui_thumbnails import get_or_fetch_thumbnail_bytes
 
 _openapi_spec_lock = threading.Lock()
 _openapi_spec: dict[str, Any] | None = None
@@ -1019,8 +1020,9 @@ class WebUI:
 
         track_model = getattr(arr, "track_file_model", None)
         album_model = getattr(arr, "model_file", None)
+        db = getattr(arr, "db", None)
 
-        if not track_model or not album_model:
+        if not track_model or not album_model or db is None:
             return {
                 "counts": {
                     "available": 0,
@@ -1036,90 +1038,92 @@ class WebUI:
         arr_instance = getattr(arr, "_name", "")
 
         try:
-            # Join tracks with albums to get artist/album info
-            # Filter by ArrInstance on both models
-            query = (
-                track_model.select(
-                    track_model,
-                    album_model.Title.alias("AlbumTitle"),
-                    album_model.ArtistTitle,
-                    album_model.ArtistId,
-                )
-                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(
-                    (track_model.ArrInstance == arr_instance)
-                    & (album_model.ArrInstance == arr_instance)
-                )
-            )
+            with database_lock():
+                with db.connection_context():
+                    # Join tracks with albums to get artist/album info
+                    # Filter by ArrInstance on both models
+                    query = (
+                        track_model.select(
+                            track_model,
+                            album_model.Title.alias("AlbumTitle"),
+                            album_model.ArtistTitle,
+                            album_model.ArtistId,
+                        )
+                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                        .where(
+                            (track_model.ArrInstance == arr_instance)
+                            & (album_model.ArrInstance == arr_instance)
+                        )
+                    )
 
-            # Apply filters
-            if monitored is not None:
-                query = query.where(track_model.Monitored == monitored)
-            if has_file is not None:
-                query = query.where(track_model.HasFile == has_file)
-            if search:
-                query = query.where(
-                    (track_model.Title.contains(search))
-                    | (album_model.Title.contains(search))
-                    | (album_model.ArtistTitle.contains(search))
-                )
+                    # Apply filters
+                    if monitored is not None:
+                        query = query.where(track_model.Monitored == monitored)
+                    if has_file is not None:
+                        query = query.where(track_model.HasFile == has_file)
+                    if search:
+                        query = query.where(
+                            (track_model.Title.contains(search))
+                            | (album_model.Title.contains(search))
+                            | (album_model.ArtistTitle.contains(search))
+                        )
 
-            # Get counts with ArrInstance filter
-            available_count = (
-                track_model.select()
-                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(
-                    (track_model.ArrInstance == arr_instance)
-                    & (album_model.ArrInstance == arr_instance)
-                    & (track_model.HasFile == True)
-                )
-                .count()
-            )
-            monitored_count = (
-                track_model.select()
-                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(
-                    (track_model.ArrInstance == arr_instance)
-                    & (album_model.ArrInstance == arr_instance)
-                    & (track_model.Monitored == True)
-                )
-                .count()
-            )
-            missing_count = (
-                track_model.select()
-                .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                .where(
-                    (track_model.ArrInstance == arr_instance)
-                    & (album_model.ArrInstance == arr_instance)
-                    & (track_model.HasFile == False)
-                )
-                .count()
-            )
+                    # Get counts with ArrInstance filter
+                    available_count = (
+                        track_model.select()
+                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                        .where(
+                            (track_model.ArrInstance == arr_instance)
+                            & (album_model.ArrInstance == arr_instance)
+                            & (track_model.HasFile == True)
+                        )
+                        .count()
+                    )
+                    monitored_count = (
+                        track_model.select()
+                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                        .where(
+                            (track_model.ArrInstance == arr_instance)
+                            & (album_model.ArrInstance == arr_instance)
+                            & (track_model.Monitored == True)
+                        )
+                        .count()
+                    )
+                    missing_count = (
+                        track_model.select()
+                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
+                        .where(
+                            (track_model.ArrInstance == arr_instance)
+                            & (album_model.ArrInstance == arr_instance)
+                            & (track_model.HasFile == False)
+                        )
+                        .count()
+                    )
 
-            total = query.count()
+                    total = query.count()
 
-            # Apply pagination
-            query = query.order_by(
-                album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
-            ).paginate(page + 1, page_size)
+                    # Apply pagination
+                    query = query.order_by(
+                        album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
+                    ).paginate(page + 1, page_size)
 
-            tracks = []
-            for track in query:
-                tracks.append(
-                    {
-                        "id": track.EntryId,
-                        "trackNumber": track.TrackNumber,
-                        "title": track.Title,
-                        "duration": track.Duration,
-                        "hasFile": track.HasFile,
-                        "trackFileId": track.TrackFileId,
-                        "monitored": track.Monitored,
-                        "albumId": track.AlbumId,
-                        "albumTitle": track.AlbumTitle,
-                        "artistTitle": track.ArtistTitle,
-                        "artistId": track.ArtistId,
-                    }
-                )
+                    tracks = []
+                    for track in query:
+                        tracks.append(
+                            {
+                                "id": track.EntryId,
+                                "trackNumber": track.TrackNumber,
+                                "title": track.Title,
+                                "duration": track.Duration,
+                                "hasFile": track.HasFile,
+                                "trackFileId": track.TrackFileId,
+                                "monitored": track.Monitored,
+                                "albumId": track.AlbumId,
+                                "albumTitle": track.AlbumTitle,
+                                "artistTitle": track.ArtistTitle,
+                                "artistId": track.ArtistId,
+                            }
+                        )
 
             return {
                 "counts": {
@@ -1189,95 +1193,278 @@ class WebUI:
                     .scalar()
                     or 0
                 )
-            available_count = (
-                episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                .where(
-                    (episodes_model.ArrInstance == arr_instance)
-                    & (episodes_model.Monitored == True)  # noqa: E712
-                    & (episodes_model.EpisodeFileId.is_null(False))
-                    & (episodes_model.EpisodeFileId != 0)
-                )
-                .scalar()
-                or 0
-            )
-            missing_count = max(monitored_count - available_count, 0)
-            missing_series_ids: list[int] = []
-            if missing_only:
-                missing_series_ids = [
-                    row.SeriesId
-                    for row in episodes_model.select(episodes_model.SeriesId)
+                available_count = (
+                    episodes_model.select(fn.COUNT(episodes_model.EntryId))
                     .where(
                         (episodes_model.ArrInstance == arr_instance)
                         & (episodes_model.Monitored == True)  # noqa: E712
-                        & missing_condition
+                        & (episodes_model.EpisodeFileId.is_null(False))
+                        & (episodes_model.EpisodeFileId != 0)
                     )
-                    .distinct()
-                    if getattr(row, "SeriesId", None) is not None
-                ]
-                if not missing_series_ids:
-                    return {
-                        "counts": {
-                            "available": available_count,
-                            "monitored": monitored_count,
-                            "missing": missing_count,
-                        },
-                        "total": 0,
-                        "page": resolved_page,
-                        "page_size": page_size,
-                        "series": [],
-                    }
-            payload: list[dict[str, Any]] = []
-            total_series = 0
-
-            if series_model is not None:
-                # Base query for ALL series in this instance (unfiltered)
-                base_series_query = series_model.select().where(
-                    series_model.ArrInstance == arr_instance
+                    .scalar()
+                    or 0
                 )
-                # Total should be ALL series for this instance, not filtered results
-                total_series = base_series_query.count()
-
-                # Now build the filtered query for pagination
-                series_query = base_series_query
-                if search:
-                    series_query = series_query.where(series_model.Title.contains(search))
-                if missing_only and missing_series_ids:
-                    series_query = series_query.where(series_model.EntryId.in_(missing_series_ids))
-                filtered_series_count = series_query.count()
-                if filtered_series_count:
-                    max_pages = (filtered_series_count + page_size - 1) // page_size
-                    if max_pages:
-                        resolved_page = min(resolved_page, max_pages - 1)
-                    resolved_page = max(resolved_page, 0)
-                    series_rows = (
-                        series_query.order_by(series_model.Title.asc())
-                        .paginate(resolved_page + 1, page_size)
-                        .iterator()
-                    )
-                    for series in series_rows:
-                        episodes_query = episodes_model.select().where(
+                missing_count = max(monitored_count - available_count, 0)
+                missing_series_ids: list[int] = []
+                if missing_only:
+                    missing_series_ids = [
+                        row.SeriesId
+                        for row in episodes_model.select(episodes_model.SeriesId)
+                        .where(
                             (episodes_model.ArrInstance == arr_instance)
-                            & (episodes_model.SeriesId == series.EntryId)
+                            & (episodes_model.Monitored == True)  # noqa: E712
+                            & missing_condition
                         )
+                        .distinct()
+                        if getattr(row, "SeriesId", None) is not None
+                    ]
+                    if not missing_series_ids:
+                        return {
+                            "counts": {
+                                "available": available_count,
+                                "monitored": monitored_count,
+                                "missing": missing_count,
+                            },
+                            "total": 0,
+                            "page": resolved_page,
+                            "page_size": page_size,
+                            "series": [],
+                        }
+                payload: list[dict[str, Any]] = []
+                total_series = 0
+
+                if series_model is not None:
+                    # Base query for ALL series in this instance (unfiltered)
+                    base_series_query = series_model.select().where(
+                        series_model.ArrInstance == arr_instance
+                    )
+                    # Total should be ALL series for this instance, not filtered results
+                    total_series = base_series_query.count()
+
+                    # Now build the filtered query for pagination
+                    series_query = base_series_query
+                    if search:
+                        series_query = series_query.where(series_model.Title.contains(search))
+                    if missing_only and missing_series_ids:
+                        series_query = series_query.where(
+                            series_model.EntryId.in_(missing_series_ids)
+                        )
+                    filtered_series_count = series_query.count()
+                    if filtered_series_count:
+                        max_pages = (filtered_series_count + page_size - 1) // page_size
+                        if max_pages:
+                            resolved_page = min(resolved_page, max_pages - 1)
+                        resolved_page = max(resolved_page, 0)
+                        series_rows = (
+                            series_query.order_by(series_model.Title.asc())
+                            .paginate(resolved_page + 1, page_size)
+                            .iterator()
+                        )
+                        for series in series_rows:
+                            episodes_query = episodes_model.select().where(
+                                (episodes_model.ArrInstance == arr_instance)
+                                & (episodes_model.SeriesId == series.EntryId)
+                            )
+                            if missing_only:
+                                episodes_query = episodes_query.where(missing_condition)
+                            episodes_query = episodes_query.order_by(
+                                episodes_model.SeasonNumber.asc(),
+                                episodes_model.EpisodeNumber.asc(),
+                            )
+                            episodes = episodes_query.iterator()
+                            episodes_list = list(episodes)
+                            self.logger.debug(
+                                "[Sonarr Series] Series %s (ID %s) has %d episodes (missing_only=%s)",
+                                getattr(series, "Title", "unknown"),
+                                getattr(series, "EntryId", "?"),
+                                len(episodes_list),
+                                missing_only,
+                            )
+                            seasons: dict[str, dict[str, Any]] = {}
+                            series_monitored = 0
+                            series_available = 0
+                            for ep in episodes_list:
+                                season_value = getattr(ep, "SeasonNumber", None)
+                                season_key = (
+                                    str(season_value) if season_value is not None else "unknown"
+                                )
+                                season_bucket = seasons.setdefault(
+                                    season_key,
+                                    {"monitored": 0, "available": 0, "episodes": []},
+                                )
+                                is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                                has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                                if is_monitored:
+                                    season_bucket["monitored"] += 1
+                                    series_monitored += 1
+                                if has_file:
+                                    season_bucket["available"] += 1
+                                    if is_monitored:
+                                        series_available += 1
+                                air_date = getattr(ep, "AirDateUtc", None)
+                                if hasattr(air_date, "isoformat"):
+                                    try:
+                                        air_value = air_date.isoformat()
+                                    except Exception:
+                                        air_value = str(air_date)
+                                elif isinstance(air_date, str):
+                                    air_value = air_date
+                                else:
+                                    air_value = ""
+                                if (not missing_only) or (not has_file):
+                                    season_bucket["episodes"].append(
+                                        {
+                                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                                            "title": getattr(ep, "Title", "") or "",
+                                            "monitored": is_monitored,
+                                            "hasFile": has_file,
+                                            "airDateUtc": air_value,
+                                            "reason": getattr(ep, "Reason", None),
+                                        }
+                                    )
+                            for bucket in seasons.values():
+                                monitored_eps = int(bucket.get("monitored", 0) or 0)
+                                available_eps = int(bucket.get("available", 0) or 0)
+                                bucket["missing"] = max(
+                                    monitored_eps - min(available_eps, monitored_eps), 0
+                                )
+                            series_missing = max(series_monitored - series_available, 0)
+                            if missing_only:
+                                seasons = {
+                                    key: data for key, data in seasons.items() if data["episodes"]
+                                }
+                                if not seasons:
+                                    continue
+
+                            # Get quality profile for this series from database
+                            series_id = getattr(series, "EntryId", None)
+                            quality_profile_id = (
+                                getattr(series, "QualityProfileId", None)
+                                if hasattr(series_model, "QualityProfileId")
+                                else None
+                            )
+                            quality_profile_name = (
+                                getattr(series, "QualityProfileName", None)
+                                if hasattr(series_model, "QualityProfileName")
+                                else None
+                            )
+
+                            payload.append(
+                                {
+                                    "series": {
+                                        "id": series_id,
+                                        "title": getattr(series, "Title", "") or "",
+                                        "qualityProfileId": quality_profile_id,
+                                        "qualityProfileName": quality_profile_name,
+                                    },
+                                    "totals": {
+                                        "available": series_available,
+                                        "monitored": series_monitored,
+                                        "missing": series_missing,
+                                    },
+                                    "seasons": seasons,
+                                }
+                            )
+
+                if not payload:
+                    # Fallback: construct series payload from episode data (episode mode)
+                    base_episode_query = episodes_model.select().where(
+                        episodes_model.ArrInstance == arr_instance
+                    )
+                    if search:
+                        search_filters = []
+                        if hasattr(episodes_model, "SeriesTitle"):
+                            search_filters.append(episodes_model.SeriesTitle.contains(search))
+                        search_filters.append(episodes_model.Title.contains(search))
+                        expr = search_filters[0]
+                        for extra in search_filters[1:]:
+                            expr |= extra
+                        base_episode_query = base_episode_query.where(expr)
+                    if missing_only:
+                        base_episode_query = base_episode_query.where(missing_condition)
+
+                    series_id_field = (
+                        getattr(episodes_model, "SeriesId", None)
+                        if hasattr(episodes_model, "SeriesId")
+                        else None
+                    )
+                    series_title_field = (
+                        getattr(episodes_model, "SeriesTitle", None)
+                        if hasattr(episodes_model, "SeriesTitle")
+                        else None
+                    )
+
+                    distinct_fields = []
+                    field_names: list[str] = []
+                    if series_id_field is not None:
+                        distinct_fields.append(series_id_field)
+                        field_names.append("SeriesId")
+                    if series_title_field is not None:
+                        distinct_fields.append(series_title_field)
+                        field_names.append("SeriesTitle")
+                    if not distinct_fields:
+                        # Fall back to title only to avoid empty select
+                        distinct_fields.append(episodes_model.Title.alias("SeriesTitle"))
+                        field_names.append("SeriesTitle")
+
+                    distinct_query = (
+                        base_episode_query.select(*distinct_fields)
+                        .distinct()
+                        .order_by(
+                            series_title_field.asc()
+                            if series_title_field is not None
+                            else episodes_model.Title.asc()
+                        )
+                    )
+                    series_key_rows = list(distinct_query.tuples())
+                    total_series = len(series_key_rows)
+                    if total_series:
+                        max_pages = (total_series + page_size - 1) // page_size
+                        resolved_page = min(resolved_page, max_pages - 1)
+                        resolved_page = max(resolved_page, 0)
+                        start = resolved_page * page_size
+                        end = start + page_size
+                        page_keys = series_key_rows[start:end]
+                    else:
+                        resolved_page = 0
+                        page_keys = []
+
+                    payload = []
+                    for key in page_keys:
+                        key_data = dict(zip(field_names, key))
+                        series_id = key_data.get("SeriesId")
+                        series_title = key_data.get("SeriesTitle")
+                        episode_conditions = []
+                        if series_id is not None:
+                            episode_conditions.append(episodes_model.SeriesId == series_id)
+                        if series_title is not None:
+                            episode_conditions.append(episodes_model.SeriesTitle == series_title)
+                        episodes_query = episodes_model.select().where(
+                            episodes_model.ArrInstance == arr_instance
+                        )
+                        if episode_conditions:
+                            condition = episode_conditions[0]
+                            for extra in episode_conditions[1:]:
+                                condition &= extra
+                            episodes_query = episodes_query.where(condition)
                         if missing_only:
                             episodes_query = episodes_query.where(missing_condition)
                         episodes_query = episodes_query.order_by(
                             episodes_model.SeasonNumber.asc(),
                             episodes_model.EpisodeNumber.asc(),
                         )
-                        episodes = episodes_query.iterator()
-                        episodes_list = list(episodes)
-                        self.logger.debug(
-                            "[Sonarr Series] Series %s (ID %s) has %d episodes (missing_only=%s)",
-                            getattr(series, "Title", "unknown"),
-                            getattr(series, "EntryId", "?"),
-                            len(episodes_list),
-                            missing_only,
-                        )
                         seasons: dict[str, dict[str, Any]] = {}
                         series_monitored = 0
                         series_available = 0
-                        for ep in episodes_list:
+                        # Track quality profile from first episode (all episodes in a series share the same profile)
+                        quality_profile_id = None
+                        quality_profile_name = None
+                        for ep in episodes_query.iterator():
+                            # Capture quality profile from first episode if available
+                            if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
+                                quality_profile_id = getattr(ep, "QualityProfileId", None)
+                            if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
+                                quality_profile_name = getattr(ep, "QualityProfileName", None)
                             season_value = getattr(ep, "SeasonNumber", None)
                             season_key = (
                                 str(season_value) if season_value is not None else "unknown"
@@ -1305,17 +1492,16 @@ class WebUI:
                                 air_value = air_date
                             else:
                                 air_value = ""
-                            if (not missing_only) or (not has_file):
-                                season_bucket["episodes"].append(
-                                    {
-                                        "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                                        "title": getattr(ep, "Title", "") or "",
-                                        "monitored": is_monitored,
-                                        "hasFile": has_file,
-                                        "airDateUtc": air_value,
-                                        "reason": getattr(ep, "Reason", None),
-                                    }
-                                )
+                            season_bucket["episodes"].append(
+                                {
+                                    "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                                    "title": getattr(ep, "Title", "") or "",
+                                    "monitored": is_monitored,
+                                    "hasFile": has_file,
+                                    "airDateUtc": air_value,
+                                    "reason": getattr(ep, "Reason", None),
+                                }
+                            )
                         for bucket in seasons.values():
                             monitored_eps = int(bucket.get("monitored", 0) or 0)
                             available_eps = int(bucket.get("available", 0) or 0)
@@ -1330,24 +1516,53 @@ class WebUI:
                             if not seasons:
                                 continue
 
-                        # Get quality profile for this series from database
-                        series_id = getattr(series, "EntryId", None)
-                        quality_profile_id = (
-                            getattr(series, "QualityProfileId", None)
-                            if hasattr(series_model, "QualityProfileId")
-                            else None
-                        )
-                        quality_profile_name = (
-                            getattr(series, "QualityProfileName", None)
-                            if hasattr(series_model, "QualityProfileName")
-                            else None
-                        )
+                        # If quality profile is still None, fetch from Sonarr API
+                        if quality_profile_id is None and series_id is not None:
+                            try:
+                                client = getattr(arr, "client", None)
+                                if client and hasattr(client, "get_series"):
+                                    series_data = client.get_series(series_id)
+                                    if series_data:
+                                        quality_profile_id = series_data.get("qualityProfileId")
+                                        # Get quality profile name from cache or API
+                                        if quality_profile_id:
+                                            quality_cache = getattr(
+                                                arr, "_quality_profile_cache", {}
+                                            )
+                                            if quality_profile_id in quality_cache:
+                                                quality_profile_name = quality_cache[
+                                                    quality_profile_id
+                                                ].get("name")
+                                            elif hasattr(client, "get_quality_profile"):
+                                                try:
+                                                    profile = client.get_quality_profile(
+                                                        quality_profile_id
+                                                    )
+                                                    quality_profile_name = (
+                                                        profile.get("name") if profile else None
+                                                    )
+                                                except Exception:
+                                                    self.logger.debug(
+                                                        "Sonarr quality profile lookup failed",
+                                                        exc_info=True,
+                                                    )
+                            except Exception:
+                                self.logger.debug(
+                                    "Sonarr series payload build failed", exc_info=True
+                                )
 
                         payload.append(
                             {
                                 "series": {
                                     "id": series_id,
-                                    "title": getattr(series, "Title", "") or "",
+                                    "title": (
+                                        series_title
+                                        or (
+                                            f"Series {len(payload) + 1}"
+                                            if series_id is None
+                                            else str(series_id)
+                                        )
+                                    ),
                                     "qualityProfileId": quality_profile_id,
                                     "qualityProfileName": quality_profile_name,
                                 },
@@ -1360,232 +1575,31 @@ class WebUI:
                             }
                         )
 
-            if not payload:
-                # Fallback: construct series payload from episode data (episode mode)
-                base_episode_query = episodes_model.select().where(
-                    episodes_model.ArrInstance == arr_instance
-                )
-                if search:
-                    search_filters = []
-                    if hasattr(episodes_model, "SeriesTitle"):
-                        search_filters.append(episodes_model.SeriesTitle.contains(search))
-                    search_filters.append(episodes_model.Title.contains(search))
-                    expr = search_filters[0]
-                    for extra in search_filters[1:]:
-                        expr |= extra
-                    base_episode_query = base_episode_query.where(expr)
-                if missing_only:
-                    base_episode_query = base_episode_query.where(missing_condition)
-
-                series_id_field = (
-                    getattr(episodes_model, "SeriesId", None)
-                    if hasattr(episodes_model, "SeriesId")
-                    else None
-                )
-                series_title_field = (
-                    getattr(episodes_model, "SeriesTitle", None)
-                    if hasattr(episodes_model, "SeriesTitle")
-                    else None
-                )
-
-                distinct_fields = []
-                field_names: list[str] = []
-                if series_id_field is not None:
-                    distinct_fields.append(series_id_field)
-                    field_names.append("SeriesId")
-                if series_title_field is not None:
-                    distinct_fields.append(series_title_field)
-                    field_names.append("SeriesTitle")
-                if not distinct_fields:
-                    # Fall back to title only to avoid empty select
-                    distinct_fields.append(episodes_model.Title.alias("SeriesTitle"))
-                    field_names.append("SeriesTitle")
-
-                distinct_query = (
-                    base_episode_query.select(*distinct_fields)
-                    .distinct()
-                    .order_by(
-                        series_title_field.asc()
-                        if series_title_field is not None
-                        else episodes_model.Title.asc()
+                result = {
+                    "counts": {
+                        "available": available_count,
+                        "monitored": monitored_count,
+                        "missing": missing_count,
+                    },
+                    "total": total_series,
+                    "page": resolved_page,
+                    "page_size": page_size,
+                    "series": payload,
+                }
+                if payload:
+                    first_series = payload[0]
+                    first_seasons = first_series.get("seasons", {})
+                    total_episodes_in_response = sum(
+                        len(season.get("episodes", [])) for season in first_seasons.values()
                     )
-                )
-                series_key_rows = list(distinct_query.tuples())
-                total_series = len(series_key_rows)
-                if total_series:
-                    max_pages = (total_series + page_size - 1) // page_size
-                    resolved_page = min(resolved_page, max_pages - 1)
-                    resolved_page = max(resolved_page, 0)
-                    start = resolved_page * page_size
-                    end = start + page_size
-                    page_keys = series_key_rows[start:end]
-                else:
-                    resolved_page = 0
-                    page_keys = []
-
-                payload = []
-                for key in page_keys:
-                    key_data = dict(zip(field_names, key))
-                    series_id = key_data.get("SeriesId")
-                    series_title = key_data.get("SeriesTitle")
-                    episode_conditions = []
-                    if series_id is not None:
-                        episode_conditions.append(episodes_model.SeriesId == series_id)
-                    if series_title is not None:
-                        episode_conditions.append(episodes_model.SeriesTitle == series_title)
-                    episodes_query = episodes_model.select().where(
-                        episodes_model.ArrInstance == arr_instance
+                    self.logger.info(
+                        "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
+                        len(payload),
+                        first_series.get("series", {}).get("title", "?"),
+                        len(first_seasons),
+                        total_episodes_in_response,
+                        missing_only,
                     )
-                    if episode_conditions:
-                        condition = episode_conditions[0]
-                        for extra in episode_conditions[1:]:
-                            condition &= extra
-                        episodes_query = episodes_query.where(condition)
-                    if missing_only:
-                        episodes_query = episodes_query.where(missing_condition)
-                    episodes_query = episodes_query.order_by(
-                        episodes_model.SeasonNumber.asc(),
-                        episodes_model.EpisodeNumber.asc(),
-                    )
-                    seasons: dict[str, dict[str, Any]] = {}
-                    series_monitored = 0
-                    series_available = 0
-                    # Track quality profile from first episode (all episodes in a series share the same profile)
-                    quality_profile_id = None
-                    quality_profile_name = None
-                    for ep in episodes_query.iterator():
-                        # Capture quality profile from first episode if available
-                        if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
-                            quality_profile_id = getattr(ep, "QualityProfileId", None)
-                        if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
-                            quality_profile_name = getattr(ep, "QualityProfileName", None)
-                        season_value = getattr(ep, "SeasonNumber", None)
-                        season_key = str(season_value) if season_value is not None else "unknown"
-                        season_bucket = seasons.setdefault(
-                            season_key,
-                            {"monitored": 0, "available": 0, "episodes": []},
-                        )
-                        is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                        has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
-                        if is_monitored:
-                            season_bucket["monitored"] += 1
-                            series_monitored += 1
-                        if has_file:
-                            season_bucket["available"] += 1
-                            if is_monitored:
-                                series_available += 1
-                        air_date = getattr(ep, "AirDateUtc", None)
-                        if hasattr(air_date, "isoformat"):
-                            try:
-                                air_value = air_date.isoformat()
-                            except Exception:
-                                air_value = str(air_date)
-                        elif isinstance(air_date, str):
-                            air_value = air_date
-                        else:
-                            air_value = ""
-                        season_bucket["episodes"].append(
-                            {
-                                "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                                "title": getattr(ep, "Title", "") or "",
-                                "monitored": is_monitored,
-                                "hasFile": has_file,
-                                "airDateUtc": air_value,
-                                "reason": getattr(ep, "Reason", None),
-                            }
-                        )
-                    for bucket in seasons.values():
-                        monitored_eps = int(bucket.get("monitored", 0) or 0)
-                        available_eps = int(bucket.get("available", 0) or 0)
-                        bucket["missing"] = max(
-                            monitored_eps - min(available_eps, monitored_eps), 0
-                        )
-                    series_missing = max(series_monitored - series_available, 0)
-                    if missing_only:
-                        seasons = {key: data for key, data in seasons.items() if data["episodes"]}
-                        if not seasons:
-                            continue
-
-                    # If quality profile is still None, fetch from Sonarr API
-                    if quality_profile_id is None and series_id is not None:
-                        try:
-                            client = getattr(arr, "client", None)
-                            if client and hasattr(client, "get_series"):
-                                series_data = client.get_series(series_id)
-                                if series_data:
-                                    quality_profile_id = series_data.get("qualityProfileId")
-                                    # Get quality profile name from cache or API
-                                    if quality_profile_id:
-                                        quality_cache = getattr(arr, "_quality_profile_cache", {})
-                                        if quality_profile_id in quality_cache:
-                                            quality_profile_name = quality_cache[
-                                                quality_profile_id
-                                            ].get("name")
-                                        elif hasattr(client, "get_quality_profile"):
-                                            try:
-                                                profile = client.get_quality_profile(
-                                                    quality_profile_id
-                                                )
-                                                quality_profile_name = (
-                                                    profile.get("name") if profile else None
-                                                )
-                                            except Exception:
-                                                self.logger.debug(
-                                                    "Sonarr quality profile lookup failed",
-                                                    exc_info=True,
-                                                )
-                        except Exception:
-                            self.logger.debug("Sonarr series payload build failed", exc_info=True)
-
-                    payload.append(
-                        {
-                            "series": {
-                                "id": series_id,
-                                "title": (
-                                    series_title
-                                    or (
-                                        f"Series {len(payload) + 1}"
-                                        if series_id is None
-                                        else str(series_id)
-                                    )
-                                ),
-                                "qualityProfileId": quality_profile_id,
-                                "qualityProfileName": quality_profile_name,
-                            },
-                            "totals": {
-                                "available": series_available,
-                                "monitored": series_monitored,
-                                "missing": series_missing,
-                            },
-                            "seasons": seasons,
-                        }
-                    )
-
-            result = {
-                "counts": {
-                    "available": available_count,
-                    "monitored": monitored_count,
-                    "missing": missing_count,
-                },
-                "total": total_series,
-                "page": resolved_page,
-                "page_size": page_size,
-                "series": payload,
-            }
-            if payload:
-                first_series = payload[0]
-                first_seasons = first_series.get("seasons", {})
-                total_episodes_in_response = sum(
-                    len(season.get("episodes", [])) for season in first_seasons.values()
-                )
-                self.logger.info(
-                    "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
-                    len(payload),
-                    first_series.get("series", {}).get("title", "?"),
-                    len(first_seasons),
-                    total_episodes_in_response,
-                    missing_only,
-                )
             return result
 
     # Routes
@@ -2491,6 +2505,39 @@ class WebUI:
                 return resp
             return _handle_radarr_movies(category)
 
+        def _arr_thumbnail(category: str, kind: str, entry_id: int) -> Response | tuple[Any, int]:
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != kind:
+                return jsonify({"error": f"Unknown {kind} category {category}"}), 404
+            name = getattr(arr, "_name", category)
+            out = get_or_fetch_thumbnail_bytes(
+                kind=kind, instance_name=name, arr=arr, entry_id=entry_id
+            )
+            if not out:
+                return "", 404
+            data, mime = out
+            return Response(
+                data,
+                mimetype=mime,
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+
+        @app.get("/api/radarr/<category>/movie/<int:entry_id>/thumbnail")
+        def api_radarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "radarr", entry_id)
+
+        @app.get("/web/radarr/<category>/movie/<int:entry_id>/thumbnail")
+        def web_radarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "radarr", entry_id)
+
         def _handle_sonarr_series(category: str):
             managed = _managed_objects()
             if not managed:
@@ -2522,6 +2569,18 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             return _handle_sonarr_series(category)
+
+        @app.get("/api/sonarr/<category>/series/<int:entry_id>/thumbnail")
+        def api_sonarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "sonarr", entry_id)
+
+        @app.get("/web/sonarr/<category>/series/<int:entry_id>/thumbnail")
+        def web_sonarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "sonarr", entry_id)
 
         @app.get("/web/lidarr/<category>/albums")
         def web_lidarr_albums(category: str):
@@ -2585,6 +2644,18 @@ class WebUI:
                 )
             payload["category"] = category
             return jsonify(payload)
+
+        @app.get("/api/lidarr/<category>/album/<int:entry_id>/thumbnail")
+        def api_lidarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "lidarr", entry_id)
+
+        @app.get("/web/lidarr/<category>/album/<int:entry_id>/thumbnail")
+        def web_lidarr_thumb(category: str, entry_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "lidarr", entry_id)
 
         def _arr_list_payload() -> dict[str, Any]:
             items = []

@@ -32,7 +32,13 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
+import { useArrBrowseMode } from "../hooks/useArrBrowseMode";
 import { IconImage } from "../components/IconImage";
+import { ArrBrowseModeToggle } from "../components/arr/ArrBrowseModeToggle";
+import { ArrModal } from "../components/arr/ArrModal";
+import { ArrPosterImage } from "../components/arr/ArrPosterImage";
+import { RadarrMovieDetailBody } from "../components/arr/RadarrMovieDetailBody";
+import { radarrMovieThumbnailUrl } from "../utils/arrThumbnailUrl";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 
 interface RadarrAggRow extends RadarrMovie {
@@ -46,6 +52,16 @@ type RadarrAggSortKey = "__instance" | RadarrSortKey;
 const RADARR_PAGE_SIZE = 50;
 const RADARR_AGG_PAGE_SIZE = 50;
 const RADARR_AGG_FETCH_SIZE = 500;
+
+function categoryForInstanceLabel(
+  instances: ArrInfo[],
+  label: string
+): string {
+  const inst = instances.find(
+    (i) => (i.name || i.category) === label || i.category === label
+  );
+  return inst?.category ?? instances[0]?.category ?? "";
+}
 
 interface RadarrAggregateViewProps {
   loading: boolean;
@@ -61,6 +77,9 @@ interface RadarrAggregateViewProps {
   summary: { available: number; monitored: number; missing: number; total: number };
   instanceCount: number;
   isAggFiltered?: boolean;
+  browseMode: "list" | "icon";
+  instances: ArrInfo[];
+  onMovieSelect: (movie: RadarrAggRow) => void;
 }
 
 const RadarrAggregateView = memo(function RadarrAggregateView({
@@ -75,6 +94,9 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
   summary,
   instanceCount,
   isAggFiltered = false,
+  browseMode,
+  instances,
+  onMovieSelect,
 }: RadarrAggregateViewProps): JSX.Element {
   const columns = useMemo<ColumnDef<RadarrAggRow>[]>(
     () => [
@@ -176,11 +198,52 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
           <span className="spinner" /> Loading Radarr library…
         </div>
       ) : total ? (
-        <StableTable
-          data={rows}
-          columns={columns}
-          getRowKey={(movie) => `${movie.__instance}-${movie.title}-${movie.year}`}
-        />
+        browseMode === "list" ? (
+          <StableTable
+            data={rows}
+            columns={columns}
+            getRowKey={(movie) => `${movie.__instance}-${movie.title}-${movie.year}`}
+            onRowClick={onMovieSelect}
+          />
+        ) : (
+          <div className="arr-icon-grid">
+            {rows.map((row) => {
+              const cat = categoryForInstanceLabel(instances, row.__instance);
+              const id = row.id;
+              const thumb =
+                id != null && cat
+                  ? radarrMovieThumbnailUrl(cat, id)
+                  : "";
+              return (
+                <button
+                  key={`${row.__instance}-${row.title}-${row.year}`}
+                  type="button"
+                  className="arr-movie-tile card"
+                  onClick={() => onMovieSelect(row)}
+                >
+                  {thumb ? (
+                    <ArrPosterImage
+                      className="arr-movie-tile__poster"
+                      src={thumb}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="arr-movie-tile__poster arr-poster-fallback" aria-hidden />
+                  )}
+                  <div className="arr-movie-tile__meta">
+                    {instanceCount > 1 && (
+                      <div className="arr-movie-tile__instance">{row.__instance}</div>
+                    )}
+                    <div className="arr-movie-tile__title">{row.title}</div>
+                    <div className="arr-movie-tile__sub">
+                      {row.year != null ? String(row.year) : ""}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )
       ) : (
         <div className="hint">No movies found.</div>
       )}
@@ -225,6 +288,9 @@ interface RadarrInstanceViewProps {
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
+  category: string;
+  browseMode: "list" | "icon";
+  onMovieSelect: (movie: RadarrMovie) => void;
 }
 
 const RadarrInstanceView = memo(function RadarrInstanceView({
@@ -239,6 +305,9 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   onPageChange,
   onRestart,
   lastUpdated,
+  category,
+  browseMode,
+  onMovieSelect,
 }: RadarrInstanceViewProps): JSX.Element {
   const filteredMovies = useMemo(() => {
     let movies = allMovies;
@@ -366,44 +435,86 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
           <span className="spinner" /> Loading…
         </div>
       ) : allMovies.length ? (
-        <div className="table-wrapper">
-          <table className="responsive-table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => {
-                const movie = row.original;
-                const stableKey = `${movie.title}-${movie.year}`;
-                return (
-                  <tr key={stableKey}>
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
+        browseMode === "list" ? (
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <th key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </th>
                     ))}
                   </tr>
+                ))}
+              </thead>
+              <tbody>
+                {table.getRowModel().rows.map((row) => {
+                  const movie = row.original;
+                  const stableKey = `${movie.title}-${movie.year}`;
+                  return (
+                    <tr
+                      key={stableKey}
+                      onClick={() => onMovieSelect(movie)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="arr-icon-grid">
+            {reasonFilteredMovies
+              .slice(page * pageSize, page * pageSize + pageSize)
+              .map((movie) => {
+                const id = movie.id;
+                const thumb =
+                  id != null && category
+                    ? radarrMovieThumbnailUrl(category, id)
+                    : "";
+                return (
+                  <button
+                    key={`${movie.title}-${movie.year}`}
+                    type="button"
+                    className="arr-movie-tile card"
+                    onClick={() => onMovieSelect(movie)}
+                  >
+                    {thumb ? (
+                      <ArrPosterImage
+                        className="arr-movie-tile__poster"
+                        src={thumb}
+                        alt=""
+                      />
+                    ) : (
+                      <div className="arr-movie-tile__poster arr-poster-fallback" aria-hidden />
+                    )}
+                    <div className="arr-movie-tile__meta">
+                      <div className="arr-movie-tile__title">{movie.title}</div>
+                      <div className="arr-movie-tile__sub">
+                        {movie.year != null ? String(movie.year) : ""}
+                      </div>
+                    </div>
+                  </button>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+          </div>
+        )
       ) : (
         <div className="hint">No movies found.</div>
       )}
@@ -491,6 +602,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     missing: number;
     total: number;
   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
+
+  const { mode: browseMode, setMode: setBrowseMode } = useArrBrowseMode("radarr");
+  const [radarrDetail, setRadarrDetail] = useState<{
+    movie: RadarrMovie;
+    category: string;
+  } | null>(null);
 
   const loadInstances = useCallback(async () => {
     try {
@@ -617,14 +734,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         const movies = response.movies ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
+        if (keyChanged) {
+          instanceMovieSync.reset();
+        }
+
         // Smart diffing using hash-based change detection
         const syncResult = instanceMovieSync.syncData(movies);
         const moviesChanged = syncResult.hasChanges;
-
-        if (keyChanged) {
-          // Reset sync state on key change
-          instanceMovieSync.reset();
-        }
 
         if (keyChanged || moviesChanged) {
           setInstancePages((prev) => {
@@ -1055,6 +1171,14 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                   <option value="Upgrade">Upgrade</option>
                 </select>
               </div>
+              <div className="field" style={{ flex: "0 0 auto" }}>
+                <label>View</label>
+                <ArrBrowseModeToggle
+                  mode={browseMode}
+                  onChange={setBrowseMode}
+                  idPrefix="radarr"
+                />
+              </div>
             </div>
 
             {isAggregate ? (
@@ -1072,6 +1196,14 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 summary={aggSummary}
                 instanceCount={instances.length}
                 isAggFiltered={isAggFiltered}
+                browseMode={browseMode}
+                instances={instances}
+                onMovieSelect={(m) =>
+                  setRadarrDetail({
+                    movie: m,
+                    category: categoryForInstanceLabel(instances, m.__instance),
+                  })
+                }
               />
             ) : (
               <RadarrInstanceView
@@ -1091,11 +1223,28 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
+                category={selection as string}
+                browseMode={browseMode}
+                onMovieSelect={(m) =>
+                  setRadarrDetail({ movie: m, category: selection as string })
+                }
               />
             )}
           </div>
         </div>
       </div>
+      {radarrDetail ? (
+        <ArrModal
+          title={String(radarrDetail.movie.title ?? "Movie")}
+          onClose={() => setRadarrDetail(null)}
+          maxWidth={520}
+        >
+          <RadarrMovieDetailBody
+            movie={radarrDetail.movie}
+            category={radarrDetail.category}
+          />
+        </ArrModal>
+      ) : null}
     </section>
   );
 }
