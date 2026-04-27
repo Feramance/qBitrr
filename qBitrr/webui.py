@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.resources
 import io
 import json
@@ -36,6 +37,31 @@ _openapi_spec: dict[str, Any] | None = None
 _openapi_spec_api_only: dict[str, Any] | None = None
 
 
+def _openapi_path_in_api_first_spec(path: str) -> bool:
+    """Paths exposed in the filtered OpenAPI doc (Swagger): `/api/*` plus mirrored poster thumbnails."""
+    if not path.startswith("/web/"):
+        return True
+    if not path.endswith("/thumbnail"):
+        return False
+    return path.startswith(("/web/radarr/", "/web/sonarr/", "/web/lidarr/"))
+
+
+def _if_none_match_includes_etag(if_none_match: str | None, etag: str) -> bool:
+    """True if ``If-None-Match`` matches ``etag`` (strong entity-tag, quoted)."""
+    if not if_none_match:
+        return False
+    hv = if_none_match.strip()
+    if hv == "*":
+        return True
+    for part in hv.split(","):
+        p = part.strip()
+        if p.startswith("W/"):
+            p = p[2:].strip()
+        if p == etag:
+            return True
+    return False
+
+
 def _load_openapi_spec() -> dict[str, Any]:
     """Load bundled OpenAPI document (cached, thread-safe)."""
     global _openapi_spec
@@ -51,7 +77,7 @@ def _load_openapi_spec() -> dict[str, Any]:
 
 
 def _load_openapi_spec_api_only() -> dict[str, Any]:
-    """Load a cached OpenAPI view that excludes `/web/*` paths."""
+    """Load a cached OpenAPI view: `/api/*`-first, plus mirrored `/web/*` thumbnail paths only."""
     global _openapi_spec, _openapi_spec_api_only
     with _openapi_spec_lock:
         if _openapi_spec is None:
@@ -65,7 +91,7 @@ def _load_openapi_spec_api_only() -> dict[str, Any]:
             filtered_paths = {
                 path: value
                 for path, value in _openapi_spec.get("paths", {}).items()
-                if not path.startswith("/web/")
+                if _openapi_path_in_api_first_spec(path)
             }
             _openapi_spec_api_only = {**_openapi_spec, "paths": filtered_paths}
         return _openapi_spec_api_only
@@ -2539,11 +2565,14 @@ class WebUI:
             if not out:
                 return "", 404
             data, mime = out
-            return Response(
-                data,
-                mimetype=mime,
-                headers={"Cache-Control": "public, max-age=86400"},
-            )
+            etag = f'"{hashlib.sha256(data).hexdigest()}"'
+            cache_headers = {
+                "Cache-Control": "public, max-age=86400",
+                "ETag": etag,
+            }
+            if _if_none_match_includes_etag(request.headers.get("If-None-Match"), etag):
+                return Response(status=304, headers=cache_headers)
+            return Response(data, mimetype=mime, headers=cache_headers)
 
         @app.get("/api/radarr/<category>/movie/<int:entry_id>/thumbnail")
         def api_radarr_thumb(category: str, entry_id: int):
