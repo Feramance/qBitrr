@@ -680,7 +680,7 @@ curl -O http://localhost:6969/web/logs/Main.log/download
 
 ### Arr poster thumbnails (cached)
 
-Read-only image bytes for browse **Icon** tiles and detail modals. Fetched from the corresponding Arr app, stored in a disk cache under the qBitrr data directory, and returned with long-cache headers when possible.
+Read-only image bytes for browse **Icon** tiles and detail modals. The server asks each Arr instance for the entity (movie, series, or album), then **prefers images served by that same Arr host** (for example `MediaCover` paths under the Arr base URL). Provider CDN URLs in metadata are only used when no local or same-host cover is present. qBitrr downloads bytes from the Arr URL using the instance API key, caches them under the qBitrr data directory, and returns them with long-cache headers when possible.
 
 **Endpoints** (each has a `/api` and `/web` mirror; behavior is identical):
 
