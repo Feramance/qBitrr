@@ -5,6 +5,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -12,7 +13,8 @@ from qBitrr.config import HOME_PATH
 
 logger = logging.getLogger("qBitrr.WebUI.Thumbnails")
 
-# Radarr / Sonarr often use TMDB/CDN; Lidarr uses remote cover URLs. Keep a hard cap.
+# Prefer MediaCover / same-host URLs from the Arr API; fall back to metadata CDNs only
+# when no local cover exists. Keep a hard cap on downloaded size.
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _REQUEST_TIMEOUT = 20
 
@@ -30,38 +32,126 @@ def _cache_file_path(*, kind: str, instance_name: str, entry_id: int) -> Path:
     return _cache_dir() / f"{h}.bin"
 
 
-def _first_poster_url_from_radarr_sonarr(data: dict[str, Any]) -> str | None:
-    u = data.get("remotePoster")
-    if u and isinstance(u, str) and u.strip().startswith("http"):
-        return u.strip()
-    for img in data.get("images") or ():
-        if not isinstance(img, dict):
-            continue
-        u = img.get("remoteUrl") or img.get("url")
-        if u and str(u).strip().startswith("http"):
-            return str(u).strip()
+def _netloc_key(base_uri: str) -> str:
+    try:
+        return urlparse(base_uri).netloc.lower()
+    except Exception:
+        return ""
+
+
+def _absolute_image_url(raw: str, base_uri: str) -> str | None:
+    s = raw.strip()
+    if not s:
+        return None
+    if s.startswith("//"):
+        return "https:" + s
+    if s.startswith("http://") or s.startswith("https://"):
+        return s
+    if s.startswith("/"):
+        if not base_uri:
+            return None
+        base = base_uri if base_uri.endswith("/") else base_uri + "/"
+        return urljoin(base, s)
     return None
 
 
-def _first_cover_lidarr(data: dict[str, Any]) -> str | None:
-    u = data.get("images")
-    if isinstance(u, list):
-        for im in u:
-            if not isinstance(im, dict):
+def _is_arr_served_url(absolute_url: str, base_uri: str) -> bool:
+    if not base_uri or not absolute_url:
+        return False
+    want = _netloc_key(base_uri)
+    if not want:
+        return False
+    try:
+        got = urlparse(absolute_url).netloc.lower()
+    except Exception:
+        return False
+    return bool(got) and got == want
+
+
+def _cover_type_order(cover_type: str) -> int:
+    ct = cover_type.lower()
+    if ct == "poster":
+        return 0
+    if ct == "cover":
+        return 0
+    if ct == "banner":
+        return 1
+    if ct == "fanart":
+        return 2
+    if ct == "disc":
+        return 3
+    return 4
+
+
+def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) -> str | None:
+    images = [x for x in (data.get("images") or ()) if isinstance(x, dict)]
+    images.sort(
+        key=lambda im: _cover_type_order(str(im.get("coverType") or "")),
+    )
+    arr_candidates: list[str] = []
+    ext_candidates: list[str] = []
+    for img in images:
+        for key in ("url", "remoteUrl"):
+            raw = img.get(key)
+            if not raw or not isinstance(raw, str):
                 continue
-            c = str(im.get("coverType", "")).lower()
-            if c in ("cover", "poster", "disc"):
-                url = im.get("url") or im.get("remoteUrl")
-                if url and str(url).strip().startswith("http"):
-                    return str(url).strip()
-    for k in (
-        "remoteCover",
-        "remotePoster",
-        "url",
-    ):
-        u = data.get(k)
-        if u and str(u).strip().startswith("http"):
-            return str(u).strip()
+            abs_u = _absolute_image_url(raw, base_uri)
+            if not abs_u:
+                continue
+            if _is_arr_served_url(abs_u, base_uri):
+                arr_candidates.append(abs_u)
+            else:
+                ext_candidates.append(abs_u)
+    if arr_candidates:
+        return arr_candidates[0]
+    rp = data.get("remotePoster")
+    if isinstance(rp, str) and rp.strip().startswith("http"):
+        u = _absolute_image_url(rp.strip(), base_uri)
+        if u:
+            if _is_arr_served_url(u, base_uri):
+                return u
+            ext_candidates.append(u)
+    if ext_candidates:
+        return ext_candidates[0]
+    return None
+
+
+def _first_cover_lidarr(data: dict[str, Any], base_uri: str) -> str | None:
+    images = [x for x in (data.get("images") or ()) if isinstance(x, dict)]
+    images.sort(
+        key=lambda im: _cover_type_order(str(im.get("coverType") or "")),
+    )
+    arr_candidates: list[str] = []
+    ext_candidates: list[str] = []
+    for im in images:
+        c = str(im.get("coverType", "")).lower()
+        if c and c not in ("cover", "poster", "disc", "banner", "fanart"):
+            continue
+        for key in ("url", "remoteUrl"):
+            raw = im.get(key)
+            if not raw or not isinstance(raw, str):
+                continue
+            abs_u = _absolute_image_url(raw, base_uri)
+            if not abs_u:
+                continue
+            if _is_arr_served_url(abs_u, base_uri):
+                arr_candidates.append(abs_u)
+            else:
+                ext_candidates.append(abs_u)
+    if arr_candidates:
+        return arr_candidates[0]
+    for k in ("remoteCover", "remotePoster", "url"):
+        raw = data.get(k)
+        if not raw or not isinstance(raw, str):
+            continue
+        abs_u = _absolute_image_url(raw, base_uri)
+        if not abs_u:
+            continue
+        if _is_arr_served_url(abs_u, base_uri):
+            return abs_u
+        ext_candidates.append(abs_u)
+    if ext_candidates:
+        return ext_candidates[0]
     return None
 
 
@@ -75,16 +165,32 @@ def _sniff_mime(data: bytes) -> str:
     return "image/jpeg"
 
 
-def _http_get_bytes(url: str) -> bytes | None:
+def _url_has_apikey_query(url: str) -> bool:
+    try:
+        q = urlparse(url).query.lower()
+    except Exception:
+        return False
+    return "apikey=" in q
+
+
+def _http_get_bytes(
+    url: str,
+    *,
+    arr_uri: str | None = None,
+    api_key: str | None = None,
+) -> bytes | None:
     if not re.match(r"^https?://", url, re.IGNORECASE):
         logger.debug("Skip non-HTTP image URL: %r", url[:80])
         return None
+    headers: dict[str, str] = {"User-Agent": "qBitrr/1.0 (WebUI thumbnail)"}
+    if arr_uri and api_key and not _url_has_apikey_query(url) and _is_arr_served_url(url, arr_uri):
+        headers["X-Api-Key"] = api_key
     try:
         with requests.get(
             url,
             stream=True,
             timeout=_REQUEST_TIMEOUT,
-            headers={"User-Agent": "qBitrr/1.0 (WebUI thumbnail)"},
+            headers=headers,
         ) as r:
             r.raise_for_status()
             cl = r.headers.get("Content-Length")
@@ -109,27 +215,42 @@ def _http_get_bytes(url: str) -> bytes | None:
         return None
 
 
+def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | None:
+    if kind == "radarr" and hasattr(client, "get_movie"):
+        try:
+            out = client.get_movie(entry_id, includeLocalCovers=True)
+        except TypeError:
+            out = client.get_movie(entry_id)
+    elif kind == "sonarr" and hasattr(client, "get_series"):
+        try:
+            out = client.get_series(entry_id, includeLocalCovers=True)
+        except TypeError:
+            out = client.get_series(entry_id)
+    elif kind == "lidarr" and hasattr(client, "get_album"):
+        try:
+            out = client.get_album(entry_id, includeLocalCovers=True)
+        except TypeError:
+            out = client.get_album(entry_id)
+    else:
+        return None
+    return out if isinstance(out, dict) else None
+
+
 def resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
     client = getattr(arr, "client", None)
     if not client:
         return None
+    base_uri = (getattr(arr, "uri", None) or "").strip() or "http://invalid/"
     try:
-        if kind == "radarr" and hasattr(client, "get_movie"):
-            data = client.get_movie(entry_id)
-        elif kind == "sonarr" and hasattr(client, "get_series"):
-            data = client.get_series(entry_id)
-        elif kind == "lidarr" and hasattr(client, "get_album"):
-            data = client.get_album(entry_id)
-        else:
-            return None
+        data = _get_entity_dict(client, kind, entry_id)
     except Exception:
         logger.debug("Arr API get_* failed for %s %s", kind, entry_id, exc_info=True)
         return None
-    if not isinstance(data, dict):
+    if not data:
         return None
     if kind == "lidarr":
-        return _first_cover_lidarr(data)
-    return _first_poster_url_from_radarr_sonarr(data)
+        return _first_cover_lidarr(data, base_uri)
+    return _first_poster_url_from_radarr_sonarr(data, base_uri)
 
 
 def get_or_fetch_thumbnail_bytes(
@@ -146,8 +267,11 @@ def get_or_fetch_thumbnail_bytes(
     u = url.strip()
     if "image.tmdb.org" in u and u.startswith("http://"):
         u = "https://" + u.removeprefix("http://")
-
-    raw = _http_get_bytes(u)
+    arr_uri = getattr(arr, "uri", None)
+    api_key = getattr(arr, "apikey", None)
+    raw = _http_get_bytes(
+        u, arr_uri=arr_uri if isinstance(arr_uri, str) else None, api_key=api_key
+    )
     if not raw:
         return None
     mime = _sniff_mime(raw)
