@@ -36,7 +36,7 @@ The running WebUI serves a bundled **OpenAPI 3** document and **Swagger UI**:
 
 **Authentication:** When `WebUI.AuthDisabled` is `true`, these URLs work without credentials. When WebUI authentication is enabled, they use the same rules as other protected routes: open `/web/docs` in a browser **after** logging into the WebUI (session cookie), or pass `Authorization: Bearer <WebUI.Token>` (or use **Authorize** in Swagger for "Try it out"). The main WebUI header includes an **OpenAPI** link to `/web/docs`.
 
-The served OpenAPI document intentionally includes only `/api/*` paths. `/web/*` routes remain available at runtime and are documented in this page, but they are excluded from Swagger/OpenAPI output.
+The served OpenAPI document is `/api/*`-first; it also includes mirrored **Arr poster thumbnail** routes under `/web/*` (see [Arr poster thumbnails](#arr-poster-thumbnails-cached)). Other `/web/*`-only routes remain runtime-available and are documented in prose here.
 
 The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
 
@@ -677,6 +677,26 @@ curl -O http://localhost:6969/web/logs/Main.log/download
 ---
 
 ## Arr View Endpoints
+
+### Arr poster thumbnails (cached)
+
+Read-only image bytes for browse **Icon** tiles and detail modals. Fetched from the corresponding Arr app, stored in a disk cache under the qBitrr data directory, and returned with long-cache headers when possible.
+
+**Endpoints** (each has a `/api` and `/web` mirror; behavior is identical):
+
+| Method | Path pattern |
+|--------|----------------|
+| `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
+| `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
+| `GET` | `/api/lidarr/<category>/album/<id>/thumbnail` · `/web/lidarr/<category>/album/<id>/thumbnail` |
+
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or album). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+
+**Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
+
+These routes are listed in `qBitrr/openapi.json` (both `/api` and `/web` variants).
+
+---
 
 ### Radarr Movies
 
