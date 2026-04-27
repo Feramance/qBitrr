@@ -1146,6 +1146,51 @@ class WebUI:
                 "tracks": [],
             }
 
+    def _enrich_sonarr_series_payload_quality_from_api(
+        self,
+        arr: Any,
+        payload: list[dict[str, Any]],
+        pending: list[tuple[int, int]],
+    ) -> None:
+        """Fill quality profile from Sonarr HTTP API for episode-mode rows (after DB work).
+
+        Run outside Peewee ``connection_context`` so no DB connection is held during network I/O.
+        """
+        if not pending:
+            return
+        client = getattr(arr, "client", None)
+        if not client or not hasattr(client, "get_series"):
+            return
+        for idx, series_id in pending:
+            if not (0 <= idx < len(payload)):
+                continue
+            try:
+                series_data = client.get_series(series_id)
+                if not series_data:
+                    continue
+                quality_profile_id = series_data.get("qualityProfileId")
+                quality_profile_name = None
+                if quality_profile_id:
+                    quality_cache = getattr(arr, "_quality_profile_cache", {})
+                    if quality_profile_id in quality_cache:
+                        quality_profile_name = quality_cache[quality_profile_id].get("name")
+                    elif hasattr(client, "get_quality_profile"):
+                        try:
+                            profile = client.get_quality_profile(quality_profile_id)
+                            quality_profile_name = profile.get("name") if profile else None
+                        except Exception:
+                            self.logger.debug(
+                                "Sonarr quality profile lookup failed",
+                                exc_info=True,
+                            )
+                series_obj = payload[idx].setdefault("series", {})
+                if quality_profile_id is not None:
+                    series_obj["qualityProfileId"] = quality_profile_id
+                if quality_profile_name is not None:
+                    series_obj["qualityProfileName"] = quality_profile_name
+            except Exception:
+                self.logger.debug("Sonarr series payload build failed", exc_info=True)
+
     def _sonarr_series_from_db(
         self,
         arr,
@@ -1183,6 +1228,7 @@ class WebUI:
         )
 
         with database_lock():
+            sonarr_api_quality_pending: list[tuple[int, int]] = []
             with db.connection_context():
                 monitored_count = (
                     episodes_model.select(fn.COUNT(episodes_model.EntryId))
@@ -1516,40 +1562,9 @@ class WebUI:
                             if not seasons:
                                 continue
 
-                        # If quality profile is still None, fetch from Sonarr API
+                        append_idx = len(payload)
                         if quality_profile_id is None and series_id is not None:
-                            try:
-                                client = getattr(arr, "client", None)
-                                if client and hasattr(client, "get_series"):
-                                    series_data = client.get_series(series_id)
-                                    if series_data:
-                                        quality_profile_id = series_data.get("qualityProfileId")
-                                        # Get quality profile name from cache or API
-                                        if quality_profile_id:
-                                            quality_cache = getattr(
-                                                arr, "_quality_profile_cache", {}
-                                            )
-                                            if quality_profile_id in quality_cache:
-                                                quality_profile_name = quality_cache[
-                                                    quality_profile_id
-                                                ].get("name")
-                                            elif hasattr(client, "get_quality_profile"):
-                                                try:
-                                                    profile = client.get_quality_profile(
-                                                        quality_profile_id
-                                                    )
-                                                    quality_profile_name = (
-                                                        profile.get("name") if profile else None
-                                                    )
-                                                except Exception:
-                                                    self.logger.debug(
-                                                        "Sonarr quality profile lookup failed",
-                                                        exc_info=True,
-                                                    )
-                            except Exception:
-                                self.logger.debug(
-                                    "Sonarr series payload build failed", exc_info=True
-                                )
+                            sonarr_api_quality_pending.append((append_idx, series_id))
 
                         payload.append(
                             {
@@ -1575,31 +1590,35 @@ class WebUI:
                             }
                         )
 
-                result = {
-                    "counts": {
-                        "available": available_count,
-                        "monitored": monitored_count,
-                        "missing": missing_count,
-                    },
-                    "total": total_series,
-                    "page": resolved_page,
-                    "page_size": page_size,
-                    "series": payload,
-                }
-                if payload:
-                    first_series = payload[0]
-                    first_seasons = first_series.get("seasons", {})
-                    total_episodes_in_response = sum(
-                        len(season.get("episodes", [])) for season in first_seasons.values()
-                    )
-                    self.logger.info(
-                        "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
-                        len(payload),
-                        first_series.get("series", {}).get("title", "?"),
-                        len(first_seasons),
-                        total_episodes_in_response,
-                        missing_only,
-                    )
+            self._enrich_sonarr_series_payload_quality_from_api(
+                arr, payload, sonarr_api_quality_pending
+            )
+
+            result = {
+                "counts": {
+                    "available": available_count,
+                    "monitored": monitored_count,
+                    "missing": missing_count,
+                },
+                "total": total_series,
+                "page": resolved_page,
+                "page_size": page_size,
+                "series": payload,
+            }
+            if payload:
+                first_series = payload[0]
+                first_seasons = first_series.get("seasons", {})
+                total_episodes_in_response = sum(
+                    len(season.get("episodes", [])) for season in first_seasons.values()
+                )
+                self.logger.info(
+                    "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
+                    len(payload),
+                    first_series.get("series", {}).get("title", "?"),
+                    len(first_seasons),
+                    total_episodes_in_response,
+                    missing_only,
+                )
             return result
 
     # Routes

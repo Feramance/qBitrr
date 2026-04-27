@@ -13,8 +13,8 @@ from qBitrr.config import HOME_PATH
 
 logger = logging.getLogger("qBitrr.WebUI.Thumbnails")
 
-# Prefer MediaCover / same-host URLs from the Arr API; fall back to metadata CDNs only
-# when no local cover exists. Keep a hard cap on downloaded size.
+# Only use images served by the same host as the Arr base URL (e.g. MediaCover).
+# No external metadata CDNs. Keep a hard cap on downloaded size.
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _REQUEST_TIMEOUT = 20
 
@@ -88,8 +88,6 @@ def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) ->
     images.sort(
         key=lambda im: _cover_type_order(str(im.get("coverType") or "")),
     )
-    arr_candidates: list[str] = []
-    ext_candidates: list[str] = []
     for img in images:
         for key in ("url", "remoteUrl"):
             raw = img.get(key)
@@ -99,20 +97,12 @@ def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) ->
             if not abs_u:
                 continue
             if _is_arr_served_url(abs_u, base_uri):
-                arr_candidates.append(abs_u)
-            else:
-                ext_candidates.append(abs_u)
-    if arr_candidates:
-        return arr_candidates[0]
+                return abs_u
     rp = data.get("remotePoster")
     if isinstance(rp, str) and rp.strip().startswith("http"):
         u = _absolute_image_url(rp.strip(), base_uri)
-        if u:
-            if _is_arr_served_url(u, base_uri):
-                return u
-            ext_candidates.append(u)
-    if ext_candidates:
-        return ext_candidates[0]
+        if u and _is_arr_served_url(u, base_uri):
+            return u
     return None
 
 
@@ -121,8 +111,6 @@ def _first_cover_lidarr(data: dict[str, Any], base_uri: str) -> str | None:
     images.sort(
         key=lambda im: _cover_type_order(str(im.get("coverType") or "")),
     )
-    arr_candidates: list[str] = []
-    ext_candidates: list[str] = []
     for im in images:
         c = str(im.get("coverType", "")).lower()
         if c and c not in ("cover", "poster", "disc", "banner", "fanart"):
@@ -135,23 +123,14 @@ def _first_cover_lidarr(data: dict[str, Any], base_uri: str) -> str | None:
             if not abs_u:
                 continue
             if _is_arr_served_url(abs_u, base_uri):
-                arr_candidates.append(abs_u)
-            else:
-                ext_candidates.append(abs_u)
-    if arr_candidates:
-        return arr_candidates[0]
+                return abs_u
     for k in ("remoteCover", "remotePoster", "url"):
         raw = data.get(k)
         if not raw or not isinstance(raw, str):
             continue
         abs_u = _absolute_image_url(raw, base_uri)
-        if not abs_u:
-            continue
-        if _is_arr_served_url(abs_u, base_uri):
+        if abs_u and _is_arr_served_url(abs_u, base_uri):
             return abs_u
-        ext_candidates.append(abs_u)
-    if ext_candidates:
-        return ext_candidates[0]
     return None
 
 
@@ -240,7 +219,10 @@ def resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
     client = getattr(arr, "client", None)
     if not client:
         return None
-    base_uri = (getattr(arr, "uri", None) or "").strip() or "http://invalid/"
+    raw_uri = getattr(arr, "uri", None)
+    if not isinstance(raw_uri, str) or not raw_uri.strip():
+        return None
+    base_uri = raw_uri.strip()
     try:
         data = _get_entity_dict(client, kind, entry_id)
     except Exception:
@@ -265,8 +247,6 @@ def get_or_fetch_thumbnail_bytes(
     if not url:
         return None
     u = url.strip()
-    if "image.tmdb.org" in u and u.startswith("http://"):
-        u = "https://" + u.removeprefix("http://")
     arr_uri = getattr(arr, "uri", None)
     api_key = getattr(arr, "apikey", None)
     raw = _http_get_bytes(
