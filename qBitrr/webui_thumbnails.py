@@ -17,6 +17,8 @@ logger = logging.getLogger("qBitrr.WebUI.Thumbnails")
 # No external metadata CDNs. Keep a hard cap on downloaded size.
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _REQUEST_TIMEOUT = 20
+# requests only strips Authorization on cross-host redirects; X-Api-Key would leak — follow manually.
+_MAX_THUMB_REDIRECTS = 10
 
 
 def _cache_dir() -> Path:
@@ -152,6 +154,44 @@ def _url_has_apikey_query(url: str) -> bool:
     return "apikey=" in q
 
 
+def _thumbnail_request_headers(
+    request_url: str,
+    *,
+    arr_uri: str | None,
+    api_key: str | None,
+) -> dict[str, str]:
+    """Build headers for a single GET. API key is only sent when the URL is the Arr host."""
+    h: dict[str, str] = {"User-Agent": "qBitrr/1.0 (WebUI thumbnail)"}
+    if (
+        arr_uri
+        and api_key
+        and not _url_has_apikey_query(request_url)
+        and _is_arr_served_url(request_url, arr_uri)
+    ):
+        h["X-Api-Key"] = api_key
+    return h
+
+
+def _read_limited_response_body(r: requests.Response) -> bytes | None:
+    cl = r.headers.get("Content-Length")
+    if cl and cl.isdigit() and int(cl) > _MAX_IMAGE_BYTES:
+        logger.debug("Image too large (Content-Length): %s", cl)
+        return None
+    chunks: list[bytes] = []
+    total = 0
+    for ch in r.iter_content(chunk_size=64 * 1024):
+        if not ch:
+            continue
+        total += len(ch)
+        if total > _MAX_IMAGE_BYTES:
+            logger.debug("Image exceeded max size while reading")
+            return None
+        chunks.append(ch)
+    if not chunks:
+        return None
+    return b"".join(chunks)
+
+
 def _http_get_bytes(
     url: str,
     *,
@@ -161,37 +201,38 @@ def _http_get_bytes(
     if not re.match(r"^https?://", url, re.IGNORECASE):
         logger.debug("Skip non-HTTP image URL: %r", url[:80])
         return None
-    headers: dict[str, str] = {"User-Agent": "qBitrr/1.0 (WebUI thumbnail)"}
-    if arr_uri and api_key and not _url_has_apikey_query(url) and _is_arr_served_url(url, arr_uri):
-        headers["X-Api-Key"] = api_key
-    try:
-        with requests.get(
-            url,
-            stream=True,
-            timeout=_REQUEST_TIMEOUT,
-            headers=headers,
-        ) as r:
-            r.raise_for_status()
-            cl = r.headers.get("Content-Length")
-            if cl and cl.isdigit() and int(cl) > _MAX_IMAGE_BYTES:
-                logger.debug("Image too large (Content-Length): %s", cl)
-                return None
-            chunks: list[bytes] = []
-            total = 0
-            for ch in r.iter_content(chunk_size=64 * 1024):
-                if not ch:
+    current = url
+    for _ in range(_MAX_THUMB_REDIRECTS + 1):
+        headers = _thumbnail_request_headers(current, arr_uri=arr_uri, api_key=api_key)
+        try:
+            with requests.get(
+                current,
+                stream=True,
+                timeout=_REQUEST_TIMEOUT,
+                headers=headers,
+                allow_redirects=False,
+            ) as r:
+                if r.is_redirect:
+                    loc = r.headers.get("Location")
+                    if not loc or not loc.strip():
+                        return None
+                    next_url = urljoin(r.url, loc.strip())
+                    if not re.match(r"^https?://", next_url, re.IGNORECASE):
+                        return None
+                    if not arr_uri or not _is_arr_served_url(next_url, arr_uri):
+                        logger.debug(
+                            "Thumbnail redirect to non-Arr host rejected: %r", next_url[:120]
+                        )
+                        return None
+                    current = next_url
                     continue
-                total += len(ch)
-                if total > _MAX_IMAGE_BYTES:
-                    logger.debug("Image exceeded max size while reading")
-                    return None
-                chunks.append(ch)
-            if not chunks:
-                return None
-            return b"".join(chunks)
-    except Exception as e:
-        logger.debug("Thumbnail fetch failed: %s", e, exc_info=True)
-        return None
+                r.raise_for_status()
+                return _read_limited_response_body(r)
+        except Exception as e:
+            logger.debug("Thumbnail fetch failed: %s", e, exc_info=True)
+            return None
+    logger.debug("Thumbnail fetch exceeded max redirects (%s)", _MAX_THUMB_REDIRECTS)
+    return None
 
 
 def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | None:
