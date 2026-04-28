@@ -252,11 +252,11 @@ def get_lidarr_track_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
 
 def update_album_total_tracks(
     arr: Arr, album_entry_id: int, album_model: Any, track_model: Any
-) -> None:
-    """Set AlbumFilesModel.TotalTracks from TrackFilesModel rows."""
+) -> Any | None:
+    """Set AlbumFilesModel.TotalTracks from TrackFilesModel rows; return the album row."""
     db = getattr(arr, "db", None)
     if db is None:
-        return
+        return None
     name = getattr(arr, "_name", "")
     with database_lock():
         with db.connection_context():
@@ -268,6 +268,9 @@ def update_album_total_tracks(
             album_model.update(TotalTracks=n).where(
                 (album_model.EntryId == album_entry_id) & (album_model.ArrInstance == name)
             ).execute()
+            return album_model.get_or_none(
+                (album_model.EntryId == album_entry_id) & (album_model.ArrInstance == name)
+            )
 
 
 def update_series_season_episode_totals(
@@ -366,8 +369,7 @@ def refresh_rollups_after_db_update(
             elif am is not None and tm is not None:
                 aeid = int(db_entry.get("id") or 0)
                 if aeid:
-                    update_album_total_tracks(arr, aeid, am, tm)
-                    arow = am.get_or_none((am.EntryId == aeid) & (am.ArrInstance == arr._name))
+                    arow = update_album_total_tracks(arr, aeid, am, tm)
                     if arow and getattr(arow, "ArtistId", None) is not None and arm is not None:
                         update_artist_album_track_totals(arr, int(arow.ArtistId), am, tm, arm)
             refresh_arr_webui_rollups(arr)
