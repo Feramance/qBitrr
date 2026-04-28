@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { JSX } from "react";
+import { createPortal } from "react-dom";
 import { IconImage } from "../IconImage";
 import CloseIcon from "../../icons/close.svg";
 
@@ -16,7 +17,7 @@ export function ArrModal({
   onClose,
   maxWidth = 560,
 }: ArrModalProps): JSX.Element {
-  return (
+  return createPortal(
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
         className="modal"
@@ -34,6 +35,7 @@ export function ArrModal({
         </div>
         <div className="modal-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

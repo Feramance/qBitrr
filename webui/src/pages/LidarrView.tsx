@@ -40,6 +40,11 @@ import { LidarrAlbumDetailBody } from "../components/arr/LidarrAlbumDetailBody";
 import { StableTable } from "../components/StableTable";
 import { lidarrAlbumThumbnailUrl } from "../utils/arrThumbnailUrl";
 import RefreshIcon from "../icons/refresh-arrow.svg";
+import {
+  AGGREGATE_FETCH_CHUNK_SIZE,
+  pagesFromAggregateTotal,
+  AGG_FALLBACK_AGGREGATE_PAGES_MAX,
+} from "../constants/arrAggregateFetch";
 
 interface LidarrAggRow extends LidarrAlbumEntry {
   __instance: string;
@@ -48,7 +53,6 @@ interface LidarrAggRow extends LidarrAlbumEntry {
 
 const LIDARR_PAGE_SIZE = 50;
 const LIDARR_AGG_PAGE_SIZE = 50;
-const LIDARR_AGG_FETCH_SIZE = 500;
 
 function categoryForInstanceLabel(
   instances: ArrInfo[],
@@ -236,6 +240,17 @@ const LidarrAggregateView = memo(function LidarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Lidarr library…
         </div>
+      ) : !loading &&
+        total === 0 &&
+        summary.total === 0 &&
+        instanceCount > 0 ? (
+        <div className="hint">
+          <p>No albums found in the local catalog.</p>
+          <p>
+            qBitrr may still be importing from your Lidarr instances into the SQLite database.
+            Check logs or refresh in a moment.
+          </p>
+        </div>
       ) : total ? (
         browseMode === "list" ? (
           <StableTable
@@ -339,6 +354,8 @@ interface LidarrInstanceViewProps {
   category: string;
   browseMode: "list" | "icon";
   onAlbumSelect: (entry: LidarrAlbumEntry) => void;
+  /** True when API reports zero albums and catalog may still be syncing. */
+  showCatalogEmptyHint?: boolean;
 }
 
 const LidarrInstanceView = memo(function LidarrInstanceView({
@@ -356,6 +373,7 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
   category,
   browseMode,
   onAlbumSelect,
+  showCatalogEmptyHint = false,
 }: LidarrInstanceViewProps): JSX.Element {
   const filteredAlbums = useMemo(() => {
     let albums = allAlbums;
@@ -642,8 +660,15 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
             })}
           </div>
         )
+      ) : showCatalogEmptyHint ? (
+        <div className="hint">
+          <p>No albums in the local catalog.</p>
+          <p>
+            qBitrr may still be syncing your Lidarr library. Check logs or try again shortly.
+          </p>
+        </div>
       ) : (
-        <div className="hint">No albums found.</div>
+        <div className="hint">No albums match the current filters.</div>
       )}
 
       {reasonFilteredAlbums.length > pageSize && (
@@ -705,6 +730,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   const instanceKeyRef = useRef<string>("");
   const instancePagesRef = useRef<Record<number, LidarrAlbumEntry[]>>({});
   const globalSearchRef = useRef(globalSearch);
+  globalSearchRef.current = globalSearch;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const backendReadyWarnedRef = useRef(false);
   const prevSelectionRef = useRef<string | "">(selection);
 
@@ -764,12 +792,13 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
         return;
       }
-      if (selection === "") {
+      const sel = selectionRef.current;
+      if (sel === "") {
         // If only 1 instance, select it directly; otherwise use aggregate
         setSelection(filtered.length === 1 ? filtered[0].category : "aggregate");
       } else if (
-        selection !== "aggregate" &&
-        !filtered.some((arr) => arr.category === selection)
+        sel !== "aggregate" &&
+        !filtered.some((arr) => arr.category === sel)
       ) {
         setSelection(filtered[0].category);
       }
@@ -781,7 +810,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         "error"
       );
     }
-  }, [push, selection]);
+  }, [push]);
 
   const preloadRemainingPages = useCallback(
     async (
@@ -929,30 +958,42 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     if (showLoading) {
       setAggLoading(true);
     }
+    const chunk = AGGREGATE_FETCH_CHUNK_SIZE;
     try {
       const aggregated: LidarrAggRow[] = [];
       let totalAvailable = 0;
       let totalMonitored = 0;
       let progressFirstPaint = false;
       for (const inst of instances) {
-        let page = 0;
-        let counted = false;
         const label = inst.name || inst.category;
-        while (page < 100) {
+        let countedForInstance = false;
+        let pagesPlanned: number | null = null;
+        let pageIdx = 0;
+
+        while (true) {
           const res = await getLidarrAlbums(
             inst.category,
-            page,
-            LIDARR_AGG_FETCH_SIZE,
+            pageIdx,
+            chunk,
             ""
           );
 
-          if (!counted) {
+          if (!countedForInstance) {
             const counts = res.counts;
             if (counts) {
               totalAvailable += counts.available ?? 0;
               totalMonitored += counts.monitored ?? 0;
             }
-            counted = true;
+            countedForInstance = true;
+            pagesPlanned = pagesFromAggregateTotal(res.total, res.page_size, chunk);
+            if (
+              showLoading &&
+              typeof res.total === "number" &&
+              res.total === 0
+            ) {
+              setAggLoading(false);
+              progressFirstPaint = true;
+            }
           }
           const albumEntries = res.albums ?? [];
           albumEntries.forEach((entry) => {
@@ -962,14 +1003,38 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           const albumSyncResult = aggAlbumSync.syncData(aggregated);
           if (albumSyncResult.hasChanges) {
             setAggRows(albumSyncResult.data);
+            setAggSummary((prev) => {
+              const n = aggregated.length;
+              const next = {
+                available: totalAvailable,
+                monitored: totalMonitored,
+                missing: Math.max(0, n - totalAvailable),
+                total: n,
+              };
+              if (
+                prev.available === next.available &&
+                prev.monitored === next.monitored &&
+                prev.missing === next.missing &&
+                prev.total === next.total
+              ) {
+                return prev;
+              }
+              return next;
+            });
           }
           if (showLoading && !progressFirstPaint && albumSyncResult.data.length > 0) {
             setAggLoading(false);
             progressFirstPaint = true;
           }
 
-          if (!albumEntries.length || albumEntries.length < LIDARR_AGG_FETCH_SIZE) break;
-          page += 1;
+          pageIdx += 1;
+
+          if (pagesPlanned !== null) {
+            if (pageIdx >= pagesPlanned) break;
+          } else {
+            if (!albumEntries.length || albumEntries.length < chunk) break;
+            if (pageIdx >= AGG_FALLBACK_AGGREGATE_PAGES_MAX) break;
+          }
         }
       }
 
@@ -1101,10 +1166,6 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   );
 
   // Removed: Don't reset page when filter changes - preserve scroll position
-
-  useEffect(() => {
-    globalSearchRef.current = globalSearch;
-  }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -1359,6 +1420,12 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
+                showCatalogEmptyHint={
+                  !instanceLoading &&
+                  instanceData != null &&
+                  (instanceData.total ?? 0) === 0 &&
+                  allInstanceAlbums.length === 0
+                }
                 category={selection as string}
                 browseMode={browseMode}
                 onAlbumSelect={(entry) =>

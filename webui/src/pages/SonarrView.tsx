@@ -46,6 +46,11 @@ import {
   SonarrSeriesGroupDetailBody,
 } from "../components/arr/SonarrSeriesGroupDetailBody";
 import RefreshIcon from "../icons/refresh-arrow.svg";
+import {
+  AGGREGATE_FETCH_CHUNK_SIZE,
+  pagesFromAggregateTotal,
+  AGG_FALLBACK_AGGREGATE_PAGES_MAX,
+} from "../constants/arrAggregateFetch";
 
 interface SonarrViewProps {
   active: boolean;
@@ -69,7 +74,6 @@ export interface SonarrAggRow {
 
 const SONARR_PAGE_SIZE = 25;
 const SONARR_AGG_PAGE_SIZE = 50;
-const SONARR_AGG_FETCH_SIZE = 200;
 
 function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): SonarrSeriesEntry[] {
   if (!onlyMissing) return seriesEntries;
@@ -196,6 +200,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const [instanceTotalPages, setInstanceTotalPages] = useState(1);
   const [instanceTotalItems, setInstanceTotalItems] = useState(0);
   const globalSearchRef = useRef(globalSearch);
+  globalSearchRef.current = globalSearch;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const backendReadyWarnedRef = useRef(false);
   const prevSelectionRef = useRef<string | "">(selection);
 
@@ -265,12 +272,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
         return;
       }
-      if (selection === "") {
+      const sel = selectionRef.current;
+      if (sel === "") {
         // If only 1 instance, select it directly; otherwise use aggregate
         setSelection(filtered.length === 1 ? filtered[0].category : "aggregate");
       } else if (
-        selection !== "aggregate" &&
-        !filtered.some((arr) => arr.category === selection)
+        sel !== "aggregate" &&
+        !filtered.some((arr) => arr.category === sel)
       ) {
         setSelection(filtered[0].category);
       }
@@ -282,7 +290,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         "error"
       );
     }
-  }, [push, selection]);
+  }, [push]);
 
   const fetchInstance = useCallback(
     async (
@@ -425,6 +433,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     if (showLoading) {
       setAggLoading(true);
     }
+    const chunk = AGGREGATE_FETCH_CHUNK_SIZE;
     try {
       const aggregated: SonarrAggRow[] = [];
       let totalAvailable = 0;
@@ -432,26 +441,39 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       let totalMissing = 0;
       let progressFirstPaint = false;
       for (const inst of instances) {
-        let page = 0;
-        let counted = false;
         const label = inst.name || inst.category;
-        while (page < 200) {
+        let countedForInstance = false;
+        let pagesPlanned: number | null = null;
+        let pageIdx = 0;
+
+        while (true) {
           const res = await getSonarrSeries(
             inst.category,
-            page,
-            SONARR_AGG_FETCH_SIZE,
+            pageIdx,
+            chunk,
             "",
             { missingOnly: onlyMissing }
           );
-          if (!counted) {
+
+          if (!countedForInstance) {
             const counts = res.counts;
             if (counts) {
               totalAvailable += counts.available ?? 0;
               totalMonitored += counts.monitored ?? 0;
               totalMissing += counts.missing ?? 0;
             }
-            counted = true;
+            countedForInstance = true;
+            pagesPlanned = pagesFromAggregateTotal(res.total, res.page_size, chunk);
+            if (
+              showLoading &&
+              typeof res.total === "number" &&
+              res.total === 0
+            ) {
+              setAggLoading(false);
+              progressFirstPaint = true;
+            }
           }
+
           const series = res.series ?? [];
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
@@ -484,15 +506,37 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           const episodeSyncResult = aggEpisodeSync.syncData(aggregated);
           if (episodeSyncResult.hasChanges) {
             setAggRows(episodeSyncResult.data);
+            setAggSummary((prev) => {
+              const next = {
+                available: totalAvailable,
+                monitored: totalMonitored,
+                missing: totalMissing,
+                total: aggregated.length,
+              };
+              if (
+                prev.available === next.available &&
+                prev.monitored === next.monitored &&
+                prev.missing === next.missing &&
+                prev.total === next.total
+              ) {
+                return prev;
+              }
+              return next;
+            });
           }
           if (showLoading && !progressFirstPaint && episodeSyncResult.data.length > 0) {
             setAggLoading(false);
             progressFirstPaint = true;
           }
-          if (!series.length || series.length < SONARR_AGG_FETCH_SIZE) {
-            break;
+
+          pageIdx += 1;
+
+          if (pagesPlanned !== null) {
+            if (pageIdx >= pagesPlanned) break;
+          } else {
+            if (!series.length || series.length < chunk) break;
+            if (pageIdx >= AGG_FALLBACK_AGGREGATE_PAGES_MAX) break;
           }
-          page += 1;
         }
       }
 
@@ -625,10 +669,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     },
     active && selection && selection !== "aggregate" && liveArr ? 1000 : null
   );
-
-  useEffect(() => {
-    globalSearchRef.current = globalSearch;
-  }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -915,6 +955,7 @@ function sonarrCategoryForInstance(instances: ArrInfo[], label: string): string 
 function SonarrAggregateView({
   loading,
   rows,
+  total,
   page,
   totalPages: _totalPagesProp,
   onPageChange,
@@ -1054,7 +1095,10 @@ function SonarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Sonarr library…
         </div>
-      ) : !loading && summary.total === 0 && instanceCount > 0 ? (
+      ) : !loading &&
+        total === 0 &&
+        summary.total === 0 &&
+        instanceCount > 0 ? (
         <div className="hint">
           <p>No episodes found in the database.</p>
           <p>
@@ -1205,6 +1249,7 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
   page,
   pageSize,
   totalPages,
+  totalItems,
   onlyMissing,
   reasonFilter,
   searchQuery,
@@ -1333,6 +1378,17 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
             "Loading series information..."
           )}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
+          {series.length > 0 &&
+          totalEpisodes === 0 &&
+          !isFiltered &&
+          seriesGroups.length > 0 ? (
+            <>
+              {" "}
+              <span className="hint">
+                Episode rows may fill in as the catalog syncs.
+              </span>
+            </>
+          ) : null}
         </div>
         <button className="btn ghost" onClick={onRestart} disabled={loading}>
           <IconImage src={RefreshIcon} />
@@ -1343,12 +1399,11 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
         <div className="loading">
           <span className="spinner" /> Loading series…
         </div>
-      ) : !loading && series.length > 0 && totalEpisodes === 0 ? (
+      ) : !loading && series.length === 0 && totalItems === 0 ? (
         <div className="hint">
-          <p>No episodes found for these series.</p>
+          <p>No series rows in the local catalog yet.</p>
           <p>
-            The backend may still be syncing episode data from Sonarr. Check the
-            logs or wait a few moments and refresh.
+            qBitrr may still be importing Sonarr metadata into SQLite. Check logs or retry shortly.
           </p>
         </div>
       ) : !loading && totalEpisodes > 0 && filteredEpCount === 0 ? (

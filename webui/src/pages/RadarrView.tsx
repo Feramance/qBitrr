@@ -40,6 +40,11 @@ import { ArrPosterImage } from "../components/arr/ArrPosterImage";
 import { RadarrMovieDetailBody } from "../components/arr/RadarrMovieDetailBody";
 import { radarrMovieThumbnailUrl } from "../utils/arrThumbnailUrl";
 import RefreshIcon from "../icons/refresh-arrow.svg";
+import {
+  AGGREGATE_FETCH_CHUNK_SIZE,
+  pagesFromAggregateTotal,
+  AGG_FALLBACK_AGGREGATE_PAGES_MAX,
+} from "../constants/arrAggregateFetch";
 
 interface RadarrAggRow extends RadarrMovie {
   __instance: string;
@@ -51,7 +56,6 @@ type RadarrAggSortKey = "__instance" | RadarrSortKey;
 
 const RADARR_PAGE_SIZE = 50;
 const RADARR_AGG_PAGE_SIZE = 50;
-const RADARR_AGG_FETCH_SIZE = 500;
 
 function categoryForInstanceLabel(
   instances: ArrInfo[],
@@ -197,6 +201,17 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
         <div className="loading">
           <span className="spinner" /> Loading Radarr library…
         </div>
+      ) : !loading &&
+        total === 0 &&
+        summary.total === 0 &&
+        instanceCount > 0 ? (
+        <div className="hint">
+          <p>No movies found in the local catalog.</p>
+          <p>
+            qBitrr may still be importing from your Radarr instances into the SQLite
+            database. Check logs or refresh in a moment.
+          </p>
+        </div>
       ) : total ? (
         browseMode === "list" ? (
           <StableTable
@@ -291,6 +306,8 @@ interface RadarrInstanceViewProps {
   category: string;
   browseMode: "list" | "icon";
   onMovieSelect: (movie: RadarrMovie) => void;
+  /** True when API reports zero movies and catalog may still be syncing. */
+  showCatalogEmptyHint?: boolean;
 }
 
 const RadarrInstanceView = memo(function RadarrInstanceView({
@@ -308,6 +325,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   category,
   browseMode,
   onMovieSelect,
+  showCatalogEmptyHint = false,
 }: RadarrInstanceViewProps): JSX.Element {
   const filteredMovies = useMemo(() => {
     let movies = allMovies;
@@ -515,8 +533,15 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
               })}
           </div>
         )
+      ) : showCatalogEmptyHint ? (
+        <div className="hint">
+          <p>No movies in the local catalog.</p>
+          <p>
+            qBitrr may still be syncing your Radarr library. Check logs or try again shortly.
+          </p>
+        </div>
       ) : (
-        <div className="hint">No movies found.</div>
+        <div className="hint">No movies match the current filters.</div>
       )}
 
       {reasonFilteredMovies.length > pageSize && (
@@ -570,6 +595,9 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const instanceKeyRef = useRef<string>("");
   const instancePagesRef = useRef<Record<number, RadarrMovie[]>>({});
   const globalSearchRef = useRef(globalSearch);
+  globalSearchRef.current = globalSearch;
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const backendReadyWarnedRef = useRef(false);
 
   // Smart data sync for instance movies
@@ -627,12 +655,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
         return;
       }
-      if (selection === "") {
+      const sel = selectionRef.current;
+      if (sel === "") {
         // If only 1 instance, select it directly; otherwise use aggregate
         setSelection(filtered.length === 1 ? filtered[0].category : "aggregate");
       } else if (
-        selection !== "aggregate" &&
-        !filtered.some((arr) => arr.category === selection)
+        sel !== "aggregate" &&
+        !filtered.some((arr) => arr.category === sel)
       ) {
         setSelection(filtered[0].category);
       }
@@ -644,7 +673,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         "error"
       );
     }
-  }, [push, selection]);
+  }, [push]);
 
   const preloadRemainingPages = useCallback(
     async (
@@ -792,31 +821,40 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     if (showLoading) {
       setAggLoading(true);
     }
+    const chunk = AGGREGATE_FETCH_CHUNK_SIZE;
     try {
       const aggregated: RadarrAggRow[] = [];
       let totalAvailable = 0;
       let totalMonitored = 0;
       let progressFirstPaint = false;
       for (const inst of instances) {
-        let page = 0;
-        let counted = false;
         const label = inst.name || inst.category;
-        while (page < 100) {
-          const res = await getRadarrMovies(
-            inst.category,
-            page,
-            RADARR_AGG_FETCH_SIZE,
-            ""
-          );
-          if (!counted) {
+        let countedForInstance = false;
+        let pagesPlanned: number | null = null;
+        let pageIdx = 0;
+
+        while (true) {
+          const res = await getRadarrMovies(inst.category, pageIdx, chunk, "");
+          const movies = res.movies ?? [];
+
+          if (!countedForInstance) {
             const counts = res.counts;
             if (counts) {
               totalAvailable += counts.available ?? 0;
               totalMonitored += counts.monitored ?? 0;
             }
-            counted = true;
+            countedForInstance = true;
+            pagesPlanned = pagesFromAggregateTotal(res.total, res.page_size, chunk);
+            if (
+              showLoading &&
+              typeof res.total === "number" &&
+              res.total === 0
+            ) {
+              setAggLoading(false);
+              progressFirstPaint = true;
+            }
           }
-          const movies = res.movies ?? [];
+
           movies.forEach((movie) => {
             aggregated.push({ ...movie, __instance: label });
           });
@@ -824,14 +862,38 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           const syncResult = aggMovieSync.syncData(aggregated);
           if (syncResult.hasChanges) {
             setAggRows(syncResult.data);
+            setAggSummary((prev) => {
+              const n = aggregated.length;
+              const next = {
+                available: totalAvailable,
+                monitored: totalMonitored,
+                missing: n - totalAvailable,
+                total: n,
+              };
+              if (
+                prev.available === next.available &&
+                prev.monitored === next.monitored &&
+                prev.missing === next.missing &&
+                prev.total === next.total
+              ) {
+                return prev;
+              }
+              return next;
+            });
           }
           if (showLoading && !progressFirstPaint && syncResult.data.length > 0) {
             setAggLoading(false);
             progressFirstPaint = true;
           }
 
-          if (!movies.length || movies.length < RADARR_AGG_FETCH_SIZE) break;
-          page += 1;
+          pageIdx += 1;
+
+          if (pagesPlanned !== null) {
+            if (pageIdx >= pagesPlanned) break;
+          } else {
+            if (!movies.length || movies.length < chunk) break;
+            if (pageIdx >= AGG_FALLBACK_AGGREGATE_PAGES_MAX) break;
+          }
         }
       }
 
@@ -954,10 +1016,6 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   );
 
   // Removed: Don't reset page when filter changes - preserve scroll position
-
-  useEffect(() => {
-    globalSearchRef.current = globalSearch;
-  }, [globalSearch]);
 
   useEffect(() => {
     if (selection === "aggregate") {
@@ -1235,6 +1293,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 lastUpdated={lastUpdated}
                 category={selection as string}
                 browseMode={browseMode}
+                showCatalogEmptyHint={
+                  !instanceLoading &&
+                  instanceData != null &&
+                  (instanceData.total ?? 0) === 0 &&
+                  allInstanceMovies.length === 0
+                }
                 onMovieSelect={(m) =>
                   setRadarrDetail({ movie: m, category: selection as string })
                 }

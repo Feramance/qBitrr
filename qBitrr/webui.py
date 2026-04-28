@@ -847,15 +847,6 @@ class WebUI:
                                 .where(track_model.AlbumId == album.EntryId)
                                 .order_by(track_model.TrackNumber)
                             )
-                            track_count = getattr(album, "TotalTracks", None)
-                            if track_count is None:
-                                track_count = track_query.count()
-                            self.logger.debug(
-                                "Album %s (%s): Found %d tracks in database",
-                                album.EntryId,
-                                album.Title,
-                                track_count,
-                            )
 
                             for track in track_query:
                                 is_monitored = self._safe_bool(track.Monitored)
@@ -877,6 +868,12 @@ class WebUI:
                                         "monitored": is_monitored,
                                     }
                                 )
+                            self.logger.debug(
+                                "Album %s (%s): Found %d tracks in database",
+                                album.EntryId,
+                                album.Title,
+                                len(tracks_list),
+                            )
                         except Exception as e:
                             self.logger.warning(
                                 "Failed to fetch tracks for album %s (%s): %s",
@@ -1061,7 +1058,8 @@ class WebUI:
     ) -> None:
         """Fill quality profile from Sonarr HTTP API for episode-mode rows (after DB work).
 
-        Run outside Peewee ``connection_context`` so no DB connection is held during network I/O.
+        Run outside Peewee ``connection_context`` and outside :func:`~qBitrr.db_lock.database_lock`
+        so no DB connection or cross-process DB lock is held during network I/O.
         """
         if not pending:
             return
@@ -1139,8 +1137,10 @@ class WebUI:
         available_count = ep_instance_counts.get("available", 0)
         missing_count = ep_instance_counts.get("missing", 0)
 
+        sonarr_api_quality_pending: list[tuple[int, int]] = []
+        payload: list[dict[str, Any]] = []
+        total_series = 0
         with database_lock():
-            sonarr_api_quality_pending: list[tuple[int, int]] = []
             with db.connection_context():
                 missing_series_ids: list[int] = []
                 if missing_only:
@@ -1167,8 +1167,6 @@ class WebUI:
                             "page_size": page_size,
                             "series": [],
                         }
-                payload: list[dict[str, Any]] = []
-                total_series = 0
 
                 if series_model is not None:
                     # Base query for ALL series in this instance (unfiltered)
@@ -1481,36 +1479,36 @@ class WebUI:
                             }
                         )
 
-            self._enrich_sonarr_series_payload_quality_from_api(
-                arr, payload, sonarr_api_quality_pending
-            )
+        self._enrich_sonarr_series_payload_quality_from_api(
+            arr, payload, sonarr_api_quality_pending
+        )
 
-            result = {
-                "counts": {
-                    "available": available_count,
-                    "monitored": monitored_count,
-                    "missing": missing_count,
-                },
-                "total": total_series,
-                "page": resolved_page,
-                "page_size": page_size,
-                "series": payload,
-            }
-            if payload:
-                first_series = payload[0]
-                first_seasons = first_series.get("seasons", {})
-                total_episodes_in_response = sum(
-                    len(season.get("episodes", [])) for season in first_seasons.values()
-                )
-                self.logger.info(
-                    "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
-                    len(payload),
-                    first_series.get("series", {}).get("title", "?"),
-                    len(first_seasons),
-                    total_episodes_in_response,
-                    missing_only,
-                )
-            return result
+        result = {
+            "counts": {
+                "available": available_count,
+                "monitored": monitored_count,
+                "missing": missing_count,
+            },
+            "total": total_series,
+            "page": resolved_page,
+            "page_size": page_size,
+            "series": payload,
+        }
+        if payload:
+            first_series = payload[0]
+            first_seasons = first_series.get("seasons", {})
+            total_episodes_in_response = sum(
+                len(season.get("episodes", [])) for season in first_seasons.values()
+            )
+            self.logger.info(
+                "[Sonarr API] Returning %d series, first series '%s' has %d seasons, %d episodes (missing_only=%s)",
+                len(payload),
+                first_series.get("series", {}).get("title", "?"),
+                len(first_seasons),
+                total_episodes_in_response,
+                missing_only,
+            )
+        return result
 
     # Routes
     def _register_routes(self):

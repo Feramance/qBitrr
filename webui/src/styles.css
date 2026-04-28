@@ -2369,14 +2369,20 @@ svg[height] {
 .modal-backdrop {
     position: fixed;
     inset: 0;
+    min-height: 100dvh;
+    box-sizing: border-box;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: max(24px, env(safe-area-inset-top))
+        max(24px, env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(24px, env(safe-area-inset-left));
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: contain;
     z-index: 120;
     animation: fadeIn 0.2s ease;
 }
@@ -2401,10 +2407,11 @@ svg[height] {
     border: 1px solid var(--border);
     border-radius: 20px;
     width: min(840px, calc(100% - 48px));
-    max-height: min(92vh, calc(100vh - 80px));
+    max-height: min(92vh, calc(100dvh - 48px));
     display: flex;
     flex-direction: column;
-    margin: 40px auto;
+    margin: auto;
+    flex-shrink: 0;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
     animation: modalSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(20px);
