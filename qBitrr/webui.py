@@ -18,10 +18,15 @@ from typing import Any
 import bcrypt
 from authlib.integrations.flask_client import OAuth
 from flask import Flask, Response, jsonify, redirect, request, send_file, session
-from peewee import fn
 
 from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.bundled_data import patched_version, tagged_version
+from qBitrr.catalog_rollups import (
+    get_lidarr_album_counts_total,
+    get_lidarr_track_counts_total,
+    get_radarr_counts_total,
+    get_sonarr_episode_instance_counts_total,
+)
 from qBitrr.config import CONFIG, HOME_PATH
 from qBitrr.db_lock import database_lock
 from qBitrr.logger import run_logs
@@ -648,48 +653,11 @@ class WebUI:
         page = max(page, 0)
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
+        rollup_counts, total = get_radarr_counts_total(arr)
+
         with database_lock():
             with db.connection_context():
-                # Filter by ArrInstance
                 base_query = model.select().where(model.ArrInstance == arr_instance)
-
-                # Calculate counts
-                monitored_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.Monitored == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
-                available_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance)
-                        & (model.Monitored == True)  # noqa: E712
-                        & (model.MovieFileId.is_null(False))
-                        & (model.MovieFileId != 0)
-                    )
-                    .scalar()
-                    or 0
-                )
-                missing_count = max(monitored_count - available_count, 0)
-                quality_met_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.QualityMet == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
-                request_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.IsRequest == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
 
                 # Build filtered query
                 query = base_query
@@ -715,8 +683,6 @@ class WebUI:
                 if is_request is not None:
                     query = query.where(model.IsRequest == is_request)
 
-                # Total should be ALL items for this instance, not filtered results
-                total = base_query.count()
                 page_items = (
                     query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
                 )
@@ -753,13 +719,7 @@ class WebUI:
                         }
                     )
         return {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": missing_count,
-                "quality_met": quality_met_count,
-                "requests": request_count,
-            },
+            "counts": dict(rollup_counts),
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -812,51 +772,11 @@ class WebUI:
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
 
-        # Quality profiles are now stored in the database
-        # No need to fetch from API
+        rollup_counts, album_total_inst = get_lidarr_album_counts_total(arr)
 
         with database_lock():
             with db.connection_context():
-                # Filter by ArrInstance
                 base_query = model.select().where(model.ArrInstance == arr_instance)
-
-                # Calculate counts
-                monitored_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.Monitored == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
-                available_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance)
-                        & (model.Monitored == True)  # noqa: E712
-                        & (model.AlbumFileId.is_null(False))
-                        & (model.AlbumFileId != 0)
-                    )
-                    .scalar()
-                    or 0
-                )
-                missing_count = max(monitored_count - available_count, 0)
-                quality_met_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.QualityMet == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
-                request_count = (
-                    model.select(fn.COUNT(model.EntryId))
-                    .where(
-                        (model.ArrInstance == arr_instance) & (model.IsRequest == True)
-                    )  # noqa: E712
-                    .scalar()
-                    or 0
-                )
 
                 # Build filtered query
                 query = base_query
@@ -880,8 +800,7 @@ class WebUI:
 
                 albums = []
 
-                # Total should be ALL albums for this instance, not filtered results
-                total = base_query.count()
+                total = album_total_inst
 
                 if group_by_artist:
                     # Paginate by artists: Two-pass approach with Peewee
@@ -928,7 +847,9 @@ class WebUI:
                                 .where(track_model.AlbumId == album.EntryId)
                                 .order_by(track_model.TrackNumber)
                             )
-                            track_count = track_query.count()
+                            track_count = getattr(album, "TotalTracks", None)
+                            if track_count is None:
+                                track_count = track_query.count()
                             self.logger.debug(
                                 "Album %s (%s): Found %d tracks in database",
                                 album.EntryId,
@@ -1009,13 +930,7 @@ class WebUI:
 
                     albums.append(album_item)
         return {
-            "counts": {
-                "available": available_count,
-                "monitored": monitored_count,
-                "missing": missing_count,
-                "quality_met": quality_met_count,
-                "requests": request_count,
-            },
+            "counts": dict(rollup_counts),
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -1063,6 +978,8 @@ class WebUI:
 
         arr_instance = getattr(arr, "_name", "")
 
+        rollup_tracks, _inst_track_total = get_lidarr_track_counts_total(arr)
+
         try:
             with database_lock():
                 with db.connection_context():
@@ -1094,38 +1011,6 @@ class WebUI:
                             | (album_model.ArtistTitle.contains(search))
                         )
 
-                    # Get counts with ArrInstance filter
-                    available_count = (
-                        track_model.select()
-                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                        .where(
-                            (track_model.ArrInstance == arr_instance)
-                            & (album_model.ArrInstance == arr_instance)
-                            & (track_model.HasFile == True)
-                        )
-                        .count()
-                    )
-                    monitored_count = (
-                        track_model.select()
-                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                        .where(
-                            (track_model.ArrInstance == arr_instance)
-                            & (album_model.ArrInstance == arr_instance)
-                            & (track_model.Monitored == True)
-                        )
-                        .count()
-                    )
-                    missing_count = (
-                        track_model.select()
-                        .join(album_model, on=(track_model.AlbumId == album_model.EntryId))
-                        .where(
-                            (track_model.ArrInstance == arr_instance)
-                            & (album_model.ArrInstance == arr_instance)
-                            & (track_model.HasFile == False)
-                        )
-                        .count()
-                    )
-
                     total = query.count()
 
                     # Apply pagination
@@ -1152,11 +1037,7 @@ class WebUI:
                         )
 
             return {
-                "counts": {
-                    "available": available_count,
-                    "monitored": monitored_count,
-                    "missing": missing_count,
-                },
+                "counts": dict(rollup_tracks),
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -1253,30 +1134,14 @@ class WebUI:
             episodes_model.EpisodeFileId == 0
         )
 
+        ep_instance_counts, rollup_total_series = get_sonarr_episode_instance_counts_total(arr)
+        monitored_count = ep_instance_counts.get("monitored", 0)
+        available_count = ep_instance_counts.get("available", 0)
+        missing_count = ep_instance_counts.get("missing", 0)
+
         with database_lock():
             sonarr_api_quality_pending: list[tuple[int, int]] = []
             with db.connection_context():
-                monitored_count = (
-                    episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                    .where(
-                        (episodes_model.ArrInstance == arr_instance)
-                        & (episodes_model.Monitored == True)  # noqa: E712
-                    )
-                    .scalar()
-                    or 0
-                )
-                available_count = (
-                    episodes_model.select(fn.COUNT(episodes_model.EntryId))
-                    .where(
-                        (episodes_model.ArrInstance == arr_instance)
-                        & (episodes_model.Monitored == True)  # noqa: E712
-                        & (episodes_model.EpisodeFileId.is_null(False))
-                        & (episodes_model.EpisodeFileId != 0)
-                    )
-                    .scalar()
-                    or 0
-                )
-                missing_count = max(monitored_count - available_count, 0)
                 missing_series_ids: list[int] = []
                 if missing_only:
                     missing_series_ids = [
@@ -1310,8 +1175,8 @@ class WebUI:
                     base_series_query = series_model.select().where(
                         series_model.ArrInstance == arr_instance
                     )
-                    # Total should be ALL series for this instance, not filtered results
-                    total_series = base_series_query.count()
+                    # Total series for instance from rollups (kept fresh in catalog_rollups).
+                    total_series = rollup_total_series
 
                     # Now build the filtered query for pagination
                     series_query = base_series_query

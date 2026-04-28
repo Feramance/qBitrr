@@ -838,7 +838,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       query: string,
       options: { preloadAll?: boolean; showLoading?: boolean } = {}
     ) => {
-      const preloadAll = options.preloadAll !== false;
+      const preloadAll = options.preloadAll === true;
       const showLoading = options.showLoading ?? true;
       if (showLoading) {
         setInstanceLoading(true);
@@ -929,21 +929,22 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     if (showLoading) {
       setAggLoading(true);
     }
-      try {
-        const aggregated: LidarrAggRow[] = [];
-        let totalAvailable = 0;
-        let totalMonitored = 0;
-        for (const inst of instances) {
-          let page = 0;
-          let counted = false;
-          const label = inst.name || inst.category;
-          while (page < 100) {
-            const res = await getLidarrAlbums(
-              inst.category,
-              page,
-              LIDARR_AGG_FETCH_SIZE,
-              ""
-            );
+    try {
+      const aggregated: LidarrAggRow[] = [];
+      let totalAvailable = 0;
+      let totalMonitored = 0;
+      let progressFirstPaint = false;
+      for (const inst of instances) {
+        let page = 0;
+        let counted = false;
+        const label = inst.name || inst.category;
+        while (page < 100) {
+          const res = await getLidarrAlbums(
+            inst.category,
+            page,
+            LIDARR_AGG_FETCH_SIZE,
+            ""
+          );
 
           if (!counted) {
             const counts = res.counts;
@@ -957,12 +958,21 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           albumEntries.forEach((entry) => {
             aggregated.push({ ...entry, __instance: label });
           });
+
+          const albumSyncResult = aggAlbumSync.syncData(aggregated);
+          if (albumSyncResult.hasChanges) {
+            setAggRows(albumSyncResult.data);
+          }
+          if (showLoading && !progressFirstPaint && albumSyncResult.data.length > 0) {
+            setAggLoading(false);
+            progressFirstPaint = true;
+          }
+
           if (!albumEntries.length || albumEntries.length < LIDARR_AGG_FETCH_SIZE) break;
           page += 1;
         }
       }
 
-      // Smart diffing using hash-based change detection
       const albumSyncResult = aggAlbumSync.syncData(aggregated);
       const rowsChanged = albumSyncResult.hasChanges;
 
@@ -1037,7 +1047,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
     void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
-      preloadAll: true,
+      preloadAll: false,
       showLoading: true,
     });
   }, [active, selection, fetchInstance, instancePage]);
@@ -1063,7 +1073,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       } else if (selection) {
         setInstancePage(0);
         void fetchInstance(selection, 0, term, {
-          preloadAll: true,
+          preloadAll: false,
           showLoading: true,
         });
       }
@@ -1344,7 +1354,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstance(selection as string, page, instanceQuery, {
-                    preloadAll: true,
+                    preloadAll: false,
                   });
                 }}
                 onRestart={() => void handleRestart()}

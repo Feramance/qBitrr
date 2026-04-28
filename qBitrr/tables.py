@@ -97,6 +97,9 @@ class SeriesFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+    # Denormalized: episode season count and episode total for this series (catalog_rollups)
+    SeasonCount = IntegerField(default=0)
+    EpisodeTotalCount = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -143,6 +146,8 @@ class AlbumFilesModel(Model):
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
+    # Denormalized: tracks in this album (catalog_rollups)
+    TotalTracks = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -185,6 +190,9 @@ class ArtistFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+    # Denormalized: album and track totals for this artist (catalog_rollups)
+    AlbumCount = IntegerField(default=0)
+    TrackTotalCount = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")

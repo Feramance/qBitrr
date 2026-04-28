@@ -4275,6 +4275,21 @@ svg[height] {
     background: var(--surface-2, rgba(127, 127, 127, 0.15));
 }
 
+/* Wrapper for queued poster loads (ArrPosterImage) */
+.arr-poster-image-wrap {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    display: block;
+}
+
+.arr-poster-image-wrap .arr-movie-tile__poster,
+.arr-poster-image-wrap .arr-poster-fallback {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .arr-movie-tile__meta {
     padding: 8px 10px 10px;
     font-size: 12px;

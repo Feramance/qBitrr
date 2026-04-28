@@ -291,7 +291,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       query: string,
       options: { preloadAll?: boolean; showLoading?: boolean; missingOnly?: boolean } = {}
     ) => {
-      const { preloadAll = true, showLoading = true, missingOnly } = options;
+      const { preloadAll = false, showLoading = true, missingOnly } = options;
       const useMissing = missingOnly ?? onlyMissing;
       if (showLoading) {
         setInstanceLoading(true);
@@ -430,6 +430,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       let totalAvailable = 0;
       let totalMonitored = 0;
       let totalMissing = 0;
+      let progressFirstPaint = false;
       for (const inst of instances) {
         let page = 0;
         let counted = false;
@@ -451,7 +452,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             }
             counted = true;
           }
-           const series = res.series ?? [];
+          const series = res.series ?? [];
           series.forEach((entry: SonarrSeriesEntry) => {
             const title =
               (entry.series?.["title"] as string | undefined) || "";
@@ -480,6 +481,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               }
             );
           });
+          const episodeSyncResult = aggEpisodeSync.syncData(aggregated);
+          if (episodeSyncResult.hasChanges) {
+            setAggRows(episodeSyncResult.data);
+          }
+          if (showLoading && !progressFirstPaint && episodeSyncResult.data.length > 0) {
+            setAggLoading(false);
+            progressFirstPaint = true;
+          }
           if (!series.length || series.length < SONARR_AGG_FETCH_SIZE) {
             break;
           }
@@ -487,7 +496,6 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         }
       }
 
-      // Smart diffing using hash-based change detection
       const syncResult = aggEpisodeSync.syncData(aggregated);
       const rowsChanged = syncResult.hasChanges;
 
@@ -563,7 +571,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
     void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
-      preloadAll: true,
+      preloadAll: false,
       showLoading: true,
       missingOnly: onlyMissing,
     });
@@ -591,7 +599,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       } else if (selection) {
         setInstancePage(0);
         void fetchInstance(selection, 0, term, {
-          preloadAll: true,
+          preloadAll: false,
           showLoading: true,
           missingOnly: onlyMissing,
         });
@@ -774,7 +782,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                     // Trigger refetch when filter changes for instance views
                     if (selection && selection !== "aggregate") {
                       void fetchInstance(selection, 0, globalSearchRef.current || "", {
-                        preloadAll: true,
+                        preloadAll: false,
                         showLoading: true,
                         missingOnly: newMissingState,
                       });

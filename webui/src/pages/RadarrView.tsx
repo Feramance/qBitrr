@@ -701,7 +701,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       query: string,
       options: { preloadAll?: boolean; showLoading?: boolean } = {}
     ) => {
-      const preloadAll = options.preloadAll !== false;
+      const preloadAll = options.preloadAll === true;
       const showLoading = options.showLoading ?? true;
       if (showLoading) {
         setInstanceLoading(true);
@@ -796,6 +796,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       const aggregated: RadarrAggRow[] = [];
       let totalAvailable = 0;
       let totalMonitored = 0;
+      let progressFirstPaint = false;
       for (const inst of instances) {
         let page = 0;
         let counted = false;
@@ -819,17 +820,26 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           movies.forEach((movie) => {
             aggregated.push({ ...movie, __instance: label });
           });
+
+          const syncResult = aggMovieSync.syncData(aggregated);
+          if (syncResult.hasChanges) {
+            setAggRows(syncResult.data);
+          }
+          if (showLoading && !progressFirstPaint && syncResult.data.length > 0) {
+            setAggLoading(false);
+            progressFirstPaint = true;
+          }
+
           if (!movies.length || movies.length < RADARR_AGG_FETCH_SIZE) break;
           page += 1;
         }
       }
 
-      // Smart diffing using hash-based change detection
-      const syncResult = aggMovieSync.syncData(aggregated);
-      const rowsChanged = syncResult.hasChanges;
+      const syncFinal = aggMovieSync.syncData(aggregated);
+      const rowsChanged = syncFinal.hasChanges;
 
       if (rowsChanged) {
-        setAggRows(syncResult.data);
+        setAggRows(syncFinal.data);
       }
 
       const newSummary = {
@@ -890,7 +900,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     setInstancePage(0);
     const query = globalSearchRef.current;
     void fetchInstance(selection, 0, query, {
-      preloadAll: true,
+      preloadAll: false,
       showLoading: true,
     });
   }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
@@ -916,7 +926,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
       } else if (selection) {
         setInstancePage(0);
         void fetchInstance(selection, 0, term, {
-          preloadAll: true,
+          preloadAll: false,
           showLoading: true,
         });
       }
@@ -1218,7 +1228,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstance(selection as string, page, instanceQuery, {
-                    preloadAll: true,
+                    preloadAll: false,
                   });
                 }}
                 onRestart={() => void handleRestart()}

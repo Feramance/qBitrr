@@ -30,7 +30,7 @@ logger = logging.getLogger("qBitrr.database")
 
 # Global database instance
 _db: SqliteDatabase | None = None
-_TARGET_DB_SCHEMA_VERSION = 1
+_TARGET_DB_SCHEMA_VERSION = 2
 _ARR_FILE_TABLE_MODELS = (
     MoviesFilesModel,
     EpisodeFilesModel,
@@ -490,6 +490,137 @@ def _set_db_schema_version(db: SqliteDatabase, version: int) -> None:
     db.execute_sql(f"PRAGMA user_version = {int(version)}")
 
 
+def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> None:
+    """Add catalog denormalized count columns used by WebUI (see qBitrr.tables + catalog_rollups)."""
+    from qBitrr.tables import (
+        AlbumFilesModel,
+        ArtistFilesModel,
+        EpisodeFilesModel,
+        SeriesFilesModel,
+        TrackFilesModel,
+    )
+
+    additions = [
+        (
+            AlbumFilesModel,
+            [
+                ("TotalTracks", "INTEGER DEFAULT 0"),
+            ],
+        ),
+        (
+            SeriesFilesModel,
+            [
+                ("SeasonCount", "INTEGER DEFAULT 0"),
+                ("EpisodeTotalCount", "INTEGER DEFAULT 0"),
+            ],
+        ),
+        (
+            ArtistFilesModel,
+            [
+                ("AlbumCount", "INTEGER DEFAULT 0"),
+                ("TrackTotalCount", "INTEGER DEFAULT 0"),
+            ],
+        ),
+    ]
+    for model, cols in additions:
+        tn = model._meta.table_name
+        if not _table_exists(db, tn):
+            continue
+        have = set(_get_table_columns(db, tn))
+        for col_name, col_def in cols:
+            if col_name in have:
+                continue
+            db.execute_sql(
+                f"ALTER TABLE {_quote_identifier(tn)} ADD COLUMN {_quote_identifier(col_name)} {col_def}"
+            )
+            logger.info("Added column %s.%s", tn, col_name)
+
+    amt = AlbumFilesModel._meta.table_name
+    trt = TrackFilesModel._meta.table_name
+    sert = SeriesFilesModel._meta.table_name
+    ept = EpisodeFilesModel._meta.table_name
+    art = ArtistFilesModel._meta.table_name
+    try:
+        with db.atomic():
+            if (
+                _table_exists(db, amt)
+                and _table_exists(db, trt)
+                and "TotalTracks" in _get_table_columns(db, amt)
+            ):
+                for album in AlbumFilesModel.select().iterator():  # type: ignore[arg-type]
+                    n = (
+                        TrackFilesModel.select()
+                        .where(
+                            (TrackFilesModel.AlbumId == album.EntryId)
+                            & (TrackFilesModel.ArrInstance == album.ArrInstance)
+                        )
+                        .count()
+                    )
+                    AlbumFilesModel.update(TotalTracks=n).where(
+                        (AlbumFilesModel.EntryId == album.EntryId)
+                        & (AlbumFilesModel.ArrInstance == album.ArrInstance)
+                    ).execute()
+            if (
+                _table_exists(db, ept)
+                and _table_exists(db, sert)
+                and "EpisodeTotalCount" in _get_table_columns(db, sert)
+                and "SeasonCount" in _get_table_columns(db, sert)
+            ):
+                for srow in SeriesFilesModel.select().iterator():  # type: ignore[arg-type]
+                    ep_q = EpisodeFilesModel.select().where(
+                        (EpisodeFilesModel.ArrInstance == srow.ArrInstance)
+                        & (EpisodeFilesModel.SeriesId == srow.EntryId)
+                    )
+                    ep_total = ep_q.count()
+                    sn = (
+                        EpisodeFilesModel.select(EpisodeFilesModel.SeasonNumber)
+                        .where(
+                            (EpisodeFilesModel.ArrInstance == srow.ArrInstance)
+                            & (EpisodeFilesModel.SeriesId == srow.EntryId)
+                        )
+                        .distinct()
+                        .count()
+                    )
+                    SeriesFilesModel.update(SeasonCount=sn, EpisodeTotalCount=ep_total).where(
+                        (SeriesFilesModel.EntryId == srow.EntryId)
+                        & (SeriesFilesModel.ArrInstance == srow.ArrInstance)
+                    ).execute()
+            if (
+                _table_exists(db, art)
+                and _table_exists(db, amt)
+                and _table_exists(db, trt)
+                and "AlbumCount" in _get_table_columns(db, art)
+            ):
+                for arow in ArtistFilesModel.select().iterator():  # type: ignore[arg-type]
+                    alb_n = (
+                        AlbumFilesModel.select()
+                        .where(
+                            (AlbumFilesModel.ArtistId == arow.EntryId)
+                            & (AlbumFilesModel.ArrInstance == arow.ArrInstance)
+                        )
+                        .count()
+                    )
+                    tr_n = (
+                        TrackFilesModel.select()
+                        .join(
+                            AlbumFilesModel,
+                            on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId),
+                        )
+                        .where(
+                            (TrackFilesModel.ArrInstance == AlbumFilesModel.ArrInstance)
+                            & (TrackFilesModel.ArrInstance == arow.ArrInstance)
+                            & (AlbumFilesModel.ArtistId == arow.EntryId)
+                        )
+                        .count()
+                    )
+                    ArtistFilesModel.update(AlbumCount=alb_n, TrackTotalCount=tr_n).where(
+                        (ArtistFilesModel.EntryId == arow.EntryId)
+                        & (ArtistFilesModel.ArrInstance == arow.ArrInstance)
+                    ).execute()
+    except Exception as e:
+        logger.warning("Backfill of denormalized catalog columns failed: %s", e)
+
+
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
     """Run idempotent DB schema migrations guarded by user_version."""
     current_version = _get_db_schema_version(db)
@@ -502,6 +633,8 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
         _TARGET_DB_SCHEMA_VERSION,
     )
     _migrate_arr_file_table_constraints(db)
+    if current_version < 2:
+        _migrate_v2_catalog_denormalized_columns(db)
     _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
     logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
 

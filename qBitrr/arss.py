@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import ffmpeg
 import pathos
@@ -29,6 +29,7 @@ from qBitrr.arr_tracker_index import (
     build_tracker_index,
 )
 from qBitrr.arr_tracker_index import extract_tracker_host as _extract_tracker_host
+from qBitrr.catalog_rollups import refresh_rollups_after_db_update
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
@@ -735,6 +736,7 @@ class Arr:
         self.torrents: TorrentLibrary | None = None
         self.torrent_db: SqliteDatabase | None = None
         self.db: SqliteDatabase | None = None
+        self._webui_catalog_rollups: dict[str, Any] | None = None
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
@@ -4493,6 +4495,8 @@ class Arr:
                             & (self.artists_file_model.ArrInstance == self._name)
                         )
                         db_commands.execute()
+
+            refresh_rollups_after_db_update(self, db_entry, series=series, artist=artist)
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(

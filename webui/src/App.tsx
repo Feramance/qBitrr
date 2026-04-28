@@ -25,7 +25,7 @@ import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
-import logoUrl from "../../assets/logov2-clean.png";
+import logoUrl from "./assets/logov2-clean.svg";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
