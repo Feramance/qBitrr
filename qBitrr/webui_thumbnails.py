@@ -76,11 +76,12 @@ def thumbnail_quoted_etag(kind: str, instance_name: str, entry_id: int) -> str |
     """
 
     bin_path = _cache_file_path(kind=kind, instance_name=instance_name, entry_id=entry_id)
-    try:
-        st = bin_path.stat()
-    except OSError:
+    if not bin_path.is_file():
         return None
-    if not st.is_file() or st.st_size == 0:
+    try:
+        if bin_path.stat().st_size == 0:
+            return None
+    except OSError:
         return None
     ep = _cache_etag_path(bin_path)
     if not ep.is_file():
