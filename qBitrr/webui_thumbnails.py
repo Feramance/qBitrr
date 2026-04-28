@@ -256,7 +256,7 @@ def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | 
     return out if isinstance(out, dict) else None
 
 
-def resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
+def _resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
     client = getattr(arr, "client", None)
     if not client:
         return None
@@ -284,7 +284,7 @@ def get_or_fetch_thumbnail_bytes(
         b = path.read_bytes()
         return b, _sniff_mime(b)
 
-    url = resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
+    url = _resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
     if not url:
         return None
     u = url.strip()
