@@ -6,6 +6,11 @@ import { resolve } from "node:path";
 export default defineConfig({
   base: "/static/",
   plugins: [react()],
+  server: {
+    fs: {
+      allow: [resolve(__dirname, "..")],
+    },
+  },
   build: {
     outDir: resolve(__dirname, "../qBitrr/static"),
     emptyOutDir: true,
