@@ -400,7 +400,7 @@ def refresh_rollups_after_db_update(
                 aid = int(db_entry.get("id") or 0)
                 if aid and am is not None and tm is not None:
                     update_artist_album_track_totals(arr, aid, am, tm, arm)
-            elif am is not None and tm is not None:
+            elif not artist and am is not None and tm is not None:
                 aeid = int(db_entry.get("id") or 0)
                 if aeid:
                     arow = update_album_total_tracks(arr, aeid, am, tm)
