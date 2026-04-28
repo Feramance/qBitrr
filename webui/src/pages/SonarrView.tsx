@@ -48,7 +48,9 @@ import {
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import {
   AGGREGATE_FETCH_CHUNK_SIZE,
+  AGGREGATE_POLL_INTERVAL_MS,
   pagesFromAggregateTotal,
+  summarizeAggregateMonitoredRows,
   AGG_FALLBACK_AGGREGATE_PAGES_MAX,
 } from "../constants/arrAggregateFetch";
 
@@ -204,6 +206,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   const backendReadyWarnedRef = useRef(false);
+  const aggFetchGenRef = useRef(0);
+  const aggActiveLoadsRef = useRef(0);
   const prevSelectionRef = useRef<string | "">(selection);
 
   const [aggRows, setAggRows] = useState<SonarrAggRow[]>([]);
@@ -430,15 +434,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
       return;
     }
     const showLoading = options?.showLoading ?? true;
+    const gen = ++aggFetchGenRef.current;
+    aggActiveLoadsRef.current += 1;
     if (showLoading) {
       setAggLoading(true);
     }
     const chunk = AGGREGATE_FETCH_CHUNK_SIZE;
     try {
       const aggregated: SonarrAggRow[] = [];
-      let totalAvailable = 0;
-      let totalMonitored = 0;
-      let totalMissing = 0;
       let progressFirstPaint = false;
       for (const inst of instances) {
         const label = inst.name || inst.category;
@@ -454,14 +457,11 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             "",
             { missingOnly: onlyMissing }
           );
+          if (gen !== aggFetchGenRef.current) {
+            return;
+          }
 
           if (!countedForInstance) {
-            const counts = res.counts;
-            if (counts) {
-              totalAvailable += counts.available ?? 0;
-              totalMonitored += counts.monitored ?? 0;
-              totalMissing += counts.missing ?? 0;
-            }
             countedForInstance = true;
             pagesPlanned = pagesFromAggregateTotal(res.total, res.page_size, chunk);
             if (
@@ -506,13 +506,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
           const episodeSyncResult = aggEpisodeSync.syncData(aggregated);
           if (episodeSyncResult.hasChanges) {
             setAggRows(episodeSyncResult.data);
+            const next = summarizeAggregateMonitoredRows(aggregated);
             setAggSummary((prev) => {
-              const next = {
-                available: totalAvailable,
-                monitored: totalMonitored,
-                missing: totalMissing,
-                total: aggregated.length,
-              };
               if (
                 prev.available === next.available &&
                 prev.monitored === next.monitored &&
@@ -547,23 +542,21 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         setAggRows(syncResult.data);
       }
 
-      const newSummary = {
-        available: totalAvailable,
-        monitored: totalMonitored,
-        missing: totalMissing,
-        total: aggregated.length,
-      };
+      const newSummary = summarizeAggregateMonitoredRows(aggregated);
 
-      const summaryChanged = (
-        aggSummary.available !== newSummary.available ||
-        aggSummary.monitored !== newSummary.monitored ||
-        aggSummary.missing !== newSummary.missing ||
-        aggSummary.total !== newSummary.total
-      );
-
-      if (summaryChanged) {
-        setAggSummary(newSummary);
-      }
+      let summaryChanged = false;
+      setAggSummary((prev) => {
+        if (
+          prev.available === newSummary.available &&
+          prev.monitored === newSummary.monitored &&
+          prev.missing === newSummary.missing &&
+          prev.total === newSummary.total
+        ) {
+          return prev;
+        }
+        summaryChanged = true;
+        return newSummary;
+      });
 
       // Only reset page if filter changed, not on refresh
       if (aggFilter !== globalSearch) {
@@ -576,6 +569,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         setAggUpdated(new Date().toLocaleTimeString());
       }
     } catch (error) {
+      if (gen !== aggFetchGenRef.current) {
+        return;
+      }
       setAggRows([]);
       setAggSummary({ available: 0, monitored: 0, missing: 0, total: 0 });
       push(
@@ -585,9 +581,12 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         "error"
       );
     } finally {
-      setAggLoading(false);
+      aggActiveLoadsRef.current -= 1;
+      if (gen === aggFetchGenRef.current) {
+        setAggLoading(false);
+      }
     }
-  }, [instances, globalSearch, push, onlyMissing, aggFilter, aggSummary]);
+  }, [instances, globalSearch, push, onlyMissing, aggFilter]);
 
   useEffect(() => {
     if (!active) return;
@@ -629,10 +628,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   }, [active, selection, loadAggregate]);
 
   useInterval(() => {
-    if (selection === "aggregate" && liveArr) {
+    if (
+      selection === "aggregate" &&
+      liveArr &&
+      aggActiveLoadsRef.current === 0
+    ) {
       void loadAggregate({ showLoading: false });
     }
-  }, selection === "aggregate" && liveArr ? 1000 : null);
+  }, selection === "aggregate" && liveArr ? AGGREGATE_POLL_INTERVAL_MS : null);
 
   useEffect(() => {
     if (!active) return;
