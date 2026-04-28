@@ -35,6 +35,10 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
+import { arraysEqual } from "../utils/dataSync";
+
+/** Matches `arraysEqual` / dataSync `Hashable` while keeping typed Sonarr API fields */
+type SonarrSeriesComparable = SonarrSeriesEntry & Record<string, unknown>;
 import { useArrBrowseMode } from "../hooks/useArrBrowseMode";
 import { IconImage } from "../components/IconImage";
 import { ArrBrowseModeToggle } from "../components/arr/ArrBrowseModeToggle";
@@ -98,20 +102,20 @@ function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyM
   return result;
 }
 
-function createFilteredSignature(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): string {
-  const filtered = filterSeriesEntriesForMissing(seriesEntries, onlyMissing);
-  if (filtered.length === 0) return `empty:${onlyMissing}`;
-  const keys = [...filtered]
-    .map((e) => {
-      const id = e.series?.["id"];
-      if (typeof id === "number" && Number.isFinite(id)) {
-        return `i:${id}`;
-      }
-      return `t:${String(e.series?.["title"] ?? "")}`;
-    })
-    .sort();
-  return `${filtered.length}:${keys.join(";")}:${onlyMissing}`;
+/** Stable key for incremental instance-page compares (arraysEqual order-invariant hashes). */
+function getSonarrSeriesEntryKey(entry: SonarrSeriesComparable): string {
+  const id = entry.series?.["id"];
+  if (typeof id === "number" && Number.isFinite(id)) {
+    return `id:${id}`;
+  }
+  return `t:${String(entry.series?.["title"] ?? "")}`;
 }
+
+const SONARR_INSTANCE_HASH_FIELDS: (keyof SonarrSeriesComparable)[] = [
+  "seasons",
+  "series",
+  "totals",
+];
 
 function filterSeriesEntryByReason(
   entry: SonarrSeriesEntry,
@@ -342,13 +346,19 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         const series = response.series ?? [];
 
         const prevPages = keyChanged ? {} : instancePagesRef.current;
-        const nextPages = { ...prevPages, [resolvedPage]: series };
-        const prevSignature = createFilteredSignature(prevPages[resolvedPage] ?? [], useMissing);
-        const nextSignature = createFilteredSignature(series, useMissing);
-        const shouldUpdateCurrentPage = keyChanged || prevSignature !== nextSignature;
+        const prevSlice = prevPages[resolvedPage] ?? [];
+        const pageChanged =
+          keyChanged ||
+          !arraysEqual<SonarrSeriesComparable>(
+            prevSlice as SonarrSeriesComparable[],
+            series as SonarrSeriesComparable[],
+            getSonarrSeriesEntryKey,
+            SONARR_INSTANCE_HASH_FIELDS,
+          );
 
+        const nextPages = { ...prevPages, [resolvedPage]: series };
         instancePagesRef.current = nextPages;
-        if (shouldUpdateCurrentPage) {
+        if (pageChanged) {
           setInstancePages(nextPages);
         }
 
@@ -363,7 +373,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
             (prevCounts?.available ?? null) !== (nextCounts?.available ?? null) ||
             (prevCounts?.monitored ?? null) !== (nextCounts?.monitored ?? null) ||
             (prevCounts?.missing ?? null) !== (nextCounts?.missing ?? null);
-          if (countsChanged || shouldUpdateCurrentPage) {
+          if (countsChanged || pageChanged) {
             instanceDataRef.current = response;
             return response;
           }
@@ -376,7 +386,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         setInstanceTotalPages((prev) => (prev === totalPages ? prev : totalPages));
         setInstanceTotalItems((prev) => (prev === totalItems ? prev : totalItems));
 
-        if (shouldUpdateCurrentPage) {
+        if (pageChanged) {
           setLastUpdated(new Date().toLocaleTimeString());
         }
 
@@ -403,10 +413,19 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               const pageIndex = res.page ?? targetPage;
               const pageSeries = res.series ?? [];
               const currentPages = instancePagesRef.current;
-              const prevSnapshot = createFilteredSignature(currentPages[pageIndex] ?? [], useMissing);
-              const nextSnapshot = createFilteredSignature(pageSeries, useMissing);
-              if (prevSnapshot === nextSnapshot) {
-                instancePagesRef.current = { ...currentPages, [pageIndex]: pageSeries };
+              const prevPg = currentPages[pageIndex] ?? [];
+              if (
+                arraysEqual<SonarrSeriesComparable>(
+                  prevPg as SonarrSeriesComparable[],
+                  pageSeries as SonarrSeriesComparable[],
+                  getSonarrSeriesEntryKey,
+                  SONARR_INSTANCE_HASH_FIELDS,
+                )
+              ) {
+                instancePagesRef.current = {
+                  ...currentPages,
+                  [pageIndex]: pageSeries,
+                };
                 continue;
               }
               setInstancePages((prev) => {
@@ -1178,7 +1197,7 @@ function SonarrAggregateView({
                 : "";
             return (
               <button
-                key={`${g.instance}-${g.series}`}
+                key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
                 type="button"
                 className="arr-movie-tile card"
                 onClick={() => onSeriesSelect(g)}
@@ -1200,8 +1219,11 @@ function SonarrAggregateView({
                     <div className="arr-movie-tile__instance">{g.instance}</div>
                   )}
                   <div className="arr-movie-tile__title">{g.series}</div>
-                  <div className="arr-movie-tile__sub">
-                    {g.episodes.length} ep. • {g.qualityProfileName ?? "—"}
+                  <div className="arr-movie-tile__stats">
+                    {g.episodes.length} ep.
+                  </div>
+                  <div className="arr-movie-tile__quality">
+                    {g.qualityProfileName ?? "—"}
                   </div>
                 </div>
               </button>
@@ -1477,7 +1499,7 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
                   : "";
               return (
                 <button
-                  key={`${g.series}-${g.seriesId ?? 0}`}
+                  key={`${g.instance}-${String(g.seriesId ?? "")}-${g.series}`}
                   type="button"
                   className="arr-movie-tile card"
                   onClick={() => onSeriesSelect(g)}
@@ -1496,8 +1518,11 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
                   )}
                   <div className="arr-movie-tile__meta">
                     <div className="arr-movie-tile__title">{g.series}</div>
-                    <div className="arr-movie-tile__sub">
-                      {g.episodes.length} ep. • {g.qualityProfileName ?? "—"}
+                    <div className="arr-movie-tile__stats">
+                      {g.episodes.length} ep.
+                    </div>
+                    <div className="arr-movie-tile__quality">
+                      {g.qualityProfileName ?? "—"}
                     </div>
                   </div>
                 </button>

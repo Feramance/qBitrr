@@ -4252,7 +4252,6 @@ svg[height] {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
     margin-top: 8px;
-    align-items: start;
 }
 
 .arr-movie-tile {
@@ -4267,6 +4266,9 @@ svg[height] {
     border-radius: 8px;
     cursor: pointer;
     transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
 }
 
 .arr-movie-tile:hover {
@@ -4326,6 +4328,10 @@ svg[height] {
     padding: 8px 10px 10px;
     font-size: 12px;
     line-height: 1.35;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .arr-movie-tile__instance {
@@ -4341,6 +4347,22 @@ svg[height] {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    min-height: calc(2 * 1.35em);
+}
+
+.arr-movie-tile__stats,
+.arr-movie-tile__quality {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.arr-movie-tile__stats {
+    margin-top: 4px;
+}
+
+.arr-movie-tile__quality {
+    margin-top: 2px;
 }
 
 .arr-movie-tile__sub {
