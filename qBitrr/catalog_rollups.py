@@ -228,7 +228,7 @@ def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     return (m.get("counts") or dict(_ZERO_COUNTS_RAD), int(m.get("total") or 0))
 
 
-def get_sonarr_episode_instance_counts_total_series(arr: Arr) -> tuple[dict[str, int], int]:
+def get_sonarr_episode_instance_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     s = r.get("sonarr_episodes") or {}
