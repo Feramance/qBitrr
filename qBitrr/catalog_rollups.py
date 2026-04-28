@@ -259,29 +259,28 @@ def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     m = r.get("movies") or {}
-    return (m.get("counts") or dict(_ZERO_COUNTS_RAD), int(m.get("total") or 0))
+    return (dict(m.get("counts") or _ZERO_COUNTS_RAD), int(m.get("total") or 0))
 
 
 def get_sonarr_episode_instance_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     s = r.get("sonarr_episodes") or {}
-    return (s.get("counts") or dict(_ZERO_COUNTS_EP3), int(s.get("total_series") or 0))
+    return (dict(s.get("counts") or _ZERO_COUNTS_EP3), int(s.get("total_series") or 0))
 
 
 def get_lidarr_album_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     a = r.get("lidarr_albums") or {}
-    counts = a.get("counts") or dict(_ZERO_COUNTS_RAD)
-    return (counts, int(a.get("total") or 0))
+    return (dict(a.get("counts") or _ZERO_COUNTS_RAD), int(a.get("total") or 0))
 
 
 def get_lidarr_track_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
     ensure_arr_webui_rollups(arr)
     r = getattr(arr, "_webui_catalog_rollups", None) or {}
     t = r.get("lidarr_tracks") or {}
-    return (t.get("counts") or dict(_ZERO_COUNTS_EP3), int(t.get("total") or 0))
+    return (dict(t.get("counts") or _ZERO_COUNTS_EP3), int(t.get("total") or 0))
 
 
 def update_album_total_tracks(
