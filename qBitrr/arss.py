@@ -29,7 +29,10 @@ from qBitrr.arr_tracker_index import (
     build_tracker_index,
 )
 from qBitrr.arr_tracker_index import extract_tracker_host as _extract_tracker_host
-from qBitrr.catalog_rollups import refresh_rollups_after_db_update
+from qBitrr.catalog_rollups import (
+    flush_pending_arr_webui_rollups,
+    refresh_rollups_after_db_update,
+)
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
@@ -737,6 +740,7 @@ class Arr:
         self.torrent_db: SqliteDatabase | None = None
         self.db: SqliteDatabase | None = None
         self._webui_catalog_rollups: dict[str, Any] | None = None
+        self._webui_rollups_stale = False
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
@@ -2846,6 +2850,7 @@ class Arr:
             return
         self.logger.notice("Started updating database with Overseerr request entries.")
         self._db_request_update(request_ids)
+        flush_pending_arr_webui_rollups(self)
         self.logger.notice("Finished updating database with Overseerr request entries")
 
     def db_ombi_update(self):
@@ -2858,6 +2863,7 @@ class Arr:
             return
         self.logger.notice("Started updating database with Ombi request entries.")
         self._db_request_update(request_ids)
+        flush_pending_arr_webui_rollups(self)
         self.logger.notice("Finished updating database with Ombi request entries")
 
     def db_update_todays_releases(self):
@@ -3016,6 +3022,7 @@ class Arr:
                 except Exception:
                     pass
             self._webui_db_loaded = True
+            flush_pending_arr_webui_rollups(self)
 
     def minimum_availability_check(self, db_entry: JsonObject) -> bool:
         inCinemas = (

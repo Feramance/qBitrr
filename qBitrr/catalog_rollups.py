@@ -21,6 +21,21 @@ _ZERO_COUNTS_RAD = {
 }
 
 
+def mark_arr_webui_rollups_stale(arr: Arr) -> None:
+    """Mark in-memory rollup dict as needing a rebuild (cheap; heavy work runs in flush)."""
+    if getattr(arr, "db", None) is None:
+        return
+    arr._webui_rollups_stale = True  # type: ignore[attr-defined]
+
+
+def flush_pending_arr_webui_rollups(arr: Arr) -> None:
+    """Recompute aggregates once after batched writes (single lock + COUNT pass)."""
+    if getattr(arr, "db", None) is None:
+        return
+    if getattr(arr, "_webui_rollups_stale", False):
+        refresh_arr_webui_rollups(arr)
+
+
 def refresh_arr_webui_rollups(arr: Arr) -> None:
     """
     Refresh in-memory WebUI rollup dict for this Arr instance (radarr / sonarr / lidarr).
@@ -32,12 +47,18 @@ def refresh_arr_webui_rollups(arr: Arr) -> None:
         return
     name = getattr(arr, "_name", "")
     t = getattr(arr, "type", None)
+    if t not in ("radarr", "sonarr", "lidarr"):
+        arr._webui_catalog_rollups = {}
+        arr._webui_rollups_stale = False  # type: ignore[attr-defined]
+        return
     roll: dict[str, Any] = {}
     with database_lock():
         with db.connection_context():
             if t == "radarr":
                 model = getattr(arr, "model_file", None)
                 if model is None:
+                    arr._webui_catalog_rollups = {}
+                    arr._webui_rollups_stale = False  # type: ignore[attr-defined]
                     return
                 base = model.select().where(model.ArrInstance == name)
                 monitored_count = (
@@ -84,6 +105,8 @@ def refresh_arr_webui_rollups(arr: Arr) -> None:
             elif t == "sonarr":
                 ep = getattr(arr, "model_file", None)
                 if ep is None:
+                    arr._webui_catalog_rollups = {}
+                    arr._webui_rollups_stale = False  # type: ignore[attr-defined]
                     return
                 monitored_count = (
                     ep.select(fn.COUNT(ep.EntryId))
@@ -119,6 +142,8 @@ def refresh_arr_webui_rollups(arr: Arr) -> None:
                 album_m = getattr(arr, "model_file", None)
                 track_m = getattr(arr, "track_file_model", None)
                 if album_m is None:
+                    arr._webui_catalog_rollups = {}
+                    arr._webui_rollups_stale = False  # type: ignore[attr-defined]
                     return
                 monitored_count = (
                     album_m.select(fn.COUNT(album_m.EntryId))
@@ -213,11 +238,20 @@ def refresh_arr_webui_rollups(arr: Arr) -> None:
                         "total": total_t,
                     }
     arr._webui_catalog_rollups = roll  # type: ignore[attr-defined]
+    arr._webui_rollups_stale = False  # type: ignore[attr-defined]
 
 
 def ensure_arr_webui_rollups(arr: Arr) -> None:
-    """Populate WebUI rollups if missing (e.g. before first db_update in this process)."""
-    if getattr(arr, "_webui_catalog_rollups", None) is None:
+    """Populate WebUI rollups if missing, stale, or empty while models are now available."""
+    stale = getattr(arr, "_webui_rollups_stale", False)
+    roll = getattr(arr, "_webui_catalog_rollups", None)
+    if stale:
+        refresh_arr_webui_rollups(arr)
+        return
+    if roll is None:
+        refresh_arr_webui_rollups(arr)
+        return
+    if roll == {} and getattr(arr, "model_file", None) is not None:
         refresh_arr_webui_rollups(arr)
 
 
@@ -338,13 +372,13 @@ def refresh_rollups_after_db_update(
     series: bool,
     artist: bool,
 ) -> None:
-    """Update denormalized columns and WebUI rollups after db_update_single_series."""
+    """Update denormalized columns; defer heavy WebUI rollup to flush_pending_arr_webui_rollups."""
     if not getattr(arr, "db", None) or not db_entry:
         return
     t = getattr(arr, "type", None)
     try:
         if t == "radarr":
-            refresh_arr_webui_rollups(arr)
+            mark_arr_webui_rollups_stale(arr)
         elif t == "sonarr":
             ep = getattr(arr, "model_file", None)
             sm = getattr(arr, "series_file_model", None)
@@ -357,7 +391,7 @@ def refresh_rollups_after_db_update(
                     sid = int(db_entry.get("seriesId") or db_entry.get("series_id") or 0)
                     if sid:
                         update_series_season_episode_totals(arr, sid, ep, sm)
-            refresh_arr_webui_rollups(arr)
+            mark_arr_webui_rollups_stale(arr)
         elif t == "lidarr":
             am = getattr(arr, "model_file", None)
             tm = getattr(arr, "track_file_model", None)
@@ -372,6 +406,6 @@ def refresh_rollups_after_db_update(
                     arow = update_album_total_tracks(arr, aeid, am, tm)
                     if arow and getattr(arow, "ArtistId", None) is not None and arm is not None:
                         update_artist_album_track_totals(arr, int(arow.ArtistId), am, tm, arm)
-            refresh_arr_webui_rollups(arr)
+            mark_arr_webui_rollups_stale(arr)
     except Exception:
         arr.logger.debug("refresh_rollups_after_db_update failed", exc_info=True)
