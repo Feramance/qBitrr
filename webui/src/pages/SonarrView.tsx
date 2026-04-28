@@ -655,6 +655,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   }, [active, selection, loadAggregate]);
 
   useInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     if (
       selection === "aggregate" &&
       liveArr &&

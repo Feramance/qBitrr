@@ -13,13 +13,6 @@ import {
   getLidarrAlbums,
   restartArr,
 } from "../api/client";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
-  type ColumnDef,
-} from "@tanstack/react-table";
 import type {
   ArrInfo,
   LidarrAlbumEntry,
@@ -37,12 +30,12 @@ import { ArrBrowseModeToggle } from "../components/arr/ArrBrowseModeToggle";
 import { ArrModal } from "../components/arr/ArrModal";
 import { ArrPosterImage } from "../components/arr/ArrPosterImage";
 import { LidarrAlbumDetailBody } from "../components/arr/LidarrAlbumDetailBody";
-import { StableTable } from "../components/StableTable";
 import { lidarrAlbumThumbnailUrl } from "../utils/arrThumbnailUrl";
 import RefreshIcon from "../icons/refresh-arrow.svg";
 import {
   AGGREGATE_FETCH_CHUNK_SIZE,
   AGGREGATE_POLL_INTERVAL_MS,
+  INSTANCE_VIEW_POLL_INTERVAL_MS,
   pagesFromAggregateTotal,
   summarizeLidarrAlbumAggRows,
   AGG_FALLBACK_AGGREGATE_PAGES_MAX,
@@ -55,6 +48,78 @@ interface LidarrAggRow extends LidarrAlbumEntry {
 
 const LIDARR_PAGE_SIZE = 50;
 const LIDARR_AGG_PAGE_SIZE = 50;
+
+function lidarrArtistGroupKeyFromAlbum(
+  album: Record<string, unknown>,
+  instancePrefix?: string
+): { key: string; label: string } {
+  const prefix = instancePrefix ? `${instancePrefix}::` : "";
+  const rawId = album["artistId"];
+  const idNum =
+    typeof rawId === "number"
+      ? rawId
+      : typeof rawId === "string" && rawId !== ""
+        ? Number(rawId)
+        : NaN;
+  const fallbackName =
+    String(album["artistName"] ?? "").trim() || "Unknown artist";
+  if (Number.isFinite(idNum)) {
+    const label =
+      String(album["artistName"] ?? "").trim() || fallbackName;
+    return { key: `${prefix}id:${idNum}`, label };
+  }
+  return {
+    key: `${prefix}name:${fallbackName.toLowerCase()}`,
+    label: fallbackName,
+  };
+}
+
+interface LidarrArtistGroup<T> {
+  readonly artistKey: string;
+  readonly artistLabel: string;
+  readonly items: T[];
+}
+
+function groupLidarrAlbumsByArtist<T extends LidarrAlbumEntry | LidarrAggRow>(
+  rows: readonly T[]
+): Array<LidarrArtistGroup<T>> {
+  type Bucket = { label: string; items: T[] };
+  const buckets = new Map<string, Bucket>();
+
+  for (const row of rows) {
+    const album = row.album as Record<string, unknown>;
+    const inst =
+      "__instance" in row && typeof (row as LidarrAggRow).__instance === "string"
+        ? (row as LidarrAggRow).__instance
+        : undefined;
+    const { key, label } = lidarrArtistGroupKeyFromAlbum(album, inst);
+    let b = buckets.get(key);
+    if (!b) {
+      b = { label, items: [] };
+      buckets.set(key, b);
+    }
+    b.items.push(row);
+  }
+
+  return [...buckets.entries()]
+    .map(([artistKey, { label, items }]) => {
+      const sorted = [...items].sort((a, b) => {
+        const at = String((a.album as Record<string, unknown>)["title"] ?? "");
+        const bt = String((b.album as Record<string, unknown>)["title"] ?? "");
+        return at.localeCompare(bt, undefined, { sensitivity: "base" });
+      });
+      return {
+        artistKey,
+        artistLabel: label,
+        items: sorted,
+      };
+    })
+    .sort((a, b) =>
+      a.artistLabel.localeCompare(b.artistLabel, undefined, {
+        sensitivity: "base",
+      })
+    );
+}
 
 function categoryForInstanceLabel(
   instances: ArrInfo[],
@@ -99,108 +164,12 @@ const LidarrAggregateView = memo(function LidarrAggregateView({
   instances,
   onAlbumSelect,
 }: LidarrAggregateViewProps): JSX.Element {
-  const columns = useMemo<ColumnDef<LidarrAggRow>[]>(
-    () => [
-      ...(instanceCount > 1
-        ? [
-            {
-              id: "instance",
-              header: "Instance",
-              cell: (info: { row: { original: LidarrAggRow } }) =>
-                info.row.original.__instance,
-            },
-          ]
-        : []),
-      {
-        id: "album",
-        header: "Album",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          return (d?.["title"] as string | undefined) || "—";
-        },
-      },
-      {
-        id: "artist",
-        header: "Artist",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          return (d?.["artistName"] as string | undefined) || "—";
-        },
-      },
-      {
-        id: "releaseDate",
-        header: "Release Date",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          const date = d?.["releaseDate"] as string | undefined;
-          if (!date) return <span className="hint">—</span>;
-          return new Date(date).toLocaleDateString();
-        },
-        size: 120,
-      },
-      {
-        id: "monitored",
-        header: "Monitored",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          const monitored = d?.["monitored"] as boolean | undefined;
-          return (
-            <span
-              className={`track-status ${monitored ? "available" : "missing"}`}
-            >
-              {monitored ? "✓" : "✗"}
-            </span>
-          );
-        },
-        size: 100,
-      },
-      {
-        id: "hasFile",
-        header: "Has File",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          const hasFile = d?.["hasFile"] as boolean | undefined;
-          return (
-            <span
-              className={`track-status ${hasFile ? "available" : "missing"}`}
-            >
-              {hasFile ? "✓" : "✗"}
-            </span>
-          );
-        },
-        size: 100,
-      },
-      {
-        id: "qualityProfileName",
-        header: "Quality Profile",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          return (d?.["qualityProfileName"] as string | null | undefined) || "—";
-        },
-        size: 150,
-      },
-      {
-        id: "reason",
-        header: "Reason",
-        cell: (info: { row: { original: LidarrAggRow } }) => {
-          const d = info.row.original.album as Record<string, unknown>;
-          const reason = d?.["reason"] as string | null | undefined;
-          if (!reason) {
-            return (
-              <span className="table-badge table-badge-reason">
-                Not being searched
-              </span>
-            );
-          }
-          return (
-            <span className="table-badge table-badge-reason">{reason}</span>
-          );
-        },
-        size: 120,
-      },
-    ],
-    [instanceCount]
-  );
+  const aggColumnCount =
+    (instanceCount > 1 ? 1 : 0) +
+    ["album", "artist", "releaseDate", "monitored", "hasFile", "qualityProfileName", "reason"]
+      .length;
+
+  const artistGroups = useMemo(() => groupLidarrAlbumsByArtist(rows), [rows]);
 
   return (
     <div className="stack animate-fade-in">
@@ -255,56 +224,148 @@ const LidarrAggregateView = memo(function LidarrAggregateView({
         </div>
       ) : total ? (
         browseMode === "list" ? (
-          <StableTable
-            data={rows}
-            columns={columns}
-            getRowKey={(row) => {
-              const a = row.album as Record<string, unknown>;
-              return `${row.__instance}-${String(a?.["id"] ?? "")}-${String(a?.["title"])}-${String(a?.["artistName"])}`;
-            }}
-            onRowClick={onAlbumSelect}
-          />
+          <div className="table-wrapper">
+            <table className="responsive-table">
+              <thead>
+                <tr>
+                  {instanceCount > 1 && <th>Instance</th>}
+                  <th>Album</th>
+                  <th>Artist</th>
+                  <th>Release Date</th>
+                  <th>Monitored</th>
+                  <th>Has File</th>
+                  <th>Quality Profile</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              {artistGroups.map((grp) => (
+                <tbody key={grp.artistKey}>
+                  <tr className="lidarr-artist-heading-row">
+                    <td colSpan={aggColumnCount}>
+                      <strong>{grp.artistLabel}</strong>
+                    </td>
+                  </tr>
+                  {grp.items.map((row) => {
+                    const a = row.album as Record<string, unknown>;
+                    const rk = `${row.__instance}-${String(a?.["id"] ?? "")}-${String(a?.["title"] ?? "")}`;
+                    const dateRaw = a?.["releaseDate"] as string | undefined;
+                    return (
+                      <tr
+                        key={rk}
+                        onClick={() => onAlbumSelect(row)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        {instanceCount > 1 && <td>{row.__instance}</td>}
+                        <td data-label="Album">
+                          {(a?.["title"] as string | undefined) || "—"}
+                        </td>
+                        <td data-label="Artist">
+                          {(a?.["artistName"] as string | undefined) || "—"}
+                        </td>
+                        <td data-label="Release Date">
+                          {!dateRaw ? (
+                            <span className="hint">—</span>
+                          ) : (
+                            new Date(dateRaw).toLocaleDateString()
+                          )}
+                        </td>
+                        <td data-label="Monitored">
+                          <span
+                            className={`track-status ${
+                              a?.["monitored"] ? "available" : "missing"
+                            }`}
+                          >
+                            {a?.["monitored"] ? "✓" : "✗"}
+                          </span>
+                        </td>
+                        <td data-label="Has File">
+                          <span
+                            className={`track-status ${
+                              a?.["hasFile"] ? "available" : "missing"
+                            }`}
+                          >
+                            {a?.["hasFile"] ? "✓" : "✗"}
+                          </span>
+                        </td>
+                        <td data-label="Quality Profile">
+                          {(a?.["qualityProfileName"] as string | null | undefined) ||
+                            "—"}
+                        </td>
+                        <td data-label="Reason">
+                          {(() => {
+                            const reason = a?.["reason"] as string | null | undefined;
+                            if (!reason) {
+                              return (
+                                <span className="table-badge table-badge-reason">
+                                  Not being searched
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="table-badge table-badge-reason">
+                                {reason}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ))}
+            </table>
+          </div>
         ) : (
-          <div className="arr-icon-grid">
-            {rows.map((row) => {
-              const cat = categoryForInstanceLabel(instances, row.__instance);
-              const album = row.album as Record<string, unknown>;
-              const id = album?.["id"] as number | undefined;
-              const title = (album?.["title"] as string | undefined) || "—";
-              const artist = (album?.["artistName"] as string | undefined) || "—";
-              const thumb =
-                id != null && cat ? lidarrAlbumThumbnailUrl(cat, id) : "";
-              return (
-                <button
-                  key={`${row.__instance}-${String(id ?? "")}-${title}-${artist}`}
-                  type="button"
-                  className="arr-movie-tile card"
-                  onClick={() => onAlbumSelect(row)}
-                >
-                  {thumb ? (
-                    <ArrPosterImage
-                      className="arr-movie-tile__poster"
-                      src={thumb}
-                      alt=""
-                    />
-                  ) : (
-                    <div
-                      className="arr-movie-tile__poster arr-poster-fallback"
-                      aria-hidden
-                    />
-                  )}
-                  <div className="arr-movie-tile__meta">
-                    {instanceCount > 1 && (
-                      <div className="arr-movie-tile__instance">
-                        {row.__instance}
-                      </div>
-                    )}
-                    <div className="arr-movie-tile__title">{title}</div>
-                    <div className="arr-movie-tile__sub">{artist}</div>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="stack" style={{ gap: "1.25rem" }}>
+            {artistGroups.map((grp) => (
+              <div key={grp.artistKey} className="stack" style={{ gap: "0.5rem" }}>
+                <div className="hint" style={{ fontWeight: 600 }}>
+                  {grp.artistLabel}
+                </div>
+                <div className="arr-icon-grid">
+                  {grp.items.map((row) => {
+                    const cat = categoryForInstanceLabel(instances, row.__instance);
+                    const album = row.album as Record<string, unknown>;
+                    const id = album?.["id"] as number | undefined;
+                    const title = (album?.["title"] as string | undefined) || "—";
+                    const artist =
+                      (album?.["artistName"] as string | undefined) || "—";
+                    const thumb =
+                      id != null && cat ? lidarrAlbumThumbnailUrl(cat, id) : "";
+                    return (
+                      <button
+                        key={`${row.__instance}-${String(id ?? "")}-${String(title)}`}
+                        type="button"
+                        className="arr-movie-tile card"
+                        onClick={() => onAlbumSelect(row)}
+                      >
+                        {thumb ? (
+                          <ArrPosterImage
+                            className="arr-movie-tile__poster"
+                            src={thumb}
+                            alt=""
+                          />
+                        ) : (
+                          <div
+                            className="arr-movie-tile__poster arr-poster-fallback"
+                            aria-hidden
+                          />
+                        )}
+                        <div className="arr-movie-tile__meta">
+                          {instanceCount > 1 && (
+                            <div className="arr-movie-tile__instance">
+                              {row.__instance}
+                            </div>
+                          )}
+                          <div className="arr-movie-tile__title">{title}</div>
+                          <div className="arr-movie-tile__sub">{artist}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )
       ) : (
@@ -409,103 +470,9 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
   const isFiltered = reasonFilter !== "all" || onlyMissing;
   const filteredCount = reasonFilteredAlbums.length;
 
-  const columns = useMemo<ColumnDef<LidarrAlbumEntry>[]>(
-    () => [
-      {
-        id: "title",
-        header: "Album",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          return (albumData?.["title"] as string | undefined) || "Unknown Album";
-        },
-      },
-      {
-        id: "artistName",
-        header: "Artist",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          return (albumData?.["artistName"] as string | undefined) || "Unknown Artist";
-        },
-        size: 150,
-      },
-      {
-        id: "releaseDate",
-        header: "Release Date",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          const date = albumData?.["releaseDate"] as string | undefined;
-          if (!date) return <span className="hint">—</span>;
-          return new Date(date).toLocaleDateString();
-        },
-        size: 120,
-      },
-      {
-        id: "monitored",
-        header: "Monitored",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          const monitored = albumData?.["monitored"] as boolean | undefined;
-          return (
-            <span
-              className={`track-status ${monitored ? "available" : "missing"}`}
-            >
-              {monitored ? "✓" : "✗"}
-            </span>
-          );
-        },
-        size: 100,
-      },
-      {
-        id: "hasFile",
-        header: "Has File",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          const hasFile = albumData?.["hasFile"] as boolean | undefined;
-          return (
-            <span
-              className={`track-status ${hasFile ? "available" : "missing"}`}
-            >
-              {hasFile ? "✓" : "✗"}
-            </span>
-          );
-        },
-        size: 100,
-      },
-      {
-        id: "qualityProfileName",
-        header: "Quality Profile",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          const profileName = albumData?.["qualityProfileName"] as
-            | string
-            | null
-            | undefined;
-          return profileName || "—";
-        },
-        size: 150,
-      },
-      {
-        id: "reason",
-        header: "Reason",
-        cell: (info) => {
-          const albumData = info.row.original.album as Record<string, unknown>;
-          const reason = albumData?.["reason"] as string | null | undefined;
-          if (!reason) {
-            return (
-              <span className="table-badge table-badge-reason">
-                Not being searched
-              </span>
-            );
-          }
-          return (
-            <span className="table-badge table-badge-reason">{reason}</span>
-          );
-        },
-        size: 120,
-      },
-    ],
-    []
-  );
+  const instColumnCount =
+    ["album", "artist", "releaseDate", "monitored", "hasFile", "qualityProfileName", "reason"]
+      .length;
 
   const paged = useMemo(
     () =>
@@ -516,12 +483,10 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
     [reasonFilteredAlbums, page, pageSize]
   );
 
-  const table = useReactTable({
-    data: paged,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const instanceArtistGroups = useMemo(
+    () => groupLidarrAlbumsByArtist(paged),
+    [paged]
+  );
 
   return (
     <div className="stack animate-fade-in">
@@ -577,89 +542,140 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
           <div className="table-wrapper">
             <table className="responsive-table">
               <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
+                <tr>
+                  <th>Album</th>
+                  <th>Artist</th>
+                  <th>Release Date</th>
+                  <th>Monitored</th>
+                  <th>Has File</th>
+                  <th>Quality Profile</th>
+                  <th>Reason</th>
+                </tr>
               </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => {
-                  const albumEntry = row.original;
-                  const albumData = albumEntry.album as Record<string, unknown>;
-                  const title = (albumData?.["title"] as string | undefined) || "Unknown";
-                  const artistName =
-                    (albumData?.["artistName"] as string | undefined) || "Unknown";
-                  const stableKey = `${title}-${artistName}`;
-                  return (
-                    <tr
-                      key={stableKey}
-                      onClick={() => onAlbumSelect(albumEntry)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <td
-                          key={cell.id}
-                          data-label={String(cell.column.columnDef.header)}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
+              {instanceArtistGroups.map((grp) => (
+                <tbody key={grp.artistKey}>
+                  <tr className="lidarr-artist-heading-row">
+                    <td colSpan={instColumnCount}>
+                      <strong>{grp.artistLabel}</strong>
+                    </td>
+                  </tr>
+                  {grp.items.map((albumEntry) => {
+                    const a = albumEntry.album as Record<string, unknown>;
+                    const rk = `${category}-${String(a?.["id"] ?? "")}-${String(a?.["title"] ?? "")}`;
+                    const dateRaw = a?.["releaseDate"] as string | undefined;
+                    return (
+                      <tr
+                        key={rk}
+                        onClick={() => onAlbumSelect(albumEntry)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <td data-label="Album">
+                          {(a?.["title"] as string | undefined) || "Unknown Album"}
+                        </td>
+                        <td data-label="Artist">
+                          {(a?.["artistName"] as string | undefined) ||
+                            "Unknown Artist"}
+                        </td>
+                        <td data-label="Release Date">
+                          {!dateRaw ? (
+                            <span className="hint">—</span>
+                          ) : (
+                            new Date(dateRaw).toLocaleDateString()
                           )}
                         </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
+                        <td data-label="Monitored">
+                          <span
+                            className={`track-status ${
+                              a?.["monitored"] ? "available" : "missing"
+                            }`}
+                          >
+                            {a?.["monitored"] ? "✓" : "✗"}
+                          </span>
+                        </td>
+                        <td data-label="Has File">
+                          <span
+                            className={`track-status ${
+                              a?.["hasFile"] ? "available" : "missing"
+                            }`}
+                          >
+                            {a?.["hasFile"] ? "✓" : "✗"}
+                          </span>
+                        </td>
+                        <td data-label="Quality Profile">
+                          {(a?.["qualityProfileName"] as string | null | undefined) ||
+                            "—"}
+                        </td>
+                        <td data-label="Reason">
+                          {(() => {
+                            const reason = a?.["reason"] as string | null | undefined;
+                            if (!reason) {
+                              return (
+                                <span className="table-badge table-badge-reason">
+                                  Not being searched
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="table-badge table-badge-reason">
+                                {reason}
+                              </span>
+                            );
+                          })()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              ))}
             </table>
           </div>
         ) : (
-          <div className="arr-icon-grid">
-            {paged.map((entry) => {
-              const ad = entry.album as Record<string, unknown>;
-              const id = ad?.["id"] as number | undefined;
-              const title = (ad?.["title"] as string | undefined) || "—";
-              const artist = (ad?.["artistName"] as string | undefined) || "—";
-              const thumb =
-                id != null && category
-                  ? lidarrAlbumThumbnailUrl(category, id)
-                  : "";
-              return (
-                <button
-                  key={`${title}-${artist}-${id}`}
-                  type="button"
-                  className="arr-movie-tile card"
-                  onClick={() => onAlbumSelect(entry)}
-                >
-                  {thumb ? (
-                    <ArrPosterImage
-                      className="arr-movie-tile__poster"
-                      src={thumb}
-                      alt=""
-                    />
-                  ) : (
-                    <div
-                      className="arr-movie-tile__poster arr-poster-fallback"
-                      aria-hidden
-                    />
-                  )}
-                  <div className="arr-movie-tile__meta">
-                    <div className="arr-movie-tile__title">{title}</div>
-                    <div className="arr-movie-tile__sub">{artist}</div>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="stack" style={{ gap: "1.25rem" }}>
+            {instanceArtistGroups.map((grp) => (
+              <div key={grp.artistKey} className="stack" style={{ gap: "0.5rem" }}>
+                <div className="hint" style={{ fontWeight: 600 }}>
+                  {grp.artistLabel}
+                </div>
+                <div className="arr-icon-grid">
+                  {grp.items.map((entry) => {
+                    const ad = entry.album as Record<string, unknown>;
+                    const id = ad?.["id"] as number | undefined;
+                    const title = (ad?.["title"] as string | undefined) || "—";
+                    const artist =
+                      (ad?.["artistName"] as string | undefined) || "—";
+                    const thumb =
+                      id != null && category
+                        ? lidarrAlbumThumbnailUrl(category, id)
+                        : "";
+                    return (
+                      <button
+                        key={`${category}-${String(id ?? "")}-${title}-${artist}`}
+                        type="button"
+                        className="arr-movie-tile card"
+                        onClick={() => onAlbumSelect(entry)}
+                      >
+                        {thumb ? (
+                          <ArrPosterImage
+                            className="arr-movie-tile__poster"
+                            src={thumb}
+                            alt=""
+                          />
+                        ) : (
+                          <div
+                            className="arr-movie-tile__poster arr-poster-fallback"
+                            aria-hidden
+                          />
+                        )}
+                        <div className="arr-movie-tile__meta">
+                          <div className="arr-movie-tile__title">{title}</div>
+                          <div className="arr-movie-tile__sub">{artist}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )
       ) : showCatalogEmptyHint ? (
@@ -892,15 +908,10 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           LIDARR_PAGE_SIZE,
           query
         );
-        setInstanceData(response);
         const resolvedPage = response.page ?? page;
-        setInstancePage(resolvedPage);
-        setInstanceQuery(query);
         const pageSize = response.page_size ?? LIDARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.albums ?? []).length;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
-        setInstancePageSize(pageSize);
-        setInstanceTotalPages(totalPages);
         const albums = response.albums ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
@@ -921,6 +932,27 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           });
           setLastUpdated(new Date().toLocaleTimeString());
         }
+
+        setInstanceData((prev) => {
+          const prevCounts = prev?.counts ?? null;
+          const nextCounts = response.counts ?? null;
+          const countsOrMetaChanged =
+            !prev ||
+            keyChanged ||
+            albumsChanged ||
+            prev.category !== response.category ||
+            prev.total !== response.total ||
+            prev.page !== response.page ||
+            prev.page_size !== response.page_size ||
+            (prevCounts?.available ?? null) !== (nextCounts?.available ?? null) ||
+            (prevCounts?.monitored ?? null) !== (nextCounts?.monitored ?? null);
+          return countsOrMetaChanged ? response : prev;
+        });
+
+        setInstancePage((p) => (p === resolvedPage ? p : resolvedPage));
+        setInstanceQuery((q) => (q === query ? q : query));
+        setInstancePageSize((ps) => (ps === pageSize ? ps : pageSize));
+        setInstanceTotalPages((tp) => (tp === totalPages ? tp : totalPages));
 
         if (preloadAll) {
           const pagesToFetch: number[] = [];
@@ -946,7 +978,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
           "error"
         );
       } finally {
-        setInstanceLoading(false);
+        if (showLoading) {
+          setInstanceLoading(false);
+        }
       }
     },
     [push, preloadRemainingPages]
@@ -1115,7 +1149,8 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
       preloadAll: false,
       showLoading: true,
     });
-  }, [active, selection, fetchInstance, instancePage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- instancePage omitted: pagination triggers fetch via onPageChange
+  }, [active, selection, fetchInstance]);
 
   useEffect(() => {
     if (!active) return;
@@ -1124,6 +1159,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
   }, [active, selection, loadAggregate]);
 
   useInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     if (
       selection === "aggregate" &&
       liveArr &&
@@ -1155,6 +1193,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
 
   useInterval(
     () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       if (selection && selection !== "aggregate") {
         const activeFilter = globalSearchRef.current?.trim?.() || "";
         if (activeFilter) {
@@ -1166,7 +1207,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
         });
       }
     },
-    active && selection && selection !== "aggregate" && liveArr ? 1000 : null
+    active && selection && selection !== "aggregate" && liveArr
+      ? INSTANCE_VIEW_POLL_INTERVAL_MS
+      : null
   );
 
   // Removed: Don't reset page when filter changes - preserve scroll position

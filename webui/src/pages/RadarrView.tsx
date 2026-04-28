@@ -756,15 +756,10 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           RADARR_PAGE_SIZE,
           query
         );
-        setInstanceData(response);
         const resolvedPage = response.page ?? page;
-        setInstancePage(resolvedPage);
-        setInstanceQuery(query);
         const pageSize = response.page_size ?? RADARR_PAGE_SIZE;
         const totalItems = response.total ?? (response.movies ?? []).length;
         const totalPages = Math.max(1, Math.ceil((totalItems || 0) / pageSize));
-        setInstancePageSize(pageSize);
-        setInstanceTotalPages(totalPages);
         const movies = response.movies ?? [];
         const existingPages = keyChanged ? {} : instancePagesRef.current;
 
@@ -785,6 +780,27 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           });
           setLastUpdated(new Date().toLocaleTimeString());
         }
+
+        setInstanceData((prev) => {
+          const prevCounts = prev?.counts ?? null;
+          const nextCounts = response.counts ?? null;
+          const countsOrMetaChanged =
+            !prev ||
+            keyChanged ||
+            moviesChanged ||
+            prev.category !== response.category ||
+            prev.total !== response.total ||
+            prev.page !== response.page ||
+            prev.page_size !== response.page_size ||
+            (prevCounts?.available ?? null) !== (nextCounts?.available ?? null) ||
+            (prevCounts?.monitored ?? null) !== (nextCounts?.monitored ?? null);
+          return countsOrMetaChanged ? response : prev;
+        });
+
+        setInstancePage((p) => (p === resolvedPage ? p : resolvedPage));
+        setInstanceQuery((q) => (q === query ? q : query));
+        setInstancePageSize((ps) => (ps === pageSize ? ps : pageSize));
+        setInstanceTotalPages((tp) => (tp === totalPages ? tp : totalPages));
 
         if (preloadAll) {
           const pagesToFetch: number[] = [];
@@ -810,7 +826,9 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
           "error"
         );
       } finally {
-        setInstanceLoading(false);
+        if (showLoading) {
+          setInstanceLoading(false);
+        }
       }
     },
     [push, preloadRemainingPages]
@@ -975,6 +993,9 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   }, [active, selection, loadAggregate]);
 
   useInterval(() => {
+    if (document.visibilityState !== "visible") {
+      return;
+    }
     if (
       selection === "aggregate" &&
       liveArr &&
