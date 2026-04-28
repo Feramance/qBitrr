@@ -49,6 +49,7 @@ import RefreshIcon from "../icons/refresh-arrow.svg";
 import {
   AGGREGATE_FETCH_CHUNK_SIZE,
   AGGREGATE_POLL_INTERVAL_MS,
+  INSTANCE_VIEW_POLL_INTERVAL_MS,
   pagesFromAggregateTotal,
   summarizeAggregateMonitoredRows,
   AGG_FALLBACK_AGGREGATE_PAGES_MAX,
@@ -99,10 +100,17 @@ function filterSeriesEntriesForMissing(seriesEntries: SonarrSeriesEntry[], onlyM
 
 function createFilteredSignature(seriesEntries: SonarrSeriesEntry[], onlyMissing: boolean): string {
   const filtered = filterSeriesEntriesForMissing(seriesEntries, onlyMissing);
-  if (filtered.length === 0) return "empty";
-  const first = filtered[0];
-  const last = filtered[filtered.length - 1];
-  return `${filtered.length}:${first?.series?.["title"] ?? ''}:${last?.series?.["title"] ?? ''}:${onlyMissing}`;
+  if (filtered.length === 0) return `empty:${onlyMissing}`;
+  const keys = [...filtered]
+    .map((e) => {
+      const id = e.series?.["id"];
+      if (typeof id === "number" && Number.isFinite(id)) {
+        return `i:${id}`;
+      }
+      return `t:${String(e.series?.["title"] ?? "")}`;
+    })
+    .sort();
+  return `${filtered.length}:${keys.join(";")}:${onlyMissing}`;
 }
 
 function filterSeriesEntryByReason(
@@ -658,6 +666,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
   useInterval(
     () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       if (selection && selection !== "aggregate") {
         const activeFilter = globalSearchRef.current?.trim?.() || "";
         if (activeFilter) {
@@ -670,7 +681,9 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         });
       }
     },
-    active && selection && selection !== "aggregate" && liveArr ? 1000 : null
+    active && selection && selection !== "aggregate" && liveArr
+      ? INSTANCE_VIEW_POLL_INTERVAL_MS
+      : null
   );
 
   useEffect(() => {

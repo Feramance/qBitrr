@@ -43,6 +43,7 @@ import RefreshIcon from "../icons/refresh-arrow.svg";
 import {
   AGGREGATE_FETCH_CHUNK_SIZE,
   AGGREGATE_POLL_INTERVAL_MS,
+  INSTANCE_VIEW_POLL_INTERVAL_MS,
   pagesFromAggregateTotal,
   summarizeAggregateMonitoredRows,
   AGG_FALLBACK_AGGREGATE_PAGES_MAX,
@@ -1005,6 +1006,9 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
 
   useInterval(
     () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       if (selection && selection !== "aggregate") {
         const activeFilter = globalSearchRef.current?.trim?.() || "";
         if (activeFilter) {
@@ -1016,7 +1020,9 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         });
       }
     },
-    active && selection && selection !== "aggregate" && liveArr ? 1000 : null
+    active && selection && selection !== "aggregate" && liveArr
+      ? INSTANCE_VIEW_POLL_INTERVAL_MS
+      : null
   );
 
   // Removed: Don't reset page when filter changes - preserve scroll position

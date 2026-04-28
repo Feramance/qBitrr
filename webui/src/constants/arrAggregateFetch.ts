@@ -26,6 +26,9 @@ export function pagesFromAggregateTotal(
 /** Polling interval when live-updates are enabled (aggregate merge is heavy — avoid 1s churn). */
 export const AGGREGATE_POLL_INTERVAL_MS = 15_000;
 
+/** Single-instance Radarr/Sonarr browse: same cadence as aggregate to reduce unnecessary refetches. */
+export const INSTANCE_VIEW_POLL_INTERVAL_MS = AGGREGATE_POLL_INTERVAL_MS;
+
 /** Row-based stats for merged All-Radarr / All-Sonarr views (aligns with SQLite rollup semantics). */
 export interface AggregateCatalogSummary {
   readonly available: number;

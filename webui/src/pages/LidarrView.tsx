@@ -260,7 +260,7 @@ const LidarrAggregateView = memo(function LidarrAggregateView({
             columns={columns}
             getRowKey={(row) => {
               const a = row.album as Record<string, unknown>;
-              return `${row.__instance}-${String(a?.["title"])}-${String(a?.["artistName"])}`;
+              return `${row.__instance}-${String(a?.["id"] ?? "")}-${String(a?.["title"])}-${String(a?.["artistName"])}`;
             }}
             onRowClick={onAlbumSelect}
           />
@@ -276,7 +276,7 @@ const LidarrAggregateView = memo(function LidarrAggregateView({
                 id != null && cat ? lidarrAlbumThumbnailUrl(cat, id) : "";
               return (
                 <button
-                  key={`${row.__instance}-${title}-${artist}`}
+                  key={`${row.__instance}-${String(id ?? "")}-${title}-${artist}`}
                   type="button"
                   className="arr-movie-tile card"
                   onClick={() => onAlbumSelect(row)}

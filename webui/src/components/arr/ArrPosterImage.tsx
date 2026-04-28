@@ -40,6 +40,7 @@ export function ArrPosterImage({
     loadIdRef.current += 1;
     setLoaded(false);
     setFailed(false);
+    setReleased(false);
   }, [src]);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function ArrPosterImage({
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [src]);
 
   const fallbackCls = ["arr-poster-fallback"];
   if (className) {

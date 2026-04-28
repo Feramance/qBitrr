@@ -4252,6 +4252,7 @@ svg[height] {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
     margin-top: 8px;
+    align-items: start;
 }
 
 .arr-movie-tile {
@@ -4279,7 +4280,7 @@ svg[height] {
     aspect-ratio: 2 / 3;
     object-fit: cover;
     display: block;
-    background: var(--surface-2, rgba(127, 127, 127, 0.15));
+    background-color: var(--surface);
 }
 
 /* Wrapper for queued poster loads (ArrPosterImage) */
@@ -4289,6 +4290,7 @@ svg[height] {
     aspect-ratio: 2 / 3;
     overflow: hidden;
     display: block;
+    background-color: var(--surface);
 }
 
 /* Stacked bitmap + opaque overlay until load+decode; then overlay removed (--ready optional hook). */
@@ -4300,6 +4302,7 @@ svg[height] {
     height: 100%;
     display: block;
     object-fit: cover;
+    background-color: var(--surface);
 }
 
 .arr-poster-image-wrap .arr-poster-fallback--overlay {
@@ -4309,6 +4312,7 @@ svg[height] {
     width: 100%;
     height: 100%;
     pointer-events: none;
+    background-color: var(--surface);
 }
 
 .arr-poster-image-wrap .arr-movie-tile__poster,
