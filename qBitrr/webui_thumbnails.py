@@ -34,6 +34,67 @@ def _cache_file_path(*, kind: str, instance_name: str, entry_id: int) -> Path:
     return _cache_dir() / f"{h}.bin"
 
 
+def _cache_etag_path(bin_path: Path) -> Path:
+    """Sidecar with 64-char hex SHA256 (no quotes), matching ``Response`` ETag derivation."""
+
+    return bin_path.with_suffix(".etag")
+
+
+_DIGEST_HEX64_RE = re.compile(r"^[a-fA-F0-9]{64}\s*$")
+
+
+def sha256_digest_file(bin_path: Path) -> str:
+    """Streamed SHA256 of file bytes; lowercase hex."""
+
+    digest = hashlib.sha256()
+    with open(bin_path, "rb") as f:
+        while True:
+            chunk = f.read(256 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sha256_digest_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _write_etag_sidecar(bin_path: Path, digest_hex: str) -> None:
+    _cache_etag_path(bin_path).write_text(
+        f"{digest_hex.lower()}\n", encoding="ascii", newline="\n"
+    )
+
+
+def thumbnail_quoted_etag(kind: str, instance_name: str, entry_id: int) -> str | None:
+    """
+    Strong ETag for a cached thumbnail when a ``.etag`` sidecar exists (64 hex chars).
+    Does not read the large ``.bin`` file. Legacy caches without a sidecar return
+    ``None`` until :func:`get_or_fetch_thumbnail_bytes` migrates the etag on read.
+
+    Returned value matches strong ETags: quoted lowercase hex SHA256 digest of image bytes.
+    """
+
+    bin_path = _cache_file_path(kind=kind, instance_name=instance_name, entry_id=entry_id)
+    try:
+        st = bin_path.stat()
+    except OSError:
+        return None
+    if not st.is_file() or st.st_size == 0:
+        return None
+    ep = _cache_etag_path(bin_path)
+    if not ep.is_file():
+        return None
+    try:
+        txt = ep.read_text(encoding="ascii")
+    except OSError:
+        return None
+    stripped = txt.strip()
+    if not _DIGEST_HEX64_RE.match(stripped):
+        return None
+    return f'"{stripped.lower()}"'
+
+
 def _netloc_key(base_uri: str) -> str:
     try:
         return urlparse(base_uri).netloc.lower()
@@ -41,12 +102,28 @@ def _netloc_key(base_uri: str) -> str:
         return ""
 
 
+def _scheme_for_base_uri(base_uri: str) -> str:
+    """Use the Arr ``base_uri`` scheme for protocol-relative links (``//host/...``)."""
+
+    t = base_uri.strip()
+    if not t:
+        return "http"
+    try:
+        parsed = urlparse(t)
+        sch = (parsed.scheme or "").lower()
+        if sch in ("http", "https"):
+            return sch
+    except Exception:
+        pass
+    return "http"
+
+
 def _absolute_image_url(raw: str, base_uri: str) -> str | None:
     s = raw.strip()
     if not s:
         return None
     if s.startswith("//"):
-        return "https:" + s
+        return _scheme_for_base_uri(base_uri) + ":" + s
     if s.startswith("http://") or s.startswith("https://"):
         return s
     if s.startswith("/"):
@@ -281,6 +358,13 @@ def get_or_fetch_thumbnail_bytes(
 ) -> tuple[bytes, str] | None:
     path = _cache_file_path(kind=kind, instance_name=instance_name, entry_id=entry_id)
     if path.is_file() and path.stat().st_size > 0:
+        ep = _cache_etag_path(path)
+        if not ep.is_file():
+            try:
+                digest_hex = sha256_digest_file(path)
+                _write_etag_sidecar(path, digest_hex)
+            except OSError as e:
+                logger.debug("Could not write thumbnail etag (cache hit): %s", e)
         b = path.read_bytes()
         return b, _sniff_mime(b)
 
@@ -298,6 +382,8 @@ def get_or_fetch_thumbnail_bytes(
     mime = _sniff_mime(raw)
     try:
         path.write_bytes(raw)
+        dh = sha256_digest_bytes(raw)
+        _write_etag_sidecar(path, dh)
     except OSError as e:
         logger.debug("Could not write thumbnail cache: %s", e)
     return raw, mime

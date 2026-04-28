@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.resources
 import io
 import json
@@ -35,7 +34,7 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
 )
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
-from qBitrr.webui_thumbnails import get_or_fetch_thumbnail_bytes
+from qBitrr.webui_thumbnails import get_or_fetch_thumbnail_bytes, thumbnail_quoted_etag
 
 _openapi_spec_lock = threading.Lock()
 _openapi_spec: dict[str, Any] | None = None
@@ -2417,19 +2416,23 @@ class WebUI:
             if arr is None or getattr(arr, "type", None) != kind:
                 return jsonify({"error": f"Unknown {kind} category {category}"}), 404
             name = getattr(arr, "_name", category)
+            cache_headers = {
+                "Cache-Control": "public, max-age=86400",
+            }
+            etag = thumbnail_quoted_etag(kind=kind, instance_name=name, entry_id=entry_id)
+            if etag:
+                cache_headers["ETag"] = etag
+                if _if_none_match_includes_etag(request.headers.get("If-None-Match"), etag):
+                    return Response(status=304, headers=cache_headers)
             out = get_or_fetch_thumbnail_bytes(
                 kind=kind, instance_name=name, arr=arr, entry_id=entry_id
             )
             if not out:
                 return "", 404
             data, mime = out
-            etag = f'"{hashlib.sha256(data).hexdigest()}"'
-            cache_headers = {
-                "Cache-Control": "public, max-age=86400",
-                "ETag": etag,
-            }
-            if _if_none_match_includes_etag(request.headers.get("If-None-Match"), etag):
-                return Response(status=304, headers=cache_headers)
+            etag_after = thumbnail_quoted_etag(kind=kind, instance_name=name, entry_id=entry_id)
+            if etag_after:
+                cache_headers["ETag"] = etag_after
             return Response(data, mimetype=mime, headers=cache_headers)
 
         @app.get("/api/radarr/<category>/movie/<int:entry_id>/thumbnail")
