@@ -665,11 +665,25 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     return () => window.clearInterval(id);
   }, [refreshMeta]);
 
+  const refreshStatus = useCallback(async () => {
+    try {
+      await getStatus();
+    } catch {
+      // Silently fail - status is not critical
+    }
+  }, []);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Force reload all data by incrementing the reload key
-        setReloadKey((prev) => prev + 1);
+        // Remount only views that benefit from a hard reset; Arr tabs stay mounted so browse state persists.
+        if (
+          activeTab === "processes" ||
+          activeTab === "logs" ||
+          activeTab === "qbittorrent"
+        ) {
+          setReloadKey((prev) => prev + 1);
+        }
         void refreshMeta({ force: true });
         void refreshStatus();
       }
@@ -679,15 +693,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshMeta]);
-
-  const refreshStatus = useCallback(async () => {
-    try {
-      await getStatus();
-    } catch {
-      // Silently fail - status is not critical
-    }
-  }, []);
+  }, [refreshMeta, refreshStatus, activeTab]);
 
   useEffect(() => {
     void refreshStatus();

@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -834,6 +835,11 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     [push, preloadRemainingPages]
   );
 
+  const fetchInstanceRef = useRef(fetchInstance);
+  useLayoutEffect(() => {
+    fetchInstanceRef.current = fetchInstance;
+  }, [fetchInstance]);
+
   const loadAggregate = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!instances.length) {
       setAggRows([]);
@@ -980,11 +986,12 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     setInstanceTotalPages(1);
     setInstancePage(0);
     const query = globalSearchRef.current;
-    void fetchInstance(selection, 0, query, {
+    void fetchInstanceRef.current(selection, 0, query, {
       preloadAll: false,
       showLoading: true,
     });
-  }, [active, selection, fetchInstance]); // Removed onlyMissing to prevent refresh
+    // Intentionally omit fetchInstance: identity changes would refetch and wipe pagination.
+  }, [active, selection]);
 
   useEffect(() => {
     if (!active) return;
@@ -1013,7 +1020,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term, {
+        void fetchInstanceRef.current(selection, 0, term, {
           preloadAll: false,
           showLoading: true,
         });
@@ -1023,7 +1030,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     return () => {
       clearHandler(handler);
     };
-  }, [active, selection, register, clearHandler, fetchInstance]);
+  }, [active, selection, register, clearHandler]);
 
   useInterval(
     () => {
@@ -1035,7 +1042,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
         if (activeFilter) {
           return;
         }
-        void fetchInstance(selection, instancePage, instanceQuery, {
+        void fetchInstanceRef.current(selection, instancePage, instanceQuery, {
           preloadAll: false,
           showLoading: false,
         });
@@ -1316,7 +1323,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 reasonFilter={reasonFilter}
                 onPageChange={(page) => {
                   setInstancePage(page);
-                  void fetchInstance(selection as string, page, instanceQuery, {
+                  void fetchInstanceRef.current(selection as string, page, instanceQuery, {
                     preloadAll: false,
                   });
                 }}
