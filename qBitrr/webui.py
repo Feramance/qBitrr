@@ -582,6 +582,10 @@ class WebUI:
         return str(value)
 
     def _ensure_arr_db(self, arr) -> bool:
+        """Ensure catalog models/DB are ready for read-only browse; do not run full Arr API sync here.
+
+        Bulk ``db_update()`` runs in the Arr manager search loop (and related paths), not on HTTP requests.
+        """
         if not getattr(arr, "search_setup_completed", False):
             try:
                 arr.register_search_mode()
@@ -592,15 +596,6 @@ class WebUI:
                 return False
         if not getattr(arr, "search_setup_completed", False):
             return False
-        if not getattr(arr, "_webui_db_loaded", False):
-            try:
-                arr.db_update()
-                arr._webui_db_loaded = True
-            except Exception:
-                self.logger.debug(
-                    "db_update failed for %s", getattr(arr, "_name", arr), exc_info=True
-                )
-                arr._webui_db_loaded = False
         return True
 
     @staticmethod
