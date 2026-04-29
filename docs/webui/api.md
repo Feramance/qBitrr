@@ -40,6 +40,18 @@ The served OpenAPI document is `/api/*`-first; it also includes mirrored **Arr p
 
 The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
 
+### Keeping the spec aligned with the runtime
+
+Every Flask route registered in `qBitrr/webui.py` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
+
+```bash
+make openapi-check          # or: python scripts/openapi_check.py
+```
+
+The check is also wired into pre-commit (local hook `openapi-check`). It parses the `@app.<method>("/path")` decorators in `qBitrr/webui.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one file but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
+
+If you add or remove an endpoint, update `qBitrr/openapi.json` in the same commit.
+
 ---
 
 ## Authentication
@@ -689,9 +701,8 @@ Read-only image bytes for browse **Icon** tiles and detail modals. The server as
 | `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
 | `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
 | `GET` | `/api/lidarr/<category>/album/<id>/thumbnail` · `/web/lidarr/<category>/album/<id>/thumbnail` |
-| `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
 
-**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, **album**, or **artist**). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or album). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
 
 **Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
 
@@ -851,27 +862,15 @@ Browse Sonarr series library from cached database.
 
 ---
 
-### Lidarr Artists
-
-Browse artists from the cached SQLite catalog (used by the WebUI browse surface). Album and track payloads for a single artist live on the artist-detail route.
-
-**Endpoints** (each has the same `/api` and `/web` mirrors):
-- `GET /api/lidarr/<category>/artists`
-- `GET /web/lidarr/<category>/artists`
-- `GET /api/lidarr/<category>/artist/<artist_id>`
-- `GET /web/lidarr/<category>/artist/<artist_id>` — JSON body with `{ "artist": {...}, "albums": [ ... ] }` (each album follows the `_lidarr_album_row_payload` shape: `album`, `totals`, `tracks`)
-
-**Artist list query**: `page`, `page_size`, optional `q` (substring on artist title), optional `monitored` (`true`/`false`/`1`/`0`) to restrict rows.
-
----
-
 ### Lidarr Albums
 
 Browse Lidarr album library from cached database.
 
 **Endpoints**:
-- `GET /api/lidarr/<category>/albums`
-- `GET /web/lidarr/<category>/albums`
+- `GET /web/lidarr/<category>/albums` (public)
+
+**Note**: There is no `/api/lidarr/<category>/albums` endpoint. Use `/web/lidarr/<category>/albums` instead.
+
 **Path Parameters**:
 
 - `category` (string, required) - Lidarr instance category
