@@ -490,8 +490,19 @@ def _set_db_schema_version(db: SqliteDatabase, version: int) -> None:
     db.execute_sql(f"PRAGMA user_version = {int(version)}")
 
 
-def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> None:
-    """Add catalog denormalized count columns used by WebUI (see qBitrr.tables + catalog_rollups)."""
+def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
+    """Add catalog denormalized count columns used by the WebUI.
+
+    Returns ``True`` when both the column adds and the backfill UPDATEs succeeded so the
+    caller can bump ``user_version`` only on success (H-4).  On failure we leave the columns
+    in place (cheap and idempotent) but keep ``user_version`` below 2 so the next normal
+    ``db_update`` can populate the totals via :func:`refresh_rollups_after_db_update`.
+
+    Backfill uses aggregate-based ``UPDATE ... FROM (SELECT ... GROUP BY ...)`` queries
+    rather than per-row Python loops; chunking is unnecessary because a single SQL statement
+    handles the whole table.  We still run inside a single ``db.atomic()`` so a partial run
+    rolls back cleanly.
+    """
     from qBitrr.tables import (
         AlbumFilesModel,
         ArtistFilesModel,
@@ -522,103 +533,113 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> None:
             ],
         ),
     ]
-    for model, cols in additions:
-        tn = model._meta.table_name
-        if not _table_exists(db, tn):
-            continue
-        have = set(_get_table_columns(db, tn))
-        for col_name, col_def in cols:
-            if col_name in have:
+    try:
+        for model, cols in additions:
+            tn = model._meta.table_name
+            if not _table_exists(db, tn):
                 continue
-            db.execute_sql(
-                f"ALTER TABLE {_quote_identifier(tn)} ADD COLUMN {_quote_identifier(col_name)} {col_def}"
-            )
-            logger.info("Added column %s.%s", tn, col_name)
+            have = set(_get_table_columns(db, tn))
+            for col_name, col_def in cols:
+                if col_name in have:
+                    continue
+                db.execute_sql(
+                    f"ALTER TABLE {_quote_identifier(tn)} ADD COLUMN {_quote_identifier(col_name)} {col_def}"
+                )
+                logger.info("Added column %s.%s", tn, col_name)
+    except Exception as e:  # column adds failing means we cannot backfill safely
+        logger.error("Failed to add denormalized catalog columns: %s", e)
+        return False
 
     amt = AlbumFilesModel._meta.table_name
     trt = TrackFilesModel._meta.table_name
     sert = SeriesFilesModel._meta.table_name
     ept = EpisodeFilesModel._meta.table_name
     art = ArtistFilesModel._meta.table_name
+
+    qamt = _quote_identifier(amt)
+    qtrt = _quote_identifier(trt)
+    qsert = _quote_identifier(sert)
+    qept = _quote_identifier(ept)
+    qart = _quote_identifier(art)
+
     try:
         with db.atomic():
+            # AlbumFiles.TotalTracks <- COUNT(tracks per album per ArrInstance).
             if (
                 _table_exists(db, amt)
                 and _table_exists(db, trt)
                 and "TotalTracks" in _get_table_columns(db, amt)
             ):
-                for album in AlbumFilesModel.select().iterator():  # type: ignore[arg-type]
-                    n = (
-                        TrackFilesModel.select()
-                        .where(
-                            (TrackFilesModel.AlbumId == album.EntryId)
-                            & (TrackFilesModel.ArrInstance == album.ArrInstance)
-                        )
-                        .count()
-                    )
-                    AlbumFilesModel.update(TotalTracks=n).where(
-                        (AlbumFilesModel.EntryId == album.EntryId)
-                        & (AlbumFilesModel.ArrInstance == album.ArrInstance)
-                    ).execute()
+                logger.info("Backfilling %s.TotalTracks (aggregate UPDATE)", amt)
+                db.execute_sql(
+                    f"""
+                    UPDATE {qamt}
+                    SET TotalTracks = COALESCE((
+                        SELECT COUNT(*) FROM {qtrt} t
+                        WHERE t.AlbumId = {qamt}.EntryId
+                          AND t.ArrInstance = {qamt}.ArrInstance
+                    ), 0)
+                    """
+                )
+            # SeriesFiles.{SeasonCount, EpisodeTotalCount} <- aggregates over EpisodeFiles.
             if (
                 _table_exists(db, ept)
                 and _table_exists(db, sert)
                 and "EpisodeTotalCount" in _get_table_columns(db, sert)
                 and "SeasonCount" in _get_table_columns(db, sert)
             ):
-                for srow in SeriesFilesModel.select().iterator():  # type: ignore[arg-type]
-                    ep_q = EpisodeFilesModel.select().where(
-                        (EpisodeFilesModel.ArrInstance == srow.ArrInstance)
-                        & (EpisodeFilesModel.SeriesId == srow.EntryId)
-                    )
-                    ep_total = ep_q.count()
-                    sn = (
-                        EpisodeFilesModel.select(EpisodeFilesModel.SeasonNumber)
-                        .where(
-                            (EpisodeFilesModel.ArrInstance == srow.ArrInstance)
-                            & (EpisodeFilesModel.SeriesId == srow.EntryId)
-                        )
-                        .distinct()
-                        .count()
-                    )
-                    SeriesFilesModel.update(SeasonCount=sn, EpisodeTotalCount=ep_total).where(
-                        (SeriesFilesModel.EntryId == srow.EntryId)
-                        & (SeriesFilesModel.ArrInstance == srow.ArrInstance)
-                    ).execute()
+                logger.info(
+                    "Backfilling %s.{SeasonCount, EpisodeTotalCount} (aggregate UPDATE)",
+                    sert,
+                )
+                db.execute_sql(
+                    f"""
+                    UPDATE {qsert}
+                    SET EpisodeTotalCount = COALESCE((
+                        SELECT COUNT(*) FROM {qept} e
+                        WHERE e.SeriesId = {qsert}.EntryId
+                          AND e.ArrInstance = {qsert}.ArrInstance
+                    ), 0),
+                    SeasonCount = COALESCE((
+                        SELECT COUNT(DISTINCT e.SeasonNumber) FROM {qept} e
+                        WHERE e.SeriesId = {qsert}.EntryId
+                          AND e.ArrInstance = {qsert}.ArrInstance
+                    ), 0)
+                    """
+                )
+            # ArtistFiles.{AlbumCount, TrackTotalCount} <- aggregates over Album/Track files.
             if (
                 _table_exists(db, art)
                 and _table_exists(db, amt)
                 and _table_exists(db, trt)
                 and "AlbumCount" in _get_table_columns(db, art)
             ):
-                for arow in ArtistFilesModel.select().iterator():  # type: ignore[arg-type]
-                    alb_n = (
-                        AlbumFilesModel.select()
-                        .where(
-                            (AlbumFilesModel.ArtistId == arow.EntryId)
-                            & (AlbumFilesModel.ArrInstance == arow.ArrInstance)
-                        )
-                        .count()
-                    )
-                    tr_n = (
-                        TrackFilesModel.select()
-                        .join(
-                            AlbumFilesModel,
-                            on=(TrackFilesModel.AlbumId == AlbumFilesModel.EntryId),
-                        )
-                        .where(
-                            (TrackFilesModel.ArrInstance == AlbumFilesModel.ArrInstance)
-                            & (TrackFilesModel.ArrInstance == arow.ArrInstance)
-                            & (AlbumFilesModel.ArtistId == arow.EntryId)
-                        )
-                        .count()
-                    )
-                    ArtistFilesModel.update(AlbumCount=alb_n, TrackTotalCount=tr_n).where(
-                        (ArtistFilesModel.EntryId == arow.EntryId)
-                        & (ArtistFilesModel.ArrInstance == arow.ArrInstance)
-                    ).execute()
+                logger.info("Backfilling %s.{AlbumCount, TrackTotalCount} (aggregate UPDATE)", art)
+                db.execute_sql(
+                    f"""
+                    UPDATE {qart}
+                    SET AlbumCount = COALESCE((
+                        SELECT COUNT(*) FROM {qamt} a
+                        WHERE a.ArtistId = {qart}.EntryId
+                          AND a.ArrInstance = {qart}.ArrInstance
+                    ), 0),
+                    TrackTotalCount = COALESCE((
+                        SELECT COUNT(*) FROM {qtrt} t
+                        JOIN {qamt} a ON a.EntryId = t.AlbumId
+                                       AND a.ArrInstance = t.ArrInstance
+                        WHERE a.ArtistId = {qart}.EntryId
+                          AND a.ArrInstance = {qart}.ArrInstance
+                    ), 0)
+                    """
+                )
+        return True
     except Exception as e:
-        logger.warning("Backfill of denormalized catalog columns failed: %s", e)
+        logger.warning(
+            "Backfill of denormalized catalog columns failed (counts will populate on next "
+            "normal db_update): %s",
+            e,
+        )
+        return False
 
 
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
@@ -634,7 +655,20 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
     )
     _migrate_arr_file_table_constraints(db)
     if current_version < 2:
-        _migrate_v2_catalog_denormalized_columns(db)
+        # Only bump user_version when the v2 migration reports success; otherwise it will be
+        # retried on next start without stranding the schema (H-4).
+        if _migrate_v2_catalog_denormalized_columns(db):
+            _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
+            logger.info(
+                "Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION
+            )
+        else:
+            logger.warning(
+                "Database schema kept at version %d; v%d migration will retry on next start.",
+                current_version,
+                _TARGET_DB_SCHEMA_VERSION,
+            )
+        return
     _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
     logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
 

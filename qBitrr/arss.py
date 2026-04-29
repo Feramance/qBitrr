@@ -740,7 +740,9 @@ class Arr:
         self.torrent_db: SqliteDatabase | None = None
         self.db: SqliteDatabase | None = None
         self._webui_catalog_rollups: dict[str, Any] | None = None
-        self._webui_rollups_stale = False
+        # NOTE: prior ``_webui_rollups_stale`` flag was per-process and unobservable across
+        # the WebUI/worker boundary; cache invalidation now lives in
+        # :func:`qBitrr.catalog_rollups.invalidate_arr_webui_rollups_cache`.
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
@@ -3639,27 +3641,27 @@ class Arr:
                         totalEpisodeCount = 0
                         monitoredEpisodeCount = 0
                         seasons = seriesMetadata.get("seasons")
-                        for season in seasons:
+                        for season in seasons or ():
                             sdict = dict(season)
                             if sdict.get("seasonNumber") == 0:
-                                statistics = sdict.get("statistics")
-                                monitoredEpisodeCount = monitoredEpisodeCount + statistics.get(
-                                    "episodeCount", 0
+                                statistics = sdict.get("statistics") or {}
+                                monitoredEpisodeCount = monitoredEpisodeCount + (
+                                    statistics.get("episodeCount") or 0
                                 )
-                                totalEpisodeCount = totalEpisodeCount + statistics.get(
-                                    "totalEpisodeCount", 0
+                                totalEpisodeCount = totalEpisodeCount + (
+                                    statistics.get("totalEpisodeCount") or 0
                                 )
-                                episodeFileCount = episodeFileCount + statistics.get(
-                                    "episodeFileCount", 0
+                                episodeFileCount = episodeFileCount + (
+                                    statistics.get("episodeFileCount") or 0
                                 )
                             else:
-                                statistics = sdict.get("statistics")
-                                episodeCount = episodeCount + statistics.get("episodeCount")
-                                totalEpisodeCount = totalEpisodeCount + statistics.get(
-                                    "totalEpisodeCount"
+                                statistics = sdict.get("statistics") or {}
+                                episodeCount = episodeCount + (statistics.get("episodeCount") or 0)
+                                totalEpisodeCount = totalEpisodeCount + (
+                                    statistics.get("totalEpisodeCount") or 0
                                 )
-                                episodeFileCount = episodeFileCount + statistics.get(
-                                    "episodeFileCount"
+                                episodeFileCount = episodeFileCount + (
+                                    statistics.get("episodeFileCount") or 0
                                 )
                         if self.search_specials:
                             searched = totalEpisodeCount == episodeFileCount

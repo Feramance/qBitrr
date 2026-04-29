@@ -129,13 +129,19 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "Group Sonarr episodes by series in views",
+        [
+            "Reserved: Sonarr browse lists series rows with seasons/episodes in the modal;",
+            "this flag currently does nothing (see docs/configuration/webui.md)",
+        ],
         "GroupSonarr",
         True,
     )
     _gen_default_line(
         web_settings,
-        "Group Lidarr albums by artist in views",
+        [
+            "Reserved: Lidarr browse lists artist rows with albums/tracks in the modal;",
+            "this flag currently does nothing (see docs/configuration/webui.md)",
+        ],
         "GroupLidarr",
         True,
     )

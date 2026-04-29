@@ -21,7 +21,7 @@ from flask import Flask, Response, jsonify, redirect, request, send_file, sessio
 from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.catalog_rollups import (
-    get_lidarr_album_counts_total,
+    get_lidarr_album_and_track_rollups,
     get_lidarr_track_counts_total,
     get_radarr_counts_total,
     get_sonarr_episode_instance_counts_total,
@@ -34,7 +34,11 @@ from qBitrr.search_activity_store import (
     fetch_search_activities,
 )
 from qBitrr.versioning import fetch_latest_release, fetch_release_by_tag
-from qBitrr.webui_thumbnails import get_or_fetch_thumbnail_bytes, thumbnail_quoted_etag
+from qBitrr.webui_thumbnails import (
+    get_or_fetch_thumbnail_bytes,
+    sha256_digest_bytes,
+    thumbnail_quoted_etag,
+)
 
 _openapi_spec_lock = threading.Lock()
 _openapi_spec: dict[str, Any] | None = None
@@ -598,6 +602,28 @@ class WebUI:
         return True
 
     @staticmethod
+    def _query_truthy(value: Any) -> bool:
+        """Parse a request query parameter as a boolean.
+
+        Treats the string forms ``"0"``, ``"false"``, ``"none"`` (case-insensitive) as
+        falsy in addition to standard Python falsy values. Used for ``request.args.get(...)``
+        flags such as ``monitored``, ``has_file``, ``quality_met``.
+        """
+        return bool(value) and str(value).lower() not in {"0", "false", "none"}
+
+    @staticmethod
+    def _field_truthy(value: Any) -> bool:
+        """Coerce a Peewee model attribute to a boolean for response payloads.
+
+        Unlike :meth:`_query_truthy` this does NOT treat the literal string ``"0"`` as falsy
+        because catalog fields can legitimately store the string ``"0"`` (e.g. external IDs).
+        Standard Python truthiness applies: ``None``, ``0``, ``False``, ``""`` are falsy;
+        everything else is truthy.
+        """
+        return bool(value)
+
+    # Backward-compatible alias used by older call sites; prefer the explicit helpers above.
+    @staticmethod
     def _safe_bool(value: Any) -> bool:
         return bool(value) and str(value).lower() not in {"0", "false", "none"}
 
@@ -647,7 +673,16 @@ class WebUI:
         page = max(page, 0)
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
+        # Standardised order across all ``*_from_db`` helpers (M-2):
+        #   1. Compute rollups (refresh from SQLite under its own short lock).
+        #   2. Acquire database_lock for the page-read.
+        #   3. Drain rows under the lock.
+        #   4. Release lock; build payload from snapshots.
         rollup_counts, total = get_radarr_counts_total(arr)
+
+        page_rows: list[Any] = []
+        has_quality_profile_id = hasattr(model, "QualityProfileId")
+        has_quality_profile_name = hasattr(model, "QualityProfileName")
 
         with database_lock():
             with db.connection_context():
@@ -677,47 +712,304 @@ class WebUI:
                 if is_request is not None:
                     query = query.where(model.IsRequest == is_request)
 
-                page_items = (
-                    query.order_by(model.Title.asc()).paginate(page + 1, page_size).iterator()
-                )
-                movies = []
-                for movie in page_items:
-                    # Read quality profile from database
-                    quality_profile_id = (
-                        getattr(movie, "QualityProfileId", None)
-                        if hasattr(model, "QualityProfileId")
-                        else None
-                    )
-                    quality_profile_name = (
-                        getattr(movie, "QualityProfileName", None)
-                        if hasattr(model, "QualityProfileName")
-                        else None
-                    )
+                # Drain into a list so the lock is released before we serialise the payload.
+                page_rows = list(query.order_by(model.Title.asc()).paginate(page + 1, page_size))
 
-                    movies.append(
-                        {
-                            "id": movie.EntryId,
-                            "title": movie.Title or "",
-                            "year": movie.Year,
-                            "monitored": self._safe_bool(movie.Monitored),
-                            "hasFile": self._safe_bool(movie.MovieFileId),
-                            "qualityMet": self._safe_bool(movie.QualityMet),
-                            "isRequest": self._safe_bool(movie.IsRequest),
-                            "upgrade": self._safe_bool(movie.Upgrade),
-                            "customFormatScore": movie.CustomFormatScore,
-                            "minCustomFormatScore": movie.MinCustomFormatScore,
-                            "customFormatMet": self._safe_bool(movie.CustomFormatMet),
-                            "reason": movie.Reason,
-                            "qualityProfileId": quality_profile_id,
-                            "qualityProfileName": quality_profile_name,
-                        }
-                    )
+        # Lock released — build the per-row payloads now (B-3).
+        movies = []
+        for movie in page_rows:
+            quality_profile_id = (
+                getattr(movie, "QualityProfileId", None) if has_quality_profile_id else None
+            )
+            quality_profile_name = (
+                getattr(movie, "QualityProfileName", None) if has_quality_profile_name else None
+            )
+
+            movies.append(
+                {
+                    "id": movie.EntryId,
+                    "title": movie.Title or "",
+                    "year": movie.Year,
+                    "monitored": self._safe_bool(movie.Monitored),
+                    "hasFile": self._safe_bool(movie.MovieFileId),
+                    "qualityMet": self._safe_bool(movie.QualityMet),
+                    "isRequest": self._safe_bool(movie.IsRequest),
+                    "upgrade": self._safe_bool(movie.Upgrade),
+                    "customFormatScore": movie.CustomFormatScore,
+                    "minCustomFormatScore": movie.MinCustomFormatScore,
+                    "customFormatMet": self._safe_bool(movie.CustomFormatMet),
+                    "reason": movie.Reason,
+                    "qualityProfileId": quality_profile_id,
+                    "qualityProfileName": quality_profile_name,
+                }
+            )
         return {
             "counts": dict(rollup_counts),
             "total": total,
             "page": page,
             "page_size": page_size,
             "movies": movies,
+        }
+
+    def _lidarr_album_row_payload(
+        self,
+        arr,
+        album: Any,
+        prefetched_tracks: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Build one ``{album, totals, tracks}`` entry from an AlbumFiles row.
+
+        When ``prefetched_tracks`` is supplied the helper does not issue any extra DB query
+        (used by :meth:`_lidarr_artist_detail_from_db` to avoid N+1). When ``None`` we fall
+        back to the per-album lookup for callers that have not adopted the JOIN-bucket flow.
+        """
+        track_model = getattr(arr, "track_file_model", None)
+        tracks_list: list[dict[str, Any]] = []
+        track_monitored_count = 0
+        track_available_count = 0
+
+        track_iterable: list[Any] = []
+        if prefetched_tracks is not None:
+            track_iterable = prefetched_tracks
+        elif track_model:
+            try:
+                track_iterable = list(
+                    track_model.select()
+                    .where(track_model.AlbumId == album.EntryId)
+                    .order_by(track_model.TrackNumber)
+                )
+            except Exception as e:
+                self.logger.warning(
+                    "Failed to fetch tracks for album %s (%s): %s",
+                    album.EntryId,
+                    album.Title,
+                    e,
+                )
+                track_iterable = []
+
+        for track in track_iterable:
+            is_monitored = self._safe_bool(getattr(track, "Monitored", False))
+            has_file = self._safe_bool(getattr(track, "HasFile", False))
+
+            if is_monitored:
+                track_monitored_count += 1
+            if has_file:
+                track_available_count += 1
+
+            tracks_list.append(
+                {
+                    "id": getattr(track, "EntryId", None),
+                    "trackNumber": getattr(track, "TrackNumber", None),
+                    "title": getattr(track, "Title", None),
+                    "duration": getattr(track, "Duration", None),
+                    "hasFile": has_file,
+                    "trackFileId": getattr(track, "TrackFileId", None),
+                    "monitored": is_monitored,
+                }
+            )
+
+        track_missing_count = max(track_monitored_count - track_available_count, 0)
+
+        quality_profile_id = getattr(album, "QualityProfileId", None)
+        quality_profile_name = getattr(album, "QualityProfileName", None)
+
+        return {
+            "album": {
+                "id": album.EntryId,
+                "title": album.Title,
+                "artistId": album.ArtistId,
+                "artistName": album.ArtistTitle,
+                "monitored": self._safe_bool(album.Monitored),
+                "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
+                "foreignAlbumId": album.ForeignAlbumId,
+                "releaseDate": (
+                    album.ReleaseDate.isoformat()
+                    if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
+                    else (album.ReleaseDate if isinstance(album.ReleaseDate, str) else None)
+                ),
+                "qualityMet": self._safe_bool(album.QualityMet),
+                "isRequest": self._safe_bool(album.IsRequest),
+                "upgrade": self._safe_bool(album.Upgrade),
+                "customFormatScore": album.CustomFormatScore,
+                "minCustomFormatScore": album.MinCustomFormatScore,
+                "customFormatMet": self._safe_bool(album.CustomFormatMet),
+                "reason": album.Reason,
+                "qualityProfileId": quality_profile_id,
+                "qualityProfileName": quality_profile_name,
+            },
+            "totals": {
+                "available": track_available_count,
+                "monitored": track_monitored_count,
+                "missing": track_missing_count,
+            },
+            "tracks": tracks_list,
+        }
+
+    def _lidarr_artists_from_db(
+        self,
+        arr,
+        search: str | None,
+        page: int,
+        page_size: int,
+        monitored: bool | None = None,
+    ) -> dict[str, Any]:
+        empty = {
+            "counts": {
+                "available": 0,
+                "monitored": 0,
+                "missing": 0,
+                "quality_met": 0,
+                "requests": 0,
+            },
+            "counts_tracks": {"available": 0, "monitored": 0, "missing": 0},
+            "total": 0,
+            "page": max(page, 0),
+            "page_size": max(page_size, 1),
+            "artists": [],
+        }
+
+        if not self._ensure_arr_db(arr):
+            return empty
+        arm = getattr(arr, "artists_file_model", None)
+        db = getattr(arr, "db", None)
+        if arm is None or db is None:
+            return empty
+
+        page = max(page, 0)
+        page_size = max(page_size, 1)
+        arr_instance = getattr(arr, "_name", "")
+
+        (rollup_album_counts, album_total_inst), (rollup_track_counts, _) = (
+            get_lidarr_album_and_track_rollups(arr)
+        )
+
+        slice_rows: list[Any] = []
+        total = 0
+        with database_lock():
+            with db.connection_context():
+                base = arm.select().where(arm.ArrInstance == arr_instance)
+                q_art = base
+                if search:
+                    q_art = q_art.where(arm.Title.contains(search))
+                if monitored is not None:
+                    q_art = q_art.where(arm.Monitored == monitored)
+
+                total = int(q_art.count() or 0)
+                slice_rows = list(q_art.order_by(arm.Title.asc()).paginate(page + 1, page_size))
+
+        # Lock released — serialise rows outside (B-3).
+        artists_out: list[dict[str, Any]] = [
+            {
+                "artist": {
+                    "id": ar.EntryId,
+                    "name": ar.Title or "",
+                    "monitored": self._safe_bool(ar.Monitored),
+                    "albumCount": int(getattr(ar, "AlbumCount", None) or 0),
+                    "trackTotalCount": int(getattr(ar, "TrackTotalCount", None) or 0),
+                    "qualityProfileName": getattr(ar, "QualityProfileName", None),
+                    "searched": self._safe_bool(ar.Searched),
+                }
+            }
+            for ar in slice_rows
+        ]
+
+        return {
+            "counts": dict(rollup_album_counts),
+            "counts_tracks": dict(rollup_track_counts),
+            "album_total": int(album_total_inst),
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "artists": artists_out,
+        }
+
+    def _lidarr_artist_detail_from_db(self, arr, artist_id: int) -> dict[str, Any] | None:
+        """Return a single artist with all albums and tracks in one DB visit.
+
+        Lock scope is intentionally narrow: the SQLite ``database_lock`` only spans the read
+        queries (B-3); rollups are gathered before the lock (M-2) and Python payload
+        construction happens after release. Track lookup is a single JOIN query (H-2) bucketed
+        per album in Python — replaces the prior N+1 ``select per album`` pattern.
+        """
+        arm = getattr(arr, "artists_file_model", None)
+        album_m = getattr(arr, "model_file", None)
+        track_m = getattr(arr, "track_file_model", None)
+        db = getattr(arr, "db", None)
+
+        if not self._ensure_arr_db(arr) or arm is None or album_m is None or db is None:
+            return None
+
+        arr_instance = getattr(arr, "_name", "")
+
+        # Compute rollups before acquiring the DB lock. Standardised ordering across all
+        # ``*_from_db`` helpers (M-2): rollup -> lock -> read -> release -> build payload.
+        (rollup_album_counts, _), (rollup_track_counts, _) = get_lidarr_album_and_track_rollups(
+            arr
+        )
+
+        artist_row = None
+        album_rows: list[Any] = []
+        tracks_by_album: dict[int, list[Any]] = {}
+
+        with database_lock():
+            with db.connection_context():
+                artist_row = arm.get_or_none(
+                    (arm.EntryId == artist_id) & (arm.ArrInstance == arr_instance)
+                )
+                if artist_row is None:
+                    return None
+
+                aq = album_m.select().where(
+                    (album_m.ArtistId == artist_id) & (album_m.ArrInstance == arr_instance)
+                )
+                try:
+                    aq = aq.order_by(album_m.ReleaseDate, album_m.Title)
+                except Exception:
+                    aq = aq.order_by(album_m.Title)
+                album_rows = list(aq)
+
+                if track_m is not None and album_rows:
+                    # Single JOIN: tracks for every album of this artist in one round-trip.
+                    track_query = (
+                        track_m.select(
+                            track_m,
+                            album_m.EntryId.alias("AlbumEntryId"),
+                        )
+                        .join(album_m, on=(track_m.AlbumId == album_m.EntryId))
+                        .where(
+                            (track_m.ArrInstance == arr_instance)
+                            & (album_m.ArrInstance == arr_instance)
+                            & (album_m.ArtistId == artist_id)
+                        )
+                        .order_by(album_m.EntryId, track_m.TrackNumber)
+                    )
+                    for trow in track_query:
+                        album_id_for_track = int(getattr(trow, "AlbumId", 0) or 0)
+                        tracks_by_album.setdefault(album_id_for_track, []).append(trow)
+
+        # Lock released — build the response payload from the snapshots we just collected.
+        album_items = [
+            self._lidarr_album_row_payload(
+                arr, al, prefetched_tracks=tracks_by_album.get(al.EntryId)
+            )
+            for al in album_rows
+        ]
+
+        artist_payload = {
+            "id": artist_row.EntryId,
+            "name": artist_row.Title or "",
+            "monitored": self._safe_bool(artist_row.Monitored),
+            "albumCount": int(getattr(artist_row, "AlbumCount", None) or 0),
+            "trackTotalCount": int(getattr(artist_row, "TrackTotalCount", None) or 0),
+            "qualityProfileName": getattr(artist_row, "QualityProfileName", None),
+            "searched": self._safe_bool(artist_row.Searched),
+        }
+
+        return {
+            "counts": dict(rollup_album_counts),
+            "counts_tracks": dict(rollup_track_counts),
+            "artist": artist_payload,
+            "albums": album_items,
         }
 
     def _lidarr_albums_from_db(
@@ -732,41 +1024,44 @@ class WebUI:
         is_request: bool | None = None,
         group_by_artist: bool = True,
     ) -> dict[str, Any]:
+        # Empty/fallback payload shape mirrors a successful response so callers (frontend)
+        # never branch on missing keys. ``counts`` matches ``_ZERO_COUNTS_RAD`` and
+        # ``counts_tracks`` matches ``_ZERO_COUNTS_EP3`` from ``catalog_rollups``.
+        empty_albums_payload = {
+            "counts": {
+                "available": 0,
+                "monitored": 0,
+                "missing": 0,
+                "quality_met": 0,
+                "requests": 0,
+            },
+            "counts_tracks": {"available": 0, "monitored": 0, "missing": 0},
+            "album_total": 0,
+            "total": 0,
+            "page": max(page, 0),
+            "page_size": max(page_size, 1),
+            "albums": [],
+        }
         if not self._ensure_arr_db(arr):
-            return {
-                "counts": {
-                    "available": 0,
-                    "monitored": 0,
-                    "missing": 0,
-                    "quality_met": 0,
-                    "requests": 0,
-                },
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "albums": [],
-            }
+            return dict(empty_albums_payload)
         model = getattr(arr, "model_file", None)
         db = getattr(arr, "db", None)
         if model is None or db is None:
-            return {
-                "counts": {
-                    "available": 0,
-                    "monitored": 0,
-                    "missing": 0,
-                    "quality_met": 0,
-                    "requests": 0,
-                },
-                "total": 0,
-                "page": max(page, 0),
-                "page_size": max(page_size, 1),
-                "albums": [],
-            }
+            return dict(empty_albums_payload)
         page = max(page, 0)
         page_size = max(page_size, 1)
         arr_instance = getattr(arr, "_name", "")
 
-        rollup_counts, album_total_inst = get_lidarr_album_counts_total(arr)
+        # M-2: rollups (which take their own short lock) before the page-read lock.
+        # Aggregate album+track rollups together so the "Tracks" header matches the artist
+        # list shape; one SQLite refresh services both rollup readers.
+        (rollup_counts, album_total_inst), (rollup_track_counts, _) = (
+            get_lidarr_album_and_track_rollups(arr)
+        )
+
+        album_results: list[Any] = []
+        track_m = getattr(arr, "track_file_model", None)
+        tracks_by_album: dict[int, list[Any]] = {}
 
         with database_lock():
             with db.connection_context():
@@ -792,10 +1087,6 @@ class WebUI:
                 if is_request is not None:
                     query = query.where(model.IsRequest == is_request)
 
-                albums = []
-
-                total = album_total_inst
-
                 if group_by_artist:
                     # Paginate by artists: Two-pass approach with Peewee
                     # First, get all distinct artist names from the filtered query
@@ -804,124 +1095,49 @@ class WebUI:
                         query.select(model.ArtistTitle).distinct().order_by(model.ArtistTitle)
                     )
 
-                    # Convert to list to avoid multiple iterations
                     all_artists = [row.ArtistTitle for row in artists_subquery]
 
-                    # Paginate the artist list in Python
                     start_idx = page * page_size
                     end_idx = start_idx + page_size
                     paginated_artists = all_artists[start_idx:end_idx]
 
-                    # Fetch all albums for these paginated artists
                     if paginated_artists:
                         album_results = list(
                             query.where(model.ArtistTitle.in_(paginated_artists)).order_by(
                                 model.ArtistTitle, model.ReleaseDate
                             )
                         )
-                    else:
-                        album_results = []
                 else:
-                    # Flat mode: paginate by albums as before
-                    # Note: total is already set to base_query.count() above
+                    # Flat mode: paginate by albums.
                     album_results = list(query.order_by(model.Title).paginate(page + 1, page_size))
 
-                for album in album_results:
-                    # Always fetch tracks from database (Lidarr only)
-                    track_model = getattr(arr, "track_file_model", None)
-                    tracks_list = []
-                    track_monitored_count = 0
-                    track_available_count = 0
+                # Single JOIN of tracks for the page rather than N+1 per-album lookups (H-2).
+                if track_m is not None and album_results:
+                    album_ids = [int(getattr(a, "EntryId", 0) or 0) for a in album_results]
+                    track_query = (
+                        track_m.select()
+                        .where(
+                            (track_m.ArrInstance == arr_instance)
+                            & (track_m.AlbumId.in_(album_ids))
+                        )
+                        .order_by(track_m.AlbumId, track_m.TrackNumber)
+                    )
+                    for trow in track_query:
+                        bucket = tracks_by_album.setdefault(int(trow.AlbumId or 0), [])
+                        bucket.append(trow)
 
-                    if track_model:
-                        try:
-                            # Query tracks from database for this album
-                            track_query = (
-                                track_model.select()
-                                .where(track_model.AlbumId == album.EntryId)
-                                .order_by(track_model.TrackNumber)
-                            )
-
-                            for track in track_query:
-                                is_monitored = self._safe_bool(track.Monitored)
-                                has_file = self._safe_bool(track.HasFile)
-
-                                if is_monitored:
-                                    track_monitored_count += 1
-                                if has_file:
-                                    track_available_count += 1
-
-                                tracks_list.append(
-                                    {
-                                        "id": track.EntryId,
-                                        "trackNumber": track.TrackNumber,
-                                        "title": track.Title,
-                                        "duration": track.Duration,
-                                        "hasFile": has_file,
-                                        "trackFileId": track.TrackFileId,
-                                        "monitored": is_monitored,
-                                    }
-                                )
-                            self.logger.debug(
-                                "Album %s (%s): Found %d tracks in database",
-                                album.EntryId,
-                                album.Title,
-                                len(tracks_list),
-                            )
-                        except Exception as e:
-                            self.logger.warning(
-                                "Failed to fetch tracks for album %s (%s): %s",
-                                album.EntryId,
-                                album.Title,
-                                e,
-                            )
-
-                    track_missing_count = max(track_monitored_count - track_available_count, 0)
-
-                    # Get quality profile from database model
-                    quality_profile_id = getattr(album, "QualityProfileId", None)
-                    quality_profile_name = getattr(album, "QualityProfileName", None)
-
-                    # Build album data in Sonarr-like structure
-                    album_item = {
-                        "album": {
-                            "id": album.EntryId,
-                            "title": album.Title,
-                            "artistId": album.ArtistId,
-                            "artistName": album.ArtistTitle,
-                            "monitored": self._safe_bool(album.Monitored),
-                            "hasFile": bool(album.AlbumFileId and album.AlbumFileId != 0),
-                            "foreignAlbumId": album.ForeignAlbumId,
-                            "releaseDate": (
-                                album.ReleaseDate.isoformat()
-                                if album.ReleaseDate and hasattr(album.ReleaseDate, "isoformat")
-                                else (
-                                    album.ReleaseDate
-                                    if isinstance(album.ReleaseDate, str)
-                                    else None
-                                )
-                            ),
-                            "qualityMet": self._safe_bool(album.QualityMet),
-                            "isRequest": self._safe_bool(album.IsRequest),
-                            "upgrade": self._safe_bool(album.Upgrade),
-                            "customFormatScore": album.CustomFormatScore,
-                            "minCustomFormatScore": album.MinCustomFormatScore,
-                            "customFormatMet": self._safe_bool(album.CustomFormatMet),
-                            "reason": album.Reason,
-                            "qualityProfileId": quality_profile_id,
-                            "qualityProfileName": quality_profile_name,
-                        },
-                        "totals": {
-                            "available": track_available_count,
-                            "monitored": track_monitored_count,
-                            "missing": track_missing_count,
-                        },
-                        "tracks": tracks_list,
-                    }
-
-                    albums.append(album_item)
+        # Lock released — build payloads outside (B-3).
+        total = album_total_inst
+        albums = [
+            self._lidarr_album_row_payload(
+                arr, album, prefetched_tracks=tracks_by_album.get(int(album.EntryId or 0))
+            )
+            for album in album_results
+        ]
         return {
             "counts": dict(rollup_counts),
+            "counts_tracks": dict(rollup_track_counts),
+            "album_total": int(album_total_inst),
             "total": total,
             "page": page,
             "page_size": page_size,
@@ -972,10 +1188,10 @@ class WebUI:
         rollup_tracks, _inst_track_total = get_lidarr_track_counts_total(arr)
 
         try:
+            track_rows: list[Any] = []
+            total = 0
             with database_lock():
                 with db.connection_context():
-                    # Join tracks with albums to get artist/album info
-                    # Filter by ArrInstance on both models
                     query = (
                         track_model.select(
                             track_model,
@@ -990,7 +1206,6 @@ class WebUI:
                         )
                     )
 
-                    # Apply filters
                     if monitored is not None:
                         query = query.where(track_model.Monitored == monitored)
                     if has_file is not None:
@@ -1003,29 +1218,31 @@ class WebUI:
                         )
 
                     total = query.count()
+                    track_rows = list(
+                        query.order_by(
+                            album_model.ArtistTitle,
+                            album_model.Title,
+                            track_model.TrackNumber,
+                        ).paginate(page + 1, page_size)
+                    )
 
-                    # Apply pagination
-                    query = query.order_by(
-                        album_model.ArtistTitle, album_model.Title, track_model.TrackNumber
-                    ).paginate(page + 1, page_size)
-
-                    tracks = []
-                    for track in query:
-                        tracks.append(
-                            {
-                                "id": track.EntryId,
-                                "trackNumber": track.TrackNumber,
-                                "title": track.Title,
-                                "duration": track.Duration,
-                                "hasFile": track.HasFile,
-                                "trackFileId": track.TrackFileId,
-                                "monitored": track.Monitored,
-                                "albumId": track.AlbumId,
-                                "albumTitle": track.AlbumTitle,
-                                "artistTitle": track.ArtistTitle,
-                                "artistId": track.ArtistId,
-                            }
-                        )
+            # Lock released — build payload outside (B-3).
+            tracks = [
+                {
+                    "id": track.EntryId,
+                    "trackNumber": track.TrackNumber,
+                    "title": track.Title,
+                    "duration": track.Duration,
+                    "hasFile": track.HasFile,
+                    "trackFileId": track.TrackFileId,
+                    "monitored": track.Monitored,
+                    "albumId": track.AlbumId,
+                    "albumTitle": track.AlbumTitle,
+                    "artistTitle": track.ArtistTitle,
+                    "artistId": track.ArtistId,
+                }
+                for track in track_rows
+            ]
 
             return {
                 "counts": dict(rollup_tracks),
@@ -1134,6 +1351,11 @@ class WebUI:
         sonarr_api_quality_pending: list[tuple[int, int]] = []
         payload: list[dict[str, Any]] = []
         total_series = 0
+        # Materialise raw rows inside the DB lock; build Python payloads after release (B-3).
+        # Each tuple holds the bare data we need so payload assembly cannot touch the cursor.
+        collected_series: list[tuple[Any, list[Any]]] = []  # (series_row, episodes_list)
+        has_qp_id_field = bool(series_model) and hasattr(series_model, "QualityProfileId")
+        has_qp_name_field = bool(series_model) and hasattr(series_model, "QualityProfileName")
         with database_lock():
             with db.connection_context():
                 missing_series_ids: list[int] = []
@@ -1163,14 +1385,11 @@ class WebUI:
                         }
 
                 if series_model is not None:
-                    # Base query for ALL series in this instance (unfiltered)
                     base_series_query = series_model.select().where(
                         series_model.ArrInstance == arr_instance
                     )
-                    # Total series for instance from rollups (kept fresh in catalog_rollups).
                     total_series = rollup_total_series
 
-                    # Now build the filtered query for pagination
                     series_query = base_series_query
                     if search:
                         series_query = series_query.where(series_model.Title.contains(search))
@@ -1184,12 +1403,12 @@ class WebUI:
                         if max_pages:
                             resolved_page = min(resolved_page, max_pages - 1)
                         resolved_page = max(resolved_page, 0)
-                        series_rows = (
-                            series_query.order_by(series_model.Title.asc())
-                            .paginate(resolved_page + 1, page_size)
-                            .iterator()
+                        series_page = list(
+                            series_query.order_by(series_model.Title.asc()).paginate(
+                                resolved_page + 1, page_size
+                            )
                         )
-                        for series in series_rows:
+                        for series in series_page:
                             episodes_query = episodes_model.select().where(
                                 (episodes_model.ArrInstance == arr_instance)
                                 & (episodes_model.SeriesId == series.EntryId)
@@ -1200,103 +1419,100 @@ class WebUI:
                                 episodes_model.SeasonNumber.asc(),
                                 episodes_model.EpisodeNumber.asc(),
                             )
-                            episodes = episodes_query.iterator()
-                            episodes_list = list(episodes)
-                            self.logger.debug(
-                                "[Sonarr Series] Series %s (ID %s) has %d episodes (missing_only=%s)",
-                                getattr(series, "Title", "unknown"),
-                                getattr(series, "EntryId", "?"),
-                                len(episodes_list),
-                                missing_only,
-                            )
-                            seasons: dict[str, dict[str, Any]] = {}
-                            series_monitored = 0
-                            series_available = 0
-                            for ep in episodes_list:
-                                season_value = getattr(ep, "SeasonNumber", None)
-                                season_key = (
-                                    str(season_value) if season_value is not None else "unknown"
-                                )
-                                season_bucket = seasons.setdefault(
-                                    season_key,
-                                    {"monitored": 0, "available": 0, "episodes": []},
-                                )
-                                is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                                has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
-                                if is_monitored:
-                                    season_bucket["monitored"] += 1
-                                    series_monitored += 1
-                                if has_file:
-                                    season_bucket["available"] += 1
-                                    if is_monitored:
-                                        series_available += 1
-                                air_date = getattr(ep, "AirDateUtc", None)
-                                if hasattr(air_date, "isoformat"):
-                                    try:
-                                        air_value = air_date.isoformat()
-                                    except Exception:
-                                        air_value = str(air_date)
-                                elif isinstance(air_date, str):
-                                    air_value = air_date
-                                else:
-                                    air_value = ""
-                                if (not missing_only) or (not has_file):
-                                    season_bucket["episodes"].append(
-                                        {
-                                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                                            "title": getattr(ep, "Title", "") or "",
-                                            "monitored": is_monitored,
-                                            "hasFile": has_file,
-                                            "airDateUtc": air_value,
-                                            "reason": getattr(ep, "Reason", None),
-                                        }
-                                    )
-                            for bucket in seasons.values():
-                                monitored_eps = int(bucket.get("monitored", 0) or 0)
-                                available_eps = int(bucket.get("available", 0) or 0)
-                                bucket["missing"] = max(
-                                    monitored_eps - min(available_eps, monitored_eps), 0
-                                )
-                            series_missing = max(series_monitored - series_available, 0)
-                            if missing_only:
-                                seasons = {
-                                    key: data for key, data in seasons.items() if data["episodes"]
-                                }
-                                if not seasons:
-                                    continue
+                            collected_series.append((series, list(episodes_query)))
 
-                            # Get quality profile for this series from database
-                            series_id = getattr(series, "EntryId", None)
-                            quality_profile_id = (
-                                getattr(series, "QualityProfileId", None)
-                                if hasattr(series_model, "QualityProfileId")
-                                else None
-                            )
-                            quality_profile_name = (
-                                getattr(series, "QualityProfileName", None)
-                                if hasattr(series_model, "QualityProfileName")
-                                else None
-                            )
+        # ---- Lock released; build payloads from materialised rows ---------------------
+        for series, episodes_list in collected_series:
+            self.logger.debug(
+                "[Sonarr Series] Series %s (ID %s) has %d episodes (missing_only=%s)",
+                getattr(series, "Title", "unknown"),
+                getattr(series, "EntryId", "?"),
+                len(episodes_list),
+                missing_only,
+            )
+            seasons: dict[str, dict[str, Any]] = {}
+            series_monitored = 0
+            series_available = 0
+            for ep in episodes_list:
+                season_value = getattr(ep, "SeasonNumber", None)
+                season_key = str(season_value) if season_value is not None else "unknown"
+                season_bucket = seasons.setdefault(
+                    season_key,
+                    {"monitored": 0, "available": 0, "episodes": []},
+                )
+                is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                if is_monitored:
+                    season_bucket["monitored"] += 1
+                    series_monitored += 1
+                if has_file:
+                    season_bucket["available"] += 1
+                    if is_monitored:
+                        series_available += 1
+                air_date = getattr(ep, "AirDateUtc", None)
+                if hasattr(air_date, "isoformat"):
+                    try:
+                        air_value = air_date.isoformat()
+                    except Exception:
+                        air_value = str(air_date)
+                elif isinstance(air_date, str):
+                    air_value = air_date
+                else:
+                    air_value = ""
+                if (not missing_only) or (not has_file):
+                    season_bucket["episodes"].append(
+                        {
+                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                            "title": getattr(ep, "Title", "") or "",
+                            "monitored": is_monitored,
+                            "hasFile": has_file,
+                            "airDateUtc": air_value,
+                            "reason": getattr(ep, "Reason", None),
+                        }
+                    )
+            for bucket in seasons.values():
+                monitored_eps = int(bucket.get("monitored", 0) or 0)
+                available_eps = int(bucket.get("available", 0) or 0)
+                bucket["missing"] = max(monitored_eps - min(available_eps, monitored_eps), 0)
+            series_missing = max(series_monitored - series_available, 0)
+            if missing_only:
+                seasons = {key: data for key, data in seasons.items() if data["episodes"]}
+                if not seasons:
+                    continue
 
-                            payload.append(
-                                {
-                                    "series": {
-                                        "id": series_id,
-                                        "title": getattr(series, "Title", "") or "",
-                                        "qualityProfileId": quality_profile_id,
-                                        "qualityProfileName": quality_profile_name,
-                                    },
-                                    "totals": {
-                                        "available": series_available,
-                                        "monitored": series_monitored,
-                                        "missing": series_missing,
-                                    },
-                                    "seasons": seasons,
-                                }
-                            )
+            series_id = getattr(series, "EntryId", None)
+            quality_profile_id = (
+                getattr(series, "QualityProfileId", None) if has_qp_id_field else None
+            )
+            quality_profile_name = (
+                getattr(series, "QualityProfileName", None) if has_qp_name_field else None
+            )
 
-                if not payload:
-                    # Fallback: construct series payload from episode data (episode mode)
+            payload.append(
+                {
+                    "series": {
+                        "id": series_id,
+                        "title": getattr(series, "Title", "") or "",
+                        "qualityProfileId": quality_profile_id,
+                        "qualityProfileName": quality_profile_name,
+                    },
+                    "totals": {
+                        "available": series_available,
+                        "monitored": series_monitored,
+                        "missing": series_missing,
+                    },
+                    "seasons": seasons,
+                }
+            )
+
+        if not payload:
+            # Episode-mode fallback: collect (series_id, series_title, episodes_list) tuples
+            # inside the lock, then build the payload outside it.
+            collected_fallback: list[tuple[Any, Any, list[Any]]] = []
+            page_keys: list[tuple[Any, ...]] = []
+            field_names: list[str] = []
+            with database_lock():
+                with db.connection_context():
                     base_episode_query = episodes_model.select().where(
                         episodes_model.ArrInstance == arr_instance
                     )
@@ -1324,7 +1540,6 @@ class WebUI:
                     )
 
                     distinct_fields = []
-                    field_names: list[str] = []
                     if series_id_field is not None:
                         distinct_fields.append(series_id_field)
                         field_names.append("SeriesId")
@@ -1332,7 +1547,6 @@ class WebUI:
                         distinct_fields.append(series_title_field)
                         field_names.append("SeriesTitle")
                     if not distinct_fields:
-                        # Fall back to title only to avoid empty select
                         distinct_fields.append(episodes_model.Title.alias("SeriesTitle"))
                         field_names.append("SeriesTitle")
 
@@ -1358,16 +1572,17 @@ class WebUI:
                         resolved_page = 0
                         page_keys = []
 
-                    payload = []
                     for key in page_keys:
                         key_data = dict(zip(field_names, key))
-                        series_id = key_data.get("SeriesId")
-                        series_title = key_data.get("SeriesTitle")
+                        fk_series_id = key_data.get("SeriesId")
+                        fk_series_title = key_data.get("SeriesTitle")
                         episode_conditions = []
-                        if series_id is not None:
-                            episode_conditions.append(episodes_model.SeriesId == series_id)
-                        if series_title is not None:
-                            episode_conditions.append(episodes_model.SeriesTitle == series_title)
+                        if fk_series_id is not None:
+                            episode_conditions.append(episodes_model.SeriesId == fk_series_id)
+                        if fk_series_title is not None:
+                            episode_conditions.append(
+                                episodes_model.SeriesTitle == fk_series_title
+                            )
                         episodes_query = episodes_model.select().where(
                             episodes_model.ArrInstance == arr_instance
                         )
@@ -1382,96 +1597,96 @@ class WebUI:
                             episodes_model.SeasonNumber.asc(),
                             episodes_model.EpisodeNumber.asc(),
                         )
-                        seasons: dict[str, dict[str, Any]] = {}
-                        series_monitored = 0
-                        series_available = 0
-                        # Track quality profile from first episode (all episodes in a series share the same profile)
-                        quality_profile_id = None
-                        quality_profile_name = None
-                        for ep in episodes_query.iterator():
-                            # Capture quality profile from first episode if available
-                            if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
-                                quality_profile_id = getattr(ep, "QualityProfileId", None)
-                            if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
-                                quality_profile_name = getattr(ep, "QualityProfileName", None)
-                            season_value = getattr(ep, "SeasonNumber", None)
-                            season_key = (
-                                str(season_value) if season_value is not None else "unknown"
-                            )
-                            season_bucket = seasons.setdefault(
-                                season_key,
-                                {"monitored": 0, "available": 0, "episodes": []},
-                            )
-                            is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
-                            has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
-                            if is_monitored:
-                                season_bucket["monitored"] += 1
-                                series_monitored += 1
-                            if has_file:
-                                season_bucket["available"] += 1
-                                if is_monitored:
-                                    series_available += 1
-                            air_date = getattr(ep, "AirDateUtc", None)
-                            if hasattr(air_date, "isoformat"):
-                                try:
-                                    air_value = air_date.isoformat()
-                                except Exception:
-                                    air_value = str(air_date)
-                            elif isinstance(air_date, str):
-                                air_value = air_date
-                            else:
-                                air_value = ""
-                            season_bucket["episodes"].append(
-                                {
-                                    "episodeNumber": getattr(ep, "EpisodeNumber", None),
-                                    "title": getattr(ep, "Title", "") or "",
-                                    "monitored": is_monitored,
-                                    "hasFile": has_file,
-                                    "airDateUtc": air_value,
-                                    "reason": getattr(ep, "Reason", None),
-                                }
-                            )
-                        for bucket in seasons.values():
-                            monitored_eps = int(bucket.get("monitored", 0) or 0)
-                            available_eps = int(bucket.get("available", 0) or 0)
-                            bucket["missing"] = max(
-                                monitored_eps - min(available_eps, monitored_eps), 0
-                            )
-                        series_missing = max(series_monitored - series_available, 0)
-                        if missing_only:
-                            seasons = {
-                                key: data for key, data in seasons.items() if data["episodes"]
-                            }
-                            if not seasons:
-                                continue
-
-                        append_idx = len(payload)
-                        if quality_profile_id is None and series_id is not None:
-                            sonarr_api_quality_pending.append((append_idx, series_id))
-
-                        payload.append(
-                            {
-                                "series": {
-                                    "id": series_id,
-                                    "title": (
-                                        series_title
-                                        or (
-                                            f"Series {len(payload) + 1}"
-                                            if series_id is None
-                                            else str(series_id)
-                                        )
-                                    ),
-                                    "qualityProfileId": quality_profile_id,
-                                    "qualityProfileName": quality_profile_name,
-                                },
-                                "totals": {
-                                    "available": series_available,
-                                    "monitored": series_monitored,
-                                    "missing": series_missing,
-                                },
-                                "seasons": seasons,
-                            }
+                        collected_fallback.append(
+                            (fk_series_id, fk_series_title, list(episodes_query))
                         )
+
+            # Lock released — build payload from materialised rows (B-3).
+            payload = []
+            for fk_series_id, fk_series_title, episodes_list in collected_fallback:
+                seasons: dict[str, dict[str, Any]] = {}
+                series_monitored = 0
+                series_available = 0
+                # Track quality profile from first episode (all episodes share the same profile).
+                quality_profile_id = None
+                quality_profile_name = None
+                for ep in episodes_list:
+                    if quality_profile_id is None and hasattr(ep, "QualityProfileId"):
+                        quality_profile_id = getattr(ep, "QualityProfileId", None)
+                    if quality_profile_name is None and hasattr(ep, "QualityProfileName"):
+                        quality_profile_name = getattr(ep, "QualityProfileName", None)
+                    season_value = getattr(ep, "SeasonNumber", None)
+                    season_key = str(season_value) if season_value is not None else "unknown"
+                    season_bucket = seasons.setdefault(
+                        season_key,
+                        {"monitored": 0, "available": 0, "episodes": []},
+                    )
+                    is_monitored = self._safe_bool(getattr(ep, "Monitored", None))
+                    has_file = self._safe_bool(getattr(ep, "EpisodeFileId", None))
+                    if is_monitored:
+                        season_bucket["monitored"] += 1
+                        series_monitored += 1
+                    if has_file:
+                        season_bucket["available"] += 1
+                        if is_monitored:
+                            series_available += 1
+                    air_date = getattr(ep, "AirDateUtc", None)
+                    if hasattr(air_date, "isoformat"):
+                        try:
+                            air_value = air_date.isoformat()
+                        except Exception:
+                            air_value = str(air_date)
+                    elif isinstance(air_date, str):
+                        air_value = air_date
+                    else:
+                        air_value = ""
+                    season_bucket["episodes"].append(
+                        {
+                            "episodeNumber": getattr(ep, "EpisodeNumber", None),
+                            "title": getattr(ep, "Title", "") or "",
+                            "monitored": is_monitored,
+                            "hasFile": has_file,
+                            "airDateUtc": air_value,
+                            "reason": getattr(ep, "Reason", None),
+                        }
+                    )
+                for bucket in seasons.values():
+                    monitored_eps = int(bucket.get("monitored", 0) or 0)
+                    available_eps = int(bucket.get("available", 0) or 0)
+                    bucket["missing"] = max(monitored_eps - min(available_eps, monitored_eps), 0)
+                series_missing = max(series_monitored - series_available, 0)
+                if missing_only:
+                    seasons = {key: data for key, data in seasons.items() if data["episodes"]}
+                    if not seasons:
+                        continue
+
+                append_idx = len(payload)
+                if quality_profile_id is None and fk_series_id is not None:
+                    sonarr_api_quality_pending.append((append_idx, fk_series_id))
+
+                payload.append(
+                    {
+                        "series": {
+                            "id": fk_series_id,
+                            "title": (
+                                fk_series_title
+                                or (
+                                    f"Series {len(payload) + 1}"
+                                    if fk_series_id is None
+                                    else str(fk_series_id)
+                                )
+                            ),
+                            "qualityProfileId": quality_profile_id,
+                            "qualityProfileName": quality_profile_name,
+                        },
+                        "totals": {
+                            "available": series_available,
+                            "monitored": series_monitored,
+                            "missing": series_missing,
+                        },
+                        "seasons": seasons,
+                    }
+                )
 
         self._enrich_sonarr_series_payload_quality_from_api(
             arr, payload, sonarr_api_quality_pending
@@ -2361,22 +2576,22 @@ class WebUI:
             year_min = request.args.get("year_min", default=None, type=int)
             year_max = request.args.get("year_max", default=None, type=int)
             monitored = (
-                self._safe_bool(request.args.get("monitored"))
+                self._query_truthy(request.args.get("monitored"))
                 if "monitored" in request.args
                 else None
             )
             has_file = (
-                self._safe_bool(request.args.get("has_file"))
+                self._query_truthy(request.args.get("has_file"))
                 if "has_file" in request.args
                 else None
             )
             quality_met = (
-                self._safe_bool(request.args.get("quality_met"))
+                self._query_truthy(request.args.get("quality_met"))
                 if "quality_met" in request.args
                 else None
             )
             is_request = (
-                self._safe_bool(request.args.get("is_request"))
+                self._query_truthy(request.args.get("is_request"))
                 if "is_request" in request.args
                 else None
             )
@@ -2416,13 +2631,16 @@ class WebUI:
             if arr is None or getattr(arr, "type", None) != kind:
                 return jsonify({"error": f"Unknown {kind} category {category}"}), 404
             name = getattr(arr, "_name", category)
+            # ``private`` rather than ``public``: thumbnail responses are token-bearing
+            # (Bearer header or ``?token=`` query) and must not be cached by shared proxies.
             cache_headers = {
-                "Cache-Control": "public, max-age=86400",
+                "Cache-Control": "private, max-age=86400",
             }
+            inm = request.headers.get("If-None-Match")
             etag = thumbnail_quoted_etag(kind=kind, instance_name=name, entry_id=entry_id)
             if etag:
                 cache_headers["ETag"] = etag
-                if _if_none_match_includes_etag(request.headers.get("If-None-Match"), etag):
+                if _if_none_match_includes_etag(inm, etag):
                     return Response(status=304, headers=cache_headers)
             out = get_or_fetch_thumbnail_bytes(
                 kind=kind, instance_name=name, arr=arr, entry_id=entry_id
@@ -2430,9 +2648,13 @@ class WebUI:
             if not out:
                 return "", 404
             data, mime = out
-            etag_after = thumbnail_quoted_etag(kind=kind, instance_name=name, entry_id=entry_id)
-            if etag_after:
-                cache_headers["ETag"] = etag_after
+            # Derive the ETag straight from the bytes we just produced (avoids re-streaming the
+            # cache file). Honour ``If-None-Match`` against the post-fetch hash too — a fresh
+            # cache write whose bytes match a client-known ETag should still 304.
+            etag_after = f'"{sha256_digest_bytes(data)}"'
+            cache_headers["ETag"] = etag_after
+            if _if_none_match_includes_etag(inm, etag_after):
+                return Response(status=304, headers=cache_headers)
             return Response(data, mimetype=mime, headers=cache_headers)
 
         @app.get("/api/radarr/<category>/movie/<int:entry_id>/thumbnail")
@@ -2458,7 +2680,7 @@ class WebUI:
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
             page_size = min(request.args.get("page_size", default=25, type=int), 1000)
-            missing_only = self._safe_bool(
+            missing_only = self._query_truthy(
                 request.args.get("missing") or request.args.get("only_missing")
             )
             payload = self._sonarr_series_from_db(
@@ -2491,10 +2713,7 @@ class WebUI:
                 return resp
             return _arr_thumbnail(category, "sonarr", entry_id)
 
-        @app.get("/web/lidarr/<category>/albums")
-        def web_lidarr_albums(category: str):
-            if (resp := require_token()) is not None:
-                return resp
+        def _handle_lidarr_albums(category: str):
             managed = _managed_objects()
             if not managed:
                 if not _ensure_arr_manager_ready():
@@ -2507,26 +2726,26 @@ class WebUI:
             page_size = request.args.get("page_size", default=50, type=int)
             page_size = min(page_size, 1000)
             monitored = (
-                self._safe_bool(request.args.get("monitored"))
+                self._query_truthy(request.args.get("monitored"))
                 if "monitored" in request.args
                 else None
             )
             has_file = (
-                self._safe_bool(request.args.get("has_file"))
+                self._query_truthy(request.args.get("has_file"))
                 if "has_file" in request.args
                 else None
             )
             quality_met = (
-                self._safe_bool(request.args.get("quality_met"))
+                self._query_truthy(request.args.get("quality_met"))
                 if "quality_met" in request.args
                 else None
             )
             is_request = (
-                self._safe_bool(request.args.get("is_request"))
+                self._query_truthy(request.args.get("is_request"))
                 if "is_request" in request.args
                 else None
             )
-            flat_mode = self._safe_bool(request.args.get("flat_mode", False))
+            flat_mode = self._query_truthy(request.args.get("flat_mode", False))
 
             if flat_mode:
                 # Flat mode: return tracks directly
@@ -2554,6 +2773,18 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
+        @app.get("/api/lidarr/<category>/albums")
+        def api_lidarr_albums(category: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_albums(category)
+
+        @app.get("/web/lidarr/<category>/albums")
+        def web_lidarr_albums(category: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_albums(category)
+
         @app.get("/api/lidarr/<category>/album/<int:entry_id>/thumbnail")
         def api_lidarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
@@ -2565,6 +2796,76 @@ class WebUI:
             if (resp := require_token()) is not None:
                 return resp
             return _arr_thumbnail(category, "lidarr", entry_id)
+
+        def _handle_lidarr_artists(category: str):
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != "lidarr":
+                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            q = request.args.get("q", default=None, type=str)
+            page = request.args.get("page", default=0, type=int)
+            page_size = min(request.args.get("page_size", default=50, type=int), 1000)
+            monitored = (
+                self._query_truthy(request.args.get("monitored"))
+                if "monitored" in request.args
+                else None
+            )
+            payload = self._lidarr_artists_from_db(arr, q, page, page_size, monitored=monitored)
+            payload["category"] = category
+            return jsonify(payload)
+
+        def _handle_lidarr_artist_detail(category: str, artist_id: int):
+            managed = _managed_objects()
+            if not managed:
+                if not _ensure_arr_manager_ready():
+                    return jsonify({"error": "Arr manager is still initialising"}), 503
+            arr = managed.get(category)
+            if arr is None or getattr(arr, "type", None) != "lidarr":
+                return jsonify({"error": f"Unknown lidarr category {category}"}), 404
+            detail = self._lidarr_artist_detail_from_db(arr, artist_id)
+            if detail is None:
+                return jsonify({"error": "Artist not found"}), 404
+            detail["category"] = category
+            return jsonify(detail)
+
+        @app.get("/api/lidarr/<category>/artists")
+        def api_lidarr_artists(category: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_artists(category)
+
+        @app.get("/web/lidarr/<category>/artists")
+        def web_lidarr_artists(category: str):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_artists(category)
+
+        @app.get("/api/lidarr/<category>/artist/<int:artist_id>")
+        def api_lidarr_artist_detail(category: str, artist_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_artist_detail(category, artist_id)
+
+        @app.get("/web/lidarr/<category>/artist/<int:artist_id>")
+        def web_lidarr_artist_detail(category: str, artist_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _handle_lidarr_artist_detail(category, artist_id)
+
+        @app.get("/api/lidarr/<category>/artist/<int:artist_id>/thumbnail")
+        def api_lidarr_artist_thumb(category: str, artist_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "lidarr_artist", artist_id)
+
+        @app.get("/web/lidarr/<category>/artist/<int:artist_id>/thumbnail")
+        def web_lidarr_artist_thumb(category: str, artist_id: int):
+            if (resp := require_token()) is not None:
+                return resp
+            return _arr_thumbnail(category, "lidarr_artist", artist_id)
 
         def _arr_list_payload() -> dict[str, Any]:
             items = []
@@ -2717,12 +3018,12 @@ class WebUI:
         def api_meta():
             if (resp := require_token()) is not None:
                 return resp
-            force = self._safe_bool(request.args.get("force"))
+            force = self._query_truthy(request.args.get("force"))
             return jsonify(self._ensure_version_info(force=force))
 
         @app.get("/web/meta")
         def web_meta():
-            force = self._safe_bool(request.args.get("force"))
+            force = self._query_truthy(request.args.get("force"))
             result = dict(self._ensure_version_info(force=force))
             result["auth_required"] = not _auth_disabled()
             result["local_auth_enabled"] = _local_auth_enabled()
