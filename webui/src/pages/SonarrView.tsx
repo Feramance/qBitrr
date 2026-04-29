@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,15 +14,7 @@ import {
   getSonarrSeries,
   restartArr,
 } from "../api/client";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  getPaginationRowModel,
-  getExpandedRowModel,
-  flexRender,
-  type ColumnDef,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import type {
   ArrInfo,
   SonarrEpisode,
@@ -35,10 +28,21 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
+import { useRowSnapshot, useRowsStore } from "../hooks/useRowsStore";
 import { arraysEqual } from "../utils/dataSync";
+import { StableTable } from "../components/StableTable";
 
 /** Matches `arraysEqual` / dataSync `Hashable` while keeping typed Sonarr API fields */
 type SonarrSeriesComparable = SonarrSeriesEntry & Record<string, unknown>;
+
+/**
+ * Row-store payload for the Sonarr series-group browse table.
+ *
+ * The `& Record<string, unknown>` index signature is what makes the value satisfy the
+ * `Hashable` constraint shared by `RowsStore` / `useRowsStore`.  Field-wise it is
+ * identical to `SonarrSeriesGroup`.
+ */
+type SonarrSeriesGroupRow = SonarrSeriesGroup & Record<string, unknown>;
 import { useArrBrowseMode } from "../hooks/useArrBrowseMode";
 import { IconImage } from "../components/IconImage";
 import { ArrBrowseModeToggle } from "../components/arr/ArrBrowseModeToggle";
@@ -186,6 +190,47 @@ function countEpisodesInSeriesList(entries: SonarrSeriesEntry[]): number {
   return n;
 }
 
+interface SonarrDetailModalProps {
+  detail: {
+    id: string;
+    source: "instance" | "aggregate";
+    seedGroup: SonarrSeriesGroup;
+  };
+  instanceStore: import("../utils/rowsStore").RowsStore<SonarrSeriesGroupRow>;
+  aggregateStore: import("../utils/rowsStore").RowsStore<SonarrSeriesGroupRow>;
+  onClose: () => void;
+}
+
+/**
+ * Series-group modal that lives outside the table render path.  Subscribes by id so
+ * polls bring fresh episode states (hasFile / monitored / etc.) into the open modal
+ * without closing it or rebuilding any sibling row.
+ */
+const SonarrDetailModal = memo(function SonarrDetailModal({
+  detail,
+  instanceStore,
+  aggregateStore,
+  onClose,
+}: SonarrDetailModalProps): JSX.Element {
+  const instanceFresh = useRowSnapshot(
+    instanceStore,
+    detail.source === "instance" ? detail.id : null,
+  );
+  const aggregateFresh = useRowSnapshot(
+    aggregateStore,
+    detail.source === "aggregate" ? detail.id : null,
+  );
+  const liveGroup =
+    (detail.source === "instance" ? instanceFresh : aggregateFresh) ??
+    detail.seedGroup;
+
+  return (
+    <ArrModal title={liveGroup.series} onClose={onClose} maxWidth={720}>
+      <SonarrSeriesGroupDetailBody group={liveGroup} />
+    </ArrModal>
+  );
+});
+
 export function SonarrView({ active }: SonarrViewProps): JSX.Element {
   const { push } = useToast();
   const {
@@ -248,6 +293,30 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     ],
   });
 
+  // Surgical row stores: same rationale as RadarrView — keep `rowOrder` stable on
+  // update-only polls so the series-group browse table doesn't re-render every cell on
+  // every tick.  Hashing `episodes` JSON catches any deep change inside the group (e.g. an
+  // episode flipping `hasFile`) so the row's version still bumps.
+  const sonarrInstanceRowsStoreOpts = useMemo(
+    () => ({
+      getKey: (g: SonarrSeriesGroupRow) => `${g.instance}::${g.series}`,
+      hashFields: [
+        "instance",
+        "series",
+        "qualityProfileName",
+        "seriesId",
+        "episodes",
+      ] as const,
+    }),
+    [],
+  );
+  const instanceGroupRowsStore = useRowsStore<SonarrSeriesGroupRow>(
+    sonarrInstanceRowsStoreOpts as never,
+  );
+  const aggGroupRowsStore = useRowsStore<SonarrSeriesGroupRow>(
+    sonarrInstanceRowsStoreOpts as never,
+  );
+
   const [onlyMissing, setOnlyMissing] = useState(false);
   const prevOnlyMissingRef = useRef(onlyMissing);
   const [reasonFilter, setReasonFilter] = useState<string>("all");
@@ -260,12 +329,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
   const { mode: sonarrBrowseMode, setMode: setSonarrBrowseMode } =
     useArrBrowseMode("sonarr");
+  // Track id + source so the modal can subscribe to the correct row store and live-update
+  // when polling brings in fresh episode data without closing the modal.  `seedGroup` is
+  // the row at click-time so the modal has something to render before the first store
+  // hit (and as a fallback if the row is filtered out / removed mid-view).
   const [sonarrGroupDetail, setSonarrGroupDetail] = useState<{
-    instance: string;
-    series: string;
-    qualityProfileName?: string | null;
-    seriesId?: number;
-    episodes: SonarrAggRow[];
+    id: string;
+    source: "instance" | "aggregate";
+    seedGroup: SonarrSeriesGroup;
   } | null>(null);
 
   // LiveArr and GroupSonarr are now loaded via WebUIContext, no need to load config here
@@ -454,6 +525,11 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     [push, onlyMissing]
   );
 
+  const fetchInstanceRef = useRef(fetchInstance);
+  useLayoutEffect(() => {
+    fetchInstanceRef.current = fetchInstance;
+  }, [fetchInstance]);
+
   const loadAggregate = useCallback(async (options?: { showLoading?: boolean }) => {
     if (!instances.length) {
       setAggRows([]);
@@ -530,23 +606,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               }
             );
           });
-          const episodeSyncResult = aggEpisodeSync.syncData(aggregated);
-          if (episodeSyncResult.hasChanges) {
-            setAggRows(episodeSyncResult.data);
-            const next = summarizeAggregateMonitoredRows(aggregated);
-            setAggSummary((prev) => {
-              if (
-                prev.available === next.available &&
-                prev.monitored === next.monitored &&
-                prev.missing === next.missing &&
-                prev.total === next.total
-              ) {
-                return prev;
-              }
-              return next;
-            });
-          }
-          if (showLoading && !progressFirstPaint && episodeSyncResult.data.length > 0) {
+          if (showLoading && !progressFirstPaint && aggregated.length > 0) {
             setAggLoading(false);
             progressFirstPaint = true;
           }
@@ -640,13 +700,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 
     // Fetch data: use page 0 if selection changed, current page otherwise
     const query = globalSearchRef.current;
-    void fetchInstance(selection, selectionChanged ? 0 : instancePage, query, {
+    void fetchInstanceRef.current(selection, selectionChanged ? 0 : instancePage, query, {
       preloadAll: false,
       showLoading: true,
       missingOnly: onlyMissing,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- instancePage excluded to prevent infinite loop
-  }, [active, selection, onlyMissing, fetchInstance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- instancePage excluded to prevent infinite loop; fetch identity via fetchInstanceRef
+  }, [active, selection, onlyMissing]);
 
   useEffect(() => {
     if (!active) return;
@@ -675,7 +735,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         setAggPage(0);
       } else if (selection) {
         setInstancePage(0);
-        void fetchInstance(selection, 0, term, {
+        void fetchInstanceRef.current(selection, 0, term, {
           preloadAll: false,
           showLoading: true,
           missingOnly: onlyMissing,
@@ -684,7 +744,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     };
     register(handler);
     return () => clearHandler(handler);
-  }, [active, selection, register, clearHandler, fetchInstance, onlyMissing]);
+  }, [active, selection, register, clearHandler, onlyMissing]);
 
   useInterval(
     () => {
@@ -696,7 +756,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
         if (activeFilter) {
           return;
         }
-        void fetchInstance(selection, instancePage, instanceQuery, {
+        void fetchInstanceRef.current(selection, instancePage, instanceQuery, {
           preloadAll: false,
           showLoading: false,
           missingOnly: onlyMissing,
@@ -769,6 +829,93 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     });
     return rows;
   }, [instancePages]);
+
+  const instanceLabelForSelection = useMemo(
+    () =>
+      instances.find((i) => i.category === selection)?.name ||
+      (selection as string),
+    [instances, selection],
+  );
+
+  // Filter + paginate the instance series list at parent level so we can sync the visible
+  // page slice into the surgical row store.  Mirrors the same logic that
+  // `SonarrInstanceView` runs internally — keeping both in sync is what guarantees the
+  // store sees the rows the user actually sees.
+  const instanceSeriesGroupsVisiblePage = useMemo<SonarrSeriesGroupRow[]>(() => {
+    const missingFiltered = filterSeriesEntriesForMissing(allSeries, onlyMissing);
+    const withReason: SonarrSeriesEntry[] = [];
+    for (const entry of missingFiltered) {
+      const f = filterSeriesEntryByReason(entry, reasonFilter);
+      if (f) withReason.push(f);
+    }
+    const q = globalSearch.trim().toLowerCase();
+    const filtered = q
+      ? withReason.filter((e) => {
+          const t = (e.series?.["title"] as string | undefined) || "";
+          return t.toLowerCase().includes(q);
+        })
+      : withReason;
+    const groups = filtered.map((e) =>
+      seriesEntryToGroup(e, instanceLabelForSelection),
+    );
+    return groups
+      .slice(
+        instancePage * instancePageSize,
+        instancePage * instancePageSize + instancePageSize,
+      )
+      .map((g) => g as SonarrSeriesGroupRow);
+  }, [
+    allSeries,
+    onlyMissing,
+    reasonFilter,
+    globalSearch,
+    instanceLabelForSelection,
+    instancePage,
+    instancePageSize,
+  ]);
+
+  useEffect(() => {
+    instanceGroupRowsStore.store.sync(instanceSeriesGroupsVisiblePage);
+  }, [instanceSeriesGroupsVisiblePage, instanceGroupRowsStore.store]);
+
+  // Reset the per-instance row store on selection change to avoid leaking groups from the
+  // previous instance when the next fetch is still in flight.
+  useEffect(() => {
+    instanceGroupRowsStore.store.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  // Aggregate row-store sync.  Build per-series groups from the filtered episode list,
+  // then slice to the current page exactly like SonarrAggregateView does.
+  const aggSeriesGroupsVisiblePage = useMemo<SonarrSeriesGroupRow[]>(() => {
+    const m = new Map<string, SonarrSeriesGroup>();
+    for (const r of filteredAggRows) {
+      const k = `${r.__instance}::${r.series}`;
+      const g = m.get(k);
+      if (!g) {
+        m.set(k, {
+          instance: r.__instance,
+          series: r.series,
+          qualityProfileName: r.qualityProfileName,
+          seriesId: r.seriesId,
+          episodes: [r],
+        });
+      } else {
+        g.episodes.push(r);
+      }
+    }
+    const groups = Array.from(m.values());
+    return groups
+      .slice(
+        aggPage * SONARR_AGG_PAGE_SIZE,
+        aggPage * SONARR_AGG_PAGE_SIZE + SONARR_AGG_PAGE_SIZE,
+      )
+      .map((g) => g as SonarrSeriesGroupRow);
+  }, [filteredAggRows, aggPage]);
+
+  useEffect(() => {
+    aggGroupRowsStore.store.sync(aggSeriesGroupsVisiblePage);
+  }, [aggSeriesGroupsVisiblePage, aggGroupRowsStore.store]);
 
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
@@ -859,7 +1006,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                     setOnlyMissing(newMissingState);
                     // Trigger refetch when filter changes for instance views
                     if (selection && selection !== "aggregate") {
-                      void fetchInstance(selection, 0, globalSearchRef.current || "", {
+                      void fetchInstanceRef.current(selection, 0, globalSearchRef.current || "", {
                         preloadAll: false,
                         showLoading: true,
                         missingOnly: newMissingState,
@@ -900,6 +1047,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
               <SonarrAggregateView
                 loading={aggLoading}
                 rows={filteredAggRows}
+                rowOrder={aggGroupRowsStore.snapshot.rowOrder}
+                rowsStore={aggGroupRowsStore.store}
                 total={filteredAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
@@ -911,7 +1060,14 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 isAggFiltered={isAggFiltered}
                 browseMode={sonarrBrowseMode}
                 instances={instances}
-                onSeriesSelect={(g) => setSonarrGroupDetail(g)}
+                onSeriesSelect={(g) => {
+                  const id = `${g.instance}::${g.series}`;
+                  setSonarrGroupDetail({
+                    id,
+                    source: "aggregate",
+                    seedGroup: g,
+                  });
+                }}
               />
             ) : (
               <SonarrInstanceView
@@ -925,9 +1081,11 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 onlyMissing={onlyMissing}
                 reasonFilter={reasonFilter}
                 searchQuery={globalSearch}
+                rowOrder={instanceGroupRowsStore.snapshot.rowOrder}
+                rowsStore={instanceGroupRowsStore.store}
                 onPageChange={(page) => {
                   setInstancePage(page);
-                  void fetchInstance(selection as string, page, instanceQuery, {
+                  void fetchInstanceRef.current(selection as string, page, instanceQuery, {
                     preloadAll: false,
                     showLoading: true,
                     missingOnly: onlyMissing,
@@ -935,26 +1093,29 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                 }}
                 onRestart={() => void handleRestart()}
                 lastUpdated={lastUpdated}
-                instanceLabel={
-                  instances.find((i) => i.category === selection)?.name ||
-                  (selection as string)
-                }
+                instanceLabel={instanceLabelForSelection}
                 selectionCategory={selection as string}
                 browseMode={sonarrBrowseMode}
-                onSeriesSelect={(g) => setSonarrGroupDetail(g)}
+                onSeriesSelect={(g) => {
+                  const id = `${g.instance}::${g.series}`;
+                  setSonarrGroupDetail({
+                    id,
+                    source: "instance",
+                    seedGroup: g,
+                  });
+                }}
               />
             )}
           </div>
         </div>
       </div>
       {sonarrGroupDetail ? (
-        <ArrModal
-          title={sonarrGroupDetail.series}
+        <SonarrDetailModal
+          detail={sonarrGroupDetail}
+          instanceStore={instanceGroupRowsStore.store}
+          aggregateStore={aggGroupRowsStore.store}
           onClose={() => setSonarrGroupDetail(null)}
-          maxWidth={720}
-        >
-          <SonarrSeriesGroupDetailBody group={sonarrGroupDetail} />
-        </ArrModal>
+        />
       ) : null}
     </section>
   );
@@ -963,6 +1124,8 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
 interface SonarrAggregateViewProps {
   loading: boolean;
   rows: SonarrAggRow[];
+  rowOrder: readonly string[];
+  rowsStore: import("../utils/rowsStore").RowsStore<SonarrSeriesGroupRow>;
   total: number;
   page: number;
   totalPages: number;
@@ -974,13 +1137,7 @@ interface SonarrAggregateViewProps {
   isAggFiltered?: boolean;
   browseMode: "list" | "icon";
   instances: ArrInfo[];
-  onSeriesSelect: (group: {
-    instance: string;
-    series: string;
-    qualityProfileName?: string | null;
-    seriesId?: number;
-    episodes: SonarrAggRow[];
-  }) => void;
+  onSeriesSelect: (group: SonarrSeriesGroup) => void;
 }
 
 function sonarrCategoryForInstance(instances: ArrInfo[], label: string): string {
@@ -993,6 +1150,8 @@ function sonarrCategoryForInstance(instances: ArrInfo[], label: string): string 
 function SonarrAggregateView({
   loading,
   rows,
+  rowOrder,
+  rowsStore,
   total,
   page,
   totalPages: _totalPagesProp,
@@ -1007,17 +1166,11 @@ function SonarrAggregateView({
   onSeriesSelect,
 }: SonarrAggregateViewProps): JSX.Element {
   const pageSize = 50;
+  // Total/page metadata for the pagination footer + grid mode.  Note: the row store /
+  // StableTable already drives the list-mode rendering, so this only computes counts and
+  // the icon-grid slice — the list table no longer holds its own copy of pageSlice.
   const seriesGroups = useMemo(() => {
-    const m = new Map<
-      string,
-      {
-        instance: string;
-        series: string;
-        qualityProfileName?: string | null;
-        seriesId?: number;
-        episodes: SonarrAggRow[];
-      }
-    >();
+    const m = new Map<string, SonarrSeriesGroup>();
     for (const r of rows) {
       const k = `${r.__instance}::${r.series}`;
       const g = m.get(k);
@@ -1045,7 +1198,7 @@ function SonarrAggregateView({
     [seriesGroups, safePage, pageSize]
   );
 
-  const listColumns = useMemo<ColumnDef<(typeof pageSlice)[number]>[]>(
+  const listColumns = useMemo<ColumnDef<SonarrSeriesGroupRow>[]>(
     () => [
       ...(instanceCount > 1
         ? [
@@ -1069,7 +1222,7 @@ function SonarrAggregateView({
         cell: ({
           row,
         }: {
-          row: { original: (typeof pageSlice)[number] };
+          row: { original: SonarrSeriesGroupRow };
         }) => row.original.episodes.length,
       },
       {
@@ -1082,12 +1235,12 @@ function SonarrAggregateView({
     [instanceCount]
   );
 
-  const table = useReactTable({
-    data: pageSlice,
-    columns: listColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const handleListRowClick = useCallback(
+    (group: SonarrSeriesGroupRow) => {
+      onSeriesSelect(group);
+    },
+    [onSeriesSelect],
+  );
 
   return (
     <div className="stack animate-fade-in">
@@ -1148,47 +1301,13 @@ function SonarrAggregateView({
       ) : !seriesGroups.length ? (
         <div className="hint">No series found.</div>
       ) : browseMode === "list" ? (
-        <div className="table-wrapper">
-          <table className="responsive-table">
-            <thead>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <th key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr
-                  key={`${row.original.instance}-${row.original.series}`}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onSeriesSelect(row.original)}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      data-label={String(cell.column.columnDef.header)}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StableTable<SonarrSeriesGroupRow>
+          rowsStore={rowsStore}
+          rowOrder={rowOrder}
+          columns={listColumns}
+          getRowKey={(g) => `${g.instance}::${g.series}`}
+          onRowClick={handleListRowClick}
+        />
       ) : (
         <div className="arr-icon-grid">
           {pageSlice.map((g) => {
@@ -1274,6 +1393,8 @@ interface SonarrInstanceViewProps {
   onlyMissing: boolean;
   reasonFilter: string;
   searchQuery: string;
+  rowOrder: readonly string[];
+  rowsStore: import("../utils/rowsStore").RowsStore<SonarrSeriesGroupRow>;
   onPageChange: (page: number) => void;
   onRestart: () => void;
   lastUpdated: string | null;
@@ -1294,6 +1415,8 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
   onlyMissing,
   reasonFilter,
   searchQuery,
+  rowOrder,
+  rowsStore,
   onPageChange,
   onRestart,
   lastUpdated,
@@ -1350,7 +1473,7 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
     reasonFilter !== "all" ||
     searchQuery.trim().length > 0;
 
-  const listColumns = useMemo<ColumnDef<SonarrSeriesGroup>[]>(
+  const listColumns = useMemo<ColumnDef<SonarrSeriesGroupRow>[]>(
     () => [
       {
         accessorKey: "series" as const,
@@ -1372,12 +1495,12 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
     []
   );
 
-  const table = useReactTable({
-    data: paged,
-    columns: listColumns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
+  const handleListRowClick = useCallback(
+    (group: SonarrSeriesGroupRow) => {
+      onSeriesSelect(group);
+    },
+    [onSeriesSelect],
+  );
 
   return (
     <div className="stack animate-fade-in">
@@ -1451,47 +1574,13 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
         <div className="hint">No episodes match the current filter.</div>
       ) : series.length > 0 && seriesGroups.length > 0 ? (
         browseMode === "list" ? (
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr
-                    key={`${row.original.instance}-${row.original.series}`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => onSeriesSelect(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <td
-                        key={cell.id}
-                        data-label={String(cell.column.columnDef.header)}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <StableTable<SonarrSeriesGroupRow>
+            rowsStore={rowsStore}
+            rowOrder={rowOrder}
+            columns={listColumns}
+            getRowKey={(g) => `${g.instance}::${g.series}`}
+            onRowClick={handleListRowClick}
+          />
         ) : (
           <div className="arr-icon-grid">
             {paged.map((g) => {

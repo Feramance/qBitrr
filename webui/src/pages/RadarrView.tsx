@@ -15,13 +15,7 @@ import {
   restartArr,
 } from "../api/client";
 import { StableTable } from "../components/StableTable";
-import {
-  useReactTable,
-  getCoreRowModel,
-  getSortedRowModel,
-  flexRender,
-  type ColumnDef,
-} from "@tanstack/react-table";
+import type { ColumnDef } from "@tanstack/react-table";
 import type {
   ArrInfo,
   RadarrMovie,
@@ -33,6 +27,7 @@ import { useWebUI } from "../context/WebUIContext";
 import { useInterval } from "../hooks/useInterval";
 import { useDebounce } from "../hooks/useDebounce";
 import { useDataSync } from "../hooks/useDataSync";
+import { useRowSnapshot, useRowsStore } from "../hooks/useRowsStore";
 import { useArrBrowseMode } from "../hooks/useArrBrowseMode";
 import { IconImage } from "../components/IconImage";
 import { ArrBrowseModeToggle } from "../components/arr/ArrBrowseModeToggle";
@@ -74,6 +69,8 @@ function categoryForInstanceLabel(
 interface RadarrAggregateViewProps {
   loading: boolean;
   rows: RadarrAggRow[];
+  rowOrder: readonly string[];
+  rowsStore: import("../utils/rowsStore").RowsStore<RadarrAggRow>;
   total: number;
   page: number;
   totalPages: number;
@@ -93,6 +90,8 @@ interface RadarrAggregateViewProps {
 const RadarrAggregateView = memo(function RadarrAggregateView({
   loading,
   rows,
+  rowOrder,
+  rowsStore,
   total,
   page,
   totalPages,
@@ -219,7 +218,8 @@ const RadarrAggregateView = memo(function RadarrAggregateView({
       ) : total ? (
         browseMode === "list" ? (
           <StableTable
-            data={rows}
+            rowsStore={rowsStore}
+            rowOrder={rowOrder}
             columns={columns}
             getRowKey={(movie) => `${movie.__instance}-${movie.title}-${movie.year}`}
             onRowClick={onMovieSelect}
@@ -312,6 +312,8 @@ interface RadarrInstanceViewProps {
   onMovieSelect: (movie: RadarrMovie) => void;
   /** True when API reports zero movies and catalog may still be syncing. */
   showCatalogEmptyHint?: boolean;
+  rowOrder: readonly string[];
+  rowsStore: import("../utils/rowsStore").RowsStore<RadarrMovie>;
 }
 
 const RadarrInstanceView = memo(function RadarrInstanceView({
@@ -330,6 +332,8 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   browseMode,
   onMovieSelect,
   showCatalogEmptyHint = false,
+  rowOrder,
+  rowsStore,
 }: RadarrInstanceViewProps): JSX.Element {
   const filteredMovies = useMemo(() => {
     let movies = allMovies;
@@ -412,13 +416,6 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
     []
   );
 
-  const table = useReactTable({
-    data: reasonFilteredMovies.slice(page * pageSize, page * pageSize + pageSize),
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-  });
-
   return (
     <div className="stack animate-fade-in">
       <div className="row" style={{ justifyContent: "space-between" }}>
@@ -458,48 +455,13 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
         </div>
       ) : allMovies.length ? (
         browseMode === "list" ? (
-          <div className="table-wrapper">
-            <table className="responsive-table">
-              <thead>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => {
-                  const movie = row.original;
-                  const stableKey = `${movie.title}-${movie.year}`;
-                  return (
-                    <tr
-                      key={stableKey}
-                      onClick={() => onMovieSelect(movie)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} data-label={String(cell.column.columnDef.header)}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <StableTable
+            rowsStore={rowsStore}
+            rowOrder={rowOrder}
+            columns={columns}
+            getRowKey={(movie) => `${movie.title}-${movie.year}`}
+            onRowClick={onMovieSelect}
+          />
         ) : (
           <div className="arr-icon-grid">
             {reasonFilteredMovies
@@ -576,6 +538,59 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   );
 });
 
+interface RadarrDetailModalProps {
+  detail: {
+    id: string;
+    category: string;
+    source: "instance" | "aggregate";
+    seedMovie: RadarrMovie | RadarrAggRow;
+  };
+  instanceStore: import("../utils/rowsStore").RowsStore<RadarrMovie>;
+  aggregateStore: import("../utils/rowsStore").RowsStore<RadarrAggRow>;
+  onClose: () => void;
+}
+
+/**
+ * Detail modal that lives outside the table render path.
+ *
+ * Subscribes by id (`useRowSnapshot`) so update-only polls bring fresh fields into the
+ * open modal without closing it or re-rendering any sibling row.  Falls back to the seed
+ * payload (the row that was clicked) if the store doesn't have a hit yet — covers the
+ * brief gap between mount and the first sync, plus the case where the row was filtered
+ * out / removed while the modal is open.
+ */
+const RadarrDetailModal = memo(function RadarrDetailModal({
+  detail,
+  instanceStore,
+  aggregateStore,
+  onClose,
+}: RadarrDetailModalProps): JSX.Element {
+  const instanceFresh = useRowSnapshot(
+    instanceStore,
+    detail.source === "instance" ? detail.id : null,
+  );
+  const aggregateFresh = useRowSnapshot(
+    aggregateStore,
+    detail.source === "aggregate" ? detail.id : null,
+  );
+  const liveMovie =
+    (detail.source === "instance" ? instanceFresh : aggregateFresh) ??
+    detail.seedMovie;
+
+  return (
+    <ArrModal
+      title={String(liveMovie.title ?? "Movie")}
+      onClose={onClose}
+      maxWidth={520}
+    >
+      <RadarrMovieDetailBody
+        movie={liveMovie}
+        category={detail.category}
+      />
+    </ArrModal>
+  );
+});
+
 export function RadarrView({ active }: { active: boolean }): JSX.Element {
   const { push } = useToast();
   const {
@@ -612,6 +627,21 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     hashFields: ['title', 'year', 'hasFile', 'monitored', 'reason'],
   });
 
+  // Surgical row store: keeps `rowOrder` reference stable on update-only polls so the
+  // browse table does not "reload" between ticks (see plan: WebUI surgical row updates).
+  // The legacy `useDataSync` still drives the multi-page array cache; this hook owns the
+  // currently-displayed page.
+  const instanceMovieRowsStoreOpts = useMemo(
+    () => ({
+      getKey: (movie: RadarrMovie) => `${movie.title}-${movie.year}`,
+      hashFields: ["title", "year", "hasFile", "monitored", "reason"] as const,
+    }),
+    [],
+  );
+  const instanceMovieRowsStore = useRowsStore<RadarrMovie>(
+    instanceMovieRowsStoreOpts as never,
+  );
+
   const [aggRows, setAggRows] = useState<RadarrAggRow[]>([]);
   const [aggLoading, setAggLoading] = useState(false);
   const [aggPage, setAggPage] = useState(0);
@@ -624,6 +654,28 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     getKey: (movie) => `${movie.__instance}-${movie.title}-${movie.year}`,
     hashFields: ['__instance', 'title', 'year', 'hasFile', 'monitored', 'reason'],
   });
+
+  // Surgical row store for the aggregate browse view: same rationale as the per-instance
+  // store above — keep `rowOrder` stable on update-only polls so the table does not
+  // re-render every cell on every tick.
+  const aggMovieRowsStoreOpts = useMemo(
+    () => ({
+      getKey: (movie: RadarrAggRow) =>
+        `${movie.__instance}-${movie.title}-${movie.year}`,
+      hashFields: [
+        "__instance",
+        "title",
+        "year",
+        "hasFile",
+        "monitored",
+        "reason",
+      ] as const,
+    }),
+    [],
+  );
+  const aggMovieRowsStore = useRowsStore<RadarrAggRow>(
+    aggMovieRowsStoreOpts as never,
+  );
   const [aggSort, setAggSort] = useState<{
     key: RadarrAggSortKey;
     direction: "asc" | "desc";
@@ -638,9 +690,15 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
   }>({ available: 0, monitored: 0, missing: 0, total: 0 });
 
   const { mode: browseMode, setMode: setBrowseMode } = useArrBrowseMode("radarr");
+  // Modal selection: track id + category + which store owns it so the modal can subscribe
+  // by id (`useRowSnapshot`) and live-update when polling brings in fresh fields.  We keep
+  // `seedMovie` for the initial render so the modal has something to show before the first
+  // store hit (and as a fallback if the row gets removed mid-view).
   const [radarrDetail, setRadarrDetail] = useState<{
-    movie: RadarrMovie;
+    id: string;
     category: string;
+    source: "instance" | "aggregate";
+    seedMovie: RadarrMovie | RadarrAggRow;
   } | null>(null);
 
   const loadInstances = useCallback(async () => {
@@ -886,23 +944,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
             aggregated.push({ ...movie, __instance: label });
           });
 
-          const syncResult = aggMovieSync.syncData(aggregated);
-          if (syncResult.hasChanges) {
-            setAggRows(syncResult.data);
-            const next = summarizeAggregateMonitoredRows(aggregated);
-            setAggSummary((prev) => {
-              if (
-                prev.available === next.available &&
-                prev.monitored === next.monitored &&
-                prev.missing === next.missing &&
-                prev.total === next.total
-              ) {
-                return prev;
-              }
-              return next;
-            });
-          }
-          if (showLoading && !progressFirstPaint && syncResult.data.length > 0) {
+          if (showLoading && !progressFirstPaint && aggregated.length > 0) {
             setAggLoading(false);
             progressFirstPaint = true;
           }
@@ -1155,6 +1197,56 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     return rows;
   }, [instancePages]);
 
+  // Filtered slice that the per-instance view is about to render.  Mirrors the same
+  // filter logic used inside `RadarrInstanceView` so the row store stays in lockstep
+  // with what the user sees and we don't waste work on filtered-out rows.
+  const instanceVisiblePage = useMemo<RadarrMovie[]>(() => {
+    let movies = allInstanceMovies;
+    if (onlyMissing) {
+      movies = movies.filter((m) => !m.hasFile);
+    }
+    if (reasonFilter !== "all") {
+      if (reasonFilter === "Not being searched") {
+        movies = movies.filter(
+          (m) => m.reason === "Not being searched" || !m.reason,
+        );
+      } else {
+        movies = movies.filter((m) => m.reason === reasonFilter);
+      }
+    }
+    return movies.slice(
+      instancePage * instancePageSize,
+      instancePage * instancePageSize + instancePageSize,
+    );
+  }, [
+    allInstanceMovies,
+    onlyMissing,
+    reasonFilter,
+    instancePage,
+    instancePageSize,
+  ]);
+
+  // Push the visible slice into the surgical row store on every change.  The store's diff
+  // pipeline returns `update-only` when nothing but row fields changed — the table's
+  // `rowOrder` reference stays stable and tanstack-table reuses the existing row model.
+  useEffect(() => {
+    instanceMovieRowsStore.store.sync(instanceVisiblePage);
+  }, [instanceVisiblePage, instanceMovieRowsStore.store]);
+
+  // Reset the per-instance row store whenever the user switches instance: avoids leaking
+  // rows from the previous instance when the table re-renders before the first fetch.
+  useEffect(() => {
+    instanceMovieRowsStore.store.reset();
+    // Intentionally only depends on `selection` — `instanceMovieRowsStore.store` is stable
+    // for the lifetime of the component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
+  // Sync the aggregate visible page through its own row store (same rationale).
+  useEffect(() => {
+    aggMovieRowsStore.store.sync(aggPageRows);
+  }, [aggPageRows, aggMovieRowsStore.store]);
+
   const handleRestart = useCallback(async () => {
     if (!selection || selection === "aggregate") return;
     try {
@@ -1291,6 +1383,8 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
               <RadarrAggregateView
                 loading={aggLoading}
                 rows={aggPageRows}
+                rowOrder={aggMovieRowsStore.snapshot.rowOrder}
+                rowsStore={aggMovieRowsStore.store}
                 total={sortedAggRows.length}
                 page={aggPage}
                 totalPages={aggPages}
@@ -1304,12 +1398,15 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 isAggFiltered={isAggFiltered}
                 browseMode={browseMode}
                 instances={instances}
-                onMovieSelect={(m) =>
+                onMovieSelect={(m) => {
+                  const id = `${m.__instance}-${m.title}-${m.year}`;
                   setRadarrDetail({
-                    movie: m,
+                    id,
                     category: categoryForInstanceLabel(instances, m.__instance),
-                  })
-                }
+                    source: "aggregate",
+                    seedMovie: m,
+                  });
+                }}
               />
             ) : (
               <RadarrInstanceView
@@ -1321,6 +1418,8 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                 allMovies={allInstanceMovies}
                 onlyMissing={onlyMissing}
                 reasonFilter={reasonFilter}
+                rowOrder={instanceMovieRowsStore.snapshot.rowOrder}
+                rowsStore={instanceMovieRowsStore.store}
                 onPageChange={(page) => {
                   setInstancePage(page);
                   void fetchInstanceRef.current(selection as string, page, instanceQuery, {
@@ -1337,25 +1436,27 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                   (instanceData.total ?? 0) === 0 &&
                   allInstanceMovies.length === 0
                 }
-                onMovieSelect={(m) =>
-                  setRadarrDetail({ movie: m, category: selection as string })
-                }
+                onMovieSelect={(m) => {
+                  const id = `${m.title}-${m.year}`;
+                  setRadarrDetail({
+                    id,
+                    category: selection as string,
+                    source: "instance",
+                    seedMovie: m,
+                  });
+                }}
               />
             )}
           </div>
         </div>
       </div>
       {radarrDetail ? (
-        <ArrModal
-          title={String(radarrDetail.movie.title ?? "Movie")}
+        <RadarrDetailModal
+          detail={radarrDetail}
+          instanceStore={instanceMovieRowsStore.store}
+          aggregateStore={aggMovieRowsStore.store}
           onClose={() => setRadarrDetail(null)}
-          maxWidth={520}
-        >
-          <RadarrMovieDetailBody
-            movie={radarrDetail.movie}
-            category={radarrDetail.category}
-          />
-        </ArrModal>
+        />
       ) : null}
     </section>
   );

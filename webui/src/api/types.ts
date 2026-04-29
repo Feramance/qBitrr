@@ -232,6 +232,40 @@ export interface LidarrAlbumsResponse {
   albums: LidarrAlbumEntry[];
 }
 
+export interface LidarrArtistsCounts {
+  available: number;
+  monitored: number;
+  missing?: number;
+  quality_met?: number;
+  requests?: number;
+}
+
+/** Artist browse row ({ artist }) from SQLite catalog — same rollup `counts` as album browse. */
+export interface LidarrArtistBrowseEntry {
+  [key: string]: unknown;
+  artist: Record<string, unknown>;
+}
+
+export interface LidarrArtistsResponse {
+  category: string;
+  counts: LidarrArtistsCounts;
+  counts_tracks: { available: number; monitored: number; missing: number };
+  album_total: number;
+  total: number;
+  page: number;
+  page_size: number;
+  artists: LidarrArtistBrowseEntry[];
+}
+
+/** Full artist payload with nested albums (+ tracks inside each album). */
+export interface LidarrArtistDetailResponse {
+  category?: string;
+  counts: LidarrArtistsCounts;
+  counts_tracks: { available: number; monitored: number; missing: number };
+  artist: Record<string, unknown>;
+  albums: LidarrAlbumEntry[];
+}
+
 export interface LidarrTracksResponse {
   category: string;
   counts: {
