@@ -14,6 +14,18 @@ process catalogue updates surface promptly.
 Helpers like :func:`update_album_total_tracks` and :func:`update_series_season_episode_totals`
 maintain denormalized columns on the catalog rows themselves so individual row payloads stay
 cheap; those run inside worker processes whenever the worker writes a row.
+
+Rollup availability vs. row ``hasFile`` (M-4)
+---------------------------------------------
+Rollup *availability* is **not** the same metric as a row-level ``hasFile``. Rollups define
+``available = (Monitored == True) AND has_file`` (where ``has_file`` is ``MovieFileId`` /
+``EpisodeFileId`` / ``AlbumFileId`` non-zero, or Lidarr ``HasFile == true`` for tracks) and
+``missing = max(monitored - available, 0)`` so an unmonitored row that has a file does not
+count toward the catalogue's "available" total, and an unmonitored row without a file does
+not count toward "missing". Per-row payloads (``movies[].hasFile``, etc.) expose the
+underlying ``has_file`` regardless of monitoring; consumers that want the rollup semantics
+should ``and`` it with ``monitored``. See ``docs/webui/arr-views.md`` for the user-facing
+reference.
 """
 
 from __future__ import annotations
@@ -45,22 +57,6 @@ _ZERO_COUNTS_RAD = {
 _ROLLUP_CACHE_TTL_SECONDS = 5.0
 _rollup_cache: dict[tuple[int, str], tuple[float, dict[str, Any]]] = {}
 _rollup_cache_lock = Lock()
-
-
-def _count_entry_rows(model: Any, where_clause: Any) -> int:
-    """Scalar COUNT(*) for catalog file models keyed by ``EntryId``.
-
-    Kept for callers that still need a one-off COUNT (it is no longer used by the rollup
-    aggregator itself, which is now a single ``SUM(CASE...)`` SELECT per Arr type).
-
-    Definition note (M-4): rollup *availability* is **not** the same metric as a row-level
-    ``hasFile``.  Rollups define ``available = (Monitored == True) AND (file_id IS NOT NULL
-    AND file_id != 0)`` so an unmonitored row that has a file does not count toward the
-    catalogue's "available" total.  Per-row payloads (``movies[].hasFile``, etc.) expose
-    the underlying ``has_file`` regardless of monitoring; consumers that want the rollup
-    semantics should ``and`` it with ``monitored``.
-    """
-    return model.select(fn.COUNT(model.EntryId)).where(where_clause).scalar() or 0
 
 
 def _sum_case_int(condition: Any, name: str) -> Any:
@@ -182,8 +178,9 @@ def _lidarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
 
     if track_m is not None:
         # JOIN tracks to albums once and aggregate everything in the same SELECT.
-        # Track rollups follow the same definition as movies / episodes / albums (see
-        # ``docs/webui/arr-views.md`` and ``_count_entry_rows``):
+        # Track rollups follow the same definition as movies / episodes / albums (see the
+        # module docstring "Rollup availability vs. row hasFile" and
+        # ``docs/webui/arr-views.md``):
         #   available = Monitored AND HasFile
         #   missing   = max(monitored - available, 0)
         # Computing missing as ``not has_file`` (and available as just ``has_file``) would

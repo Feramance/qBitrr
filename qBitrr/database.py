@@ -643,7 +643,13 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
 
 
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
-    """Run idempotent DB schema migrations guarded by user_version."""
+    """Run idempotent DB schema migrations guarded by user_version.
+
+    With ``_TARGET_DB_SCHEMA_VERSION == 2``, the only versions that reach the body of this
+    function are 0 and 1 (the early ``return`` above shields anything >= 2). The v2
+    migration is therefore the only branch we need to gate; when a future v3 migration is
+    added, give it its own ``if current_version < 3:`` block here.
+    """
     current_version = _get_db_schema_version(db)
     if current_version >= _TARGET_DB_SCHEMA_VERSION:
         return
@@ -654,23 +660,18 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
         _TARGET_DB_SCHEMA_VERSION,
     )
     _migrate_arr_file_table_constraints(db)
-    if current_version < 2:
-        # Only bump user_version when the v2 migration reports success; otherwise it will be
-        # retried on next start without stranding the schema (H-4).
-        if _migrate_v2_catalog_denormalized_columns(db):
-            _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
-            logger.info(
-                "Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION
-            )
-        else:
-            logger.warning(
-                "Database schema kept at version %d; v%d migration will retry on next start.",
-                current_version,
-                _TARGET_DB_SCHEMA_VERSION,
-            )
-        return
-    _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
-    logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
+
+    # Only bump user_version when the v2 migration reports success; otherwise it will be
+    # retried on next start without stranding the schema (H-4).
+    if _migrate_v2_catalog_denormalized_columns(db):
+        _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
+        logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
+    else:
+        logger.warning(
+            "Database schema kept at version %d; v%d migration will retry on next start.",
+            current_version,
+            _TARGET_DB_SCHEMA_VERSION,
+        )
 
 
 def get_database_path() -> Path:
