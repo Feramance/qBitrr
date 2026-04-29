@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -19,12 +20,20 @@ _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _REQUEST_TIMEOUT = 20
 # requests only strips Authorization on cross-host redirects; X-Api-Key would leak — follow manually.
 _MAX_THUMB_REDIRECTS = 10
+# Wall-clock budget across all redirect hops (per single thumbnail fetch).
+_THUMB_TOTAL_TIMEOUT = 30.0
+
+# Cache directory resolution is idempotent; memoise to skip the per-request ``mkdir`` syscall.
+_CACHE_DIR_PATH: Path | None = None
 
 
 def _cache_dir() -> Path:
-    d = (HOME_PATH / "cache" / "thumbnails").resolve()
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    global _CACHE_DIR_PATH
+    if _CACHE_DIR_PATH is None:
+        d = (HOME_PATH / "cache" / "thumbnails").resolve()
+        d.mkdir(parents=True, exist_ok=True)
+        _CACHE_DIR_PATH = d
+    return _CACHE_DIR_PATH
 
 
 def _cache_file_path(*, kind: str, instance_name: str, entry_id: int) -> Path:
@@ -186,14 +195,25 @@ def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) ->
     return None
 
 
+_ALLOWED_COVER_TYPES = ("cover", "poster", "disc", "banner", "fanart")
+
+
 def _first_cover_lidarr(data: dict[str, Any], base_uri: str) -> str | None:
     images = [x for x in (data.get("images") or ()) if isinstance(x, dict)]
+    # If at least one entry has an explicit allowed coverType, ignore unlabeled entries
+    # so an unsorted "" doesn't accidentally outrank a real "poster" after _cover_type_order.
+    has_explicit_cover = any(
+        str(im.get("coverType") or "").lower() in _ALLOWED_COVER_TYPES for im in images
+    )
     images.sort(
         key=lambda im: _cover_type_order(str(im.get("coverType") or "")),
     )
     for im in images:
         c = str(im.get("coverType", "")).lower()
-        if c and c not in ("cover", "poster", "disc", "banner", "fanart"):
+        if not c:
+            if has_explicit_cover:
+                continue
+        elif c not in _ALLOWED_COVER_TYPES:
             continue
         for key in ("url", "remoteUrl"):
             raw = im.get(key)
@@ -280,13 +300,21 @@ def _http_get_bytes(
         logger.debug("Skip non-HTTP image URL: %r", url[:80])
         return None
     current = url
+    deadline = time.monotonic() + _THUMB_TOTAL_TIMEOUT
     for _ in range(_MAX_THUMB_REDIRECTS + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.debug("Thumbnail fetch exceeded total timeout (%.1fs)", _THUMB_TOTAL_TIMEOUT)
+            return None
+        # Per-hop timeout is the lesser of the configured per-request value and what's left
+        # of the wall-clock budget; never exceeds the cumulative deadline across all hops.
+        per_hop_timeout = min(_REQUEST_TIMEOUT, max(remaining, 1.0))
         headers = _thumbnail_request_headers(current, arr_uri=arr_uri, api_key=api_key)
         try:
             with requests.get(
                 current,
                 stream=True,
-                timeout=_REQUEST_TIMEOUT,
+                timeout=per_hop_timeout,
                 headers=headers,
                 allow_redirects=False,
             ) as r:
@@ -324,6 +352,14 @@ def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | 
             out = client.get_series(entry_id, includeLocalCovers=True)
         except TypeError:
             out = client.get_series(entry_id)
+    elif kind == "lidarr_artist" and hasattr(client, "get_artist"):
+        try:
+            out = client.get_artist(entry_id, includeLocalCovers=True)
+        except TypeError:
+            try:
+                out = client.get_artist(entry_id)
+            except TypeError:
+                out = client.get_artist(id_=entry_id)
     elif kind == "lidarr" and hasattr(client, "get_album"):
         try:
             out = client.get_album(entry_id, includeLocalCovers=True)
@@ -350,6 +386,8 @@ def _resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
     if not data:
         return None
     if kind == "lidarr":
+        return _first_cover_lidarr(data, base_uri)
+    if kind == "lidarr_artist":
         return _first_cover_lidarr(data, base_uri)
     return _first_poster_url_from_radarr_sonarr(data, base_uri)
 
