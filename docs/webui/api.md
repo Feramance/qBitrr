@@ -40,6 +40,18 @@ The served OpenAPI document is `/api/*`-first; it also includes mirrored **Arr p
 
 The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
 
+### Keeping the spec aligned with the runtime
+
+Every Flask route registered in `qBitrr/webui.py` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
+
+```bash
+make openapi-check          # or: python scripts/openapi_check.py
+```
+
+The check is also wired into pre-commit (local hook `openapi-check`). It parses the `@app.<method>("/path")` decorators in `qBitrr/webui.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one file but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
+
+If you add or remove an endpoint, update `qBitrr/openapi.json` in the same commit.
+
 ---
 
 ## Authentication

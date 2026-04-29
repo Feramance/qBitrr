@@ -118,8 +118,7 @@ AutoUpdateCron = "0 3 * * 0"
 - **WebUI Port**: Port number (default: `6969`, range: 1-65535)
 - **WebUI Token**: Optional bearer token for API/UI authentication (auto-generated if empty)
 - **Live Arr**: Enable real-time Arr data (bypasses database cache, increases API load)
-- **Group Sonarr by Series**: Group episodes by series and seasons in collapsible sections
-- **Group Lidarr by Artist**: Group Lidarr albums by artist in collapsible sections
+- **Group Sonarr / Group Lidarr**: Reserved booleans persisted to config only; browsing uses rows + detail modals (Sonarr: series→season→episode; Lidarr: artist→album→track)
 - **Theme**: Visual theme (`Light` or `Dark`) — **changes apply immediately**
 - **View Density**: List density (`Comfortable` or `Compact`) — applied on next load
 

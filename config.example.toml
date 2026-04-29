@@ -132,10 +132,10 @@ RequireHttpsMetadata = true
 # Enable live updates for Arr views
 LiveArr = true
 
-# Group Sonarr episodes by series in views
+# Reserved (no effect in current WebUI): browse is series rows + detail modal
 GroupSonarr = true
 
-# Group Lidarr albums by artist in views
+# Reserved (no effect in current WebUI): browse is artist rows + detail modal
 GroupLidarr = true
 
 # WebUI theme (Light or Dark)
