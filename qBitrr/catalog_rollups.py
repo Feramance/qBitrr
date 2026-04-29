@@ -182,24 +182,33 @@ def _lidarr_aggregate(arr: Any, name: str) -> dict[str, Any] | None:
 
     if track_m is not None:
         # JOIN tracks to albums once and aggregate everything in the same SELECT.
+        # Track rollups follow the same definition as movies / episodes / albums (see
+        # ``docs/webui/arr-views.md`` and ``_count_entry_rows``):
+        #   available = Monitored AND HasFile
+        #   missing   = max(monitored - available, 0)
+        # Computing missing as ``not has_file`` (and available as just ``has_file``) would
+        # count unmonitored tracks toward both metrics and produce numbers that do not
+        # reconcile with the album / catalog header.
+        track_monitored = track_m.Monitored == True  # noqa: E712
+        track_has_file = track_m.HasFile == True  # noqa: E712
         track_row = (
             track_m.select(
                 fn.COUNT(track_m.EntryId).alias("total"),
-                _sum_case_int(track_m.HasFile == True, "available"),  # noqa: E712
-                _sum_case_int(track_m.Monitored == True, "monitored"),  # noqa: E712
-                _sum_case_int(track_m.HasFile == False, "missing"),  # noqa: E712
+                _sum_case_int(track_monitored, "monitored"),
+                _sum_case_int(track_monitored & track_has_file, "available"),
             )
             .join(album_m, on=(track_m.AlbumId == album_m.EntryId))
             .where((track_m.ArrInstance == name) & (album_m.ArrInstance == name))
             .dicts()
             .get()
         )
+        track_monitored_count = int(track_row.get("monitored") or 0)
+        track_available_count = int(track_row.get("available") or 0)
         out["lidarr_tracks"] = {
             "counts": {
-                "available": int(track_row.get("available") or 0),
-                "monitored": int(track_row.get("monitored") or 0),
-                # Row-level absence (not the album-level "missing").
-                "missing": int(track_row.get("missing") or 0),
+                "available": track_available_count,
+                "monitored": track_monitored_count,
+                "missing": max(track_monitored_count - track_available_count, 0),
             },
             "total": int(track_row.get("total") or 0),
         }

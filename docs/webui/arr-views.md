@@ -39,7 +39,8 @@ definitions — be careful when comparing the catalog header to a per-row badge.
 
 | Field | Where it appears | Definition |
 |-------|------------------|------------|
-| `counts.available` | Header rollup (movies/episodes/albums) | `Monitored == true` **AND** the row has a file (`MovieFileId`/`EpisodeFileId`/`AlbumFileId` non-zero). Unmonitored rows with a file are excluded. |
+| `counts.available` | Header rollup (movies/episodes/albums/tracks) | `Monitored == true` **AND** the row has a file (`MovieFileId`/`EpisodeFileId`/`AlbumFileId` non-zero, or Lidarr `HasFile == true` for tracks). Unmonitored rows with a file are excluded. |
+| `counts.missing` | Header rollup | `max(monitored - available, 0)` — the count of monitored rows that do **not** have a file. Unmonitored rows are never counted as missing. |
 | `<row>.hasFile` | Per-row payload | The row has a file regardless of monitored state. A row can be `hasFile=true` while contributing **zero** to the rollup `available`. |
 | `seasons[].available` (Sonarr) | Per-season bucket | Same as the header rollup: counts only monitored episodes that also have a file. |
 
