@@ -59,6 +59,7 @@ Commands:
   bumpdeps                   Run script bumping dependencies.
   newenv                     Create or replace this project's virtual environment.
   syncenv                    Sync this project's virtual environment to Red's latest dependencies.
+  openapi-check              Diff Flask routes vs qBitrr/openapi.json (drift fails CI).
   docs-install               Install documentation dependencies.
   docs-serve                 Serve documentation locally with hot reload.
   docs-build                 Build documentation site.
@@ -71,6 +72,11 @@ export HELP_BODY
 # Python Code Style
 reformat:
 	pre-commit run --all-files
+
+# OpenAPI / Flask drift check (B-2 / L-8)
+.PHONY: openapi-check
+openapi-check:
+	$(PYTHON) scripts/openapi_check.py
 
 # Dependencies
 bumpdeps:
