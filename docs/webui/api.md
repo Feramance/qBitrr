@@ -689,8 +689,9 @@ Read-only image bytes for browse **Icon** tiles and detail modals. The server as
 | `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
 | `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
 | `GET` | `/api/lidarr/<category>/album/<id>/thumbnail` · `/web/lidarr/<category>/album/<id>/thumbnail` |
+| `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
 
-**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or album). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, **album**, or **artist**). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
 
 **Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
 
@@ -850,15 +851,27 @@ Browse Sonarr series library from cached database.
 
 ---
 
+### Lidarr Artists
+
+Browse artists from the cached SQLite catalog (used by the WebUI browse surface). Album and track payloads for a single artist live on the artist-detail route.
+
+**Endpoints** (each has the same `/api` and `/web` mirrors):
+- `GET /api/lidarr/<category>/artists`
+- `GET /web/lidarr/<category>/artists`
+- `GET /api/lidarr/<category>/artist/<artist_id>`
+- `GET /web/lidarr/<category>/artist/<artist_id>` — JSON body with `{ "artist": {...}, "albums": [ ... ] }` (each album follows the `_lidarr_album_row_payload` shape: `album`, `totals`, `tracks`)
+
+**Artist list query**: `page`, `page_size`, optional `q` (substring on artist title), optional `monitored` (`true`/`false`/`1`/`0`) to restrict rows.
+
+---
+
 ### Lidarr Albums
 
 Browse Lidarr album library from cached database.
 
 **Endpoints**:
-- `GET /web/lidarr/<category>/albums` (public)
-
-**Note**: There is no `/api/lidarr/<category>/albums` endpoint. Use `/web/lidarr/<category>/albums` instead.
-
+- `GET /api/lidarr/<category>/albums`
+- `GET /web/lidarr/<category>/albums`
 **Path Parameters**:
 
 - `category` (string, required) - Lidarr instance category
