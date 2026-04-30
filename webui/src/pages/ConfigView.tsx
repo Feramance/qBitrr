@@ -9,6 +9,10 @@ import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import {
+  getCategoryCrossSectionIssues,
+  getCategoryOverlapWarnings,
+} from "../config/categoryConfigValidation";
+import {
   getArrTorrentHandlingSummary,
   getQbitTorrentHandlingSummary,
 } from "../config/torrentHandlingSummary";
@@ -502,6 +506,13 @@ const QBIT_FIELDS: FieldDefinition[] = [
     },
   },
   {
+    label: "Match subcategories",
+    path: ["MatchSubcategories"],
+    type: "checkbox",
+    description:
+      "When off (default), each managed category must match the qBittorrent category string exactly (use full paths like parent/child). When on, each entry here is a prefix: torrents in child categories (e.g. seed/foo) are included when seed is listed.",
+  },
+  {
     label: "Max Upload Ratio",
     path: ["CategorySeeding", "MaxUploadRatio"],
     type: "number",
@@ -705,6 +716,13 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
+  },
+  {
+    label: "Match subcategories (override)",
+    path: ["MatchSubcategories"],
+    type: "checkbox",
+    description:
+      "Optional. When set, overrides the qBit instance MatchSubcategories default for this Arr only (explicit true/false wins; omit to inherit from [qBit] / [qBit-*]).",
   },
   { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
   {
@@ -1473,6 +1491,9 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
       validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
     }
   }
+  for (const issue of getCategoryCrossSectionIssues(formState)) {
+    errors.push(issue);
+  }
   return errors;
 }
 
@@ -1706,6 +1727,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       QBIT_SECTION_REGEX.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
+  const categoryOverlapWarnings = useMemo(
+    () => getCategoryOverlapWarnings(formState),
+    [formState]
+  );
+
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
@@ -1912,6 +1938,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       UserName: "",
       Password: "",
       ManagedCategories: [],
+      MatchSubcategories: false,
       Trackers: [],
       CategorySeeding: {
         DownloadRateLimitPerTorrent: -1,
@@ -2311,6 +2338,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
+          overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
       {isSettingsOpen ? (
@@ -2356,6 +2384,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
           onDelete={() => deleteQbitInstance(activeQbitKey)}
+          overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
     </>
@@ -3184,6 +3213,20 @@ function SecureField({
   );
 }
 
+function CategoryOverlapAlert({ messages }: { messages: string[] }): JSX.Element | null {
+  if (!messages.length) return null;
+  return (
+    <div className="alert warning" style={{ marginBottom: 16 }} role="status">
+      <strong>Category path overlap</strong>
+      <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+        {messages.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ArrTorrentSummary({
   state,
 }: {
@@ -3209,6 +3252,7 @@ interface ArrInstanceModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
+  overlapWarnings: string[];
 }
 
 function ArrInstanceModal({
@@ -3217,6 +3261,7 @@ function ArrInstanceModal({
   onChange,
   onRename,
   onClose,
+  overlapWarnings,
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
@@ -3351,6 +3396,7 @@ function ArrInstanceModal({
         </div>
         <div className="modal-body">
           <ArrTorrentSummary state={state} />
+          <CategoryOverlapAlert messages={overlapWarnings} />
           <FieldGroup
             title={null}
             fields={generalFields}
@@ -3508,6 +3554,7 @@ interface QbitInstanceModalProps {
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
   onDelete?: () => void;
+  overlapWarnings: string[];
 }
 
 function QbitInstanceModal({
@@ -3517,6 +3564,7 @@ function QbitInstanceModal({
   onRename,
   onClose,
   onDelete,
+  overlapWarnings,
 }: QbitInstanceModalProps): JSX.Element {
   return (
     <div className="modal-backdrop" role="presentation">
@@ -3538,6 +3586,7 @@ function QbitInstanceModal({
         </div>
         <div className="modal-body">
           <QbitTorrentSummary state={state} />
+          <CategoryOverlapAlert messages={overlapWarnings} />
           <FieldGroup
             title={null}
             fields={QBIT_FIELDS}
