@@ -131,7 +131,11 @@ def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
 
 
 def _lidarr_track_duration_seconds(raw: Any) -> int:
-    """Lidarr track API exposes ``duration`` in milliseconds; store whole seconds in SQLite."""
+    """Convert Lidarr track ``duration`` from API milliseconds to whole seconds for SQLite.
+
+    Lidarr's track resource reports duration in milliseconds; values below one second
+    become ``0`` after integer division (sub-second interludes/transitions).
+    """
 
     try:
         v = int(raw)
@@ -139,9 +143,7 @@ def _lidarr_track_duration_seconds(raw: Any) -> int:
         return 0
     if v <= 0:
         return 0
-    if v >= 1000:
-        return v // 1000
-    return v
+    return v // 1000
 
 
 def _parse_qbittorrent_tag_list(tags_str: str | None) -> set[str]:
