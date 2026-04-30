@@ -54,16 +54,6 @@ export function sonarrSeriesThumbnailUrl(
   );
 }
 
-export function lidarrAlbumThumbnailUrl(
-  category: string,
-  entryId: number
-): string {
-  const c = encodeURIComponent(category);
-  return withWebUiToken(
-    `/web/lidarr/${c}/album/${entryId}/thumbnail`
-  );
-}
-
 export function lidarrArtistThumbnailUrl(
   category: string,
   artistId: number

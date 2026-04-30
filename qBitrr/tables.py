@@ -165,7 +165,7 @@ class TrackFilesModel(Model):
     TrackNumber = IntegerField(null=True)
     Title = TextField(null=True)
     ArrInstance = CharField(default="")
-    Duration = IntegerField(null=True)  # Duration in seconds
+    Duration = IntegerField(null=True)  # Whole seconds in DB (Lidarr API ms normalized at ingest)
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
     Monitored = BooleanField(default=False)

@@ -12,7 +12,6 @@ import {
 import {
   getArrList,
   getRadarrMovies,
-  restartArr,
 } from "../api/client";
 import { StableTable } from "../components/StableTable";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -305,7 +304,7 @@ interface RadarrInstanceViewProps {
   onlyMissing: boolean;
   reasonFilter: string;
   onPageChange: (page: number) => void;
-  onRestart: () => void;
+  onRefresh: () => void;
   lastUpdated: string | null;
   category: string;
   browseMode: "list" | "icon";
@@ -326,7 +325,7 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
   onlyMissing,
   reasonFilter,
   onPageChange,
-  onRestart,
+  onRefresh,
   lastUpdated,
   category,
   browseMode,
@@ -443,9 +442,9 @@ const RadarrInstanceView = memo(function RadarrInstanceView({
           )}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
-        <button className="btn ghost" onClick={onRestart} disabled={loading}>
+        <button className="btn ghost" type="button" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
-          Restart
+          Refresh
         </button>
       </div>
 
@@ -1247,18 +1246,13 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
     aggMovieRowsStore.store.sync(aggPageRows);
   }, [aggPageRows, aggMovieRowsStore.store]);
 
-  const handleRestart = useCallback(async () => {
+  const handleInstanceRefresh = useCallback(() => {
     if (!selection || selection === "aggregate") return;
-    try {
-      await restartArr(selection);
-      push(`Restarted ${selection}`, "success");
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : `Failed to restart ${selection}`,
-        "error"
-      );
-    }
-  }, [selection, push]);
+    void fetchInstanceRef.current(selection, instancePage, instanceQuery, {
+      preloadAll: false,
+      showLoading: true,
+    });
+  }, [selection, instancePage, instanceQuery]);
 
   const handleAggRefresh = useCallback(() => {
     void loadAggregate({ showLoading: true });
@@ -1426,7 +1420,7 @@ export function RadarrView({ active }: { active: boolean }): JSX.Element {
                     preloadAll: false,
                   });
                 }}
-                onRestart={() => void handleRestart()}
+                onRefresh={() => void handleInstanceRefresh()}
                 lastUpdated={lastUpdated}
                 category={selection as string}
                 browseMode={browseMode}

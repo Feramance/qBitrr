@@ -12,7 +12,6 @@ import {
 import {
   getArrList,
   getSonarrSeries,
-  restartArr,
 } from "../api/client";
 import type { ColumnDef } from "@tanstack/react-table";
 import type {
@@ -917,18 +916,13 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
     aggGroupRowsStore.store.sync(aggSeriesGroupsVisiblePage);
   }, [aggSeriesGroupsVisiblePage, aggGroupRowsStore.store]);
 
-  const handleRestart = useCallback(async () => {
+  const handleInstanceRefresh = useCallback(() => {
     if (!selection || selection === "aggregate") return;
-    try {
-      await restartArr(selection);
-      push(`Restarted ${selection}`, "success");
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : `Failed to restart ${selection}`,
-        "error"
-      );
-    }
-  }, [selection, push]);
+    void fetchInstanceRef.current(selection, instancePage, instanceQuery, {
+      preloadAll: false,
+      showLoading: true,
+    });
+  }, [selection, instancePage, instanceQuery]);
 
   const handleInstanceSelection = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
@@ -1091,7 +1085,7 @@ export function SonarrView({ active }: SonarrViewProps): JSX.Element {
                     missingOnly: onlyMissing,
                   });
                 }}
-                onRestart={() => void handleRestart()}
+                onRefresh={() => void handleInstanceRefresh()}
                 lastUpdated={lastUpdated}
                 instanceLabel={instanceLabelForSelection}
                 selectionCategory={selection as string}
@@ -1396,7 +1390,7 @@ interface SonarrInstanceViewProps {
   rowOrder: readonly string[];
   rowsStore: import("../utils/rowsStore").RowsStore<SonarrSeriesGroupRow>;
   onPageChange: (page: number) => void;
-  onRestart: () => void;
+  onRefresh: () => void;
   lastUpdated: string | null;
   instanceLabel: string;
   selectionCategory: string;
@@ -1418,7 +1412,7 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
   rowOrder,
   rowsStore,
   onPageChange,
-  onRestart,
+  onRefresh,
   lastUpdated,
   instanceLabel,
   selectionCategory,
@@ -1554,9 +1548,9 @@ const SonarrInstanceView = memo(function SonarrInstanceView({
             </>
           ) : null}
         </div>
-        <button className="btn ghost" onClick={onRestart} disabled={loading}>
+        <button className="btn ghost" type="button" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
-          Restart
+          Refresh
         </button>
       </div>
       {loading ? (

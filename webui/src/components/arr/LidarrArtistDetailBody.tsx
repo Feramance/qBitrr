@@ -9,9 +9,12 @@ import { LidarrAlbumDetailBody } from "./LidarrAlbumDetailBody";
 export function LidarrArtistDetailBody({
   category,
   artistId,
+  instanceLabel,
 }: {
   category: string;
   artistId: number;
+  /** Sidebar label for this Arr instance (matches Sonarr detail hint line). */
+  instanceLabel?: string | null;
 }): JSX.Element {
   const [payload, setPayload] = useState<LidarrArtistDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,10 +53,41 @@ export function LidarrArtistDetailBody({
     typeof a?.["id"] === "number"
       ? lidarrArtistThumbnailUrl(category, artistId)
       : null;
+  const profileName = (a?.["qualityProfileName"] as string | null | undefined) ?? null;
+  const hintLabel =
+    instanceLabel != null && String(instanceLabel).trim() !== ""
+      ? String(instanceLabel).trim()
+      : null;
+
+  const albums = payload.albums ?? [];
 
   return (
     <div className="arr-detail-radarr">
-      <div className="arr-detail-radarr__poster-row" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+      {(hintLabel != null || profileName) ? (
+        <p className="hint" style={{ margin: "0 0 8px" }}>
+          {hintLabel != null ? (
+            <>
+              <strong>Instance:</strong> {hintLabel}
+            </>
+          ) : null}
+          {hintLabel != null && profileName ? (
+            <>
+              {" "}
+              •{" "}
+            </>
+          ) : null}
+          {profileName ? (
+            <>
+              <strong>Profile:</strong> {profileName}
+            </>
+          ) : null}
+        </p>
+      ) : null}
+
+      <div
+        className="arr-detail-radarr__poster-row"
+        style={{ display: "flex", gap: 16, flexWrap: "wrap" }}
+      >
         {poster ? (
           <div className="arr-detail-radarr__poster">
             <ArrPosterImage src={poster} alt={(a?.["name"] as string) || ""} />
@@ -68,25 +102,36 @@ export function LidarrArtistDetailBody({
           <dd>{Number(a?.["albumCount"] ?? 0).toLocaleString()}</dd>
           <dt>Tracks (total)</dt>
           <dd>{Number(a?.["trackTotalCount"] ?? 0).toLocaleString()}</dd>
-          <dt>Quality profile</dt>
-          <dd>{(a?.["qualityProfileName"] as string | null | undefined) || "—"}</dd>
         </dl>
       </div>
 
       <h4 style={{ margin: "16px 0 8px" }}>Albums</h4>
-      {(!payload.albums || payload.albums.length === 0) ? (
+      {albums.length === 0 ? (
         <p className="hint">No albums for this artist in the local catalog.</p>
       ) : (
-        <div className="stack" style={{ gap: 24 }}>
-          {payload.albums.map((albumEntry, idx) => (
-            <div
-              key={String((albumEntry.album as Record<string, unknown>)?.["id"] ?? idx)}
-              className="card"
-              style={{ padding: 12 }}
-            >
-              <LidarrAlbumDetailBody entry={albumEntry} category={category} />
-            </div>
-          ))}
+        <div className="stack" style={{ gap: 12 }}>
+          {albums.map((albumEntry, idx) => {
+            const alb = albumEntry.album as Record<string, unknown>;
+            const albTitle = String(alb?.["title"] ?? "Album");
+            const trackCount = Array.isArray(albumEntry.tracks)
+              ? albumEntry.tracks.length
+              : 0;
+            return (
+              <details
+                key={String(alb?.["id"] ?? idx)}
+                className="arr-series-season"
+                open={albums.length <= 3}
+              >
+                <summary style={{ fontWeight: 600, cursor: "pointer" }}>
+                  {albTitle}
+                  {trackCount > 0 ? ` (${trackCount} tracks)` : null}
+                </summary>
+                <div style={{ marginTop: 8 }}>
+                  <LidarrAlbumDetailBody entry={albumEntry} category={category} />
+                </div>
+              </details>
+            );
+          })}
         </div>
       )}
     </div>

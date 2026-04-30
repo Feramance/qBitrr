@@ -165,11 +165,13 @@ def _cover_type_order(cover_type: str) -> int:
         return 0
     if ct == "banner":
         return 1
-    if ct == "fanart":
+    if ct == "clearlogo":
         return 2
-    if ct == "disc":
+    if ct == "fanart":
         return 3
-    return 4
+    if ct == "disc":
+        return 4
+    return 5
 
 
 def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) -> str | None:
@@ -195,7 +197,7 @@ def _first_poster_url_from_radarr_sonarr(data: dict[str, Any], base_uri: str) ->
     return None
 
 
-_ALLOWED_COVER_TYPES = ("cover", "poster", "disc", "banner", "fanart")
+_ALLOWED_COVER_TYPES = ("cover", "poster", "disc", "banner", "fanart", "clearlogo")
 
 
 def _first_cover_lidarr(data: dict[str, Any], base_uri: str) -> str | None:
@@ -360,11 +362,6 @@ def _get_entity_dict(client: Any, kind: str, entry_id: int) -> dict[str, Any] | 
                 out = client.get_artist(entry_id)
             except TypeError:
                 out = client.get_artist(id_=entry_id)
-    elif kind == "lidarr" and hasattr(client, "get_album"):
-        try:
-            out = client.get_album(entry_id, includeLocalCovers=True)
-        except TypeError:
-            out = client.get_album(entry_id)
     else:
         return None
     return out if isinstance(out, dict) else None
@@ -385,11 +382,41 @@ def _resolve_image_url(*, kind: str, arr: Any, entry_id: int) -> str | None:
         return None
     if not data:
         return None
-    if kind == "lidarr":
-        return _first_cover_lidarr(data, base_uri)
     if kind == "lidarr_artist":
         return _first_cover_lidarr(data, base_uri)
     return _first_poster_url_from_radarr_sonarr(data, base_uri)
+
+
+def _lidarr_artist_mediacovers_candidates(base_uri: str, artist_id: int) -> list[str]:
+    """Deterministic same-host URLs under Lidarr's MediaCover API (fallback when JSON has no usable URL)."""
+
+    base = base_uri.rstrip("/")
+    rels = (
+        f"/api/v1/MediaCover/Artist/{artist_id}/poster.jpg",
+        f"/api/v1/MediaCover/Artist/{artist_id}/poster-250.jpg",
+        f"/api/v1/MediaCover/Artist/{artist_id}/poster-500.jpg",
+        f"/api/v1/MediaCover/Artist/{artist_id}/fanart.jpg",
+        f"/api/v1/MediaCover/Artist/{artist_id}/clearlogo.png",
+        f"/api/v1/MediaCover/{artist_id}/poster.jpg",
+    )
+    return [base + r for r in rels]
+
+
+def _fetch_first_lidarr_artist_mediacovers(arr: Any, artist_id: int) -> bytes | None:
+    raw_uri = getattr(arr, "uri", None)
+    if not isinstance(raw_uri, str) or not raw_uri.strip():
+        return None
+    api_key = getattr(arr, "apikey", None)
+    base_uri = raw_uri.strip()
+    for url in _lidarr_artist_mediacovers_candidates(base_uri, artist_id):
+        raw = _http_get_bytes(
+            url,
+            arr_uri=base_uri,
+            api_key=api_key if isinstance(api_key, str) else None,
+        )
+        if raw:
+            return raw
+    return None
 
 
 def get_or_fetch_thumbnail_bytes(
@@ -407,15 +434,20 @@ def get_or_fetch_thumbnail_bytes(
         b = path.read_bytes()
         return b, _sniff_mime(b)
 
-    url = _resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
-    if not url:
-        return None
-    u = url.strip()
     arr_uri = getattr(arr, "uri", None)
     api_key = getattr(arr, "apikey", None)
-    raw = _http_get_bytes(
-        u, arr_uri=arr_uri if isinstance(arr_uri, str) else None, api_key=api_key
-    )
+    arr_uri_s = arr_uri if isinstance(arr_uri, str) else None
+
+    url = _resolve_image_url(kind=kind, arr=arr, entry_id=entry_id)
+    raw: bytes | None = None
+    if url:
+        raw = _http_get_bytes(
+            url.strip(),
+            arr_uri=arr_uri_s,
+            api_key=api_key,
+        )
+    if not raw and kind == "lidarr_artist":
+        raw = _fetch_first_lidarr_artist_mediacovers(arr, entry_id)
     if not raw:
         return None
     mime = _sniff_mime(raw)

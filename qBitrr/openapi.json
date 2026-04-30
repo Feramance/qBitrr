@@ -327,68 +327,6 @@
         ]
       }
     },
-    "/api/lidarr/{category}/album/{id}/thumbnail": {
-      "get": {
-        "operationId": "api_lidarr_album_thumbnail",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "category",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/*": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Cached album cover image bytes"
-          },
-          "304": {
-            "description": "Not modified (If-None-Match)"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "Album or image not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "summary": "Lidarr album cover thumbnail (/api)",
-        "tags": [
-          "WebUI"
-        ]
-      }
-    },
     "/api/lidarr/{category}/albums": {
       "get": {
         "operationId": "api_lidarr_albums",
@@ -1803,68 +1741,6 @@
           }
         ],
         "summary": "Download update artifact (/web)",
-        "tags": [
-          "WebUI"
-        ]
-      }
-    },
-    "/web/lidarr/{category}/album/{id}/thumbnail": {
-      "get": {
-        "operationId": "web_lidarr_album_thumbnail",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "category",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "image/*": {
-                "schema": {
-                  "format": "binary",
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Cached album cover image bytes"
-          },
-          "304": {
-            "description": "Not modified (If-None-Match)"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "404": {
-            "description": "Album or image not found"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "summary": "Lidarr album cover thumbnail (/web)",
         "tags": [
           "WebUI"
         ]

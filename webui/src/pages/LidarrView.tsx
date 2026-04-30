@@ -12,7 +12,6 @@ import {
 import {
   getArrList,
   getLidarrArtists,
-  restartArr,
 } from "../api/client";
 import type {
   ArrInfo,
@@ -337,7 +336,7 @@ interface LidarrInstanceViewProps {
   rowOrder: readonly string[];
   rowsStore: import("../utils/rowsStore").RowsStore<LidarrInstanceRow>;
   onPageChange: (page: number) => void;
-  onRestart: () => void;
+  onRefresh: () => void;
   lastUpdated: string | null;
   category: string;
   browseMode: "list" | "icon";
@@ -356,7 +355,7 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
   rowOrder,
   rowsStore,
   onPageChange,
-  onRestart,
+  onRefresh,
   lastUpdated,
   category,
   browseMode,
@@ -449,9 +448,9 @@ const LidarrInstanceView = memo(function LidarrInstanceView({
           )}
           {lastUpdated ? ` (updated ${lastUpdated})` : ""}
         </div>
-        <button className="btn ghost" onClick={onRestart} disabled={loading}>
+        <button className="btn ghost" type="button" onClick={onRefresh} disabled={loading}>
           <IconImage src={RefreshIcon} />
-          Restart
+          Refresh
         </button>
       </div>
 
@@ -556,6 +555,7 @@ interface LidarrDetailModalProps {
     title: string;
     rowId: string;
     source: "instance" | "aggregate";
+    instanceLabel: string;
   };
   instanceStore: import("../utils/rowsStore").RowsStore<LidarrInstanceRow>;
   aggregateStore: import("../utils/rowsStore").RowsStore<LidarrAggRowHashable>;
@@ -599,6 +599,7 @@ const LidarrDetailModal = memo(function LidarrDetailModal({
         key={`${modal.category}-${modal.artistId}`}
         category={modal.category}
         artistId={modal.artistId}
+        instanceLabel={modal.instanceLabel}
       />
     </ArrModal>
   );
@@ -623,6 +624,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
      *  subscribe to the artist row and live-update when polling brings in fresh data. */
     rowId: string;
     source: "instance" | "aggregate";
+    instanceLabel: string;
   };
 
   const [lidarrModal, setLidarrModal] = useState<ModalState | null>(null);
@@ -1239,18 +1241,13 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
     );
   }, [aggPageRows, aggArtistRowsStore.store]);
 
-  const handleRestart = useCallback(async () => {
+  const handleInstanceRefresh = useCallback(() => {
     if (!selection || selection === "aggregate") return;
-    try {
-      await restartArr(selection);
-      push(`Restarted ${selection}`, "success");
-    } catch (error) {
-      push(
-        error instanceof Error ? error.message : `Failed to restart ${selection}`,
-        "error"
-      );
-    }
-  }, [selection, push]);
+    void fetchInstanceRef.current(selection, instancePage, instanceQuery, {
+      preloadAll: false,
+      showLoading: true,
+    });
+  }, [selection, instancePage, instanceQuery]);
 
   const handleInstanceSelection = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => {
@@ -1368,6 +1365,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                     title: name,
                     rowId: `${row.__instance}::${idKey}`,
                     source: "aggregate",
+                    instanceLabel: row.__instance,
                   });
                 }}
               />
@@ -1388,7 +1386,7 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                     preloadAll: false,
                   });
                 }}
-                onRestart={() => void handleRestart()}
+                onRefresh={() => void handleInstanceRefresh()}
                 lastUpdated={lastUpdated}
                 showCatalogEmptyHint={
                   !instanceLoading &&
@@ -1410,6 +1408,9 @@ export function LidarrView({ active }: { active: boolean }): JSX.Element {
                     title: name,
                     rowId: idKey,
                     source: "instance",
+                    instanceLabel:
+                      instances.find((i) => i.category === selection)?.name ??
+                      String(selection),
                   });
                 }}
               />

@@ -130,6 +130,20 @@ def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
     )
 
 
+def _lidarr_track_duration_seconds(raw: Any) -> int:
+    """Lidarr track API exposes ``duration`` in milliseconds; store whole seconds in SQLite."""
+
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    if v <= 0:
+        return 0
+    if v >= 1000:
+        return v // 1000
+    return v
+
+
 def _parse_qbittorrent_tag_list(tags_str: str | None) -> set[str]:
     """Split qBittorrent's comma-separated ``tags`` string into non-empty labels."""
     if not tags_str or not isinstance(tags_str, str):
@@ -4375,7 +4389,9 @@ class Arr:
                                             AlbumId=entryId,
                                             TrackNumber=track.get("trackNumber", ""),
                                             Title=track.get("title", ""),
-                                            Duration=track.get("duration", 0),
+                                            Duration=_lidarr_track_duration_seconds(
+                                                track.get("duration", 0)
+                                            ),
                                             HasFile=track.get("hasFile", False),
                                             TrackFileId=track.get("trackFileId", 0),
                                             Monitored=track_monitored,

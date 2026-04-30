@@ -1,13 +1,19 @@
 import type { JSX } from "react";
 import type { LidarrAlbumEntry, LidarrTrack } from "../../api/types";
-import { lidarrAlbumThumbnailUrl } from "../../utils/arrThumbnailUrl";
-import { ArrPosterImage } from "./ArrPosterImage";
 
 type Albumish = LidarrAlbumEntry & { __instance?: string };
 
+/** Format duration stored as seconds; divide large legacy millisecond values for display. */
+function formatTrackDurationSeconds(seconds: number): string {
+  let sec = Math.round(seconds);
+  if (sec > 7200) {
+    sec = Math.floor(sec / 1000);
+  }
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+
 export function LidarrAlbumDetailBody({
   entry,
-  category,
 }: {
   entry: Albumish;
   category: string;
@@ -23,23 +29,9 @@ export function LidarrAlbumDetailBody({
   const qProf = (album?.["qualityProfileName"] as string | null | undefined) ?? "—";
   const tracks: LidarrTrack[] = entry.tracks || [];
   const totals = entry.totals;
-  const poster =
-    albumId != null && category
-      ? lidarrAlbumThumbnailUrl(category, albumId)
-      : null;
 
   return (
     <div className="arr-detail-radarr">
-      {entry.__instance ? (
-        <p className="hint" style={{ margin: "0 0 8px" }}>
-          <strong>Instance:</strong> {entry.__instance}
-        </p>
-      ) : null}
-      {poster ? (
-        <div className="arr-detail-radarr__poster">
-          <ArrPosterImage src={poster} alt={title} />
-        </div>
-      ) : null}
       <dl className="arr-detail-dl">
         <dt>Album</dt>
         <dd>{title}</dd>
@@ -47,9 +39,7 @@ export function LidarrAlbumDetailBody({
         <dd>{artist}</dd>
         <dt>Release</dt>
         <dd>
-          {release
-            ? new Date(release).toLocaleDateString()
-            : "—"}
+          {release ? new Date(release).toLocaleDateString() : "—"}
         </dd>
         <dt>Monitored</dt>
         <dd>{monitored ? "Yes" : "No"}</dd>
@@ -95,8 +85,8 @@ export function LidarrAlbumDetailBody({
                   <td data-label="#">{track.trackNumber ?? "—"}</td>
                   <td data-label="Title">{track.title ?? "—"}</td>
                   <td data-label="Duration">
-                    {track.duration != null
-                      ? `${Math.floor(track.duration / 60)}:${String(track.duration % 60).padStart(2, "0")}`
+                    {track.duration != null && Number.isFinite(Number(track.duration))
+                      ? formatTrackDurationSeconds(Number(track.duration))
                       : "—"}
                   </td>
                   <td data-label="Has File">

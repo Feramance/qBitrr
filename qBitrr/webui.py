@@ -2788,18 +2788,6 @@ class WebUI:
                 return resp
             return _handle_lidarr_albums(category)
 
-        @app.get("/api/lidarr/<path:category>/album/<int:entry_id>/thumbnail")
-        def api_lidarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _arr_thumbnail(category, "lidarr", entry_id)
-
-        @app.get("/web/lidarr/<path:category>/album/<int:entry_id>/thumbnail")
-        def web_lidarr_thumb(category: str, entry_id: int):
-            if (resp := require_token()) is not None:
-                return resp
-            return _arr_thumbnail(category, "lidarr", entry_id)
-
         def _handle_lidarr_artists(category: str):
             managed = _managed_objects()
             if not managed:
