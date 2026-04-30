@@ -262,11 +262,15 @@ def ensure_arr_webui_rollups(arr: Arr) -> None:
 
 
 def invalidate_arr_webui_rollups_cache(arr: Arr | None = None) -> None:
-    """Drop the in-process TTL cache for one Arr (or all when ``None``).
+    """Drop the in-process TTL rollup cache for one Arr (or all when ``None``).
 
-    Workers should call this with their own ``arr`` after a write; it is the equivalent of
-    the previous ``mark_arr_webui_rollups_stale`` flag but it works across the WebUI cache
-    rather than a per-Arr attribute.
+    Only affects the **current** Python process. Arr workers run in separate processes from
+    the WebUI, so calling this after a worker writes to SQLite does **not** invalidate the
+    WebUI's cache. Freshness across processes relies on SQLite reads plus
+    ``_ROLLUP_CACHE_TTL_SECONDS`` in :func:`ensure_arr_webui_rollups`.
+
+    Intended for same-process callers (e.g. tests or WebUI code that needs an immediate
+    re-aggregation without waiting for TTL expiry).
     """
     with _rollup_cache_lock:
         if arr is None:
@@ -274,28 +278,6 @@ def invalidate_arr_webui_rollups_cache(arr: Arr | None = None) -> None:
             return
         cache_key = (id(arr), getattr(arr, "_name", ""))
         _rollup_cache.pop(cache_key, None)
-
-
-# --- Backwards-compatible shims: workers still call these names, but the worker-side cache
-#     is now a no-op stale flag (the WebUI's TTL cache is the only one that matters). ----
-def mark_arr_webui_rollups_stale(arr: Arr) -> None:  # noqa: D401 - retained for external callers
-    """Compatibility shim: clear the WebUI's TTL cache for this Arr.
-
-    The previous worker-process ``_webui_rollups_stale`` flag is no longer consulted because
-    the WebUI runs in a different process and never observed it.  Callers (workers) keep
-    using this name so we just forward to :func:`invalidate_arr_webui_rollups_cache`.
-    """
-    invalidate_arr_webui_rollups_cache(arr)
-
-
-def flush_pending_arr_webui_rollups(
-    arr: Arr,
-) -> None:  # noqa: D401 - retained for external callers
-    """Compatibility shim: alias of :func:`invalidate_arr_webui_rollups_cache`.
-
-    Kept so existing call sites in :mod:`qBitrr.arss` continue to compile without renames.
-    """
-    invalidate_arr_webui_rollups_cache(arr)
 
 
 def get_radarr_counts_total(arr: Arr) -> tuple[dict[str, int], int]:
@@ -429,14 +411,16 @@ def refresh_rollups_after_db_update(
     series: bool,
     artist: bool,
 ) -> None:
-    """Update denormalized columns; defer heavy WebUI rollup to flush_pending_arr_webui_rollups."""
+    """Refresh denormalized count columns on catalog rows after a worker DB write.
+
+    Header rollups for browse/API responses are computed in the WebUI process from SQLite
+    (:func:`ensure_arr_webui_rollups`); workers do not flush cross-process rollup caches.
+    """
     if not getattr(arr, "db", None) or not db_entry:
         return
     t = getattr(arr, "type", None)
     try:
-        if t == "radarr":
-            mark_arr_webui_rollups_stale(arr)
-        elif t == "sonarr":
+        if t == "sonarr":
             ep = getattr(arr, "model_file", None)
             sm = getattr(arr, "series_file_model", None)
             if ep is not None and sm is not None:
@@ -448,7 +432,6 @@ def refresh_rollups_after_db_update(
                     sid = int(db_entry.get("seriesId") or db_entry.get("series_id") or 0)
                     if sid:
                         update_series_season_episode_totals(arr, sid, ep, sm)
-            mark_arr_webui_rollups_stale(arr)
         elif t == "lidarr":
             am = getattr(arr, "model_file", None)
             tm = getattr(arr, "track_file_model", None)
@@ -463,6 +446,5 @@ def refresh_rollups_after_db_update(
                     arow = update_album_total_tracks(arr, aeid, am, tm)
                     if arow and getattr(arow, "ArtistId", None) is not None and arm is not None:
                         update_artist_album_track_totals(arr, int(arow.ArtistId), am, tm, arm)
-            mark_arr_webui_rollups_stale(arr)
     except Exception:
         arr.logger.debug("refresh_rollups_after_db_update failed", exc_info=True)
