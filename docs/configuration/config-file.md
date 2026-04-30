@@ -958,9 +958,13 @@ Port = 8080
 UserName = "admin"
 Password = "adminpass"
 ManagedCategories = []
+# When true, configured categories also match torrents in any qBittorrent
+# subcategory beneath them ("seed" then matches "seed/tleech", "seed/longterm",
+# etc.). Defaults to false (exact match), preserving existing behaviour.
+MatchSubcategories = false
 ```
 
-For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, see the [qBittorrent Configuration Guide](qbittorrent.md).
+For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, plus the dedicated **[Subcategories](qbittorrent.md#subcategories-qbittorrent-46)** section covering full-path values, the `MatchSubcategories` opt-in, and migration tips, see the [qBittorrent Configuration Guide](qbittorrent.md).
 
 ---
 

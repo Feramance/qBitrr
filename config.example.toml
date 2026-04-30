@@ -170,6 +170,9 @@ SkipTLSVerify = false
 # Example: ['downloads', 'private-tracker', 'long-term-seed']
 ManagedCategories = []
 
+# When true, torrents in child categories under each ManagedCategories entry are included (see docs/configuration/qbittorrent.md § Subcategories).
+MatchSubcategories = false
+
 # Shared tracker configs inherited by all Arr instances on this qBit instance.
 # Define tracker-specific rate limits, HnR protection, and management rules here.
 # Arr instances can optionally override per-tracker settings in their own Trackers section.
