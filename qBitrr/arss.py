@@ -5240,7 +5240,9 @@ class Arr:
         otherwise order uses announce URL matching as before.
 
         When :attr:`categories` is set (e.g. :class:`TorrentPolicyManager`), only torrents
-        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
+        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``),
+        excluding torrents tagged ``qBitrr-ignored`` — matching
+        :meth:`TorrentPolicyManager._collect_monitored_torrents`.
         Otherwise all torrents from ``torrents.info`` are considered.
 
         Invoked by a global torrent-policy worker (single dedicated process).
@@ -5282,6 +5284,7 @@ class Arr:
                                 )
                             )
                             and own in monitored
+                            and "qBitrr-ignored" not in getattr(t, "tags", ())
                         )
                     ]
                 sort_priorities = {
