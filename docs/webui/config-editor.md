@@ -161,6 +161,7 @@ ViewDensity = "Comfortable"
 - **UserName**: qBittorrent WebUI username (optional if auth bypassed)
 - **Password**: qBittorrent WebUI password (optional if auth bypassed)
 - **Managed Categories**: Tag-based input for categories managed directly by qBit (independent of Arr instances)
+- **Match subcategories**: When enabled, each managed category is treated as a **prefix** for qBittorrent hierarchical paths (`seed` matches `seed/foo`). When disabled (default), only an **exact** category string matches — use full paths such as `parent/child`. See [qBittorrent configuration](../configuration/qbittorrent.md#subcategories-qbittorrent-46).
 
 **Managed Categories**:
 
@@ -169,7 +170,8 @@ This field allows qBittorrent to manage categories with custom seeding settings,
 - **Tag Input UI**: Add categories by typing and pressing Enter or comma
 - **Visual Tags**: Categories display as removable chips/tags
 - **Quick Removal**: Click × on any tag to remove it
-- **Category Validation**: System prevents conflicts between Arr-managed and qBit-managed categories
+- **Category validation**: Save is blocked if an Arr-managed **Category** equals any qBit **ManagedCategories** entry (after normalising slashes). Backslashes in category strings are rejected (qBittorrent uses `/` only).
+- **Overlap hints**: If one configured path is a parent of another (e.g. `seed` and `seed/tleech`), a **warning** appears in the Arr and qBit instance modals — overlapping paths are allowed but exact API filtering applies unless **Match subcategories** is on.
 
 **Example**:
 ```toml
@@ -180,13 +182,15 @@ Port = 8080
 UserName = "admin"
 Password = "adminpass"
 ManagedCategories = ["downloads", "private-tracker", "manual"]
+MatchSubcategories = false
 ```
 
 **Validation**:
 
 - `Host` must not be empty
 - `Port` must be between 1 and 65535
-- `ManagedCategories` cannot overlap with Arr instance categories
+- **Exact conflict**: `ManagedCategories` cannot contain the same normalised string as any **managed** Arr instance `Category` (matches qBitrr startup rules)
+- Category strings must not contain `\` (use `/` for hierarchy)
 
 ---
 
@@ -231,7 +235,8 @@ Each Radarr, Sonarr, or Lidarr instance is configured independently via dedicate
 - **Managed**: Toggle whether qBitrr actively manages this instance
 - **URI**: Arr instance URL (e.g., `http://localhost:7878`)
 - **API Key**: Arr API key from Settings → General → Security
-- **Category**: qBittorrent category applied by this Arr instance
+- **Category**: qBittorrent category applied by this Arr instance (full path when using subcategories, e.g. `seed/movies`)
+- **Match subcategories (override)**: Optional. When set to true or false, overrides the `[qBit]` / `[qBit-*]` **Match subcategories** value for this Arr only; leave unset to inherit the qBit instance default.
 - **Re-search**: Re-run searches for failed torrents after qBitrr removes them
 - **Import Mode**: Preferred import mode (`Move`, `Copy`, or `Auto`)
 - **RSS Sync Timer (min)**: Interval between RSS sync requests (0 = disabled)
@@ -260,7 +265,9 @@ ArrErrorCodesToBlocklist = [
 
 - `URI` and `APIKey` required when `Managed = true`
 - `Category` must not be empty
+- `Category` must not contain `\` (use `/` for qBittorrent hierarchy)
 - Timer fields must be non-negative numbers
+- Same **exact** category cannot appear both as this instance's `Category` (when managed) and in any `[qBit*].ManagedCategories` entry
 
 ---
 
@@ -598,6 +605,7 @@ The editor validates fields **on change** and **before save**, displaying inline
 2. **Range Validation**: Check numeric fields fall within valid ranges (e.g., port 1-65535)
 3. **Conditional Validation**: Some fields required only when related fields are set
 4. **Custom Validation**: Field-specific logic (e.g., cron expression format)
+5. **Cross-section categories**: Arr `Category` vs qBit `ManagedCategories` exact duplicates block save; backslashes in category fields block save; parent/child path overlaps show non-blocking warnings in Arr/qBit modals (see [qBittorrent → Subcategories](../configuration/qbittorrent.md#subcategories-qbittorrent-46))
 
 ### Common Validation Rules
 
@@ -610,6 +618,8 @@ The editor validates fields **on change** and **before save**, displaying inline
 | `Arr.URI` | Required when `Arr.Managed = true` |
 | `Arr.APIKey` | Required when `Arr.Managed = true` |
 | `Arr.Category` | Must not be empty |
+| `Arr.Category`, `qBit.ManagedCategories`, `Settings.FailedCategory`, `Settings.RecheckCategory` | Must not contain `\`; use `/` for hierarchy |
+| `Arr.Category` vs `qBit.ManagedCategories` | Same normalised string cannot appear in both (managed Arr only) |
 | `EntrySearch.SearchLimit` | Must be ≥ 1 |
 | `AutoUpdateCron` | Must contain 5 or 6 space-separated fields |
 | `Torrent.MaximumDeletablePercentage` | Decimal 0–1 (e.g. 0.99 = 99%) |
