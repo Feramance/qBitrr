@@ -8684,6 +8684,10 @@ class TorrentPolicyManager(Arr):
         Arr section sets ``MatchSubcategories=true`` (prefix matching must see child
         paths such as ``seed/tleech``). Otherwise we keep the fast exact-match path
         (one ``category=`` filter per configured category).
+
+        When listing all torrents, owners resolved via :meth:`ArrManager.resolve_owning_category`
+        still exclude ``self.categories`` so special categories (failed/recheck placeholders)
+        are not gathered — same scope as the ``category=`` branch.
         """
         qbit_manager = self.manager.qbit_manager
         result = []
@@ -8714,6 +8718,10 @@ class TorrentPolicyManager(Arr):
                             qbit_section=instance_name,
                         )
                         if owner is None:
+                            continue
+                        # Match the per-category branch: only Arr/qBit-managed categories, not
+                        # special PlaceHolderArr keys (failed/recheck) or TorrentPolicyManager.
+                        if owner not in self.categories:
                             continue
                         if "qBitrr-ignored" in torrent.tags:
                             continue
