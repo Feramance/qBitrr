@@ -5156,16 +5156,9 @@ class Arr:
 
             # ``get_all_instances()`` returns config section keys: ``qBit`` or ``qBit-Seedbox``.
             section = instance_name
-            # Per-qBit-instance flag drives whether the API filter is dropped.  A
-            # per-Arr override (``[<Arr>].MatchSubcategories``) wins when set so an
-            # individual Arr can opt in/out without retuning every instance.
-            arr_override = CONFIG.get(f"{self._name}.MatchSubcategories", fallback=None)
-            if arr_override is not None:
-                instance_subcat_match = bool(arr_override)
-            else:
-                instance_subcat_match = bool(
-                    CONFIG.get(f"{section}.MatchSubcategories", fallback=False)
-                )
+            instance_subcat_match = self.manager.arr_match_subcategories_effective(
+                self._name, section
+            )
 
             try:
                 if instance_subcat_match:
@@ -8679,10 +8672,12 @@ class TorrentPolicyManager(Arr):
     def _collect_monitored_torrents(self) -> list[tuple[str, qbittorrentapi.TorrentDictionary]]:
         """Fetch torrents whose category is monitored by an Arr or qBit instance.
 
-        Uses a full ``torrents.info()`` **without** ``category=`` on an instance when
-        either that ``[qBit*]`` section has ``MatchSubcategories=true`` **or** some
-        Arr section sets ``MatchSubcategories=true`` (prefix matching must see child
-        paths such as ``seed/tleech``). Otherwise we keep the fast exact-match path
+        Uses a full ``torrents.info()`` **without** ``category=`` only on qBit
+        instances where prefix matching is actually active — same per-instance
+        rules as :meth:`Arr._get_torrents_from_all_instances` (each Arr may
+        override ``MatchSubcategories``; otherwise the ``[qBit*]`` flag applies),
+        plus ``ManagedCategories`` under a section when that section enables
+        ``MatchSubcategories``. Other instances keep the fast exact-match path
         (one ``category=`` filter per configured category).
 
         When listing all torrents, owners resolved via :meth:`ArrManager.resolve_owning_category`
@@ -8692,7 +8687,6 @@ class TorrentPolicyManager(Arr):
         qbit_manager = self.manager.qbit_manager
         result = []
         seen = set()
-        arr_prefix_anywhere = self.manager.any_arr_match_subcategories_explicit_true()
         for instance_name in qbit_manager.get_all_instances():
             if not qbit_manager.is_instance_alive(instance_name):
                 continue
@@ -8700,8 +8694,8 @@ class TorrentPolicyManager(Arr):
             if client is None:
                 continue
             section = instance_name
-            use_full_list = arr_prefix_anywhere or bool(
-                CONFIG.get(f"{section}.MatchSubcategories", fallback=False)
+            use_full_list = self.manager.qbit_section_needs_full_torrent_list_for_policy_manager(
+                section
             )
             if use_full_list:
                 with contextlib.suppress(qbittorrentapi.exceptions.APIError):
@@ -8920,6 +8914,37 @@ class ArrManager:
                 if raw is not None and bool(raw):
                     return True
         return False
+
+    def arr_match_subcategories_effective(self, arr_name: str, qbit_section: str) -> bool:
+        """Whether prefix/subcategory matching applies to ``arr_name`` on ``qbit_section``.
+
+        Mirrors :meth:`Arr._get_torrents_from_all_instances`: a per-Arr
+        ``[<Arr>].MatchSubcategories`` value wins when present; otherwise the
+        ``[qBit*]`` flag for ``qbit_section`` is used.
+        """
+        arr_override = CONFIG.get(f"{arr_name}.MatchSubcategories", fallback=None)
+        if arr_override is not None:
+            return bool(arr_override)
+        return bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+
+    def qbit_section_needs_full_torrent_list_for_policy_manager(self, qbit_section: str) -> bool:
+        """True when TorrentPolicyManager must omit ``category=`` for this qBit client.
+
+        Uses the same per-instance rules as Arr torrent scans: full list only if
+        prefix matching is active here (any managed Arr via
+        :meth:`arr_match_subcategories_effective`, or ``ManagedCategories`` under
+        this section with ``[qBit*].MatchSubcategories``). Avoids pulling every
+        torrent from instances that only use exact ``category=`` filters.
+        """
+        qbit_flag = bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+        if qbit_flag and any(
+            self.qbit_managed_category_sections.get(cat) == qbit_section
+            for cat in self.qbit_managed_categories
+        ):
+            return True
+        return any(
+            self.arr_match_subcategories_effective(name, qbit_section) for name in self.groups
+        )
 
     def _prefix_match_allowed_for_owner(self, owner_key: str, *, qbit_section: str | None) -> bool:
         """Whether prefix / descendant matching may claim ``owner_key`` for this qBit instance."""
