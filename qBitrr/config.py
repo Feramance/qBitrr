@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import logging
 import pathlib
 import shutil
 import sys
 
 from qBitrr.bundled_data import license_text, patched_version
+from qBitrr.category_paths import normalize_category
 from qBitrr.env_config import ENVIRO_CONFIG
 from qBitrr.gen_config import MyConfig, _write_config_file, apply_config_migrations, generate_doc
 from qBitrr.home_path import APPDATA_FOLDER, HOME_PATH
@@ -110,16 +112,41 @@ else:
 if CONFIG_EXISTS:
     apply_config_migrations(CONFIG)
 
+_CFG_LOGGER = logging.getLogger("qBitrr.config")
+
+
+def _normalize_special_category(raw: object, *, settings_key: str, default: str) -> str:
+    """Normalise ``Settings.FailedCategory`` / ``Settings.RecheckCategory`` like other category paths."""
+    if raw is None:
+        coerced = ""
+    else:
+        coerced = str(raw)
+    if "\\" in coerced:
+        _CFG_LOGGER.warning(
+            "%s contains backslashes (%r); qBittorrent uses '/' for hierarchical categories.",
+            settings_key,
+            coerced,
+        )
+    normalized = normalize_category(coerced)
+    return normalized or (coerced.strip() if coerced.strip() else default)
+
+
 FFPROBE_AUTO_UPDATE = (
     CONFIG.get("Settings.FFprobeAutoUpdate", fallback=True)
     if ENVIRO_CONFIG.settings.ffprobe_auto_update is None
     else ENVIRO_CONFIG.settings.ffprobe_auto_update
 )
-FAILED_CATEGORY = ENVIRO_CONFIG.settings.failed_category or CONFIG.get(
-    "Settings.FailedCategory", fallback="failed"
+FAILED_CATEGORY = _normalize_special_category(
+    ENVIRO_CONFIG.settings.failed_category
+    or CONFIG.get("Settings.FailedCategory", fallback="failed"),
+    settings_key="Settings.FailedCategory",
+    default="failed",
 )
-RECHECK_CATEGORY = ENVIRO_CONFIG.settings.recheck_category or CONFIG.get(
-    "Settings.RecheckCategory", fallback="recheck"
+RECHECK_CATEGORY = _normalize_special_category(
+    ENVIRO_CONFIG.settings.recheck_category
+    or CONFIG.get("Settings.RecheckCategory", fallback="recheck"),
+    settings_key="Settings.RecheckCategory",
+    default="recheck",
 )
 TAGLESS = ENVIRO_CONFIG.settings.tagless or CONFIG.get("Settings.Tagless", fallback=False)
 CONSOLE_LOGGING_LEVEL_STRING = ENVIRO_CONFIG.settings.console_level or CONFIG.get(

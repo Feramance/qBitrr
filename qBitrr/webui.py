@@ -2378,13 +2378,16 @@ class WebUI:
                 restarted.append(loop_kind)
             return jsonify({"status": "ok", "restarted": restarted})
 
-        @app.post("/api/processes/<category>/<kind>/restart")
+        # ``<path:category>`` (rather than the default ``<string:>``) so subcategory
+        # paths like ``seed/tleech`` survive routing — see
+        # ``docs/configuration/qbittorrent.md`` for the user-facing rules.
+        @app.post("/api/processes/<path:category>/<kind>/restart")
         def api_restart_process(category: str, kind: str):
             if (resp := require_token()) is not None:
                 return resp
             return _restart_process(category, kind)
 
-        @app.post("/web/processes/<category>/<kind>/restart")
+        @app.post("/web/processes/<path:category>/<kind>/restart")
         def web_restart_process(category: str, kind: str):
             if (resp := require_token()) is not None:
                 return resp
@@ -2610,13 +2613,13 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/radarr/<category>/movies")
+        @app.get("/api/radarr/<path:category>/movies")
         def api_radarr_movies(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_radarr_movies(category)
 
-        @app.get("/web/radarr/<category>/movies")
+        @app.get("/web/radarr/<path:category>/movies")
         def web_radarr_movies(category: str):
             if (resp := require_token()) is not None:
                 return resp
@@ -2657,13 +2660,13 @@ class WebUI:
                 return Response(status=304, headers=cache_headers)
             return Response(data, mimetype=mime, headers=cache_headers)
 
-        @app.get("/api/radarr/<category>/movie/<int:entry_id>/thumbnail")
+        @app.get("/api/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
         def api_radarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _arr_thumbnail(category, "radarr", entry_id)
 
-        @app.get("/web/radarr/<category>/movie/<int:entry_id>/thumbnail")
+        @app.get("/web/radarr/<path:category>/movie/<int:entry_id>/thumbnail")
         def web_radarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
@@ -2689,25 +2692,25 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/sonarr/<category>/series")
+        @app.get("/api/sonarr/<path:category>/series")
         def api_sonarr_series(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_sonarr_series(category)
 
-        @app.get("/web/sonarr/<category>/series")
+        @app.get("/web/sonarr/<path:category>/series")
         def web_sonarr_series(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_sonarr_series(category)
 
-        @app.get("/api/sonarr/<category>/series/<int:entry_id>/thumbnail")
+        @app.get("/api/sonarr/<path:category>/series/<int:entry_id>/thumbnail")
         def api_sonarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _arr_thumbnail(category, "sonarr", entry_id)
 
-        @app.get("/web/sonarr/<category>/series/<int:entry_id>/thumbnail")
+        @app.get("/web/sonarr/<path:category>/series/<int:entry_id>/thumbnail")
         def web_sonarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
@@ -2773,25 +2776,25 @@ class WebUI:
             payload["category"] = category
             return jsonify(payload)
 
-        @app.get("/api/lidarr/<category>/albums")
+        @app.get("/api/lidarr/<path:category>/albums")
         def api_lidarr_albums(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_albums(category)
 
-        @app.get("/web/lidarr/<category>/albums")
+        @app.get("/web/lidarr/<path:category>/albums")
         def web_lidarr_albums(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_albums(category)
 
-        @app.get("/api/lidarr/<category>/album/<int:entry_id>/thumbnail")
+        @app.get("/api/lidarr/<path:category>/album/<int:entry_id>/thumbnail")
         def api_lidarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _arr_thumbnail(category, "lidarr", entry_id)
 
-        @app.get("/web/lidarr/<category>/album/<int:entry_id>/thumbnail")
+        @app.get("/web/lidarr/<path:category>/album/<int:entry_id>/thumbnail")
         def web_lidarr_thumb(category: str, entry_id: int):
             if (resp := require_token()) is not None:
                 return resp
@@ -2831,37 +2834,37 @@ class WebUI:
             detail["category"] = category
             return jsonify(detail)
 
-        @app.get("/api/lidarr/<category>/artists")
+        @app.get("/api/lidarr/<path:category>/artists")
         def api_lidarr_artists(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_artists(category)
 
-        @app.get("/web/lidarr/<category>/artists")
+        @app.get("/web/lidarr/<path:category>/artists")
         def web_lidarr_artists(category: str):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_artists(category)
 
-        @app.get("/api/lidarr/<category>/artist/<int:artist_id>")
+        @app.get("/api/lidarr/<path:category>/artist/<int:artist_id>")
         def api_lidarr_artist_detail(category: str, artist_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_artist_detail(category, artist_id)
 
-        @app.get("/web/lidarr/<category>/artist/<int:artist_id>")
+        @app.get("/web/lidarr/<path:category>/artist/<int:artist_id>")
         def web_lidarr_artist_detail(category: str, artist_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _handle_lidarr_artist_detail(category, artist_id)
 
-        @app.get("/api/lidarr/<category>/artist/<int:artist_id>/thumbnail")
+        @app.get("/api/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
         def api_lidarr_artist_thumb(category: str, artist_id: int):
             if (resp := require_token()) is not None:
                 return resp
             return _arr_thumbnail(category, "lidarr_artist", artist_id)
 
-        @app.get("/web/lidarr/<category>/artist/<int:artist_id>/thumbnail")
+        @app.get("/web/lidarr/<path:category>/artist/<int:artist_id>/thumbnail")
         def web_lidarr_artist_thumb(category: str, artist_id: int):
             if (resp := require_token()) is not None:
                 return resp

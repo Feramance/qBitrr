@@ -167,6 +167,14 @@ qBitrr uses qBittorrent categories to track which Arr instance owns each torrent
   Category = "movies-4k"  # Custom category
   ```
 
+- **qBittorrent subcategories (4.6+):**
+  ```toml
+  [Radarr-4K]
+  Category = "seed/movies-4k"   # Hierarchical: parent "seed" / child "movies-4k"
+  ```
+
+  qBitrr matches the **exact** qBit string, so use the full `parent/leaf` path. To configure a parent once and have qBitrr also manage every child (`seed/movies-4k`, `seed/anime`, ...), enable `MatchSubcategories = true` on the corresponding `[qBit]` / `[qBit-<name>]` section. See the [Subcategories](../qbittorrent.md#subcategories-qbittorrent-46) section for details and troubleshooting.
+
 **Important:** Make sure your Arr instances are configured to use these categories in their download client settings.
 
 ## Integration Features

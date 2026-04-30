@@ -61,6 +61,9 @@ ArrErrorCodesToBlocklist = [
 !!! warning "Category Mismatch"
     The `Category` value in qBitrr **must exactly match** the category configured in Lidarr's qBittorrent download client settings. If they don't match, qBitrr won't process your Lidarr torrents.
 
+!!! info "qBittorrent Subcategories (4.6+)"
+    For hierarchical qBit categories like `seed/music`, set `Category` to the **full path** (`Category = "seed/music"`). To configure a parent once and have qBitrr also manage every child (`seed/music`, `seed/flac`, ...) enable `MatchSubcategories = true` on the corresponding `[qBit]` / `[qBit-<name>]` section. See [Subcategories](../qbittorrent.md#subcategories-qbittorrent-46).
+
 ---
 
 ### Multiple Lidarr Instances

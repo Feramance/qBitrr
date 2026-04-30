@@ -7,6 +7,11 @@ import time
 from typing import TYPE_CHECKING
 
 from qBitrr.arr_tracker_index import extract_tracker_host
+from qBitrr.category_paths import (
+    has_subcategory_separator,
+    matches_configured,
+    normalize_category,
+)
 from qBitrr.errors import DelayLoopException
 
 if TYPE_CHECKING:
@@ -38,20 +43,30 @@ class qBitCategoryManager:
         """
         self.instance_name = instance_name
         self.qbit_manager = qbit_manager
-        self.managed_categories = config.get("managed_categories", [])
+        self.managed_categories = [
+            normalize_category(c) for c in config.get("managed_categories", []) if c
+        ]
+        self.managed_categories = [c for c in self.managed_categories if c]
         self.default_seeding = config.get("default_seeding", {})
-        self.category_overrides = config.get("category_overrides", {})
+        self.category_overrides = {
+            normalize_category(k): v
+            for k, v in (config.get("category_overrides") or {}).items()
+            if k
+        }
         self.trackers = self._build_merged_trackers(config.get("trackers", []))
         self.stalled_delay = config.get("stalled_delay", -1)
         self.ignore_torrents_younger_than = config.get("ignore_torrents_younger_than", 600)
         self.allowed_stalled = self.stalled_delay != -1
+        self.match_subcategories = bool(config.get("match_subcategories", False))
         self.logger = logging.getLogger(f"qBitrr.qBitCategory.{instance_name}")
 
         self.logger.info(
-            "Initialized qBit category manager for instance '%s' with %d categories: %s",
+            "Initialized qBit category manager for instance '%s' with %d categories: %s "
+            "(MatchSubcategories=%s)",
             instance_name,
             len(self.managed_categories),
             ", ".join(self.managed_categories),
+            self.match_subcategories,
         )
 
     @staticmethod
@@ -94,19 +109,51 @@ class qBitCategoryManager:
         """
         Get seeding configuration for a category.
 
+        With ``MatchSubcategories=true`` the override registered for the parent
+        prefix (``seed``) is used for any descendant (``seed/tleech``) unless a
+        more specific override exists. Exact match always wins.
+
         Args:
-            category: Category name
+            category: Category name (full qBittorrent path)
 
         Returns:
             Seeding config dict (per-category override or default)
         """
-        if category in self.category_overrides:
-            self.logger.debug("Using category-specific seeding config for '%s'", category)
-            return self.category_overrides[category]
+        norm = normalize_category(category)
+        if not norm:
+            return self.default_seeding
+        if norm in self.category_overrides:
+            self.logger.debug("Using category-specific seeding config for '%s'", norm)
+            return self.category_overrides[norm]
+        if self.match_subcategories:
+            match = matches_configured(norm, list(self.category_overrides.keys()), prefix=True)
+            if match:
+                self.logger.debug(
+                    "Using inherited seeding config for '%s' (from prefix '%s')", norm, match
+                )
+                return self.category_overrides[match]
         return self.default_seeding
 
+    def _owning_managed_category(self, torrent_category: str | None) -> str | None:
+        """Return which configured ManagedCategories entry owns ``torrent_category``."""
+        if not torrent_category:
+            return None
+        norm = normalize_category(torrent_category)
+        if not norm:
+            return None
+        return matches_configured(norm, self.managed_categories, prefix=self.match_subcategories)
+
     def process_torrents(self):
-        """Process all torrents in managed categories."""
+        """Process all torrents in managed categories.
+
+        Strategy:
+        - Exact-match mode (``MatchSubcategories=false``): fetch each configured
+          category individually with the qBit ``category=`` filter (fast path).
+        - Subcategory-match mode: fetch the full torrent list once and dispatch
+          torrents to their owning configured prefix in Python. This is necessary
+          because qBittorrent's API filter is exact-match and would silently miss
+          children of a configured parent.
+        """
         client = self.get_client()
         if not client:
             self.logger.warning(
@@ -114,9 +161,36 @@ class qBitCategoryManager:
             )
             return
 
+        if self.match_subcategories:
+            try:
+                torrents = client.torrents_info()
+            except Exception as e:
+                self.logger.error(
+                    "Error fetching torrents for subcategory dispatch: %s", e, exc_info=True
+                )
+                return
+            dispatched = 0
+            for torrent in torrents:
+                cat = getattr(torrent, "category", None)
+                owner = self._owning_managed_category(cat)
+                if owner is None:
+                    continue
+                dispatched += 1
+                self._process_single_torrent(torrent, normalize_category(cat) or owner)
+            self.logger.debug(
+                "Subcategory dispatch processed %d torrents across %d categories",
+                dispatched,
+                len(self.managed_categories),
+            )
+            return
+
         for category in self.managed_categories:
             try:
-                # Fetch torrents in this category
+                if has_subcategory_separator(category):
+                    self.logger.debug(
+                        "Fetching torrents for subcategory path '%s' (exact match)", category
+                    )
+                # Fetch torrents in this category (exact match)
                 torrents = client.torrents_info(category=category)
                 self.logger.debug(
                     "Processing %d torrents in category '%s'",
