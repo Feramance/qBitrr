@@ -30,6 +30,8 @@ logger = logging.getLogger("qBitrr.database")
 
 # Global database instance
 _db: SqliteDatabase | None = None
+# Composite-PK rebuild for Arr file tables (persisted before v2 so failed v2 does not re-run v1).
+_DB_SCHEMA_VERSION_COMPOSITE_PK = 1
 _TARGET_DB_SCHEMA_VERSION = 2
 _ARR_FILE_TABLE_MODELS = (
     MoviesFilesModel,
@@ -494,9 +496,9 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
     """Add catalog denormalized count columns used by the WebUI.
 
     Returns ``True`` when both the column adds and the backfill UPDATEs succeeded so the
-    caller can bump ``user_version`` only on success (H-4).  On failure we leave the columns
-    in place (cheap and idempotent) but keep ``user_version`` below 2 so the next normal
-    ``db_update`` can populate the totals via :func:`refresh_rollups_after_db_update`.
+    caller can bump ``user_version`` to 2 only on success (H-4). On failure we leave the columns
+    in place (cheap and idempotent) but keep ``user_version`` at 1 so v2 retries on next start
+    without re-running the composite-PK migration.
 
     Backfill uses aggregate-based ``UPDATE ... FROM (SELECT ... GROUP BY ...)`` queries
     rather than per-row Python loops; chunking is unnecessary because a single SQL statement
@@ -645,10 +647,12 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
     """Run idempotent DB schema migrations guarded by user_version.
 
-    With ``_TARGET_DB_SCHEMA_VERSION == 2``, the only versions that reach the body of this
-    function are 0 and 1 (the early ``return`` above shields anything >= 2). The v2
-    migration is therefore the only branch we need to gate; when a future v3 migration is
-    added, give it its own ``if current_version < 3:`` block here.
+    Version 1: composite primary keys on Arr file tables (:func:`_migrate_arr_file_table_constraints`).
+    Version 2: denormalized catalog columns (:func:`_migrate_v2_catalog_denormalized_columns`).
+
+    v1 bumps ``user_version`` to 1 as soon as it completes so a failing v2 migration does not
+    force v1 to run again on every startup. v2 bumps to ``_TARGET_DB_SCHEMA_VERSION`` only on
+    success (H-4).
     """
     current_version = _get_db_schema_version(db)
     if current_version >= _TARGET_DB_SCHEMA_VERSION:
@@ -659,10 +663,20 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
         current_version,
         _TARGET_DB_SCHEMA_VERSION,
     )
-    _migrate_arr_file_table_constraints(db)
 
-    # Only bump user_version when the v2 migration reports success; otherwise it will be
-    # retried on next start without stranding the schema (H-4).
+    if current_version < _DB_SCHEMA_VERSION_COMPOSITE_PK:
+        _migrate_arr_file_table_constraints(db)
+        _set_db_schema_version(db, _DB_SCHEMA_VERSION_COMPOSITE_PK)
+        logger.info(
+            "Database composite-PK migration complete (user_version=%d).",
+            _DB_SCHEMA_VERSION_COMPOSITE_PK,
+        )
+
+    current_version = _get_db_schema_version(db)
+
+    if current_version >= _TARGET_DB_SCHEMA_VERSION:
+        return
+
     if _migrate_v2_catalog_denormalized_columns(db):
         _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
         logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)

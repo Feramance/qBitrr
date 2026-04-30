@@ -8911,10 +8911,11 @@ class ArrManager:
 
     @staticmethod
     def any_arr_match_subcategories_explicit_true() -> bool:
-        """True when some ``[Radarr-*]`` / ``[Sonarr-*]`` / ``[Lidarr-*]`` sets ``MatchSubcategories = true``."""
+        """True when some Arr section explicitly enables MatchSubcategories (truthy), not inherit."""
         for key in CONFIG.sections():
             if re.match(r"(rad|son|anim|lid)arr", key, re.IGNORECASE):
-                if CONFIG.get(f"{key}.MatchSubcategories", fallback=None) is True:
+                raw = CONFIG.get(f"{key}.MatchSubcategories", fallback=None)
+                if raw is not None and bool(raw):
                     return True
         return False
 
