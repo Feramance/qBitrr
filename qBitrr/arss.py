@@ -1053,9 +1053,8 @@ class Arr:
                 for parent in prefix_paths:
                     if parent in categories:
                         continue
-                    parent_of_parent = (
-                        category_parents(parent)[-1] if category_parents(parent) else None
-                    )
+                    parents_of_parent = category_parents(parent)
+                    parent_of_parent = parents_of_parent[-1] if parents_of_parent else None
                     if parent_of_parent and parent_of_parent in categories:
                         parent_save = categories[parent_of_parent].get("savePath") or str(
                             completed_root.joinpath(parent_of_parent)

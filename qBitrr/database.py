@@ -30,9 +30,13 @@ logger = logging.getLogger("qBitrr.database")
 
 # Global database instance
 _db: SqliteDatabase | None = None
-# Composite-PK rebuild for Arr file tables (persisted before v2 so failed v2 does not re-run v1).
+# Arr file tables + catalog columns + data fixes (failed step retries without re-running earlier).
 _DB_SCHEMA_VERSION_COMPOSITE_PK = 1
-_TARGET_DB_SCHEMA_VERSION = 2
+_DB_SCHEMA_VERSION_DENORMALIZED_CATALOG = 2
+_DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS = 3
+_TARGET_DB_SCHEMA_VERSION = _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS
+# Staging table suffix for composite-PK rebuild only (historical label; not bumped with TARGET).
+_LEGACY_ARR_FILE_STAGING_SCHEMA_VERSION = _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG
 _ARR_FILE_TABLE_MODELS = (
     MoviesFilesModel,
     EpisodeFilesModel,
@@ -412,7 +416,9 @@ def _copy_table_with_dedupe(
 def _rebuild_arr_file_table_with_composite_pk(db: SqliteDatabase, model: type[Model]) -> None:
     """Rebuild an Arr file table to match canonical composite PK schema."""
     table_name = model._meta.table_name
-    legacy_table_name = f"{table_name}__legacy_pre_schema_v{_TARGET_DB_SCHEMA_VERSION}"
+    legacy_table_name = (
+        f"{table_name}__legacy_pre_schema_v{_LEGACY_ARR_FILE_STAGING_SCHEMA_VERSION}"
+    )
 
     if _table_exists(db, legacy_table_name):
         raise RuntimeError(
@@ -644,15 +650,67 @@ def _migrate_v2_catalog_denormalized_columns(db: SqliteDatabase) -> bool:
         return False
 
 
+# Values above this (when interpreted as whole seconds) are implausible for a single Lidarr
+# track file; they match magnitudes produced by storing API milliseconds without dividing.
+_LIDARR_TRACK_DURATION_MS_LEGACY_THRESHOLD = 36000
+
+
+def _migrate_v3_lidarr_track_duration_seconds(db: SqliteDatabase) -> bool:
+    """Divide legacy ``TrackFiles.Duration`` values that were stored as milliseconds.
+
+    Ingest now stores seconds (:func:`qBitrr.arss._lidarr_track_duration_seconds`). Older rows
+    could keep raw millisecond integers (e.g. 240000 reads as 240000s in the WebUI). Rows with
+    ``Duration`` strictly greater than :data:`_LIDARR_TRACK_DURATION_MS_LEGACY_THRESHOLD` are
+    converted with integer ``Duration / 1000``. Already-normalized rows stay below the cutoff
+    and are untouched; the UPDATE is idempotent.
+
+    Returns ``True`` on success so :func:`_apply_db_schema_migrations` can bump ``user_version``.
+    """
+    tn = TrackFilesModel._meta.table_name
+    if not _table_exists(db, tn):
+        return True
+    if "Duration" not in _get_table_columns(db, tn):
+        return True
+    qtn = _quote_identifier(tn)
+    thr = int(_LIDARR_TRACK_DURATION_MS_LEGACY_THRESHOLD)
+    try:
+        with db.atomic():
+            count_cur = db.execute_sql(
+                f"SELECT COUNT(*) FROM {qtn} WHERE Duration IS NOT NULL AND Duration > {thr}"
+            )
+            row_count = int(count_cur.fetchone()[0])
+            if row_count > 0:
+                logger.info(
+                    "Normalizing %s.Duration for %d row(s): legacy ms stored as integer (> %ds)",
+                    tn,
+                    row_count,
+                    thr,
+                )
+                db.execute_sql(
+                    f"""
+                    UPDATE {qtn}
+                    SET Duration = Duration / 1000
+                    WHERE Duration IS NOT NULL AND Duration > {thr}
+                    """
+                )
+        return True
+    except Exception as e:
+        logger.warning(
+            "TrackFiles.Duration normalization (ms -> seconds) failed: %s",
+            e,
+        )
+        return False
+
+
 def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
     """Run idempotent DB schema migrations guarded by user_version.
 
     Version 1: composite primary keys on Arr file tables (:func:`_migrate_arr_file_table_constraints`).
     Version 2: denormalized catalog columns (:func:`_migrate_v2_catalog_denormalized_columns`).
+    Version 3: Lidarr ``TrackFiles.Duration`` ms legacy cleanup (:func:`_migrate_v3_lidarr_track_duration_seconds`).
 
-    v1 bumps ``user_version`` to 1 as soon as it completes so a failing v2 migration does not
-    force v1 to run again on every startup. v2 bumps to ``_TARGET_DB_SCHEMA_VERSION`` only on
-    success (H-4).
+    Earlier versions bump first so a failing later migration does not force earlier steps to rerun.
+    Each step advances ``user_version`` only on success (H-4 pattern).
     """
     current_version = _get_db_schema_version(db)
     if current_version >= _TARGET_DB_SCHEMA_VERSION:
@@ -673,19 +731,41 @@ def _apply_db_schema_migrations(db: SqliteDatabase) -> None:
         )
 
     current_version = _get_db_schema_version(db)
-
     if current_version >= _TARGET_DB_SCHEMA_VERSION:
         return
 
-    if _migrate_v2_catalog_denormalized_columns(db):
-        _set_db_schema_version(db, _TARGET_DB_SCHEMA_VERSION)
-        logger.info("Database schema upgrade complete (version %d).", _TARGET_DB_SCHEMA_VERSION)
-    else:
-        logger.warning(
-            "Database schema kept at version %d; v%d migration will retry on next start.",
-            current_version,
-            _TARGET_DB_SCHEMA_VERSION,
-        )
+    if current_version < _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG:
+        if _migrate_v2_catalog_denormalized_columns(db):
+            _set_db_schema_version(db, _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG)
+            logger.info(
+                "Database denormalized catalog migration complete (user_version=%d).",
+                _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG,
+            )
+        else:
+            logger.warning(
+                "Database schema kept at version %d; v%d migration will retry on next start.",
+                current_version,
+                _DB_SCHEMA_VERSION_DENORMALIZED_CATALOG,
+            )
+            return
+
+    current_version = _get_db_schema_version(db)
+    if current_version >= _TARGET_DB_SCHEMA_VERSION:
+        return
+
+    if current_version < _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS:
+        if _migrate_v3_lidarr_track_duration_seconds(db):
+            _set_db_schema_version(db, _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS)
+            logger.info(
+                "Database schema upgrade complete (user_version=%d).",
+                _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS,
+            )
+        else:
+            logger.warning(
+                "Database schema kept at version %d; v%d migration will retry on next start.",
+                current_version,
+                _DB_SCHEMA_VERSION_LIDARR_TRACK_DURATION_SECONDS,
+            )
 
 
 def get_database_path() -> Path:
