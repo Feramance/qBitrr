@@ -692,7 +692,7 @@ curl -O http://localhost:6969/web/logs/Main.log/download
 
 ### Arr poster thumbnails (cached)
 
-Read-only image bytes for browse **Icon** tiles and detail modals. The server asks each Arr instance for the entity (movie, series, or album) and only serves images from **that same Arr host** (for example `MediaCover` paths under the Arr base URL). Metadata that points at external CDNs is ignored; if no same-host image exists, the route returns **404** and the WebUI shows a built-in placeholder. qBitrr downloads bytes from the Arr URL using the instance API key, caches them under the qBitrr data directory, and returns them with long-cache headers when possible. Cache files written before this policy may still contain older bytes until cleared.
+Read-only image bytes for browse **Icon** tiles and detail modals. The server asks each Arr instance for the entity (movie, series, or **Lidarr artist**) and only serves images from **that same Arr host** (for example `MediaCover` paths under the Arr base URL). Metadata that points at external CDNs is ignored; if no same-host image exists, the route returns **404** and the WebUI shows a built-in placeholder. qBitrr downloads bytes from the Arr URL using the instance API key, caches them under the qBitrr data directory, and returns them with long-cache headers when possible. For Lidarr artists, when the JSON payload has no usable same-host URL, qBitrr may probe `MediaCover` paths on that Arr host before giving up. Cache files written before this policy may still contain older bytes until cleared.
 
 **Endpoints** (each has a `/api` and `/web` mirror; behavior is identical):
 
@@ -700,9 +700,9 @@ Read-only image bytes for browse **Icon** tiles and detail modals. The server as
 |--------|----------------|
 | `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
 | `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
-| `GET` | `/api/lidarr/<category>/album/<id>/thumbnail` · `/web/lidarr/<category>/album/<id>/thumbnail` |
+| `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
 
-**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or album). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or Lidarr artist). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
 
 **Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
 
