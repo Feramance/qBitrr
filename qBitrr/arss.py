@@ -5131,10 +5131,13 @@ class Arr:
 
         With ``MatchSubcategories`` disabled (default) this uses qBittorrent's
         ``torrents/info?category=`` filter, which is exact-match — see
-        :mod:`qBitrr.category_paths`. When enabled at the qBit level, the full
-        torrent list for each instance is fetched and torrents whose category is
-        equal to or a strict descendant of ``self.category`` are kept; this
-        avoids the "leaf misses children" trap that motivated #386.
+        :mod:`qBitrr.category_paths`.
+
+        When enabled at the qBit level, the full torrent list for each instance is
+        fetched and torrents under ``self.category`` are candidates; those whose
+        category resolves to a **more specific** configured owner (another Arr or
+        qBit-managed path, same rules as :meth:`ArrManager.resolve_owning_category`)
+        are dropped so only this instance's ``Category`` key processes each torrent.
 
         Returns:
             list[tuple[str, TorrentDictionary]]: List of (instance_name, torrent) tuples
@@ -5178,12 +5181,15 @@ class Arr:
                 for torrent in torrents:
                     if not hasattr(torrent, "category"):
                         continue
+                    cat = normalize_category(getattr(torrent, "category", "") or "")
+                    if not cat:
+                        continue
                     if instance_subcat_match:
-                        cat = normalize_category(getattr(torrent, "category", "") or "")
-                        if not cat:
-                            continue
                         if cat != target_category and not cat.startswith(target_category + "/"):
                             continue
+                    owner = self.manager.resolve_owning_category(cat, qbit_section=instance_name)
+                    if owner != self.category:
+                        continue
                     all_torrents.append((instance_name, torrent))
                     kept += 1
 
