@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -10,7 +12,7 @@ from urllib.parse import urljoin, urlparse
 
 import requests
 
-from qBitrr.config import HOME_PATH
+from qBitrr.config import APPDATA_FOLDER, HOME_PATH
 
 logger = logging.getLogger("qBitrr.WebUI.Thumbnails")
 
@@ -25,14 +27,72 @@ _THUMB_TOTAL_TIMEOUT = 30.0
 
 # Cache directory resolution is idempotent; memoise to skip the per-request ``mkdir`` syscall.
 _CACHE_DIR_PATH: Path | None = None
+_LEGACY_CACHE_DIR = HOME_PATH / "cache" / "thumbnails"
+_MIGRATE_LOCK = threading.Lock()
+
+
+def _migrate_legacy_thumbnail_cache(new_dir: Path) -> None:
+    """One-shot migration of cached thumbnails from the old ``HOME_PATH/cache`` location.
+
+    Called from :func:`_cache_dir` after the new directory is created. Idempotent and
+    best-effort: a missing or empty legacy directory is a fast no-op so subsequent runs
+    do not log or do work. Existing files in ``new_dir`` are never overwritten.
+    """
+    legacy = _LEGACY_CACHE_DIR
+    with _MIGRATE_LOCK:
+        try:
+            if not legacy.exists() or legacy.resolve() == new_dir.resolve():
+                return
+        except OSError:
+            return
+        try:
+            entries = sorted(p for p in legacy.iterdir() if p.suffix in {".bin", ".etag"})
+        except OSError:
+            return
+        if not entries:
+            try:
+                legacy.rmdir()
+                legacy.parent.rmdir()
+            except OSError:
+                pass
+            return
+        logger.info(
+            "Migrating %d thumbnail cache files from %s to %s",
+            len(entries),
+            legacy,
+            new_dir,
+        )
+        moved = 0
+        skipped = 0
+        for src in entries:
+            dst = new_dir / src.name
+            if dst.exists():
+                skipped += 1
+                continue
+            try:
+                shutil.move(str(src), str(dst))
+                moved += 1
+            except OSError as e:
+                logger.debug("Could not migrate thumbnail %s: %s", src, e)
+                skipped += 1
+        try:
+            legacy.rmdir()
+        except OSError:
+            pass
+        try:
+            legacy.parent.rmdir()
+        except OSError:
+            pass
+        logger.info("Thumbnail cache migration finished (moved=%d, skipped=%d)", moved, skipped)
 
 
 def _cache_dir() -> Path:
     global _CACHE_DIR_PATH
     if _CACHE_DIR_PATH is None:
-        d = (HOME_PATH / "cache" / "thumbnails").resolve()
+        d = (APPDATA_FOLDER / "cache" / "thumbnails").resolve()
         d.mkdir(parents=True, exist_ok=True)
         _CACHE_DIR_PATH = d
+        _migrate_legacy_thumbnail_cache(d)
     return _CACHE_DIR_PATH
 
 

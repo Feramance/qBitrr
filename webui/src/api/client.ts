@@ -301,7 +301,11 @@ export async function getLidarrArtists(
   page: number,
   pageSize: number,
   query?: string,
-  options?: { monitored?: boolean | null }
+  options?: {
+    monitored?: boolean | null;
+    missingOnly?: boolean;
+    reasonFilter?: string | null;
+  }
 ): Promise<LidarrArtistsResponse> {
   const params = new URLSearchParams();
   params.set("page", page.toString());
@@ -312,6 +316,13 @@ export async function getLidarrArtists(
   const mv = options?.monitored;
   if (mv === true || mv === false) {
     params.set("monitored", mv ? "1" : "0");
+  }
+  if (options?.missingOnly) {
+    params.set("missing", "1");
+  }
+  const reason = options?.reasonFilter;
+  if (typeof reason === "string" && reason && reason !== "all") {
+    params.set("reason", reason);
   }
   return fetchJson<LidarrArtistsResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/artists?${params}`

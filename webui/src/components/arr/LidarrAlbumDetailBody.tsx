@@ -77,7 +77,12 @@ export function LidarrAlbumDetailBody({
               </tr>
             </thead>
             <tbody>
-              {tracks.map((track) => (
+              {tracks.map((track) => {
+                const trackReason =
+                  typeof track.reason === "string" && track.reason.trim() !== ""
+                    ? track.reason.trim()
+                    : reason ?? null;
+                return (
                 <tr
                   key={`${albumId ?? "a"}-${track.id ?? track.trackNumber}-${track.title}`}
                   className={track.hasFile ? "track-available" : "track-missing"}
@@ -99,9 +104,9 @@ export function LidarrAlbumDetailBody({
                     </span>
                   </td>
                   <td data-label="Reason">
-                    {reason ? (
+                    {trackReason ? (
                       <span className="table-badge table-badge-reason">
-                        {reason}
+                        {trackReason}
                       </span>
                     ) : (
                       <span className="table-badge table-badge-reason">
@@ -110,7 +115,8 @@ export function LidarrAlbumDetailBody({
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

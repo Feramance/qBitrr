@@ -862,6 +862,33 @@ Browse Sonarr series library from cached database.
 
 ---
 
+### Lidarr Artists
+
+Browse Lidarr artist library from the cached database. Mirrors Radarr/Sonarr filtering: a `Status` (missing only) and `Search Reason` filter, scoped to the artists' albums.
+
+**Endpoints**:
+- `GET /api/lidarr/<category>/artists` (requires auth)
+- `GET /web/lidarr/<category>/artists` (public)
+
+**Path Parameters**:
+
+- `category` (string, required) – Lidarr instance category. The literal string `lidarr` resolves to the single configured Lidarr instance when only one exists.
+
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | null | Search query (artist name) |
+| `page` | integer | 0 | Page number |
+| `page_size` | integer | 50 | Results per page (alias `size` accepted) |
+| `monitored` | boolean | null | Filter by monitored artist |
+| `missing` | boolean | false | Restrict to artists with at least one monitored album whose file is missing |
+| `reason` | string | `all` | Restrict to artists with at least one album whose `Reason` matches. Accepted values: `Missing`, `Quality`, `CustomFormat`, `Upgrade`, `Not being searched` (also matches NULL). Use `all` (or omit) for no reason filter. |
+
+The `missing` and `reason` filters are applied at the album level via an `EXISTS`-style subquery on `AlbumFilesModel`; `total` and pagination reflect the filtered artist set, so the UI shows accurate counts.
+
+---
+
 ### Lidarr Albums
 
 Browse Lidarr album library from cached database.
@@ -933,7 +960,8 @@ Browse Lidarr album library from cached database.
           "duration": 70,
           "hasFile": true,
           "trackFileId": 1001,
-          "monitored": true
+          "monitored": true,
+          "reason": "Not being searched"
         }
       ]
     }
@@ -942,6 +970,8 @@ Browse Lidarr album library from cached database.
 ```
 
 **Grouping**: Tracks nested within albums.
+
+**Track `reason`**: Each object in `tracks` includes a string `reason` derived for that row (for example `Missing`, `Unmonitored`, `Not being searched`, or album-level states such as `Quality` when applicable). Older responses may omit it; clients can fall back to the parent album `reason`.
 
 ---
 

@@ -540,6 +540,22 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Restrict to artists with at least one monitored album whose file is missing.",
+            "in": "query",
+            "name": "missing",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Restrict to artists with at least one album whose Reason matches. Accepts Missing, Quality, CustomFormat, Upgrade, or 'Not being searched' (also matches NULL).",
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1956,6 +1972,22 @@
           {
             "in": "query",
             "name": "monitored",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Restrict to artists with at least one monitored album whose file is missing.",
+            "in": "query",
+            "name": "missing",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Restrict to artists with at least one album whose Reason matches. Accepts Missing, Quality, CustomFormat, Upgrade, or 'Not being searched' (also matches NULL).",
+            "in": "query",
+            "name": "reason",
             "schema": {
               "type": "string"
             }

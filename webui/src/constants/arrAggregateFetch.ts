@@ -1,5 +1,5 @@
-/** Page size used when iterating the full Arr library for aggregate ("All instances") merge. Kept small for responsive API responses. */
-export const AGGREGATE_FETCH_CHUNK_SIZE = 10;
+/** Page size when iterating each instance for aggregate merge. Larger = fewer HTTP round-trips. */
+export const AGGREGATE_FETCH_CHUNK_SIZE = 100;
 
 /** Fallback max page iterations when API omits reliable `total`. */
 export const AGG_FALLBACK_AGGREGATE_PAGES_MAX = 100000;

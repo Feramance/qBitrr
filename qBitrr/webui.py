@@ -12,15 +12,18 @@ import time
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import bcrypt
 from authlib.integrations.flask_client import OAuth
 from flask import Flask, Response, jsonify, redirect, request, send_file, session
+from peewee import SQL, fn
 
 from qBitrr.arss import PlaceHolderArr, TorrentPolicyManager
 from qBitrr.bundled_data import patched_version, tagged_version
 from qBitrr.catalog_rollups import (
+    _sum_case_int,
     get_lidarr_album_and_track_rollups,
     get_lidarr_track_counts_total,
     get_radarr_counts_total,
@@ -751,6 +754,23 @@ class WebUI:
             "movies": movies,
         }
 
+    @staticmethod
+    def _lidarr_track_row_reason(
+        *,
+        track_monitored: bool,
+        track_has_file: bool,
+        album_reason: Any,
+    ) -> str:
+        """Derive a per-track search reason for the WebUI (SQLite tracks have no Reason column)."""
+        ar = str(album_reason).strip() if album_reason is not None else ""
+        if not track_monitored:
+            return "Unmonitored"
+        if not track_has_file:
+            return "Missing"
+        if ar and ar != "Missing":
+            return ar
+        return "Not being searched"
+
     def _lidarr_album_row_payload(
         self,
         arr,
@@ -787,6 +807,8 @@ class WebUI:
                 )
                 track_iterable = []
 
+        album_reason_raw = getattr(album, "Reason", None)
+
         for track in track_iterable:
             is_monitored = self._safe_bool(getattr(track, "Monitored", False))
             has_file = self._safe_bool(getattr(track, "HasFile", False))
@@ -795,6 +817,12 @@ class WebUI:
                 track_monitored_count += 1
             if has_file:
                 track_available_count += 1
+
+            track_reason = self._lidarr_track_row_reason(
+                track_monitored=is_monitored,
+                track_has_file=has_file,
+                album_reason=album_reason_raw,
+            )
 
             tracks_list.append(
                 {
@@ -805,6 +833,7 @@ class WebUI:
                     "hasFile": has_file,
                     "trackFileId": getattr(track, "TrackFileId", None),
                     "monitored": is_monitored,
+                    "reason": track_reason,
                 }
             )
 
@@ -845,6 +874,89 @@ class WebUI:
             "tracks": tracks_list,
         }
 
+    @staticmethod
+    def _lidarr_instance_keys(arr: Any) -> list[str]:
+        """Return distinct non-empty ``ArrInstance`` keys to query for one Lidarr ``Arr``.
+
+        Workers stamp ``ArtistFilesModel.ArrInstance`` with ``Arr._name``, but older or
+        manually repaired databases may still carry ``Arr.category``. Matching only
+        ``_name`` yields an empty browse with non-zero rollups.
+        """
+        name = (getattr(arr, "_name", None) or "").strip()
+        cat = (getattr(arr, "category", None) or "").strip()
+        keys: list[str] = []
+        for k in (name, cat):
+            if k and k not in keys:
+                keys.append(k)
+        if not keys:
+            keys = [name] if name else [""]
+        return keys
+
+    @staticmethod
+    def _lidarr_artist_browse_progress_maps(
+        album_m: Any,
+        track_m: Any,
+        arr_instance_keys: list[str],
+        artist_ids: list[int],
+    ) -> tuple[dict[int, tuple[int, int]], dict[int, tuple[int, int]]]:
+        """Return per-artist (monitored, on-disk) counts for albums and tracks.
+
+        Album "available" matches catalog rules: monitored row with non-zero ``AlbumFileId``.
+        Track "available": monitored with ``HasFile`` true.
+        """
+        alb_out: dict[int, tuple[int, int]] = {}
+        trk_out: dict[int, tuple[int, int]] = {}
+        if not artist_ids or not arr_instance_keys:
+            return alb_out, trk_out
+
+        artist_id_col = album_m.ArtistId.alias("artist_id")
+        mon_alb = album_m.Monitored == True  # noqa: E712
+        alb_file = (album_m.AlbumFileId.is_null(False)) & (album_m.AlbumFileId != 0)
+        aq = (
+            album_m.select(
+                artist_id_col,
+                _sum_case_int(mon_alb, "mon_n"),
+                _sum_case_int(mon_alb & alb_file, "avail_n"),
+            )
+            .where(
+                (album_m.ArrInstance.in_(arr_instance_keys)) & (album_m.ArtistId.in_(artist_ids))
+            )
+            .group_by(artist_id_col)
+        )
+        for row in aq.dicts():
+            raw_aid = row.get("artist_id")
+            if raw_aid is None:
+                continue
+            aid = int(raw_aid)
+            alb_out[aid] = (int(row.get("mon_n") or 0), int(row.get("avail_n") or 0))
+
+        if track_m is not None:
+            mon_tr = track_m.Monitored == True  # noqa: E712
+            tr_ok = track_m.HasFile == True  # noqa: E712
+            tq = (
+                track_m.select(
+                    artist_id_col,
+                    _sum_case_int(mon_tr, "mon_n"),
+                    _sum_case_int(mon_tr & tr_ok, "avail_n"),
+                )
+                .join(album_m, on=(track_m.AlbumId == album_m.EntryId))
+                .where(
+                    (track_m.ArrInstance.in_(arr_instance_keys))
+                    & (album_m.ArrInstance.in_(arr_instance_keys))
+                    & (album_m.ArtistId.in_(artist_ids))
+                )
+                .group_by(artist_id_col)
+            )
+            # Joined aggregate is rooted at ``track_m``; model rows omit ``artist_id`` alias.
+            for row in tq.dicts():
+                raw_aid = row.get("artist_id")
+                if raw_aid is None:
+                    continue
+                aid = int(raw_aid)
+                trk_out[aid] = (int(row.get("mon_n") or 0), int(row.get("avail_n") or 0))
+
+        return alb_out, trk_out
+
     def _lidarr_artists_from_db(
         self,
         arr,
@@ -852,6 +964,8 @@ class WebUI:
         page: int,
         page_size: int,
         monitored: bool | None = None,
+        missing_only: bool = False,
+        reason_filter: str | None = None,
     ) -> dict[str, Any]:
         empty = {
             "counts": {
@@ -877,7 +991,7 @@ class WebUI:
 
         page = max(page, 0)
         page_size = max(page_size, 1)
-        arr_instance = getattr(arr, "_name", "")
+        arr_keys = self._lidarr_instance_keys(arr)
 
         (rollup_album_counts, album_total_inst), (rollup_track_counts, _) = (
             get_lidarr_album_and_track_rollups(arr)
@@ -885,33 +999,163 @@ class WebUI:
 
         slice_rows: list[Any] = []
         total = 0
+        alb_maps: dict[int, tuple[int, int]] = {}
+        trk_maps: dict[int, tuple[int, int]] = {}
+
+        # Build the optional album-row predicate that maps Status / Search Reason filters to
+        # the underlying ``AlbumFilesModel`` rows. ``Not being searched`` matches NULL too,
+        # since older album rows may have left ``Reason`` unset.
+        def _album_filter_extra(album_m: Any) -> Any | None:
+            cond: Any | None = None
+            if missing_only and album_m is not None:
+                miss = (album_m.Monitored == True) & (  # noqa: E712
+                    album_m.AlbumFileId.is_null() | (album_m.AlbumFileId == 0)
+                )
+                cond = miss if cond is None else cond & miss
+            if reason_filter and album_m is not None:
+                if reason_filter == "Not being searched":
+                    rcond = (album_m.Reason == "Not being searched") | album_m.Reason.is_null()
+                else:
+                    rcond = album_m.Reason == reason_filter
+                cond = rcond if cond is None else cond & rcond
+            return cond
+
         with database_lock():
             with db.connection_context():
-                base = arm.select().where(arm.ArrInstance == arr_instance)
+                album_m = getattr(arr, "model_file", None)
+                track_m = getattr(arr, "track_file_model", None)
+
+                album_filter_extra = _album_filter_extra(album_m)
+
+                base = arm.select().where(arm.ArrInstance.in_(arr_keys))
                 q_art = base
                 if search:
                     q_art = q_art.where(arm.Title.contains(search))
                 if monitored is not None:
                     q_art = q_art.where(arm.Monitored == monitored)
+                if album_filter_extra is not None and album_m is not None:
+                    artist_ids_subq = album_m.select(album_m.ArtistId).where(
+                        album_m.ArrInstance.in_(arr_keys) & album_filter_extra
+                    )
+                    q_art = q_art.where(arm.EntryId.in_(artist_ids_subq))
 
                 total = int(q_art.count() or 0)
                 slice_rows = list(q_art.order_by(arm.Title.asc()).paginate(page + 1, page_size))
 
-        # Lock released — serialise rows outside (B-3).
-        artists_out: list[dict[str, Any]] = [
-            {
-                "artist": {
-                    "id": ar.EntryId,
-                    "name": ar.Title or "",
-                    "monitored": self._safe_bool(ar.Monitored),
-                    "albumCount": int(getattr(ar, "AlbumCount", None) or 0),
-                    "trackTotalCount": int(getattr(ar, "TrackTotalCount", None) or 0),
-                    "qualityProfileName": getattr(ar, "QualityProfileName", None),
-                    "searched": self._safe_bool(ar.Searched),
+                # Album rows can be populated while ArtistFilesModel has no rows (e.g. artist
+                # ingest skipped or legacy DB). Rollups then show album totals but browse was empty.
+                if total == 0 and int(album_total_inst or 0) > 0 and album_m is not None:
+                    conds: list[Any] = [album_m.ArrInstance.in_(arr_keys)]
+                    if search:
+                        conds.append(album_m.ArtistTitle.contains(search))
+                    if album_filter_extra is not None:
+                        conds.append(album_filter_extra)
+                    grouped_artists = (
+                        album_m.select(
+                            album_m.ArtistId,
+                            fn.MIN(album_m.ArtistTitle).alias("disp_title"),
+                            fn.MAX(album_m.Monitored).alias("mx_mon"),
+                        )
+                        .where(*conds)
+                        .group_by(album_m.ArtistId)
+                    )
+                    if monitored is True:
+                        grouped_artists = grouped_artists.having(
+                            fn.MAX(album_m.Monitored) == True  # noqa: E712
+                        )
+                    elif monitored is False:
+                        grouped_artists = grouped_artists.having(
+                            fn.MAX(album_m.Monitored) == False  # noqa: E712
+                        )
+                    count_wrap = grouped_artists.alias("lidarr_artists_fb")
+                    total = int(album_m.select(fn.COUNT(SQL("*"))).from_(count_wrap).scalar() or 0)
+                    slice_rows = []
+                    for row in grouped_artists.order_by(
+                        fn.MIN(album_m.ArtistTitle).asc(),
+                        album_m.ArtistId.asc(),
+                    ).paginate(page + 1, page_size):
+                        aid = int(row.ArtistId)
+                        ar_rec = arm.get_or_none(
+                            (arm.EntryId == aid) & (arm.ArrInstance.in_(arr_keys))
+                        )
+                        if ar_rec is not None:
+                            slice_rows.append(ar_rec)
+                        else:
+                            disp = getattr(row, "disp_title", None) or ""
+                            mx = getattr(row, "mx_mon", None)
+                            slice_rows.append(
+                                SimpleNamespace(
+                                    EntryId=aid,
+                                    Title=disp,
+                                    Monitored=mx,
+                                    AlbumCount=0,
+                                    TrackTotalCount=0,
+                                    QualityProfileName=None,
+                                    Searched=False,
+                                )
+                            )
+                    # #region agent log
+                    try:
+                        _dbg = Path("/home/feramance/qBitrr/.cursor/debug-16ea43.log")
+                        if _dbg.parent.is_dir():
+                            with _dbg.open("a", encoding="utf-8") as df:
+                                df.write(
+                                    json.dumps(
+                                        {
+                                            "sessionId": "16ea43",
+                                            "hypothesisId": "H-album-fallback",
+                                            "location": "webui._lidarr_artists_from_db",
+                                            "message": "artist browse used album-derived fallback",
+                                            "data": {
+                                                "album_total_inst": int(album_total_inst),
+                                                "arr_keys": arr_keys,
+                                                "fallback_total": total,
+                                                "page_rows": len(slice_rows),
+                                            },
+                                            "timestamp": int(time.time() * 1000),
+                                        },
+                                        separators=(",", ":"),
+                                        default=str,
+                                    )
+                                    + "\n"
+                                )
+                    except OSError:
+                        pass
+                    # #endregion
+
+                ids = [int(ar.EntryId) for ar in slice_rows]
+                alb_maps, trk_maps = {}, {}
+                if ids and album_m is not None:
+                    alb_maps, trk_maps = WebUI._lidarr_artist_browse_progress_maps(
+                        album_m, track_m, arr_keys, ids
+                    )
+
+        artists_out: list[dict[str, Any]] = []
+        for ar in slice_rows:
+            aid = int(ar.EntryId)
+            am, aa = alb_maps.get(aid, (0, 0))
+            tm, ta = trk_maps.get(aid, (0, 0))
+            miss_a = max(am - aa, 0)
+            miss_t = max(tm - ta, 0)
+            artists_out.append(
+                {
+                    "artist": {
+                        "id": ar.EntryId,
+                        "name": ar.Title or "",
+                        "monitored": self._safe_bool(ar.Monitored),
+                        "albumCount": int(getattr(ar, "AlbumCount", None) or 0),
+                        "trackTotalCount": int(getattr(ar, "TrackTotalCount", None) or 0),
+                        "qualityProfileName": getattr(ar, "QualityProfileName", None),
+                        "searched": self._safe_bool(ar.Searched),
+                        "albumsMonitored": am,
+                        "albumsAvailable": aa,
+                        "albumsMissing": miss_a,
+                        "tracksMonitored": tm,
+                        "tracksAvailable": ta,
+                        "tracksMissing": miss_t,
+                    }
                 }
-            }
-            for ar in slice_rows
-        ]
+            )
 
         return {
             "counts": dict(rollup_album_counts),
@@ -939,7 +1183,7 @@ class WebUI:
         if not self._ensure_arr_db(arr) or arm is None or album_m is None or db is None:
             return None
 
-        arr_instance = getattr(arr, "_name", "")
+        arr_keys = self._lidarr_instance_keys(arr)
 
         # Compute rollups before acquiring the DB lock. Standardised ordering across all
         # ``*_from_db`` helpers (M-2): rollup -> lock -> read -> release -> build payload.
@@ -954,13 +1198,13 @@ class WebUI:
         with database_lock():
             with db.connection_context():
                 artist_row = arm.get_or_none(
-                    (arm.EntryId == artist_id) & (arm.ArrInstance == arr_instance)
+                    (arm.EntryId == artist_id) & (arm.ArrInstance.in_(arr_keys))
                 )
                 if artist_row is None:
                     return None
 
                 aq = album_m.select().where(
-                    (album_m.ArtistId == artist_id) & (album_m.ArrInstance == arr_instance)
+                    (album_m.ArtistId == artist_id) & (album_m.ArrInstance.in_(arr_keys))
                 )
                 try:
                     aq = aq.order_by(album_m.ReleaseDate, album_m.Title)
@@ -977,8 +1221,8 @@ class WebUI:
                         )
                         .join(album_m, on=(track_m.AlbumId == album_m.EntryId))
                         .where(
-                            (track_m.ArrInstance == arr_instance)
-                            & (album_m.ArrInstance == arr_instance)
+                            (track_m.ArrInstance.in_(arr_keys))
+                            & (album_m.ArrInstance.in_(arr_keys))
                             & (album_m.ArtistId == artist_id)
                         )
                         .order_by(album_m.EntryId, track_m.TrackNumber)
@@ -1749,6 +1993,36 @@ class WebUI:
 
         def _ensure_arr_manager_ready() -> bool:
             return getattr(self.manager, "arr_manager", None) is not None
+
+        def _resolve_managed_lidarr(category: str) -> Any | None:
+            """Resolve a Lidarr ``Arr`` from the URL *category* segment.
+
+            ``managed_objects`` keys are instance/qBittorrent category strings, not type
+            names. Some callers use the type slug ``lidarr`` (e.g. OpenAPI defaults);
+            when exactly one Lidarr instance exists, resolve it unambiguously.
+            """
+            managed = _managed_objects()
+            if not managed:
+                return None
+            arr = managed.get(category)
+            if arr is not None:
+                return arr if getattr(arr, "type", None) == "lidarr" else None
+            slug = (category or "").strip().lower()
+            if slug != "lidarr":
+                return None
+            matches = [a for a in managed.values() if getattr(a, "type", None) == "lidarr"]
+            resolved = matches[0] if len(matches) == 1 else None
+            return resolved
+
+        def _lidarr_page_size_from_request(default: int = 50) -> int:
+            """``page_size`` with ``size`` as alias (some clients send only ``size``)."""
+            ps = request.args.get("page_size", type=int)
+            sz = request.args.get("size", type=int)
+            if ps is not None:
+                return min(ps, 1000)
+            if sz is not None:
+                return min(sz, 1000)
+            return default
 
         @app.get("/health")
         def health():
@@ -2630,8 +2904,13 @@ class WebUI:
             if not managed:
                 if not _ensure_arr_manager_ready():
                     return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != kind:
+            expected_type = "lidarr" if kind == "lidarr_artist" else kind
+            if kind == "lidarr_artist":
+                arr = _resolve_managed_lidarr(category)
+            else:
+                arr = managed.get(category)
+            arr_type = getattr(arr, "type", None) if arr is not None else None
+            if arr is None or arr_type != expected_type:
                 return jsonify({"error": f"Unknown {kind} category {category}"}), 404
             name = getattr(arr, "_name", category)
             # ``private`` rather than ``public``: thumbnail responses are token-bearing
@@ -2721,13 +3000,12 @@ class WebUI:
             if not managed:
                 if not _ensure_arr_manager_ready():
                     return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "lidarr":
+            arr = _resolve_managed_lidarr(category)
+            if arr is None:
                 return jsonify({"error": f"Unknown lidarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
-            page_size = request.args.get("page_size", default=50, type=int)
-            page_size = min(page_size, 1000)
+            page_size = _lidarr_page_size_from_request(50)
             monitored = (
                 self._query_truthy(request.args.get("monitored"))
                 if "monitored" in request.args
@@ -2773,7 +3051,7 @@ class WebUI:
                     is_request=is_request,
                     group_by_artist=True,
                 )
-            payload["category"] = category
+            payload["category"] = str(arr.category)
             return jsonify(payload)
 
         @app.get("/api/lidarr/<path:category>/albums")
@@ -2793,19 +3071,33 @@ class WebUI:
             if not managed:
                 if not _ensure_arr_manager_ready():
                     return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "lidarr":
+            arr = _resolve_managed_lidarr(category)
+            if arr is None:
                 return jsonify({"error": f"Unknown lidarr category {category}"}), 404
             q = request.args.get("q", default=None, type=str)
             page = request.args.get("page", default=0, type=int)
-            page_size = min(request.args.get("page_size", default=50, type=int), 1000)
+            page_size = _lidarr_page_size_from_request(50)
             monitored = (
                 self._query_truthy(request.args.get("monitored"))
                 if "monitored" in request.args
                 else None
             )
-            payload = self._lidarr_artists_from_db(arr, q, page, page_size, monitored=monitored)
-            payload["category"] = category
+            missing_only = self._query_truthy(
+                request.args.get("missing") or request.args.get("only_missing")
+            )
+            reason = request.args.get("reason", default=None, type=str)
+            if reason and reason.strip().lower() == "all":
+                reason = None
+            payload = self._lidarr_artists_from_db(
+                arr,
+                q,
+                page,
+                page_size,
+                monitored=monitored,
+                missing_only=missing_only,
+                reason_filter=reason,
+            )
+            payload["category"] = str(arr.category)
             return jsonify(payload)
 
         def _handle_lidarr_artist_detail(category: str, artist_id: int):
@@ -2813,13 +3105,13 @@ class WebUI:
             if not managed:
                 if not _ensure_arr_manager_ready():
                     return jsonify({"error": "Arr manager is still initialising"}), 503
-            arr = managed.get(category)
-            if arr is None or getattr(arr, "type", None) != "lidarr":
+            arr = _resolve_managed_lidarr(category)
+            if arr is None:
                 return jsonify({"error": f"Unknown lidarr category {category}"}), 404
             detail = self._lidarr_artist_detail_from_db(arr, artist_id)
             if detail is None:
                 return jsonify({"error": "Artist not found"}), 404
-            detail["category"] = category
+            detail["category"] = str(arr.category)
             return jsonify(detail)
 
         @app.get("/api/lidarr/<path:category>/artists")
