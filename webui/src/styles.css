@@ -2369,14 +2369,20 @@ svg[height] {
 .modal-backdrop {
     position: fixed;
     inset: 0;
+    min-height: 100dvh;
+    box-sizing: border-box;
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(4px);
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: max(24px, env(safe-area-inset-top))
+        max(24px, env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(24px, env(safe-area-inset-left));
     overflow-y: auto;
     overflow-x: hidden;
+    overscroll-behavior: contain;
     z-index: 120;
     animation: fadeIn 0.2s ease;
 }
@@ -2401,10 +2407,11 @@ svg[height] {
     border: 1px solid var(--border);
     border-radius: 20px;
     width: min(840px, calc(100% - 48px));
-    max-height: min(92vh, calc(100vh - 80px));
+    max-height: min(92vh, calc(100dvh - 48px));
     display: flex;
     flex-direction: column;
-    margin: 40px auto;
+    margin: auto;
+    flex-shrink: 0;
     box-shadow: 0 24px 64px rgba(0, 0, 0, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
     animation: modalSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(20px);
@@ -4235,6 +4242,229 @@ svg[height] {
 }
 
 .login-oidc-btn {
-  width: 100%;
-  justify-content: center;
+    width: 100%;
+    justify-content: center;
+}
+
+/* Arr library: list vs icon browse */
+.arr-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.arr-movie-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+}
+
+.arr-movie-tile:hover {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
+}
+
+.arr-movie-tile__poster,
+.arr-poster-fallback {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    background-color: var(--surface);
+}
+
+/* Wrapper for queued poster loads (ArrPosterImage) */
+.arr-poster-image-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    display: block;
+    background-color: var(--surface);
+}
+
+/* Stacked bitmap + opaque overlay until load+decode; then overlay removed (--ready optional hook). */
+.arr-poster-image-wrap .arr-poster-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    background-color: var(--surface);
+}
+
+.arr-poster-image-wrap .arr-poster-fallback--overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background-color: var(--surface);
+}
+
+.arr-poster-image-wrap .arr-movie-tile__poster,
+.arr-poster-image-wrap .arr-poster-fallback {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.arr-movie-tile__meta {
+    padding: 8px 10px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.arr-movie-tile__instance {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+
+.arr-movie-tile__title {
+    font-weight: 600;
+    color: var(--on-surface);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: calc(2 * 1.35em);
+}
+
+.arr-movie-tile__stats,
+.arr-movie-tile__quality {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.arr-movie-tile__stats {
+    margin-top: 4px;
+}
+
+.arr-movie-tile__stats--sonarr-episodes {
+    width: 100%;
+}
+
+.arr-movie-tile__stats--lidarr-artist {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+
+.arr-mini-progress {
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.25;
+    color: var(--muted);
+}
+
+.arr-mini-progress__label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.arr-mini-progress__label {
+    font-weight: 500;
+    color: var(--muted);
+}
+
+.arr-mini-progress__nums {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.arr-mini-progress__track {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--muted) 22%, transparent);
+}
+
+.arr-mini-progress__seg {
+    min-width: 0;
+    height: 100%;
+}
+
+.arr-mini-progress__seg--avail {
+    background: var(--success);
+}
+
+.arr-mini-progress__seg--miss {
+    background: color-mix(in srgb, var(--danger) 82%, var(--surface));
+}
+
+.arr-mini-progress__seg--empty {
+    width: 100%;
+    background: color-mix(in srgb, var(--muted) 18%, transparent);
+}
+
+.arr-movie-tile__quality {
+    margin-top: 2px;
+}
+
+.arr-movie-tile__sub {
+    color: var(--muted);
+    margin-top: 2px;
+}
+
+.arr-detail-radarr {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.arr-detail-radarr__poster {
+    max-width: 200px;
+    margin: 0 auto;
+}
+
+.arr-detail-radarr__poster img {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+}
+
+.arr-detail-dl {
+    display: grid;
+    grid-template-columns: minmax(120px, 34%) 1fr;
+    gap: 6px 12px;
+    margin: 0;
+    font-size: 13px;
+}
+
+.arr-detail-dl dt {
+    margin: 0;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.arr-detail-dl dd {
+    margin: 0;
 }

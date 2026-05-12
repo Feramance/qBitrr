@@ -186,6 +186,8 @@ export interface LidarrTrack {
   hasFile?: boolean;
   trackFileId?: number | null;
   monitored?: boolean;
+  /** Search-state label; omitted on older API responses (use album reason as fallback). */
+  reason?: string | null;
   albumId?: number;
   albumTitle?: string;
   artistTitle?: string;
@@ -229,6 +231,49 @@ export interface LidarrAlbumsResponse {
   total: number;
   page: number;
   page_size: number;
+  albums: LidarrAlbumEntry[];
+}
+
+export interface LidarrArtistsCounts {
+  available: number;
+  monitored: number;
+  missing?: number;
+  quality_met?: number;
+  requests?: number;
+}
+
+/** Artist browse row ({ artist }) from SQLite catalog — same rollup `counts` as album browse. */
+export interface LidarrArtistCatalogProgress {
+  albumsMonitored?: number;
+  albumsAvailable?: number;
+  albumsMissing?: number;
+  tracksMonitored?: number;
+  tracksAvailable?: number;
+  tracksMissing?: number;
+}
+
+export interface LidarrArtistBrowseEntry {
+  [key: string]: unknown;
+  artist: Record<string, unknown> & Partial<LidarrArtistCatalogProgress>;
+}
+
+export interface LidarrArtistsResponse {
+  category: string;
+  counts: LidarrArtistsCounts;
+  counts_tracks: { available: number; monitored: number; missing: number };
+  album_total: number;
+  total: number;
+  page: number;
+  page_size: number;
+  artists: LidarrArtistBrowseEntry[];
+}
+
+/** Full artist payload with nested albums (+ tracks inside each album). */
+export interface LidarrArtistDetailResponse {
+  category?: string;
+  counts: LidarrArtistsCounts;
+  counts_tracks: { available: number; monitored: number; missing: number };
+  artist: Record<string, unknown>;
   albums: LidarrAlbumEntry[];
 }
 

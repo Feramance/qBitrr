@@ -410,10 +410,8 @@ Token = "your-secret-token"
 # Theme
 Theme = "Dark"  # Dark or Light
 
-# Group Sonarr episodes by series
+# Reserved WebUI toggles (kept as defaults; unused by browse UI today)
 GroupSonarr = true
-
-# Group Lidarr albums by artist
 GroupLidarr = true
 ```
 

@@ -12,7 +12,7 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from copy import copy
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import ffmpeg
 import pathos
@@ -29,6 +29,14 @@ from qBitrr.arr_tracker_index import (
     build_tracker_index,
 )
 from qBitrr.arr_tracker_index import extract_tracker_host as _extract_tracker_host
+from qBitrr.catalog_rollups import refresh_rollups_after_db_update
+from qBitrr.category_paths import (
+    category_parents,
+    find_overlap_conflicts,
+    has_subcategory_separator,
+    matches_configured,
+    normalize_category,
+)
 from qBitrr.config import (
     APPDATA_FOLDER,
     AUTO_PAUSE_RESUME,
@@ -126,6 +134,22 @@ def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
     )
 
 
+def _lidarr_track_duration_seconds(raw: Any) -> int:
+    """Convert Lidarr track ``duration`` from API milliseconds to whole seconds for SQLite.
+
+    Lidarr's track resource reports duration in milliseconds; values below one second
+    become ``0`` after integer division (sub-second interludes/transitions).
+    """
+
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return 0
+    if v <= 0:
+        return 0
+    return v // 1000
+
+
 def _parse_qbittorrent_tag_list(tags_str: str | None) -> set[str]:
     """Split qBittorrent's comma-separated ``tags`` string into non-empty labels."""
     if not tags_str or not isinstance(tags_str, str):
@@ -186,7 +210,13 @@ class Arr:
                 f"Group '{self._name}' is trying to manage Arr instance: "
                 f"'{self.uri}' which has already been registered."
             )
-        self.category = CONFIG.get(f"{name}.Category", fallback=self._name)
+        raw_category = CONFIG.get(f"{name}.Category", fallback=self._name)
+        normalised_category = normalize_category(raw_category)
+        if normalised_category and normalised_category != str(raw_category).strip():
+            logging.getLogger(f"qBitrr.{self._name}").info(
+                "Normalised %s.Category %r → %r", name, str(raw_category), normalised_category
+            )
+        self.category = normalised_category or str(raw_category).strip() or self._name
         self.manager = manager
         self._LOG_LEVEL = self.manager.qbit_manager.logger.level
         self.logger = logging.getLogger(f"qBitrr.{self._name}")
@@ -739,6 +769,10 @@ class Arr:
         self.torrents: TorrentLibrary | None = None
         self.torrent_db: SqliteDatabase | None = None
         self.db: SqliteDatabase | None = None
+        self._webui_catalog_rollups: dict[str, Any] | None = None
+        # Catalog header rollups for API responses are built in the WebUI process from SQLite
+        # with a short TTL (:mod:`qBitrr.catalog_rollups`); worker Arr instances cannot clear
+        # that process-local cache after DB writes.
         # Initialize search mode (and torrent tag-emulation DB in TAGLESS)
         # early and fail fast if it cannot be set up.
         self.register_search_mode()
@@ -985,7 +1019,11 @@ class Arr:
         """
         Ensure the Arr category exists on ALL qBittorrent instances.
 
-        Creates the category with the completed_folder save path on each instance.
+        For subcategory paths (``parent/child``) every parent prefix is created
+        before the leaf so qBittorrent does not silently treat the value as a
+        flat name. Each parent is created with a save path derived from its
+        parent's ``savePath`` (or :data:`COMPLETED_DOWNLOAD_FOLDER` for the root)
+        so the resulting tree mirrors what the user expects on disk.
         Logs errors but continues if individual instances fail.
         """
         if QBIT_DISABLED:
@@ -1000,6 +1038,10 @@ class Arr:
             len(all_instances),
         )
 
+        leaf_category = self.category
+        prefix_paths = category_parents(leaf_category)
+        completed_root = pathlib.Path(COMPLETED_DOWNLOAD_FOLDER)
+
         for instance_name in all_instances:
             try:
                 client = qbit_manager.get_client(instance_name)
@@ -1011,17 +1053,50 @@ class Arr:
                     continue
 
                 categories = client.torrent_categories.categories
-                if self.category not in categories:
+                # Walk parent chain first so qBittorrent stores a real hierarchy.
+                for parent in prefix_paths:
+                    if parent in categories:
+                        continue
+                    parents_of_parent = category_parents(parent)
+                    parent_of_parent = parents_of_parent[-1] if parents_of_parent else None
+                    if parent_of_parent and parent_of_parent in categories:
+                        parent_save = categories[parent_of_parent].get("savePath") or str(
+                            completed_root.joinpath(parent_of_parent)
+                        )
+                        save_path = str(pathlib.Path(parent_save).joinpath(parent.split("/")[-1]))
+                    else:
+                        save_path = str(completed_root.joinpath(parent))
+                    try:
+                        client.torrent_categories.create_category(parent, save_path=save_path)
+                        self.logger.info(
+                            "Created parent category '%s' on instance '%s' (save_path=%s)",
+                            parent,
+                            instance_name,
+                            save_path,
+                        )
+                        # Refresh local view so subsequent siblings see this parent.
+                        categories = client.torrent_categories.categories
+                    except Exception as e:
+                        self.logger.warning(
+                            "Failed to create parent category '%s' on '%s': %s",
+                            parent,
+                            instance_name,
+                            str(e).split("\n")[0] if "\n" in str(e) else str(e),
+                        )
+
+                if leaf_category not in categories:
                     client.torrent_categories.create_category(
-                        self.category, save_path=str(self.completed_folder)
+                        leaf_category, save_path=str(self.completed_folder)
                     )
                     self.logger.info(
-                        "Created category '%s' on instance '%s'", self.category, instance_name
+                        "Created category '%s' on instance '%s'",
+                        leaf_category,
+                        instance_name,
                     )
                 else:
                     self.logger.debug(
                         "Category '%s' already exists on instance '%s'",
-                        self.category,
+                        leaf_category,
                         instance_name,
                     )
             except Exception as e:
@@ -3634,27 +3709,27 @@ class Arr:
                         totalEpisodeCount = 0
                         monitoredEpisodeCount = 0
                         seasons = seriesMetadata.get("seasons")
-                        for season in seasons:
+                        for season in seasons or ():
                             sdict = dict(season)
                             if sdict.get("seasonNumber") == 0:
-                                statistics = sdict.get("statistics")
-                                monitoredEpisodeCount = monitoredEpisodeCount + statistics.get(
-                                    "episodeCount", 0
+                                statistics = sdict.get("statistics") or {}
+                                monitoredEpisodeCount = monitoredEpisodeCount + (
+                                    statistics.get("episodeCount") or 0
                                 )
-                                totalEpisodeCount = totalEpisodeCount + statistics.get(
-                                    "totalEpisodeCount", 0
+                                totalEpisodeCount = totalEpisodeCount + (
+                                    statistics.get("totalEpisodeCount") or 0
                                 )
-                                episodeFileCount = episodeFileCount + statistics.get(
-                                    "episodeFileCount", 0
+                                episodeFileCount = episodeFileCount + (
+                                    statistics.get("episodeFileCount") or 0
                                 )
                             else:
-                                statistics = sdict.get("statistics")
-                                episodeCount = episodeCount + statistics.get("episodeCount")
-                                totalEpisodeCount = totalEpisodeCount + statistics.get(
-                                    "totalEpisodeCount"
+                                statistics = sdict.get("statistics") or {}
+                                episodeCount = episodeCount + (statistics.get("episodeCount") or 0)
+                                totalEpisodeCount = totalEpisodeCount + (
+                                    statistics.get("totalEpisodeCount") or 0
                                 )
-                                episodeFileCount = episodeFileCount + statistics.get(
-                                    "episodeFileCount"
+                                episodeFileCount = episodeFileCount + (
+                                    statistics.get("episodeFileCount") or 0
                                 )
                         if self.search_specials:
                             searched = totalEpisodeCount == episodeFileCount
@@ -4319,7 +4394,9 @@ class Arr:
                                             AlbumId=entryId,
                                             TrackNumber=track.get("trackNumber", ""),
                                             Title=track.get("title", ""),
-                                            Duration=track.get("duration", 0),
+                                            Duration=_lidarr_track_duration_seconds(
+                                                track.get("duration", 0)
+                                            ),
                                             HasFile=track.get("hasFile", False),
                                             TrackFileId=track.get("trackFileId", 0),
                                             Monitored=track_monitored,
@@ -4497,6 +4574,8 @@ class Arr:
                             & (self.artists_file_model.ArrInstance == self._name)
                         )
                         db_commands.execute()
+
+            refresh_rollups_after_db_update(self, db_entry, series=series, artist=artist)
 
         except requests.exceptions.ConnectionError as e:
             self.logger.debug(
@@ -5071,11 +5150,22 @@ class Arr:
         """
         Get torrents from ALL qBittorrent instances for this Arr's category.
 
+        With ``MatchSubcategories`` disabled (default) this uses qBittorrent's
+        ``torrents/info?category=`` filter, which is exact-match — see
+        :mod:`qBitrr.category_paths`.
+
+        When enabled at the qBit level, the full torrent list for each instance is
+        fetched and torrents under ``self.category`` are candidates; those whose
+        category resolves to a **more specific** configured owner (another Arr or
+        qBit-managed path, same rules as :meth:`ArrManager.resolve_owning_category`)
+        are dropped so only this instance's ``Category`` key processes each torrent.
+
         Returns:
             list[tuple[str, TorrentDictionary]]: List of (instance_name, torrent) tuples
         """
         all_torrents = []
         qbit_manager = self.manager.qbit_manager
+        target_category = normalize_category(self.category) or self.category
 
         for instance_name in qbit_manager.get_all_instances():
             if not qbit_manager.is_instance_alive(instance_name):
@@ -5088,23 +5178,49 @@ class Arr:
             if client is None:
                 continue
 
+            # ``get_all_instances()`` returns config section keys: ``qBit`` or ``qBit-Seedbox``.
+            section = instance_name
+            instance_subcat_match = self.manager.arr_match_subcategories_effective(
+                self._name, section
+            )
+
             try:
-                torrents = client.torrents.info(
-                    status_filter="all",
-                    category=self.category,
-                    sort="added_on",
-                    reverse=False,
-                )
-                # Tag each torrent with its instance name
+                if instance_subcat_match:
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        sort="added_on",
+                        reverse=False,
+                    )
+                else:
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        category=target_category,
+                        sort="added_on",
+                        reverse=False,
+                    )
+                kept = 0
                 for torrent in torrents:
-                    if hasattr(torrent, "category"):
-                        all_torrents.append((instance_name, torrent))
+                    if not hasattr(torrent, "category"):
+                        continue
+                    cat = normalize_category(getattr(torrent, "category", "") or "")
+                    if not cat:
+                        continue
+                    if instance_subcat_match:
+                        if cat != target_category and not cat.startswith(target_category + "/"):
+                            continue
+                    owner = self.manager.resolve_owning_category(cat, qbit_section=instance_name)
+                    if owner != self.category:
+                        continue
+                    all_torrents.append((instance_name, torrent))
+                    kept += 1
 
                 self.logger.trace(
-                    "Retrieved %d torrents from instance '%s' for category '%s'",
-                    len(torrents),
+                    "Retrieved %d torrents from instance '%s' for category '%s' "
+                    "(MatchSubcategories=%s)",
+                    kept,
                     instance_name,
-                    self.category,
+                    target_category,
+                    instance_subcat_match,
                 )
             except (qbittorrentapi.exceptions.APIError, JSONDecodeError) as e:
                 self.logger.warning(
@@ -5128,7 +5244,9 @@ class Arr:
         otherwise order uses announce URL matching as before.
 
         When :attr:`categories` is set (e.g. :class:`TorrentPolicyManager`), only torrents
-        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``).
+        in those qBitrr-monitored categories are reordered (Arr + qBit ``ManagedCategories``),
+        excluding torrents tagged ``qBitrr-ignored`` — matching
+        :meth:`TorrentPolicyManager._collect_monitored_torrents`.
         Otherwise all torrents from ``torrents.info`` are considered.
 
         Invoked by a global torrent-policy worker (single dedicated process).
@@ -5160,7 +5278,18 @@ class Arr:
                 monitored = getattr(self, "categories", None)
                 if monitored:
                     torrent_list = [
-                        t for t in torrent_list if getattr(t, "category", None) in monitored
+                        t
+                        for t in torrent_list
+                        if (
+                            (
+                                own := self.manager.resolve_owning_category(
+                                    getattr(t, "category", None),
+                                    qbit_section=instance_name,
+                                )
+                            )
+                            and own in monitored
+                            and "qBitrr-ignored" not in getattr(t, "tags", ())
+                        )
                     ]
                 sort_priorities = {
                     torrent.hash: self._get_torrent_queue_sort_priority(torrent, tag_to_priority)
@@ -6672,7 +6801,10 @@ class Arr:
         tracker_sync_owned_by_policy_manager = bool(
             self.manager
             and category
-            and self.manager.policy_manager_owns_tracker_sync_for_category(category)
+            and self.manager.policy_manager_owns_tracker_sync_for_category(
+                category,
+                qbit_section=instance_name if instance_name != "default" else None,
+            )
         )
         if tracker_sync_owned_by_policy_manager:
             self.logger.trace(
@@ -6796,10 +6928,20 @@ class Arr:
         ) and torrent.hash in self.cleaned_torrents:
             self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
         # Ignore torrents which have been submitted to their respective Arr
-        # instance for import.
+        # instance for import. Resolve the owning category through ArrManager so
+        # subcategory paths (``seed/tleech``) and orphaned categories don't raise
+        # KeyError on the hot path — see :mod:`qBitrr.category_paths` and the
+        # subcategory section in ``docs/configuration/qbittorrent.md``.
         elif (
-            torrent.hash in self.manager.managed_objects[torrent.category].sent_to_scan_hashes
-        ) and torrent.hash in self.cleaned_torrents:
+            (
+                _owner_key := self.manager.resolve_owning_category(
+                    getattr(torrent, "category", None),
+                    qbit_section=instance_name if instance_name != "default" else None,
+                )
+            )
+            and torrent.hash in self.manager.managed_objects[_owner_key].sent_to_scan_hashes
+            and torrent.hash in self.cleaned_torrents
+        ):
             self._process_single_torrent_already_sent_to_scan(torrent)
 
         # Sometimes torrents will error, this causes them to be rechecked so they
@@ -7895,8 +8037,11 @@ class PlaceHolderArr(Arr):
         if name in manager.groups:
             raise OSError(f"Group '{name}' has already been registered.")
         self.type = "placeholder"
-        self._name = name.title()
-        self.category = name
+        # Subcategory paths: titlecase each segment for logs/UI; use spaced slashes
+        # so ``seed/tleech`` reads as ``Seed / Tleech``.
+        display = normalize_category(name) or name
+        self._name = " / ".join(s.title() for s in display.split("/")) if display else name
+        self.category = normalize_category(name) or name
         self.manager = manager
         self.queue = []
         self.cache = {}
@@ -8578,6 +8723,20 @@ class TorrentPolicyManager(Arr):
         self._process_paused()
 
     def _collect_monitored_torrents(self) -> list[tuple[str, qbittorrentapi.TorrentDictionary]]:
+        """Fetch torrents whose category is monitored by an Arr or qBit instance.
+
+        Uses a full ``torrents.info()`` **without** ``category=`` only on qBit
+        instances where prefix matching is actually active — same per-instance
+        rules as :meth:`Arr._get_torrents_from_all_instances` (each Arr may
+        override ``MatchSubcategories``; otherwise the ``[qBit*]`` flag applies),
+        plus ``ManagedCategories`` under a section when that section enables
+        ``MatchSubcategories``. Other instances keep the fast exact-match path
+        (one ``category=`` filter per configured category).
+
+        When listing all torrents, owners resolved via :meth:`ArrManager.resolve_owning_category`
+        still exclude ``self.categories`` so special categories (failed/recheck placeholders)
+        are not gathered — same scope as the ``category=`` branch.
+        """
         qbit_manager = self.manager.qbit_manager
         result = []
         seen = set()
@@ -8586,6 +8745,38 @@ class TorrentPolicyManager(Arr):
                 continue
             client = qbit_manager.get_client(instance_name)
             if client is None:
+                continue
+            section = instance_name
+            use_full_list = self.manager.qbit_section_needs_full_torrent_list_for_policy_manager(
+                section
+            )
+            if use_full_list:
+                with contextlib.suppress(qbittorrentapi.exceptions.APIError):
+                    torrents = client.torrents.info(
+                        status_filter="all",
+                        sort="added_on",
+                        reverse=False,
+                    )
+                    for torrent in torrents:
+                        if not hasattr(torrent, "category"):
+                            continue
+                        owner = self.manager.resolve_owning_category(
+                            getattr(torrent, "category", None),
+                            qbit_section=instance_name,
+                        )
+                        if owner is None:
+                            continue
+                        # Match the per-category branch: only Arr/qBit-managed categories, not
+                        # special PlaceHolderArr keys (failed/recheck) or TorrentPolicyManager.
+                        if owner not in self.categories:
+                            continue
+                        if "qBitrr-ignored" in torrent.tags:
+                            continue
+                        key = (instance_name, torrent.hash)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        result.append((instance_name, torrent))
                 continue
             for cat in self.categories:
                 with contextlib.suppress(qbittorrentapi.exceptions.APIError):
@@ -8749,6 +8940,13 @@ class ArrManager:
         self.category_allowlist: set[str] = self.special_categories.copy()
         self.completed_folders: set[pathlib.Path] = set()
         self.managed_objects: dict[str, Arr] = {}
+        # Prefix dispatch: all Arr + qBit-managed category keys used as roots for
+        # :meth:`matches_configured` when instance-level ``MatchSubcategories`` /
+        # per-Arr overrides allow prefix matching (see ``_prefix_match_allowed_for_owner``).
+        self.subcategory_prefix_owners: set[str] = set()
+        # True when any ``[qBit*]`` **or** explicit ``[Radarr-*].MatchSubcategories = true``
+        # (etc.) is active — used only for startup overlap / info logs.
+        self.subcategory_match_enabled: bool = False
         self.qbit: qbittorrentapi.Client | None = qbitmanager.client
         self.qbit_manager: qBitManager = qbitmanager
         self.ffprobe_available: bool = self.qbit_manager.ffprobe_downloader.probe_path.exists()
@@ -8760,6 +8958,167 @@ class ArrManager:
                 self.qbit_manager.ffprobe_downloader.probe_path,
             )
 
+    @staticmethod
+    def any_arr_match_subcategories_explicit_true() -> bool:
+        """True when some Arr section explicitly enables MatchSubcategories (truthy), not inherit."""
+        for key in CONFIG.sections():
+            if re.match(r"(rad|son|anim|lid)arr", key, re.IGNORECASE):
+                raw = CONFIG.get(f"{key}.MatchSubcategories", fallback=None)
+                if raw is not None and bool(raw):
+                    return True
+        return False
+
+    def arr_match_subcategories_effective(self, arr_name: str, qbit_section: str) -> bool:
+        """Whether prefix/subcategory matching applies to ``arr_name`` on ``qbit_section``.
+
+        Mirrors :meth:`Arr._get_torrents_from_all_instances`: a per-Arr
+        ``[<Arr>].MatchSubcategories`` value wins when present; otherwise the
+        ``[qBit*]`` flag for ``qbit_section`` is used.
+        """
+        arr_override = CONFIG.get(f"{arr_name}.MatchSubcategories", fallback=None)
+        if arr_override is not None:
+            return bool(arr_override)
+        return bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+
+    def qbit_section_needs_full_torrent_list_for_policy_manager(self, qbit_section: str) -> bool:
+        """True when TorrentPolicyManager must omit ``category=`` for this qBit client.
+
+        Uses the same per-instance rules as Arr torrent scans: full list only if
+        prefix matching is active here (any managed Arr via
+        :meth:`arr_match_subcategories_effective`, or ``ManagedCategories`` under
+        this section with ``[qBit*].MatchSubcategories``). Avoids pulling every
+        torrent from instances that only use exact ``category=`` filters.
+        """
+        qbit_flag = bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+        if qbit_flag and any(
+            self.qbit_managed_category_sections.get(cat) == qbit_section
+            for cat in self.qbit_managed_categories
+        ):
+            return True
+        return any(
+            self.arr_match_subcategories_effective(name, qbit_section) for name in self.groups
+        )
+
+    def _prefix_match_allowed_for_owner(self, owner_key: str, *, qbit_section: str | None) -> bool:
+        """Whether prefix / descendant matching may claim ``owner_key`` for this qBit instance."""
+        obj = self.managed_objects.get(owner_key)
+        if obj is None or owner_key == "TorrentPolicyManager":
+            return False
+        if getattr(obj, "type", None) == "placeholder":
+            if qbit_section:
+                return bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+            return any(
+                CONFIG.get(f"{s}.MatchSubcategories", fallback=False)
+                for s in CONFIG.sections()
+                if s == "qBit" or s.startswith("qBit-")
+            )
+        arr_name = getattr(obj, "_name", None)
+        if not arr_name:
+            return False
+        arr_ov = CONFIG.get(f"{arr_name}.MatchSubcategories", fallback=None)
+        if arr_ov is not None:
+            return bool(arr_ov)
+        if qbit_section:
+            return bool(CONFIG.get(f"{qbit_section}.MatchSubcategories", fallback=False))
+        return any(
+            CONFIG.get(f"{s}.MatchSubcategories", fallback=False)
+            for s in CONFIG.sections()
+            if s == "qBit" or s.startswith("qBit-")
+        )
+
+    def resolve_owning_category(
+        self,
+        torrent_category: str | None,
+        *,
+        qbit_section: str | None = None,
+    ) -> str | None:
+        """Return the ``managed_objects`` key that owns ``torrent_category`` (or None).
+
+        Exact match wins first. Otherwise, when prefix matching is allowed for a
+        configured root category on this qBit instance (``MatchSubcategories`` on
+        ``[qBit*]`` and/or per-Arr overrides), the **longest** configured prefix
+        wins — see :mod:`qBitrr.category_paths`.
+        """
+        if not torrent_category:
+            return None
+        norm = normalize_category(torrent_category)
+        if not norm:
+            return None
+        if norm in self.managed_objects:
+            return norm
+        if not self.subcategory_prefix_owners:
+            self.logger.trace(
+                "No prefix owners registered; category %r (norm=%r) has no owner",
+                torrent_category,
+                norm,
+            )
+            return None
+        eligible = [
+            k
+            for k in self.subcategory_prefix_owners
+            if self._prefix_match_allowed_for_owner(k, qbit_section=qbit_section)
+        ]
+        if not eligible:
+            self.logger.trace(
+                "Category %r (norm=%r, qbit_section=%r) matched no eligible prefix owners",
+                torrent_category,
+                norm,
+                qbit_section,
+            )
+            return None
+        match = matches_configured(norm, eligible, prefix=True)
+        resolved = match if match in self.managed_objects else None
+        if resolved is None:
+            self.logger.trace(
+                "No owning managed_objects entry for torrent category %r "
+                "(norm=%r, qbit_section=%r, eligible=%s)",
+                torrent_category,
+                norm,
+                qbit_section,
+                sorted(eligible),
+            )
+        return resolved
+
+    def category_is_monitored(
+        self, torrent_category: str | None, *, qbit_section: str | None = None
+    ) -> bool:
+        """True when ``torrent_category`` is owned (exact or prefix when enabled)."""
+        return (
+            self.resolve_owning_category(torrent_category, qbit_section=qbit_section) is not None
+        )
+
+    def _normalise_managed_categories(self, raw: list, *, source: str) -> list[str]:
+        """Normalise a ``ManagedCategories`` list and warn about backslashes/empties."""
+        out: list[str] = []
+        for value in raw or []:
+            if isinstance(value, str) and "\\" in value:
+                self.logger.warning(
+                    "Category '%s' from %s contains backslashes; qBittorrent uses '/' "
+                    "as the subcategory separator. Treating segments around backslashes "
+                    "literally — please update the config.",
+                    value,
+                    source,
+                )
+            normalised = normalize_category(value)
+            if not normalised:
+                if value not in (None, "", []):
+                    self.logger.warning(
+                        "Skipping empty/whitespace ManagedCategories entry from %s: %r",
+                        source,
+                        value,
+                    )
+                continue
+            if normalised != str(value).strip():
+                self.logger.info(
+                    "Normalised ManagedCategories entry %r → %r (from %s)",
+                    str(value),
+                    normalised,
+                    source,
+                )
+            if normalised not in out:
+                out.append(normalised)
+        return out
+
     def _validate_category_assignments(self):
         """
         Validate that no category is managed by both Arr and qBit instances.
@@ -8768,16 +9127,35 @@ class ArrManager:
         for conflicts with Arr-managed categories. Allows same category on
         multiple qBit instances (acceptable).
 
+        Subcategory paths (``parent/child``) are normalised in place and we warn
+        when configured prefixes overlap across different owners (for example
+        ``seed`` for one Arr while ``seed/tleech`` is also configured elsewhere)
+        because qBittorrent's ``torrents/info`` filter is exact-match — see
+        :mod:`qBitrr.category_paths` and ``docs/configuration/qbittorrent.md``.
+
         Raises:
             ValueError: If any category is managed by both Arr and qBit
         """
+        # MatchSubcategories logging / ManagedCategories '/' hint: true when any qBit
+        # instance opts in OR some Arr sets ``MatchSubcategories = true`` explicitly.
+        self.subcategory_match_enabled = False
+        for section in CONFIG.sections():
+            if section == "qBit" or section.startswith("qBit-"):
+                if bool(CONFIG.get(f"{section}.MatchSubcategories", fallback=False)):
+                    self.subcategory_match_enabled = True
+                    break
+        if not self.subcategory_match_enabled:
+            self.subcategory_match_enabled = self.any_arr_match_subcategories_explicit_true()
+
         # Collect qBit-managed categories from all instances
         self.qbit_managed_categories.clear()
         self.qbit_managed_category_sections.clear()
+        self.subcategory_prefix_owners.clear()
         for section in CONFIG.sections():
             # Check default qBit section
             if section == "qBit":
-                managed_cats = CONFIG.get("qBit.ManagedCategories", fallback=[])
+                raw_cats = CONFIG.get("qBit.ManagedCategories", fallback=[])
+                managed_cats = self._normalise_managed_categories(raw_cats, source=section)
                 if managed_cats:
                     self.qbit_managed_categories.update(managed_cats)
                     for category in managed_cats:
@@ -8798,7 +9176,8 @@ class ArrManager:
             # Check additional qBit-XXX sections
             elif section.startswith("qBit-"):
                 instance_name = section.replace("qBit-", "", 1)
-                managed_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
+                raw_cats = CONFIG.get(f"{section}.ManagedCategories", fallback=[])
+                managed_cats = self._normalise_managed_categories(raw_cats, source=section)
                 if managed_cats:
                     self.qbit_managed_categories.update(managed_cats)
                     for category in managed_cats:
@@ -8830,8 +9209,47 @@ class ArrManager:
             self.logger.error(error_msg)
             raise ValueError(error_msg)
 
+        # Subcategory overlap detection (Arr ↔ qBit and Arr ↔ Arr / qBit ↔ qBit)
+        all_owned = self.arr_categories | self.qbit_managed_categories
+        overlaps = find_overlap_conflicts(all_owned)
+        if overlaps:
+            for parent, child in overlaps:
+                self.logger.warning(
+                    "Configured category overlap: '%s' is a subcategory of '%s'. "
+                    "The qBittorrent API lists torrents by exact category string only; "
+                    "with MatchSubcategories off, a torrent in '%s' is not picked up by "
+                    "a '%s' owner. Enable MatchSubcategories (where appropriate) or use "
+                    "the full path as the configured category.",
+                    child,
+                    parent,
+                    child,
+                    parent,
+                )
+
+        # Warn about subcategory paths configured without MatchSubcategories enabled —
+        # these only behave correctly when the configured value is the exact qBit string.
+        if not self.subcategory_match_enabled:
+            for cat in sorted(self.qbit_managed_categories):
+                if has_subcategory_separator(cat):
+                    self.logger.info(
+                        "qBit-managed category '%s' contains '/'. "
+                        "Exact-match mode is in effect (MatchSubcategories disabled); "
+                        "qBitrr will manage only torrents whose qBit category is exactly '%s'.",
+                        cat,
+                        cat,
+                    )
+
         # Update category allowlist to include qBit-managed categories
         self.category_allowlist.update(self.qbit_managed_categories)
+
+        # Prefix roots for :meth:`resolve_owning_category` (exact match still wins first).
+        self.subcategory_prefix_owners.update(self.arr_categories)
+        self.subcategory_prefix_owners.update(self.qbit_managed_categories)
+        if self.subcategory_prefix_owners:
+            self.logger.debug(
+                "Category prefix roots for subcategory dispatch: %s",
+                ", ".join(sorted(self.subcategory_prefix_owners)),
+            )
 
         if self.qbit_managed_categories:
             self.logger.info(
@@ -8840,13 +9258,17 @@ class ArrManager:
             )
         self.logger.debug("Category validation passed - no conflicts detected")
 
-    def policy_manager_owns_tracker_sync_for_category(self, category: str | None) -> bool:
+    def policy_manager_owns_tracker_sync_for_category(
+        self,
+        category: str | None,
+        *,
+        qbit_section: str | None = None,
+    ) -> bool:
         """Return True when TorrentPolicyManager owns tracker/tag sync for ``category``."""
-        if not category:
+        if not category or not self.policy_manager_tracker_sync_owner:
             return False
-        if not self.policy_manager_tracker_sync_owner:
-            return False
-        return category in self.policy_manager_tracker_sync_categories
+        owner = self.resolve_owning_category(category, qbit_section=qbit_section)
+        return owner is not None and owner in self.policy_manager_tracker_sync_categories
 
     def build_arr_instances(self):
         self.policy_manager_tracker_sync_owner = False

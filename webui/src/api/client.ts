@@ -14,6 +14,8 @@ import type {
   SetPasswordRequest,
   SonarrSeriesResponse,
   LidarrAlbumsResponse,
+  LidarrArtistDetailResponse,
+  LidarrArtistsResponse,
   LidarrTracksResponse,
   StatusResponse,
 } from "./types";
@@ -291,6 +293,48 @@ export async function getLidarrAlbums(
   params.set("include_tracks", "true");
   return fetchJson<LidarrAlbumsResponse>(
     `/web/lidarr/${encodeURIComponent(category)}/albums?${params}`
+  );
+}
+
+export async function getLidarrArtists(
+  category: string,
+  page: number,
+  pageSize: number,
+  query?: string,
+  options?: {
+    monitored?: boolean | null;
+    missingOnly?: boolean;
+    reasonFilter?: string | null;
+  }
+): Promise<LidarrArtistsResponse> {
+  const params = new URLSearchParams();
+  params.set("page", page.toString());
+  params.set("page_size", pageSize.toString());
+  if (query) {
+    params.set("q", query);
+  }
+  const mv = options?.monitored;
+  if (mv === true || mv === false) {
+    params.set("monitored", mv ? "1" : "0");
+  }
+  if (options?.missingOnly) {
+    params.set("missing", "1");
+  }
+  const reason = options?.reasonFilter;
+  if (typeof reason === "string" && reason && reason !== "all") {
+    params.set("reason", reason);
+  }
+  return fetchJson<LidarrArtistsResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/artists?${params}`
+  );
+}
+
+export async function getLidarrArtistDetail(
+  category: string,
+  artistId: number
+): Promise<LidarrArtistDetailResponse> {
+  return fetchJson<LidarrArtistDetailResponse>(
+    `/web/lidarr/${encodeURIComponent(category)}/artist/${artistId}`
   );
 }
 

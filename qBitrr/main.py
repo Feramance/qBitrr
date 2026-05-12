@@ -615,6 +615,10 @@ class qBitManager:
                 fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
 
+            match_subcategories = bool(
+                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
+            )
+
             # Store config for later initialization
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
@@ -623,11 +627,14 @@ class qBitManager:
                 "trackers": instance_trackers,
                 "stalled_delay": stalled_delay,
                 "ignore_torrents_younger_than": ignore_younger,
+                "match_subcategories": match_subcategories,
             }
             self.logger.debug(
-                "Loaded qBit category config for '%s': %d managed categories",
+                "Loaded qBit category config for '%s': %d managed categories "
+                "(MatchSubcategories=%s)",
                 instance_name,
                 len(managed_categories),
+                match_subcategories,
             )
 
     def is_instance_alive(self, instance_name: str) -> bool:
@@ -770,6 +777,9 @@ class qBitManager:
                 f"{section_name}.CategorySeeding.IgnoreTorrentsYoungerThan",
                 fallback=CONFIG.get_duration("Settings.IgnoreTorrentsYoungerThan", fallback=180),
             )
+            match_subcategories = bool(
+                CONFIG.get(f"{section_name}.MatchSubcategories", fallback=False)
+            )
             self.qbit_category_configs[instance_name] = {
                 "managed_categories": managed_categories,
                 "default_seeding": default_seeding,
@@ -777,6 +787,7 @@ class qBitManager:
                 "trackers": trackers,
                 "stalled_delay": stalled_delay,
                 "ignore_torrents_younger_than": ignore_younger,
+                "match_subcategories": match_subcategories,
             }
 
         for section in CONFIG.sections():

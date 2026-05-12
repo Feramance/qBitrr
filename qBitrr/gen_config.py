@@ -129,13 +129,19 @@ def _add_web_settings_section(config: TOMLDocument):
     )
     _gen_default_line(
         web_settings,
-        "Group Sonarr episodes by series in views",
+        [
+            "Reserved: Sonarr browse lists series rows with seasons/episodes in the modal;",
+            "this flag currently does nothing (see docs/configuration/webui.md)",
+        ],
         "GroupSonarr",
         True,
     )
     _gen_default_line(
         web_settings,
-        "Group Lidarr albums by artist in views",
+        [
+            "Reserved: Lidarr browse lists artist rows with albums/tracks in the modal;",
+            "this flag currently does nothing (see docs/configuration/webui.md)",
+        ],
         "GroupLidarr",
         True,
     )
@@ -394,10 +400,22 @@ def _add_qbit_section(config: TOMLDocument):
         [
             "Categories managed directly by this qBit instance (not managed by Arr instances).",
             "These categories will have seeding settings applied according to CategorySeeding configuration.",
+            "Subcategory paths use '/' to match qBittorrent (for example 'seed/tleech').",
             "Example: ['downloads', 'private-tracker', 'long-term-seed']",
         ],
         "ManagedCategories",
         [],
+    )
+    _gen_default_line(
+        qbit,
+        [
+            "When true, configured categories ALSO match torrents in any subcategory beneath them.",
+            "Example: setting MatchSubcategories=true with ManagedCategories=['seed'] manages",
+            "torrents whose qBit category is 'seed', 'seed/tleech', 'seed/longterm', etc.",
+            "When false (default) the qBit category string must match exactly.",
+        ],
+        "MatchSubcategories",
+        False,
     )
 
     # Add CategorySeeding subsection
@@ -1333,6 +1351,33 @@ def _migrate_quality_profile_mappings(config: MyConfig) -> bool:
     return changes_made
 
 
+def _migrate_qbit_subcategory_match(config: MyConfig) -> bool:
+    """Add ``MatchSubcategories=false`` to every qBit section that lacks it.
+
+    Idempotent on every startup so configs predating the subcategory feature pick
+    up the new flag without any explicit version bump. Default ``false`` keeps
+    existing behaviour identical (qBittorrent's ``torrents/info`` filter is
+    exact-match — see ``docs/configuration/qbittorrent.md``).
+
+    Returns:
+        True if any section was updated, False otherwise.
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    changes_made = False
+    for section in list(config.config.keys()):
+        section_str = str(section)
+        if section_str == "qBit" or section_str.startswith("qBit-"):
+            qbit_section = config.config[section_str]
+            if "MatchSubcategories" not in qbit_section:
+                qbit_section["MatchSubcategories"] = False
+                changes_made = True
+                logger.info("Added MatchSubcategories = false to [%s]", section_str)
+    return changes_made
+
+
 def _migrate_qbit_category_settings(config: MyConfig) -> bool:
     """
     Add qBit category management settings to existing configs.
@@ -1954,6 +1999,10 @@ def apply_config_migrations(config: MyConfig) -> None:
 
     # Add qBit category management settings (< 0.0.4)
     if _migrate_qbit_category_settings(config):
+        changes_made = True
+
+    # Idempotent: ensure MatchSubcategories key exists on every qBit section
+    if _migrate_qbit_subcategory_match(config):
         changes_made = True
 
     # Add Hit and Run protection settings to trackers/CategorySeeding (< 5.8.8)

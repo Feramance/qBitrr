@@ -36,9 +36,21 @@ The running WebUI serves a bundled **OpenAPI 3** document and **Swagger UI**:
 
 **Authentication:** When `WebUI.AuthDisabled` is `true`, these URLs work without credentials. When WebUI authentication is enabled, they use the same rules as other protected routes: open `/web/docs` in a browser **after** logging into the WebUI (session cookie), or pass `Authorization: Bearer <WebUI.Token>` (or use **Authorize** in Swagger for "Try it out"). The main WebUI header includes an **OpenAPI** link to `/web/docs`.
 
-The served OpenAPI document intentionally includes only `/api/*` paths. `/web/*` routes remain available at runtime and are documented in this page, but they are excluded from Swagger/OpenAPI output.
+The served OpenAPI document is `/api/*`-first; it also includes mirrored **Arr poster thumbnail** routes under `/web/*` (see [Arr poster thumbnails](#arr-poster-thumbnails-cached)). Other `/web/*`-only routes remain runtime-available and are documented in prose here.
 
 The base spec is maintained in the repository at `qBitrr/openapi.json` (also shipped inside the Python package). A prose reference for every endpoint continues in this document.
+
+### Keeping the spec aligned with the runtime
+
+Every Flask route registered in `qBitrr/webui.py` should appear under `paths` in `qBitrr/openapi.json` (and vice versa). A static drift check is provided so the two files cannot diverge silently:
+
+```bash
+make openapi-check          # or: python scripts/openapi_check.py
+```
+
+The check is also wired into pre-commit (local hook `openapi-check`). It parses the `@app.<method>("/path")` decorators in `qBitrr/webui.py`, walks `paths` in `qBitrr/openapi.json`, and fails on any route that exists in one file but not the other. Path *shape* is what matters; cosmetic parameter renames (e.g. `{id}` ↔ `{entry_id}`) are tolerated.
+
+If you add or remove an endpoint, update `qBitrr/openapi.json` in the same commit.
 
 ---
 
@@ -678,6 +690,26 @@ curl -O http://localhost:6969/web/logs/Main.log/download
 
 ## Arr View Endpoints
 
+### Arr poster thumbnails (cached)
+
+Read-only image bytes for browse **Icon** tiles and detail modals. The server asks each Arr instance for the entity (movie, series, or **Lidarr artist**) and only serves images from **that same Arr host** (for example `MediaCover` paths under the Arr base URL). Metadata that points at external CDNs is ignored; if no same-host image exists, the route returns **404** and the WebUI shows a built-in placeholder. qBitrr downloads bytes from the Arr URL using the instance API key, caches them under the qBitrr data directory, and returns them with long-cache headers when possible. For Lidarr artists, when the JSON payload has no usable same-host URL, qBitrr may probe `MediaCover` paths on that Arr host before giving up. Cache files written before this policy may still contain older bytes until cleared.
+
+**Endpoints** (each has a `/api` and `/web` mirror; behavior is identical):
+
+| Method | Path pattern |
+|--------|----------------|
+| `GET` | `/api/radarr/<category>/movie/<id>/thumbnail` · `/web/radarr/<category>/movie/<id>/thumbnail` |
+| `GET` | `/api/sonarr/<category>/series/<id>/thumbnail` · `/web/sonarr/<category>/series/<id>/thumbnail` |
+| `GET` | `/api/lidarr/<category>/artist/<id>/thumbnail` · `/web/lidarr/<category>/artist/<id>/thumbnail` |
+
+**Parameters**: `category` is the qBitrr Arr instance category; `id` is the Arr database id for that entity (movie, series, or Lidarr artist). Optional `?token=<WebUI.Token>` works for `<img src>` when not using a session cookie.
+
+**Responses**: `200` with an image body (or `304` when `If-None-Match` matches), `401` if unauthorized, `404` if the entity or image cannot be resolved.
+
+These routes are listed in `qBitrr/openapi.json` (both `/api` and `/web` variants).
+
+---
+
 ### Radarr Movies
 
 Browse Radarr movie library from cached database.
@@ -830,6 +862,33 @@ Browse Sonarr series library from cached database.
 
 ---
 
+### Lidarr Artists
+
+Browse Lidarr artist library from the cached database. Mirrors Radarr/Sonarr filtering: a `Status` (missing only) and `Search Reason` filter, scoped to the artists' albums.
+
+**Endpoints**:
+- `GET /api/lidarr/<category>/artists` (requires auth)
+- `GET /web/lidarr/<category>/artists` (public)
+
+**Path Parameters**:
+
+- `category` (string, required) – Lidarr instance category. The literal string `lidarr` resolves to the single configured Lidarr instance when only one exists.
+
+**Query Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `q` | string | null | Search query (artist name) |
+| `page` | integer | 0 | Page number |
+| `page_size` | integer | 50 | Results per page (alias `size` accepted) |
+| `monitored` | boolean | null | Filter by monitored artist |
+| `missing` | boolean | false | Restrict to artists with at least one monitored album whose file is missing |
+| `reason` | string | `all` | Restrict to artists with at least one album whose `Reason` matches. Accepted values: `Missing`, `Quality`, `CustomFormat`, `Upgrade`, `Not being searched` (also matches NULL). Use `all` (or omit) for no reason filter. |
+
+The `missing` and `reason` filters are applied at the album level via an `EXISTS`-style subquery on `AlbumFilesModel`; `total` and pagination reflect the filtered artist set, so the UI shows accurate counts.
+
+---
+
 ### Lidarr Albums
 
 Browse Lidarr album library from cached database.
@@ -901,7 +960,8 @@ Browse Lidarr album library from cached database.
           "duration": 70,
           "hasFile": true,
           "trackFileId": 1001,
-          "monitored": true
+          "monitored": true,
+          "reason": "Not being searched"
         }
       ]
     }
@@ -910,6 +970,8 @@ Browse Lidarr album library from cached database.
 ```
 
 **Grouping**: Tracks nested within albums.
+
+**Track `reason`**: Each object in `tracks` includes a string `reason` derived for that row (for example `Missing`, `Unmonitored`, `Not being searched`, or album-level states such as `Quality` when applicable). Older responses may omit it; clients can fall back to the parent album `reason`.
 
 ---
 

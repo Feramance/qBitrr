@@ -15,11 +15,38 @@ qBitrr's Arr views offer:
 - **Quality Profile Display**: See which quality profile is assigned to each entry
 - **Request Tracking**: Identify items added via Overseerr/Ombi integration
 - **Pagination**: Handle large libraries with server-side pagination
+- **List and Icon**: Toolbar **View** control on each Arr page — **List** is a text-only table (no poster column in the browse surface); **Icon** is a responsive tile grid with cached posters or cover art. The choice is stored in `localStorage` (default: Icon).
+- **Detail modals**: Click a row/card to open a modal. Radarr shows a single movie payload. Sonarr groups **series → season → episode** in the modal. **Lidarr groups artist → albums → tracks** (each album is a section with track rows)—not nested tables on the main browse surface.
+- **Posters**: Thumbnails are served by the WebUI (disk cache, Arr API source) at `/web/.../thumbnail` and mirrored under `/api/...` (see [WebUI API](api.md#arr-poster-thumbnails-cached)). Images may append `?token=` when the session cookie is not used.
+
+Multi-level detail in the modal (browse row is the top level):
+
+| Arr | Detail modal shape | Multi-level (collapses to episodes / tracks) |
+|-----|-------------------|----------------------------------------------|
+| **Radarr** | Single movie fields | No |
+| **Sonarr** | Series → seasons → episodes | Yes |
+| **Lidarr** | Artist → albums → tracks | Yes |
 
 **Supported Arr Types**:
 - **Radarr**: Movies with year, quality profile, file status
 - **Sonarr**: TV series with seasons, episodes, air dates
-- **Lidarr**: Albums with artists, tracks, release dates
+- **Lidarr**: Artists on the browse surface; albums and tracks appear in the detail modal (artist → album → track)
+
+### `available` vs `hasFile`: two different metrics
+
+The Arr views surface availability at two different granularities and they have **different**
+definitions — be careful when comparing the catalog header to a per-row badge.
+
+| Field | Where it appears | Definition |
+|-------|------------------|------------|
+| `counts.available` | Header rollup (movies/episodes/albums/tracks) | `Monitored == true` **AND** the row has a file (`MovieFileId`/`EpisodeFileId`/`AlbumFileId` non-zero, or Lidarr `HasFile == true` for tracks). Unmonitored rows with a file are excluded. |
+| `counts.missing` | Header rollup | `max(monitored - available, 0)` — the count of monitored rows that do **not** have a file. Unmonitored rows are never counted as missing. |
+| `<row>.hasFile` | Per-row payload | The row has a file regardless of monitored state. A row can be `hasFile=true` while contributing **zero** to the rollup `available`. |
+| `seasons[].available` (Sonarr) | Per-season bucket | Same as the header rollup: counts only monitored episodes that also have a file. |
+
+If you build a frontend control that reuses the rollup as a "browser-side" available count,
+make sure you `&&` the row's `monitored` flag with `hasFile` before comparing — otherwise
+totals will not match the header.
 
 ---
 
@@ -44,9 +71,9 @@ qBitrr's Arr views offer:
 | **Is Request** | Show only Overseerr/Ombi requests | All, Yes, No |
 | **Year Range** | Filter by release year | Min/Max year inputs |
 
-**Aggregation Mode**:
-- **Per-Instance View**: Browse one Radarr instance at a time (default)
-- **Aggregate View**: Combine all Radarr instances into a unified table
+**Instance vs aggregate**:
+- **Per-instance**: Browse one Radarr at a time.
+- **All Radarr (aggregate)**: Merged library across instances (instance column when multiple instances exist). Same **List** / **Icon** modes apply; row click opens the **movie** detail modal.
 
 **Example Display**:
 ```plaintext
@@ -125,6 +152,7 @@ qBitrr's Arr views offer:
 - First page load triggers full library sync from Radarr API (`/api/v3/movie`)
 - Data stored in `MoviesFilesModel` table (`qBitrr.db`)
 - Subsequent page loads read from database (instant response)
+- Library summary counts on browse responses (header `counts`, pagination totals) aggregate from SQLite on each request so they stay aligned with catalog updates performed by background workers
 - Database refreshes on demand (Refresh button) or periodically
 
 **Database Fields**:
@@ -152,23 +180,10 @@ qBitrr's Arr views offer:
 
 ### Features
 
-**TV Series Browser**:
-- Series title, season/episode breakdown, air dates
-- Monitored status per episode
-- File availability per episode
-- Quality profile name display
-- Episode-level reason tracking (why missing)
-
-**Grouping Modes**:
-
-1. **Grouped by Series** (default):
-   - Expandable rows showing seasons
-   - Episode counts per season (available/monitored/missing)
-   - Collapse/expand individual series
-
-2. **Flat Episode List**:
-   - All episodes in a single table
-   - Sortable by series, season, episode number, air date
+**Library browser**:
+- **List**: One row per series (columns include episode count and quality profile as applicable); no posters in the browse table.
+- **Icon**: One tile per series with a cached poster; metadata line shows episode count and profile.
+- **Detail modal**: Click opens the series; seasons expand to the same per-episode fields as before (monitored, has file, air date, reason).
 
 **Filtering Options**:
 
@@ -177,21 +192,13 @@ qBitrr's Arr views offer:
 | **Missing Only** | Show only episodes without files | All, Missing Only |
 | **Search** | Search series titles and episode names | Text input |
 
-**Example Display** (Grouped Mode):
+**Example (list mode)**:
 ```plaintext
 ┌─────────────────────────────────────────────────────────────────┐
-│ Sonarr-TV                                         [Refresh] [⚙] │
+│ Series              Episodes   Quality profile                    │
 ├─────────────────────────────────────────────────────────────────┤
-│ Available: 4,532  Monitored: 5,000  Missing: 468               │
-├─────────────────────────────────────────────────────────────────┤
-│ Series                 Available  Monitored  Missing  Profile   │
-├─────────────────────────────────────────────────────────────────┤
-│ ▼ Breaking Bad         62         62         0         HD-1080p │
-│   Season 1: 7/7                                                  │
-│   Season 2: 13/13                                                │
-│   Season 3: 13/13                                                │
-│ ▶ Game of Thrones      73         80         7         Any      │
-│ ▶ The Office           201        201        0         HD-720p  │
+│ Breaking Bad        62         HD-1080p                          │
+│ Game of Thrones     73         Any                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -284,124 +291,31 @@ qBitrr's Arr views offer:
 
 ### Features
 
-**Album Browser**:
-- Artist name, album title, release date
-- Track count and availability
-- Monitored status per album
-- Quality profile assignment
-- Foreign album ID (MusicBrainz)
+**Library browser**:
+- **List**: One row per **artist** (album count, track count, monitored, quality profile).
+- **Icon**: One tile per artist using a cached **artist** thumbnail; click opens a **detail modal** with albums and tracks (`LidarrAlbumDetailBody` per album).
+- **Aggregate** ("All Lidarr"): Merged rows across instances; instance column when multiple instances exist.
 
-**Grouping Modes**:
+**Filtering**: **Search** matches artist names (and instance labels in aggregate mode). **Artists** dropdown (per instance only): all artists or monitored artists only.
 
-1. **Grouped by Artist** (default):
-   - Albums grouped under artist name
-   - Track counts per album
-   - Expandable to show individual tracks
+The separate **album** JSON API (`GET …/albums`) remains available for programmatic use; it is not used as the default browse surface in the WebUI anymore.
 
-2. **Flat Album List**:
-   - All albums in a single table
-   - Sortable by artist, album title, release date
+**Example (list mode)**:
 
-**Filtering Options**:
-
-| Filter | Description | Values |
-|--------|-------------|--------|
-| **Monitored** | Filter by monitored status | All, Yes, No |
-| **Has File** | Filter by file availability | All, Yes, No |
-| **Quality Met** | Filter by quality cutoff | All, Yes, No |
-| **Is Request** | Show only requests | All, Yes, No |
-| **Search** | Search artist/album names | Text input |
-
-**Example Display** (Grouped Mode):
 ```plaintext
-┌─────────────────────────────────────────────────────────────────┐
-│ Lidarr-Music                                      [Refresh] [⚙] │
-├─────────────────────────────────────────────────────────────────┤
-│ Available: 523  Monitored: 600  Missing: 77                    │
-├─────────────────────────────────────────────────────────────────┤
-│ Artist / Album            Tracks    Release Date  Profile       │
-├─────────────────────────────────────────────────────────────────┤
-│ ▼ Pink Floyd                                                     │
-│   The Dark Side of Moon   10/10     1973-03-01   Lossless      │
-│   Wish You Were Here      5/5       1975-09-12   Lossless      │
-│ ▼ The Beatles                                                    │
-│   Abbey Road              17/17     1969-09-26   Any           │
-│   Sgt. Pepper's...        13/13     1967-05-26   Any           │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Artist              Albums   Tracks   Monitored  Profile │
+├──────────────────────────────────────────────────────────┤
+│ Pink Floyd           12        180     ✓           Lossless │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ### API Integration
 
-**Endpoint**: `GET /api/lidarr/<category>/albums`
+**Artist browse endpoint**: `GET /api/lidarr/<category>/artists` (and `/web/...` mirror).
+**Artist detail (modal)**: `GET /api/lidarr/<category>/artist/<artist_id>` returning nested album rows with tracks.
 
-**Query Parameters**:
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `page` | `int` | Page number (0-indexed) |
-| `page_size` | `int` | Albums per page (default: 50) |
-| `q` | `string` | Search query (artist/album) |
-| `monitored` | `bool` | Filter by monitored status |
-| `has_file` | `bool` | Filter by file availability |
-| `quality_met` | `bool` | Filter by quality cutoff |
-| `is_request` | `bool` | Filter by request status |
-| `flat_mode` | `bool` | Flat track view (default: false) |
-
-**Response**:
-```json
-{
-  "category": "Lidarr-Music",
-  "counts": {
-    "available": 523,
-    "monitored": 600,
-    "missing": 77,
-    "quality_met": 500,
-    "requests": 12
-  },
-  "total": 600,
-  "page": 0,
-  "page_size": 50,
-  "albums": [
-    {
-      "album": {
-        "id": 1,
-        "title": "The Dark Side of the Moon",
-        "artistId": 1,
-        "artistName": "Pink Floyd",
-        "monitored": true,
-        "hasFile": true,
-        "foreignAlbumId": "b84ee12a-09ef-421b-82de-0441a926375c",
-        "releaseDate": "1973-03-01",
-        "qualityMet": true,
-        "isRequest": false,
-        "upgrade": false,
-        "customFormatScore": 0,
-        "minCustomFormatScore": 0,
-        "customFormatMet": true,
-        "reason": null,
-        "qualityProfileId": 1,
-        "qualityProfileName": "Lossless"
-      },
-      "totals": {
-        "available": 10,
-        "monitored": 10,
-        "missing": 0
-      },
-      "tracks": [
-        {
-          "id": 1,
-          "trackNumber": 1,
-          "title": "Speak to Me",
-          "duration": 90,
-          "hasFile": true,
-          "trackFileId": 123,
-          "monitored": true
-        }
-      ]
-    }
-  ]
-}
-```
+See [WebUI API](api.md#lidarr-artists) for query parameters.
 
 ### Database Caching
 
@@ -450,18 +364,19 @@ When enabled, bypasses database cache and fetches live data directly from Arr AP
 LiveArr = false  # Use database cache (recommended)
 ```
 
-### Group Sonarr by Series
+### WebUI.GroupSonarr / WebUI.GroupLidarr
 
-**Path**: `Settings.WebUI.GroupSonarr`
-**Type**: `bool`
-**Default**: `true`
+**Paths**: `Settings.WebUI.GroupSonarr`, `Settings.WebUI.GroupLidarr`
+**Type**: `bool` each
+**Default**: `true` each
 
-Controls default grouping mode for Sonarr view.
+These keys remain in [`config.toml`](../configuration/config-file.md) for compatibility; the React WebUI does **not** branch on them. Sonarr browsing is series-row + modal (`series → seasons → episodes`). Lidarr browsing is artist-row + modal (`artist → albums → tracks`).
 
 **Example**:
 ```toml
 [WebUI]
-GroupSonarr = true  # Group by series (default)
+GroupSonarr = true
+GroupLidarr = true
 ```
 
 ---

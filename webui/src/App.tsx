@@ -25,7 +25,7 @@ import SonarrIcon from "./icons/sonarr.svg";
 import LidarrIcon from "./icons/lidarr.svg";
 import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
-import LogoIcon from "./icons/logo.svg";
+import logoUrl from "./assets/logov2-clean.svg";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -582,7 +582,10 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   );
 
   useEffect(() => {
-    void refreshMeta({ force: true });
+    const id = window.setTimeout(() => {
+      void refreshMeta({ force: true });
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [refreshMeta]);
 
   // Check for new version on first launch - show welcome popup with changelog
@@ -598,16 +601,20 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     if (lastSeenVersion && lastSeenVersion !== currentVersion) {
       // Ensure we have changelog data before showing popup
       if (!meta.current_version_changelog && !meta.changelog) {
-        void refreshMeta({ force: true, silent: true });
+        window.setTimeout(() => {
+          void refreshMeta({ force: true, silent: true });
+        }, 0);
       }
-      setShowWelcomeChangelog(true);
+      window.setTimeout(() => {
+        setShowWelcomeChangelog(true);
+      }, 0);
     }
 
     // Store current version as last seen when user opens the app (first install)
     if (!lastSeenVersion) {
       localStorage.setItem("lastSeenVersion", currentVersion);
     }
-  }, [meta?.current_version, meta?.changelog, refreshMeta]);
+  }, [meta?.current_version, meta?.current_version_changelog, meta?.changelog, refreshMeta]);
 
   // Network status notifications
   useEffect(() => {
@@ -665,11 +672,25 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     return () => window.clearInterval(id);
   }, [refreshMeta]);
 
+  const refreshStatus = useCallback(async () => {
+    try {
+      await getStatus();
+    } catch {
+      // Silently fail - status is not critical
+    }
+  }, []);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        // Force reload all data by incrementing the reload key
-        setReloadKey((prev) => prev + 1);
+        // Remount only views that benefit from a hard reset; Arr tabs stay mounted so browse state persists.
+        if (
+          activeTab === "processes" ||
+          activeTab === "logs" ||
+          activeTab === "qbittorrent"
+        ) {
+          setReloadKey((prev) => prev + 1);
+        }
         void refreshMeta({ force: true });
         void refreshStatus();
       }
@@ -679,15 +700,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [refreshMeta]);
-
-  const refreshStatus = useCallback(async () => {
-    try {
-      await getStatus();
-    } catch {
-      // Silently fail - status is not critical
-    }
-  }, []);
+  }, [refreshMeta, refreshStatus, activeTab]);
 
   useEffect(() => {
     void refreshStatus();
@@ -738,7 +751,9 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     if (result && result !== prevUpdateResult.current) {
       if (result === "success") {
         push("Update completed successfully. Restarting...", "success");
-        setBackendRestarting(true);
+        window.setTimeout(() => {
+          setBackendRestarting(true);
+        }, 0);
         restartPollCount.current = 0;
       } else if (result === "error") {
         push(state.last_error || "Update failed.", "error");
@@ -846,7 +861,10 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   useEffect(() => {
     const tabExists = tabs.some((tab) => tab.id === activeTab);
     if (!tabExists && tabs.length > 0) {
-      setActiveTab("processes");
+      const id = window.setTimeout(() => {
+        setActiveTab("processes");
+      }, 0);
+      return () => window.clearTimeout(id);
     }
   }, [tabs, activeTab]);
 
@@ -876,13 +894,13 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     setShowAlreadyUpToDateModal(false);
   }, []);
 
-  const handleCloseWelcomeChangelog = useCallback(() => {
+  const handleCloseWelcomeChangelog = () => {
     setShowWelcomeChangelog(false);
     // Mark this version as seen
     if (meta?.current_version) {
       localStorage.setItem("lastSeenVersion", meta.current_version);
     }
-  }, [meta?.current_version]);
+  };
 
   const handleTriggerUpdate = useCallback(async () => {
     setUpdateBusy(true);
@@ -905,7 +923,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
       <header className="appbar">
         <div className="appbar__inner">
           <div className="appbar__title">
-            <IconImage src={LogoIcon} alt="qBitrr Logo" className="appbar__logo" />
+            <IconImage src={logoUrl} alt="qBitrr Logo" className="appbar__logo" />
             <h1>qBitrr</h1>
             <span className="appbar__version" title={versionTitle}>
               {displayVersion}

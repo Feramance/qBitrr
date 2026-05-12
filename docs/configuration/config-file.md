@@ -894,26 +894,7 @@ GroupSonarr = true
 **Type:** Boolean
 **Default:** `true`
 
-Group Sonarr episodes by series in the WebUI.
-
-When `true`:
-
-```
-└─ Breaking Bad
-   ├─ S01E01
-   ├─ S01E02
-   └─ S01E03
-```
-
-When `false`:
-
-```
-├─ Breaking Bad S01E01
-├─ Breaking Bad S01E02
-└─ Breaking Bad S01E03
-```
-
-**Recommendation:** `true` for cleaner view.
+**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses series rows; the modal nests seasons and episodes.
 
 ---
 
@@ -926,26 +907,7 @@ GroupLidarr = true
 **Type:** Boolean
 **Default:** `true`
 
-Group Lidarr albums by artist in the WebUI.
-
-When `true`:
-
-```
-└─ Pink Floyd
-   ├─ The Dark Side of the Moon
-   ├─ The Wall
-   └─ Wish You Were Here
-```
-
-When `false`:
-
-```
-├─ Pink Floyd - The Dark Side of the Moon
-├─ Pink Floyd - The Wall
-└─ Pink Floyd - Wish You Were Here
-```
-
-**Recommendation:** `true` for better organization.
+**Reserved.** Not applied by the current WebUI implementation. Behaviour is described in [Web UI → Arr views](../webui/arr-views.md#overview): browse uses artist rows; the modal nests albums and tracks.
 
 ---
 
@@ -996,9 +958,13 @@ Port = 8080
 UserName = "admin"
 Password = "adminpass"
 ManagedCategories = []
+# When true, configured categories also match torrents in any qBittorrent
+# subcategory beneath them ("seed" then matches "seed/tleech", "seed/longterm",
+# etc.). Defaults to false (exact match), preserving existing behaviour.
+MatchSubcategories = false
 ```
 
-For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, see the [qBittorrent Configuration Guide](qbittorrent.md).
+For detailed qBittorrent configuration, including `[qBit.CategorySeeding]` for per-category seeding settings, plus the dedicated **[Subcategories](qbittorrent.md#subcategories-qbittorrent-46)** section covering full-path values, the `MatchSubcategories` opt-in, and migration tips, see the [qBittorrent Configuration Guide](qbittorrent.md).
 
 ---
 

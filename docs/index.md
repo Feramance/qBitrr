@@ -1,7 +1,7 @@
 # Welcome to qBitrr Documentation
 
 <div style="text-align: center; margin: 2rem 0;">
-  <img src="assets/logov2-clean.svg" alt="qBitrr Logo" width="200"/>
+  <img src="assets/logov2-clean.png" alt="qBitrr Logo" width="200"/>
 </div>
 
 **[Torrentarr](https://github.com/Feramance/Torrentarr)** – Companion tools and automation for the *Arr ecosystem.

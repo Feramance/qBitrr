@@ -4,27 +4,18 @@ import { resolve } from "node:path";
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: "/static/",
+  // Use relative URLs so the same build works at / and /qbitrr.
+  base: "./",
   plugins: [react()],
+  server: {
+    fs: {
+      allow: [resolve(__dirname, "..")],
+    },
+  },
   build: {
     outDir: resolve(__dirname, "../qBitrr/static"),
     emptyOutDir: true,
     sourcemap: true,
     chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      output: {
-        entryFileNames: "assets/app.js",
-        chunkFileNames: "assets/[name].js",
-        assetFileNames: ({ name }) => {
-          if (name && name.endsWith(".css")) {
-            return "assets/app.css";
-          }
-          if (name && name.endsWith(".js.map")) {
-            return "assets/app.js.map";
-          }
-          return "assets/[name][extname]";
-        },
-      },
-    },
   },
 });

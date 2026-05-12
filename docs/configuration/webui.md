@@ -48,7 +48,7 @@ Token = ""
 # Live updates
 LiveArr = true
 
-# Group settings
+# Reserved (no effect today; kept for compatibility)
 GroupSonarr = true
 GroupLidarr = true
 
@@ -306,26 +306,7 @@ GroupSonarr = true
 **Type:** Boolean
 **Default:** `true`
 
-Group Sonarr episodes by series in the WebUI.
-
-**When true (grouped):**
-
-```
-└─ Breaking Bad
-   ├─ S01E01 - Pilot
-   ├─ S01E02 - Cat's in the Bag
-   └─ S01E03 - ...and the Bag's in the River
-```
-
-**When false (flat list):**
-
-```
-├─ Breaking Bad S01E01 - Pilot
-├─ Breaking Bad S01E02 - Cat's in the Bag
-└─ Breaking Bad S01E03 - ...and the Bag's in the River
-```
-
-**Recommendation:** `true` for better organization.
+**Reserved.** The React WebUI does not read this flag today. Browse is **one row per series** (List or Icon mode); seasons and episodes open in the detail modal (`series → seasons → episodes`). The key remains for backwards compatibility.
 
 ---
 
@@ -338,26 +319,7 @@ GroupLidarr = true
 **Type:** Boolean
 **Default:** `true`
 
-Group Lidarr albums by artist in the WebUI.
-
-**When true (grouped):**
-
-```
-└─ Pink Floyd
-   ├─ The Dark Side of the Moon
-   ├─ The Wall
-   └─ Wish You Were Here
-```
-
-**When false (flat list):**
-
-```
-├─ Pink Floyd - The Dark Side of the Moon
-├─ Pink Floyd - The Wall
-└─ Pink Floyd - Wish You Were Here
-```
-
-**Recommendation:** `true` for better navigation.
+**Reserved.** The React WebUI does not read this flag today. Browse is **one row per artist** (List or Icon mode); albums and tracks open in the detail modal (`artist → albums → tracks`). The key remains for backwards compatibility.
 
 ---
 
@@ -477,8 +439,8 @@ Host = "0.0.0.0"
 Port = 6969
 Token = ""
 LiveArr = false  # Disable auto-refresh
-GroupSonarr = false  # Flat lists
-GroupLidarr = false  # Flat lists
+GroupSonarr = false  # Reserved; no perf effect
+GroupLidarr = false  # Reserved; no perf effect
 Theme = "Dark"
 ```
 
@@ -495,7 +457,9 @@ server {
     listen 80;
     server_name qbitrr.example.com;
 
+    # Keep WebUI and static/PWA paths behind one auth-protected location.
     location / {
+        include /config/nginx/authentik-location.conf;
         proxy_pass http://localhost:6969;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -505,6 +469,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Optional: bypass proxy auth for API clients only.
+    location ~ ^/(qbitrr/)?api/ {
+        proxy_pass http://localhost:6969;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
@@ -727,21 +701,15 @@ WebUI host, port, and token are configured in `config.toml` under the `[WebUI]` 
    LiveArr = false
    ```
 
-2. **Disable grouping:**
-   ```toml
-   GroupSonarr = false
-   GroupLidarr = false
-   ```
-
-3. **Check resource usage:**
+2. **Check resource usage:**
    ```bash
    docker stats qbitrr
    htop
    ```
 
-4. **Clear browser cache**
+3. **Clear browser cache**
 
-5. **Reduce log retention:**
+4. **Reduce log retention:**
    - Fewer logs = faster log view
    - Consider log rotation
 
@@ -848,8 +816,6 @@ pip install -U qbitrr2
 ```toml
 [WebUI]
 LiveArr = false  # Disable auto-refresh
-GroupSonarr = false  # Faster rendering
-GroupLidarr = false  # Faster rendering
 ```
 
 **In WebUI:**
@@ -866,8 +832,6 @@ Host = "127.0.0.1"
 Port = 6969
 Token = ""
 LiveArr = false
-GroupSonarr = false
-GroupLidarr = false
 Theme = "Dark"  # Lower power on OLED
 ```
 

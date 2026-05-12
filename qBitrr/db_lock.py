@@ -75,7 +75,20 @@ _DB_LOCK = _InterProcessFileLock(_LOCK_FILE)
 
 @contextmanager
 def database_lock() -> Iterator[None]:
-    """Provide a shared lock used to serialize SQLite access across processes."""
+    """Provide a shared lock used to serialize SQLite access across processes.
+
+    Conventions for WebUI ``*_from_db`` helpers (M-2/B-3):
+
+    1. Compute rollups (which take their own short lock internally) BEFORE acquiring this
+       lock. Never call ``ensure_arr_webui_rollups`` / ``get_*_counts`` from inside an
+       outer ``database_lock()`` block — it would re-enter the same RLock and silently
+       extend the critical section.
+    2. Inside the lock, materialise rows into Python lists (``list(query)``) rather than
+       holding cursors open. Never iterate a Peewee ``iterator()`` while building a JSON
+       payload — the iteration keeps the lock held during I/O-bound serialisation.
+    3. After releasing the lock, build the response payload from the materialised rows.
+       This minimises contention between the WebUI process and worker writers.
+    """
     with _DB_LOCK.context():
         yield
 

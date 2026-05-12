@@ -61,6 +61,9 @@ ArrErrorCodesToBlocklist = [
 !!! warning "Category Mismatch"
     The `Category` value in qBitrr **must exactly match** the category configured in Sonarr's qBittorrent download client settings. If they don't match, qBitrr won't process your Sonarr torrents.
 
+!!! info "qBittorrent Subcategories (4.6+)"
+    For hierarchical qBit categories like `seed/tv`, set `Category` to the **full path** (`Category = "seed/tv"`). To configure a parent once and have qBitrr also manage every child (`seed/tv`, `seed/anime`, ...) enable `MatchSubcategories = true` on the corresponding `[qBit]` / `[qBit-<name>]` section. See [Subcategories](../qbittorrent.md#subcategories-qbittorrent-46).
+
 ---
 
 ### Multiple Sonarr Instances

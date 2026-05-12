@@ -716,6 +716,106 @@ Categories refresh automatically — every 1 second when "Live Arr" is enabled, 
 
 ---
 
+## Subcategories (qBittorrent 4.6+)
+
+qBittorrent stores hierarchical categories as a single string with `/` as the separator (for example `seed/tleech`). The Web API's `torrents/info?category=` filter is **exact match** on that string — asking for `tleech` will never return torrents whose category is `seed/tleech`. qBitrr's behaviour is aligned with that semantics.
+
+### Two ways to configure subcategories
+
+#### 1. Use the exact path (default; works everywhere)
+
+Set every category value (`Category = ...`, `ManagedCategories = [...]`, `Settings.FailedCategory`, `Settings.RecheckCategory`) to the **full qBittorrent string**. qBitrr will create any missing parent categories automatically and inherit each parent's `savePath`.
+
+```toml
+[Radarr-1]
+Managed = true
+URI = "http://radarr:7878"
+APIKey = "..."
+Category = "seed/movies"
+
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "..."
+ManagedCategories = ["seed/tleech"]
+```
+
+The corresponding qBittorrent category tree (Tools → Options → Use subcategories enabled):
+
+```text
+seed/
+├── tleech     ← qBit-managed (rate limits, ratio etc.)
+└── movies     ← Radarr-managed
+```
+
+#### 2. Configure the parent and let qBitrr match descendants (`MatchSubcategories`)
+
+When you'd rather configure `seed` once and have qBitrr manage every `seed/*`, opt in with `MatchSubcategories = true` on the `[qBit]` (or `[qBit-<name>]`) section:
+
+```toml
+[qBit]
+Host = "localhost"
+Port = 8080
+UserName = "admin"
+Password = "..."
+ManagedCategories = ["seed"]
+MatchSubcategories = true
+```
+
+With this enabled:
+
+- qBitrr fetches the full torrent list once per loop and dispatches torrents to the matching configured prefix in Python.
+- A torrent whose qBit category is `seed/tleech`, `seed/longterm`, or any deeper child is dispatched to the owner registered for `seed`.
+- An exact configured path always wins over a more general prefix (`seed/tleech` configured separately would shadow `seed`).
+- Per-Arr override: add `MatchSubcategories = true` (or `false`) to a `[Radarr-N]` / `[Sonarr-N]` / `[Lidarr-N]` section to override the qBit-instance default for that Arr only.
+
+`MatchSubcategories = false` is the default and preserves the previous exact-match behaviour bit-for-bit.
+
+### Validator output to watch for
+
+qBitrr surfaces a few subcategory-specific log lines at start-up:
+
+| Log message | Meaning |
+|-------------|---------|
+| `Configured category overlap: 'seed/tleech' is a subcategory of 'seed'.` | Two configured owners overlap. With `MatchSubcategories=true` the more specific path wins; otherwise both owners coexist with exact-match semantics. |
+| `qBit-managed category 'seed/tleech' contains '/'. Exact-match mode is in effect ...` | You configured a subcategory path but `MatchSubcategories` is off — qBitrr will only match torrents whose qBit category equals that string. |
+| `Created parent category 'seed' on instance '<name>' (save_path=...)` | The parent chain was missing on a qBittorrent instance and was just created so `seed/tleech` could be added cleanly. |
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| qBitrr's "qBittorrent" tab shows the category but **no torrents**. | `Category` doesn't match the qBit string verbatim (you used the leaf only). | Either set `Category = "<parent>/<leaf>"` exactly, **or** enable `MatchSubcategories = true` and configure the parent. |
+| WebUI returns **404** when opening a Radarr/Sonarr/Lidarr browse page. | Older qBitrr build (pre-subcategories) had `<string:category>` Flask routes that don't accept `/`. | Upgrade qBitrr — current routes use `<path:category>`. |
+| `Failed to create parent category 'seed' on '<name>'` warning. | qBittorrent rejects the parent (existing rules, permissions, "Use subcategories" disabled). | Enable Tools → Options → "Use subcategories" in qBittorrent, or create the parent manually with the desired save path. |
+| Torrents land in `<DownloadFolder>/seed/tleech` on disk even though qBit's saved path is something else. | qBit's category had no `savePath` set, so qBitrr fell back to `Settings.CompletedDownloadFolder`. | Set the desired `savePath` on the parent category in qBittorrent. qBitrr will inherit it for children. |
+
+!!! warning "Backslashes are not subcategory separators"
+    qBittorrent uses `/` as the separator on every platform (including Windows). qBitrr logs a warning if any configured category contains `\`, and treats the segments around backslashes as part of the literal name.
+
+### Migrating an existing flat config to subcategories
+
+1. In qBittorrent, enable **Tools → Options → Use subcategories**.
+2. Decide which path each Arr/qBit-managed category should live under (`seed/movies`, `seed/tleech`, etc.).
+3. Update each `Category` / `ManagedCategories` entry to the full path.
+4. Restart qBitrr; the parent chain is created automatically on every connected qBittorrent instance.
+5. Optional: enable `MatchSubcategories = true` on the relevant `[qBit*]` sections so future children get picked up automatically.
+
+### qBittorrent Web API (v4.6+ and v5.x)
+
+Behaviour relevant to subcategories (verified against qBittorrent Web API documentation):
+
+| Topic | Behaviour |
+|-------|-----------|
+| `GET /api/v2/torrents/info` with `category=` | Filter is **exact** on the category string stored on the torrent (`seed/tleech` ≠ `tleech`). |
+| `POST /api/v2/torrents/createCategory` | Creates one category; hierarchical names use `/`. Creating a child may require the parent to exist first depending on client settings and version. |
+| **Use subcategories** (GUI: Tools → Options → Downloads) | When enabled, the UI and API expose nested categories as path strings with `/`. When disabled, category names are typically flat; mixing assumptions breaks paths. |
+
+qBitrr uses `qbittorrent-api`, which maps these endpoints to `client.torrents.info(category=...)` and `client.torrent_categories.create_category(...)`.
+
+---
+
 ## Advanced Configuration
 
 ### Custom TLS/SSL

@@ -132,10 +132,10 @@ RequireHttpsMetadata = true
 # Enable live updates for Arr views
 LiveArr = true
 
-# Group Sonarr episodes by series in views
+# Reserved (no effect in current WebUI): browse is series rows + detail modal
 GroupSonarr = true
 
-# Group Lidarr albums by artist in views
+# Reserved (no effect in current WebUI): browse is artist rows + detail modal
 GroupLidarr = true
 
 # WebUI theme (Light or Dark)
@@ -169,6 +169,9 @@ SkipTLSVerify = false
 # These categories will have seeding settings applied according to CategorySeeding configuration.
 # Example: ['downloads', 'private-tracker', 'long-term-seed']
 ManagedCategories = []
+
+# When true, torrents in child categories under each ManagedCategories entry are included (see docs/configuration/qbittorrent.md § Subcategories).
+MatchSubcategories = false
 
 # Shared tracker configs inherited by all Arr instances on this qBit instance.
 # Define tracker-specific rate limits, HnR protection, and management rules here.

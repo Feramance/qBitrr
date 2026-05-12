@@ -47,6 +47,14 @@ repos:
   rev: v0.3.1
   hooks:
   - id: absolufy-imports
+- repo: local
+  hooks:
+  - id: openapi-check
+    name: openapi-check (Flask routes vs openapi.json)
+    entry: python scripts/openapi_check.py
+    language: system
+    pass_filenames: false
+    files: ^(qBitrr/(webui\.py|openapi\.json)|scripts/openapi_check\.py)$
 ci:
   autofix_commit_msg: |
     [pre-commit.ci] auto fixes from pre-commit.com hooks

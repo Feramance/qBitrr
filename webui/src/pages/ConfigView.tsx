@@ -9,6 +9,10 @@ import { useToast } from "../context/ToastContext";
 import { useWebUI } from "../context/WebUIContext";
 import { getTooltip } from "../config/tooltips";
 import {
+  getCategoryCrossSectionIssues,
+  getCategoryOverlapWarnings,
+} from "../config/categoryConfigValidation";
+import {
   getArrTorrentHandlingSummary,
   getQbitTorrentHandlingSummary,
 } from "../config/torrentHandlingSummary";
@@ -68,7 +72,7 @@ interface ValidationError {
   message: string;
 }
 
-const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
+const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr|animarr)(-|$)/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 /** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
 const REDACTED_PLACEHOLDER = "[redacted]";
@@ -502,6 +506,13 @@ const QBIT_FIELDS: FieldDefinition[] = [
     },
   },
   {
+    label: "Match subcategories",
+    path: ["MatchSubcategories"],
+    type: "checkbox",
+    description:
+      "When off (default), each managed category must match the qBittorrent category string exactly (use full paths like parent/child). When on, each entry here is a prefix: torrents in child categories (e.g. seed/foo) are included when seed is listed.",
+  },
+  {
     label: "Max Upload Ratio",
     path: ["CategorySeeding", "MaxUploadRatio"],
     type: "number",
@@ -705,6 +716,13 @@ const ARR_GENERAL_FIELDS: FieldDefinition[] = [
       }
       return undefined;
     },
+  },
+  {
+    label: "Match subcategories (override)",
+    path: ["MatchSubcategories"],
+    type: "checkbox",
+    description:
+      "Optional. When set, overrides the qBit instance MatchSubcategories default for this Arr only (explicit true/false wins; omit to inherit from [qBit] / [qBit-*]).",
   },
   { label: "Re-search", path: ["ReSearch"], type: "checkbox" },
   {
@@ -1473,6 +1491,9 @@ function validateFormState(formState: ConfigDocument | null): ValidationError[] 
       validateFieldGroup(errors, fieldSets.seedingFields, section, [key], sectionContext);
     }
   }
+  for (const issue of getCategoryCrossSectionIssues(formState)) {
+    errors.push(issue);
+  }
   return errors;
 }
 
@@ -1667,7 +1688,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [push]);
 
   useEffect(() => {
-    void loadConfig();
+    const id = window.setTimeout(() => {
+      void loadConfig();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [loadConfig]);
 
   const handleFieldChange = useCallback(
@@ -1706,6 +1730,11 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       QBIT_SECTION_REGEX.test(key) && value && typeof value === "object"
     ) as Array<[string, ConfigDocument]>;
   }, [formState]);
+  const categoryOverlapWarnings = useMemo(
+    () => getCategoryOverlapWarnings(formState),
+    [formState]
+  );
+
   const groupedArrSections = useMemo(() => {
     const groups: Array<{
       label: string;
@@ -1751,8 +1780,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
 
   useEffect(() => {
     if (!formState || !originalConfig) {
-      setDirty(false);
-      return;
+      const id = window.setTimeout(() => {
+        setDirty(false);
+      }, 0);
+      return () => window.clearTimeout(id);
     }
     const flattenedOriginal = flatten(originalConfig);
     const flattenedCurrent = flatten(formState);
@@ -1789,7 +1820,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         }
       }
     }
-    setDirty(dirty);
+    const id = window.setTimeout(() => {
+      setDirty(dirty);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [formState, originalConfig]);
 
   useEffect(() => {
@@ -1840,7 +1874,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   useEffect(() => {
     if (!activeArrKey) return;
     if (!arrSections.some(([key]) => key === activeArrKey)) {
-      setActiveArrKey(null);
+      const id = window.setTimeout(() => {
+        setActiveArrKey(null);
+      }, 0);
+      return () => window.clearTimeout(id);
     }
   }, [activeArrKey, arrSections]);
 
@@ -1912,6 +1949,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       UserName: "",
       Password: "",
       ManagedCategories: [],
+      MatchSubcategories: false,
       Trackers: [],
       CategorySeeding: {
         DownloadRateLimitPerTorrent: -1,
@@ -2051,6 +2089,17 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           changes[key] = null;
         }
       }
+      // Add top-level tombstones for removed Arr sections to ensure full section deletion.
+      for (const [key, value] of Object.entries(originalConfig ?? {})) {
+        if (
+          !(key in formState) &&
+          SERVARR_SECTION_REGEX.test(key) &&
+          value &&
+          typeof value === "object"
+        ) {
+          changes[key] = null;
+        }
+      }
       // Explicitly mark all keys under renamed sections for deletion
       for (const [oldName] of pendingRenames) {
         for (const key of Object.keys(flattenedOriginal)) {
@@ -2109,7 +2158,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     } finally {
       setSaving(false);
     }
-  }, [formState, originalConfig, loadConfig, push]);
+  }, [formState, originalConfig, loadConfig, pendingRenames, push]);
 
   if (loading || !formState) {
     return (
@@ -2311,6 +2360,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onChange={handleFieldChange}
           onRename={handleRenameSection}
           onClose={() => setActiveArrKey(null)}
+          overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
       {isSettingsOpen ? (
@@ -2356,6 +2406,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
           onRename={handleRenameQbitSection}
           onClose={() => setActiveQbitKey(null)}
           onDelete={() => deleteQbitInstance(activeQbitKey)}
+          overlapWarnings={categoryOverlapWarnings}
         />
       ) : null}
     </>
@@ -3044,7 +3095,10 @@ function SectionNameField({
     extractTooltipSummary(tooltip) ?? `Rename the ${currentName} instance.`;
 
   useEffect(() => {
-    setValue(currentName);
+    const id = window.setTimeout(() => {
+      setValue(currentName);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [currentName]);
 
   const commit = () => {
@@ -3184,6 +3238,20 @@ function SecureField({
   );
 }
 
+function CategoryOverlapAlert({ messages }: { messages: string[] }): JSX.Element | null {
+  if (!messages.length) return null;
+  return (
+    <div className="alert warning" style={{ marginBottom: 16 }} role="status">
+      <strong>Category path overlap</strong>
+      <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+        {messages.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function ArrTorrentSummary({
   state,
 }: {
@@ -3209,6 +3277,7 @@ interface ArrInstanceModalProps {
   onChange: (path: string[], def: FieldDefinition, value: unknown) => void;
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
+  overlapWarnings: string[];
 }
 
 function ArrInstanceModal({
@@ -3217,6 +3286,7 @@ function ArrInstanceModal({
   onChange,
   onRename,
   onClose,
+  overlapWarnings,
 }: ArrInstanceModalProps): JSX.Element {
   const { generalFields, entryFields, entryOmbiFields, entryOverseerrFields, torrentFields, seedingFields, trackerFields } =
     getArrFieldSets(keyName);
@@ -3238,17 +3308,22 @@ function ArrInstanceModal({
     // state is already the Arr instance object, not the full ConfigDocument
     return get(state, path);
   };
+  const uriValue = getValue(["URI"]) as string;
+  const apiKeyValue = getValue(["APIKey"]) as string;
 
   // Clear test state when URI or APIKey changes
   useEffect(() => {
-    setTestState({ testing: false, result: null });
-    setQualityProfiles([]);
-  }, [getValue(["URI"]), getValue(["APIKey"])]);
+    const id = window.setTimeout(() => {
+      setTestState({ testing: false, result: null });
+      setQualityProfiles([]);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [uriValue, apiKeyValue]);
 
   // Auto-test connection when modal opens if credentials exist
   useEffect(() => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
+    const uri = uriValue;
+    const apiKey = apiKeyValue;
 
     if (uri && apiKey && !testState.testing && !testState.result) {
       // Auto-test silently (without toasts)
@@ -3258,7 +3333,7 @@ function ArrInstanceModal({
   }, []); // Only run on mount
 
   // Test connection handler
-  const handleTestConnection = async (silent = false) => {
+  async function handleTestConnection(silent = false): Promise<boolean> {
     const uri = getValue(["URI"]) as string;
     const apiKey = getValue(["APIKey"]) as string;
     const isApiKeyRedacted = (apiKey ?? "").trim() === REDACTED_PLACEHOLDER;
@@ -3310,7 +3385,7 @@ function ArrInstanceModal({
       }
       return false;
     }
-  };
+  }
 
   // Handle save with connection test
   const handleSave = async () => {
@@ -3351,6 +3426,7 @@ function ArrInstanceModal({
         </div>
         <div className="modal-body">
           <ArrTorrentSummary state={state} />
+          <CategoryOverlapAlert messages={overlapWarnings} />
           <FieldGroup
             title={null}
             fields={generalFields}
@@ -3508,6 +3584,7 @@ interface QbitInstanceModalProps {
   onRename: (oldName: string, newName: string) => void;
   onClose: () => void;
   onDelete?: () => void;
+  overlapWarnings: string[];
 }
 
 function QbitInstanceModal({
@@ -3517,6 +3594,7 @@ function QbitInstanceModal({
   onRename,
   onClose,
   onDelete,
+  overlapWarnings,
 }: QbitInstanceModalProps): JSX.Element {
   return (
     <div className="modal-backdrop" role="presentation">
@@ -3538,6 +3616,7 @@ function QbitInstanceModal({
         </div>
         <div className="modal-body">
           <QbitTorrentSummary state={state} />
+          <CategoryOverlapAlert messages={overlapWarnings} />
           <FieldGroup
             title={null}
             fields={QBIT_FIELDS}

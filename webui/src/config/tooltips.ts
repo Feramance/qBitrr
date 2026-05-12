@@ -50,12 +50,15 @@ export const FIELD_TOOLTIPS: Record<string, string> = {
     "Set to true when the WebUI is reached over HTTPS (e.g. behind a reverse proxy). Enables Secure session cookies.",
   "WebUI.LocalAuthEnabled": "Enable username/password login (requires Username and Set Password).",
   "WebUI.OIDCEnabled": "Enable OpenID Connect login. Configure OIDC Authority and Client ID/Secret.",
-  "WebUI.Username": "Username for local auth login. Used together with the password set via Set Password.",
-   "WebUI.LiveArr": "Enable live updates for Arr views.",
-   "WebUI.GroupSonarr": "Group Sonarr views by series and seasons in collapsible sections.",
-   "WebUI.GroupLidarr": "Group Lidarr views by artist and albums in collapsible sections.",
-   "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
-   "WebUI.ViewDensity":
+  "WebUI.Username":
+    "Username for local auth login. Used together with the password set via Set Password.",
+  "WebUI.LiveArr": "Enable live updates for Arr views.",
+  "WebUI.GroupSonarr":
+    "Reserved setting: browse uses one row per series; seasons/episodes expand in the modal. Toggle kept for compatibility.",
+  "WebUI.GroupLidarr":
+    "Reserved setting: browse uses one row per artist; albums/tracks expand in the modal. Toggle kept for compatibility.",
+  "WebUI.Theme": "Choose the visual theme for the WebUI (light or dark).",
+  "WebUI.ViewDensity":
     "View density for lists in the WebUI: Comfortable (more spacing) or Compact (more rows on screen).",
 
   "qBit.Trackers":

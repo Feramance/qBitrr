@@ -37,8 +37,8 @@ Token = ""
 
 # WebUI-specific display settings
 LiveArr = true        # Enable live Arr instance views
-GroupSonarr = true    # Group Sonarr series by show
-GroupLidarr = true    # Group Lidarr albums by artist
+GroupSonarr = true    # Reserved (no effect today); Sonarr browse uses series rows + modal
+GroupLidarr = true    # Reserved (no effect today); Lidarr browse uses artist rows + modal
 Theme = "Dark"        # Dark | Light | Auto
 ```
 
@@ -62,11 +62,23 @@ Use Nginx, Caddy, or Traefik to proxy requests:
 === "Nginx"
 
     ```nginx
-    location /qbitrr/ {
-        proxy_pass http://localhost:6969/;
+    # WebUI fully protected by your auth layer in one location block.
+    location / {
+        include /config/nginx/authentik-location.conf;
+        proxy_pass http://localhost:6969;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Optional: bypass proxy auth only for API clients.
+    location ~ ^/(qbitrr/)?api/ {
+        proxy_pass http://localhost:6969;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

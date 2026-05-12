@@ -97,6 +97,9 @@ class SeriesFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+    # Denormalized: episode season count and episode total for this series (catalog_rollups)
+    SeasonCount = IntegerField(default=0)
+    EpisodeTotalCount = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -143,6 +146,8 @@ class AlbumFilesModel(Model):
     LastProfileSwitchTime = DateTimeField(formats=["%Y-%m-%d %H:%M:%S.%f"], null=True)
     CurrentProfileId = IntegerField(null=True)
     OriginalProfileId = IntegerField(null=True)
+    # Denormalized: tracks in this album (catalog_rollups)
+    TotalTracks = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
@@ -160,7 +165,7 @@ class TrackFilesModel(Model):
     TrackNumber = IntegerField(null=True)
     Title = TextField(null=True)
     ArrInstance = CharField(default="")
-    Duration = IntegerField(null=True)  # Duration in seconds
+    Duration = IntegerField(null=True)  # Whole seconds in DB (Lidarr API ms normalized at ingest)
     HasFile = BooleanField(default=False)
     TrackFileId = IntegerField(null=True)
     Monitored = BooleanField(default=False)
@@ -185,6 +190,9 @@ class ArtistFilesModel(Model):
     # Quality profile from Arr API
     QualityProfileId = IntegerField(null=True)
     QualityProfileName = TextField(null=True)
+    # Denormalized: album and track totals for this artist (catalog_rollups)
+    AlbumCount = IntegerField(default=0)
+    TrackTotalCount = IntegerField(default=0)
 
     class Meta:
         primary_key = CompositeKey("EntryId", "ArrInstance")
