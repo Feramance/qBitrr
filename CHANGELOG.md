@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.12.1 (12/05/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Clean up debug instrumentation and stabilize WebUI auth bootstrap](https://github.com/Feramance/qBitrr/commit/2fd46be55b7721fba3f1db972b30cbca3b7f3ef3) - @Feramance
+
+---
+
 ## v5.12.0 (12/05/2026)
 
 ### 🚀 Features
