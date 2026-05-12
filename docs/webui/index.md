@@ -62,11 +62,23 @@ Use Nginx, Caddy, or Traefik to proxy requests:
 === "Nginx"
 
     ```nginx
-    location /qbitrr/ {
-        proxy_pass http://localhost:6969/;
+    # WebUI fully protected by your auth layer in one location block.
+    location / {
+        include /config/nginx/authentik-location.conf;
+        proxy_pass http://localhost:6969;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Optional: bypass proxy auth only for API clients.
+    location ~ ^/(qbitrr/)?api/ {
+        proxy_pass http://localhost:6969;
+        proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

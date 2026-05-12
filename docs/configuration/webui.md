@@ -457,7 +457,9 @@ server {
     listen 80;
     server_name qbitrr.example.com;
 
+    # Keep WebUI and static/PWA paths behind one auth-protected location.
     location / {
+        include /config/nginx/authentik-location.conf;
         proxy_pass http://localhost:6969;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -467,6 +469,16 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # Optional: bypass proxy auth for API clients only.
+    location ~ ^/(qbitrr/)?api/ {
+        proxy_pass http://localhost:6969;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```

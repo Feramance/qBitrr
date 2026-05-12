@@ -10,20 +10,21 @@
     {
       "purpose": "any",
       "sizes": "192x192",
-      "src": "/icon-192.png",
+      "src": "icon-192.png",
       "type": "image/png"
     },
     {
       "purpose": "maskable",
       "sizes": "192x192",
-      "src": "/icon-192.png",
+      "src": "icon-192.png",
       "type": "image/png"
     }
   ],
   "name": "qBitrr",
   "orientation": "any",
+  "scope": "../",
   "screenshots": [],
   "short_name": "qBitrr",
-  "start_url": "/",
+  "start_url": "../ui",
   "theme_color": "#2563eb"
 }

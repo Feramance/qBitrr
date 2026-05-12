@@ -326,6 +326,22 @@ class WebUI:
 
             self.app.wsgi_app = ProxyFix(self.app.wsgi_app, x_for=1, x_proto=1)
 
+        class _QbitrrPrefixMiddleware:
+            """Support both / and /qbitrr path topologies behind reverse proxies."""
+
+            def __init__(self, app):
+                self._app = app
+
+            def __call__(self, environ, start_response):
+                path = environ.get("PATH_INFO", "")
+                if path == "/qbitrr" or path.startswith("/qbitrr/"):
+                    environ["SCRIPT_NAME"] = f"{environ.get('SCRIPT_NAME', '')}/qbitrr".rstrip("/")
+                    stripped = path[len("/qbitrr") :]
+                    environ["PATH_INFO"] = stripped or "/"
+                return self._app(environ, start_response)
+
+        self.app.wsgi_app = _QbitrrPrefixMiddleware(self.app.wsgi_app)
+
         # Add cache control and security headers
         @self.app.after_request
         def add_cache_headers(response):
@@ -334,7 +350,12 @@ class WebUI:
             response.headers.setdefault("X-Content-Type-Options", "nosniff")
             response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
             # Prevent caching of index.html and service worker to ensure fresh config loads
-            if request.path in ("/static/index.html", "/ui", "/static/sw.js", "/sw.js"):
+            if request.path in (
+                "/static/index.html",
+                "/ui",
+                "/static/sw.js",
+                "/sw.js",
+            ):
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers["Pragma"] = "no-cache"
                 response.headers["Expires"] = "0"
@@ -2030,7 +2051,8 @@ class WebUI:
 
         @app.get("/")
         def index():
-            return redirect("/ui")
+            prefix = request.script_root.rstrip("/")
+            return redirect(f"{prefix}/ui" if prefix else "/ui")
 
         def _authorized():
             _webui_logger = logging.getLogger("qBitrr.WebUI")
@@ -2110,7 +2132,9 @@ class WebUI:
             # Add cache-busting parameter based on config reload timestamp
             from flask import make_response
 
-            response = make_response(redirect("/static/index.html"))
+            prefix = request.script_root.rstrip("/")
+            target = f"{prefix}/static/index.html" if prefix else "/static/index.html"
+            response = make_response(redirect(target))
             # Prevent caching of the UI entry point
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
@@ -2135,7 +2159,8 @@ class WebUI:
 
         @app.get("/login")
         def login_page():
-            return redirect("/ui")
+            prefix = request.script_root.rstrip("/")
+            return redirect(f"{prefix}/ui" if prefix else "/ui")
 
         @app.post("/web/login")
         def web_login():
