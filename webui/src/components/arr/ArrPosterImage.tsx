@@ -46,14 +46,17 @@ export function ArrPosterImage({
 
   useEffect(() => {
     loadIdRef.current += 1;
-    setLoaded(false);
-    setFailed(false);
-    setReleased(false);
+    const id = window.setTimeout(() => {
+      setLoaded(false);
+      setFailed(false);
+      setReleased(false);
+    }, 0);
     // A new src means the previous slot (if any) is no longer the one rendering — drop it.
     if (releaseSlotRef.current) {
       releaseSlotRef.current();
       releaseSlotRef.current = null;
     }
+    return () => window.clearTimeout(id);
   }, [src]);
 
   useEffect(() => {

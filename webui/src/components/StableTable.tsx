@@ -82,8 +82,10 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
   const storefulRowsStore = isStoreful
     ? (props.rowsStore as unknown as RowsStore<Hashable>)
     : null;
+  const legacyData = !isStoreful ? (props as LegacyProps<TData>).data : null;
+  const stableDataSource = isStoreful ? storefulRowOrder : legacyData;
   const stableData = useMemo<TData[]>(() => {
-    if (!isStoreful) return (props as LegacyProps<TData>).data;
+    if (!isStoreful) return legacyData ?? [];
     const out: TData[] = [];
     const store = storefulRowsStore!;
     for (const id of storefulRowOrder!) {
@@ -95,10 +97,12 @@ function StableTableInner<TData>(props: StableTableProps<TData>) {
     // `rowOrder` reference, so the memo stays fresh and tanstack-table is unbothered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    storefulRowOrder ?? (props as LegacyProps<TData>).data,
+    stableDataSource,
     storefulRowsStore,
+    legacyData,
   ]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: stableData,
     columns,

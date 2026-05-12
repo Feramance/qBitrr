@@ -1119,34 +1119,6 @@ class WebUI:
                                     Searched=False,
                                 )
                             )
-                    # #region agent log
-                    try:
-                        _dbg = Path("/home/feramance/qBitrr/.cursor/debug-16ea43.log")
-                        if _dbg.parent.is_dir():
-                            with _dbg.open("a", encoding="utf-8") as df:
-                                df.write(
-                                    json.dumps(
-                                        {
-                                            "sessionId": "16ea43",
-                                            "hypothesisId": "H-album-fallback",
-                                            "location": "webui._lidarr_artists_from_db",
-                                            "message": "artist browse used album-derived fallback",
-                                            "data": {
-                                                "album_total_inst": int(album_total_inst),
-                                                "arr_keys": arr_keys,
-                                                "fallback_total": total,
-                                                "page_rows": len(slice_rows),
-                                            },
-                                            "timestamp": int(time.time() * 1000),
-                                        },
-                                        separators=(",", ":"),
-                                        default=str,
-                                    )
-                                    + "\n"
-                                )
-                    except OSError:
-                        pass
-                    # #endregion
 
                 ids = [int(ar.EntryId) for ar in slice_rows]
                 alb_maps, trk_maps = {}, {}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   estimateIconGridColumns,
@@ -43,12 +43,12 @@ export function useArrIconGridPageSize(enabled: boolean): {
     };
   }, [enabled, gridEl]);
 
-  const roundPageSize = useMemo(() => {
+  const roundPageSize = (base: number): number => {
     if (!enabled) {
-      return (base: number) => base;
+      return base;
     }
-    return (base: number) => roundPageSizeToIconGridRows(base, columnCount);
-  }, [enabled, columnCount]);
+    return roundPageSizeToIconGridRows(base, columnCount);
+  };
 
   return { gridRef, columnCount, roundPageSize };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export type ArrBrowseMode = "list" | "icon";
 
@@ -25,10 +25,6 @@ export function useArrBrowseMode(appKey: "radarr" | "sonarr" | "lidarr"): {
   const [mode, setModeState] = useState<ArrBrowseMode>(() =>
     readStored(storageKey)
   );
-
-  useEffect(() => {
-    setModeState(readStored(storageKey));
-  }, [storageKey]);
 
   const setMode = useCallback(
     (m: ArrBrowseMode) => {

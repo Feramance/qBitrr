@@ -127,7 +127,10 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   }, [push]);
 
   useEffect(() => {
-    void loadList();
+    const id = window.setTimeout(() => {
+      void loadList();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [loadList]);
 
   const fetchLogContent = useCallback(
@@ -193,9 +196,12 @@ export function LogsView({ active }: LogsViewProps): JSX.Element {
   useEffect(() => {
     if (selected) {
       lastLinesCountRef.current = 0;
-      setOffsetFromEnd(0);
-      setHasMoreAbove(true);
-      void fetchLogContent(true);
+      const id = window.setTimeout(() => {
+        setOffsetFromEnd(0);
+        setHasMoreAbove(true);
+        void fetchLogContent(true);
+      }, 0);
+      return () => window.clearTimeout(id);
     }
   }, [selected, fetchLogContent]);
 

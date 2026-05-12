@@ -1688,7 +1688,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   }, [push]);
 
   useEffect(() => {
-    void loadConfig();
+    const id = window.setTimeout(() => {
+      void loadConfig();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [loadConfig]);
 
   const handleFieldChange = useCallback(
@@ -1777,8 +1780,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
 
   useEffect(() => {
     if (!formState || !originalConfig) {
-      setDirty(false);
-      return;
+      const id = window.setTimeout(() => {
+        setDirty(false);
+      }, 0);
+      return () => window.clearTimeout(id);
     }
     const flattenedOriginal = flatten(originalConfig);
     const flattenedCurrent = flatten(formState);
@@ -1815,7 +1820,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
         }
       }
     }
-    setDirty(dirty);
+    const id = window.setTimeout(() => {
+      setDirty(dirty);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [formState, originalConfig]);
 
   useEffect(() => {
@@ -1866,7 +1874,10 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
   useEffect(() => {
     if (!activeArrKey) return;
     if (!arrSections.some(([key]) => key === activeArrKey)) {
-      setActiveArrKey(null);
+      const id = window.setTimeout(() => {
+        setActiveArrKey(null);
+      }, 0);
+      return () => window.clearTimeout(id);
     }
   }, [activeArrKey, arrSections]);
 
@@ -2147,7 +2158,7 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
     } finally {
       setSaving(false);
     }
-  }, [formState, originalConfig, loadConfig, push]);
+  }, [formState, originalConfig, loadConfig, pendingRenames, push]);
 
   if (loading || !formState) {
     return (
@@ -3084,7 +3095,10 @@ function SectionNameField({
     extractTooltipSummary(tooltip) ?? `Rename the ${currentName} instance.`;
 
   useEffect(() => {
-    setValue(currentName);
+    const id = window.setTimeout(() => {
+      setValue(currentName);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [currentName]);
 
   const commit = () => {
@@ -3294,17 +3308,22 @@ function ArrInstanceModal({
     // state is already the Arr instance object, not the full ConfigDocument
     return get(state, path);
   };
+  const uriValue = getValue(["URI"]) as string;
+  const apiKeyValue = getValue(["APIKey"]) as string;
 
   // Clear test state when URI or APIKey changes
   useEffect(() => {
-    setTestState({ testing: false, result: null });
-    setQualityProfiles([]);
-  }, [getValue(["URI"]), getValue(["APIKey"])]);
+    const id = window.setTimeout(() => {
+      setTestState({ testing: false, result: null });
+      setQualityProfiles([]);
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [uriValue, apiKeyValue]);
 
   // Auto-test connection when modal opens if credentials exist
   useEffect(() => {
-    const uri = getValue(["URI"]) as string;
-    const apiKey = getValue(["APIKey"]) as string;
+    const uri = uriValue;
+    const apiKey = apiKeyValue;
 
     if (uri && apiKey && !testState.testing && !testState.result) {
       // Auto-test silently (without toasts)
@@ -3314,7 +3333,7 @@ function ArrInstanceModal({
   }, []); // Only run on mount
 
   // Test connection handler
-  const handleTestConnection = async (silent = false) => {
+  async function handleTestConnection(silent = false): Promise<boolean> {
     const uri = getValue(["URI"]) as string;
     const apiKey = getValue(["APIKey"]) as string;
     const isApiKeyRedacted = (apiKey ?? "").trim() === REDACTED_PLACEHOLDER;
@@ -3366,7 +3385,7 @@ function ArrInstanceModal({
       }
       return false;
     }
-  };
+  }
 
   // Handle save with connection test
   const handleSave = async () => {

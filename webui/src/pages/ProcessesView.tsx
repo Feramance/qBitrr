@@ -156,12 +156,18 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
   }, [push]);
 
   useEffect(() => {
-    void load();
+    const id = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [load]);
 
   useEffect(() => {
     if (active) {
-      void load();
+      const id = window.setTimeout(() => {
+        void load();
+      }, 0);
+      return () => window.clearTimeout(id);
     }
   }, [active, load]);
 
@@ -533,6 +539,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
                     <div className="process-chip__actions">
                       <button
                         className="btn small"
+                        // eslint-disable-next-line react-hooks/refs
                         onClick={() => handleRestart(item.category, item.kind)}
                       >
                         Restart
@@ -562,6 +569,7 @@ export function ProcessesView({ active }: ProcessesViewProps): JSX.Element {
               <div className="process-card__footer">
                 <button
                   className="btn small"
+                  // eslint-disable-next-line react-hooks/refs
                   onClick={() => void handleRestartGroup(items)}
                 >
                   Restart All

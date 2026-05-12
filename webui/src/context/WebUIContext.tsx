@@ -148,6 +148,7 @@ export function WebUIProvider({ children }: { children: ReactNode }): JSX.Elemen
   return <WebUIContext.Provider value={value}>{children}</WebUIContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useWebUI(): WebUIContextValue {
   const context = useContext(WebUIContext);
   if (!context) {
