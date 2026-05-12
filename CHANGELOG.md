@@ -1,5 +1,67 @@
 # Changelog
 
+## v5.12.0 (12/05/2026)
+
+### 🚀 Features
+- [Add WebUI debug instrumentation and sync web lockfile.](https://github.com/Feramance/qBitrr/commit/bdc163afeccdb4bc12c12667c4e52f805eddeee4) - @Feramance
+
+### 🐛 Bug Fixes
+- [Fix arr catalog empty-state flicker during data warm-up.](https://github.com/Feramance/qBitrr/commit/f184a1a87162cbb6253a5edc83a28d9c2a633de6) - @Feramance
+- [Fix Arr instance deletion persistence in Config tab.](https://github.com/Feramance/qBitrr/commit/30588c3a451fd6858ef983f3ca0ca7842bcd640d) - @Feramance
+- [Fixed url pathing and some docker build issues](https://github.com/Feramance/qBitrr/commit/5756eb0417671a8d9e4a254e7e01453e997903c1) - @Feramance
+- [fix: skip tracker cleanup when metadata is unavailable](https://github.com/Feramance/qBitrr/commit/77ae67ea1586bd438c90a393b8054193c4a0fc16) - @Feramance
+- [Fixed ignored-torrent filtering](https://github.com/Feramance/qBitrr/commit/0989809c8437db3c57d909ca5b01043d28faba49) - @Feramance
+- [Fixed track duration](https://github.com/Feramance/qBitrr/commit/2a3d5ae7b5ef8686e45aebe5b021ac71ae9e22ab) - @Feramance
+- [Fixed cache invalidation](https://github.com/Feramance/qBitrr/commit/060643ca594f95bf27acb16f7c8cf6caffddb606) - @Feramance
+- [Fixed lidarr semantics](https://github.com/Feramance/qBitrr/commit/9fc380cb47e4ba2b20a07c72149a8a064cca5e61) - @Feramance
+- [Fixed Lidarr grouping and reloads properly](https://github.com/Feramance/qBitrr/commit/5f215a60c7a5c770e9eb46ed1cc0b2ff8dea2420) - @Feramance
+
+### 🎨 Styling
+- [Remove accidental WebUI debug instrumentation and hardcoded local logging paths.](https://github.com/Feramance/qBitrr/commit/b560959e339ca133aaddce3a21b7968e8db0a148) - @Feramance
+- [WebUI surgical row updates + Lidarr artist browse/detail](https://github.com/Feramance/qBitrr/commit/0c88ec89e8cd1c239a70d84ab3bf1fbab99c7ec1) - @Feramance
+- [WebUI rollups, lock-scope, migrations, and Lidarr artist endpoints](https://github.com/Feramance/qBitrr/commit/7ba5fb94620a1caf126328fae99f069c9158caf2) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps): Bump node from 25-bookworm to 26-bookworm](https://github.com/Feramance/qBitrr/commit/f68c546f438e05af19b533f74e3fd41bf3a256e2) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/0d23843e7750fb987672285691afba05e94b21fb) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.5 to 19.2.6 in /webui](https://github.com/Feramance/qBitrr/commit/72a6b476cc16412841850112a4584325dc30a83c) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/084349bdc64dbe824eb874020af7f1cb04c9bf26) - @Feramance
+- [Build(deps-dev): Bump postcss from 8.5.12 to 8.5.13 in /webui](https://github.com/Feramance/qBitrr/commit/e7916a66854155bab1b879076785b6548d52e410) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/7ee506d3b748ca29db787fc023b6840620aee2c7) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.72.1 to 7.75.0 in /webui](https://github.com/Feramance/qBitrr/commit/ca91d62e677a973f1068dfbbe6d207af9d78e98b) - @Feramance
+- [Build(deps): Bump react from 19.2.5 to 19.2.6 in /webui (#410)](https://github.com/Feramance/qBitrr/commit/5ea179d101f537eb29b6d608a7ab0002d81d4266) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.6.0 to 25.6.2 in /webui (#409)](https://github.com/Feramance/qBitrr/commit/c63effd4c9dee2a7bb61d248a19f6e8fbcb1b6b6) - @Feramance
+- [Build(deps-dev): Bump @tailwindcss/postcss from 4.2.4 to 4.3.0 in /webui (#407)](https://github.com/Feramance/qBitrr/commit/657da752c14d6dab6653ae62ed6ce6fb98ee3b3f) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/e0a732b1bbad8f48f3db5417bd0ae9e0bc251755) - @Feramance
+- [Overhauled the entire logic behind the arr views](https://github.com/Feramance/qBitrr/commit/fc7396427c6a38f71e2714fc183a52ed09d0ebd4) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.0.2 to 9.1.1 in /webui (#403)](https://github.com/Feramance/qBitrr/commit/6ae90f2ed9ef06e23a425d94dac6a17534f09aad) - @Feramance
+- [Build(deps): Bump @mantine/core from 9.1.0 to 9.1.1 in /webui (#400)](https://github.com/Feramance/qBitrr/commit/5de207e64d26a8ffb57846ffdd4677111022510c) - @Feramance
+- [Build(deps-dev): Bump globals from 17.5.0 to 17.6.0 in /webui (#402)](https://github.com/Feramance/qBitrr/commit/788c26eade9311cd060d731533fbac08e7612508) - @Feramance
+- [Build(deps-dev): Bump @tailwindcss/postcss from 4.2.2 to 4.2.4 in /webui (#401)](https://github.com/Feramance/qBitrr/commit/f8b933899274ab7e8d25c8b5b0c7f8410d323719) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.59.0 to 8.59.1 in /webui (#399)](https://github.com/Feramance/qBitrr/commit/78180aa2cea5c414219199489d76d732f0bf3c62) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.2.1 to 10.3.0 in /webui (#397)](https://github.com/Feramance/qBitrr/commit/f18ad0d7c33b7e2ab0c703a1d9ae0cf1822d5f26) - @Feramance
+- [Build(deps): Bump @mantine/dates from 9.1.0 to 9.1.1 in /webui (#395)](https://github.com/Feramance/qBitrr/commit/94276171336a6b6826ebd35396771aa100ad4aa4) - @Feramance
+- [Removed duplicate calls and fixed legacy duration](https://github.com/Feramance/qBitrr/commit/841165fcb9c64691b5c715d5e67abadfc12050d1) - @Feramance
+- [Lidarr view fixes and corrected thumbnail acquisition to use artists not albums](https://github.com/Feramance/qBitrr/commit/184cbe5fa745f91f9aa4d60ef50b768874313696) - @Feramance
+- [api docs updates](https://github.com/Feramance/qBitrr/commit/9315d05fd4f6ee6ffa83e41d104946bff5302a61) - @Feramance
+- [torrent instance ownership fixes](https://github.com/Feramance/qBitrr/commit/effde8cbd7c88b480205daf4e26693a3a6503fda) - @Feramance
+- [Added filtering for torrent fetch](https://github.com/Feramance/qBitrr/commit/15aed13d40fd664962187f6ddf2e2d43b6298f5c) - @Feramance
+- [Corrected torrent list from paths](https://github.com/Feramance/qBitrr/commit/d3d71ec989027dda9afec7c2aa882fcbd549fe07) - @Feramance
+- [Minor fixes](https://github.com/Feramance/qBitrr/commit/e395042106120d43cb51078600e5e5da9ab2346c) - @Feramance
+- [Added front end changes for subcategories](https://github.com/Feramance/qBitrr/commit/296e8856739c580db00e7a24ca51afaefc7d0828) - @Feramance
+- [COnfig docs update](https://github.com/Feramance/qBitrr/commit/cbbce8e634822b01152617b4af3e4c9fc2218126) - @Feramance
+- [Initial changes for subcategory support](https://github.com/Feramance/qBitrr/commit/d65dc1bf037d270b91333779c7ec14593a65ce4c) - @Feramance
+- [Config updates](https://github.com/Feramance/qBitrr/commit/1bd358b274615c2281d2ee85a1112bece3d7a893) - @Feramance
+- [Cleaned unused functions/code](https://github.com/Feramance/qBitrr/commit/0879e5f4bb5f0bdff0bf7e73451d3b2b6c0cd07f) - @Feramance
+- [openapi-check: static drift guard for Flask routes vs openapi.json](https://github.com/Feramance/qBitrr/commit/cd2d5e70547d532761974a08eecf719211ea6257) - @Feramance
+- [Api docs update](https://github.com/Feramance/qBitrr/commit/1941f0503b69c8711f1aa89c5570757fce8b18db) - @Feramance
+- [Arr poster thumbnails: proxy hardening + frontend poster queue](https://github.com/Feramance/qBitrr/commit/d19b6281c41b6baeee50c19f9632b56846e6cc95) - @Feramance
+- [Docs changes to configs](https://github.com/Feramance/qBitrr/commit/61d4d4aa4964cddebb4a1e5ee95fc51729c4d1cc) - @Feramance
+- [file path fixes](https://github.com/Feramance/qBitrr/commit/e7e60f2b2d3cdefb11632bb51857f1ada0c608a0) - @Feramance
+- [Thumbnail grabber fixes](https://github.com/Feramance/qBitrr/commit/bb03e3c90d4c4b6571fa6e3e876115710a631497) - @Feramance
+
+---
+
 ## v5.11.1 (21/04/2026)
 
 ### 🐛 Bug Fixes
