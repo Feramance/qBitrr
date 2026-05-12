@@ -115,6 +115,10 @@ _QBIT_TORRENT_DELETE_EXCEPTIONS = (
 )
 
 
+class _TrackerDataUnavailable(Exception):
+    """Raised when qBittorrent cannot provide reliable tracker metadata."""
+
+
 def _tracker_host_matches(config_uri: str, tracker_url: str) -> bool:
     """Return True if *config_uri* and *tracker_url* refer to the same tracker host."""
     return bool(
@@ -5989,7 +5993,16 @@ class Arr:
         if limit_meta is not None:
             data_settings, data_torrent = limit_meta
         else:
-            data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+            try:
+                data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+            except _TrackerDataUnavailable:
+                self.logger.warning(
+                    "Skipping ratio/seed deletion for torrent '%s' (%s) this pass because "
+                    "tracker metadata is unavailable",
+                    getattr(torrent, "name", "<unknown>"),
+                    getattr(torrent, "hash", "<unknown>"),
+                )
+                return
         r_dat = data_settings.get("ratio_limit", -5)
         r_tor = data_torrent.get("ratio_limit", -5)
         t_dat = data_settings.get("seeding_time_limit", -5)
@@ -6160,7 +6173,7 @@ class Arr:
                     getattr(torrent, "hash", "<unknown>"),
                     message,
                 )
-                return set(), set()
+                raise _TrackerDataUnavailable(message) from e
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, error_type="qbit")
@@ -6219,9 +6232,12 @@ class Arr:
         self, torrent: qbittorrentapi.TorrentDictionary, *, for_queue_sort: bool = False
     ) -> int:
         """Return the tracker Priority for this torrent's most important monitored tracker."""
-        _, monitored_trackers = self._get_torrent_important_trackers(
-            torrent, for_queue_sort_priority=for_queue_sort
-        )
+        try:
+            _, monitored_trackers = self._get_torrent_important_trackers(
+                torrent, for_queue_sort_priority=for_queue_sort
+            )
+        except _TrackerDataUnavailable:
+            return -100
         remove_urls = set()
         try:
             for tracker in torrent.trackers:
@@ -6381,7 +6397,15 @@ class Arr:
             TorrentStates.METADATA_DOWNLOAD,
         )
 
-        data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        try:
+            data_settings, data_torrent = self._get_torrent_limit_meta(torrent)
+        except _TrackerDataUnavailable:
+            self.logger.warning(
+                "Skipping tracker-dependent seeding checks for torrent '%s' (%s) this pass",
+                getattr(torrent, "name", "<unknown>"),
+                getattr(torrent, "hash", "<unknown>"),
+            )
+            return return_value, self.maximum_eta, remove_torrent, None, None
         self.logger.trace("Config Settings for torrent [%s]: %r", torrent.name, data_settings)
         self.logger.trace("Torrent Settings for torrent [%s]: %r", torrent.name, data_torrent)
 
@@ -6458,7 +6482,10 @@ class Arr:
             return
         self.tracker_delay.add(torrent.hash)
         _remove_urls = set()
-        need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        try:
+            need_to_be_added, monitored_trackers = self._get_torrent_important_trackers(torrent)
+        except _TrackerDataUnavailable:
+            return
         tracker_set_changed = False
         if need_to_be_added:
             torrent.add_trackers(need_to_be_added)
