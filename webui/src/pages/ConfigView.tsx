@@ -72,7 +72,7 @@ interface ValidationError {
   message: string;
 }
 
-const SERVARR_SECTION_REGEX = /(rad|son|lid)arr/i;
+const SERVARR_SECTION_REGEX = /^(radarr|sonarr|lidarr|animarr)(-|$)/i;
 const QBIT_SECTION_REGEX = /^qBit(-.*)?$/i;
 /** Matches backend REDACTED_PLACEHOLDER; when API key equals this, test uses instanceKey. */
 const REDACTED_PLACEHOLDER = "[redacted]";
@@ -2075,6 +2075,17 @@ export function ConfigView(props?: ConfigViewProps): JSX.Element {
       }
       for (const key of Object.keys(flattenedOriginal)) {
         if (!(key in flattenedCurrent)) {
+          changes[key] = null;
+        }
+      }
+      // Add top-level tombstones for removed Arr sections to ensure full section deletion.
+      for (const [key, value] of Object.entries(originalConfig ?? {})) {
+        if (
+          !(key in formState) &&
+          SERVARR_SECTION_REGEX.test(key) &&
+          value &&
+          typeof value === "object"
+        ) {
           changes[key] = null;
         }
       }

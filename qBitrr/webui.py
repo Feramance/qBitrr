@@ -230,15 +230,19 @@ def _toml_delete(doc, dotted_key: str) -> None:
     cur = doc
     parents = []
     for k in keys[:-1]:
+        if not isinstance(cur, Mapping):
+            return
         next_cur = cur.get(k)
-        if not isinstance(next_cur, dict):
+        if not isinstance(next_cur, Mapping):
             return
         parents.append((cur, k))
         cur = next_cur
+    if not isinstance(cur, Mapping):
+        return
     cur.pop(keys[-1], None)
     for parent, key in reversed(parents):
         node = parent.get(key)
-        if isinstance(node, dict) and not node:
+        if isinstance(node, Mapping) and not node:
             parent.pop(key, None)
         else:
             break
