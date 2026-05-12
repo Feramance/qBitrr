@@ -27,6 +27,30 @@ import QbitIcon from "./icons/qbittorrent.svg";
 import ConfigIcon from "./icons/gear.svg";
 import logoUrl from "./assets/logov2-clean.svg";
 
+function debugLog(
+  runId: string,
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>
+): void {
+  // #region agent log
+  fetch("http://localhost:7570/ingest/7948a40e-b2fc-4344-8340-1c34d1fbd429", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "509483" },
+    body: JSON.stringify({
+      sessionId: "509483",
+      runId,
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+}
+
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
@@ -38,6 +62,13 @@ class ErrorBoundary extends React.Component<
 
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error): void {
+    debugLog("initial", "H2", "webui/src/App.tsx:66", "error boundary caught render error", {
+      message: error.message,
+      stack: error.stack ?? null,
+    });
   }
 
   render() {
@@ -437,9 +468,16 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
   const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false, setupRequired: false });
 
   const checkAuth = useCallback(async () => {
+    debugLog("initial", "H3", "webui/src/App.tsx:465", "checkAuth started", {});
     try {
       const meta = await getMeta();
       const authRequired = Boolean(meta.auth_required);
+      debugLog("initial", "H3", "webui/src/App.tsx:469", "checkAuth meta fetched", {
+        authRequired,
+        localAuthEnabled: Boolean(meta.local_auth_enabled),
+        oidcEnabled: Boolean(meta.oidc_enabled),
+        setupRequired: Boolean(meta.setup_required),
+      });
       setAuthInfo({
         authRequired,
         localAuthEnabled: Boolean(meta.local_auth_enabled),
@@ -452,6 +490,7 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
       }
     } catch {
       // Network error or server down — do not bypass auth; treat as unauthenticated
+      debugLog("initial", "H3", "webui/src/App.tsx:486", "checkAuth meta fetch failed", {});
       setAuthState("unauthenticated");
       return;
     }
@@ -459,6 +498,9 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
     // Try to fetch token (succeeds if session cookie or token already valid)
     try {
       const token = await fetchWebToken();
+      debugLog("initial", "H3", "webui/src/App.tsx:494", "checkAuth token fetch finished", {
+        hasToken: Boolean(token),
+      });
       if (token) {
         localStorage.setItem("token", token);
         setAuthState("authenticated");
@@ -467,9 +509,20 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
       }
     } catch {
       // Token fetch failed while auth is required — remain unauthenticated
+      debugLog("initial", "H3", "webui/src/App.tsx:504", "checkAuth token fetch failed", {});
       setAuthState("unauthenticated");
     }
   }, []);
+
+  useEffect(() => {
+    debugLog("initial", "H4", "webui/src/App.tsx:510", "auth gate state transition", {
+      authState,
+      authRequired: authInfo.authRequired,
+      localAuthEnabled: authInfo.localAuthEnabled,
+      oidcEnabled: authInfo.oidcEnabled,
+      setupRequired: authInfo.setupRequired,
+    });
+  }, [authState, authInfo.authRequired, authInfo.localAuthEnabled, authInfo.oidcEnabled, authInfo.setupRequired]);
 
   useEffect(() => {
     // Defer so the effect body does not synchronously trigger setState (react-hooks/set-state-in-effect).
@@ -534,6 +587,16 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
   const backendTimerRef = useRef<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [showWelcomeChangelog, setShowWelcomeChangelog] = useState(false);
+
+  useEffect(() => {
+    debugLog("initial", "H5", "webui/src/App.tsx:565", "app shell render state", {
+      authRequired,
+      metaLoading,
+      hasMeta: Boolean(meta),
+      activeTab,
+      isOnline,
+    });
+  }, [authRequired, metaLoading, meta, activeTab, isOnline]);
 
   // Theme is now managed by WebUIContext and applied automatically
 
