@@ -220,6 +220,7 @@ function useSonarrInstancePipeline(
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [emptyStateReady, setEmptyStateReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const pagesRef = useRef<Record<number, SonarrSeriesEntry[]>>({});
@@ -228,6 +229,8 @@ function useSonarrInstancePipeline(
   filtersRef.current = filters;
   const prevSelectionRef = useRef<string | null>(selection);
   const prevOnlyMissingRef = useRef(filters.onlyMissing);
+  const sawNonEmptyRef = useRef(false);
+  const stableEmptyStreakRef = useRef(0);
 
   const rowsStoreOpts = useMemo(
     () => ({
@@ -265,6 +268,9 @@ function useSonarrInstancePipeline(
           setTotalItems(0);
           setTotalPages(1);
           setPage(0);
+          setEmptyStateReady(false);
+          sawNonEmptyRef.current = false;
+          stableEmptyStreakRef.current = 0;
         }
         const effectivePageIdx = keyChanged ? 0 : pageIdx;
         const ps = roundPageSize(SONARR_PAGE_SIZE);
@@ -285,6 +291,18 @@ function useSonarrInstancePipeline(
           Math.ceil((total || 0) / resolvedPageSize),
         );
         const series = res.series ?? [];
+        const hasCatalogData = series.length > 0 || total > 0;
+
+        if (hasCatalogData) {
+          sawNonEmptyRef.current = true;
+          stableEmptyStreakRef.current = 0;
+          setEmptyStateReady((prev) => (prev ? prev : true));
+        } else {
+          stableEmptyStreakRef.current += 1;
+          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          setEmptyStateReady((prev) => (prev === ready ? prev : ready));
+        }
+
         const prev = keyChanged ? {} : pagesRef.current;
         const prevSlice = prev[resolvedPage] ?? [];
 
@@ -359,6 +377,9 @@ function useSonarrInstancePipeline(
       setPages({});
       setPage(0);
       setTotalPages(1);
+      setEmptyStateReady(false);
+      sawNonEmptyRef.current = false;
+      stableEmptyStreakRef.current = 0;
       prevSelectionRef.current = selection;
     }
     if (onlyMissingChanged) {
@@ -504,6 +525,7 @@ function useSonarrInstancePipeline(
 
   return {
     loading,
+    emptyStateReady,
     lastUpdated,
     page,
     pageSize,
@@ -708,6 +730,7 @@ interface SonarrAggregateBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<SonarrSeriesGroupRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly total: number;
   readonly page: number;
   readonly totalPages: number;
@@ -729,6 +752,7 @@ function SonarrAggregateBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   total,
   page,
   totalPages,
@@ -745,6 +769,9 @@ function SonarrAggregateBody({
   instanceCount,
 }: SonarrAggregateBodyProps): JSX.Element {
   const columns = buildSonarrAggColumns(instanceCount);
+  const waitingForStableEmpty =
+    instanceCount > 0 && !emptyStateReady && total === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const summaryLine = (
     <>
       Aggregated episodes across all instances{" "}
@@ -774,13 +801,13 @@ function SonarrAggregateBody({
   );
 
   const showCatalogEmptyHint =
-    !loading && total === 0 && summary.total === 0 && instanceCount > 0;
+    !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0;
 
   return (
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={onRefresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading Sonarr library…"
       footer={
         total > 0 ? (
@@ -790,7 +817,7 @@ function SonarrAggregateBody({
             total={total}
             itemNoun="series"
             pageSize={aggregatePageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={onPageChange}
           />
         ) : null
@@ -848,6 +875,7 @@ interface SonarrInstanceBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<SonarrSeriesGroupRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly page: number;
   readonly pageSize: number;
   readonly totalPages: number;
@@ -869,6 +897,7 @@ function SonarrInstanceBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   page,
   pageSize,
   totalPages,
@@ -883,6 +912,9 @@ function SonarrInstanceBody({
   refresh,
   filters,
 }: SonarrInstanceBodyProps): JSX.Element {
+  const waitingForStableEmpty =
+    !emptyStateReady && visibleRows.length === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const totalEpisodes = useMemo(
     () => visibleRows.reduce((acc, g) => acc + g.episodes.length, 0),
     [visibleRows],
@@ -908,7 +940,7 @@ function SonarrInstanceBody({
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={refresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading series…"
       footer={
         totalPages > 1 ? (
@@ -918,7 +950,7 @@ function SonarrInstanceBody({
             total={totalItems}
             itemNoun="series"
             pageSize={pageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={setPage}
           />
         ) : null

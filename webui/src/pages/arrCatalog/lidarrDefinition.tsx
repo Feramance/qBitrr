@@ -486,6 +486,7 @@ interface LidarrAggregateBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<LidarrAggRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly total: number;
   readonly page: number;
   readonly totalPages: number;
@@ -507,6 +508,7 @@ function LidarrAggregateBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   total,
   page,
   totalPages,
@@ -523,6 +525,9 @@ function LidarrAggregateBody({
   instanceCount,
 }: LidarrAggregateBodyProps): JSX.Element {
   const columns = buildLidarrAggColumns(instanceCount);
+  const waitingForStableEmpty =
+    instanceCount > 0 && !emptyStateReady && total === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const summaryLine = (
     <>
       Artist grid below: one tile or row per artist (same idea as Sonarr series).
@@ -559,13 +564,16 @@ function LidarrAggregateBody({
   );
 
   const showCatalogEmptyHint =
-    !loading && total === 0 && summary.monitored === 0 && instanceCount > 0;
+    !effectiveLoading &&
+    total === 0 &&
+    summary.monitored === 0 &&
+    instanceCount > 0;
 
   return (
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={onRefresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading Lidarr library…"
       footer={
         total > 0 ? (
@@ -575,7 +583,7 @@ function LidarrAggregateBody({
             total={total}
             itemNoun="artists"
             pageSize={aggregatePageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={onPageChange}
           />
         ) : null
@@ -637,6 +645,7 @@ interface LidarrInstanceBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<LidarrInstanceRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly page: number;
   readonly pageSize: number;
   readonly totalPages: number;
@@ -656,6 +665,7 @@ function LidarrInstanceBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   page,
   pageSize,
   totalPages,
@@ -670,6 +680,9 @@ function LidarrInstanceBody({
   refresh,
 }: LidarrInstanceBodyProps): JSX.Element {
   const columns = buildLidarrInstanceColumns();
+  const waitingForStableEmpty =
+    !emptyStateReady && visibleRows.length === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const summaryLine = (
     <>
       <strong>Artists:</strong>{" "}
@@ -682,7 +695,7 @@ function LidarrInstanceBody({
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={refresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading…"
       footer={
         totalPages > 1 ? (
@@ -692,7 +705,7 @@ function LidarrInstanceBody({
             total={totalItems}
             itemNoun="artists"
             pageSize={pageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={setPage}
           />
         ) : null

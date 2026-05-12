@@ -391,6 +391,7 @@ export function ArrCatalogShell<
                   rowOrder: aggLoader.rowOrder,
                   rowsStore: aggLoader.rowsStore,
                   loading: aggLoader.loading,
+                  emptyStateReady: aggLoader.emptyStateReady,
                   total: aggLoader.total,
                   page: aggLoader.page,
                   totalPages: aggLoader.totalPages,

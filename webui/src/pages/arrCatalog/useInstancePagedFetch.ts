@@ -110,6 +110,7 @@ export function useInstancePagedFetch<
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emptyStateReady, setEmptyStateReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [pageSize, setPageSize] = useState(adapter.basePageSize);
   const [totalPages, setTotalPages] = useState(1);
@@ -120,6 +121,8 @@ export function useInstancePagedFetch<
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const prevSelectionRef = useRef<string | null>(selection);
+  const sawNonEmptyRef = useRef(false);
+  const stableEmptyStreakRef = useRef(0);
 
   const dataSyncOpts = useMemo(
     () => ({
@@ -164,6 +167,9 @@ export function useInstancePagedFetch<
           setTotalPages(1);
           setPage(0);
           dataSync.reset();
+          sawNonEmptyRef.current = false;
+          stableEmptyStreakRef.current = 0;
+          setEmptyStateReady(false);
         }
         // After a filter/query key change, always request page 0 — the caller may still
         // pass a stale page index from React state, which would otherwise fetch an empty
@@ -194,6 +200,17 @@ export function useInstancePagedFetch<
           1,
           Math.ceil((total || 0) / resolvedPageSize),
         );
+        const hasCatalogData = rows.length > 0 || total > 0;
+
+        if (hasCatalogData) {
+          sawNonEmptyRef.current = true;
+          stableEmptyStreakRef.current = 0;
+          setEmptyStateReady((prev) => (prev ? prev : true));
+        } else {
+          stableEmptyStreakRef.current += 1;
+          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          setEmptyStateReady((prev) => (prev === ready ? prev : ready));
+        }
 
         const syncResult = dataSync.syncData([...rows]);
         const rowsChanged = syncResult.hasChanges;
@@ -261,6 +278,9 @@ export function useInstancePagedFetch<
       setPages({});
       setTotalPages(1);
       setPage(0);
+      setEmptyStateReady(false);
+      sawNonEmptyRef.current = false;
+      stableEmptyStreakRef.current = 0;
       prevSelectionRef.current = selection;
     }
 
@@ -384,6 +404,7 @@ export function useInstancePagedFetch<
 
   return {
     loading,
+    emptyStateReady,
     lastUpdated,
     page,
     pageSize,

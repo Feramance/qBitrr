@@ -142,6 +142,11 @@ export interface ArrCatalogAggregateAdapter<
  */
 export interface ArrCatalogInstancePipelineState<TInstRow extends Hashable> {
   readonly loading: boolean;
+  /**
+   * True when the loader has enough evidence to treat an empty slice as stable.
+   * Used to avoid transient warm-up flashes (`Loading -> No items -> rows`).
+   */
+  readonly emptyStateReady: boolean;
   readonly lastUpdated: string | null;
   readonly page: number;
   readonly pageSize: number;
@@ -224,6 +229,7 @@ export interface ArrCatalogAggregateRenderProps<
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<TAggRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly total: number;
   readonly page: number;
   readonly totalPages: number;

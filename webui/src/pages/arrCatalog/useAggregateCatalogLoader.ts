@@ -61,6 +61,7 @@ export interface UseAggregateCatalogLoaderResult<TAggRow extends Hashable> {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: RowsStore<TAggRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly page: number;
   readonly totalPages: number;
   readonly total: number;
@@ -95,6 +96,7 @@ export function useAggregateCatalogLoader<
 
   const [rows, setRows] = useState<TAggRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [emptyStateReady, setEmptyStateReady] = useState(false);
   const [page, setPage] = useState(0);
   const [aggFilter, setAggFilter] = useState("");
   const [updated, setUpdated] = useState<string | null>(null);
@@ -103,6 +105,9 @@ export function useAggregateCatalogLoader<
 
   const aggFetchGenRef = useRef(0);
   const aggActiveLoadsRef = useRef(0);
+  const aggRequestKeyRef = useRef("");
+  const sawNonEmptyRef = useRef(false);
+  const stableEmptyStreakRef = useRef(0);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const globalSearchRef = useRef(globalSearch);
@@ -165,11 +170,25 @@ export function useAggregateCatalogLoader<
       if (!instances.length) {
         setRows([]);
         setSummary(adapter.initialSummary);
+        setEmptyStateReady(true);
         return;
       }
       const showLoading = options?.showLoading ?? true;
       const gen = ++aggFetchGenRef.current;
       aggActiveLoadsRef.current += 1;
+      const requestKey = JSON.stringify({
+        instances: [...instances]
+          .map((instance) => instance.category)
+          .sort((a, b) => a.localeCompare(b)),
+        search: globalSearchRef.current,
+        filters: filtersRef.current,
+      });
+      if (aggRequestKeyRef.current !== requestKey) {
+        aggRequestKeyRef.current = requestKey;
+        sawNonEmptyRef.current = false;
+        stableEmptyStreakRef.current = 0;
+        setEmptyStateReady(false);
+      }
       if (showLoading) {
         setLoading(true);
       }
@@ -232,6 +251,22 @@ export function useAggregateCatalogLoader<
         }
 
         const newSummary = adapter.summarize(aggregated, rollup);
+        const hasCatalogData =
+          aggregated.length > 0 ||
+          newSummary.total > 0 ||
+          newSummary.monitored > 0 ||
+          newSummary.available > 0 ||
+          newSummary.missing > 0;
+
+        if (hasCatalogData) {
+          sawNonEmptyRef.current = true;
+          stableEmptyStreakRef.current = 0;
+          setEmptyStateReady((prev) => (prev ? prev : true));
+        } else {
+          stableEmptyStreakRef.current += 1;
+          const ready = sawNonEmptyRef.current || stableEmptyStreakRef.current >= 2;
+          setEmptyStateReady((prev) => (prev === ready ? prev : ready));
+        }
 
         let summaryChanged = false;
         setSummary((prev) => {
@@ -335,6 +370,7 @@ export function useAggregateCatalogLoader<
     rowOrder: snapshot.rowOrder,
     rowsStore: store,
     loading,
+    emptyStateReady,
     page: safePage,
     totalPages,
     total,

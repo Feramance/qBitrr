@@ -315,6 +315,7 @@ interface RadarrAggregateBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: import("../../utils/rowsStore").RowsStore<RadarrAggRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly total: number;
   readonly page: number;
   readonly totalPages: number;
@@ -336,6 +337,7 @@ function RadarrAggregateBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   total,
   page,
   totalPages,
@@ -352,6 +354,9 @@ function RadarrAggregateBody({
   instanceCount,
 }: RadarrAggregateBodyProps): JSX.Element {
   const columns = buildRadarrAggColumns(instanceCount);
+  const waitingForStableEmpty =
+    instanceCount > 0 && !emptyStateReady && total === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const summaryLine = (
     <>
       Aggregated movies across all instances{" "}
@@ -376,13 +381,13 @@ function RadarrAggregateBody({
   );
 
   const showCatalogEmptyHint =
-    !loading && total === 0 && summary.total === 0 && instanceCount > 0;
+    !effectiveLoading && total === 0 && summary.total === 0 && instanceCount > 0;
 
   return (
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={onRefresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading Radarr library…"
       footer={
         total > 0 ? (
@@ -392,7 +397,7 @@ function RadarrAggregateBody({
             total={total}
             itemNoun="items"
             pageSize={aggregatePageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={onPageChange}
           />
         ) : null
@@ -448,6 +453,7 @@ interface RadarrInstanceBodyProps {
   readonly rowOrder: ReadonlyArray<string>;
   readonly rowsStore: import("../../utils/rowsStore").RowsStore<RadarrInstanceRow>;
   readonly loading: boolean;
+  readonly emptyStateReady: boolean;
   readonly page: number;
   readonly pageSize: number;
   readonly totalPages: number;
@@ -467,6 +473,7 @@ function RadarrInstanceBody({
   rowOrder,
   rowsStore,
   loading,
+  emptyStateReady,
   page,
   pageSize,
   totalPages,
@@ -481,6 +488,9 @@ function RadarrInstanceBody({
   refresh,
 }: RadarrInstanceBodyProps): JSX.Element {
   const columns = buildRadarrInstanceColumns();
+  const waitingForStableEmpty =
+    !emptyStateReady && visibleRows.length === 0;
+  const effectiveLoading = loading || waitingForStableEmpty;
   const summaryLine = (
     <>
       <strong>Total:</strong>{" "}
@@ -493,7 +503,7 @@ function RadarrInstanceBody({
     <ArrCatalogBodyChrome
       summaryLine={summaryLine}
       onRefresh={refresh}
-      loading={loading}
+      loading={effectiveLoading}
       loadingHint="Loading…"
       footer={
         totalPages > 1 ? (
@@ -503,7 +513,7 @@ function RadarrInstanceBody({
             total={totalItems}
             itemNoun="items"
             pageSize={pageSize}
-            loading={loading}
+            loading={effectiveLoading}
             onPageChange={setPage}
           />
         ) : null
