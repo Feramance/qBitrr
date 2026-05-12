@@ -423,7 +423,7 @@ function ChangelogModal({
   );
 }
 
-type AuthState = "loading" | "authenticated" | "unauthenticated";
+type AuthState = "loading" | "authenticated" | "unauthenticated" | "error";
 
 interface AuthInfo {
   authRequired: boolean;
@@ -435,8 +435,11 @@ interface AuthInfo {
 function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: () => void) => React.ReactNode }): JSX.Element {
   const [authState, setAuthState] = useState<AuthState>("loading");
   const [authInfo, setAuthInfo] = useState<AuthInfo>({ authRequired: false, localAuthEnabled: false, oidcEnabled: false, setupRequired: false });
+  const [authBootstrapError, setAuthBootstrapError] = useState<string | null>(null);
 
   const checkAuth = useCallback(async () => {
+    setAuthBootstrapError(null);
+    setAuthState("loading");
     try {
       const meta = await getMeta();
       const authRequired = Boolean(meta.auth_required);
@@ -450,9 +453,13 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         setAuthState("authenticated");
         return;
       }
-    } catch {
-      // Network error or server down — do not bypass auth; treat as unauthenticated
-      setAuthState("unauthenticated");
+    } catch (error) {
+      const detail =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "Unable to reach qBitrr backend";
+      setAuthBootstrapError(detail);
+      setAuthState("error");
       return;
     }
 
@@ -508,6 +515,21 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
         oidcEnabled={authInfo.oidcEnabled}
         setupRequired={authInfo.setupRequired}
       />
+    );
+  }
+
+  if (authState === "error") {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <h1 className="login-title">qBitrr</h1>
+          <p className="login-subtitle">Unable to reach backend</p>
+          <p className="login-error">{authBootstrapError ?? "Failed to load authentication state."}</p>
+          <button className="btn primary login-submit" type="button" onClick={() => void checkAuth()}>
+            Retry
+          </button>
+        </div>
+      </div>
     );
   }
 

@@ -2985,6 +2985,7 @@ class Arr:
             return
         placeholder_summary = "Updating database"
         placeholder_set = False
+        time.monotonic()
         try:
             self._webui_db_loaded = False
             try:
@@ -3083,6 +3084,8 @@ class Arr:
                     self.db_update_single_series(db_entry=artist, artist=True)
                 self.db_update_processed = True
             self.logger.trace("Finished updating database")
+        except Exception:
+            raise
         finally:
             if placeholder_set:
                 try:
@@ -4202,15 +4205,32 @@ class Arr:
                                     upgrade_allowed = profile.get("upgradeAllowed", False)
 
                                     if cutoff_quality_id and upgrade_allowed:
-                                        # Get track files for this album to check their quality
+                                        # Resolve album track-file ids first, then query track files by ids.
                                         album_id = db_entry.get("id")
-                                        track_files = self.client.get_track_file(
-                                            albumId=[album_id]
-                                        )
+                                        track_files = []
+                                        if album_id:
+                                            tracks = self.client.get_tracks(albumId=album_id) or []
+                                            track_file_ids = sorted(
+                                                {
+                                                    int(track_file_id)
+                                                    for track in tracks
+                                                    if isinstance(track, dict)
+                                                    and (track_file_id := track.get("trackFileId"))
+                                                }
+                                            )
+                                            if track_file_ids:
+                                                track_files = (
+                                                    self.client.get_track_file(
+                                                        track_file_ids=track_file_ids
+                                                    )
+                                                    or []
+                                                )
 
                                         if track_files:
-                                            # Check if any track file's quality is below the cutoff
+                                            # Check if any track file's quality is below the cutoff.
                                             for track_file in track_files:
+                                                if not isinstance(track_file, dict):
+                                                    continue
                                                 file_quality = track_file.get("quality", {}).get(
                                                     "quality", {}
                                                 )
@@ -4601,6 +4621,8 @@ class Arr:
                     "Error getting movie info: [%s][%s]", db_entry["id"], db_entry["path"]
                 )
         except Exception as e:
+            if isinstance(e, (OperationalError, DatabaseError)):
+                raise
             self.logger.error(e, exc_info=sys.exc_info())
 
     def delete_from_queue(self, id_, remove_from_client=True, blacklist=True):
@@ -4660,14 +4682,19 @@ class Arr:
             self.files_probed.add(file)
             return True
         except Exception as e:
-            error = e.stderr.decode()
+            stderr_raw = getattr(e, "stderr", b"")
+            if isinstance(stderr_raw, bytes):
+                error = stderr_raw.decode(errors="ignore")
+            else:
+                error = str(stderr_raw or "")
+            invalid_data = "Invalid data found when processing input" in error
             self.logger.trace(
                 "Not probeable: Probe returned an error: %s:\n%s",
                 file,
-                e.stderr,
-                exc_info=sys.exc_info(),
+                stderr_raw,
+                exc_info=None if invalid_data else sys.exc_info(),
             )
-            if "Invalid data found when processing input" in error:
+            if invalid_data:
                 return False
             return False
 
@@ -5482,9 +5509,11 @@ class Arr:
                 self.logger.warning("Couldn't connect to %s", self.type)
                 self._temp_overseer_request_cache = defaultdict(set)
                 return self._temp_overseer_request_cache
-            except qbittorrentapi.exceptions.APIError:
+            except qbittorrentapi.exceptions.APIError as e:
                 self.logger.error("The qBittorrent API returned an unexpected error")
-                self.logger.debug("Unexpected APIError from qBitTorrent")  # , exc_info=e)
+                self.logger.debug(
+                    "Unexpected APIError from qBitTorrent: %s", str(e)
+                )  # , exc_info=e)
                 raise DelayLoopException(length=300, error_type="qbit")
             except (OperationalError, DatabaseError) as e:
                 # Database errors after retry exhaustion - implement automatic recovery with backoff
@@ -6303,6 +6332,19 @@ class Arr:
                     message,
                 )
                 raise _TrackerDataUnavailable(message) from e
+            # Tracker lookup can race with torrent removal and briefly return 404.
+            # Treat this as transient/unavailable metadata for this pass.
+            if (
+                isinstance(e, qbittorrentapi.exceptions.NotFound404Error)
+                or "Torrent hash(es):" in message
+            ):
+                self.logger.warning(
+                    "Skipping tracker processing for missing torrent '%s' (%s): %s",
+                    getattr(torrent, "name", "<unknown>"),
+                    getattr(torrent, "hash", "<unknown>"),
+                    message,
+                )
+                raise _TrackerDataUnavailable(message) from e
             self.logger.error("The qBittorrent API returned an unexpected error")
             self.logger.debug("Unexpected APIError from qBitTorrent", exc_info=e)
             raise DelayLoopException(length=300, error_type="qbit")
@@ -6436,69 +6478,84 @@ class Arr:
         return "disabled"
 
     def _get_torrent_limit_meta(self, torrent: qbittorrentapi.TorrentDictionary):
+        def _to_number(value, default):
+            if value is None or isinstance(value, bool):
+                return default
+            if isinstance(value, (int, float)):
+                return value
+            try:
+                text = str(value).strip()
+                if not text:
+                    return default
+                return float(text) if "." in text else int(text)
+            except (TypeError, ValueError):
+                return default
+
+        def _positive_or_sentinel(value):
+            parsed = _to_number(value, default=-5)
+            return parsed if parsed > 0 else -5
+
         _, monitored_trackers = self._get_torrent_important_trackers(torrent)
         most_important_tracker, _unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, {}
         )
 
         data_settings = {
-            "ratio_limit": (
-                r
-                if (
-                    r := most_important_tracker.get(
-                        "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
-                    )
+            "ratio_limit": _positive_or_sentinel(
+                most_important_tracker.get(
+                    "MaxUploadRatio", self.seeding_mode_global_max_upload_ratio
                 )
-                > 0
-                else -5
             ),
-            "seeding_time_limit": (
-                r
-                if (
-                    r := most_important_tracker.get(
-                        "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
-                    )
+            "seeding_time_limit": _positive_or_sentinel(
+                most_important_tracker.get(
+                    "MaxSeedingTime", self.seeding_mode_global_max_seeding_time
                 )
-                > 0
-                else -5
             ),
-            "dl_limit": (
-                r
-                if (
-                    r := most_important_tracker.get(
-                        "DownloadRateLimit", self.seeding_mode_global_download_limit
-                    )
+            "dl_limit": _positive_or_sentinel(
+                most_important_tracker.get(
+                    "DownloadRateLimit", self.seeding_mode_global_download_limit
                 )
-                > 0
-                else -5
             ),
-            "up_limit": (
-                r
-                if (
-                    r := most_important_tracker.get(
-                        "UploadRateLimit", self.seeding_mode_global_upload_limit
-                    )
+            "up_limit": _positive_or_sentinel(
+                most_important_tracker.get(
+                    "UploadRateLimit", self.seeding_mode_global_upload_limit
                 )
-                > 0
-                else -5
             ),
             "super_seeding": most_important_tracker.get("SuperSeedMode", torrent.super_seeding),
-            "max_eta": most_important_tracker.get("MaximumETA", self.maximum_eta),
-            "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
-            "hnr_min_seed_ratio": most_important_tracker.get("MinSeedRatio", 1.0),
-            "hnr_min_seeding_time_days": most_important_tracker.get("MinSeedingTimeDays", 0),
-            "hnr_min_download_percent": most_important_tracker.get(
-                "HitAndRunMinimumDownloadPercent", 10
+            "max_eta": _to_number(
+                most_important_tracker.get("MaximumETA", self.maximum_eta),
+                self.maximum_eta,
             ),
-            "hnr_partial_seed_ratio": most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
-            "hnr_tracker_update_buffer": most_important_tracker.get("TrackerUpdateBuffer", 0),
+            "hnr_clear_mode": self._resolve_hnr_clear_mode(most_important_tracker),
+            "hnr_min_seed_ratio": _to_number(
+                most_important_tracker.get("MinSeedRatio", 1.0),
+                1.0,
+            ),
+            "hnr_min_seeding_time_days": _to_number(
+                most_important_tracker.get("MinSeedingTimeDays", 0),
+                0,
+            ),
+            "hnr_min_download_percent": _to_number(
+                most_important_tracker.get("HitAndRunMinimumDownloadPercent", 10),
+                10,
+            ),
+            "hnr_partial_seed_ratio": _to_number(
+                most_important_tracker.get("HitAndRunPartialSeedRatio", 1.0),
+                1.0,
+            ),
+            "hnr_tracker_update_buffer": _to_number(
+                most_important_tracker.get("TrackerUpdateBuffer", 0),
+                0,
+            ),
         }
 
         data_torrent = {
-            "ratio_limit": r if (r := torrent.ratio_limit) > 0 else -5,
-            "seeding_time_limit": r if (r := torrent.seeding_time_limit) > 0 else -5,
-            "dl_limit": r if (r := torrent.dl_limit) > 0 else -5,
-            "up_limit": r if (r := torrent.up_limit) > 0 else -5,
+            "ratio_limit": _positive_or_sentinel(getattr(torrent, "ratio_limit", -5)),
+            "seeding_time_limit": _positive_or_sentinel(
+                getattr(torrent, "seeding_time_limit", -5)
+            ),
+            "dl_limit": _positive_or_sentinel(getattr(torrent, "dl_limit", -5)),
+            "up_limit": _positive_or_sentinel(getattr(torrent, "up_limit", -5)),
             "super_seeding": torrent.super_seeding,
         }
         return data_settings, data_torrent
@@ -7109,7 +7166,17 @@ class Arr:
             return True
 
         if data_settings is None:
-            data_settings, _ = self._get_torrent_limit_meta(torrent)
+            try:
+                data_settings, _ = self._get_torrent_limit_meta(torrent)
+            except _TrackerDataUnavailable as exc:
+                self.logger.warning(
+                    "HnR check skipped for torrent '%s' (%s): %s",
+                    getattr(torrent, "name", "<unknown>"),
+                    getattr(torrent, "hash", "<unknown>"),
+                    str(exc),
+                )
+                # Fail safe: without tracker metadata, do not allow deletion.
+                return False
         if self._hnr_safe_to_remove(torrent, data_settings):
             return True
         self.logger.info(

@@ -3309,14 +3309,16 @@ class WebUI:
         def web_meta():
             force = self._query_truthy(request.args.get("force"))
             result = dict(self._ensure_version_info(force=force))
-            result["auth_required"] = not _auth_disabled()
-            result["local_auth_enabled"] = _local_auth_enabled()
-            result["oidc_enabled"] = _oidc_enabled()
+            auth_required = not _auth_disabled()
+            local_auth_enabled = _local_auth_enabled()
+            oidc_enabled = _oidc_enabled()
+            result["auth_required"] = auth_required
+            result["local_auth_enabled"] = local_auth_enabled
+            result["oidc_enabled"] = oidc_enabled
             # First-time setup: auth required, no password set, no OIDC — show create-credentials screen
             stored_hash = (CONFIG.get("WebUI.PasswordHash", fallback="") or "").strip()
-            result["setup_required"] = (
-                not _auth_disabled() and not stored_hash and not _oidc_enabled()
-            )
+            setup_required = auth_required and not stored_hash and not oidc_enabled
+            result["setup_required"] = setup_required
             return jsonify(result)
 
         def _handle_update():
