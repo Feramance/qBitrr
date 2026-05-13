@@ -7200,7 +7200,6 @@ class Arr:
             "torrent not registered",
             "info hash is not authorized",
             "torrent is not authorized",
-            "not found",
             "torrent not found",
         }
         # Build set of HnR-enabled tracker hostnames
