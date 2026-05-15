@@ -23,6 +23,7 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled, setupRequi
   const [setupUsername, setSetupUsername] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
   const [setupConfirm, setSetupConfirm] = useState("");
+  const [setupToken, setSetupToken] = useState("");
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupSubmitting, setSetupSubmitting] = useState(false);
 
@@ -61,9 +62,17 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled, setupRequi
       setSetupError("Passwords do not match.");
       return;
     }
+    if (!setupToken.trim()) {
+      setSetupError("Setup token is required.");
+      return;
+    }
     setSetupSubmitting(true);
     try {
-      await setPassword({ username: setupUsername.trim(), password: setupPassword });
+      await setPassword({
+        username: setupUsername.trim(),
+        password: setupPassword,
+        setupToken: setupToken.trim(),
+      });
       // After setting password, log in automatically
       await login({ username: setupUsername.trim(), password: setupPassword });
       onSuccess();
@@ -175,6 +184,21 @@ export function LoginPage({ onSuccess, localAuthEnabled, oidcEnabled, setupRequi
                   required
                   disabled={setupSubmitting}
                 />
+              </div>
+              <div className="login-field">
+                <label htmlFor="setup-token">Setup Token</label>
+                <input
+                  id="setup-token"
+                  type="password"
+                  autoComplete="off"
+                  value={setupToken}
+                  onChange={(e) => setSetupToken(e.target.value)}
+                  required
+                  disabled={setupSubmitting}
+                />
+                <span className="field-description">
+                  Use QBITRR_SETUP_TOKEN or the WebUI.Token value from config.toml.
+                </span>
               </div>
               {setupError && <div className="login-error">{setupError}</div>}
               <button className="btn primary login-submit" type="submit" disabled={setupSubmitting}>
