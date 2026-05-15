@@ -1607,6 +1607,22 @@
           "content": {
             "application/json": {
               "schema": {
+                "properties": {
+                  "password": {
+                    "type": "string"
+                  },
+                  "setupToken": {
+                    "description": "QBITRR_SETUP_TOKEN or WebUI.Token. Required unless the caller already has a valid session or bearer token.",
+                    "type": "string"
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "username",
+                  "password"
+                ],
                 "type": "object"
               }
             }
@@ -1626,6 +1642,9 @@
           },
           "400": {
             "description": "Bad request"
+          },
+          "403": {
+            "description": "Setup token or authenticated session required"
           }
         },
         "security": [],
