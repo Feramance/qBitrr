@@ -2030,34 +2030,36 @@ class WebUI:
             prefix = request.script_root.rstrip("/")
             return redirect(f"{prefix}/ui" if prefix else "/ui")
 
-        def _authorized():
+        def _get_supplied_token() -> str | None:
             _webui_logger = logging.getLogger("qBitrr.WebUI")
 
-            def _get_supplied_token():
-                header_token = (
-                    request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            header_token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+            if header_token:
+                return header_token
+            query_token = request.args.get("token")
+            if query_token:
+                _webui_logger.warning(
+                    "Token supplied via query parameter from %s — this is insecure "
+                    "(token visible in logs and browser history). Use Authorization header instead.",
+                    request.remote_addr,
                 )
-                if header_token:
-                    return header_token
-                query_token = request.args.get("token")
-                if query_token:
-                    _webui_logger.warning(
-                        "Token supplied via query parameter from %s — this is insecure "
-                        "(token visible in logs and browser history). Use Authorization header instead.",
-                        request.remote_addr,
-                    )
-                    return query_token
-                return None
+                return query_token
+            return None
+
+        def _has_authenticated_principal() -> bool:
+            supplied = _get_supplied_token()
+            if supplied and self.token and secrets.compare_digest(supplied, self.token):
+                return True
+            return bool(session.get("authenticated"))
+
+        def _authorized():
 
             # Auth disabled globally → always authorized
             if _auth_disabled():
                 return True
             # Bearer token (API path) — constant-time comparison
-            supplied = _get_supplied_token()
-            if supplied and self.token and secrets.compare_digest(supplied, self.token):
-                return True
             # Session cookie (web login path)
-            return bool(session.get("authenticated"))
+            return _has_authenticated_principal()
 
         def require_token():
             if not _authorized():
@@ -2184,15 +2186,26 @@ class WebUI:
             if len(password) < 8:
                 return jsonify({"error": "Password must be at least 8 characters"}), 400
             env_token = os.environ.get("QBITRR_SETUP_TOKEN", "")
-            token_ok = (
-                bool(env_token)
-                and bool(setup_token)
-                and secrets.compare_digest(setup_token, env_token)
+            token_ok = bool(setup_token) and (
+                (bool(env_token) and secrets.compare_digest(setup_token, env_token))
+                or (bool(self.token) and secrets.compare_digest(setup_token, self.token))
             )
             with _setpw_lock:
                 stored_hash = CONFIG.get("WebUI.PasswordHash", fallback="") or ""
                 first_time = not stored_hash
-                if not first_time and not token_ok:
+                if not (token_ok or _has_authenticated_principal()):
+                    if first_time:
+                        return (
+                            jsonify(
+                                {
+                                    "error": (
+                                        "Setup token required. Use QBITRR_SETUP_TOKEN or the "
+                                        "WebUI.Token value from config.toml."
+                                    )
+                                }
+                            ),
+                            403,
+                        )
                     return jsonify({"error": "Not allowed"}), 403
                 new_hash = _pw_hash(password)
                 try:
