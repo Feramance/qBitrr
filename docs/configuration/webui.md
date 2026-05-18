@@ -22,9 +22,9 @@ The qBitrr WebUI provides:
 
 ## Authentication and first-run
 
-On **new installs**, authentication is required by default. When you open the WebUI for the first time, you will see a **create credentials** screen: choose a username and password to secure qBitrr. After you set them, you are logged in and local username/password login is enabled. You can change the password later via **Set Password** in WebUI settings.
+On **new installs**, authentication is required by default. When you open the WebUI for the first time, you will see a **create credentials** screen: choose a username and password to secure qBitrr. First-time credential creation requires a setup token so that someone who can merely reach the WebUI port cannot claim the account before you do. Use either the `QBITRR_SETUP_TOKEN` environment variable value, or the generated `WebUI.Token` value from `config.toml`. After you set credentials, you are logged in and local username/password login is enabled. You can change the password later via **Set Password** in WebUI settings.
 
-- **First-run flow:** Open `/ui` → create username and password → set password & sign in → use the WebUI.
+- **First-run flow:** Open `/ui` → enter a setup token → create username and password → set password & sign in → use the WebUI.
 - **Existing configs:** If your config file was created before this behavior (or does not set `AuthDisabled`), the app continues to treat auth as disabled for backward compatibility until you set `AuthDisabled = false` or configure a password.
 - **Disable auth:** To run without login (e.g. behind your own reverse proxy or in a fully trusted environment), set `AuthDisabled = true` in the `[WebUI]` section of `config.toml`. See [AuthDisabled](#authdisabled) below.
 
