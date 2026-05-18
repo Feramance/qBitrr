@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.12.2 (18/05/2026)
+
+### 🐛 Bug Fixes
+- [Fixed ujson version](https://github.com/Feramance/qBitrr/commit/5fd810cf5aa37f0fe49d3154a84cbdbdb7c5474b) - @Feramance
+- [[patch] Rewrote arr views to consolidate code and improve url pathing (#420)](https://github.com/Feramance/qBitrr/commit/bdfe6a98189582a4968b1dbeb8358e8802b64bca) - @Feramance
+- [Fix HnR bypass on transient tracker lookup failures (#412)](https://github.com/Feramance/qBitrr/commit/8a326b5d2d1a2b776911d31360f5598328d0814a) - @Feramance
+- [fix: require setup proof for WebUI password bootstrap](https://github.com/Feramance/qBitrr/commit/615143fb5ab66a96b997df9f2ec619dc29de5982) - @Feramance
+
+### 🔧 Maintenance
+- [Build(deps-dev): Bump @types/node from 25.7.0 to 25.9.0 in /webui (#417)](https://github.com/Feramance/qBitrr/commit/3c7b17482fc09ba5ab154c2bb10126b560df447c) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.2.0 to 9.2.1 in /webui (#419)](https://github.com/Feramance/qBitrr/commit/cfc02791412c6df1cf7677f106a9acecd4704cf6) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.75.0 to 7.76.0 in /webui (#418)](https://github.com/Feramance/qBitrr/commit/cce6bb620b93d7e306e89367b8942a3040be52ae) - @Feramance
+- [Build(deps-dev): Bump @vitejs/plugin-react from 6.0.1 to 6.0.2 in /webui (#416)](https://github.com/Feramance/qBitrr/commit/a05ec588abde20d0e6237a214150793227731c0e) - @Feramance
+- [Build(deps-dev): Bump vite from 8.0.10 to 8.0.13 in /webui (#415)](https://github.com/Feramance/qBitrr/commit/107ef8226b23ebca16e67262e328ff3b18a2914e) - @Feramance
+- [Build(deps): Bump immer from 11.1.4 to 11.1.8 in /webui (#414)](https://github.com/Feramance/qBitrr/commit/cb81984d37b204e1d3363bd6903919df44fbe28e) - @Feramance
+
+---
+
 ## v5.12.1 (12/05/2026)
 
 ### 🐛 Bug Fixes
