@@ -1,4 +1,5 @@
 import { useMemo, type JSX } from "react";
+import { getSonarrOpenSeriesUrl } from "../../api/client";
 
 export type SonarrEpisodeRow = {
   __instance: string;
@@ -31,9 +32,15 @@ function sortEpisodes(a: SonarrEpisodeRow, b: SonarrEpisodeRow): number {
 
 export function SonarrSeriesGroupDetailBody({
   group,
+  category,
 }: {
   group: SonarrSeriesGroup;
+  category: string;
 }): JSX.Element {
+  const openUrl =
+    group.seriesId != null && category
+      ? getSonarrOpenSeriesUrl(category, group.seriesId)
+      : null;
   const bySeason = useMemo(() => {
     const m = new Map<string, SonarrEpisodeRow[]>();
     for (const e of group.episodes) {
@@ -51,6 +58,13 @@ export function SonarrSeriesGroupDetailBody({
 
   return (
     <div className="stack" style={{ gap: "8px" }}>
+      {openUrl ? (
+        <div className="arr-detail-actions">
+          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
+            Open in Sonarr
+          </a>
+        </div>
+      ) : null}
       <p className="hint" style={{ margin: 0 }}>
         <strong>Instance:</strong> {group.instance}
         {group.qualityProfileName ? (

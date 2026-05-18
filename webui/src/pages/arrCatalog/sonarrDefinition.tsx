@@ -68,9 +68,22 @@ const SONARR_INSTANCE_PAGE_HASH_FIELDS: (keyof SonarrSeriesComparable)[] = [
   "totals",
 ];
 
+function normalizeSonarrSeriesId(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
 function getSonarrSeriesEntryKey(entry: SonarrSeriesComparable): string {
-  const id = entry.series?.["id"];
-  if (typeof id === "number" && Number.isFinite(id)) {
+  const id = normalizeSonarrSeriesId(entry.series?.["id"]);
+  if (id !== undefined) {
     return `id:${id}`;
   }
   return `t:${String(entry.series?.["title"] ?? "")}`;
@@ -124,7 +137,7 @@ export function seriesEntryToGroup(
   instanceLabel: string,
 ): SonarrSeriesGroup {
   const title = (entry.series?.["title"] as string | undefined) || "";
-  const seriesId = entry.series?.["id"] as number | undefined;
+  const seriesId = normalizeSonarrSeriesId(entry.series?.["id"]);
   const qualityProfileName = entry.series?.qualityProfileName ?? null;
   const episodes: import("../../components/arr/SonarrSeriesGroupDetailBody").SonarrEpisodeRow[] =
     [];
@@ -165,7 +178,10 @@ function sonarrMonitoredEpisodeProgress(
 }
 
 function sonarrGroupRowKey(group: SonarrSeriesGroupRow): string {
-  return `${group.instance}::${group.series}`;
+  if (typeof group.seriesId === "number" && Number.isFinite(group.seriesId)) {
+    return `${group.instance}::id:${group.seriesId}`;
+  }
+  return `${group.instance}::fallback:${group.series}`;
 }
 
 function summarizeGroupEpisodes(
@@ -690,15 +706,21 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
     },
   },
   useInstancePipeline: useSonarrInstancePipeline,
-  buildAggregateSelection: (row) => ({
+  buildAggregateSelection: (row, instances) => ({
     id: sonarrGroupRowKey(row),
     source: "aggregate",
     seed: row,
+    extras: {
+      category: categoryForInstanceLabel([...instances], row.instance),
+    },
   }),
-  buildInstanceSelection: (row) => ({
+  buildInstanceSelection: (row, selectionCategory) => ({
     id: sonarrGroupRowKey(row),
     source: "instance",
     seed: row,
+    extras: {
+      category: selectionCategory,
+    },
   }),
   getModalLiveRow: ({
     source,
@@ -714,8 +736,11 @@ export const SONARR_DEFINITION: ArrCatalogDefinition<
   },
   getModalTitle: (liveRow) => liveRow.series,
   getModalMaxWidth: () => 720,
-  renderModalBody: ({ liveRow }) => (
-    <SonarrSeriesGroupDetailBody group={liveRow} />
+  renderModalBody: ({ liveRow, extras }) => (
+    <SonarrSeriesGroupDetailBody
+      group={liveRow}
+      category={String(extras.category ?? "")}
+    />
   ),
   buildAggregateColumns: buildSonarrAggColumns,
   buildInstanceColumns: buildSonarrInstanceColumns,

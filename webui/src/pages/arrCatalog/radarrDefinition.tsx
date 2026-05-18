@@ -52,6 +52,19 @@ const RADARR_AGG_HASH_FIELDS = [
   "reason",
 ] as const;
 
+function normalizeRadarrMovieId(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
 function radarrFilterRows<T extends RadarrMovie>(
   rows: ReadonlyArray<T>,
   filters: RadarrFilters,
@@ -148,11 +161,21 @@ function buildRadarrAggColumns(
 }
 
 function radarrInstanceRowKey(row: RadarrInstanceRow): string {
-  return `${row.title}-${row.year}`;
+  const instance = String(row.__instance ?? "");
+  const id = normalizeRadarrMovieId(row.id);
+  if (id !== undefined) {
+    return `${instance}::id:${id}`;
+  }
+  return `${instance}::fallback:${String(row.title ?? "")}-${String(row.year ?? "")}`;
 }
 
 function radarrAggRowKey(row: RadarrAggRow): string {
-  return `${row.__instance}-${row.title}-${row.year}`;
+  const id = normalizeRadarrMovieId(row.id);
+  const instance = String(row.__instance ?? "");
+  if (id !== undefined) {
+    return `${instance}::id:${id}`;
+  }
+  return `${instance}::fallback:${String(row.title ?? "")}-${String(row.year ?? "")}`;
 }
 
 function radarrAggThumbnail(
@@ -256,7 +279,10 @@ export const RADARR_DEFINITION: ArrCatalogDefinition<
         fetchPage: (category, page, pageSize, query) =>
           getRadarrMovies(category, page, pageSize, query),
         extractPage: (response) => ({
-          rows: (response.movies ?? []) as ReadonlyArray<RadarrInstanceRow>,
+          rows: (response.movies ?? []).map((movie) => ({
+            ...movie,
+            __instance: response.category ?? "",
+          })) as ReadonlyArray<RadarrInstanceRow>,
           page: response.page ?? 0,
           pageSize: response.page_size ?? RADARR_PAGE_SIZE,
           total: response.total ?? (response.movies ?? []).length,

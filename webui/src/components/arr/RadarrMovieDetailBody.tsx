@@ -1,4 +1,5 @@
 import type { JSX } from "react";
+import { getRadarrOpenMovieUrl } from "../../api/client";
 import type { RadarrMovie } from "../../api/types";
 import { radarrMovieThumbnailUrl } from "../../utils/arrThumbnailUrl";
 import { ArrPosterImage } from "./ArrPosterImage";
@@ -13,6 +14,8 @@ export function RadarrMovieDetailBody({
   category,
 }: RadarrMovieDetailBodyProps): JSX.Element {
   const id = movie.id;
+  const openUrl =
+    id != null && category ? getRadarrOpenMovieUrl(category, id) : null;
   const poster =
     id != null && category
       ? radarrMovieThumbnailUrl(category, id)
@@ -20,6 +23,13 @@ export function RadarrMovieDetailBody({
   const reason = movie.reason as string | null | undefined;
   return (
     <div className="arr-detail-radarr">
+      {openUrl ? (
+        <div className="arr-detail-actions">
+          <a className="btn small outline" href={openUrl} target="_blank" rel="noreferrer">
+            Open in Radarr
+          </a>
+        </div>
+      ) : null}
       {poster ? (
         <div className="arr-detail-radarr__poster">
           <ArrPosterImage src={poster} alt={String(movie.title ?? "")} />

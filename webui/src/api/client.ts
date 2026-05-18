@@ -239,6 +239,29 @@ export function getLogDownloadUrl(name: string): string {
   return `/web/logs/${encodeURIComponent(name)}/download`;
 }
 
+export type ArrOpenItemKind = "movie" | "series" | "artist";
+
+export function getArrOpenItemUrl(
+  category: string,
+  kind: ArrOpenItemKind,
+  entryId: number
+): string {
+  const encodedCategory = encodeURIComponent(category);
+  return `/web/arr/${encodedCategory}/open/${kind}/${entryId}`;
+}
+
+export function getRadarrOpenMovieUrl(category: string, movieId: number): string {
+  return getArrOpenItemUrl(category, "movie", movieId);
+}
+
+export function getSonarrOpenSeriesUrl(category: string, seriesId: number): string {
+  return getArrOpenItemUrl(category, "series", seriesId);
+}
+
+export function getLidarrOpenArtistUrl(category: string, artistId: number): string {
+  return getArrOpenItemUrl(category, "artist", artistId);
+}
+
 export async function getArrList(): Promise<ArrListResponse> {
   return fetchJson<ArrListResponse>("/web/arr");
 }
