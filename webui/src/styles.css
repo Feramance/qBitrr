@@ -4440,6 +4440,11 @@ svg[height] {
     gap: 12px;
 }
 
+.arr-detail-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .arr-detail-radarr__poster {
     max-width: 200px;
     margin: 0 auto;

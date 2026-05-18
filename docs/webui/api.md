@@ -551,6 +551,54 @@ Restart specific Arr instance (both search and torrent processes).
 
 ---
 
+### Open Arr Item in Arr UI
+
+Open a specific Radarr/Sonarr/Lidarr item in its native Arr web interface.
+
+**Endpoints**:
+- `GET /api/arr/<category>/open/<kind>/<entry_id>` (requires auth)
+- `GET /web/arr/<category>/open/<kind>/<entry_id>` (public)
+
+**Path Parameters**:
+
+- `category` (string, required) - Arr instance category key (for example `radarr-4k`)
+- `kind` (string, required) - Target item type: `movie`, `series`, or `artist`
+- `entry_id` (integer, required) - Arr item id in that instance
+
+**Response** (Success): HTTP `302` redirect to the Arr UI page.
+
+**Route Resolution Behavior**:
+
+- qBitrr first resolves the managed Arr instance by `category` and validates `kind`.
+- qBitrr fetches the item from that Arr API using `entry_id`.
+- qBitrr then builds an app-native URL token:
+  - Radarr: prefers `titleSlug`, falls back to numeric `entry_id`
+  - Sonarr: prefers `titleSlug`, falls back to numeric `entry_id`
+  - Lidarr: prefers `foreignArtistId` (then `titleSlug`), falls back to numeric `entry_id`
+
+**Item Targets**:
+
+- `movie` -> `.../movie/<route-token>` (Radarr)
+- `series` -> `.../series/<route-token>` (Sonarr)
+- `artist` -> `.../artist/<route-token>` (Lidarr)
+
+**Response** (Error):
+```json
+{
+  "error": "Unknown sonarr section sonarr-tv"
+}
+```
+
+**HTTP Status Codes**:
+
+- `302` - Redirect to Arr UI item page
+- `400` - Unknown item kind or missing Arr URI
+- `401` - Unauthorized
+- `404` - Unknown Arr section/type mismatch or item lookup failure
+- `503` - Arr manager not ready
+
+---
+
 ### Get qBit Categories
 
 Get qBittorrent categories managed by qBitrr (qBit-managed and Arr-managed) with seeding statistics.

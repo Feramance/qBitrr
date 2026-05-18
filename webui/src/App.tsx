@@ -11,7 +11,7 @@ import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate, logout, fetchWebToken } from "./api/client";
 import { LoginPage } from "./pages/LoginPage";
-import type { MetaResponse } from "./api/types";
+import type { ArrInfo, MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
 import CloseIcon from "./icons/close.svg";
 import ExternalIcon from "./icons/github.svg";
@@ -538,6 +538,15 @@ function AuthGate({ children }: { children: (authRequired: boolean, onSignOut: (
 
 function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOut: () => void }): JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>("processes");
+  const [configuredArrTabs, setConfiguredArrTabs] = useState<{
+    radarr: boolean;
+    sonarr: boolean;
+    lidarr: boolean;
+  }>({
+    radarr: false,
+    sonarr: false,
+    lidarr: false,
+  });
   const [configDirty, setConfigDirty] = useState(false);
   const { push } = useToast();
   const { setValue: setSearchValue } = useSearch();
@@ -671,11 +680,19 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
         return;
       }
 
-      // Number keys 1-7 for tab switching
-      if (event.key >= '1' && event.key <= '7' && !isMod) {
+      // Number keys for visible tab switching
+      if (event.key >= "1" && event.key <= "9" && !isMod) {
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
-        const tabIds: Tab[] = ['processes', 'logs', 'radarr', 'sonarr', 'lidarr', 'qbittorrent', 'config'];
+        const tabIds: Tab[] = [
+          "processes",
+          "logs",
+          ...(configuredArrTabs.radarr ? (["radarr"] as Tab[]) : []),
+          ...(configuredArrTabs.sonarr ? (["sonarr"] as Tab[]) : []),
+          ...(configuredArrTabs.lidarr ? (["lidarr"] as Tab[]) : []),
+          "qbittorrent",
+          "config",
+        ];
         if (tabIndex < tabIds.length) {
           setActiveTab(tabIds[tabIndex]);
         }
@@ -685,7 +702,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setSearchValue, push]);
+  }, [setSearchValue, configuredArrTabs]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -696,7 +713,20 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
 
   const refreshStatus = useCallback(async () => {
     try {
-      await getStatus();
+      const status = await getStatus();
+      const arrs: ArrInfo[] = Array.isArray(status.arrs) ? status.arrs : [];
+      const nextTabs = {
+        radarr: arrs.some((arr) => arr.type === "radarr"),
+        sonarr: arrs.some((arr) => arr.type === "sonarr"),
+        lidarr: arrs.some((arr) => arr.type === "lidarr"),
+      };
+      setConfiguredArrTabs((prev) =>
+        prev.radarr === nextTabs.radarr &&
+        prev.sonarr === nextTabs.sonarr &&
+        prev.lidarr === nextTabs.lidarr
+          ? prev
+          : nextTabs
+      );
     } catch {
       // Silently fail - status is not critical
     }
@@ -848,18 +878,27 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
     };
   }, [push]);
 
-  const tabs = useMemo<NavTab[]>(
-    () => [
+  const tabs = useMemo<NavTab[]>(() => {
+    const nextTabs: NavTab[] = [
       { id: "processes", label: "Processes", icon: ProcessesIcon },
       { id: "logs", label: "Logs", icon: LogsIcon },
-      { id: "radarr", label: "Radarr", icon: RadarrIcon },
-      { id: "sonarr", label: "Sonarr", icon: SonarrIcon },
-      { id: "lidarr", label: "Lidarr", icon: LidarrIcon },
+    ];
+    if (configuredArrTabs.radarr) {
+      nextTabs.push({ id: "radarr", label: "Radarr", icon: RadarrIcon });
+    }
+    if (configuredArrTabs.sonarr) {
+      nextTabs.push({ id: "sonarr", label: "Sonarr", icon: SonarrIcon });
+    }
+    if (configuredArrTabs.lidarr) {
+      nextTabs.push({ id: "lidarr", label: "Lidarr", icon: LidarrIcon });
+    }
+    nextTabs.push(
       { id: "qbittorrent", label: "qBittorrent", icon: QbitIcon },
-      { id: "config", label: "Config", icon: ConfigIcon },
-    ],
-    []
-  );
+      { id: "config", label: "Config", icon: ConfigIcon }
+    );
+    return nextTabs;
+  }, [configuredArrTabs]);
+  const visibleTabIds = useMemo(() => new Set<Tab>(tabs.map((tab) => tab.id)), [tabs]);
 
   const repositoryUrl = meta?.repository_url ?? "https://github.com/Feramance/qBitrr";
   const displayVersion = meta?.current_version
@@ -1069,9 +1108,15 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
           <div key={activeTab} className="view-transition">
             {activeTab === "processes" && <ProcessesView key={`processes-${reloadKey}`} active />}
             {activeTab === "logs" && <LogsView key={`logs-${reloadKey}`} active />}
-            {activeTab === "radarr" && <ArrView key={`radarr-${reloadKey}`} type="radarr" active />}
-            {activeTab === "sonarr" && <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />}
-            {activeTab === "lidarr" && <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />}
+            {activeTab === "radarr" && visibleTabIds.has("radarr") && (
+              <ArrView key={`radarr-${reloadKey}`} type="radarr" active />
+            )}
+            {activeTab === "sonarr" && visibleTabIds.has("sonarr") && (
+              <ArrView key={`sonarr-${reloadKey}`} type="sonarr" active />
+            )}
+            {activeTab === "lidarr" && visibleTabIds.has("lidarr") && (
+              <ArrView key={`lidarr-${reloadKey}`} type="lidarr" active />
+            )}
             {activeTab === "qbittorrent" && <QbitCategoriesView key={`qbittorrent-${reloadKey}`} active />}
             {activeTab === "config" && <ConfigView key="config" onDirtyChange={setConfigDirty} />}
           </div>
