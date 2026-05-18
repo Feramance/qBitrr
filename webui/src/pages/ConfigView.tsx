@@ -3890,17 +3890,19 @@ function SetPasswordModal({ onClose }: SetPasswordModalProps): JSX.Element {
                 />
               </div>
               <div className="field">
-                <label htmlFor="sp-setup-token">Setup Token (optional)</label>
+                <label htmlFor="sp-setup-token">Setup Token (optional for signed-in users)</label>
                 <input
                   id="sp-setup-token"
                   type="password"
                   autoComplete="off"
                   value={setupToken}
                   onChange={(e) => setSetupToken(e.target.value)}
-                  placeholder="Required only when changing an existing password"
+                  placeholder="QBITRR_SETUP_TOKEN or WebUI.Token"
                 />
                 <p className="field-description">
-                  Provide <code>QBITRR_SETUP_TOKEN</code> env var value to reset an existing password.
+                  Signed-in users can change the password without this field. Otherwise provide{" "}
+                  <code>QBITRR_SETUP_TOKEN</code> or the <code>WebUI.Token</code> value from{" "}
+                  config.toml.
                 </p>
               </div>
               {error && <div style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{error}</div>}
