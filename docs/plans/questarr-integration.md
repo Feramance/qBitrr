@@ -83,7 +83,7 @@ git checkout -b feature/questarr-integration
 
 ## Phase 0b — Upstream alignment (recommended, parallel)
 
-Draft discussion/PR text in [`docs/upstream/questarr-api-requests.md`](upstream/questarr-api-requests.md) (paste into [Questarr Discussions](https://github.com/Doezer/Questarr/discussions)).
+Draft discussion/PR text in [`docs/upstream/questarr-api-requests.md`](../upstream/questarr-api-requests.md) (paste into [Questarr Discussions](https://github.com/Doezer/Questarr/discussions)).
 
 ### 1. Auth for external tools
 
