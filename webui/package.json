@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@mantine/core": "^9.1.1",
+    "@mantine/core": "^9.2.1",
     "@mantine/dates": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
     "@melloware/react-logviewer": "^6.5.2",
@@ -33,7 +33,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.1",
-    "vite": "^8.0.13"
+    "vite": "^8.0.14"
   },
   "engines": {
     "node": ">=20.0.0",
