@@ -10,6 +10,7 @@ import { SearchProvider, useSearch } from "./context/SearchContext";
 import { WebUIProvider, useWebUI } from "./context/WebUIContext";
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { getMeta, getStatus, triggerUpdate, logout, fetchWebToken } from "./api/client";
+import { webPath } from "./api/urlBase";
 import { LoginPage } from "./pages/LoginPage";
 import type { ArrInfo, MetaResponse } from "./api/types";
 import { IconImage } from "./components/IconImage";
@@ -383,7 +384,7 @@ function ChangelogModal({
                 <>
                   <a
                     className="btn primary"
-                    href={`/web/download-update`}
+                    href={webPath("/web/download-update")}
                     download={binaryDownloadName ?? undefined}
                     target="_blank"
                     rel="noreferrer"
@@ -1049,7 +1050,7 @@ function AppShell({ authRequired, onSignOut }: { authRequired: boolean; onSignOu
               GitHub
             </a>
             <a
-              href="/web/docs"
+              href={webPath("/web/docs")}
               target="_blank"
               rel="noreferrer"
               className="btn small ghost"

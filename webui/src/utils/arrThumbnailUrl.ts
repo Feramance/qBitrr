@@ -9,6 +9,8 @@
  * history. The thumbnail responses now use ``Cache-Control: private`` so shared caches do not
  * keep token-bearing bytes.
  */
+import { webPath } from "../api/urlBase";
+
 const TOKEN_KEYS = ["token", "webui-token", "webui_token"] as const;
 
 function resolveTokenFromStorage(): string | null {
@@ -40,7 +42,7 @@ export function radarrMovieThumbnailUrl(
 ): string {
   const c = encodeURIComponent(category);
   return withWebUiToken(
-    `/web/radarr/${c}/movie/${entryId}/thumbnail`
+    webPath(`/web/radarr/${c}/movie/${entryId}/thumbnail`)
   );
 }
 
@@ -50,7 +52,7 @@ export function sonarrSeriesThumbnailUrl(
 ): string {
   const c = encodeURIComponent(category);
   return withWebUiToken(
-    `/web/sonarr/${c}/series/${entryId}/thumbnail`
+    webPath(`/web/sonarr/${c}/series/${entryId}/thumbnail`)
   );
 }
 
@@ -60,6 +62,6 @@ export function lidarrArtistThumbnailUrl(
 ): string {
   const c = encodeURIComponent(category);
   return withWebUiToken(
-    `/web/lidarr/${c}/artist/${artistId}/thumbnail`
+    webPath(`/web/lidarr/${c}/artist/${artistId}/thumbnail`)
   );
 }
