@@ -218,6 +218,7 @@ body {
     transition: all 0.15s ease;
     position: relative;
     overflow: hidden;
+    user-select: none;
 }
 
 .nav button::before {
@@ -944,6 +945,13 @@ body {
     flex: 0 0 auto;
     min-width: 7.5em;
     width: auto;
+}
+.duration-input {
+    flex-wrap: wrap;
+}
+.duration-input__disabled {
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 .field.mobile-instance-select {
     display: none;

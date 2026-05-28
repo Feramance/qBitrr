@@ -360,7 +360,8 @@ Edit your qBitrr configuration without leaving the browser.
   - Download configuration file
 
 - **Apply Changes**
-  - Save configuration
+  - Per-instance save for each qBittorrent and Arr instance
+  - Save all changed sections with **Save + Live Reload**
   - Restart qBitrr with new config
   - Restart specific Arr instances only
   - Rollback on failure

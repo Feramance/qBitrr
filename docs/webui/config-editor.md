@@ -534,7 +534,7 @@ Numeric field with spinner controls.
 ```
 
 ### Duration Input
-Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Disabled values (e.g. `-1`) appear as "Disabled" where supported.
+Time fields use a **number input plus unit dropdown** (s, m, h, d, w, M) instead of raw seconds or minutes. When you change a duration and save, the config may store it as a suffixed string (e.g. `MaxSeedingTime = "1w"`, `StalledDelay = "60m"`) for readability; the backend accepts both integers and suffixed strings. Disabled values (`-1`) show an empty field with a **Disabled** placeholder; use **Use disabled** or clear the field and blur to set disabled again.
 
 ### Checkbox
 Toggle boolean values.
@@ -642,13 +642,22 @@ Radarr-4K.URI: URI must be set to a valid URL when the instance is managed.
 
 ## Save Behavior and Live Reload
 
+### Per-Instance Save
+
+Each qBittorrent instance (`qBit`, `qBit-1`, …) and each Arr instance (`Radarr-4K`, `Sonarr-TV`, `Lidarr-Music`, …) has its own **Save** button on the instance card and inside the configure modal. Use this to persist one instance without validating or saving unrelated instances.
+
+- **Per-instance Save** validates only that instance (skipped when Arr `Managed = false` or qBit `Disabled = true`)
+- **Save + Live Reload** at the bottom saves all changed sections and validates only sections with pending changes
+
+Core blocks (**Settings**, **Web Settings**, **Authentication**) are included in **Save + Live Reload** only.
+
 ### Save Process
 
-When you click **Save + Live Reload**:
+When you click **Save** on an instance card or **Save + Live Reload**:
 
-1. **Client-Side Validation**: All fields validated; save blocked if errors exist
+1. **Client-Side Validation**: Only the target instance (or changed sections for global save) is validated; save blocked if errors exist
 2. **Change Detection**: Compares current form state vs. original config
-3. **Diff Calculation**: Generates minimal change set (only modified fields)
+3. **Diff Calculation**: Generates minimal change set (only modified fields for that instance or all dirty keys)
 4. **API Request**: `POST /api/config` with `{"changes": {...}}`
 5. **Server-Side Validation**: Backend validates and persists to `config.toml`
 6. **Reload Detection**: Server determines which components need reloading
@@ -696,22 +705,21 @@ Attempts to modify protected keys return `403 Forbidden`.
 
 ## Modal State Persistence
 
-Configuration modals now preserve their state when you switch tabs or windows:
+Configuration modals preserve their state while you work in the Config tab:
 
 **Persistent State**:
 
-- **Open Modals**: Remain open when switching between tabs or minimizing the browser
-- **Entered Data**: All field values are preserved across tab switches
-- **Unsaved Changes**: Maintained even if you switch to another application
+- **Open Modals**: Remain open while you stay on the Config tab
+- **Entered Data**: All field values are preserved until you save or reload config
+- **Unsaved Changes**: Prompted when leaving Config via another tab if changes exist
 
-**Benefits**:
+**Interaction Safety**:
 
-- Fill out long configuration forms without losing progress
-- Reference other applications while configuring
-- Switch tabs to check settings in other systems
-- Resume configuration exactly where you left off
+- Modals ignore accidental clicks after text selection (e.g. releasing the mouse over Close after highlighting a field)
+- **Escape** closes modals unless focus is in an input, textarea, or select
+- Instance modals render as a full-screen overlay so they are not obscured by page navigation
 
-**Note**: Modal state is preserved only within the Config tab. Navigating to a different WebUI page (Processes, Logs, etc.) will close modals as expected.
+**Note**: Switching to another WebUI tab (Processes, Logs, etc.) unmounts the Config page and closes modals. You are prompted to confirm if unsaved changes exist.
 
 ---
 

@@ -3,6 +3,7 @@ import type { JSX } from "react";
 import { createPortal } from "react-dom";
 import { IconImage } from "../IconImage";
 import CloseIcon from "../../icons/close.svg";
+import { safeClick, useSafeBackdropClose } from "../../utils/safeClick";
 
 interface ArrModalProps {
   title: string;
@@ -17,8 +18,15 @@ export function ArrModal({
   onClose,
   maxWidth = 560,
 }: ArrModalProps): JSX.Element {
+  const backdropHandlers = useSafeBackdropClose(onClose);
+
   return createPortal(
-    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onPointerDown={backdropHandlers.onPointerDown}
+      onPointerUp={backdropHandlers.onPointerUp}
+    >
       <div
         className="modal"
         style={{ maxWidth }}
@@ -29,7 +37,12 @@ export function ArrModal({
       >
         <div className="modal-header">
           <h2 id="arr-modal-title">{title}</h2>
-          <button type="button" className="btn ghost" onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={safeClick(onClose)}
+            aria-label="Close"
+          >
             <IconImage src={CloseIcon} />
           </button>
         </div>
