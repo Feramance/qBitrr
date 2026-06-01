@@ -1,10 +1,29 @@
 /** Public URL path prefix when the WebUI is served under a subpath (e.g. /qbitrr). */
 let cachedUrlBaseFromMeta: string | null = null;
 
-/** Derive UrlBase from the current page pathname (e.g. /qbitrr/static/index.html). */
+/** App paths that appear after an optional UrlBase prefix in the browser URL. */
+const PUBLIC_APP_PATH =
+  /^(.*?)(?:\/ui|\/login|\/health|\/sw\.js|\/static\/|\/web\/|\/api\/)(?:\/|$)/;
+
+/**
+ * Derive UrlBase from the current page URL.
+ * Works for /qbitrr/static/index.html, /qbitrr/ui, /qbitrr/web/docs, etc.
+ */
 export function pathnameUrlBase(): string {
-  const staticMatch = window.location.pathname.match(/^(.*)\/static\/index\.html$/);
-  return staticMatch ? staticMatch[1] : "";
+  const { pathname } = window.location;
+  const staticMatch = pathname.match(/^(.*)\/static\/index\.html$/);
+  if (staticMatch) {
+    return staticMatch[1];
+  }
+  const appMatch = pathname.match(PUBLIC_APP_PATH);
+  if (appMatch && appMatch[1]) {
+    return appMatch[1];
+  }
+  // Bare subpath entry (e.g. /qbitrr) before redirect to /qbitrr/ui
+  if (/^\/[^/]+$/.test(pathname)) {
+    return pathname;
+  }
+  return "";
 }
 
 /** Return the active UrlBase prefix (pathname first, then meta after load). */
