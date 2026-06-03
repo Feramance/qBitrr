@@ -7903,6 +7903,15 @@ class Arr:
                     self.db_maybe_reset_entry_searched_state()
                     self.refresh_download_queue()
                     self.db_update()
+                    # Reset the loop timer after db_update() so that the time
+                    # spent ingesting the library does not count toward
+                    # loop_timer. For large libraries (e.g. a big Lidarr music
+                    # library) db_update() can take much longer than loop_timer,
+                    # in which case ``now >= timer + loop_timer`` is already true
+                    # by the time ingestion finishes and RestartLoopException is
+                    # raised before db_get_files()/maybe_do_search() ever runs --
+                    # starving missing-search entirely for that instance.
+                    timer = datetime.now()
 
                     # Check for expired temp profiles if feature is enabled
                     if self.use_temp_for_missing and self.temp_profile_timeout_minutes > 0:
