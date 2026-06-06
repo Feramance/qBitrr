@@ -604,6 +604,7 @@ class Arr:
         self.resume = set()
         self.remove_from_qbit = set()
         self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
+        self.delete_by_instance: dict[str, set[str]] = {}
         self.overseerr_requests_release_cache = {}
         self.files_to_explicitly_delete: Iterator = iter([])
         self.files_to_cleanup = set()
@@ -1999,15 +2000,17 @@ class Arr:
         n_bad_msg = len(self.downloads_with_bad_error_message_blocklist)
         n_remove = len(self.remove_from_qbit)
         n_remove_by_inst = sum(len(s) for s in self.remove_from_qbit_by_instance.values())
+        n_delete_by_inst = sum(len(s) for s in self.delete_by_instance.values())
         n_skip = len(self.skip_blacklist)
         self.logger.info(
             "Deletion summary: delete=%d, missing_files=%d, bad_error_blocklist=%d, "
-            "remove_from_qbit=%d, remove_by_instance=%d, skip_blacklist=%d",
+            "remove_from_qbit=%d, remove_by_instance=%d, delete_by_instance=%d, skip_blacklist=%d",
             n_delete,
             n_missing,
             n_bad_msg,
             n_remove,
             n_remove_by_inst,
+            n_delete_by_inst,
             n_skip,
         )
 
@@ -2069,16 +2072,24 @@ class Arr:
             or self.remove_from_qbit
             or self.skip_blacklist
             or self.remove_from_qbit_by_instance
+            or self.delete_by_instance
         ):
             self._log_deletion_summary_line()
             self._log_deletion_sample_debug(to_delete_all)
         self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=False)
-        # Delete missing-files torrents from the correct qBit instance (multi-instance).
+        # Delete torrents from the correct qBit instance (multi-instance).
+        per_instance_batches: dict[str, set[str]] = {}
+        for inst_name, hashes in self.remove_from_qbit_by_instance.items():
+            if hashes:
+                per_instance_batches.setdefault(inst_name, set()).update(hashes)
+        for inst_name, hashes in self.delete_by_instance.items():
+            if hashes:
+                per_instance_batches.setdefault(inst_name, set()).update(hashes)
         per_instance_hashes = set()
-        for hashes in self.remove_from_qbit_by_instance.values():
+        for hashes in per_instance_batches.values():
             per_instance_hashes.update(hashes)
         qbit_manager = self.manager.qbit_manager
-        for inst_name, hashes in self.remove_from_qbit_by_instance.items():
+        for inst_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(inst_name)
             if client is None:
                 self.logger.warning(
@@ -2100,6 +2111,7 @@ class Arr:
                     e,
                 )
         self.remove_from_qbit_by_instance.clear()
+        self.delete_by_instance.clear()
         to_delete_all = to_delete_all - per_instance_hashes
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             # Remove all bad torrents from the Client.
@@ -5740,8 +5752,10 @@ class Arr:
         # If we reach here, all recovery methods failed
         raise DatabaseRecoveryError("All automatic recovery methods failed")
 
-    def _process_single_torrent_failed_cat(self, torrent: qbittorrentapi.TorrentDictionary):
-        self._mark_for_deletion(torrent, "manually failed")
+    def _process_single_torrent_failed_cat(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
+        self._mark_for_deletion(torrent, "manually failed", instance_name=instance_name)
 
     def _process_single_torrent_recheck_cat(self, torrent: qbittorrentapi.TorrentDictionary):
         self.logger.notice(
@@ -5767,6 +5781,7 @@ class Arr:
         reason: str,
         ratio_limit=None,
         seeding_time_limit=None,
+        instance_name: str = "default",
     ) -> None:
         """Mark torrent for deletion and log reason with current stats and effective limits."""
         extra = ""
@@ -5791,6 +5806,7 @@ class Arr:
             extra,
         )
         self.delete.add(torrent.hash)
+        self.delete_by_instance.setdefault(instance_name, set()).add(torrent.hash)
 
     def _process_single_torrent_ignored(self, torrent: qbittorrentapi.TorrentDictionary):
         # Do not touch torrents that are currently being ignored.
@@ -5867,7 +5883,10 @@ class Arr:
             )
 
     def _process_single_torrent_stalled_torrent(
-        self, torrent: qbittorrentapi.TorrentDictionary, extra: str
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        extra: str,
+        instance_name: str = "default",
     ):
         # Process torrents who have stalled at this point, only mark for
         # deletion if they have been added more than "IgnoreTorrentsYoungerThan"
@@ -5877,7 +5896,7 @@ class Arr:
             and torrent.last_activity < (time.time() - self.ignore_torrents_younger_than)
         ):
             if self._hnr_allows_delete(torrent, extra):
-                self._mark_for_deletion(torrent, extra)
+                self._mark_for_deletion(torrent, extra, instance_name=instance_name)
         else:
             self.logger.trace(
                 "Ignoring Stale torrent (%s): "
@@ -5897,7 +5916,10 @@ class Arr:
             )
 
     def _process_single_torrent_percentage_threshold(
-        self, torrent: qbittorrentapi.TorrentDictionary, maximum_eta: int
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        maximum_eta: int,
+        instance_name: str = "default",
     ):
         # Ignore torrents who have reached maximum percentage as long as
         # the last activity is within the MaximumETA set for this category
@@ -5911,7 +5933,9 @@ class Arr:
         # remove it and requeue a new torrent.
         if maximum_eta > 0 and torrent.last_activity < (time.time() - maximum_eta):
             if self._hnr_allows_delete(torrent, "stale high-percentage deletion"):
-                self._mark_for_deletion(torrent, "stale high-percentage deletion")
+                self._mark_for_deletion(
+                    torrent, "stale high-percentage deletion", instance_name=instance_name
+                )
         else:
             self.logger.trace(
                 "Skipping torrent: Reached Maximum completed "
@@ -6118,7 +6142,9 @@ class Arr:
             torrent.hash,
         )
 
-    def _process_single_torrent_delete_slow(self, torrent: qbittorrentapi.TorrentDictionary):
+    def _process_single_torrent_delete_slow(
+        self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = "default"
+    ):
         self.logger.trace(
             "Deleting slow torrent: "
             "[Progress: %s%%][Added On: %s]"
@@ -6135,18 +6161,21 @@ class Arr:
             torrent.hash,
         )
         if self._hnr_allows_delete(torrent, "slow torrent deletion"):
-            self._mark_for_deletion(torrent, "slow torrent deletion")
+            self._mark_for_deletion(torrent, "slow torrent deletion", instance_name=instance_name)
 
     def _process_single_torrent_delete_cfunmet(
         self, torrent: qbittorrentapi.TorrentDictionary, instance_name: str = ""
     ):
         if self._hnr_allows_delete(torrent, "CF unmet deletion"):
-            self._mark_for_deletion(torrent, "CF unmet deletion")
+            self._mark_for_deletion(
+                torrent, "CF unmet deletion", instance_name=instance_name or "default"
+            )
 
     def _process_single_torrent_delete_ratio_seed(
         self,
         torrent: qbittorrentapi.TorrentDictionary,
         limit_meta: tuple[dict, dict] | None = None,
+        instance_name: str = "default",
     ):
         if limit_meta is not None:
             data_settings, data_torrent = limit_meta
@@ -6175,10 +6204,14 @@ class Arr:
                 "ratio/seed limit deletion",
                 ratio_limit=ratio_limit,
                 seeding_time_limit=seeding_time_limit,
+                instance_name=instance_name,
             )
 
     def _process_single_torrent_process_files(
-        self, torrent: qbittorrentapi.TorrentDictionary, special_case: bool = False
+        self,
+        torrent: qbittorrentapi.TorrentDictionary,
+        special_case: bool = False,
+        instance_name: str = "default",
     ):
         _remove_files = set()
         total = len(torrent.files)
@@ -6242,7 +6275,9 @@ class Arr:
             # torrent.
             if total == 0:
                 if self._hnr_allows_delete(torrent, "all-files-excluded deletion"):
-                    self._mark_for_deletion(torrent, "all-files-excluded deletion")
+                    self._mark_for_deletion(
+                        torrent, "all-files-excluded deletion", instance_name=instance_name
+                    )
             # Mark all bad files and folder for exclusion.
             elif _remove_files and torrent.hash not in self.change_priority:
                 self.change_priority[torrent.hash] = list(_remove_files)
@@ -6908,13 +6943,20 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
         ):
             self._process_single_torrent_delete_cfunmet(torrent, instance_name)
-        elif remove_torrent and not leave_alone and torrent.amount_left == 0:
+        elif (
+            remove_torrent
+            and not leave_alone
+            and torrent.amount_left == 0
+            and not self.in_tags(torrent, "qBitrr-ignored", instance_name)
+        ):
             self._process_single_torrent_delete_ratio_seed(
-                torrent, limit_meta=(_data_settings, _data_torrent)
+                torrent,
+                limit_meta=(_data_settings, _data_torrent),
+                instance_name=instance_name,
             )
         elif torrent.category == FAILED_CATEGORY:
             # Bypass everything if manually marked as failed
-            self._process_single_torrent_failed_cat(torrent)
+            self._process_single_torrent_failed_cat(torrent, instance_name)
         elif torrent.category == RECHECK_CATEGORY:
             # Bypass everything else if manually marked for rechecking
             self._process_single_torrent_recheck_cat(torrent)
@@ -6942,14 +6984,14 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not stalled_ignore
         ):
-            self._process_single_torrent_stalled_torrent(torrent, "Stalled State")
+            self._process_single_torrent_stalled_torrent(torrent, "Stalled State", instance_name)
         elif (
             torrent.state_enum.is_downloading
             and torrent.state_enum != TorrentStates.METADATA_DOWNLOAD
             and torrent.hash not in self.special_casing_file_check
             and torrent.hash not in self.cleaned_torrents
         ):
-            self._process_single_torrent_process_files(torrent, True)
+            self._process_single_torrent_process_files(torrent, True, instance_name)
         elif torrent.hash in self.timed_ignore_cache:
             if (
                 torrent.state_enum
@@ -6983,7 +7025,9 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
-            self._process_single_torrent_percentage_threshold(torrent, maximum_eta)
+            self._process_single_torrent_percentage_threshold(
+                torrent, maximum_eta, instance_name
+            )
         # Ignore torrents which have been submitted to their respective Arr
         # instance for import. Resolve the owning category through ArrManager so
         # subcategory paths (``seed/tleech``) and orphaned categories don't raise
@@ -7039,7 +7083,7 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not stalled_ignore
         ):
-            self._process_single_torrent_delete_slow(torrent)
+            self._process_single_torrent_delete_slow(torrent, instance_name)
         # Process uncompleted torrents
         elif torrent.state_enum.is_downloading:
             # If a torrent availability hasn't reached 100% or more within the configurable
@@ -7055,13 +7099,15 @@ class Arr:
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 and not stalled_ignore
             ):
-                self._process_single_torrent_stalled_torrent(torrent, "Unavailable")
+                self._process_single_torrent_stalled_torrent(
+                    torrent, "Unavailable", instance_name
+                )
             else:
                 if torrent.hash in self.cleaned_torrents:
                     self._process_single_torrent_already_cleaned_up(torrent)
                     return
                 # A downloading torrent is not stalled, parse its contents.
-                self._process_single_torrent_process_files(torrent)
+                self._process_single_torrent_process_files(torrent, instance_name=instance_name)
         elif self.is_complete_state(torrent) and leave_alone:
             self._process_single_completed_paused_torrent(torrent, leave_alone)
         else:
@@ -8123,6 +8169,7 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist = set()
         self.remove_from_qbit = set()
         self.remove_from_qbit_by_instance: dict[str, set[str]] = {}
+        self.delete_by_instance: dict[str, set[str]] = {}
         self.delete = set()
         self.resume = set()
         self.expiring_bool = ExpiringSet(max_age_seconds=10)
@@ -8295,6 +8342,7 @@ class PlaceHolderArr(Arr):
             or self.remove_from_qbit
             or self.skip_blacklist
             or self.remove_from_qbit_by_instance
+            or self.delete_by_instance
         ):
             return
         self._log_deletion_summary_line()
@@ -8302,8 +8350,18 @@ class PlaceHolderArr(Arr):
         self._process_failed_dispatch_queue_deletes(to_delete_all, skip_blacklist, cross_arr=True)
         deleted_hashes: set[str] = set()
         qbit_manager = self.manager.qbit_manager
-        # Delete per-instance (e.g. missing-files) so we use the correct qBit client.
-        for instance_name, hashes in self.remove_from_qbit_by_instance.items():
+        per_instance_batches: dict[str, set[str]] = {}
+        for inst_name, hashes in self.remove_from_qbit_by_instance.items():
+            if hashes:
+                per_instance_batches.setdefault(inst_name, set()).update(hashes)
+        for inst_name, hashes in self.delete_by_instance.items():
+            if hashes:
+                per_instance_batches.setdefault(inst_name, set()).update(hashes)
+        per_instance_hashes = set()
+        for hashes in per_instance_batches.values():
+            per_instance_hashes.update(hashes)
+        # Delete per-instance so we use the correct qBit client.
+        for instance_name, hashes in per_instance_batches.items():
             client = qbit_manager.get_client(instance_name)
             if client is None:
                 self.logger.warning(
@@ -8328,6 +8386,7 @@ class PlaceHolderArr(Arr):
                     instance_name,
                     e,
                 )
+        to_delete_all = to_delete_all - per_instance_hashes
         # Remaining remove_from_qbit/skip_blacklist and to_delete_all via default client.
         if self.remove_from_qbit or self.skip_blacklist or to_delete_all:
             temp_to_delete = set()
@@ -8387,6 +8446,7 @@ class PlaceHolderArr(Arr):
         self.skip_blacklist.clear()
         self.remove_from_qbit.clear()
         self.remove_from_qbit_by_instance.clear()
+        self.delete_by_instance.clear()
         self.delete.clear()
 
     def _process_errored(self):
