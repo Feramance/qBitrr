@@ -6707,7 +6707,12 @@ class Arr:
         if tracker_set_changed:
             self._torrent_important_trackers_cache.pop(torrent.hash, None)
             # Tracker membership changed (add/remove), so recompute from fresh data.
-            _, monitored_trackers = self._get_torrent_important_trackers(torrent, use_cache=False)
+            try:
+                _, monitored_trackers = self._get_torrent_important_trackers(
+                    torrent, use_cache=False
+                )
+            except _TrackerDataUnavailable:
+                return
         most_important_tracker, unique_tags = self._get_most_important_tracker_and_tags(
             monitored_trackers, _remove_urls
         )
