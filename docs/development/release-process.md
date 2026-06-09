@@ -256,20 +256,41 @@ author = Feramance
 url = https://github.com/Feramance/qBitrr
 ```
 
+### Trusted Publishing (CI)
+
+Releases publish to PyPI via [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC). No long-lived `PYPI_API_TOKEN` is used in CI.
+
+**One-time setup (project owner):**
+
+1. **PyPI** — [qBitrr2 → Publishing settings](https://pypi.org/manage/project/qbitrr2/settings/publishing/):
+   - Publisher type: **GitHub**
+   - Owner: `Feramance`
+   - Repository: `qBitrr`
+   - Workflow name: `release.yml`
+   - Environment name: `pypi`
+2. **GitHub** — Repo **Settings → Environments** → create environment `pypi` (optional deployment protection rules as desired).
+
+The `publish_pypi` job in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) uses `pypa/gh-action-pypi-publish@release/v1` with `id-token: write` and the `pypi` environment. PEP 740 attestations are generated automatically.
+
+**After the first successful OIDC publish:**
+
+1. Delete the `PYPI_API_TOKEN` repository secret (if still present).
+2. Revoke the old PyPI API token in your PyPI account settings.
+
 ### Publishing
 
-Automated via GitHub Actions when tags are pushed.
+Automated via GitHub Actions when a `[patch]`, `[minor]`, or `[major]` commit is pushed to `master`, or via `workflow_dispatch`.
 
-**Manual publishing:**
+**Manual publishing (local maintainer):**
 
 ```bash
 # Build
-python setup.py sdist bdist_wheel
+python -m build
 
 # Check
 twine check dist/*
 
-# Upload (requires PyPI credentials)
+# Upload (requires PyPI credentials on your machine)
 twine upload dist/*
 ```
 

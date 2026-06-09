@@ -153,6 +153,8 @@ jobs:
         fetch-depth: 0
         ref: master
     - uses: docker/setup-qemu-action@v4
+      with:
+        cache-image: false
     - uses: docker/setup-buildx-action@v4
     - name: Login to DockerHub
       uses: docker/login-action@v4
@@ -194,7 +196,7 @@ jobs:
         python:
         - 3.12.2
         os:
-        - windows-latest
+        - windows-2025
         - macOS-latest
         - ubuntu-latest
         arch:
@@ -205,7 +207,7 @@ jobs:
           arch: arm64
         - os: macOS-latest
           arch: x64
-        - os: windows-latest
+        - os: windows-2025
           arch: arm64
     steps:
     - name: Checkout code
@@ -222,6 +224,9 @@ jobs:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.arch }}
         cache: pip
+        cache-dependency-path: |
+          setup.cfg
+          pyproject.toml
     - name: Install APT dependencies
       if: runner.os == 'Linux'
       run: "sudo apt-get update\nsudo apt-get install libsdl2-dev\n"
@@ -272,6 +277,10 @@ jobs:
   publish_pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
     needs:
     - prepare_release
     - docker_images
@@ -314,8 +323,6 @@ jobs:
       if: steps.pypi_check.outputs.exists != 'true'
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        user: __token__
-        password: ${{ secrets.PYPI_API_TOKEN }}
         skip-existing: true
   changelog:
     name: Generate changelog and release notes

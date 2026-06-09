@@ -42,34 +42,36 @@ def get_binary_asset_pattern() -> str:
 
     Returns:
         Partial filename to match against release assets
-        Examples: "ubuntu-latest-x64", "windows-latest-x64", "macOS-latest-arm64"
+        Examples: "ubuntu-latest-x64", "windows-2025-x64", "macOS-latest-arm64"
 
     Note: The release workflow only builds these platforms:
         - ubuntu-latest-x64
         - macOS-latest-arm64
-        - windows-latest-x64
+        - windows-2025-x64 (older releases may use windows-latest-x64)
     Other platforms (Linux ARM, macOS Intel, Windows ARM) are not built.
     """
+    return get_binary_asset_patterns()[0]
+
+
+def get_binary_asset_patterns() -> list[str]:
+    """Return asset filename patterns to try, most preferred first."""
     system = platform.system()
     machine = platform.machine()
 
     # Map platform to GitHub runner names (matching build workflow)
     if system == "Linux":
-        os_part = "ubuntu-latest"
-        # Note: Only x64 is built for Linux (arm64 excluded from workflow)
+        os_parts = ["ubuntu-latest"]
         arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
     elif system == "Darwin":  # macOS
-        os_part = "macOS-latest"
-        # Note: Only arm64 is built for macOS (x64/Intel excluded from workflow)
+        os_parts = ["macOS-latest"]
         arch_part = "arm64" if machine == "arm64" else "x64"
     elif system == "Windows":
-        os_part = "windows-latest"
-        # Note: Only x64 is built for Windows (arm64 excluded from workflow)
+        os_parts = ["windows-2025", "windows-latest"]
         arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
     else:
         raise RuntimeError(f"Unsupported platform: {system} {machine}")
 
-    return f"{os_part}-{arch_part}"
+    return [f"{os_part}-{arch_part}" for os_part in os_parts]
 
 
 def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[str, Any]:
@@ -83,9 +85,8 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         Dict with 'url', 'name', 'size' if found, or 'error' if not found
     """
     try:
-        # Get asset pattern for current platform
-        asset_pattern = get_binary_asset_pattern()
-        logger.debug("Looking for binary asset matching: %s", asset_pattern)
+        asset_patterns = get_binary_asset_patterns()
+        logger.debug("Looking for binary asset matching: %s", asset_patterns)
 
         # Fetch release details with assets
         repo = "Feramance/qBitrr"
@@ -94,23 +95,24 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         response.raise_for_status()
         release_data = response.json()
 
-        # Find matching asset
+        # Find matching asset (try current runner name first, then legacy names)
         assets = release_data.get("assets", [])
-        for asset in assets:
-            name = asset.get("name", "")
-            if asset_pattern in name:
-                return {
-                    "url": asset["browser_download_url"],
-                    "name": name,
-                    "size": asset.get("size", 0),
-                    "error": None,
-                }
+        for asset_pattern in asset_patterns:
+            for asset in assets:
+                name = asset.get("name", "")
+                if asset_pattern in name:
+                    return {
+                        "url": asset["browser_download_url"],
+                        "name": name,
+                        "size": asset.get("size", 0),
+                        "error": None,
+                    }
 
         # No matching asset found
         available = [a.get("name") for a in assets]
         logger.error(
             "No binary asset found for platform %s in release %s",
-            asset_pattern,
+            asset_patterns,
             release_tag,
         )
         logger.debug("Available assets: %s", available)
@@ -121,11 +123,12 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         unsupported_platforms = [
             "ubuntu-latest-arm64",
             "macOS-latest-x64",
+            "windows-2025-arm64",
             "windows-latest-arm64",
         ]
 
         error_msg = f"No binary available for {system} {machine}"
-        if asset_pattern in unsupported_platforms:
+        if any(pattern in unsupported_platforms for pattern in asset_patterns):
             error_msg += f" (platform {asset_pattern} is not built by release workflow)"
 
         return {

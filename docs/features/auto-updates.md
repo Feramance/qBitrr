@@ -190,7 +190,7 @@ Binary builds are available for:
 
 - `ubuntu-latest-x64` (Linux x86_64)
 - `macOS-latest-arm64` (macOS Apple Silicon)
-- `windows-latest-x64` (Windows x86_64)
+- `windows-2025-x64` (Windows x86_64; older releases may use `windows-latest-x64`)
 
 !!! warning "Platform Availability"
     Binary builds are NOT available for:
@@ -399,7 +399,7 @@ For **binary installations**, auto-update cannot replace the running executable.
 2. Download the appropriate binary for your platform:
    - Linux: `qBitrr-ubuntu-latest-x64.tar.gz`
    - macOS: `qBitrr-macOS-latest-arm64.tar.gz`
-   - Windows: `qBitrr-windows-latest-x64.zip`
+   - Windows: `qBitrr-windows-2025-x64.zip` (or `qBitrr-windows-latest-x64.zip` on older releases)
 3. Extract and replace your current binary
 4. Restart qBitrr
 

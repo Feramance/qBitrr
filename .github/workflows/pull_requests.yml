@@ -21,7 +21,7 @@ jobs:
         python:
         - 3.12.2
         os:
-        - windows-latest
+        - windows-2025
         - macOS-latest
         - ubuntu-latest
         arch:
@@ -32,7 +32,7 @@ jobs:
           arch: arm64
         - os: macOS-latest
           arch: x64
-        - os: windows-latest
+        - os: windows-2025
           arch: arm64
     steps:
     - name: Checkout code
@@ -51,6 +51,9 @@ jobs:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.arch }}
         cache: pip
+        cache-dependency-path: |
+          setup.cfg
+          pyproject.toml
     - name: Install APT dependencies
       if: runner.os == 'Linux'
       run: "sudo apt-get update\nsudo apt-get install libsdl2-dev\n"
@@ -123,6 +126,8 @@ jobs:
         token: ${{ secrets.PAT || github.token }}
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v4
+      with:
+        cache-image: false
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
     - name: Login to DockerHub
