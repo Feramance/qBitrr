@@ -42,12 +42,12 @@ def get_binary_asset_pattern() -> str:
 
     Returns:
         Partial filename to match against release assets
-        Examples: "ubuntu-latest-x64", "windows-2025-x64", "macOS-latest-arm64"
+        Examples: "ubuntu-latest-x64", "windows-2025-vs2026-x64", "macOS-latest-arm64"
 
     Note: The release workflow only builds these platforms:
         - ubuntu-latest-x64
         - macOS-latest-arm64
-        - windows-2025-x64 (older releases may use windows-latest-x64)
+        - windows-2025-vs2026-x64 (older releases may use windows-2025-x64 or windows-latest-x64)
     Other platforms (Linux ARM, macOS Intel, Windows ARM) are not built.
     """
     return get_binary_asset_patterns()[0]
@@ -66,7 +66,7 @@ def get_binary_asset_patterns() -> list[str]:
         os_parts = ["macOS-latest"]
         arch_part = "arm64" if machine == "arm64" else "x64"
     elif system == "Windows":
-        os_parts = ["windows-2025", "windows-latest"]
+        os_parts = ["windows-2025-vs2026", "windows-2025", "windows-latest"]
         arch_part = "x64" if machine in ("x86_64", "AMD64") else "arm64"
     else:
         raise RuntimeError(f"Unsupported platform: {system} {machine}")
@@ -123,6 +123,7 @@ def get_binary_download_url(release_tag: str, logger: logging.Logger) -> dict[st
         unsupported_platforms = [
             "ubuntu-latest-arm64",
             "macOS-latest-x64",
+            "windows-2025-vs2026-arm64",
             "windows-2025-arm64",
             "windows-latest-arm64",
         ]

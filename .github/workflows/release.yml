@@ -196,7 +196,7 @@ jobs:
         python:
         - 3.12.2
         os:
-        - windows-2025
+        - windows-2025-vs2026
         - macOS-latest
         - ubuntu-latest
         arch:
@@ -207,7 +207,7 @@ jobs:
           arch: arm64
         - os: macOS-latest
           arch: x64
-        - os: windows-2025
+        - os: windows-2025-vs2026
           arch: arm64
     steps:
     - name: Checkout code
@@ -223,7 +223,7 @@ jobs:
       with:
         python-version: ${{ matrix.python }}
         architecture: ${{ matrix.arch }}
-        cache: pip
+        cache: ${{ runner.os != 'macOS' && 'pip' || '' }}
         cache-dependency-path: |
           setup.cfg
           pyproject.toml
