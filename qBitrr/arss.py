@@ -7030,9 +7030,7 @@ class Arr:
             and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
             and not stalled_ignore
         ) and torrent.hash in self.cleaned_torrents:
-            self._process_single_torrent_percentage_threshold(
-                torrent, maximum_eta, instance_name
-            )
+            self._process_single_torrent_percentage_threshold(torrent, maximum_eta, instance_name)
         # Ignore torrents which have been submitted to their respective Arr
         # instance for import. Resolve the owning category through ArrManager so
         # subcategory paths (``seed/tleech``) and orphaned categories don't raise
@@ -7104,9 +7102,7 @@ class Arr:
                 and not self.in_tags(torrent, "qBitrr-free_space_paused", instance_name)
                 and not stalled_ignore
             ):
-                self._process_single_torrent_stalled_torrent(
-                    torrent, "Unavailable", instance_name
-                )
+                self._process_single_torrent_stalled_torrent(torrent, "Unavailable", instance_name)
             else:
                 if torrent.hash in self.cleaned_torrents:
                     self._process_single_torrent_already_cleaned_up(torrent)
