@@ -1,5 +1,49 @@
 # Changelog
 
+## v5.12.3 (09/06/2026)
+
+### 🐛 Bug Fixes
+- [[patch]Base URL fixes and other logical fixes](https://github.com/Feramance/qBitrr/commit/2d881aeb9d2641bbd8401018e078ba9a330f6d7a) - @Feramance
+- [fix: guard tracker re-fetch after add/remove from aborting batch](https://github.com/Feramance/qBitrr/commit/fc3752e11aa06237e4a8e434d969222138bc1c51) - @Feramance
+- [fix: route deletions to correct qBit instance and honor qBitrr-ignored tag](https://github.com/Feramance/qBitrr/commit/09164b95e024c6101a80e6b028faf23b3b3c70f9) - @Feramance
+- [fix: reset search loop timer after db_update to avoid search starvation](https://github.com/Feramance/qBitrr/commit/4f47112f1a6dd3888141035324115a584c369cb1) - @Feramance
+- [Fixed base url handling](https://github.com/Feramance/qBitrr/commit/1ef7057dd1b66fe39666de4b45bff880bc84c6b1) - @Feramance
+- [Fixed mkdocs links](https://github.com/Feramance/qBitrr/commit/3885424db07e2d30a53005f4e9905fbef8f5a609) - @Feramance
+
+### 🎨 Styling
+- [Adjusted UI behaviour in config view](https://github.com/Feramance/qBitrr/commit/48f1c1fcf9ca7adbafb8cc60cb28e018e2d07123) - @Feramance
+
+### 🔧 Maintenance
+- [Pre-commit fixes](https://github.com/Feramance/qBitrr/commit/456477903079d891a724862cc8e84c91a4ab9f97) - @Feramance
+- [fix(webui): apply aggregate filters and guard instance fetch races](https://github.com/Feramance/qBitrr/commit/cc13e2078f7266d3626e076281989faf01b087b9) - @Feramance
+- [Build(deps): Bump @mantine/dates from 9.2.2 to 9.3.0 in /webui (#441)](https://github.com/Feramance/qBitrr/commit/869752e3cb9dc8b60c1ed02f61df2e03f3167c8d) - @Feramance
+- [Build(deps-dev): Bump @types/react from 19.2.16 to 19.2.17 in /webui (#442)](https://github.com/Feramance/qBitrr/commit/9a15e1478a1ad7ab0baa01ca34e7daf8ed1e1b2e) - @Feramance
+- [Build(deps): Bump @melloware/react-logviewer from 6.5.2 to 6.5.5 in /webui (#440)](https://github.com/Feramance/qBitrr/commit/09c57099ebebdd65386a5160f26a22061e075933) - @Feramance
+- [Build(deps-dev): Bump vite from 8.0.14 to 8.0.16 in /webui (#445)](https://github.com/Feramance/qBitrr/commit/b29b4a4e47b66366d6685b217664bd8eec6ac416) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.77.0 to 7.78.0 in /webui (#444)](https://github.com/Feramance/qBitrr/commit/8bf3db365ab8048c500266929e503deffc58756b) - @Feramance
+- [Build(deps): Bump @mantine/core from 9.2.2 to 9.3.0 in /webui (#443)](https://github.com/Feramance/qBitrr/commit/2d3ec6634457d833909b1840415aac664cabd444) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.9.1 to 25.9.2 in /webui (#439)](https://github.com/Feramance/qBitrr/commit/280618e7996c0a5653969ab1cef3967d5602381b) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.2.2 to 9.3.0 in /webui (#438)](https://github.com/Feramance/qBitrr/commit/272a8b426497c84c493bdf63eac78e476eeb882f) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.6 to 19.2.7 in /webui (#432)](https://github.com/Feramance/qBitrr/commit/2078556f007ef7e447c6e135e0346b9b5bffefcd) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/8df7d30789aadd76cff4b97e2e9680cd1cf000d6) - @Feramance
+- [Build(deps): Bump react-hook-form from 7.76.0 to 7.77.0 in /webui (#435)](https://github.com/Feramance/qBitrr/commit/b28eb9ba09ae2d81e3a81a6b64a793b71151c34a) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.4.0 to 10.4.1 in /webui (#433)](https://github.com/Feramance/qBitrr/commit/acc4aa91afcf9afc82311c03d9b470890d64aa53) - @Feramance
+- [Build(deps): Bump @mantine/hooks from 9.2.1 to 9.2.2 in /webui (#434)](https://github.com/Feramance/qBitrr/commit/b0e7fd532ef899f0d7b995379c691e25c48b720e) - @Feramance
+- [Build(deps): Bump react-dom from 19.2.6 to 19.2.7 in /webui](https://github.com/Feramance/qBitrr/commit/29c456ea17e07b0a64dbc14b9ec1d2bb6380e259) - @Feramance
+- [Build(deps-dev): Bump typescript-eslint from 8.59.3 to 8.60.1 in /webui (#431)](https://github.com/Feramance/qBitrr/commit/55b5fd8834194c45c241df587e7818056284818f) - @Feramance
+- [Build(deps): Bump react and @types/react in /webui (#430)](https://github.com/Feramance/qBitrr/commit/145609ac1e778f2b024615ee5e0b0651680bbe94) - @Feramance
+- [Build(deps-dev): Bump @types/node from 25.9.0 to 25.9.1 in /webui (#428)](https://github.com/Feramance/qBitrr/commit/564e98cf09f3fd2c3394506ebd84b8889301ab0b) - @Feramance
+- [Build(deps-dev): Bump vite from 8.0.13 to 8.0.14 in /webui (#427)](https://github.com/Feramance/qBitrr/commit/ae08a6c9efaeafce7068b8cd87e4502537cba78a) - @Feramance
+- [[pre-commit.ci] auto fixes from pre-commit.com hooks](https://github.com/Feramance/qBitrr/commit/c45896760913f94e36424482bbbcddf118893453) - @Feramance
+- [Added base url config and handling](https://github.com/Feramance/qBitrr/commit/91e91fd5a963773db4f133f65dad031d703a8743) - @Feramance
+- [Build(deps): Bump @mantine/core from 9.2.0 to 9.2.1 in /webui (#426)](https://github.com/Feramance/qBitrr/commit/afaf382aaab5aa53a88420e3424a7fdaf0ef5690) - @Feramance
+- [Build(deps-dev): Bump eslint from 10.3.0 to 10.4.0 in /webui (#424)](https://github.com/Feramance/qBitrr/commit/27fa7de74f3d0ebaef922380f9b07f83d36bbf3e) - @Feramance
+- [Build(deps-dev): Bump postcss from 8.5.14 to 8.5.15 in /webui (#425)](https://github.com/Feramance/qBitrr/commit/8db6050fda6fecef85112f4d02cda5a5a22fc49b) - @Feramance
+- [Build(deps): Bump @mantine/dates from 9.2.0 to 9.2.1 in /webui (#423)](https://github.com/Feramance/qBitrr/commit/0cedfca03693e68f906076451b4b2a617518ff38) - @Feramance
+- [Added docs for future work on Questarr integration](https://github.com/Feramance/qBitrr/commit/7dae48ee1c30c8c42586c4901dfa1b8c67730ff7) - @Feramance
+
+---
+
 ## v5.12.2 (18/05/2026)
 
 ### 🐛 Bug Fixes
