@@ -1,5 +1,12 @@
 # Changelog
 
+## v5.12.4 (09/06/2026)
+
+### 🐛 Bug Fixes
+- [[patch] Release flow fixes and PyPi updates](https://github.com/Feramance/qBitrr/commit/1e27e7f37a523a69dcc8e923b7731e5d0d4ebc8a) - @Feramance
+
+---
+
 ## v5.12.3 (09/06/2026)
 
 ### 🐛 Bug Fixes
